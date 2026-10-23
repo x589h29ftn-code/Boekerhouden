@@ -98,7 +98,7 @@ vroeg zichtbaar is.
 | # | Plakje | Resultaat | Inhoud (vaktechniek) die dan nodig is |
 |---|---|---|---|
 | 1 ✅ | **Fundament en importsjabloon**: solution, domeinmodel, inlezen sjabloon met alle controles (saldo nihil), proefbalans; fictieve testdata | Een saldibalans wordt ingelezen en gecontroleerd (via tests en de opdrachtregel). **Gereed 23-10-2026**; ook gangbare exports ("Rekening, Omschr, Saldo") worden herkend | Fictieve testklanten |
-| 2 | **Eerste werkende app**: server (Blazor), database, inloggen en rollen, klanten en dossiers, import via scherm, audit log | Inloggen, klant en dossier aanmaken, sjabloon uploaden | – |
+| 2 ✅ | **Eerste werkende app**: server (Blazor), database, inloggen en rollen, klanten en dossiers, import via scherm, audit log | Inloggen, klant en dossier aanmaken, sjabloon uploaden. **Gereed 23-10-2026**; met controles I7, I9 en I10, saldibalans met vorig jaar ernaast, gebruikersbeheer en wijzigingslog | – |
 | 3 | **Rubriceren**: rubriekenschema, koppelscherm, RGS-tabel, koppelsjablonen, gekoppeld %, controles | 100% gekoppelde proefbalans per rubriek | Rubriekenschema BV en IB, met hoofd- en subposten; RGS→rubriek-tabel |
 | 4 | **Proefbalans en correcties**: huidig, vorig, verschil, doorklikken, correctieboekingen, vergelijkende cijfers | Sluitende, gecorrigeerde proefbalans | – |
 | 5 | **Dossier en werkprogramma**: sjabloonbeheer, keuze materiële posten, stappen (toevoegen en verwijderen), aftekenen, optionele reviewpunten, bijlagen, klantenoverzicht met signalen | Volledig uitwerkbaar dossier | Werkprogramma *Samenstellen jaarrekening* en *Winstaangifte opstellen* |
@@ -118,6 +118,6 @@ vroeg zichtbaar is.
 
 ## 8.5 Volgende stappen
 
-1. **Plakje 1 starten** in deze repository: de solution opzetten ([§7.3](07-technische-architectuur.md#73-oplossingsopbouw-projecten)), en het importsjabloon met de controles en fictieve testdata bouwen.
-2. Parallel de **inhoud voor plakje 3** voorbereiden: het rubriekenschema voor BV en eenmanszaak, met hoofd- en subposten. Gebruik de voorbeeldrapporten als leidraad.
+1. ~~Plakje 1 en 2~~: gereed. De app draait: inloggen, klanten en dossiers, saldibalans inlezen.
+2. **Plakje 3 (rubriceren)** vraagt eerst **inhoud**: het rubriekenschema voor BV en eenmanszaak, met hoofd- en subposten. Gebruik de voorbeeldrapporten als leidraad.
 3. **Later**: de server-pc aanschaffen (vóór plakje 9) en de echte testset verzamelen (vóór de pilot).

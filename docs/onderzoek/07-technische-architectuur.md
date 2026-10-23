@@ -62,6 +62,8 @@ Boekerhouden.sln
    └─ Boekerhouden.UI.Tests      // bUnit + Playwright end-to-end tegen de server
 ```
 
+*Stand na plakje 2:* gebouwd zijn `Domain`, `Import`, `Data` en `Server`, plus `Boekerhouden.Cli` (opdrachtregel voor sjablonen en controles). De schermen staan voorlopig in `Boekerhouden.Server/Components`; een aparte `UI`-bibliotheek komt pas als dat iets oplevert. `Boekerhouden.Server.Tests` test de diensten en het inloggen via echte HTTP-verzoeken, tegen een eigen PostgreSQL-testdatabase per testklasse.
+
 Alleen de optionele `Boekerhouden.Client` is Windows-specifiek. De server draait op Windows, maar ook op Linux. Daardoor is **de hele applicatie te bouwen en te testen in een Linux-omgeving**, bijvoorbeeld een Claude Code-cloudsessie of CI.
 
 ## 7.4 Bibliotheken en licenties
@@ -140,6 +142,15 @@ historie (5 jaar), fiscale berekening          ┘   tabellen, teksten  └─�
 - **Optioneel tweestapsverificatie** met een authenticator-app (TOTP). Niet nodig in de MVP, omdat er alleen binnen kantoor gewerkt wordt.
 - **Sessies** verlopen na een instelbare inactiviteit, bijv. 8 uur of 30 minuten.
 - Inlogpogingen (geslaagd en mislukt) worden in de audit log vastgelegd.
+
+*Gebouwd in plakje 2:*
+- **Eerste gebruiker**: bij een lege database maakt de eerste bezoeker een account met alle rollen aan. Doe dit dus direct na de installatie.
+- **Tijdelijk wachtwoord**: de beheerder maakt accounts aan en reset wachtwoorden. De app toont een tijdelijk wachtwoord (4 × 4 tekens) één keer; de gebruiker moet het bij de eerste keer inloggen wijzigen.
+- **Beleid**: minstens 12 tekens, met een hoofdletter, een kleine letter en een cijfer, plus een lijst met verboden woorden (onder meer *wachtwoord*, *welkom*, seizoenen, en de eigen naam of het e-mailadres).
+- **Lockout**: na 5 mislukte pogingen 15 minuten.
+- **Sessie**: een cookie die vervalt na 10 uur zonder activiteit, en bij het sluiten van de browser.
+- **Deactiveren**: gebruikers worden niet verwijderd maar gedeactiveerd. Na deactiveren, een rolwijziging of een wachtwoordreset is een open scherm binnen een minuut uitgelogd. De laatste actieve beheerder kan niet worden gedeactiveerd en niemand kan zijn eigen beheerdersrol intrekken.
+- **Wijzigingslog**: alleen toevoegen, zichtbaar voor de beheerder. Het legt inloggen en uitloggen, gebruikersbeheer, klanten, dossiers en imports vast (met de SHA-256 van het bestand).
 
 **Rollen**
 

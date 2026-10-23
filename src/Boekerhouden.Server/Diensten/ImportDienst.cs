@@ -227,7 +227,7 @@ public sealed class ImportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFact
         if (basis is null)
         {
             return [new ImportMelding(ImportCodes.Verschillen, MeldingErnst.Informatie,
-                $"Eerste saldibalans voor deze klant rond {boekjaar}: er is geen eerdere import om mee te vergelijken.")];
+                $"Eerste saldibalans {boekjaar}: er is geen eerdere import van {boekjaar} of {boekjaar - 1} om mee te vergelijken.")];
         }
 
         var waarmee = bestaande is not null ? $"de vorige import van {boekjaar}" : $"boekjaar {basis.Boekjaar}";

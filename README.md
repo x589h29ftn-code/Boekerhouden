@@ -13,18 +13,30 @@ Het draait op een eigen server-pc op kantoor, met meerdere gebruikers.
 
 ## Status
 
-Plakje 1 van 10 is gereed: het importsjabloon inlezen en controleren (onder meer saldo nihil), met
-verzonnen testklanten. Ontwerp, besluiten en roadmap: [`docs/onderzoek`](docs/onderzoek/README.md).
+Plakje 2 van 10 is gereed: een werkende webapp. Je logt in, beheert gebruikers, maakt klanten en
+dossiers aan en leest saldibalansen in (met controles, onder meer saldo nihil), met het vorige jaar
+ernaast. Alles wordt vastgelegd in een wijzigingslog. Ontwerp, besluiten en roadmap:
+[`docs/onderzoek`](docs/onderzoek/README.md).
 
 ## Snel proberen
 
-Vereist de [.NET 10 SDK](https://dotnet.microsoft.com/).
+Vereist de [.NET 10 SDK](https://dotnet.microsoft.com/) en PostgreSQL 16 met een rol `boekerhouden`
+(wachtwoord `boekerhouden-dev`, mag databases aanmaken) en een database `boekerhouden`. In
+Claude Code-cloudsessies regelt `.claude/hooks/session-start.sh` dat.
 
 ```bash
-dotnet test Boekerhouden.slnx
+dotnet test Boekerhouden.slnx                          # alle tests (servertests maken eigen testdatabases)
+dotnet run --project src/Boekerhouden.Server           # http://localhost:5080
+```
+
+Bij de eerste keer openen vraagt de app om het eerste account; dat krijgt alle rollen. Verzonnen
+saldibalansen om in te lezen staan in `tests/Fictief/`.
+
+De opdrachtregel werkt zonder database:
+
+```bash
 dotnet run --project src/Boekerhouden.Cli -- sjabloon importsjabloon.xlsx --boekjaar 2025
 dotnet run --project src/Boekerhouden.Cli -- controleer tests/Fictief/bv-voorbeeld-bakkerij/saldibalans-2025.csv
-dotnet run --project src/Boekerhouden.Cli -- controleer tests/Fictief/fouten/saldo-niet-nihil.csv
 ```
 
 Werkafspraken voor ontwikkeling (ook voor AI-sessies): [`CLAUDE.md`](CLAUDE.md).

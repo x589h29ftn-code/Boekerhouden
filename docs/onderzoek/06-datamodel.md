@@ -30,7 +30,7 @@ erDiagram
     RUBRIEK }o--o| RUBRIEK : "omslag bij tegengesteld saldo"
     RGSCODE ||--o{ RGS_RUBRIEK : ""
     RUBRIEK ||--o{ RGS_RUBRIEK : ""
-    DOSSIER ||--o{ IMPORTBATCH : heeft
+    KLANT ||--o{ IMPORTBATCH : "heeft per boekjaar"
     IMPORTBATCH ||--o{ SALDO : levert
     GROOTBOEKREKENING ||--o{ SALDO : ""
     DOSSIER ||--o{ CORRECTIEBOEKING : heeft
@@ -91,7 +91,8 @@ Optioneel *KoppelingSplitsing*: een rekening verdeeld over meerdere rubrieken (p
 
 **Dossier**: Id, KlantId, Naam (bijv. "Financieel rapport 2024"), Boekjaar, Begindatum, Einddatum, AardOpdracht, WerkprogrammasjabloonId + versie, RapportsjabloonId + versie, RubriekenschemaId + versie, **Status** (`Nieuw` → `In uitvoering` → `Ter review` → `Rapport uitgebracht` → `Gesloten`), VorigDossierId, UitgebrachtOp, GeslotenOp, GeslotenDoor.
 
-**ImportBatch**: Id, DossierId, Bestandsnaam, SHA-256, Type (`Sjabloon`, `XAF`, `Handmatig`; later `Excel-profiel`), Boekjaar, Pakket (uit XAF-header), Versie, Periode van/tot, GeïmporteerdOp/Door, Controletotalen (debet = credit, aantallen), Actief (de nieuwste batch is leidend; oudere blijven bewaard voor de historie).
+**ImportBatch**: Id, KlantId, Boekjaar, Bestandsnaam, SHA-256, Type (`Sjabloon`, `XAF`, `Handmatig`; later `Excel-profiel`), Boekjaar, Pakket (uit XAF-header), Versie, Periode van/tot, GeïmporteerdOp/Door, Controletotalen (debet = credit, aantallen), Actief (de nieuwste batch is leidend; oudere blijven bewaard voor de historie).
+*Gebouwd in plakje 2:* een importbatch hoort bij **klant en boekjaar**, niet bij een dossier. Zo delen een jaarrekening- en een aangiftedossier van hetzelfde jaar één saldibalans, en kunnen historische jaren (vergelijkende cijfers, meerjarenoverzicht) worden ingelezen zonder eigen dossier. Per klant en boekjaar is hooguit één batch actief; de database dwingt dat af.
 
 **Saldo**: ImportBatchId, GrootboekrekeningId, Periode (`0` = beginbalans, `1..12`, eventueel `13` = afsluiting; bij het importsjabloon één regel `Jaar` = eindsaldo), Debet, Credit. Het eindsaldo is afgeleid.
 

@@ -221,7 +221,12 @@ verschil betekent dat er regels ontbreken of verkeerd zijn overgenomen, bijvoorb
 | I10 | Verschillen met de vorige import of het vorige jaar: nieuwe rekeningen, verdwenen rekeningen, andere omschrijving bij hetzelfde nummer | ℹ️ Overzicht ter informatie |
 | I11 | RGS-code (indien ingevuld) heeft een geldig formaat (letters, begint met B of W) | ⚠️ Waarschuwing; de code wordt genegeerd |
 
-*I1–I6 en I11 zijn gebouwd in plakje 1. I7–I10 vragen klant- en dossiergegevens en volgen in plakje 2 (I7, I9, I10) en plakje 3 (I8, als bekend is welke rekeningen W&V zijn).* Alle fouten worden in één keer gemeld, zodat de gebruiker ze in één ronde kan herstellen.
+*I1–I6 en I11 zijn gebouwd in plakje 1, I7, I9 en I10 in plakje 2 (in het importscherm van een dossier). I8 volgt in plakje 3, als bekend is welke rekeningen W&V zijn.* Zo werken I7, I9 en I10 in de app:
+
+- **I7**: de klant in het bestand wordt vergeleken met naam en klantnummer van de gekozen klant (hoofdletters, spaties en leestekens tellen niet mee).
+- **I9**: bij een tweede import voor hetzelfde jaar ziet de gebruiker wanneer en door wie de vorige is ingelezen (en of het hetzelfde bestand is). Inlezen kan pas na het aanvinken van *waarschuwingen gelezen*.
+- **I10**: vergelijkt met de vorige import van hetzelfde jaar, of anders met het vorige boekjaar. Omschrijvingen worden vergeleken met de bij de klant bekende omschrijving. Een historisch jaar overschrijft die omschrijving niet.
+- Het boekjaar kiest de gebruiker in het scherm: het dossierjaar of een van de vier jaren ervoor (vergelijkende cijfers en meerjarenoverzicht). Alle fouten worden in één keer gemeld, zodat de gebruiker ze in één ronde kan herstellen.
 
 **Pas als I1–I6 slagen**, wordt er geïmporteerd:
 1. Grootboekrekeningen worden aangemaakt of bijgewerkt bij de klant, met nummer als sleutel.

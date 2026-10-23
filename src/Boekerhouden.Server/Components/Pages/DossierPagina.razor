@@ -61,18 +61,18 @@ else
                         @foreach (var regel in proefbalans.Regels)
                         {
                             <tr>
-                                <td class="font-monospace">@regel.Nummer</td>
+                                <td class="bedrag">@regel.Nummer</td>
                                 <td>@regel.Omschrijving</td>
-                                <td class="text-end font-monospace"><Bedrag Waarde="regel.Bedrag" /></td>
-                                <td class="text-end font-monospace text-secondary"><Bedrag Waarde="regel.BedragVorigJaar" /></td>
+                                <td class="text-end bedrag"><Bedrag Waarde="regel.Bedrag" /></td>
+                                <td class="text-end bedrag text-secondary"><Bedrag Waarde="regel.BedragVorigJaar" /></td>
                             </tr>
                         }
                     </tbody>
                     <tfoot>
                         <tr class="fw-semibold">
                             <td colspan="2">Saldo (moet nihil zijn)</td>
-                            <td class="text-end font-monospace">@Bedragen.Getal(proefbalans.Totaal)</td>
-                            <td class="text-end font-monospace text-secondary">@(proefbalans.ImportVorigJaar is null ? "–" : Bedragen.Getal(proefbalans.TotaalVorigJaar))</td>
+                            <td class="text-end bedrag">@Bedragen.Getal(proefbalans.Totaal)</td>
+                            <td class="text-end bedrag text-secondary">@(proefbalans.ImportVorigJaar is null ? "–" : Bedragen.Getal(proefbalans.TotaalVorigJaar))</td>
                         </tr>
                     </tfoot>
                 </table>

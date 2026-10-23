@@ -40,8 +40,20 @@ tr.klikbaar {
     color: #495057;
 }
 
-.proefbalans td.font-monospace, .proefbalans th {
+.bedrag {
+    font-variant-numeric: tabular-nums;
     white-space: nowrap;
+}
+
+/* Tabellen direct in een kaart: wat ruimte langs de randen. */
+.card > .table > :not(caption) > * > :first-child,
+.card > .table-responsive > .table > :not(caption) > * > :first-child {
+    padding-left: 1rem;
+}
+
+.card > .table > :not(caption) > * > :last-child,
+.card > .table-responsive > .table > :not(caption) > * > :last-child {
+    padding-right: 1rem;
 }
 
 .account-achtergrond {

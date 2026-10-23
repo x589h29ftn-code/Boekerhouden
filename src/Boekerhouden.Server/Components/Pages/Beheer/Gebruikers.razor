@@ -100,16 +100,18 @@
                             }
                         </td>
                         <td class="text-end text-nowrap">
-                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => Bewerk(g)">Wijzigen</button>
-                            @if (g.Actief)
-                            {
-                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => Reset(g)">Nieuw wachtwoord</button>
-                                <button class="btn btn-sm btn-outline-danger" @onclick="() => ZetActief(g, false)">Deactiveren</button>
-                            }
-                            else
-                            {
-                                <button class="btn btn-sm btn-outline-success" @onclick="() => ZetActief(g, true)">Activeren</button>
-                            }
+                            <div class="d-inline-flex gap-1">
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => Bewerk(g)">Wijzigen</button>
+                                @if (g.Actief)
+                                {
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => Reset(g)">Nieuw wachtwoord</button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => ZetActief(g, false)">Deactiveren</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-outline-success" @onclick="() => ZetActief(g, true)">Activeren</button>
+                                }
+                            </div>
                         </td>
                     </tr>
                 }
