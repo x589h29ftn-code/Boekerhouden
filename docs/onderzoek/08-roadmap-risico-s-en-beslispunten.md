@@ -22,12 +22,19 @@
 | B15 | 23-10-2026 | Twee soorten opdrachten: **Samenstellen jaarrekening** en **Winstaangifte opstellen** (D1) | Twee werkprogramma- en rapportsjablonen |
 | B16 | 23-10-2026 | **Geen deadline** (F1) | Gefaseerd bouwen; per fase opleveren en evalueren |
 | B17 | 23-10-2026 | De repository **hoeft niet privé** (F3) | Daarom nooit klantgegevens, testbestanden of echte bedragen in de repository, en geen namen van bestaande pakketten |
+| B18 | 23-10-2026 | **Maximaal 5 gebruikers** (A1) | Kleine server-pc volstaat; geen schaalbaarheidsmaatregelen nodig |
+| B19 | 23-10-2026 | Rollen zoals voorgesteld (medewerker, reviewer, accountant, beheerder); **review is niet verplicht** (A4) | Een dossier kan zonder review worden afgerond. Een geplaatst reviewpunt moet wel eerst zijn opgelost |
+| B20 | 23-10-2026 | **De opdrachtgever is de interne beheerder** (maximaal 4 uur per week) (A8) | Beheer moet in die tijd passen: zelfbeherende server, duidelijke beheerpagina |
+| B21 | 23-10-2026 | **Testset met echte dossiers komt later** (B2) | Eerst bouwen en testen met fictieve testdata; echte golden files vóór de pilot |
+| B22 | 23-10-2026 | **De opdrachtgever bouwt het zelf**, met AI-ondersteuning; geen budget (F2) | Bouwen in kleine plakjes; de hele applicatie moet in een Linux-/cloudomgeving te bouwen en te testen zijn; geen betaalde componenten |
 | – | 23-10-2026 | De rapportnorm zijn de **voorbeeldrapporten** (BV klein jaarrekening; EZ bijlage aangifte IB) | Kengetallen, meerjarenoverzicht, Vpb en verschillenanalyse in de MVP ([§9.6](09-analyse-voorbeeldrapporten.md#96-gevolgen-voor-scope-en-planning)) |
 
-**Nog open:**
-- **B4** (wie bouwt): zie vraag F2.
+**Verder vastgelegd:**
+- **B4** (wie bouwt): de opdrachtgever zelf (B22).
 - **B6** (UI-technologie): Blazor Server ([§7.2](07-technische-architectuur.md#72-architectuurkeuze-voor-meerdere-gebruikers)).
 - **B7** (migratie): bestaande dossiers als PDF-archief; vorige jaren via het importsjabloon.
+
+Er staan **geen blokkerende (P1) vragen meer open**. De overige vragen ([hoofdstuk 11](11-vragenlijst.md)) komen per plakje aan de orde.
 
 ## 8.2 Wat we nodig hebben om te bouwen
 
@@ -35,24 +42,30 @@
 
 | Rol | Omvang (indicatie) | Taken |
 |---|---|---|
-| **Ontwikkelaar (.NET/C#)** | 1 fte tijdens de MVP | Architectuur, import, rubricering, werkprogramma, rapportgenerator (PDF en Word), UI, inloggen. AI-ondersteuning kan versnellen, maar alles wordt gereviewd en getest |
-| **Vaktechnisch verantwoordelijke** | 0,2–0,4 fte | Productowner. Stelt rubriekenschema's, RGS→rubriek-tabel, werkprogramma, standaardteksten en rapportsjablonen op, en test met echte dossiers |
-| **Interne beheerder** (sleutelgebruiker) | Ca. 1 uur per week | Back-upschijf wisselen, beheerpagina controleren, gebruikers beheren, updates starten. Er is geen ICT-partner, dus de software moet dit eenvoudig maken |
-| **Testgebruikers** (2–3) | Pilotfase | Dossiers parallel draaien naast het huidige pakket |
+De opdrachtgever vervult drie rollen tegelijk. Dat is goed te doen, mits het werk in kleine stappen gaat en de AI het meeste programmeerwerk doet.
+
+| Rol | Wie | Taken |
+|---|---|---|
+| **Bouwer** (met AI-ondersteuning) | Opdrachtgever | Per plakje: wens beschrijven, de AI laten bouwen en testen, uitkomsten controleren, pull request samenvoegen |
+| **Vaktechnisch verantwoordelijke** | Opdrachtgever | Rubriekenschema's, RGS→rubriek-tabel, werkprogramma, standaardteksten en rapportsjablonen; controle van uitkomsten tegen de huidige rapporten |
+| **Interne beheerder** | Opdrachtgever (maximaal 4 uur per week) | Back-upschijf wisselen, beheerpagina controleren, gebruikers beheren, updates starten |
+| **Testgebruikers** (1–2 collega's) | Pilot | Dossiers parallel draaien naast het huidige pakket |
 
 ### Middelen
 
 | Wat | Kosten (indicatie) | Opmerking |
 |---|---|---|
-| **Server-pc** (mini-pc, 16 GB RAM, 2 SSD's), **UPS** en **2 externe back-upschijven** | Ca. € 900–1.600 eenmalig | Zie [§7.9](07-technische-architectuur.md#79-uitrol) |
+| **Server-pc** (mini-pc, 16 GB RAM, 2 SSD's), **UPS** en **2 externe back-upschijven** | Ca. € 800–1.400 eenmalig | Pas nodig vanaf de pilot (plakje 9); tot die tijd draait alles op de ontwikkelomgeving. Zie [§7.9](07-technische-architectuur.md#79-uitrol) |
 | PostgreSQL | € 0 | Open source, wordt door de installer meegeïnstalleerd |
-| Certificaat voor het interne netwerk | € 0 | Maakt de server zelf aan; werkplekken koppelen met een koppelcode |
-| Code-signing-certificaat (client-installer) | ca. € 100–400 per jaar | Tegen SmartScreen-waarschuwingen |
-| Ontwikkeltools (.NET 10 SDK, VS Code of Visual Studio, GitHub) | € 0 – laag | |
+| Certificaat voor het interne netwerk | € 0 | Maakt de server zelf aan; werkplekken vertrouwen het eenmalig |
+| Code-signing-certificaat | Optioneel | Niet nodig voor intern gebruik |
+| Ontwikkeltools (.NET 10 SDK, VS Code, GitHub) | € 0 | |
+| AI-ontwikkelhulp (Claude Code) | Bestaand abonnement | Bouwen in de cloud of lokaal |
 | Open-source bibliotheken | € 0 | MIT/Apache, zie [§7.4](07-technische-architectuur.md#74-bibliotheken-en-licenties) |
 
 ### Data en inhoud
-1. **Testset**: 10–20 saldibalansen of XAF-bestanden van afgeronde dossiers, met het rapport uit het huidige pakket als referentie (vraag B2).
+1. **Fictieve testdata** (eerst): verzonnen BV's en eenmanszaken met saldibalansen over 5 jaar en een verwachte uitkomst. Mogen in de repository.
+   **Echte testset** (later, vóór de pilot): saldibalansen van afgeronde dossiers met het huidige rapport als referentie. Die blijven buiten de repository.
 2. **RGS 3.8-werkboek**, en 3.9 zodra die definitief is.
 3. **NBA-verklaringengenerator en voorbeeldrapporten** (MijnNBA) voor de teksten.
 4. **Kantoorteksten**: grondslagen, opdrachtbevestiging, LOR, standaardantwoorden acceptatie, en de teksten uit de voorbeeldrapporten.
@@ -63,44 +76,48 @@
 
 | # | Risico | Kans/impact | Maatregel |
 |---|---|---|---|
-| R1 | **De inhoud wordt onderschat**: schema's, werkprogramma en teksten | Hoog/hoog | Vaktechnisch verantwoordelijke vanaf dag 1. Beginnen met BV klein, met de voorbeeldrapporten als norm |
+| R1 | **De inhoud wordt onderschat**: schema's, werkprogramma en teksten | Hoog/hoog | Inhoud per plakje maken, precies wanneer die nodig is. Beginnen met BV klein, met de voorbeeldrapporten als norm |
 | R2 | **Intellectueel eigendom** van gelicentieerde werkprogramma's, NBA-ledenmateriaal en teksten of vormgeving van bestaande pakketten | Middel/hoog | Eigen werkprogramma (B2) en eigen teksten. Bestaande pakketten alleen als functionele referentie (B12) |
-| R3 | **Vaktechnische fouten in rapporten** | Middel/hoog | Golden-master-tests tegen de huidige rapporten, controles, parallelle pilot, review door de accountant |
+| R3 | **Vaktechnische fouten in rapporten**, en de echte testset komt pas later | Middel/hoog | Eerst fictieve testdata met een bekende uitkomst. **Vóór de pilot** de echte testset (golden master tegen de huidige rapporten), daarna een parallelle pilot |
 | R4 | **Verschillen in import**: XAF per pakket, en saldibalansen met fouten (mintekens, ontbrekende regels) | Hoog/middel | Importsjabloon met harde controles (saldo nihil, uniek, geldig), XSD-validatie voor XAF, testset per pakket |
 | R5 | **Server en beheer zonder ICT-partner**: uitval van de server-pc of een mislukte back-up treft alle gebruikers tegelijk | Middel/hoog | Zelfbeherende installatie, versleutelde back-up naar drie doelen met een banner bij problemen, herstelknop, UPS, beheerhandleiding van één A4. Optioneel een strippenkaart bij een lokale IT-dienstverlener voor hardwarestoringen |
-| R6 | **Scope creep** | Hoog/middel | Strikte MVP. Alles buiten de lijst gaat naar fase 5 |
+| R6 | **Scope creep** | Hoog/middel | Strikte MVP in plakjes. Alles daarbuiten gaat naar *later* |
 | R7 | **Regelgeving verandert** (NV COS/ISQM, RJk, RGS 3.9, Vpb-tarieven) | Zeker/middel | Versiebeheer op sjablonen en teksten, parameters per jaar |
-| R8 | **Afhankelijkheid van één ontwikkelaar** | Middel/hoog | GitHub, tests, deze documentatie, gangbare technologie |
+| R8 | **Eén persoon bouwt, beheert en doet de vaktechniek, naast de praktijk** (tijd en continuïteit) | Hoog/hoog | Geen deadline, kleine plakjes die elk afzonderlijk werken, AI doet het meeste programmeerwerk, alles in GitHub met tests en deze documentatie, gangbare technologie, zodat later een ontwikkelaar kan instappen. Tijdens het jaarrekeningseizoen eventueel een pauze inplannen |
 | R9 | **Beveiliging en AVG** | Middel/hoog | Wachtwoordbeleid, lockout, HTTPS, audit log, alleen bereikbaar binnen kantoor, database niet bereikbaar vanaf werkplekken, versleutelde back-ups, BitLocker |
 
 *Deponeren valt bewust buiten de scope (B11). Voor BV's blijft dat voorlopig een apart proces.*
 
-## 8.4 Roadmap (bijgewerkt)
+## 8.4 Roadmap: bouwen in plakjes
 
-> De doorlooptijden zijn **ruwe indicaties** voor 1 fte ontwikkeling plus 0,2–0,4 fte vaktechniek.
-> Bijstellen na fase 0.
+Omdat de opdrachtgever het zelf bouwt met AI-ondersteuning en er geen deadline is, werken we in
+**plakjes**. Elk plakje levert iets op dat werkt en getest is, en eindigt met een pull request in
+deze repository. De volgorde is zo gekozen dat het risicovolste (import, rubricering, rapport)
+vroeg zichtbaar is.
 
-| Fase | Inhoud | Indicatie | Resultaat |
+| # | Plakje | Resultaat | Inhoud (vaktechniek) die dan nodig is |
 |---|---|---|---|
-| **0. Verkenning en proefjes** | Openstaande P1-vragen beantwoorden. Proefjes: (1) **importsjabloon** met de controles en een XAF-parser op echte bestanden, (2) Blazor Server met inloggen en de **server-installer** op een test-pc, (3) HTML→PDF (Playwright en Paged.js) en DOCX met de opmaak uit de voorbeeldrapporten. Rubriekenschema BV en IB opzetten | 3–4 weken | Architectuur bevestigd, eerste schema's, één rapportpagina gelijk aan het voorbeeld |
-| **1. Fundament** | Server-installer, database, back-up en herstel, inloggen en rollen, audit log. Klant- en dossierbeheer, **importsjabloon** (eerst), daarna XAF, RGS-beheer, rubriceringsengine en koppelscherm, proefbalans met correcties, controles | 8–10 weken | Van saldibalans naar een sluitende, gerubriceerde proefbalans, met meerdere gebruikers |
-| **2. Dossier en werkprogramma** | Werkprogramma-engine (sjablonen, hoofdposten, stappen), **keuze materiële posten met doorklikken**, stappen toevoegen en verwijderen, aftekenen en goedkeuren, reviewpunten, bijlagen, cijferbeoordeling voor materiële posten | 7–9 weken | Volledig dossier |
-| **3. Rapport** | Bouwstenen B01–B22, **presentatie-editor per post** (specificaties, samenvoegen, omschrijvingen, verloopoverzichten, opmaak), rapportsjablonen **Samenstellen jaarrekening BV klein** en **Winstaangifte eenmanszaak**, standaardteksten, kengetallen en meerjarenoverzicht (5 jaar), verschillenanalyse, Vpb-berekening, PDF en Word, voettekst per opdrachttype, handtekening, dossier sluiten en archiveren | 10–12 weken | Rapporten gelijkwaardig aan de voorbeeldrapporten |
-| **4. Pilot** | 5–10 echte dossiers (BV klein en eenmanszaak) parallel aan het huidige pakket, verschillen analyseren, historische saldibalansen importeren, installatie op de server-pc, back-up en hersteltest, handleiding | 4–6 weken | Productierijpe versie 1.0 |
-| **5. Uitbreidingen** | **BV micro** en **VOF** (sjablonen en rapporten, zodra er voorbeelden zijn), kolomtoewijzer voor andere Excel-exports, tweestapsverificatie/SSO (als niet in de MVP), digitale ondertekening, AI-voorstellen bij rubriceren, stichtingen, deponeren/SBR, Engelse rapporten | Doorlopend | |
+| 1 | **Fundament en importsjabloon**: solution, domeinmodel, inlezen sjabloon met alle controles (saldo nihil), proefbalans; fictieve testdata | Een saldibalans wordt ingelezen en gecontroleerd (via tests) | Fictieve testklanten |
+| 2 | **Eerste werkende app**: server (Blazor), database, inloggen en rollen, klanten en dossiers, import via scherm, audit log | Inloggen, klant en dossier aanmaken, sjabloon uploaden | – |
+| 3 | **Rubriceren**: rubriekenschema, koppelscherm, RGS-tabel, koppelsjablonen, gekoppeld %, controles | 100% gekoppelde proefbalans per rubriek | Rubriekenschema BV en IB, met hoofd- en subposten; RGS→rubriek-tabel |
+| 4 | **Proefbalans en correcties**: huidig, vorig, verschil, doorklikken, correctieboekingen, vergelijkende cijfers | Sluitende, gecorrigeerde proefbalans | – |
+| 5 | **Dossier en werkprogramma**: sjabloonbeheer, keuze materiële posten, stappen (toevoegen en verwijderen), aftekenen, optionele reviewpunten, bijlagen, klantenoverzicht met signalen | Volledig uitwerkbaar dossier | Werkprogramma *Samenstellen jaarrekening* en *Winstaangifte opstellen* |
+| 6 | **Rapport I**: rapportmodel, balans, W&V, specificaties, presentatie-editor per post, HTML-preview, PDF | Eerste rapport als PDF | Rapportsjabloon BV klein en eenmanszaak (structuur) |
+| 7 | **Rapport II**: teksten (verklaring, algemeen, grondslagen, toelichtingen), kengetallen en meerjarenoverzicht (historie via sjabloon), verschillenanalyse, Vpb, voettekst per opdrachttype, handtekening, **Word** | Rapporten gelijkwaardig aan de voorbeeldrapporten | Standaardteksten, Vpb-parameters |
+| 8 | **Afronding**: dossier afronden en sluiten, definitieve versie met hash, archief-export | Dossier van begin tot eind | – |
+| 9 | **Installatie en pilot**: serverinstallatieprogramma, back-up en herstel, server-pc, echte testset, enkele echte dossiers parallel aan het huidige pakket | **Versie 1.0** in gebruik | Echte testset (B2) |
+| 10 | **XAF-import** (3.x en 4.0), met automatische RGS-koppeling | Import rechtstreeks uit auditfiles | – |
+| later | BV micro, VOF, kolomtoewijzer voor andere Excel-exports, eigen Windows-app, AI-voorstellen bij rubriceren, deponeren/SBR | | Voorbeelden micro en VOF |
 
-**MVP (fasen 0–4): circa 7–9 maanden doorlooptijd.** Er is geen deadline, dus we leveren per fase op.
-Daarnaast **jaarlijks onderhoud** (RGS, XAF, RJk, NV COS, Vpb-tarieven, grensbedragen, teksten): enkele weken per jaar.
+### Inspanning
 
-### Volgorde van de inhoud (vaktechniek), parallel aan de bouw
-1. Rubriekenschema BV en IB, met de **hoofd- en subposten**, en de RGS→rubriek-tabel (fase 0–1).
-2. Koppelsjablonen voor de meest voorkomende rekeningschema's (fase 1).
-3. Werkprogramma *Samenstellen jaarrekening* (BV) met de postprogramma's per hoofdpost, en *Winstaangifte opstellen* (eenmanszaak) (fase 2).
-4. Standaardteksten en rapportsjablonen, op basis van de voorbeeldrapporten (fase 3).
+- **Traditioneel**: een ervaren ontwikkelaar zou voor deze MVP grofweg 1.100–1.500 uur nodig hebben, plus 250–400 uur inhoud (schema's, werkprogramma, teksten).
+- **Met AI**: doet de AI het meeste programmeerwerk, dan verschuift de eigen tijd naar beschrijven, controleren, testen en de inhoud. Hoeveel dat scheelt, is vooraf niet betrouwbaar te zeggen.
+- **Advies**: houd na plakje 1 en 2 bij hoeveel uur een plakje kostte, en reken de rest van de planning daarmee door.
+- **Jaarlijks onderhoud** (RGS, XAF, RJk, NV COS, Vpb-tarieven, grensbedragen, teksten): enkele dagen tot weken per jaar.
 
 ## 8.5 Volgende stappen
 
-1. **Openstaande P1-vragen** beantwoorden ([hoofdstuk 11](11-vragenlijst.md)): A1 (aantal gebruikers), A4 (rollen en review), B2 (testset) en F2 (wie bouwt, budget).
-2. **Testset** aanleveren via een beveiligde map, niet via GitHub: saldibalansen of XAF-bestanden van BV's en eenmanszaken met de huidige rapporten, plus de huisstijlbestanden.
-3. **Server-pc aanschaffen** (kan ook pas in fase 1): zie [§7.9](07-technische-architectuur.md#79-uitrol).
-4. **Fase 0 starten**: de solution opzetten ([§7.3](07-technische-architectuur.md#73-oplossingsopbouw-projecten)), en de proefjes voor importsjabloon, server-installer met inloggen, en PDF/Word.
+1. **Plakje 1 starten** in deze repository: de solution opzetten ([§7.3](07-technische-architectuur.md#73-oplossingsopbouw-projecten)), en het importsjabloon met de controles en fictieve testdata bouwen.
+2. Parallel de **inhoud voor plakje 3** voorbereiden: het rubriekenschema voor BV en eenmanszaak, met hoofd- en subposten. Gebruik de voorbeeldrapporten als leidraad.
+3. **Later**: de server-pc aanschaffen (vóór plakje 9) en de echte testset verzamelen (vóór de pilot).

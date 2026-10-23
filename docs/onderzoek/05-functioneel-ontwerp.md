@@ -137,8 +137,8 @@ Klant aanmaken ─► Dossier 2025 aanmaken (soort opdracht "Samenstellen jaarre
 | C06 | Specificatie per rubriek sluit aan op het rubrieksaldo (huidig en vorig) | Blokkerend als "specificatie verplicht" |
 | C07 | Verloopoverzicht sluit aan op het balanssaldo | Blokkerend |
 | C08 | Correctieboekingen in evenwicht | Blokkerend bij opslaan |
-| C09 | Alle verplichte onderdelen (`*`) gereed en goedgekeurd vóór uitbrengen | Blokkerend |
-| C10 | Geen open reviewpunten bij goedkeuren of uitbrengen | Blokkerend |
+| C09 | Alle verplichte onderdelen (`*`) gereed, en het dossier afgerond door de accountant, vóór uitbrengen. Review is niet verplicht | Blokkerend |
+| C10 | Geen open reviewpunten bij afronden of uitbrengen (alleen relevant als er reviewpunten zijn geplaatst) | Blokkerend |
 | C11 | Materiële post met groot verschil (huidig − vorig) zonder toelichting | Waarschuwing |
 | C12 | Import ouder dan X dagen of niet tot einde boekjaar | Waarschuwing |
 | C13 | Dossier niet gesloten binnen de termijn na uitbrengen | Waarschuwing |

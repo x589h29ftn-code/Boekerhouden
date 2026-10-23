@@ -3,7 +3,9 @@
 > **Bijgewerkt op 23-10-2026** met de besluiten:
 > - **meerdere gebruikers met wachtwoord**;
 > - **alleen binnen kantoor werken** (A2);
-> - er is **geen server en geen ICT-partner** (A3).
+> - er is **geen server en geen ICT-partner** (A3);
+> - **maximaal 5 gebruikers** (A1), **review niet verplicht** (A4);
+> - de opdrachtgever is zelf **beheerder** (A8) en **bouwt het zelf**, met AI-ondersteuning (F2).
 >
 > Daarom draait de applicatie op een eenvoudige **server-pc op kantoor**, die zichzelf zo veel
 > mogelijk beheert: installatie, back-up, herstel, certificaat en updates.
@@ -22,7 +24,7 @@
 
 | Model | Hoe | Voordelen | Nadelen |
 |---|---|---|---|
-| **A. Kantoorserver met webtechniek** ✅ | ASP.NET Core + **Blazor Server** draait als Windows-service op een **server-pc op kantoor** ([§7.9](#79-uitrol)), met **PostgreSQL** ernaast. Medewerkers openen de app in een **dunne Windows-app** (WebView2-venster met eigen icoon, geïnstalleerd met Velopack) of gewoon in Edge/Chrome | Meerdere gebruikers en inloggen zitten er standaard in (ASP.NET Core Identity). **De database is niet bereikbaar vanaf de werkplekken**, dus rechten en audit trail zijn niet te omzeilen. Eén plek om te updaten. PDF en Word worden centraal gemaakt. De UI-componenten (Razor) zijn dezelfde als in het eerdere ontwerp | De server-pc moet tijdens kantooruren aan staan. Niet buiten kantoor en niet offline (niet nodig, besluit A2) |
+| **A. Kantoorserver met webtechniek** ✅ | ASP.NET Core + **Blazor Server** draait als Windows-service op een **server-pc op kantoor** ([§7.9](#79-uitrol)), met **PostgreSQL** ernaast. Medewerkers openen de app in **Edge, geïnstalleerd als app** (eigen venster en icoon). Later eventueel een eigen dunne Windows-app | Meerdere gebruikers en inloggen zitten er standaard in (ASP.NET Core Identity). **De database is niet bereikbaar vanaf de werkplekken**, dus rechten en audit trail zijn niet te omzeilen. Eén plek om te updaten. PDF en Word worden centraal gemaakt. De UI-componenten (Razor) zijn dezelfde als in het eerdere ontwerp | De server-pc moet tijdens kantooruren aan staan. Niet buiten kantoor en niet offline (niet nodig, besluit A2) |
 | B. Desktop-app met centrale database | Blazor Hybrid/WPF op elke pc, die rechtstreeks verbindt met PostgreSQL op de server | Werkt als een "echte" desktop-app. PDF via WebView2 op de pc | **Elke pc heeft databasewachtwoorden**, dus een technisch onderlegde gebruiker kan de app-rechten en audit trail omzeilen. Afvangen kost veel werk (databaserollen per gebruiker). Updates op elke pc |
 | C. Desktop-app + eigen applicatieserver (API) | WPF/Blazor Hybrid-client praat met een ASP.NET Core Web API | Veilig en een volwaardige desktop-app | **Het meeste bouwwerk**: een volledige API-laag erbij. Offline vraagt nog steeds synchronisatie |
 
@@ -50,7 +52,7 @@ Boekerhouden.sln
 │  ├─ Boekerhouden.Data          // EF Core DbContext, migraties, PostgreSQL
 │  ├─ Boekerhouden.UI            // Razor Class Library: alle schermen/componenten
 │  ├─ Boekerhouden.Server        // ASP.NET Core: Blazor Server, Identity/inloggen, achtergrondtaken
-│  └─ Boekerhouden.Client        // Dunne Windows-app: WebView2-venster naar de server, downloads/printen
+│  └─ Boekerhouden.Client        // (later, optioneel) dunne Windows-app: WebView2-venster naar de server
 └─ tests/
    ├─ Boekerhouden.Domain.Tests
    ├─ Boekerhouden.Import.Tests  // golden files: geanonimiseerde XAF's → verwachte proefbalans
@@ -60,7 +62,7 @@ Boekerhouden.sln
    └─ Boekerhouden.UI.Tests      // bUnit + Playwright end-to-end tegen de server
 ```
 
-Alleen `Boekerhouden.Client` is Windows-specifiek. De server draait op Windows Server, maar kan ook op Linux. Alles bouwt en test in CI.
+Alleen de optionele `Boekerhouden.Client` is Windows-specifiek. De server draait op Windows, maar ook op Linux. Daardoor is **de hele applicatie te bouwen en te testen in een Linux-omgeving**, bijvoorbeeld een Claude Code-cloudsessie of CI.
 
 ## 7.4 Bibliotheken en licenties
 
@@ -79,7 +81,7 @@ Alleen `Boekerhouden.Client` is Windows-specifiek. De server draait op Windows S
 | **HTML → PDF (server)** | **Playwright for .NET** (headless Chromium) | Apache-2.0 | Dezelfde Chromium-rendering als de preview; `@page`-margeboxen sinds Chromium 131 ([Chrome-blog](https://developer.chrome.com/blog/print-margins)) |
 | PDF (alternatief) | QuestPDF | Community License (source-available, sinds 2026 geen MIT) | Gratis onder USD 1 mln omzet ([licentie](https://questpdf.com/license/community.html)) |
 | **Word-export (.docx)** | DocumentFormat.OpenXml | MIT | Rechtstreeks uit het rapportmodel opgebouwd, niet via HTML, zodat de huisstijl en tabellen netjes blijven |
-| Client-installer en updates | Velopack | MIT | Voor de dunne Windows-app ([docs](https://docs.velopack.io/getting-started/wpf)) |
+| Client-installer en updates | Velopack | MIT | Alleen als de optionele dunne Windows-app er komt ([docs](https://docs.velopack.io/getting-started/wpf)) |
 | Logging | Serilog | Apache-2.0 | Nooit klantgegevens in logs |
 | Tests | xUnit, bUnit, Verify, Playwright | Apache-2.0 / MIT | |
 
@@ -144,11 +146,11 @@ historie (5 jaar), fiscale berekening          ┘   tabellen, teksten  └─�
 | Rol | Mag |
 |---|---|
 | Medewerker | Dossiers bewerken, stappen uitvoeren en toevoegen, rapporten (concept) genereren |
-| Reviewer | Plus goedkeuren, reviewpunten, standaardstappen verwijderen |
-| Accountant (tekenbevoegd) | Plus rapport definitief uitbrengen, verklaring ondertekenen (handtekeningafbeelding) |
+| Reviewer | Plus reviewpunten plaatsen en posten als *gereviewd* markeren |
+| Accountant (tekenbevoegd) | Plus dossier afronden, rapport definitief uitbrengen, verklaring ondertekenen (handtekeningafbeelding) |
 | Beheerder | Gebruikers, sjablonen, rubriekenschema's, RGS, standaardteksten, huisstijl, parameters |
 
-Een gebruiker kan meerdere rollen hebben. Of er toegang per klant of team nodig is, staat in de vragenlijst.
+Een gebruiker kan meerdere rollen hebben. **Review is niet verplicht** (besluit A4): een dossier kan zonder review worden afgerond. Is er wel een reviewpunt geplaatst, dan moet dat eerst zijn opgelost. Of er toegang per klant nodig is, staat in de vragenlijst.
 
 **Overige maatregelen**
 - **HTTPS** ook op het interne netwerk, **zonder certificaatbeheer**:
@@ -167,30 +169,39 @@ Een gebruiker kan meerdere rollen hebben. Of er toegang per klant of team nodig 
 
 | Onderdeel | Advies (indicatie) |
 |---|---|
-| Hardware | Zakelijke mini-pc of kleine tower: recente quad-core, **16 GB RAM**, **2 SSD's** (1 TB voor data, 1 TB voor de lokale back-up). Ruim voldoende voor een klein kantoor |
+| Hardware | Zakelijke mini-pc: recente quad-core, **16 GB RAM**, **2 SSD's** (1 TB voor data, 1 TB voor de lokale back-up). Ruim voldoende voor maximaal 5 gebruikers |
 | Besturingssysteem | Windows 11 Pro, met BitLocker aan en Windows Update buiten kantoortijd. Controleer de licentievoorwaarden voor gebruik als server; alternatief Windows Server of Linux |
 | Noodstroom (UPS) | Ja: voorkomt databaseschade bij stroomuitval en sluit netjes af |
 | Back-upschijven | 2 externe USB-schijven (wisselen) |
 | Plaats | Een afsluitbare ruimte, bekabeld aan het netwerk, altijd aan tijdens kantooruren (of continu) |
-| Kosten | Ca. € 900–1.600 eenmalig, voor pc, UPS en schijven |
+| Kosten | Ca. € 800–1.400 eenmalig, voor pc, UPS en schijven |
 
 - **Eén installatieprogramma "Boekerhouden Server"** met een wizard, zonder ICT-kennis:
   - installeert PostgreSQL en de applicatie als Windows-service;
   - maakt de firewallregel en het certificaat aan;
   - stelt de back-up in en maakt de eerste beheerder aan.
-- **Werkplekken**: de dunne Windows-app downloaden van de server zelf (`https://<server>/installeren`), installeren zonder adminrechten (Velopack) en koppelen met de koppelcode.
+- **Werkplekken (maximaal 5)**:
+  - de server biedt een pagina `https://<server>/installeren` met een klein script dat het servercertificaat **eenmalig** vertrouwt op die werkplek;
+  - daarna de app in Edge openen en *Als app installeren* kiezen (eigen venster en icoon in de taakbalk);
+  - er is geen client-software nodig. Een eigen dunne Windows-app met koppelcode kan later nog.
 - **Updates**:
   - de beheerder klikt op *Bijwerken* in de beheerpagina, of de update gebeurt automatisch 's nachts;
   - de app maakt vóór elke update een back-up, en migraties draaien automatisch;
-  - de werkplek-app werkt zichzelf bij.
-- **Code-signing-certificaat** voor de installers, tegen SmartScreen-waarschuwingen.
+  - werkplekken hoeven niet bijgewerkt te worden.
+- **Code-signing-certificaat**: optioneel. Het serverinstallatieprogramma draait alleen op de eigen server-pc, dus een eenmalige SmartScreen-waarschuwing is acceptabel.
 - **Beheerhandleiding van één A4**: aanzetten, back-upschijf wisselen, gebruiker toevoegen, wachtwoord resetten, wat te doen bij een melding.
 - **Niet aanbevolen**: een gewone werkplek-pc als server gebruiken. Die moet dan altijd aan staan, en het werk van de gebruiker op die pc beïnvloedt de snelheid en de veiligheid.
 
 ## 7.10 Ontwikkel- en teststrategie
 
+- **Bouwen met AI-ondersteuning** (Claude Code), door de opdrachtgever zelf:
+  - in **kleine, werkende stappen** (verticale plakjes, zie [§8.4](08-roadmap-risico-s-en-beslispunten.md#84-roadmap-bouwen-in-plakjes));
+  - elke stap met tests, en een pull request per stap;
+  - conventies vastgelegd in een `CLAUDE.md` in de repository, zodat elke sessie dezelfde regels volgt;
+  - de opdrachtgever beoordeelt vooral *uitkomsten* (klopt de proefbalans, klopt het rapport) en de vaktechniek. De code-kwaliteit bewaken tests en reviews.
 - **Domeinregels eerst, met tests**: importsjabloon (saldo nihil), proefbalans, correcties, rubriceren, materiële posten, aansluitcontroles, afronding en Vpb-berekening.
-- **Golden files**: 10–20 geanonimiseerde XAF-bestanden en de bijbehorende rapporten uit het huidige pakket. Onze uitkomst moet hetzelfde zijn, of een verklaarbaar verschil hebben.
+- **Fictieve testdata eerst**: een eigen set verzonnen klanten (BV klein en eenmanszaak) met saldibalansen over 5 jaar en een verwachte uitkomst. Die mag ook in de repository staan.
+- **Golden files later** (vóór de pilot): echte saldibalansen of XAF-bestanden met de huidige rapporten. Die staan buiten de repository. Onze uitkomst moet hetzelfde zijn, of een verklaarbaar verschil hebben.
 - **Rapport-snapshots** (Verify): een gegenereerd rapport wordt vergeleken met de goedgekeurde versie.
 - **End-to-end tests** (Playwright): inloggen, dossier aanmaken, importeren, koppelen, materieel aanvinken, stappen afronden, rapport genereren.
-- **CI** (GitHub Actions): tests op Linux; client-installer bouwen en tekenen op Windows.
+- **CI** (GitHub Actions): alle tests op Linux; het serverinstallatieprogramma bouwen op Windows.

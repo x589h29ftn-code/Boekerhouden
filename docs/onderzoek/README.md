@@ -18,7 +18,10 @@ API-koppelingen vallen (voorlopig) buiten de scope.
 | Materiële posten | **De gebruiker kiest**, per **hoofdpost**, met doorklikken naar de subposts. Alleen materiële posten krijgen werk. Niet-materiële posten zijn alleen zichtbaar in het rapport, met aanpasbare presentatie en opmaak |
 | Opdrachttypen | **Samenstellen jaarrekening** (BV) en **Winstaangifte opstellen** (eenmanszaak) |
 | Rechtsvormen | MVP: **BV klein** en **eenmanszaak**. **BV micro** en **VOF** later (nog geen voorbeelden) |
-| Werkplek | **Alleen binnen kantoor**; geen server of ICT-partner aanwezig → eigen server-pc met zelfbeherende installatie en ingebouwde back-up |
+| Werkplek | **Alleen binnen kantoor**, **maximaal 5 gebruikers**. Er is geen server of ICT-partner, dus een eigen server-pc met zelfbeherende installatie en ingebouwde back-up. De opdrachtgever is beheerder (maximaal 4 uur per week) |
+| Rollen | Medewerker, reviewer, accountant en beheerder; **review is niet verplicht** |
+| Bouw | **De opdrachtgever bouwt het zelf**, met AI-ondersteuning, in kleine plakjes; geen budget, alleen open-source componenten |
+| Testdata | Eerst **fictieve testdata**; een echte testset volgt vóór de pilot |
 | Planning | **Geen deadline**; per fase opleveren |
 | Uitvoer | **PDF en Word** |
 | Rapportnorm | De aangeleverde voorbeeldrapporten (BV klein jaarrekening; eenmanszaak bijlage aangifte IB) |
@@ -71,8 +74,11 @@ API-koppelingen vallen (voorlopig) buiten de scope.
    - inloggen met eigen wachtwoord (ASP.NET Core Identity), en de database is niet bereikbaar vanaf de werkplekken;
    - PDF en Word uit één rapportmodel.
 8. **De inhoud is de helft van het werk:** rubriekenschema's, de RGS→rubriek-tabel, het werkprogramma, standaardteksten en rapportsjablonen. Daarvoor is een vaktechnisch verantwoordelijke nodig.
-9. **Inspanning (ruwe indicatie):** een MVP (BV klein en eenmanszaak) in circa **7–9 maanden**, zonder deadline en per fase opgeleverd, met 1 fte ontwikkeling en 0,2–0,4 fte vaktechniek. Daarna jaarlijks onderhoud.
-10. **Volgende stap:** de openstaande **P1-vragen** beantwoorden ([hoofdstuk 11](11-vragenlijst.md)), de testset (BV en eenmanszaak) aanleveren, een server-pc aanschaffen, en fase 0 starten.
+9. **Aanpak en inspanning:**
+   - bouwen in **10 plakjes** ([§8.4](08-roadmap-risico-s-en-beslispunten.md#84-roadmap-bouwen-in-plakjes)), elk werkend en getest, zonder deadline;
+   - traditioneel zou de MVP grofweg 1.100–1.500 ontwikkeluren plus 250–400 uur inhoud kosten. Met AI-ondersteuning verschuift de eigen tijd naar beschrijven, controleren en inhoud;
+   - de planning wordt na plakje 1 en 2 bijgesteld op basis van de werkelijke uren.
+10. **Volgende stap:** er staan geen blokkerende vragen meer open. **Plakje 1**: de solution, het importsjabloon met de controles, en fictieve testdata. Parallel het rubriekenschema voorbereiden.
 
 ## Over de bronnen
 

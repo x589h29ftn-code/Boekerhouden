@@ -9,13 +9,20 @@
 > - **P3**: kan later.
 >
 > De vraagnummers blijven gelijk, zodat eerdere antwoorden te herleiden zijn.
+>
+> **Er staan geen P1-vragen meer open.** De overige vragen komen aan de orde in het plakje waar ze nodig zijn ([§8.4](08-roadmap-risico-s-en-beslispunten.md#84-roadmap-bouwen-in-plakjes)).
 
 ## Beantwoord (23-10-2026)
 
 | # | Vraag | Antwoord |
 |---|---|---|
 | A2 | Ook buiten kantoor of offline werken? | **Nee, alleen binnen kantoor** → kantoorserver-model definitief |
+| A1 | Hoeveel gebruikers? | **Maximaal 5** |
 | A3 | Is er een server of ICT-partner? | **Nee** → eigen server-pc met zelfbeherende installatie en ingebouwde back-up ([§7.9](07-technische-architectuur.md#79-uitrol)) |
+| A4 | Rollen en review? | Rollen zoals voorgesteld (medewerker, reviewer, accountant, beheerder); **review is niet verplicht** |
+| A8 | Wie is de interne beheerder? | **De opdrachtgever**, maximaal 4 uur per week |
+| B2 | Testset met echte dossiers? | **Later**; eerst fictieve testdata, de echte testset vóór de pilot |
+| F2 | Wie bouwt, budget? | **De opdrachtgever bouwt het zelf** (met AI-ondersteuning); geen budget |
 | B4 | Hoe komen historische cijfers binnen? | Via het **standaard importsjabloon** met het betreffende boekjaar |
 | C1 | Hoe wordt de materialiteit bepaald? | **De gebruiker kiest de materiële posten zelf**; geen berekening |
 | C2 | Op welk niveau wordt materieel aangevinkt? | **Per hoofdpost**, met doorklikken naar de subposts |
@@ -34,19 +41,15 @@
 
 | # | P | Vraag | Waarom | Voorstel |
 |---|---|---|---|---|
-| A1 | P1 | Hoeveel gebruikers krijgt het systeem in totaal, en hoeveel werken er tegelijk? | Formaat van de server-pc | 5–15 gebruikers, maximaal 10 tegelijk |
-| A4 | P1 | Welke **rollen** zijn er, en wie mag wat? Is **review door een tweede persoon** altijd verplicht, of alleen bij samenstellen jaarrekening? | Rechtenmodel en goedkeuringsflow | Rollen medewerker, reviewer, accountant en beheerder. Review verplicht bij *Samenstellen jaarrekening*, optioneel bij *Winstaangifte opstellen* |
 | A5 | P2 | Moeten medewerkers **alle klanten** zien, of alleen hun eigen portefeuille? | Autorisatie per klant | Iedereen ziet alles, met een filter "mijn klanten" |
 | A6 | P2 | Is inloggen met **gebruikersnaam en wachtwoord** genoeg? | Beveiliging, gebruiksgemak | Ja. Er wordt alleen binnen kantoor gewerkt, dus geen tweestapsverificatie in de MVP |
 | A7 | P2 | Hoeveel dossiers per jaar, ongeveer verdeeld over **BV en eenmanszaak** (en later micro en VOF)? | Omvang van de pilot, prioriteiten | Graag de aantallen |
-| A8 | P2 | **Wie wordt de interne beheerder** (back-upschijf wisselen, gebruikers beheren, updates starten, ca. 1 uur per week)? | Zonder ICT-partner moet iemand dit doen | Eén sleutelgebruiker, plus een vervanger |
 
 ## B. Administraties en import
 
 | # | P | Vraag | Waarom | Voorstel |
 |---|---|---|---|---|
 | B1 | P2 | **Welke boekhoudpakketten** gebruiken je klanten (top 5)? Voert het kantoor zelf administraties? | Testbestanden, koppelsjablonen. De import loopt eerst via het sjabloon, XAF volgt | Per pakket 2–3 voorbeeldbestanden |
-| B2 | P1 | Kun je **10–20 saldibalansen of XAF-bestanden** van afgeronde dossiers (BV en eenmanszaak) aanleveren, met het bijbehorende **huidige rapport**? | Golden-master-tests | Ja, via een beveiligde map, nooit via GitHub |
 | B3 | P2 | Heeft het kantoor een **eigen standaard-rekeningschema**? Hebben de rekeningen RGS-codes? | Wordt het eerste koppelsjabloon | Als het bestaat, is dat koppelsjabloon nr. 1 |
 | B5 | P2 | Hoe worden bij de **eenmanszaak** privéonttrekkingen en -stortingen geboekt (aparte privérekeningen)? | Verloop ondernemingsvermogen | Privérekeningen herkennen via de rubrieken *Privéonttrekkingen/-stortingen* |
 | B6 | P2 | **Importsjabloon**: een optionele kolom **RGS-code** houden, of alleen de drie vaste kolommen? | Gebruiksgemak tegenover automatisch rubriceren | Optionele vierde kolom; leeg mag |
@@ -87,5 +90,4 @@
 
 | # | P | Vraag | Waarom | Voorstel |
 |---|---|---|---|---|
-| F2 | P1 | **Wie bouwt** (intern met Claude Code, een freelance .NET-ontwikkelaar, een bureau), en wat is ongeveer het **budget**? | Planning, review en continuïteit | Eén vaste ontwikkelaar met AI-ondersteuning. De vaktechniek blijft intern |
 | F4 | P3 | Wil je dit later ook aan **andere kantoren** aanbieden? | Dat verandert de eisen flink | Nee, alleen voor eigen gebruik |
