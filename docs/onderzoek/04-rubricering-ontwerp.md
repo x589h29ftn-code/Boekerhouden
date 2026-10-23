@@ -1,7 +1,7 @@
 # 4. Rubricering: hoe we grootboekrekeningen aan rubrieken koppelen
 
 > Dit is het hart van de applicatie. Het hoofdstuk beschrijft het ontwerp van de
-> rubriceringsengine. Het ontwerp sluit aan op wat in de markt gangbaar is ([§1.5](01-marktreferentie-bestaande-samenstelsoftware.md#15-rubricering-koppelen-van-grootboekrekeningen))
+> rubriceringsengine. Het ontwerp sluit aan op wat in de markt gangbaar is ([§1.4](01-gangbare-werkwijze-samenstelsoftware.md#14-rubricering-grootboekrekeningen-koppelen))
 > en op de mogelijkheden van RGS en XAF ([hoofdstuk 3](03-gegevensimport-xaf-excel-rgs.md)).
 
 ## 4.1 Begrippen
@@ -88,13 +88,13 @@ Per grootboekrekening van de klant bepaalt de engine één rubriek. De eerste re
 | 1 | **Handmatig** (klant) | Een eerder door een gebruiker vastgelegde koppeling voor deze klant. **Wordt nooit automatisch overschreven** [hfst. 1] | Bevestigd |
 | 2 | **Koppelsjabloon** (kantoor) | Exact rekeningnummer of nummerreeks in het sjabloon dat aan de klant hangt (bijv. "SnelStart standaard"). Optioneel aangevuld met een omschrijvingspatroon | Automatisch |
 | 3 | **RGS** | RGS-code van de rekening (uit XAF/Excel, gevalideerd), **langste-voorvoegsel-match** in de RGS→rubriek-tabel: eerst niveau 5, dan 4, 3 en 2. | Automatisch |
-| 4 | **Voorstel** | Heuristiek, *nooit automatisch toegepast*: (a) dezelfde nummer- en omschrijvingscombinatie bij andere klanten met hetzelfde pakket of sjabloon; (b) trefwoorden in de omschrijving ("kas", "bank", "debiteuren", "afschr"); (c) `leadCode`/`leadDescription` als hint. Later eventueel AI, vergelijkbaar met de VAIA Mapper | Voorgesteld (gebruiker moet bevestigen) |
+| 4 | **Voorstel** | Heuristiek, *nooit automatisch toegepast*: (a) dezelfde nummer- en omschrijvingscombinatie bij andere klanten met hetzelfde pakket of sjabloon; (b) trefwoorden in de omschrijving ("kas", "bank", "debiteuren", "afschr"); (c) `leadCode`/`leadDescription` als hint. Later eventueel AI, zoals sommige pakketten AI-mapping aanbieden | Voorgesteld (gebruiker moet bevestigen) |
 | – | Geen | – | **Ongekoppeld** (telt mee als alert en blokkeert het definitieve rapport) |
 
 > **Waarom handmatig > sjabloon > RGS?** Een handmatige keuze is een bewuste vaktechnische
 > beslissing voor deze klant. Een sjabloon is een bewuste kantoorkeuze voor een bekend
 > rekeningschema. RGS is generiek en soms foutief ingevuld door de klant of het pakket.
-> Deze volgorde is ook in de markt gangbaar ([hfst. 1](01-marktreferentie-bestaande-samenstelsoftware.md)).
+> Deze volgorde is ook in de markt gangbaar ([hfst. 1](01-gangbare-werkwijze-samenstelsoftware.md)).
 
 ### Pseudocode
 

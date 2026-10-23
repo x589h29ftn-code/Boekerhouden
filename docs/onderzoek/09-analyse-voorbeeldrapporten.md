@@ -49,7 +49,7 @@
 | | 3 Specificaties van balans | MVA-specificatie per activum plus **verloopoverzicht MVA** (boekwaarde begin: aanschafwaarde/cum. afschrijving → investeringen/afschrijvingen → boekwaarde eind, met afschrijvingspercentages van/tot). Vorderingen, liquide middelen (bankrekeningen met IBAN). **Verloop ondernemingsvermogen** (stand 1-1 + resultaat − privéonttrekkingen + privéstortingen ± overige → stand 31-12). FOR. Langlopende en kortlopende schulden |
 | | 4 Specificaties van W&V | Per rubriek de grootboekrekeningen als specificatieregels |
 
-**Voettekst (voorbeeld B):** paginanummer en **"Geen accountantscontrole toegepast"** plus de datum van het rapport. Er is geen samenstellingsverklaring en geen accountantsrapport. Dit is het opdrachttype *aangifte-plus/winstaangifte* (zie [§2.7](02-vaktechnisch-kader.md#27-opdrachttypen)).
+**Voettekst (voorbeeld B):** paginanummer en **"Geen accountantscontrole toegepast"** plus de datum van het rapport. Er is geen samenstellingsverklaring en geen accountantsrapport. Dit is het opdrachttype *Winstaangifte opstellen* (zie [§2.7](02-vaktechnisch-kader.md#27-opdrachttypen)). Voor de **VOF** komt later een variant met kapitaal en winstverdeling per vennoot, zodra er een voorbeeld is.
 
 ## 9.3 Catalogus van rapportbouwstenen
 

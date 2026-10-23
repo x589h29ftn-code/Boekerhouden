@@ -1,25 +1,29 @@
 # 7. Technische architectuur
 
-> **Bijgewerkt op 23-10-2026** na het besluit *"meerdere gebruikers met wachtwoord"*. De
-> eerdere aanpak (één gebruiker, SQLite-bestand) is vervangen door een **kantoorserver-model**.
-> Openstaande keuzes staan in de [vragenlijst](11-vragenlijst.md) (vooral: werken medewerkers ook
-> offline of buiten kantoor?).
+> **Bijgewerkt op 23-10-2026** met de besluiten:
+> - **meerdere gebruikers met wachtwoord**;
+> - **alleen binnen kantoor werken** (A2);
+> - er is **geen server en geen ICT-partner** (A3).
+>
+> Daarom draait de applicatie op een eenvoudige **server-pc op kantoor**, die zichzelf zo veel
+> mogelijk beheert: installatie, back-up, herstel, certificaat en updates.
 
 ## 7.1 Uitgangspunten
 
-1. **On-premises Windows-oplossing voor meerdere gebruikers.** Iedere gebruiker logt in met een eigen naam en wachtwoord. Er is geen cloud en zijn geen API-koppelingen (die vallen buiten de scope).
+1. **Windows-oplossing op kantoor voor meerdere gebruikers.** Iedere gebruiker logt in met een eigen naam en wachtwoord. Alleen bereikbaar binnen het kantoornetwerk; geen cloud, geen toegang van buitenaf, geen API-koppelingen.
 2. **Eén centrale database.** Samensteller en reviewer werken tegelijk in hetzelfde dossier.
 3. **Bedragen zijn altijd exact.** In de code `decimal`, nooit `double`/`float`. In de database staan bedragen als gehele eurocenten of `numeric`.
 4. **Grote auditfiles kunnen geen kwaad.** Een XAF-bestand kan honderden MB zijn. We lezen het *streaming* in (XmlReader), niet als DOM.
 5. **Inhoud is data, geen code.** Rubriekenschema's, werkprogramma's, standaardteksten en rapportsjablonen staan als beheerbare data in de app, met versies.
 6. **Ontwikkelen en testen kan ook buiten Windows.** Alles behalve de dunne Windows-schil moet op Linux en in CI te bouwen en te testen zijn.
+7. **Zelfbeherend.** Er is geen ICT-partner. Installatie, back-up, herstel, certificaat en updates moeten werken zonder specialistische kennis, met duidelijke meldingen in de beheerpagina.
 
 ## 7.2 Architectuurkeuze voor meerdere gebruikers
 
 | Model | Hoe | Voordelen | Nadelen |
 |---|---|---|---|
-| **A. Kantoorserver met webtechniek** ✅ | ASP.NET Core + **Blazor Server** draait als Windows-service op een kantoorserver (of VM), met **PostgreSQL** ernaast. Medewerkers openen de app in een **dunne Windows-app** (WebView2-venster met eigen icoon, geïnstalleerd met Velopack) of gewoon in Edge/Chrome | Meerdere gebruikers en inloggen zitten er standaard in (ASP.NET Core Identity). **De database is niet bereikbaar vanaf de werkplekken**, dus rechten en audit trail zijn niet te omzeilen. Eén plek om te updaten. PDF en Word worden centraal gemaakt. De UI-componenten (Razor) zijn dezelfde als in het eerdere ontwerp | Vereist een server die altijd aan staat. Buiten kantoor alleen via VPN of een beveiligde publicatie. Niet offline |
-| B. Desktop-app met centrale database | Blazor Hybrid/WPF op elke pc, die rechtstreeks verbindt met PostgreSQL op de server | Werkt als een "echte" desktop-app. PDF via WebView2 op de pc | **Elke pc heeft databasewachtwoorden**, dus een technisch onderlegde gebruiker kan de app-rechten en audit trail omzeilen. Afvangen kost veel werk (databaserollen per gebruiker). Updates op elke pc. Buiten kantoor ook VPN nodig |
+| **A. Kantoorserver met webtechniek** ✅ | ASP.NET Core + **Blazor Server** draait als Windows-service op een **server-pc op kantoor** ([§7.9](#79-uitrol)), met **PostgreSQL** ernaast. Medewerkers openen de app in een **dunne Windows-app** (WebView2-venster met eigen icoon, geïnstalleerd met Velopack) of gewoon in Edge/Chrome | Meerdere gebruikers en inloggen zitten er standaard in (ASP.NET Core Identity). **De database is niet bereikbaar vanaf de werkplekken**, dus rechten en audit trail zijn niet te omzeilen. Eén plek om te updaten. PDF en Word worden centraal gemaakt. De UI-componenten (Razor) zijn dezelfde als in het eerdere ontwerp | De server-pc moet tijdens kantooruren aan staan. Niet buiten kantoor en niet offline (niet nodig, besluit A2) |
+| B. Desktop-app met centrale database | Blazor Hybrid/WPF op elke pc, die rechtstreeks verbindt met PostgreSQL op de server | Werkt als een "echte" desktop-app. PDF via WebView2 op de pc | **Elke pc heeft databasewachtwoorden**, dus een technisch onderlegde gebruiker kan de app-rechten en audit trail omzeilen. Afvangen kost veel werk (databaserollen per gebruiker). Updates op elke pc |
 | C. Desktop-app + eigen applicatieserver (API) | WPF/Blazor Hybrid-client praat met een ASP.NET Core Web API | Veilig en een volwaardige desktop-app | **Het meeste bouwwerk**: een volledige API-laag erbij. Offline vraagt nog steeds synchronisatie |
 
 **Advies: model A.**
@@ -28,8 +32,8 @@
 - Omdat de UI al in Blazor (Razor-componenten) was gepland, is het verschil met het eerdere ontwerp vooral het *hostingmodel*. Domeinlogica, import, rubricering en rapportage blijven gelijk.
 - Wil het kantoor later naar de cloud (bijv. een Azure-VM of hosting), dan kan dit model daar ongewijzigd heen.
 
-> **Wanneer toch model B of C?** Als medewerkers regelmatig **zonder verbinding** met kantoor
-> moeten werken, bijv. bij klanten zonder internet of VPN. Dat staat als vraag in de [vragenlijst](11-vragenlijst.md).
+> **Besloten (A2):** er wordt alleen binnen kantoor gewerkt. Offline werken is niet nodig, dus
+> **model A is definitief**.
 
 **.NET 10** (LTS, ondersteund tot november 2028). Bron: [.NET Support Policy](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core), [Blazor (Microsoft Learn)](https://learn.microsoft.com/en-us/aspnet/core/blazor/hybrid).
 
@@ -90,10 +94,13 @@ Alleen `Boekerhouden.Client` is Windows-specifiek. De server draait op Windows S
   - een indicatie "Jan werkt nu in *Vorderingen*";
   - live verversen via Blazor Server/SignalR wanneer een collega iets afrondt of goedkeurt.
 - **Bijlagen** staan in een *content-addressed* map op de server (bestandsnaam = SHA-256-hash), met de metadata in de database. Alternatief: in PostgreSQL zelf, zodat één back-up alles bevat. Dat is af te wegen op volume.
-- **Back-up**:
-  - nachtelijke `pg_dump` plus de bijlagenmap, met rotatie (dag, week, maand) en een kopie buiten de server;
-  - periodiek een **hersteltest**;
-  - een melding in de beheerpagina als de laatste back-up te oud is.
+- **Back-up (ingebouwd, want er is geen ICT-partner):**
+  - **automatisch elke nacht**: een databasedump plus de bijlagenmap, **versleuteld** (AES-256, met een sleutel die het kantoor bewaart), met rotatie per dag (14), week (8) en maand (12);
+  - **doel 1**: een tweede schijf in de server-pc;
+  - **doel 2**: twee externe USB-schijven die om de week wisselen. Eén ligt altijd buiten kantoor, tegen brand en diefstal;
+  - **doel 3** (optioneel): dezelfde versleutelde back-up naar een cloudmap van het kantoor (bijv. OneDrive). Door de versleuteling zijn de gegevens daar niet leesbaar;
+  - **beheerpagina**: status van de laatste back-up per doel. Is er langer dan 2 dagen geen geslaagde back-up, dan krijgt elke gebruiker een **banner**;
+  - **herstellen** met een knop in de beheerpagina ("terugzetten naar de back-up van …"), plus een **hersteltest** van een paar minuten, twee keer per jaar, via een checklist.
 
 ## 7.6 Rapportgeneratie (één model, meerdere uitvoerformaten)
 
@@ -128,7 +135,7 @@ historie (5 jaar), fiscale berekening          ┘   tabellen, teksten  └─�
 - **Wachtwoordbeleid**: minimaal 12 tekens, met een controle tegen veelgebruikte wachtwoorden.
 - **Lockout** na 5 mislukte pogingen (15 minuten).
 - **Hashing**: PBKDF2 via ASP.NET Core Identity. Wachtwoorden worden nooit leesbaar opgeslagen.
-- **Optioneel tweestapsverificatie** met een authenticator-app (TOTP). Advies: verplicht bij toegang buiten kantoor.
+- **Optioneel tweestapsverificatie** met een authenticator-app (TOTP). Niet nodig in de MVP, omdat er alleen binnen kantoor gewerkt wordt.
 - **Sessies** verlopen na een instelbare inactiviteit, bijv. 8 uur of 30 minuten.
 - Inlogpogingen (geslaagd en mislukt) worden in de audit log vastgelegd.
 
@@ -144,23 +151,41 @@ historie (5 jaar), fiscale berekening          ┘   tabellen, teksten  └─�
 Een gebruiker kan meerdere rollen hebben. Of er toegang per klant of team nodig is, staat in de vragenlijst.
 
 **Overige maatregelen**
-- **HTTPS** ook op het interne netwerk, met een certificaat van een interne CA of Let's Encrypt via DNS.
+- **HTTPS** ook op het interne netwerk, **zonder certificaatbeheer**:
+  - de server-pc maakt bij de installatie zelf een certificaat aan;
+  - de Windows-app op een werkplek **koppelt één keer** met de server (servernaam plus een koppelcode uit de beheerpagina) en vertrouwt daarna alleen dat certificaat.
 - **AVG**:
   - BitLocker op de server;
   - minimale persoonsgegevens (geen BSN tenzij nodig);
   - het verwerkingsregister bijwerken;
   - logs zonder klantgegevens.
-- **Toegang buiten kantoor**: alleen via VPN, of via een reverse proxy met verplichte tweestapsverificatie. Nooit de database open naar internet.
+- **Geen toegang van buitenaf**: de server luistert alleen op het kantoornetwerk (firewallregel *lokaal subnet*). De database luistert alleen op de server-pc zelf.
 
 ## 7.9 Uitrol
 
-- **Server**:
-  - één installatiepakket: de app als Windows-service, plus PostgreSQL;
-  - migraties draaien automatisch bij een update;
-  - een server met 4 cores en 8–16 GB RAM is ruim voldoende voor een klein kantoor (schatting).
-- **Werkplekken**: de dunne Windows-app (Velopack, zonder adminrechten), of een snelkoppeling in Edge ("Als app installeren").
-- **Code-signing-certificaat** voor de client-installer, tegen SmartScreen-waarschuwingen.
-- **Updates**: de server wordt centraal bijgewerkt; de client werkt zichzelf bij via Velopack.
+**Server-pc** (er is geen server, dus die schaft het kantoor aan):
+
+| Onderdeel | Advies (indicatie) |
+|---|---|
+| Hardware | Zakelijke mini-pc of kleine tower: recente quad-core, **16 GB RAM**, **2 SSD's** (1 TB voor data, 1 TB voor de lokale back-up). Ruim voldoende voor een klein kantoor |
+| Besturingssysteem | Windows 11 Pro, met BitLocker aan en Windows Update buiten kantoortijd. Controleer de licentievoorwaarden voor gebruik als server; alternatief Windows Server of Linux |
+| Noodstroom (UPS) | Ja: voorkomt databaseschade bij stroomuitval en sluit netjes af |
+| Back-upschijven | 2 externe USB-schijven (wisselen) |
+| Plaats | Een afsluitbare ruimte, bekabeld aan het netwerk, altijd aan tijdens kantooruren (of continu) |
+| Kosten | Ca. € 900–1.600 eenmalig, voor pc, UPS en schijven |
+
+- **Eén installatieprogramma "Boekerhouden Server"** met een wizard, zonder ICT-kennis:
+  - installeert PostgreSQL en de applicatie als Windows-service;
+  - maakt de firewallregel en het certificaat aan;
+  - stelt de back-up in en maakt de eerste beheerder aan.
+- **Werkplekken**: de dunne Windows-app downloaden van de server zelf (`https://<server>/installeren`), installeren zonder adminrechten (Velopack) en koppelen met de koppelcode.
+- **Updates**:
+  - de beheerder klikt op *Bijwerken* in de beheerpagina, of de update gebeurt automatisch 's nachts;
+  - de app maakt vóór elke update een back-up, en migraties draaien automatisch;
+  - de werkplek-app werkt zichzelf bij.
+- **Code-signing-certificaat** voor de installers, tegen SmartScreen-waarschuwingen.
+- **Beheerhandleiding van één A4**: aanzetten, back-upschijf wisselen, gebruiker toevoegen, wachtwoord resetten, wat te doen bij een melding.
+- **Niet aanbevolen**: een gewone werkplek-pc als server gebruiken. Die moet dan altijd aan staan, en het werk van de gebruiker op die pc beïnvloedt de snelheid en de veiligheid.
 
 ## 7.10 Ontwikkel- en teststrategie
 

@@ -16,7 +16,10 @@ API-koppelingen vallen (voorlopig) buiten de scope.
 | Import | **Standaard importsjabloon**: boekjaar plus grootboeknummer, omschrijving en bedrag. Alleen importeren als het saldo nihil is. XAF-auditfile als tweede route |
 | Werkprogramma | **Eigen werkprogramma** in een sjabloon. Stappen per dossier toe te voegen en te verwijderen |
 | Materiële posten | **De gebruiker kiest**, per **hoofdpost**, met doorklikken naar de subposts. Alleen materiële posten krijgen werk. Niet-materiële posten zijn alleen zichtbaar in het rapport, met aanpasbare presentatie en opmaak |
-| Rechtsvormen | **BV micro, BV klein, eenmanszaak, VOF** |
+| Opdrachttypen | **Samenstellen jaarrekening** (BV) en **Winstaangifte opstellen** (eenmanszaak) |
+| Rechtsvormen | MVP: **BV klein** en **eenmanszaak**. **BV micro** en **VOF** later (nog geen voorbeelden) |
+| Werkplek | **Alleen binnen kantoor**; geen server of ICT-partner aanwezig → eigen server-pc met zelfbeherende installatie en ingebouwde back-up |
+| Planning | **Geen deadline**; per fase opleveren |
 | Uitvoer | **PDF en Word** |
 | Rapportnorm | De aangeleverde voorbeeldrapporten (BV klein jaarrekening; eenmanszaak bijlage aangifte IB) |
 | Deponeren | **Voorlopig negeren** |
@@ -25,7 +28,7 @@ API-koppelingen vallen (voorlopig) buiten de scope.
 
 | # | Hoofdstuk | Kern |
 |---|---|---|
-| 1 | [Marktreferentie](01-marktreferentie-bestaande-samenstelsoftware.md) | Achtergrond: hoe werkt bestaande samenstelsoftware? (onderzocht aan de hand van een veelgebruikt pakket) |
+| 1 | [Marktreferentie](01-gangbare-werkwijze-samenstelsoftware.md) | Achtergrond: hoe werkt bestaande samenstelsoftware? (onderzocht aan de hand van een veelgebruikt pakket) |
 | 2 | [Vaktechnisch kader](02-vaktechnisch-kader.md) | Standaard 4410, VGBA/Wwft, dossierafsluiting, jaarrekening per rechtsvorm en grootte, standaardteksten |
 | 3 | [Gegevensimport](03-gegevensimport-xaf-excel-rgs.md) | **Standaard importsjabloon** met controles, XAF 3.x/4.0, RGS-structuur en -versies |
 | 4 | [Rubricering](04-rubricering-ontwerp.md) | Rubriekenschema, koppelengine (handmatig > sjabloon > RGS > voorstel), omslag, jaarovergang |
@@ -63,12 +66,13 @@ API-koppelingen vallen (voorlopig) buiten de scope.
    - de rapporten bestaan uit 22 bouwstenen, en per post zijn de presentatie en opmaak aan te passen.
 6. **Vaktechniek:** Standaard 4410, VGBA, Wwft en de NVKS (vanaf 2027 SKM1) bepalen de dossiereisen. Het dossier sluit binnen twee maanden na de verklaring.
 7. **Architectuur:**
-   - een kantoorserver (ASP.NET Core en Blazor Server) met PostgreSQL;
+   - een eigen **server-pc op kantoor** (ASP.NET Core en Blazor Server) met PostgreSQL, alleen bereikbaar binnen kantoor;
+   - een zelfbeherende installatie, en een ingebouwde, versleutelde back-up met herstelknop, want er is geen ICT-partner;
    - inloggen met eigen wachtwoord (ASP.NET Core Identity), en de database is niet bereikbaar vanaf de werkplekken;
    - PDF en Word uit één rapportmodel.
 8. **De inhoud is de helft van het werk:** rubriekenschema's, de RGS→rubriek-tabel, het werkprogramma, standaardteksten en rapportsjablonen. Daarvoor is een vaktechnisch verantwoordelijke nodig.
-9. **Inspanning (ruwe indicatie):** een MVP in circa **8–10 maanden**, met 1 fte ontwikkeling en 0,2–0,4 fte vaktechniek. Daarna jaarlijks onderhoud.
-10. **Volgende stap:** de openstaande **P1-vragen** beantwoorden ([hoofdstuk 11](11-vragenlijst.md)), de testset en een voorbeeld **VOF** en **BV micro** aanleveren, en fase 0 starten.
+9. **Inspanning (ruwe indicatie):** een MVP (BV klein en eenmanszaak) in circa **7–9 maanden**, zonder deadline en per fase opgeleverd, met 1 fte ontwikkeling en 0,2–0,4 fte vaktechniek. Daarna jaarlijks onderhoud.
+10. **Volgende stap:** de openstaande **P1-vragen** beantwoorden ([hoofdstuk 11](11-vragenlijst.md)), de testset (BV en eenmanszaak) aanleveren, een server-pc aanschaffen, en fase 0 starten.
 
 ## Over de bronnen
 

@@ -54,20 +54,20 @@
 - **NV KM, SKM1 en SKM3N** zijn vastgesteld op 30-1-2025 en worden **per 1-1-2027 verplicht voor alle overige kantoren** [15][16].
 - **Termijn dossierafsluiting:**
   - de NVKS (art. 12) noemt **uiterlijk twee maanden** na de datum van de verklaring [14];
-  - gangbare samenstelsoftware sluit automatisch na **60 dagen** (zie [hoofdstuk 1](01-marktreferentie-bestaande-samenstelsoftware.md));
+  - gangbare samenstelsoftware sluit automatisch na **60 dagen** (zie [hoofdstuk 1](01-gangbare-werkwijze-samenstelsoftware.md));
   - of NV KM/SKM1 voor samenstellen dezelfde termijn kent, is (O);
   - **in de software instelbaar maken**, standaard 60 dagen.
 - **Bewaartermijn:**
   - minimaal **7 jaar** voor opdrachtdocumentatie [5];
   - fiscale bewaarplicht van 7 jaar (art. 52 AWR, EK);
   - Wwft-gegevens 5 jaar na einde relatie.
-- **Na afsluiting** zijn wijzigingen alleen mogelijk als gedocumenteerd addendum [5]. In de markt is "niet heropenen, wel kopiëren" gangbaar (zie [hoofdstuk 1](01-marktreferentie-bestaande-samenstelsoftware.md)).
+- **Na afsluiting** zijn wijzigingen alleen mogelijk als gedocumenteerd addendum [5]. In de markt is "niet heropenen, wel kopiëren" gangbaar (zie [hoofdstuk 1](01-gangbare-werkwijze-samenstelsoftware.md)).
 - **Dossierreview**: de vragenlijst van de Raad voor Toezicht volgt aanvaarding, planning, uitvoering/evaluatie, rapportering/communicatie en documentatie [12]. Een review-checklist per dossier en een kantooroverzicht voor de SKM1-monitoring zijn nuttig, maar hebben lagere prioriteit.
 
 ## 2.4 Werkprogramma samenstellen
 
 - Het **SRA-werkprogramma** is risicogericht en werkt met **sturende vragen en vastgelegde beslissingen** die naar een werkprogramma op maat leiden. Er is een apart spoor voor administratieve dienstverlening, en het wordt jaarlijks geactualiseerd [21][22][57].
-  - Het is in licentie beschikbaar in Caseware, Exact, Infine, Nmbrs, Silverfin, Visma en andere pakketten. **De inhoud zit achter een SRA-login. Opnemen in eigen software vraagt een licentie van SRA (O).**
+  - Het is in licentie beschikbaar in diverse samenstelpakketten. **De inhoud zit achter een SRA-login. Opnemen in eigen software vraagt een licentie van SRA (O).**
 - De standaard schrijft geen stappen per post voor. Verplicht zijn de documentatie-elementen; de diepgang per post is een risicogerichte keuze die je vastlegt [26][23].
 - **Consequentie:** de software levert een **werkprogramma-engine** (sjablonen, stappen, voorwaarden, verplichtingen). Het kantoor vult die met:
   - **(a)** een eigen kantoorwerkprogramma (de basisversie stellen we samen op basis van de standaard en de onderstaande stappen), of
@@ -196,6 +196,13 @@ Relevante ethische voorschriften – … (VGBA) …                  [40; formul
 
 ## 2.7 Opdrachttypen
 
+> **Besluit (23-10-2026):** het kantoor voert twee soorten opdrachten uit, en die worden de twee
+> opdrachttypen in de MVP:
+> - **Samenstellen jaarrekening** (BV; Standaard 4410, met samenstellingsverklaring);
+> - **Winstaangifte opstellen** (eenmanszaak, later VOF; bijlage bij de aangifte IB, zonder verklaring, voettekst "Geen accountantscontrole toegepast").
+>
+> De overige typen in de tabel hieronder zijn ter informatie.
+
 | Type | Kader | Gevolg in de software |
 |---|---|---|
 | **Samenstellingsopdracht** | Standaard 4410 / HR 1136 | Volledig werkprogramma, verklaring BW2, micro of IB [5] |
@@ -254,7 +261,7 @@ Relevante ethische voorschriften – … (VGBA) …                  [40; formul
 20. https://www.accountant.nl/nieuws/2024/8/accountant-moet-ubo-uittreksel-voorlopig-opvragen-via-de-klant/
 21. https://www.sra.nl/advisering/vaktechniek/werkprogrammas/samenstellen/kenmerken-sra-werkprogrammas-samenstellen
 22. https://www.sra.nl/nieuwsoverzicht/2023/sra-handboek-samenstellings--en-adviespraktijk-herzien
-23. https://www.sra.nl/vaktechniek/tooling/werkprogrammas/samenstellen/sra-nmbrs-samenstellen
+23. SRA, productinformatie werkprogramma samenstellen (zie ook [21])
 24. https://www.accountant.nl/nieuws/2016/6/handreiking-over-samenstellingsopdrachten-gepubliceerd/
 25. https://www.accountancyvanmorgen.nl/2015/03/11/een-analyse-van-de-wijzigingen-in-de-herziene-standaard-4410/
 26. https://www.nba.nl/tools-en-ondersteuning/publicaties/2015/risicogerichte-aanpak-samenstellingsopdracht/
@@ -274,7 +281,7 @@ Relevante ethische voorschriften – … (VGBA) …                  [40; formul
 40. https://preproduction.accountant.nl/siteassets/accountant.nl/blad/2014-nr1.-12/acc_2014_12_samenstellingsverklaring.pdf
 41. https://www.accountant.nl/nieuws/2016/5/nba-komt-met-samenstelverklaring-bij-micro-entiteiten/
 42. https://www.accountancyvanmorgen.nl/?p=755
-43. https://www.visionplanner.com/hubfs/Notulen%20Vakgroep%20Accountancy%20Visionplanner%20Bijeenkomst%2031.pdf
+43. Notulen van een vakgroep accountancy bij een softwareleverancier (2026); niet openbaar gelinkt
 44. https://www.sra.nl/~/media/srawebsite/documenten/openbaar/vaktechniek/hra-deel-3-voorbeeldteksten-versie-23-februari-2015.pdf
 45. https://www.accountancyvanmorgen.nl/2015/11/04/nba-publiceert-engelstalige-opdrachtbevestiging-volgens-standaard-4410h/
 46. https://www.nba.nl/tools-en-ondersteuning/faqs-en-helpdesk/faqs-continuiteit/

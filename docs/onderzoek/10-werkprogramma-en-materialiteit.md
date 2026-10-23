@@ -11,7 +11,7 @@
 
 | Begrip | Betekenis |
 |---|---|
-| **Werkprogrammasjabloon** | Het kantoorwerkprogramma per opdrachttype, bijv. *Samenstellen BV* en *Winstaangifte EZ/VOF*. Het heeft versies en wordt beheerd door de vaktechnisch beheerder |
+| **Werkprogrammasjabloon** | Het kantoorwerkprogramma per opdrachttype: *Samenstellen jaarrekening* (BV) en *Winstaangifte opstellen* (eenmanszaak; VOF later). Het heeft versies en wordt beheerd door de vaktechnisch beheerder |
 | **Hoofdpost** | Een post op het niveau waarop materieel wordt gekozen, bijv. *Materiële vaste activa*, *Vorderingen*, *Liquide middelen*, *Kortlopende schulden*, *Netto-omzet*, *Personeelskosten*. Gekoppeld aan een tak van het rubriekenschema |
 | **Subpost** | Een onderdeel van een hoofdpost, bijv. bij *Vorderingen*: *Handelsdebiteuren*, *Groepsmaatschappijen*, *Overlopende activa*. Dit volgt de rubriekenboom |
 | **Postprogramma** | De standaardstappen voor een hoofdpost in het sjabloon. Ze worden alleen geactiveerd als de post materieel is |
@@ -23,20 +23,20 @@
 PLANNING – keuze materiële posten                UITVOERING (alleen materiële posten)
 ┌────────────────────────────────────────────┐   ┌──────────────────────────────────────────────┐
 │ Hoofdpost            Huidig    Vorig  Mat. │   │ ● Vorderingen                                 │
-│ ▸ Mat. vaste activa  214.374  223.952 [x]  │   │   ▾ Cijfers (doorklikken)                     │
-│ ▾ Vorderingen        380.023  415.957 [x]  │──►│       Handelsdebiteuren      207.496  265.227 │
-│     Handelsdebiteuren 207.496 265.227      │   │         1300 Debiteuren      242.996  291.227 │
-│     Groepsmaatsch.    15.329   73.031      │   │         1310 Voorz. dubieus  -35.500  -26.000 │
-│     Overlopende act. 157.198   77.699      │   │       Groepsmaatschappijen    15.329   73.031 │
-│ ▸ Liquide middelen   188.328  351.907 [ ]  │   │       Overlopende activa     157.198   77.699 │
-│ ▸ Kortl. schulden    398.513  381.713 [x]  │   │   Werkprogramma (5 stappen)  + Stap toevoegen │
+│ ▸ Mat. vaste activa   85.000   92.000 [x]  │   │   ▾ Cijfers (doorklikken)                     │
+│ ▾ Vorderingen        160.000  140.000 [x]  │──►│       Handelsdebiteuren      120.000   95.000 │
+│     Handelsdebiteuren 120.000  95.000      │   │         1300 Debiteuren      135.000  105.000 │
+│     Groepsmaatsch.    10.000   25.000      │   │         1310 Voorz. dubieus  -15.000  -10.000 │
+│     Overlopende act.  30.000   20.000      │   │       Groepsmaatschappijen    10.000   25.000 │
+│ ▸ Liquide middelen    64.000   81.000 [ ]  │   │       Overlopende activa      30.000   20.000 │
+│ ▸ Kortl. schulden    110.000   98.000 [x]  │   │   Werkprogramma (5 stappen)  + Stap toevoegen │
 │ …                                          │   │ ● Kortlopende schulden                        │
 │ Toelichting keuze (optioneel): …           │   │   …                                           │
 └────────────────────────────────────────────┘   └──────────────────────────────────────────────┘
                                                   RAPPORT (alle posten)
                                                   └ Presentatie en opmaak per post aanpassen
 ```
-*(Bedragen zijn illustratief.)*
+*(Fictieve bedragen.)*
 
 1. **Keuze materiële posten** (planning).
    - Een tabel toont alle hoofdposten met huidig en vorig saldo. Met ▸/▾ klap je een hoofdpost open naar de subposts, en een subpost naar de grootboekrekeningen.
@@ -84,7 +84,7 @@ samenvoegingen en omschrijvingen maar één keer in te stellen.
 ## 10.5 Het sjabloon (beheer)
 
 ```
-Werkprogrammasjabloon "Samenstellen BV" v2027.1
+Werkprogrammasjabloon "Samenstellen jaarrekening" (BV) v2027.1
 ├─ Profiel ─ Cliënt · Opdracht · Rapport
 ├─ Voorbereiding
 │  ├─ Acceptatie: Scope opdracht* · Akkoord acceptatie*      (vragen + standaardantwoorden)

@@ -1,8 +1,8 @@
 # 5. Functioneel ontwerp
 
-> **Bijgewerkt op 23-10-2026**: meerdere gebruikers met wachtwoord (M0), het standaard importsjabloon (M4), werk alleen voor door de gebruiker gekozen materiële posten (M7/M8), PDF en Word (M10), en kengetallen en Vpb in de MVP (M13/M14). Rechtsvormen: BV micro, BV klein, eenmanszaak en VOF. Deponeren valt buiten de scope.
+> **Bijgewerkt op 23-10-2026**: meerdere gebruikers met wachtwoord (M0), het standaard importsjabloon (M4), werk alleen voor door de gebruiker gekozen materiële posten (M7/M8), PDF en Word (M10), en kengetallen en Vpb in de MVP (M13/M14). Opdrachttypen: *Samenstellen jaarrekening* en *Winstaangifte opstellen*. Rechtsvormen in de MVP: BV klein en eenmanszaak; BV micro en VOF later. Alleen binnen kantoor. Deponeren valt buiten de scope.
 
-> Dit hoofdstuk vertaalt de marktreferentie ([hoofdstuk 1](01-marktreferentie-bestaande-samenstelsoftware.md)),
+> Dit hoofdstuk vertaalt de marktreferentie ([hoofdstuk 1](01-gangbare-werkwijze-samenstelsoftware.md)),
 > de beroepsregels ([hoofdstuk 2](02-vaktechnisch-kader.md)) en de import- en rubriceringslogica
 > ([hoofdstukken 3](03-gegevensimport-xaf-excel-rgs.md) en [4](04-rubricering-ontwerp.md)) naar modules
 > en schermen voor onze eigen applicatie. Per module staat of die in de **MVP** zit of later volgt.
@@ -47,10 +47,10 @@ Een tabel met alle klanten:
 Met zoeken, filteren (medewerker, status, rechtsvorm), sorteren, een knop "Klant toevoegen" en een selectievakje voor bulkacties.
 
 ### S2 – Dossierlijst per klant (screenshot 2)
-Kolommen Dossier, Jaar, Aard opdracht, Status, Laatst gewijzigd en Acties (verwijderen alleen als het dossier niet is gesloten).
+Kolommen Dossier, Jaar, Soort opdracht, Status, Laatst gewijzigd en Acties (verwijderen alleen als het dossier niet is gesloten).
 Knop **+ Dossier** start een wizard:
 1. Boekjaar en periode (verkort of verlengd boekjaar mogelijk).
-2. Aard opdracht (samenstellen, aangifte, overig) → bepaalt welk werkprogrammasjabloon en rapportsjabloon gekozen worden.
+2. Soort opdracht: **Samenstellen jaarrekening** (BV) of **Winstaangifte opstellen** (eenmanszaak). Dit bepaalt welk werkprogrammasjabloon en rapportsjabloon gekozen worden.
 3. Sjabloonversies (de standaard is de nieuwste actieve versie).
 4. **Doorrollen vanuit vorig dossier**: vergelijkende cijfers, specificaties (omschrijvingen en vorig-jaarbedragen), verloopoverzichten (eindstand wordt beginstand), aangepaste rapportteksten, terugkerende correctieboekingen en permanente dossierstukken (statuten, opdrachtbevestiging).
 
@@ -111,7 +111,7 @@ Journaalpostinvoer met regels (rekening, omschrijving, debet, credit) en een bal
 ## 5.3 Werkstroom (happy flow)
 
 ```
-Klant aanmaken ─► Dossier 2025 aanmaken (sjabloon "Samenstellen BV klein", doorrollen uit 2024)
+Klant aanmaken ─► Dossier 2025 aanmaken (soort opdracht "Samenstellen jaarrekening", BV klein, doorrollen uit 2024)
    │
    ├─ Profiel: klantgegevens, opdracht, rapportinstellingen controleren
    ├─ Voorbereiding: acceptatie (fundamentele beginselen, integriteit, Wwft, opdrachtbevestiging) ✔
