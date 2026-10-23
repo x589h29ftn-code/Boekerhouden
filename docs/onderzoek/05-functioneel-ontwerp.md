@@ -36,9 +36,9 @@ Een tabel met alle klanten:
 | Klant | Naam + klantnummer |
 | Alerts | Aantal signalen. Voorbeelden: ongekoppelde rekeningen met saldo, proefbalans niet in evenwicht, beginbalans sluit niet aan op vorig jaar, specificatie wijkt af van saldo, open reviewpunten, dossier te lang open |
 | Geïmporteerd | Datum laatste import. **Rood** als die ouder is dan de drempel (bijv. 90 dagen) of ouder dan de einddatum van het boekjaar |
-| Bekeken | Datum waarop de klant voor het laatst is geopend door een gebruiker. Rood als oud |
+| Bekeken | In Visionplanner: wanneer een *klantgebruiker* (de ondernemer, via het portaal) de klant voor het laatst opende. Wij hebben geen klantportaal, dus deze kolom wordt **Laatst bewerkt**: datum en medewerker van de laatste wijziging |
 | Gekoppeld | % van de grootboekrekeningen *met saldo* dat aan een rubriek is gekoppeld. Doel: 100% |
-| Abonnement | Bij Visionplanner de actieve modules (dossier en dashboard). In onze app vervangen we dit door **Lopend dossier: status** |
+| Abonnement | Bij Visionplanner de actieve modules (bijv. Compilation Professional of Premium). In onze app vervangen we dit door **Lopend dossier: status** |
 | Open taken | Aantal open taken en reviewpunten |
 
 Met zoeken, filteren (medewerker, status, rechtsvorm), sorteren, een knop "Klant toevoegen" en een selectievakje voor bulkacties.

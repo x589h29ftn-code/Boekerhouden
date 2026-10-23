@@ -1,0 +1,314 @@
+# 3. Gegevensimport: XAF-auditfile, Excel/CSV-proefbalans en RGS
+
+> Wat moet de applicatie kunnen inlezen, in welk formaat, en hoe maken we daar een betrouwbare
+> proefbalans van? Notatie: **[n]** = bron (lijst onderaan), **(EK)** = eigen kennis of afleiding,
+> **(O)** = onbevestigd. Een deel van de technische details komt uit openbare GitHub-repositories
+> van derden met kopieën van XSD's en voorbeeldbestanden. Valideer die tegen de officiële bron
+> (odb.belastingdienst.nl en referentiegrootboekschema.nl) voordat je bouwt.
+
+## 3.1 Importbronnen in scope
+
+| Bron | Prioriteit | Waarom |
+|---|---|---|
+| **XAF 3.2** (XML Auditfile Financieel) | MVP | Vrijwel elk Nederlands boekhoudpakket kan het exporteren. Bevat rekeningschema, beginbalans, alle boekingen en soms RGS-codes |
+| **XAF 4.0** | MVP | **Vanaf 1-1-2027 accepteert de Belastingdienst alleen XAF 4.0** [17][18][46]. Pakketten stappen massaal over (o.a. Visma eAccounting, Dynamics 365 [20][47]) |
+| **XAF 3.1** | MVP (zelfde parser) | Oudere exports en vorig-jaarbestanden |
+| **Excel/CSV-proefbalans** | MVP | Pakketten zonder goede XAF, handmatige proefbalansen, eerste jaar (cijfers vorig jaar) |
+| **Visionplanner-Excelsjabloon** als importprofiel | Nice-to-have | Kantoren hebben deze bestanden al. Opbouw: klantnaam B3, boekjaren rij 4, perioden rij 5, blokken BALANS en WINST & VERLIES; balans = standen, W&V = mutaties [hfst. 1, 41] |
+| **RGS-referentietabel** (Excel van referentiegrootboekschema.nl) | MVP (beheer) | Basis voor automatisch rubriceren |
+| **RGS Brugstaat** (XML) | Later (O) | Officiële export van saldi per RGS-code, gebruikt door CBS en fiscale software [31][32][45]. Mogelijk een handig tweede formaat |
+| API-koppelingen (Exact, Twinfield, …) | ❌ Buiten scope | |
+
+## 3.2 XML Auditfile Financieel (XAF)
+
+### Versies en herkenning
+
+| Versie | Namespace (root-element `auditfile`) |
+|---|---|
+| 3.1 | `http://www.auditfiles.nl/XAF/3.1` [34] |
+| 3.2 | `http://www.auditfiles.nl/XAF/3.2` [14][18] |
+| 4.0 | `http://www.odb.belastingdienst.nl/Belastingdienst/BCPP/1.1/structures/XmlauditfileXAF_4.0` [15] (verifiëren tegen de ODB) |
+
+- **Beheer:** de Belastingdienst, via odb.belastingdienst.nl/auditfiles en de Stuurgroep Auditfiles [16][21].
+- **Herkenning:** de parser leest eerst alleen het root-element en de namespace (XmlReader), en kiest daarna de juiste mapping. Elk bestand wordt gevalideerd tegen de officiële XSD van zijn versie.
+
+### Structuur XAF 3.2 (bevestigd met XSD en test-XML [14])
+
+```
+auditfile
+├─ header: fiscalYear, startDate, endDate, curCode, dateCreated, softwareDesc, softwareVersion
+└─ company: companyIdent, companyName, taxRegistrationCountry, taxRegIdent, streetAddress, postalAddress
+   ├─ customersSuppliers/customerSupplier: custSupID, custSupName, commerceNr, custSupTp, …
+   ├─ generalLedger/ledgerAccount: accID, accDesc, accTp (B | M | P),
+   │      leadCode, leadDescription, leadReference, leadCrossRef,
+   │      taxonomy* (taxoRef, entryPoint*(entryPointRef, conceptRef, domainMember…)), changeInfo, glAccountHistory
+   ├─ vatCodes/vatCode: vatID, vatDesc, vatToPayAccID, vatToClaimAccID
+   ├─ periods/period: periodNumber (0–999), periodDesc, startDatePeriod, endDatePeriod
+   ├─ openingBalance: opBalDate, opBalDesc, linesCount, totalDebit, totalCredit,
+   │      obLine*(nr, accID, amnt, amntTp D|C), obSubledgers?
+   └─ transactions: linesCount, totalDebit, totalCredit,
+          journal*(jrnID, desc, jrnTp, offsetAccID, bankAccNr,
+            transaction*(nr, desc, periodNumber, trDt, amnt, amntTp, sourceID, userID,
+              trLine*(nr, accID, docRef, effDate, desc, amnt, amntTp, custSupID, invRef,
+                      costID, projID, vat(vatID, vatPerc, vatAmnt, vatAmntTp), currency(curCode, curAmnt), …)))
+```
+
+- **`accTp`**: B = balans, P = winst-en-verlies. M komt in de 3.2-XSD voor, maar de betekenis is (O); vermoedelijk "gemengd". Kruiscontrole met de eerste letter van de RGS-code (B/W).
+- **`jrnTp`** (dagboektype) kent o.a. B, P, S, T, Y, Z en O [14][44]. De volledige lijst is (O). Voor de proefbalans is dit veld niet nodig; voor drill-down is het handig.
+
+### Verschillen in XAF 4.0 [15][16][19]
+- Ongeveer 90 velden in plaats van ongeveer 250.
+- **`ledgerAccount/RGScode`** is een vast veld voor RGS, en **`header/RGSVersion`** geeft de RGS-versie.
+- `accTp` kent alleen nog **B/P**. De velden `lead*` zijn verdwenen. Er is een veld voor het KvK-nummer (`Commercenr`) en `periodDesc` vervalt.
+- Volgens de geraadpleegde XSD-kopie heeft `openingBalance` geen `opBalDate` meer (O).
+
+### Waar staat de RGS-code? (cruciaal voor automatisch rubriceren)
+Pakketten doen het verschillend [7][22][23][24][34][19].
+
+**Parservolgorde** (eerste geldige treffer wint):
+
+1. `ledgerAccount/RGScode` (4.0)
+2. `taxonomy/taxoRef` of `conceptRef` (3.2, volgens de editie van 2017)
+3. `leadReference` (3.x in de praktijk: Exact, Minox, CASH). Daarnaast `leadCrossRef` als omslagcode
+4. `leadCode` (alleen als het een geldige RGS-code is)
+
+Elke gevonden code wordt **gevalideerd tegen de RGS-tabel**. Pakketten exporteren soms codes die niet in RGS staan [43]. Een ongeldige code wordt bewaard, maar niet gebruikt voor rubricering, en levert een melding op.
+**Niet vertrouwen op `leadCode`/`leadDescription` als rubricering.** In Exact is dat een eigen verdichting van het pakket; in een demobestand staat "Geplaatst kapitaal" onder leadCode "Materiële vaste activa" [35]. Gebruik het hooguit als hint voor een voorstel.
+
+### Minimaal voorbeeld (XAF 3.2, vereenvoudigd)
+
+```xml
+<auditfile xmlns="http://www.auditfiles.nl/XAF/3.2">
+ <header>
+  <fiscalYear>2025</fiscalYear><startDate>2025-01-01</startDate><endDate>2025-12-31</endDate>
+  <curCode>EUR</curCode><dateCreated>2026-02-15</dateCreated>
+  <softwareDesc>PakketX</softwareDesc><softwareVersion>1.0</softwareVersion>
+ </header>
+ <company>
+  <companyIdent>12345678</companyIdent><companyName>Voorbeeld BV</companyName>
+  <taxRegistrationCountry>NL</taxRegistrationCountry><taxRegIdent>NL001234567B01</taxRegIdent>
+  <generalLedger>
+   <ledgerAccount><accID>0500</accID><accDesc>Geplaatst kapitaal</accDesc><accTp>B</accTp>
+    <leadReference>BEivGokGea</leadReference></ledgerAccount>
+   <ledgerAccount><accID>1100</accID><accDesc>ING Bank</accDesc><accTp>B</accTp>
+    <leadReference>BLimBanRba</leadReference><leadCrossRef>BSchSakRba</leadCrossRef></ledgerAccount>
+   <ledgerAccount><accID>8000</accID><accDesc>Omzet</accDesc><accTp>P</accTp>
+    <leadReference>WOmzNop</leadReference></ledgerAccount>
+  </generalLedger>
+  <openingBalance><opBalDate>2025-01-01</opBalDate><linesCount>2</linesCount>
+   <totalDebit>5000.00</totalDebit><totalCredit>5000.00</totalCredit>
+   <obLine><nr>1</nr><accID>1100</accID><amnt>5000.00</amnt><amntTp>D</amntTp></obLine>
+   <obLine><nr>2</nr><accID>0500</accID><amnt>5000.00</amnt><amntTp>C</amntTp></obLine>
+  </openingBalance>
+  <transactions><linesCount>2</linesCount><totalDebit>1000.00</totalDebit><totalCredit>1000.00</totalCredit>
+   <journal><jrnID>BNK</jrnID><desc>Bank</desc><jrnTp>B</jrnTp>
+    <transaction><nr>25-0001</nr><desc>Ontvangst</desc><periodNumber>1</periodNumber><trDt>2025-01-15</trDt>
+     <trLine><nr>1</nr><accID>1100</accID><docRef>F25-001</docRef><effDate>2025-01-15</effDate>
+      <desc>Ontvangst</desc><amnt>1000.00</amnt><amntTp>D</amntTp></trLine>
+     <trLine><nr>2</nr><accID>8000</accID><docRef>F25-001</docRef><effDate>2025-01-15</effDate>
+      <desc>Omzet</desc><amnt>1000.00</amnt><amntTp>C</amntTp></trLine>
+    </transaction></journal></transactions>
+ </company>
+</auditfile>
+```
+*(Ingekort voorbeeld uit het onderzoek. Valideer de elementvolgorde tegen de XSD.)*
+
+### Van XAF naar proefbalans (algoritme)
+
+```
+voor elke rekening a:
+  begin(a)            = Σ obLine(a)      (D = +, C = −)
+  mut(a, p).debet     = Σ trLine(a) met amntTp = D en transaction.periodNumber = p
+  mut(a, p).credit    = Σ trLine(a) met amntTp = C en transaction.periodNumber = p
+  eind(a, t/m p)      = begin(a) + Σ_{q ≤ p} (mut(a, q).debet − mut(a, q).credit)
+```
+
+**Aandachtspunten** (op basis van de structuur en voorbeeldbestanden [34][35]; uitwerking EK):
+
+1. **Beginbalans kan op twee plekken staan.**
+   - Twinfield zet hem als boeking in **periode 0** ("Openingsbalans") [34]; andere pakketten in `openingBalance`.
+   - Sommige leveren een lege `openingBalance` met totalen 0.
+   - Detecteer dubbeltelling (beide gevuld) en ontbreken (geen van beide). Laat de gebruiker de bron kiezen en onthoud die keuze per klant.
+2. **W&V-rekeningen horen geen beginsaldo te hebben.** Staat er toch een saldo, of is Σ obLine ≠ 0, dan is het resultaat van vorig jaar niet verwerkt. Meld dat, en stel voor het resultaat naar een rekening "resultaat vorig boekjaar" of naar het eigen vermogen te boeken.
+3. **Afsluitperioden.**
+   - Periode 0 en perioden > 12 (13, 14; de XSD staat tot 999 toe) maken we per klant **configureerbaar**: meenemen of niet.
+   - Afsluitboekingen die de W&V naar het eigen vermogen overboeken, zouden de W&V op nul zetten. Detecteer een boeking die alle W&V-rekeningen op 0 brengt en sluit die standaard uit.
+4. **Valuta:** `amnt` is in de valuta van `header/curCode`; `currency/curAmnt` is alleen informatief.
+5. **Integriteitscontroles** (blokkerend):
+   - `linesCount`, `totalDebit` en `totalCredit` van `openingBalance` en `transactions` kloppen met de werkelijke regels;
+   - elk `accID` uit de regels bestaat in `generalLedger`;
+   - Σ debet = Σ credit per transactie en totaal.
+6. **Boekjaar en klant:** `header/fiscalYear` en de start- en einddatum moeten overeenkomen met het dossier. `companyName` en het KvK-nummer worden vergeleken met de klant (waarschuwing bij verschil).
+7. **Prestaties:** streaming verwerken (XmlReader). Per rekening en periode aggregeren tijdens het lezen. Transacties alleen opslaan als drill-down gewenst is (bulk insert). Geen DOM laden: bestanden kunnen honderden MB groot zijn.
+8. **Pakketeigenaardigheden** van SnelStart, AFAS, e-Boekhouden en King zijn nog (O). Daarom is een set echte testbestanden per pakket nodig (zie [hoofdstuk 8](08-roadmap-risico-s-en-beslispunten.md)).
+
+## 3.3 Excel/CSV-proefbalans
+
+**Canoniek kolomprofiel** (EK; afgestemd op wat pakketten exporteren [29][32]):
+
+| Kolom | Verplicht | Opmerking |
+|---|---|---|
+| Rekeningnummer | ✅ | Tekst (voorloopnullen behouden!) |
+| Omschrijving | ✅ | |
+| Balans/W&V | – | Afleiden uit de RGS-letter of laten kiezen |
+| RGS-code | – | Gevalideerd tegen de RGS-tabel |
+| Beginsaldo | – | Ondertekend, of twee kolommen D en C |
+| Mutaties debet / credit | – | |
+| Eindsaldo | ✅* | Ondertekend, of twee kolommen D en C. *Of afleidbaar uit begin + mutaties |
+| Periode/peildatum | – | Voor meerdere perioden: één kolom per periode, of lang formaat |
+
+**Wat de importwizard moet kunnen:**
+- kolommen toewijzen en dat **opslaan als importprofiel** per pakket of klant;
+- tekenconventies kiezen: minteken, haakjes, D/C-kolom, of "credit staat positief";
+- Nederlandse getalnotatie (`1.234,56`) lezen;
+- puntkomma als scheidingsteken en de encoding (UTF-8 / Windows-1252) automatisch herkennen;
+- controleren dat Σ = 0, met een voorbeeldweergave van de eerste regels en de totalen vóór bevestigen.
+
+## 3.4 Referentie GrootboekSchema (RGS)
+
+### Wat, wie, welke versie
+- **RGS** is een gestandaardiseerd grootboekschema met een unieke referentiecode per rekening. Het is ontwikkeld met Belastingdienst, CBS, KvK, banken, softwareleveranciers en accountants [41][50].
+  - Beheer: de **Taakgroep RGS** binnen SBR [7].
+  - *RGS MKB* is een afgeleide van GBNED (boekhoudplaza.nl) en geen officiële versie [9].
+- **Versies:**
+  - 3.7: definitief 3-3-2025 [4];
+  - **3.8: definitief 10-12-2025**, met RGS Taxonomie 3.8 op 2-2-2026 [1][2]. **Dit is de nieuwste definitieve versie (oktober 2026)**;
+  - 3.9 is in alfa/bèta en wordt naar verwachting december 2026 definitief [3][7] (O).
+- **Download:** een Excel-werkboek met o.a. de tabbladen `Totaal-RGS3.8-def`, `MKB-RGS3.8-def` en `Recap` (releasenotes) [7][8]; daarnaast een XBRL-taxonomie [7].
+- **Licentie: niet gevonden.** Het bestand is vrij downloadbaar, maar we vonden geen expliciete gebruiksvoorwaarden voor opname in software. **Navragen bij de Taakgroep RGS** (open vraag).
+
+### Opbouw van de code [5][6][7]
+
+| Niveau | Betekenis | Voorbeeld |
+|---|---|---|
+| 1 | Balans (B) of W&V (W) | `B` |
+| 2 | Hoofdrubriek | `BIva` (immateriële vaste activa) |
+| 3 | Rubriek | `BIvaKoo` (kosten van ontwikkeling) |
+| 4 | Grootboekrekening | `BIvaKooVvp` (verkrijgingsprijs) |
+| 5 | Mutatie | `…Beg` (beginbalans), `…Inv`, `…Afs`, … |
+
+- De code begint met B of W en heeft daarna segmenten van drie tekens. **Een code op een dieper niveau begint altijd met de code van zijn ouder**, dus rubriceren kan met *langste-voorvoegsel-match*.
+- RGS 3.5 had 4.740 codes, waarvan 2.973 op niveau 5 [11].
+- De niveaustructuur volgt de BMJ-indeling van balans en W&V [boekhoudplaza].
+
+**Velden in het werkboek** [7][5]:
+
+| Veld | Betekenis |
+|---|---|
+| `Referentiecode` | **Sleutel**, bijv. `BMvaBeiCae` |
+| `ReferentieOmslagcode` | Tegenrekening bij een omgekeerd saldo |
+| `Sortering` | Sorteersleutel |
+| `Referentienummer` | Voorbeeldnummer. **Verschilt per versie: nooit als sleutel gebruiken** [12][7] |
+| `Omschrijving` (kort en lang) | |
+| `D/C` | Normale saldokant |
+| `Nivo` | Niveau |
+| `Basis`, `Uitgebr`, `EZ/VOF`, `ZZP`, `WoCo`, `BV`, `Agro`, `Stichting`, … | Filterkolommen per toepassing (in 3.9 komt `Zorg` erbij) |
+| `Inactief` | Vervallen code |
+
+**Omslagcode** [5][7][9]: een bankrekening-courant `BLimBanRba` (D) heeft omslag `BSchSakRba` (rekening-courant kredietinstellingen, C). De omslag wordt **apart voor begin- en eindsaldo** toegepast [7]. Dat is precies het mechanisme voor de "omslagrubriek" in ons datamodel.
+
+### Voorbeeldcodes (indicatief; verifiëren tegen de RGS 3.8-tabel)
+
+| Post | RGS-code | Bron |
+|---|---|---|
+| Kas | `BLimKasKas` (D) | [12][7] |
+| Bank rekening-courant | `BLimBanRba` (D), omslag `BSchSakRba` | [12][7] |
+| Debiteuren | `BVorDeb` / `BVorDebHad` | [12][7] |
+| Voorraad handelsgoederen | `BVrdHan` / `BVrdHanVoo` | [12] |
+| Bedrijfsgebouwen | `BMvaBeg` (+ `Vvp` verkrijgingsprijs, `Cae` cumulatieve afschrijving) | [13] |
+| Inventaris | `BMvaBei` / `BMvaBeiVvp` / `BMvaBeiCae` | [12] |
+| Ontwikkelingskosten | `BIvaKoo` / `BIvaKooVvp` / `BIvaKooCae` | [13] |
+| Goodwill | `BIvaGoo` (…) | [13][10] |
+| Geplaatst kapitaal | `BEivGok` / `BEivGokGea` (C) | [7] |
+| Overige reserves | `BEivOvr` | [13] |
+| Onverdeelde winst / resultaat boekjaar | `BEivOre` / `BEivOreRvh` | [13] |
+| Ondernemingsvermogen (IB) en privé | `BEivKap` / `BEivKapOnd`, `BEivKapPrs` / `BEivKapPro` | [12] |
+| Crediteuren | `BSchCre` / `BSchCreHac` | [7] |
+| Btw | `BSchBepBtw` | [12][7] |
+| Loonheffing | `BSchBepLhe` | [12] |
+| Vpb-schuld | `BSchBepVpb` | [12] |
+| Omzet | `WOmzNop`, `WOmzNoh`, `WOmzNod` | [12] |
+| Inkoopwaarde handelsgoederen | `WKprInh` | [12] |
+| Lonen / sociale lasten | `WPerLes` / `WPerSol` | [12] |
+| Afschrijvingen MVA / IVA | `WAfsAmv` / `WAfsAiv` | [12] |
+| Huisvestingskosten | `WBedHui` | [12] |
+| Rentelasten | `WFbeRls` | [12] |
+
+### RGS-versies in de software
+- Bewaar **per grootboekrekening de RGS-code én de RGS-versie** waaruit hij kwam (XAF 4.0 levert `RGSVersion`; bij 3.x en Excel vraagt de import erom, standaard de actuele versie).
+- Bij een nieuwe RGS-versie importeert de beheerder het nieuwe werkboek. Vervallen codes (`Inactief`) en hernoemingen worden via een conversietabel (op basis van het `Recap`-tabblad) omgezet. Koppelingen worden alleen herberekend voor automatisch gekoppelde rekeningen, met een overzicht van de verschillen.
+
+### Welke pakketten leveren RGS mee?
+
+| Pakket | RGS in export | Bron |
+|---|---|---|
+| Exact Online | Ja, XAF 3.2 met RGS in `leadReference` | [26][34][35] |
+| AFAS Profit | Ja (RGS 3.7, saldi per RGS) | [28] |
+| SnelStart | Ja (RGS-koppeling per rekening) | [29][49] |
+| Moneybird | Ja, sinds 1-7-2024 verplicht bij nieuwe rekeningen | [30] |
+| Yuki | Ja, XAF 3.2 met RGS | [25] |
+| Visma eAccounting | XAF 4.0.3 | [20] |
+| Minox, CASH | Ja (`leadReference`, CASH in 4.0 `RGScode`) | [24][19] |
+| Twinfield | RGS als rapportagestructuur; in XAF (O) | [27] |
+| e-Boekhouden, King | (O) | – |
+
+**Conclusie:** bij de meeste moderne pakketten levert de XAF een RGS-code mee. Daarmee kunnen we het grootste deel van de rekeningen automatisch rubriceren. Voor het restant zijn kantoorsjablonen en handmatig koppelen nodig (zie [hoofdstuk 4](04-rubricering-ontwerp.md)).
+
+## 3.5 Testdata die we nodig hebben
+
+- **Echte XAF-bestanden** (geanonimiseerd of met toestemming) uit Exact Online, Twinfield, SnelStart, AFAS, e-Boekhouden, Moneybird, Yuki en eventueel King. Bij voorkeur van klanten waarvan we het eindresultaat (de jaarrekening uit Visionplanner) al hebben. Dat geeft een *golden master*: onze proefbalans en rubricering moeten hetzelfde resultaat geven.
+- **Minstens één XAF 4.0-bestand** per pakket dat het al ondersteunt.
+- Openbare voorbeeldbestanden op GitHub (bijv. Exact 3.2 en Twinfield 3.1 [34], de XSD en test-XML 3.2 [14]) zijn bruikbaar voor de eerste parsertests. Het zijn derde-partijbronnen, maar de officiële XSD's halen we bij de ODB.
+
+## Open vragen
+
+1. Licentie- en gebruiksvoorwaarden voor het opnemen van de RGS-tabel in eigen software (Taakgroep RGS).
+2. De officiële XAF 4.0-XSD (incl. 4.0.3) en de verplichte velden. Verifiëren op odb.belastingdienst.nl.
+3. De betekenis van `accTp = M` (3.2) en de volledige lijst van `jrnTp`-waarden.
+4. Hoe de XAF-exports van SnelStart, AFAS, e-Boekhouden en King er in de praktijk uitzien (beginbalans, afsluitperioden, plaats van RGS).
+5. Het formaat van de RGS Brugstaat (XML) en of die een zinvol tweede importformaat is.
+
+## Bronnen
+
+[1] https://www.referentiegrootboekschema.nl/Actueel/definitieve-versie-rgs-38-gepubliceerd ·
+[2] https://www.referentiegrootboekschema.nl/definitieve-versie-rgs-38 ·
+[3] https://www.referentiegrootboekschema.nl/actueel ·
+[4] https://www.referentiegrootboekschema.nl/Actueel/definitieve-versie-rgs-37-gepubliceerd ·
+[5] https://www.referentiegrootboekschema.nl/beschrijving-velddefinities-rgs ·
+[6] https://www.referentiegrootboekschema.nl/opbouw-rgs ·
+[7] https://github.com/MaxSchoon/rgs-skill (derde partij, gecontroleerd tegen RGS 3.8-def.xlsx) ·
+[8] https://www.referentiegrootboekschema.nl/sites/default/files/kennisbank/RGS%203.8-def.xlsx ·
+[9] https://www.boekhoudplaza.nl/wiki_uitleg/107&bronw=1/RGS_MKB_implementatie_voor_leveranciers_van_boekhoudsoftware.htm ·
+[10] https://www.boekhoudplaza.nl/rgs_rekeningen/BIvaGooAkp&KB=X/Actuele_kostprijs_goodwill.htm ·
+[11] https://boekhoudplaza.nl/upload/boekhoudplaza/rgs/versie35/Toelichting%20%20releasenotes%20bij%20definitieve%20versie%20RGS%203.5.pdf ·
+[12] https://github.com/onesteinbv/addons-generic (l10n_nl_rgs; oudere RGS 3.x) ·
+[13] https://github.com/Ekwo-ai/ekwo-os (RGS 3.8 MKB-selectie, derde partij) ·
+[14] https://github.com/BananaAccounting/Netherlands (XAF 3.2 XSD + test-XML) ·
+[15] https://github.com/samhoven16/boekhouding-engine (kopie XAF 4.0 XSD) ·
+[16] https://odb.belastingdienst.nl/auditfiles/achtergrond-informatie-xaf4-0/ ·
+[17] https://www.softwarepakketten.nl/swpakketten/auditfiles/auditfile_financieel.php?bronw=6 ·
+[18] https://pypi.org/project/pyxaf/ ·
+[19] https://www.cashweb.nl/handleiding/v3/s0680.htm ·
+[20] https://eaccounting.nl/productnieuws/exportbestand-auditfile-bijgewerkt-naar-versie-xaf-4.0 ·
+[21] https://www.sra.nl/nieuwsoverzicht/2024/consultatieversie-auditfile-financieel-4-xaf-beschikbaar ·
+[22] https://www.referentiegrootboekschema.nl/rgs-en-de-koppeling-tussen-sbr-en-auditfile-financieel ·
+[23] https://www.boekhoudplaza.nl/bericht/1453&bronw=1/RGS_in_de_Auditfile_FInancieel_XAF.htm ·
+[24] https://www.cbs.nl/-/media/cbsvooruwbedrijf/productiestatistiek-rgs/minox_boekhoudsoftware_rgsready.pdf ·
+[25] https://www.cbs.nl/-/media/cbsvooruwbedrijf/productiestatistiek-rgs/yuki_boekhoudsoftware_rgsready.pdf ·
+[26] https://www.cbs.nl/-/media/cbsvooruwbedrijf/productiestatistiek-rgs/exactonline_boekhoudsoftware_rgsready.pdf ·
+[27] https://www.nextens.nl/content/uploads/Handleiding_Faas-20230117.pdf ·
+[28] https://help.afas.nl/help/NL/SE/Fin_Config_Ledger_RGS.htm ·
+[29] https://kennisplein.snelstart.nl/klanten/s/article/rgs-en-snelstart ·
+[30] https://developer.moneybird.com/changelog/2024-03-24 ·
+[31] https://www.cbs.nl/en-gb/participants-survey/businesses/more-about-cbs-surveys/how-to-complete-the-questionnaire-automatically-using-rgs/rgs-bridge-statement ·
+[32] https://helpcenter.nextens.nl/Html/portal/importeren-rgs-brugstaat.html ·
+[34] https://github.com/AnalyticsLibrary/Analytics (voorbeeld-XAF's Exact 3.2 / Twinfield 3.1) ·
+[35] https://github.com/melvinfolkers/auditfiles ·
+[41] https://odb.belastingdienst.nl/wp-content/uploads/2024/01/2014_02_19_n.a.v._de_bijenkomst_SBR_koppeling_in_Auditfile_Financieel.pdf ·
+[43] https://github.com/shipdocs/boekhoudenvoorniks (derde partij) ·
+[44] https://github.com/Uniconta/Uniconta-Pages ·
+[45] https://www.boekhoudplaza.nl/wiki_uitleg/125/RGS_brugstaat_en_formaat.htm ·
+[46] https://www.accountancyvanmorgen.nl/2026/06/26/xaf-4-0-komt-eraan-maar-de-accountant-zit-nog-te-stoeien-met-excel/ ·
+[47] https://learn.microsoft.com/en-us/dynamics365/release-plan/2025wave2/enterprise-resource-planning/dynamics365-finance/use-regulatory-update-audit-file-financial-xaf-4-netherlands-2026 ·
+[49] https://www.cbs.nl/-/media/cbsvooruwbedrijf/productiestatistiek-rgs/snelstart_boekhoudsoftware_rgsready.pdf ·
+[50] https://www.belastingdienst.nl/wps/wcm/connect/nl/intermediairs/content/referentie-grootboekschema-iets-voor-u
