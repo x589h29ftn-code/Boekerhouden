@@ -26,7 +26,7 @@
 |---|---|---|
 | **Aanvaarding/continuering** | Opdrachtvoorwaarden schriftelijk vastgelegd vóór uitvoering, en jaarlijks nagaan of ze nog passen [5][7]. Inhoud (EK, ISRS 4410 §24): beoogd gebruik, stelsel (verwijzing naar fiscaal stelsel volstaat [6]), doel en reikwijdte, verantwoordelijkheden van accountant en management, vorm van de verklaring. Daarnaast integriteit van de cliënt, VGBA-bedreigingen en Wwft-cliëntenonderzoek | Verplichte onderdelen *Scope opdracht* en *Akkoord acceptatie*. **Uitvoering blijft geblokkeerd** zolang acceptatie, Wwft en opdrachtbevestiging niet gereed zijn. Generator voor de opdrachtbevestiging, met "getekend op" en bijlage |
 | **Kennis van de entiteit** | Activiteiten, administratie en stelsel begrijpen (EK); bedrijfsbeschrijving [13] | Profiel › Cliënt, met een vrij tekstveld *bedrijfsbeschrijving* dat doorrolt naar volgend jaar |
-| **Planning** | Materialiteit, initiële cijferanalyse, classificatie in belangrijke en niet-belangrijke posten [23][24] | Planningsonderdeel met materialiteitsveld, cijferanalyse (huidig, vorig, planning, delta met drempel) en per rubriek een vlag "belangrijke post" die het werkprogramma per post aanstuurt |
+| **Planning** | Materialiteit, initiële cijferanalyse, classificatie in belangrijke en niet-belangrijke posten [23][24] | Planningsonderdeel waarin **de gebruiker per hoofdpost aanvinkt of die materieel is** (met doorklikken naar subposts en een optionele toelichting op de keuze). Alleen materiële posten krijgen werk ([hoofdstuk 10](10-werkprogramma-en-materialiteit.md)) |
 | **Samenstellen** | Opstellen op basis van informatie van het management. Significante aangelegenheden bespreken en vastleggen [8][9] | Correctieboekingen. **Logboek significante aangelegenheden** (wat, impact, besproken met wie en wanneer, afloop) |
 | **Lezen en evalueren** | De accountant leest de samengestelde informatie. Is iets onjuist of onvolledig, dan vraagt hij aanvullende informatie, stelt hij aanpassingen voor of geeft hij de opdracht terug (EK) | Onderdeel *Evaluatie uitvoering*, correctievoorstellenlijst en een "teruggave"-status |
 | **NOCLAR** | Stappen volgen bij een vermoeden van fraude of niet-naleving [4][52] | Vraag in *Evaluatie*, met een vastleggingsformulier |
@@ -54,14 +54,14 @@
 - **NV KM, SKM1 en SKM3N** zijn vastgesteld op 30-1-2025 en worden **per 1-1-2027 verplicht voor alle overige kantoren** [15][16].
 - **Termijn dossierafsluiting:**
   - de NVKS (art. 12) noemt **uiterlijk twee maanden** na de datum van de verklaring [14];
-  - Visionplanner sluit automatisch na **60 dagen** [9][14 in hfst. 1];
+  - gangbare samenstelsoftware sluit automatisch na **60 dagen** (zie [hoofdstuk 1](01-marktreferentie-bestaande-samenstelsoftware.md));
   - of NV KM/SKM1 voor samenstellen dezelfde termijn kent, is (O);
   - **in de software instelbaar maken**, standaard 60 dagen.
 - **Bewaartermijn:**
   - minimaal **7 jaar** voor opdrachtdocumentatie [5];
   - fiscale bewaarplicht van 7 jaar (art. 52 AWR, EK);
   - Wwft-gegevens 5 jaar na einde relatie.
-- **Na afsluiting** zijn wijzigingen alleen mogelijk als gedocumenteerd addendum [5]. Dat sluit aan op het Visionplanner-gedrag "niet heropenen, wel kopiëren".
+- **Na afsluiting** zijn wijzigingen alleen mogelijk als gedocumenteerd addendum [5]. In de markt is "niet heropenen, wel kopiëren" gangbaar (zie [hoofdstuk 1](01-marktreferentie-bestaande-samenstelsoftware.md)).
 - **Dossierreview**: de vragenlijst van de Raad voor Toezicht volgt aanvaarding, planning, uitvoering/evaluatie, rapportering/communicatie en documentatie [12]. Een review-checklist per dossier en een kantooroverzicht voor de SKM1-monitoring zijn nuttig, maar hebben lagere prioriteit.
 
 ## 2.4 Werkprogramma samenstellen
@@ -211,7 +211,7 @@ Relevante ethische voorschriften – … (VGBA) …                  [40; formul
 2. **Grootteclassificatie** over twee jaar, met grensbedragen als parameters en een **waarschuwing bij controleplicht** [27][51].
 3. **Acceptatie en Wwft** op klantniveau, met blokkade van de uitvoering zolang ze niet gereed zijn [18][19][7].
 4. **Opdrachtbevestiging- en LOR-generator** met registratie van de ondertekening [5][13].
-5. **Planning**: materialiteit, initiële cijferanalyse, classificatie van belangrijke posten [23].
+5. **Planning**: de gebruiker kiest de materiële (belangrijke) posten, zonder systeemberekening [23]. Zie [hoofdstuk 10](10-werkprogramma-en-materialiteit.md).
 6. **Configureerbaar werkprogramma** met sturende vragen, voorwaarden en verplichte stappen. Ruimte om een gelicentieerd programma in te laden [21].
 7. **Logboek significante aangelegenheden** en een correctievoorstellenlijst [8][9].
 8. **Aantoonbare aansluiting** proefbalans → rubrieken → rapport, met bijlagen [5].

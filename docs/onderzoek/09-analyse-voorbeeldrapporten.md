@@ -1,12 +1,12 @@
 # 9. Analyse voorbeeldrapporten: wat moet de rapportgenerator kunnen?
 
-> Het kantoor leverde twee definitieve rapporten uit Visionplanner aan. Om privacyredenen staan
+> Het kantoor leverde twee definitieve rapporten uit zijn huidige pakket aan. Om privacyredenen staan
 > ze **niet** in deze repository en noemen we hier geen klantnamen of bedragen.
 >
 > - **Voorbeeld A** – *BV klein*, "Jaarrekening 2025": accountantsrapport plus jaarrekening op fiscale grondslagen, 33 pagina's.
 > - **Voorbeeld B** – *Eenmanszaak*, "Bijlage bij de aangifte inkomstenbelasting 2024": geen samenstellingsverklaring, 13 pagina's.
 >
-> Dit is de norm voor onze rapportsjablonen. Wat Visionplanner hier produceert, moet onze
+> Dit is de norm voor onze rapportsjablonen. Wat hier is geproduceerd, moet onze
 > applicatie minstens even goed kunnen.
 
 ## 9.1 Opbouw voorbeeld A (BV klein)
@@ -96,7 +96,7 @@ De rapportgenerator wordt opgebouwd uit herbruikbare **bouwstenen**. Een rapport
 | Groepsverhoudingen, **fiscale eenheid** (moeder, leden) | Klant | Ja |
 | Aandelenkapitaal: maatschappelijk/geplaatst, aantal, nominale waarde, aandeelhouder | Klant | Ja |
 | **Gemiddeld aantal werknemers (fte)** per jaar, binnen/buiten NL | Dossier | Historie |
-| **Historische cijfers (5 jaar)** voor kengetallen en meerjarenoverzicht | Afgesloten dossiers, of bij de start eenmalig importeren | – |
+| **Historische cijfers (5 jaar)** voor kengetallen en meerjarenoverzicht | Afgesloten dossiers, of bij de start via het **standaard importsjabloon** per boekjaar ([§3.3](03-gegevensimport-xaf-excel-rgs.md#33-standaard-importsjabloon-excelcsv)) | – |
 | Voorstel resultaatbestemming (% of bedrag) en dividend | Dossier | Nee |
 | Vpb-tarieven en schijven per jaar, fiscale correcties (niet-aftrekbare kosten, boetes, …) | Kantoorparameters + dossier | Parameters wel |
 | Rente rekening-courant %, "niet ter vrije beschikking"-teksten, niet in de balans opgenomen verplichtingen | Dossier (tekstblokken met vorig-jaarversie als voorstel) | Ja, als voorstel |
@@ -114,4 +114,4 @@ De rapportgenerator wordt opgebouwd uit herbruikbare **bouwstenen**. Een rapport
 
 ## 9.6 Gevolgen voor scope en planning
 
-De MVP wordt groter dan in [hoofdstuk 8](08-roadmap-risico-s-en-beslispunten.md) aangenomen. Het voorbeeldrapport BV klein bevat namelijk kengetallen, een meerjarenoverzicht, de fiscale positie (Vpb) en een verschillenanalyse. Die zaten eerst in "fase 5" en horen nu in de MVP, omdat het rapport zonder die onderdelen Visionplanner niet kan vervangen. Zie de bijgewerkte roadmap.
+De MVP wordt groter dan in [hoofdstuk 8](08-roadmap-risico-s-en-beslispunten.md) aangenomen. Het voorbeeldrapport BV klein bevat namelijk kengetallen, een meerjarenoverzicht, de fiscale positie (Vpb) en een verschillenanalyse. Die zaten eerst in "fase 5" en horen nu in de MVP, omdat het rapport zonder die onderdelen het huidige rapport niet kan vervangen. Zie de bijgewerkte roadmap.

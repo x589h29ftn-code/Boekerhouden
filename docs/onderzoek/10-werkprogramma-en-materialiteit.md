@@ -1,111 +1,132 @@
-# 10. Werkprogramma-engine en materialiteit
+# 10. Werkprogramma en materiële posten
 
-> **Besluit (23-10-2026):**
-> - Het kantoor maakt een **eigen werkprogramma** in een sjabloon.
-> - Wordt een post als **materieel** aangevinkt, dan verschijnt het werkprogramma voor die post in het uitvoeringsdeel (samenstellen).
-> - Gebruikers kunnen per dossier zelf **stappen toevoegen en verwijderen**.
+> **Besluiten (23-10-2026):**
+> 1. Het kantoor maakt een **eigen werkprogramma** in een sjabloon.
+> 2. **De gebruiker kiest welke posten materieel zijn.** Het systeem rekent niets uit en doet geen voorstel.
+> 3. Materieel aanvinken gebeurt **per hoofdpost**. Binnen de hoofdpost kun je **doorklikken naar de subposts** (en verder naar de grootboekrekeningen).
+> 4. Een **materiële post** krijgt zijn werkprogramma in het uitvoeringsdeel. Stappen zijn per dossier **toe te voegen en te verwijderen**.
+> 5. Een **niet-materiële post** heeft **geen vragen en geen werk**. Hij is alleen zichtbaar in het **rapport**, waar je de presentatie en opmaak kunt aanpassen.
 
 ## 10.1 Begrippen
 
 | Begrip | Betekenis |
 |---|---|
 | **Werkprogrammasjabloon** | Het kantoorwerkprogramma per opdrachttype, bijv. *Samenstellen BV* en *Winstaangifte EZ/VOF*. Het heeft versies en wordt beheerd door de vaktechnisch beheerder |
-| **Post** | Een onderdeel in de uitvoeringsboom, gekoppeld aan één of meer rubrieken. Bijv. *Immateriële vaste activa*, *Vorderingen*, *Liquide middelen*, *Netto-omzet*. Dit zijn de groene regels onder *Uitvoering* in de schermafbeelding |
-| **Postprogramma** | De set standaardstappen die bij een post hoort, in het sjabloon |
-| **Stap** | Eén werkprogramma-regel: instructie, antwoordveld, uitgevoerd door/op, eventueel bijlage, status |
-| **Materialiteit** | Het bedrag waarboven een afwijking het beeld van de jaarrekening kan beïnvloeden. Wordt per dossier in de planning vastgesteld |
-| **Materiële post** | Een post die in de planning als *materieel* (belangrijke post) is aangevinkt. **Alleen voor deze posten wordt het volledige postprogramma geactiveerd** |
+| **Hoofdpost** | Een post op het niveau waarop materieel wordt gekozen, bijv. *Materiële vaste activa*, *Vorderingen*, *Liquide middelen*, *Kortlopende schulden*, *Netto-omzet*, *Personeelskosten*. Gekoppeld aan een tak van het rubriekenschema |
+| **Subpost** | Een onderdeel van een hoofdpost, bijv. bij *Vorderingen*: *Handelsdebiteuren*, *Groepsmaatschappijen*, *Overlopende activa*. Dit volgt de rubriekenboom |
+| **Postprogramma** | De standaardstappen voor een hoofdpost in het sjabloon. Ze worden alleen geactiveerd als de post materieel is |
+| **Stap** | Eén werkprogramma-regel: instructie, antwoord, uitgevoerd door/op, eventueel bijlage, status |
 
 ## 10.2 Werking in het dossier
 
 ```
-PLANNING                                         UITVOERING
-┌───────────────────────────────────────────┐    ┌──────────────────────────────────────────┐
-│ Materialiteit: € 25.000 (berekening ▾)    │    │ Balans activa                            │
-│                                           │    │  ├ Vorderingen              ● materieel  │
-│ Post               Huidig   Vorig  Mat.   │    │  │   Aanpak en cijferbeoordeling          │
-│ IVA                28.000  35.000  [ ]    │──► │  │   Werkprogramma (6 stappen)            │
-│ Vorderingen       380.023 415.957  [x] ⚑  │    │  │     + Stap toevoegen                   │
-│ Liquide middelen  188.328 351.907  [x] ⚑  │    │  ├ Liquide middelen         ● materieel  │
-│ Voorraden          45.000  45.000  [ ]    │    │  │   …                                    │
-│ …                                         │    │  └ Voorraden                ○ niet mat.  │
-│ ⚑ = voorstel van systeem (saldo > mat.)   │    │      Aanpak en cijferbeoordeling          │
-└───────────────────────────────────────────┘    └──────────────────────────────────────────┘
+PLANNING – keuze materiële posten                UITVOERING (alleen materiële posten)
+┌────────────────────────────────────────────┐   ┌──────────────────────────────────────────────┐
+│ Hoofdpost            Huidig    Vorig  Mat. │   │ ● Vorderingen                                 │
+│ ▸ Mat. vaste activa  214.374  223.952 [x]  │   │   ▾ Cijfers (doorklikken)                     │
+│ ▾ Vorderingen        380.023  415.957 [x]  │──►│       Handelsdebiteuren      207.496  265.227 │
+│     Handelsdebiteuren 207.496 265.227      │   │         1300 Debiteuren      242.996  291.227 │
+│     Groepsmaatsch.    15.329   73.031      │   │         1310 Voorz. dubieus  -35.500  -26.000 │
+│     Overlopende act. 157.198   77.699      │   │       Groepsmaatschappijen    15.329   73.031 │
+│ ▸ Liquide middelen   188.328  351.907 [ ]  │   │       Overlopende activa     157.198   77.699 │
+│ ▸ Kortl. schulden    398.513  381.713 [x]  │   │   Werkprogramma (5 stappen)  + Stap toevoegen │
+│ …                                          │   │ ● Kortlopende schulden                        │
+│ Toelichting keuze (optioneel): …           │   │   …                                           │
+└────────────────────────────────────────────┘   └──────────────────────────────────────────────┘
+                                                  RAPPORT (alle posten)
+                                                  └ Presentatie en opmaak per post aanpassen
 ```
+*(Bedragen zijn illustratief.)*
 
-1. **Materialiteit vaststellen** (planning).
-   - Het systeem rekent een voorstel uit volgens de kantoormethode, bijv. een percentage van omzet, balanstotaal of resultaat. Die methode is in te stellen (zie de vragenlijst).
-   - De gebruiker legt het definitieve bedrag vast, met een toelichting.
-2. **Posten classificeren** (planning).
-   - Een tabel toont alle posten met huidig saldo, vorig saldo, delta en een vinkje **Materieel**.
-   - Het systeem zet een **voorstelvlag** ⚑ bij posten waarvan het saldo of de mutatie boven de materialiteit (of een ingestelde drempel) ligt. **De gebruiker beslist altijd zelf**, en kan per post een korte motivering geven ("waarom wel/niet").
-3. **Vinkje aan** → het postprogramma uit het sjabloon wordt als **kopie** in het dossier gezet, onder die post in *Uitvoering*.
-   - De kopie is een *momentopname*. Latere sjabloonwijzigingen veranderen een lopend dossier niet, tenzij de gebruiker kiest voor "bijwerken vanuit sjabloon".
-4. **Vinkje uit** →
+1. **Keuze materiële posten** (planning).
+   - Een tabel toont alle hoofdposten met huidig en vorig saldo. Met ▸/▾ klap je een hoofdpost open naar de subposts, en een subpost naar de grootboekrekeningen.
+   - De gebruiker zet per hoofdpost het vinkje **Materieel**. Er is geen berekening en geen voorstel.
+   - Optioneel een vrij tekstveld *Toelichting op de keuze*, voor de dossierdocumentatie.
+2. **Vinkje aan** → het postprogramma uit het sjabloon wordt als **kopie** onder die hoofdpost in *Uitvoering* gezet.
+   - Latere sjabloonwijzigingen veranderen een lopend dossier niet.
+   - De post krijgt daar ook de cijfers met **doorklikken** (hoofdpost → subposts → grootboekrekeningen, huidig, vorig en verschil) en een notitieveld per post.
+3. **Vinkje uit** →
    - zijn er nog geen stappen ingevuld, dan verdwijnt het programma;
-   - zijn er wel stappen ingevuld, dan vraagt het systeem: *"Ingevulde stappen bewaren als 'niet van toepassing'?"*. Er gaat nooit stilletjes dossierdocumentatie verloren.
-5. **Niet-materiële posten** krijgen alleen het blok *Aanpak en cijferbeoordeling* (planning, huidig, vorig, delta, toelichting). Daarnaast eventueel een **basisprogramma** dat altijd geldt (bijv. "Liquide middelen: banksaldi aansluiten op bankafschriften"). Of dat zo moet, staat in de vragenlijst.
+   - zijn er wel stappen ingevuld, dan vraagt het systeem of die bewaard moeten blijven (als "niet van toepassing") of verwijderd. Ingevulde documentatie verdwijnt nooit ongemerkt.
+4. **Niet-materiële posten** verschijnen **niet** in *Uitvoering*: geen vragen, geen stappen, geen cijferbeoordeling. Ze zijn alleen zichtbaar in **Rapport**, waar de presentatie kan worden aangepast ([§10.4](#104-rapport-presentatie-en-opmaak-per-post)).
+5. **De systeemcontroles gelden altijd voor alle posten**, materieel of niet: alles gekoppeld, balans sluit, specificatie sluit aan op saldo, verloop sluit aan. Dat zijn automatische aansluitingen, geen werk voor de gebruiker.
 
-## 10.3 Stappen toevoegen en verwijderen
+## 10.3 Stappen toevoegen en verwijderen (materiële posten)
 
 | Actie | Gedrag | Vastlegging |
 |---|---|---|
-| **Stap toevoegen** | Vrije stap onder een post: titel, instructie, eventueel verplicht | Gemarkeerd als *eigen stap*; wie en wanneer |
-| **Stap verwijderen** (standaardstap) | *Soft delete*: de stap verdwijnt uit de weergave. Er is een filter "toon verwijderde stappen" voor reviewer en accountant | Reden verplicht (instelbaar), wie en wanneer. Telt mee in het review-overzicht ("3 standaardstappen verwijderd") |
-| **Stap verwijderen** (eigen stap, nog niet ingevuld) | Echt verwijderen | Alleen in de audit log |
+| **Stap toevoegen** | Vrije stap onder de hoofdpost, eventueel gekoppeld aan een subpost: titel, instructie | Gemarkeerd als *eigen stap*; wie en wanneer |
+| **Standaardstap verwijderen** | De stap verdwijnt uit de weergave, maar blijft bewaard en is zichtbaar via "toon verwijderde stappen" | Wie, wanneer en (instelbaar verplicht) een reden. Zichtbaar in het review-overzicht |
+| **Eigen stap verwijderen** (nog niet ingevuld) | Echt verwijderen | Alleen in de audit log |
 | **Volgorde wijzigen** | Slepen | – |
-| **Stap voorstellen voor sjabloon** | Een eigen stap kan worden aangeboden aan de vaktechnisch beheerder | Beheerder neemt hem op in een nieuwe sjabloonversie |
+| **Stap voorstellen voor sjabloon** | Een eigen stap aanbieden aan de vaktechnisch beheerder | Opname in een nieuwe sjabloonversie |
 
-**Rechten** (voorstel, bevestigen in de vragenlijst):
+**Rechten** (zie vraag C5 in de [vragenlijst](11-vragenlijst.md)):
 - iedereen mag stappen toevoegen;
-- **standaardstappen verwijderen mag alleen een reviewer of accountant**, of een medewerker met verplichte reden die de reviewer later ziet;
-- **verplichte stappen** (gemarkeerd in het sjabloon) kunnen niet verwijderd worden, alleen op "n.v.t." gezet met een reden.
+- standaardstappen verwijderen volgens het rechtenbesluit;
+- stappen die in het sjabloon **verplicht** zijn, kunnen niet verwijderd worden, alleen op "n.v.t." met een reden.
 
-## 10.4 Het sjabloon (beheer)
+## 10.4 Rapport: presentatie en opmaak per post
+
+Voor **elke** post, materieel of niet, is er in *Rapport* een presentatie-editor. Dat is de tab *Rapport* uit de schermafbeelding.
+
+| Wat | Mogelijkheden |
+|---|---|
+| **Specificatieregels** | Standaard de grootboekrekeningen van de post, zoals in de voorbeeldrapporten ([§9.1](09-analyse-voorbeeldrapporten.md#91-opbouw-voorbeeld-a-bv-klein)). Per regel: omschrijving aanpassen, regels **samenvoegen**, **verbergen** of **volgorde** wijzigen, subkoppen en subtotalen toevoegen, of handmatige specificatieregels (die moeten aansluiten op het saldo) |
+| **Toon in rapport** | Specificatie aan of uit in het rapport. Hij blijft wel in het dossier |
+| **Verloopoverzicht** | Aan of uit (bijv. MVA, rekening-courant, voorzieningen, eigen vermogen); kolommen en regels kiezen |
+| **Toelichtende tekst** | Tekstblok boven of onder de specificatie (standaardtekst met variabelen, of vrije tekst). Doorrollen naar volgend jaar als voorstel |
+| **Opmaak** | Kop en omschrijving van de post, nieuwe pagina ervoor ja/nee, tabellen bij elkaar houden. Huisstijl (lettertype, kleuren) komt centraal uit het rapportsjabloon, zodat rapporten uniform blijven |
+
+Aanpassingen worden **per klant onthouden** en rollen door naar het volgende jaar. Zo hoef je
+samenvoegingen en omschrijvingen maar één keer in te stellen.
+
+## 10.5 Het sjabloon (beheer)
 
 ```
 Werkprogrammasjabloon "Samenstellen BV" v2027.1
 ├─ Profiel ─ Cliënt · Opdracht · Rapport
 ├─ Voorbereiding
-│  ├─ Acceptatie: Scope opdracht* · Akkoord acceptatie*   (vragen + standaardantwoorden)
-│  └─ Planning: Materialiteit* · Classificatie posten* · Bijzonderheden
-├─ Uitvoering
-│  ├─ Post "Immateriële vaste activa"   rubrieken: IVA*
-│  │    altijd:      Cijferbeoordeling
-│  │    materieel:   1 Verloopoverzicht opvragen/opstellen …  2 Investeringen aansluiten op facturen …
-│  │                 3 Afschrijvingen narekenen …  4 Bijzondere waardevermindering beoordelen …
-│  ├─ Post "Vorderingen"  …
+│  ├─ Acceptatie: Scope opdracht* · Akkoord acceptatie*      (vragen + standaardantwoorden)
+│  └─ Planning: Keuze materiële posten* · Bijzonderheden
+├─ Uitvoering  (alleen materiële hoofdposten worden getoond)
+│  ├─ Hoofdpost "Materiële vaste activa"   rubrieken: MVA*
+│  │    stappen: 1 Verloopoverzicht aansluiten op grootboek …  2 Investeringen aansluiten op facturen …
+│  │             3 Afschrijvingen narekenen …  4 Desinvesteringen en boekresultaat …
+│  ├─ Hoofdpost "Vorderingen"   rubrieken: Vorderingen*
+│  │    stappen: 1 Debiteurenlijst aansluiten … (subpost Handelsdebiteuren)  2 Voorziening dubieuze debiteuren …
 │  └─ …
-├─ Rapport ─ Financiële rapportage
+├─ Rapport ─ Financiële rapportage (presentatie per post, alle posten)
 └─ Afronding ─ Evaluatie uitvoering · Bevestiging klant* · Uitbrengen rapport* · Afsluiting*
 ```
 
 Per stap legt het sjabloon vast:
-- titel en instructie (rich text);
-- type antwoord: tekst, ja/nee/n.v.t., bedrag of bijlage verplicht;
-- standaardantwoord (de grijze tekst uit de schermafbeelding, "Er is voldaan aan …");
+- titel en instructie;
+- type antwoord (tekst, ja/nee/n.v.t., bedrag, bijlage verplicht);
+- standaardantwoord;
 - *verplicht* ja/nee;
-- **activering**: *altijd* of *alleen bij materieel*;
-- eventueel een voorwaarde (rechtsvorm, grootte, saldo ≠ 0);
+- optioneel de **subpost** waar de stap over gaat;
+- eventueel een voorwaarde (rechtsvorm, grootte);
 - een verwijzing naar regelgeving.
 
-Posten worden met een **rubriekselectie** aan het rubriekenschema gekoppeld. Zo weet het systeem welk saldo bij de post hoort en welke cijfertabel getoond wordt.
+**Hoofdposten** worden met een **rubriekselectie** aan het rubriekenschema gekoppeld. De subposts volgen automatisch uit de rubriekenboom onder die selectie.
 
-## 10.5 Uitbreiding datamodel
+## 10.6 Uitbreiding datamodel
 
 Aanvulling op [hoofdstuk 6](06-datamodel.md):
 
-- **SjabloonPost**: Id, SjabloonId, OuderOnderdeelId, Titel, Rubrieken (selectie), Volgorde.
-- **SjabloonStap**: Id, SjabloonPostId/OnderdeelId, Titel, Instructie, AntwoordType, Standaardantwoord, Verplicht, **Activering** (`Altijd`/`AlleenMaterieel`), Conditie, Volgorde.
-- **DossierMaterialiteit**: DossierId, Methode, Basisbedrag, Percentage, VoorgesteldBedrag, **VastgesteldBedrag**, Toelichting, VastgesteldDoor/Op.
-- **DossierPost**: DossierId, SjabloonPostId, **IsMaterieel**, VoorstelMaterieel (berekend), Motivering, GewijzigdDoor/Op.
-- **DossierStap**: Id, DossierPostId/OnderdeelId, BronSjabloonStapId (*null* = eigen stap), Titel, Instructie, Verplicht, Volgorde, Status (`Open`/`Gereed`/`NVT`), Antwoord, UitgevoerdDoor/Op, **Verwijderd**, VerwijderdDoor/Op, **VerwijderReden**.
+- **SjabloonPost**: Id, SjabloonId, Titel, Rubrieken (selectie, bepaalt de subposts), Volgorde.
+- **SjabloonStap**: Id, SjabloonPostId/OnderdeelId, Titel, Instructie, AntwoordType, Standaardantwoord, Verplicht, SubpostRubriekId (optioneel), Conditie, Volgorde.
+- **DossierPost**: DossierId, SjabloonPostId, **IsMaterieel**, GewijzigdDoor/Op.
+- **DossierPlanning**: DossierId, ToelichtingKeuzeMaterielePosten (optioneel).
+- **DossierStap**: Id, DossierPostId/OnderdeelId, BronSjabloonStapId (*null* = eigen stap), SubpostRubriekId, Titel, Instructie, Verplicht, Volgorde, Status (`Open`/`Gereed`/`NVT`), Antwoord, UitgevoerdDoor/Op, **Verwijderd**, VerwijderdDoor/Op, **VerwijderReden**.
+- **PresentatieInstelling** (per klant, doorrollend): KlantId, RubriekId, Specificatie-instellingen (omschrijvingen, samenvoegingen, verborgen regels, volgorde, subkoppen), ToonInRapport, VerloopoverzichtAan, Tekstblokken, NieuwePagina.
 
-## 10.6 Controles
+## 10.7 Controles
 
-- **Afronden** van *Planning* kan pas als de materialiteit is vastgesteld en elke post geclassificeerd is (expliciet materieel of niet).
-- **Goedkeuren** van een post kan pas als alle niet-verwijderde stappen *Gereed* of *NVT* zijn, en er geen open reviewpunten zijn.
+- **Planning afronden** kan pas als voor elke hoofdpost met saldo bewust is gekozen: het vinkje staat aan, of de keuze "niet materieel" is bevestigd met een tweede klik op "keuze bevestigd". Zo wordt geen post per ongeluk overgeslagen.
+- **Goedkeuren** van een materiële post kan pas als alle niet-verwijderde stappen *Gereed* of *NVT* zijn en er geen open reviewpunten zijn.
 - **Review-overzicht** per dossier toont:
-  - posten waarvan de classificatie afwijkt van het systeemvoorstel;
+  - de gekozen materiële posten;
   - verwijderde standaardstappen met hun reden;
   - eigen toegevoegde stappen.

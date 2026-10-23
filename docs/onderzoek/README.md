@@ -1,67 +1,77 @@
-# Onderzoek: eigen samenstel-applicatie (à la Visionplanner Compilation)
+# Onderzoek en ontwerp: samenstelapplicatie *Boekerhouden*
 
-*Stand van zaken: 23 oktober 2026, bijgewerkt met de besluiten van de opdrachtgever en een analyse van twee voorbeeldrapporten*
+*Stand van zaken: 23 oktober 2026*
 
-Dit onderzoek beantwoordt twee vragen:
-1. **Hoe werkt Visionplanner Compilation**, nu *Nmbrs Reporting / Compilation*? Dat gaat van het inlezen van een administratie, via rubriceren en het samenstellingsdossier, tot het financieel rapport.
-2. **Wat hebben we nodig om dit zelf te bouwen** als Windows-oplossing op eigen infrastructuur, zonder SBR/publicatie en zonder API-koppelingen?
+*Boekerhouden* (werknaam) is een eigen applicatie voor het samenstellen van jaarrekeningen en
+financiële rapporten. Je importeert een saldibalans, rubriceert de grootboekrekeningen naar
+jaarrekeningposten, werkt het dossier uit volgens het kantoorwerkprogramma, en maakt het rapport
+in PDF en Word. Het draait op eigen infrastructuur, met meerdere gebruikers. SBR/deponeren en
+API-koppelingen vallen (voorlopig) buiten de scope.
 
 ## Besluiten tot nu toe
 
 | Onderwerp | Besluit |
 |---|---|
 | Gebruikers | **Meerdere gebruikers**, elk met een eigen wachtwoord |
-| Werkprogramma | **Eigen werkprogramma** in een sjabloon. Een **materieel** aangevinkte post krijgt zijn werkprogramma in de uitvoering, en stappen zijn toe te voegen en te verwijderen |
+| Import | **Standaard importsjabloon**: boekjaar plus grootboeknummer, omschrijving en bedrag. Alleen importeren als het saldo nihil is. XAF-auditfile als tweede route |
+| Werkprogramma | **Eigen werkprogramma** in een sjabloon. Stappen per dossier toe te voegen en te verwijderen |
+| Materiële posten | **De gebruiker kiest**, per **hoofdpost**, met doorklikken naar de subposts. Alleen materiële posten krijgen werk. Niet-materiële posten zijn alleen zichtbaar in het rapport, met aanpasbare presentatie en opmaak |
 | Rechtsvormen | **BV micro, BV klein, eenmanszaak, VOF** |
 | Uitvoer | **PDF en Word** |
 | Rapportnorm | De aangeleverde voorbeeldrapporten (BV klein jaarrekening; eenmanszaak bijlage aangifte IB) |
+| Deponeren | **Voorlopig negeren** |
 
 ## Inhoud
 
 | # | Hoofdstuk | Kern |
 |---|---|---|
-| 1 | [Hoe werkt Visionplanner Compilation?](01-hoe-werkt-visionplanner-compilation.md) | Architectuur, werkstroom, import, koppelen, rapport, klantenmonitor |
-| 2 | [Vaktechnisch kader](02-vaktechnisch-kader.md) | Standaard 4410, VGBA/Wwft, dossierafsluiting, werkprogramma, jaarrekening per rechtsvorm en grootte, standaardteksten |
-| 3 | [Gegevensimport: XAF, Excel en RGS](03-gegevensimport-xaf-excel-rgs.md) | Auditfile 3.x/4.0, proefbalans afleiden, Excel-profielen, RGS-structuur en -versies |
-| 4 | [Rubricering: ontwerp](04-rubricering-ontwerp.md) | Rubriekenschema, koppelengine (handmatig > sjabloon > RGS > voorstel), omslag, jaarovergang |
+| 1 | [Marktreferentie](01-marktreferentie-bestaande-samenstelsoftware.md) | Achtergrond: hoe werkt bestaande samenstelsoftware? (onderzocht aan de hand van een veelgebruikt pakket) |
+| 2 | [Vaktechnisch kader](02-vaktechnisch-kader.md) | Standaard 4410, VGBA/Wwft, dossierafsluiting, jaarrekening per rechtsvorm en grootte, standaardteksten |
+| 3 | [Gegevensimport](03-gegevensimport-xaf-excel-rgs.md) | **Standaard importsjabloon** met controles, XAF 3.x/4.0, RGS-structuur en -versies |
+| 4 | [Rubricering](04-rubricering-ontwerp.md) | Rubriekenschema, koppelengine (handmatig > sjabloon > RGS > voorstel), omslag, jaarovergang |
 | 5 | [Functioneel ontwerp](05-functioneel-ontwerp.md) | Modules, schermen, werkstroom, controles |
-| 6 | [Datamodel](06-datamodel.md) | Entiteiten op kantoor-, klant- en dossierniveau, ER-diagram, tekenconventies |
-| 7 | [Technische architectuur](07-technische-architectuur.md) | Kantoorserver-model: .NET 10, Blazor Server, PostgreSQL, Identity, PDF (Chromium) en Word (OpenXML) |
-| 8 | [Besluiten, roadmap en risico's](08-roadmap-risico-s-en-beslispunten.md) | Besluitenlog, mensen en middelen, risico's, fasering, volgende stappen |
-| 9 | [Analyse voorbeeldrapporten](09-analyse-voorbeeldrapporten.md) | Opbouw van beide rapporten, catalogus van 22 rapportbouwstenen, opmaakregels, benodigde gegevens, kwaliteitslessen |
-| 10 | [Werkprogramma en materialiteit](10-werkprogramma-en-materialiteit.md) | Materieel-vinkje → postprogramma, stappen toevoegen en verwijderen, sjabloonbeheer, datamodel |
-| 11 | [**Vragenlijst**](11-vragenlijst.md) | De vragen die het plan strakker maken, met prioriteit en een voorstel per vraag |
+| 6 | [Datamodel](06-datamodel.md) | Entiteiten op kantoor-, klant- en dossierniveau, tekenconventies |
+| 7 | [Technische architectuur](07-technische-architectuur.md) | Kantoorserver: .NET 10, Blazor Server, PostgreSQL, Identity, PDF (Chromium) en Word (OpenXML) |
+| 8 | [Besluiten, roadmap en risico's](08-roadmap-risico-s-en-beslispunten.md) | Besluitenlog, mensen en middelen, risico's, fasering |
+| 9 | [Analyse voorbeeldrapporten](09-analyse-voorbeeldrapporten.md) | Opbouw van de rapporten, 22 rapportbouwstenen, opmaakregels, benodigde gegevens |
+| 10 | [Werkprogramma en materiële posten](10-werkprogramma-en-materialiteit.md) | Keuze materiële posten, stappen, presentatie per post in het rapport |
+| 11 | [**Vragenlijst**](11-vragenlijst.md) | Beantwoorde en openstaande vragen, met prioriteit en een voorstel per vraag |
 
 ## Samenvatting
 
-1. **Wat Visionplanner doet:** het combineert drie dingen.
-   - **(a)** Op klantniveau een administratie met een **koppeling van elke grootboekrekening aan een rubriek**.
-   - **(b)** Per boekjaar en opdracht een **dossier** dat een werkprogramma volgt: Profiel → Voorbereiding → Uitvoering per post → Rapport → Afronding, met goedkeuring per onderdeel.
-   - **(c)** Een **rapportgenerator** die sjablonen, standaardteksten en gerubriceerde cijfers samenvoegt.
-2. **Rubriceren gaat in deze volgorde:** handmatig > kantoorsjabloon > RGS-code > voorstel. Een handmatige koppeling wordt nooit overschreven. Het doel is "Gekoppeld 100%".
-3. **RGS en XAF:**
-   - RGS 3.8 is actueel; 3.9 volgt in december 2026. De meeste pakketten leveren RGS-codes mee, en rubriceren kan met *langste-voorvoegsel-match*.
-   - **XAF 4.0 wordt per 1-1-2027 de norm**, dus de import ondersteunt 3.1, 3.2 en 4.0.
-4. **Vaktechniek:** Standaard 4410 (HR 1136), VGBA, Wwft en de NVKS (vanaf 2027 SKM1) bepalen de dossiereisen. Het dossier sluit binnen twee maanden na de verklaring; Visionplanner doet dat na 60 dagen.
+1. **Werkwijze in vijf stappen:**
+   1. Saldibalans importeren (importsjabloon of XAF, met controle op saldo nihil).
+   2. Rubriceren naar jaarrekeningposten (handmatig > kantoorsjabloon > RGS-code).
+   3. In de planning de materiële hoofdposten kiezen.
+   4. Alleen die posten uitwerken met het werkprogramma.
+   5. Het rapport opmaken voor alle posten, en het dossier afronden.
+2. **Importsjabloon:**
+   - drie kolommen (grootboeknummer, omschrijving, bedrag; debet +, credit −) en het boekjaar;
+   - harde controles: verplichte velden, unieke nummers, geldige bedragen en **som = € 0,00**;
+   - hetzelfde sjabloon werkt voor vergelijkende cijfers en historische jaren (5-jaarskengetallen).
+3. **Rubriceren:**
+   - de koppeling is een klant-eigenschap die doorrolt over de jaren, met als doel 100% gekoppeld;
+   - RGS-codes (uit XAF of een optionele kolom in het sjabloon) maken automatisch koppelen grotendeels mogelijk;
+   - RGS 3.8 is actueel, en XAF 4.0 wordt per 1-1-2027 de norm.
+4. **Werkprogramma:**
+   - een eigen kantoorsjabloon met hoofdposten en stappen;
+   - een materieel aangevinkte hoofdpost krijgt zijn stappen (als kopie) in de uitvoering, met doorklikken naar subposts en grootboekrekeningen;
+   - niet-materiële posten kosten geen werk;
+   - stappen toevoegen en verwijderen kan, waarbij verwijderen met een reden gebeurt die zichtbaar is voor de reviewer.
 5. **Rapporten:**
-   - De voorbeeldrapporten leggen de lat. BV klein bevat accountantsrapport, resultatenanalyse, **kengetallen en meerjarenoverzicht (5 jaar)**, **fiscale positie (Vpb)**, de jaarrekening, en de W&V-toelichting op grootboekniveau.
-   - EZ: bijlage bij de aangifte IB, zonder verklaring, met voettekst "Geen accountantscontrole toegepast".
-   - Dit vertaalt zich in **22 herbruikbare bouwstenen**.
-6. **Werkprogramma:**
-   - In de planning stel je de materialiteit vast, met een systeemvoorstel, en vink je per post *materieel* aan.
-   - Daarmee komt het **postprogramma** uit het sjabloon in de uitvoering, als kopie.
-   - Stappen zijn toe te voegen en te verwijderen. Verwijderen gebeurt met een reden en is zichtbaar voor de reviewer.
-7. **Architectuur na het besluit "meerdere gebruikers":**
-   - Een **kantoorserver** met ASP.NET Core en Blazor Server, plus PostgreSQL. Inloggen via ASP.NET Core Identity (wachtwoordbeleid, lockout, optioneel tweestapsverificatie).
-   - Werkplekken gebruiken een dunne Windows-app (WebView2) of de browser. De database is niet bereikbaar vanaf de werkplekken.
-   - PDF via headless Chromium, Word via OpenXML, uit één rapportmodel.
-   - Moet er **offline** gewerkt kunnen worden, dan wordt het een desktopvariant (vraag A2).
-8. **De inhoud is de helft van het werk:** rubriekenschema's, de RGS→rubriek-tabel, koppelsjablonen, het werkprogramma, standaardteksten en rapportsjablonen. Daarvoor is een vaktechnisch verantwoordelijke nodig.
-9. **Inspanning (ruwe indicatie):** een MVP met meerdere gebruikers, BV micro/klein en EZ/VOF, PDF en Word, kengetallen en Vpb, in circa **8–11 maanden**, met 1 fte ontwikkeling en 0,2–0,4 fte vaktechniek. Daarna jaarlijks onderhoud.
-10. **Volgende stap:** de **P1-vragen** uit de [vragenlijst](11-vragenlijst.md) beantwoorden, de testset en een voorbeeld **VOF** en **BV micro** aanleveren, en fase 0 starten.
+   - de voorbeeldrapporten leggen de lat. BV klein bevat accountantsrapport, resultatenanalyse, kengetallen en meerjarenoverzicht (5 jaar), fiscale positie (Vpb), de jaarrekening en de W&V-toelichting op grootboekniveau; EZ is een bijlage bij de aangifte IB zonder verklaring;
+   - de rapporten bestaan uit 22 bouwstenen, en per post zijn de presentatie en opmaak aan te passen.
+6. **Vaktechniek:** Standaard 4410, VGBA, Wwft en de NVKS (vanaf 2027 SKM1) bepalen de dossiereisen. Het dossier sluit binnen twee maanden na de verklaring.
+7. **Architectuur:**
+   - een kantoorserver (ASP.NET Core en Blazor Server) met PostgreSQL;
+   - inloggen met eigen wachtwoord (ASP.NET Core Identity), en de database is niet bereikbaar vanaf de werkplekken;
+   - PDF en Word uit één rapportmodel.
+8. **De inhoud is de helft van het werk:** rubriekenschema's, de RGS→rubriek-tabel, het werkprogramma, standaardteksten en rapportsjablonen. Daarvoor is een vaktechnisch verantwoordelijke nodig.
+9. **Inspanning (ruwe indicatie):** een MVP in circa **8–10 maanden**, met 1 fte ontwikkeling en 0,2–0,4 fte vaktechniek. Daarna jaarlijks onderhoud.
+10. **Volgende stap:** de openstaande **P1-vragen** beantwoorden ([hoofdstuk 11](11-vragenlijst.md)), de testset en een voorbeeld **VOF** en **BV micro** aanleveren, en fase 0 starten.
 
 ## Over de bronnen
 
-- **Hoe het onderzoek is gedaan:** de helpdesk-sites van Nmbrs/Visionplanner, de RGS-site en de NBA-site konden vanuit de onderzoeksomgeving niet rechtstreeks worden geopend. De informatie komt daarom uit zoekmachinesamenvattingen van die pagina's, aangevuld met vakkennis.
+- **Hoe het onderzoek is gedaan:** externe bronnen (helpdesks van softwareleveranciers, RGS, NBA) konden niet rechtstreeks worden geopend. De informatie komt uit zoekmachinesamenvattingen, aangevuld met vakkennis.
 - **Hoe je de beweringen kunt beoordelen:** elk hoofdstuk vermeldt de bronnen, en wat afgeleid of onbevestigd is, is gemarkeerd.
-- **Voorbeeldrapporten:** de twee aangeleverde rapporten zijn geanalyseerd, maar staan **niet** in deze repository (klantgegevens).
+- **Voorbeeldrapporten:** de aangeleverde rapporten zijn geanalyseerd, maar staan **niet** in deze repository (klantgegevens).

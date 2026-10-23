@@ -1,4 +1,9 @@
-# 1. Hoe werkt Visionplanner Compilation?
+# 1. Marktreferentie: hoe werkt bestaande samenstelsoftware?
+
+> **Doel van dit hoofdstuk.** Dit is *achtergrondonderzoek*. Om te begrijpen wat een samenstelpakket
+> doet, is onderzocht hoe een veelgebruikt pakket werkt: Visionplanner Compilation, sinds 2026
+> Nmbrs Reporting. Onze applicatie (werknaam *Boekerhouden*) is **een eigen ontwerp**, gebaseerd op
+> de eigen werkwijze van het kantoor en de beroepsregels. Het is geen kopie van dit pakket.
 
 > **Bronnen en betrouwbaarheid.** Tijdens dit onderzoek konden we de helpdesk-pagina's
 > (support.reporting.nmbrs.com, hs.visionplanner.com) niet rechtstreeks openen. We hebben ze
@@ -214,20 +219,20 @@ Afronding ─ Evaluatie uitvoering · Bevestiging klant · Uitbrengen rapport ·
 | jul 2026 | Keuze uit rapportsjablonen voor medewerkers, achtergrondsynchronisatie [32] |
 | sep 2026 | Rebranding naar Nmbrs Reporting [5] |
 
-## 1.9 Wat nemen we over en wat niet?
+## 1.9 Lessen voor ons ontwerp
 
-| Overnemen (kern) | Vereenvoudigen | Niet (buiten scope) |
+| Gangbare functie die wij ook nodig hebben | Bij ons eenvoudiger | Buiten scope |
 |---|---|---|
 | Klantenmonitor met alerts en % gekoppeld | Kolom *Abonnement* wordt *Dossierstatus*; *Bekeken* vervalt | SBR-instance, KvK-deponering |
 | Koppeling op klantniveau, gevoed door sjabloon, RGS en handmatig, met handmatige overrides | Opslag lokaal in plaats van SharePoint | API-koppelingen met boekhoudpakketten |
 | Dossier per boekjaar en opdrachttype met fasenboom, verplichte onderdelen en goedkeuring | AI-mapping (VAIA) eventueel later als *voorstel* | Klantportaal, PBC, e-ondertekening |
-| Per post: cijferbeoordeling, werkprogramma, specificaties, verloopoverzichten | | Fiscale XML-export |
+| Per post: cijferbeoordeling, werkprogramma, specificaties, verloopoverzichten (bij ons: werk alleen voor materiële posten, zie [hoofdstuk 10](10-werkprogramma-en-materialiteit.md)) | | Fiscale XML-export |
 | Rapportsjablonen, standaardteksten met variabelen, PDF | | |
 | Dossier automatisch alleen-lezen na de sluittermijn; kopie in plaats van heropenen | | |
 
 > **Let op met intellectueel eigendom.** De SRA-werkprogramma's zijn gelicentieerde content
 > (alleen voor SRA-leden). Ook de teksten en vormgeving van Visionplanner/Nmbrs mogen we niet
-> kopiëren. We bouwen de *functionaliteit* na en vullen die met eigen inhoud of met inhoud
+> kopiëren. We ontwerpen onze eigen functionaliteit en vullen die met eigen inhoud of met inhoud
 > waarvoor we een licentie hebben. Zie [hoofdstuk 8](08-roadmap-risico-s-en-beslispunten.md).
 
 ## Open vragen

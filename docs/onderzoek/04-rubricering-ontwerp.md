@@ -1,15 +1,15 @@
 # 4. Rubricering: hoe we grootboekrekeningen aan rubrieken koppelen
 
 > Dit is het hart van de applicatie. Het hoofdstuk beschrijft het ontwerp van de
-> rubriceringsengine, gebaseerd op hoe Visionplanner het doet ([§1.5](01-hoe-werkt-visionplanner-compilation.md#15-rubricering-koppelen-van-grootboekrekeningen))
+> rubriceringsengine. Het ontwerp sluit aan op wat in de markt gangbaar is ([§1.5](01-marktreferentie-bestaande-samenstelsoftware.md#15-rubricering-koppelen-van-grootboekrekeningen))
 > en op de mogelijkheden van RGS en XAF ([hoofdstuk 3](03-gegevensimport-xaf-excel-rgs.md)).
 
 ## 4.1 Begrippen
 
 | Begrip | Betekenis |
 |---|---|
-| **Rubriekenschema** | Hiërarchische indeling van de jaarrekening (balans en W&V) waar rekeningen aan gekoppeld worden. Visionplanner noemt dit de "rapportagestructuur" (groep › subgroep › rubriek) |
-| **Rubriek** | Een blad in de boom. **Alleen aan bladeren koppel je rekeningen**, zoals in Visionplanner [hfst. 1, 47][49] |
+| **Rubriekenschema** | Hiërarchische indeling van de jaarrekening (balans en W&V) waar rekeningen aan gekoppeld worden. Ook wel "rapportagestructuur" genoemd (groep › subgroep › rubriek) |
+| **Rubriek** | Een blad in de boom. **Alleen aan bladeren koppel je rekeningen**, zoals gangbaar [hfst. 1] |
 | **Koppeling** | Grootboekrekening van een klant → rubriek. Hoort bij de **klant** en loopt door over de jaren |
 | **Koppelsjabloon** | Kantoorbrede koppelregels voor een bekend rekeningschema (bijv. het standaardschema van een boekhoudpakket) |
 | **RGS→rubriek-tabel** | Kantoorbrede tabel die aangeeft in welke rubriek een RGS-code (of een voorvoegsel daarvan) landt |
@@ -85,16 +85,16 @@ Per grootboekrekening van de klant bepaalt de engine één rubriek. De eerste re
 
 | # | Bron | Regel | Status na koppelen |
 |---|---|---|---|
-| 1 | **Handmatig** (klant) | Een eerder door een gebruiker vastgelegde koppeling voor deze klant. **Wordt nooit automatisch overschreven**, net als in Visionplanner [hfst. 1, 48] | Bevestigd |
+| 1 | **Handmatig** (klant) | Een eerder door een gebruiker vastgelegde koppeling voor deze klant. **Wordt nooit automatisch overschreven** [hfst. 1] | Bevestigd |
 | 2 | **Koppelsjabloon** (kantoor) | Exact rekeningnummer of nummerreeks in het sjabloon dat aan de klant hangt (bijv. "SnelStart standaard"). Optioneel aangevuld met een omschrijvingspatroon | Automatisch |
-| 3 | **RGS** | RGS-code van de rekening (uit XAF/Excel, gevalideerd), **langste-voorvoegsel-match** in de RGS→rubriek-tabel: eerst niveau 5, dan 4, 3 en 2. Visionplanner probeert onbekende rekeningen ook eerst via RGS [hfst. 1, 50] | Automatisch |
+| 3 | **RGS** | RGS-code van de rekening (uit XAF/Excel, gevalideerd), **langste-voorvoegsel-match** in de RGS→rubriek-tabel: eerst niveau 5, dan 4, 3 en 2. | Automatisch |
 | 4 | **Voorstel** | Heuristiek, *nooit automatisch toegepast*: (a) dezelfde nummer- en omschrijvingscombinatie bij andere klanten met hetzelfde pakket of sjabloon; (b) trefwoorden in de omschrijving ("kas", "bank", "debiteuren", "afschr"); (c) `leadCode`/`leadDescription` als hint. Later eventueel AI, vergelijkbaar met de VAIA Mapper | Voorgesteld (gebruiker moet bevestigen) |
 | – | Geen | – | **Ongekoppeld** (telt mee als alert en blokkeert het definitieve rapport) |
 
 > **Waarom handmatig > sjabloon > RGS?** Een handmatige keuze is een bewuste vaktechnische
 > beslissing voor deze klant. Een sjabloon is een bewuste kantoorkeuze voor een bekend
 > rekeningschema. RGS is generiek en soms foutief ingevuld door de klant of het pakket.
-> Deze volgorde is ook die van Visionplanner.
+> Deze volgorde is ook in de markt gangbaar ([hfst. 1](01-marktreferentie-bestaande-samenstelsoftware.md)).
 
 ### Pseudocode
 
@@ -130,9 +130,9 @@ Rubriek? BepaalRubriek(Grootboekrekening r, Klant k, Rubriekenschema s)
 
 ## 4.4 Het koppelscherm (functioneel)
 
-Het koppelscherm volgt Visionplanner [hfst. 1]: links de rekeningen, rechts de rubriekenboom, koppelen door te slepen of met een knop, meerdere tegelijk selecteren, en ontkoppelen.
+Het koppelscherm werkt zo: links de rekeningen, rechts de rubriekenboom, koppelen door te slepen of met een knop, meerdere tegelijk selecteren, en ontkoppelen.
 
-- **Alleen relevante rekeningen tonen.** Dat zijn rekeningen met boekingen of saldo in het huidige of vorige jaar. Visionplanner toont alleen rekeningen met boekingen [hfst. 1, 48][49].
+- **Alleen relevante rekeningen tonen.** Dat zijn rekeningen met boekingen of saldo in het huidige of vorige jaar.
 - **Kolommen:** nummer, omschrijving, RGS-code, saldo huidig, saldo vorig, rubriek, **bron** (Handmatig, Sjabloon, RGS, Voorstel) en status.
 - **Filters:** *ongekoppeld*, *voorgesteld*, *afwijkend van RGS* (rubriek past niet bij de RGS-code), *gewijzigd ten opzichte van vorig jaar*, *B/W-conflict* (een balansrekening gekoppeld aan een W&V-rubriek of andersom).
 - **Gekoppeld-indicator** bovenaan, met een klik naar alleen de ongekoppelde rekeningen. Dat is precies wat de klantenmonitor doet [hfst. 1, 54].
@@ -182,4 +182,4 @@ Daarnaast een **bedraggewogen variant**: het ongekoppelde saldo in euro's. Een o
 1. Rubriekenschema *BV* en *IB-ondernemer*.
 2. De **RGS→rubriek-tabel** voor RGS 3.8. Begin met de voorvoegsels op niveau 2 en 3 (enkele honderden regels), en verfijn waar een niveau 3-rubriek over meerdere rubrieken verdeeld moet worden.
 3. **Koppelsjablonen** voor de standaard rekeningschema's van de pakketten die het kantoor het meest ziet. Haal die uit de XAF-bestanden van echte klanten.
-4. Een **testset**: per pakket enkele echte klanten met de rubricering uit Visionplanner als referentie. De engine moet minstens dezelfde uitkomst geven.
+4. Een **testset**: per pakket enkele echte klanten met de rubricering uit het huidige pakket als referentie. De engine moet minstens dezelfde uitkomst geven.

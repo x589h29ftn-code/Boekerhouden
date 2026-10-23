@@ -1,6 +1,6 @@
 # 6. Datamodel
 
-> **Aanvulling 23-10-2026:** het datamodel voor materialiteit, posten en stappen staat in [§10.5](10-werkprogramma-en-materialiteit.md#105-uitbreiding-datamodel). De gegevens die de rapporten extra nodig hebben (statuten, fiscale eenheid, aandelenkapitaal, fte en historie) staan in [§9.4](09-analyse-voorbeeldrapporten.md#94-gegevens-die-we-nodig-hebben-naast-de-proefbalans).
+> **Aanvulling 23-10-2026:** het datamodel voor materiële posten, stappen en rapportpresentatie staat in [§10.6](10-werkprogramma-en-materialiteit.md#106-uitbreiding-datamodel). De gegevens die de rapporten extra nodig hebben (statuten, fiscale eenheid, aandelenkapitaal, fte en historie) staan in [§9.4](09-analyse-voorbeeldrapporten.md#94-gegevens-die-we-nodig-hebben-naast-de-proefbalans).
 
 > Dit is een logisch model: de entiteiten en hun relaties, op het niveau dat nodig is om te
 > bouwen. Veldnamen zijn Nederlands, zodat ze aansluiten op de vaktaal. Het fysieke model
@@ -8,8 +8,7 @@
 
 ## 6.1 Drie niveaus
 
-Het model kent drie niveaus. Dit verklaart ook hoe Visionplanner zich gedraagt
-(koppelingen "rollen door" naar volgend jaar, sjablonen gelden voor alle klanten):
+Het model kent drie niveaus. Koppelingen "rollen door" naar het volgende jaar en sjablonen gelden voor alle klanten:
 
 | Niveau | Wat leeft hier | Levensduur |
 |---|---|---|
@@ -57,7 +56,7 @@ erDiagram
 
 **Gebruiker** (ASP.NET Core Identity): Id, Gebruikersnaam, Naam, Initialen, Titel (bijv. AA/RA), Wachtwoordhash, Lockout, 2FA-gegevens, Rollen (`Medewerker`, `Reviewer`, `Accountant`, `Beheerder`), HandtekeningAfbeelding (alleen tekenbevoegden), Actief, MoetWachtwoordWijzigen.
 
-**Rubriekenschema** (= Visionplanners "rapportagestructuur"): Id, Naam (bijv. *BV klein*, *IB-ondernemer*, *Stichting*), Versie, Status (`Concept`/`Actief`/`Vervallen`).
+**Rubriekenschema** (ook wel "rapportagestructuur"): Id, Naam (bijv. *BV klein*, *IB-ondernemer*, *Stichting*), Versie, Status (`Concept`/`Actief`/`Vervallen`).
 
 **Rubriek**: Id, SchemaId, OuderId (boomstructuur), Code, Naam, Soort (`Balans`/`WinstEnVerlies`), Zijde (`Activa`/`Passiva`/`Opbrengsten`/`Kosten`), NormaalSaldo (`D`/`C`), Volgorde, Niveau, **OmslagRubriekId** (waar het saldo heen gaat als het de "verkeerde" kant op staat, bijv. *Bank* debet → *Liquide middelen*, credit → *Schulden aan kredietinstellingen*), SpecificatieVerplicht, VerloopoverzichtType (`Geen`/`VasteActiva`/`EigenVermogen`/`Voorziening`/`LanglopendeSchuld`), RapportLabel(s) per rapportvariant, *(toekomst)* NT-taxonomieconcept voor SBR.
 
@@ -69,7 +68,7 @@ erDiagram
 
 **Werkprogrammasjabloon**: Id, Naam, AardOpdracht (bijv. `Samenstellen`, `Aangifte plus`), Versie, Status.
 
-**SjabloonOnderdeel**: Id, SjabloonId, OuderId (fase → sectie → onderdeel), Titel, Fase (`Profiel`, `Voorbereiding`, `Uitvoering`, `Rapport`, `Afronding`), **Verplicht** (het `*` in Visionplanner), Volgorde, **Conditie** (expressie, bijv. `klant.rechtsvorm == "BV"`, `rubriek("MVA").saldo != 0`), Gekoppelde rubrieken (voor de cijfertabel), Verwijzing naar regelgeving (bijv. NV COS 4410 alinea).
+**SjabloonOnderdeel**: Id, SjabloonId, OuderId (fase → sectie → onderdeel), Titel, Fase (`Profiel`, `Voorbereiding`, `Uitvoering`, `Rapport`, `Afronding`), **Verplicht** (weergegeven als `*`), Volgorde, **Conditie** (expressie, bijv. `klant.rechtsvorm == "BV"`, `rubriek("MVA").saldo != 0`), Gekoppelde rubrieken (voor de cijfertabel), Verwijzing naar regelgeving (bijv. NV COS 4410 alinea).
 
 **SjabloonBlok**: Id, OnderdeelId, Type (`Toelichting`, `Vraag`, `Keuzevraag`, `Werkprogrammastap`, `Cijferbeoordeling`, `Verloopoverzicht`, `Specificatie`, `Bijlageverzoek`), Tekst, Standaardantwoord(en), Volgorde, Conditie.
 
@@ -92,15 +91,15 @@ Optioneel *KoppelingSplitsing*: een rekening verdeeld over meerdere rubrieken (p
 
 **Dossier**: Id, KlantId, Naam (bijv. "Financieel rapport 2024"), Boekjaar, Begindatum, Einddatum, AardOpdracht, WerkprogrammasjabloonId + versie, RapportsjabloonId + versie, RubriekenschemaId + versie, **Status** (`Nieuw` → `In uitvoering` → `Ter review` → `Rapport uitgebracht` → `Gesloten`), VorigDossierId, UitgebrachtOp, GeslotenOp, GeslotenDoor.
 
-**ImportBatch**: Id, DossierId, Bestandsnaam, SHA-256, Type (`XAF`, `Excel`, `CSV`, `Handmatig`), Pakket (uit XAF-header), Versie, Periode van/tot, GeïmporteerdOp/Door, Controletotalen (debet = credit, aantallen), Actief (de nieuwste batch is leidend; oudere blijven bewaard voor de historie).
+**ImportBatch**: Id, DossierId, Bestandsnaam, SHA-256, Type (`Sjabloon`, `XAF`, `Handmatig`; later `Excel-profiel`), Boekjaar, Pakket (uit XAF-header), Versie, Periode van/tot, GeïmporteerdOp/Door, Controletotalen (debet = credit, aantallen), Actief (de nieuwste batch is leidend; oudere blijven bewaard voor de historie).
 
-**Saldo**: ImportBatchId, GrootboekrekeningId, Periode (`0` = beginbalans, `1..12`, eventueel `13` = afsluiting), Debet, Credit. Het eindsaldo is afgeleid.
+**Saldo**: ImportBatchId, GrootboekrekeningId, Periode (`0` = beginbalans, `1..12`, eventueel `13` = afsluiting; bij het importsjabloon één regel `Jaar` = eindsaldo), Debet, Credit. Het eindsaldo is afgeleid.
 
 **Mutatie** (optioneel, voor drill-down vanuit een rubriek naar boekingen): ImportBatchId, GrootboekrekeningId, Dagboek, Boekstuknummer, Datum, Omschrijving, Bedrag, D/C, Relatie.
 
 **Correctieboeking** (memoriaal in het dossier): Id, DossierId, Nummer, Datum, Omschrijving, Soort (`Correctie`, `Herrubricering`, `Fiscale correctie`, `Terugkerend`), Status (`Concept`/`Verwerkt`), DoorgevoerdInAdministratieKlant (ja/nee, zodat je kunt bijhouden of de klant de boeking zelf ook verwerkt). Regels: GrootboekrekeningId, Bedrag (+ debet / − credit), Omschrijving. **Validatie: de som van de regels is altijd 0.**
 
-**Planning** (kolom *Planning* in de cijferbeoordeling): DossierId, RubriekId, Bedrag (verwachting, begroting of vorig jaar), Materialiteit/drempel voor delta-signalering.
+*(Vervallen: een aparte planningskolom en materialiteitsdrempel. De keuze van materiële posten ligt bij de gebruiker; zie DossierPost in [§10.6](10-werkprogramma-en-materialiteit.md#106-uitbreiding-datamodel).)*
 
 **DossierOnderdeel**: Id, DossierId, SjabloonOnderdeelId, Status (`Open`, `Gereed`, `Goedgekeurd`, `Niet van toepassing`), UitgevoerdDoor/Op, **GoedgekeurdDoor/Op**, Vergrendeld.
 
@@ -137,8 +136,7 @@ Optioneel *KoppelingSplitsing*: een rekening verdeeld over meerdere rubrieken (p
 | Correcties | Σ correctieregels op deze rekening |
 | **Huidig** | Saldo administratie + Correcties |
 | **Vorig** | *Huidig* uit het (gesloten) dossier van vorig jaar, of bij het eerste jaar een aparte import of handmatige invoer |
-| **Planning** | Uit tabel Planning |
-| **Delta** | Huidig − Vorig (en/of Huidig − Planning), absoluut en in %, gemarkeerd als het boven de drempel uitkomt |
+| **Verschil** | Huidig − Vorig, absoluut en in % |
 
 Rubrieksaldi zijn de som van de rekeningen per rubriek, opgeteld via de boom (rollup).
 Een rekening met een **omslagrubriek** wordt per dossier toegewezen op basis van het teken van het saldo (debet of credit). Dat gebeurt op rekeningniveau, of als het rubriekenschema dat voorschrijft, op het niveau van het rubriektotaal.

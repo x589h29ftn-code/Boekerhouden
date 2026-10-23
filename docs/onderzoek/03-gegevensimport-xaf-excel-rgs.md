@@ -10,12 +10,12 @@
 
 | Bron | Prioriteit | Waarom |
 |---|---|---|
+| **Standaard importsjabloon** (Excel/CSV: boekjaar + grootboeknummer, omschrijving, bedrag) | **MVP, als eerste** | Werkt voor elk pakket, eenvoudig, controleert op saldo nihil. Ook voor vorige jaren en historie ([§3.3](#33-standaard-importsjabloon-excelcsv)) |
 | **XAF 3.2** (XML Auditfile Financieel) | MVP | Vrijwel elk Nederlands boekhoudpakket kan het exporteren. Bevat rekeningschema, beginbalans, alle boekingen en soms RGS-codes |
 | **XAF 4.0** | MVP | **Vanaf 1-1-2027 accepteert de Belastingdienst alleen XAF 4.0** [17][18][46]. Pakketten stappen massaal over (o.a. Visma eAccounting, Dynamics 365 [20][47]) |
 | **XAF 3.1** | MVP (zelfde parser) | Oudere exports en vorig-jaarbestanden |
-| **Excel/CSV-proefbalans** | MVP | Pakketten zonder goede XAF, handmatige proefbalansen, eerste jaar (cijfers vorig jaar) |
-| **Visionplanner-Excelsjabloon** als importprofiel | Nice-to-have | Kantoren hebben deze bestanden al. Opbouw: klantnaam B3, boekjaren rij 4, perioden rij 5, blokken BALANS en WINST & VERLIES; balans = standen, W&V = mutaties [hfst. 1, 41] |
 | **RGS-referentietabel** (Excel van referentiegrootboekschema.nl) | MVP (beheer) | Basis voor automatisch rubriceren |
+| Overige Excel/CSV-exports met kolomtoewijzer | Later | Voor exports die niet in het sjabloon passen |
 | **RGS Brugstaat** (XML) | Later (O) | Officiële export van saldi per RGS-code, gebruikt door CBS en fiscale software [31][32][45]. Mogelijk een handig tweede formaat |
 | API-koppelingen (Exact, Twinfield, …) | ❌ Buiten scope | |
 
@@ -142,27 +142,90 @@ voor elke rekening a:
 7. **Prestaties:** streaming verwerken (XmlReader). Per rekening en periode aggregeren tijdens het lezen. Transacties alleen opslaan als drill-down gewenst is (bulk insert). Geen DOM laden: bestanden kunnen honderden MB groot zijn.
 8. **Pakketeigenaardigheden** van SnelStart, AFAS, e-Boekhouden en King zijn nog (O). Daarom is een set echte testbestanden per pakket nodig (zie [hoofdstuk 8](08-roadmap-risico-s-en-beslispunten.md)).
 
-## 3.3 Excel/CSV-proefbalans
+## 3.3 Standaard importsjabloon (Excel/CSV)
 
-**Canoniek kolomprofiel** (EK; afgestemd op wat pakketten exporteren [29][32]):
+> **Besluit (23-10-2026):** de applicatie accepteert een eigen, eenvoudig importsjabloon. De
+> gebruiker vult het **boekjaar** in en een overzicht van **grootboeknummer, omschrijving en
+> bedrag**. De import gaat alleen door als het **saldo nihil** is.
 
-| Kolom | Verplicht | Opmerking |
+Dit sjabloon is de **eerste importroute die we bouwen**. Elk pakket kan een saldibalans naar Excel
+exporteren, dus het werkt altijd. XAF volgt daarna voor automatische RGS-codes en drill-down
+naar boekingen.
+
+### Opbouw van het sjabloon
+
+De applicatie levert het sjabloon zelf via de knop *Download importsjabloon* (`.xlsx`).
+CSV met dezelfde kolommen kan ook.
+
+```
+     A                    B                                   C
+1    Boekjaar             2025
+2    Klant (optioneel)    1234 – Voorbeeld B.V.
+3
+4    Grootboeknummer      Omschrijving                        Bedrag
+5    0100                 Inventaris aanschafwaarde            12.500,00
+6    0110                 Inventaris cum. afschrijving         -4.250,00
+7    1100                 ING Bank                             18.322,15
+8    1600                 Crediteuren                          -9.871,40
+9    0500                 Geplaatst kapitaal                  -18.000,00
+…    …                    …                                   …
+     8000                 Omzet                              -245.000,00
+     4000                 Lonen en salarissen                  98.400,00
+                                                   Totaal  →        0,00
+```
+
+| Veld | Verplicht | Regels |
 |---|---|---|
-| Rekeningnummer | ✅ | Tekst (voorloopnullen behouden!) |
-| Omschrijving | ✅ | |
-| Balans/W&V | – | Afleiden uit de RGS-letter of laten kiezen |
-| RGS-code | – | Gevalideerd tegen de RGS-tabel |
-| Beginsaldo | – | Ondertekend, of twee kolommen D en C |
-| Mutaties debet / credit | – | |
-| Eindsaldo | ✅* | Ondertekend, of twee kolommen D en C. *Of afleidbaar uit begin + mutaties |
-| Periode/peildatum | – | Voor meerdere perioden: één kolom per periode, of lang formaat |
+| **Boekjaar** (cel B1) | ✅ | Vier cijfers, bijv. `2025`. Bepaalt in welk jaar de saldi landen. De importdialoog toont het ter bevestiging |
+| Klant (cel B2) | – | Optioneel; ter controle dat het bestand bij de juiste klant hoort (waarschuwing bij afwijking) |
+| **Grootboeknummer** | ✅ | Als tekst (voorloopnullen blijven behouden), uniek in het bestand |
+| **Omschrijving** | ✅ | Wordt de omschrijving van de grootboekrekening bij de klant |
+| **Bedrag** | ✅ | Eindsaldo per einde boekjaar. **Debet = positief, credit = negatief.** Hoogstens 2 decimalen. Nederlandse (`1.234,56`) en Engelse (`1234.56`) notatie worden herkend |
+| RGS-code (kolom D) | – | Optioneel. Is hij ingevuld en geldig, dan rubriceert de applicatie de rekening automatisch ([§4.3](04-rubricering-ontwerp.md#43-de-koppelengine)) |
 
-**Wat de importwizard moet kunnen:**
-- kolommen toewijzen en dat **opslaan als importprofiel** per pakket of klant;
-- tekenconventies kiezen: minteken, haakjes, D/C-kolom, of "credit staat positief";
-- Nederlandse getalnotatie (`1.234,56`) lezen;
-- puntkomma als scheidingsteken en de encoding (UTF-8 / Windows-1252) automatisch herkennen;
-- controleren dat Σ = 0, met een voorbeeldweergave van de eerste regels en de totalen vóór bevestigen.
+*Bedrag* is het saldo zoals in de saldibalans: balansrekeningen met hun eindstand, W&V-rekeningen
+met hun jaartotaal. Omdat elke boeking in evenwicht is, is de som van alle saldi altijd nihil. Een
+verschil betekent dat er regels ontbreken of verkeerd zijn overgenomen, bijvoorbeeld een vergeten minteken.
+
+### Controles bij het importeren (in deze volgorde)
+
+| # | Controle | Bij afwijking |
+|---|---|---|
+| I1 | Bestand leesbaar, kolomkoppen *Grootboeknummer, Omschrijving, Bedrag* aanwezig | ❌ Import stopt, met een melding welke kolom ontbreekt |
+| I2 | Boekjaar ingevuld en geldig | ❌ Import stopt |
+| I3 | Elke regel heeft een grootboeknummer en een omschrijving; lege regels worden overgeslagen | ❌ Import stopt, met de regelnummers |
+| I4 | Grootboeknummers zijn uniek | ❌ Import stopt, met de dubbele nummers |
+| I5 | Bedragen zijn geldige getallen met hoogstens 2 decimalen | ❌ Import stopt, met de regelnummers |
+| **I6** | **Som van alle bedragen = € 0,00 (saldo nihil)** | ❌ **Import stopt** en toont het verschil (bijv. "Saldo is € 125,40 debet; de saldibalans sluit niet") |
+| I7 | Klant in cel B2 komt overeen met de geselecteerde klant | ⚠️ Waarschuwing, de gebruiker bevestigt |
+| I8 | Alle W&V-rekeningen hebben saldo 0, dus de jaarafsluiting is al geboekt | ⚠️ Waarschuwing: "W&V lijkt leeg, is het resultaat al naar het eigen vermogen geboekt?" |
+| I9 | Er zijn al gegevens voor dit jaar | ⚠️ Vraag: vervangen? De oude import blijft in de historie bewaard; koppelingen en correctieboekingen blijven staan |
+| I10 | Verschillen met de vorige import of het vorige jaar: nieuwe rekeningen, verdwenen rekeningen, andere omschrijving bij hetzelfde nummer | ℹ️ Overzicht ter informatie |
+
+**Pas als I1–I6 slagen**, wordt er geïmporteerd:
+1. Grootboekrekeningen worden aangemaakt of bijgewerkt bij de klant, met nummer als sleutel.
+2. De saldi worden opgeslagen als eindsaldo van het boekjaar (importbatch *Sjabloon*).
+3. De rubriceringsengine draait. Het scherm toont direct **"Gekoppeld: x%"**, met een knop naar de ongekoppelde rekeningen.
+
+### Hetzelfde sjabloon voor vorige jaren
+Met hetzelfde sjabloon en een ander **boekjaar** lees je ook in:
+- **vergelijkende cijfers** voor het eerste dossier van een klant;
+- **historische jaren** voor de 5-jaarskengetallen en het meerjarenoverzicht ([§9.4](09-analyse-voorbeeldrapporten.md#94-gegevens-die-we-nodig-hebben-naast-de-proefbalans)).
+
+Zo is ook de overstap vanuit het huidige pakket opgelost: per klant de saldibalansen van de vorige jaren in het sjabloon zetten en importeren.
+
+### Beperkingen (bewust)
+- **Alleen eindsaldi**: geen perioden en geen boekingen, dus geen drill-down naar transacties. Dat kan wel met XAF.
+- **Beginsaldi en verloopoverzichten** komen uit het vorige jaar (de import of het dossier van vorig jaar). Voor het eerste jaar importeer je vorig jaar ook met het sjabloon.
+
+### Overige Excel/CSV-exports (later, optioneel)
+Voor exports die niet in het sjabloon passen (andere kolomvolgorde, aparte debet/credit-kolommen,
+meerdere perioden) kan later een **kolomtoewijzer** komen:
+- kolommen aanwijzen en opslaan als importprofiel per pakket;
+- tekenconventie kiezen;
+- daarna dezelfde controles I1–I10.
+
+Tot die tijd zet de gebruiker zo'n export in het standaardsjabloon om (kopiëren en plakken).
 
 ## 3.4 Referentie GrootboekSchema (RGS)
 
@@ -256,7 +319,7 @@ voor elke rekening a:
 
 ## 3.5 Testdata die we nodig hebben
 
-- **Echte XAF-bestanden** (geanonimiseerd of met toestemming) uit Exact Online, Twinfield, SnelStart, AFAS, e-Boekhouden, Moneybird, Yuki en eventueel King. Bij voorkeur van klanten waarvan we het eindresultaat (de jaarrekening uit Visionplanner) al hebben. Dat geeft een *golden master*: onze proefbalans en rubricering moeten hetzelfde resultaat geven.
+- **Echte XAF-bestanden** (geanonimiseerd of met toestemming) uit Exact Online, Twinfield, SnelStart, AFAS, e-Boekhouden, Moneybird, Yuki en eventueel King. Bij voorkeur van klanten waarvan we het eindresultaat (het rapport uit het huidige pakket) al hebben. Dat geeft een *golden master*: onze proefbalans en rubricering moeten hetzelfde resultaat geven.
 - **Minstens één XAF 4.0-bestand** per pakket dat het al ondersteunt.
 - Openbare voorbeeldbestanden op GitHub (bijv. Exact 3.2 en Twinfield 3.1 [34], de XSD en test-XML 3.2 [14]) zijn bruikbaar voor de eerste parsertests. Het zijn derde-partijbronnen, maar de officiële XSD's halen we bij de ODB.
 

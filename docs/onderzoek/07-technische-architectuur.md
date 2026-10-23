@@ -39,9 +39,9 @@
 Boekerhouden.sln
 ├─ src/
 │  ├─ Boekerhouden.Domain        // Entiteiten, rekenregels, aansluitcontroles (pure C#, geen I/O)
-│  ├─ Boekerhouden.Import        // XAF 3.x/4.0-parser, Excel/CSV-proefbalans, RGS-referentietabel
+│  ├─ Boekerhouden.Import        // Standaard importsjabloon, XAF 3.x/4.0-parser, RGS-referentietabel
 │  ├─ Boekerhouden.Mapping       // Rubriceringsengine (handmatig → sjabloon → RGS → voorstel)
-│  ├─ Boekerhouden.Workprogram   // Werkprogramma-engine, materialiteit, stappen (hfst. 10)
+│  ├─ Boekerhouden.Workprogram   // Werkprogramma-engine, materiële posten, stappen (hfst. 10)
 │  ├─ Boekerhouden.Reporting     // Rapportmodel, bouwstenen (hfst. 9), renderers HTML / PDF / DOCX
 │  ├─ Boekerhouden.Data          // EF Core DbContext, migraties, PostgreSQL
 │  ├─ Boekerhouden.UI            // Razor Class Library: alle schermen/componenten
@@ -114,7 +114,7 @@ historie (5 jaar), fiscale berekening          ┘   tabellen, teksten  └─�
 
 - **Wijzigingslog** (append-only): wie, wanneer, wat, oude en nieuwe waarde. De database is alleen voor de server bereikbaar, dus de log is niet te omzeilen vanaf een werkplek.
 - **Aftekeningen**: uitgevoerd door/op en goedgekeurd door/op per onderdeel en per stap. Een wijziging na goedkeuring zet de goedkeuring terug.
-- **Dossier sluiten**: alleen-lezen na de sluittermijn. Heropenen alleen met een reden, of zoals in Visionplanner alleen een kopie (zie de vragenlijst).
+- **Dossier sluiten**: alleen-lezen na de sluittermijn. Heropenen alleen met een reden, of alleen een kopie maken (zie de vragenlijst).
 - **Bewaartermijn** minimaal 7 jaar, met een archiefexport (zip met PDF's, bijlagen en JSON).
 
 ## 7.8 Inloggen, rechten en beveiliging
@@ -164,8 +164,8 @@ Een gebruiker kan meerdere rollen hebben. Of er toegang per klant of team nodig 
 
 ## 7.10 Ontwikkel- en teststrategie
 
-- **Domeinregels eerst, met tests**: proefbalans, correcties, rubriceren, materialiteit, aansluitcontroles, afronding en Vpb-berekening.
-- **Golden files**: 10–20 geanonimiseerde XAF-bestanden en de bijbehorende Visionplanner-rapporten. Onze uitkomst moet hetzelfde zijn, of een verklaarbaar verschil hebben.
+- **Domeinregels eerst, met tests**: importsjabloon (saldo nihil), proefbalans, correcties, rubriceren, materiële posten, aansluitcontroles, afronding en Vpb-berekening.
+- **Golden files**: 10–20 geanonimiseerde XAF-bestanden en de bijbehorende rapporten uit het huidige pakket. Onze uitkomst moet hetzelfde zijn, of een verklaarbaar verschil hebben.
 - **Rapport-snapshots** (Verify): een gegenereerd rapport wordt vergeleken met de goedgekeurde versie.
 - **End-to-end tests** (Playwright): inloggen, dossier aanmaken, importeren, koppelen, materieel aanvinken, stappen afronden, rapport genereren.
 - **CI** (GitHub Actions): tests op Linux; client-installer bouwen en tekenen op Windows.
