@@ -1,0 +1,424 @@
+@page "/dossiers/{Id:guid}/correcties"
+@using Boekerhouden.Domain.Correcties
+@inject CorrectieDienst CorrectieDienst
+
+<PageTitle>Correcties @(o?.Dossier.Naam) – Boekerhouden</PageTitle>
+
+@if (!geladen)
+{
+    <p class="text-secondary">Laden…</p>
+}
+else if (o is null)
+{
+    <div class="alert alert-warning">Dit dossier bestaat niet (meer). <a href="/">Terug naar de klanten</a></div>
+}
+else
+{
+    var vorigJaar = o.Dossier.Boekjaar - 1;
+    <nav aria-label="kruimelpad">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Klanten</a></li>
+            <li class="breadcrumb-item"><a href="/klanten/@o.Dossier.KlantId">@o.Dossier.KlantNaam</a></li>
+            <li class="breadcrumb-item"><a href="/dossiers/@o.Dossier.Id">@o.Dossier.Naam</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Correcties</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex align-items-center flex-wrap gap-3 mb-2">
+        <h1 class="h3 mb-0 me-auto">Correcties</h1>
+        @if (melding is not null)
+        {
+            <span class="rubriceer-melding" role="status">
+                @melding
+                <button class="btn-close btn-sm ms-1" aria-label="Sluiten" @onclick="() => melding = null"></button>
+            </span>
+        }
+        @if (bewerk is null)
+        {
+            <button class="btn btn-primary" @onclick="Nieuw">Nieuwe correctie</button>
+        }
+    </div>
+    <DossierMenu DossierId="o.Dossier.Id" Actief="/correcties" />
+
+    @if (o.TerugkerendOverTeNemen > 0)
+    {
+        <div class="bericht mb-3 d-flex align-items-center gap-3" id="terugkerend">
+            <span class="me-auto">@o.TerugkerendOverTeNemen terugkerende correctie(s) uit @vorigJaar staan nog niet in dit dossier.</span>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="NeemOver">Overnemen</button>
+        </div>
+    }
+
+    @if (o.VorigJaarOnverwerkt.Count > 0)
+    {
+        <details class="bericht mb-3" id="vorig-jaar-onverwerkt">
+            <summary>
+                <span class="status let-op fs-6">@o.VorigJaarOnverwerkt.Count correctie(s) uit @vorigJaar zijn niet in de administratie van de klant verwerkt.</span>
+                Sluit de beginbalans nog aan?
+            </summary>
+            <ul class="small mb-0 mt-2">
+                @foreach (var b in o.VorigJaarOnverwerkt)
+                {
+                    <li>@b.Nummer. @b.Omschrijving (@Bedragen.Heel(b.Totaal))</li>
+                }
+            </ul>
+            <div class="small text-secondary mt-1">
+                Heeft de klant ze niet geboekt, dan wijkt het eigen vermogen af van vorig jaar. Boek ze dan opnieuw, met het
+                resultaatdeel op de reserves, of laat de klant ze alsnog verwerken.
+            </div>
+        </details>
+    }
+
+    @if (bewerk is not null)
+    {
+        <div class="card mb-3 correctie-invoer" id="correctie-invoer">
+            <div class="card-header fw-semibold">@(bewerkId is null ? "Nieuwe correctie" : $"Correctie {bewerkNummer} wijzigen")</div>
+            <div class="card-body">
+                <div class="row g-2 align-items-end mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label small" for="omschrijving">Omschrijving</label>
+                        <input id="omschrijving" class="form-control" @bind="bewerk.Omschrijving" maxlength="300" autofocus
+                               placeholder="Bijv. afschrijving inventaris tweede halfjaar" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small" for="soort">Soort</label>
+                        <select id="soort" class="form-select" @bind="bewerk.Soort">
+                            <option value="@CorrectieSoort.Correctie">Correctie</option>
+                            <option value="@CorrectieSoort.Herrubricering">Herrubricering</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 small">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="terugkerend-vink" @bind="bewerk.Terugkerend" />
+                            <label class="form-check-label" for="terugkerend-vink" title="Volgend jaar in één keer over te nemen">terugkerend</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="verwerkt-vink" @bind="bewerk.VerwerktBijKlant" />
+                            <label class="form-check-label" for="verwerkt-vink">verwerkt in de administratie van de klant</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="kolomkop journaal-raster">
+                    <span>Rekening</span><span>Omschrijving (optioneel)</span><span class="text-end">Debet</span><span class="text-end">Credit</span><span></span>
+                </div>
+                @foreach (var (regel, i) in bewerk.Regels.Select((r, i) => (r, i)))
+                {
+                    var index = i;
+                    <div class="journaal-raster journaal-regel">
+                        <input class="form-control form-control-sm @(regel.Rekening.Length > 0 && Rekening(regel) is null ? "is-invalid" : null)"
+                               list="rekeningen" @bind="regel.Rekening" @bind:event="oninput" @onblur="() => VulAan(regel)" aria-label="Rekening regel @(i + 1)"
+                               placeholder="Nummer of omschrijving" title="@(Rekening(regel)?.Weergave)" />
+                        <input class="form-control form-control-sm" @bind="regel.Toelichting" maxlength="300" aria-label="Omschrijving regel @(i + 1)" />
+                        <input class="form-control form-control-sm text-end bedrag @(Ongeldig(regel.Debet) ? "is-invalid" : null)" inputmode="decimal"
+                               @bind="regel.Debet" @bind:event="oninput" aria-label="Debet regel @(i + 1)" />
+                        <input class="form-control form-control-sm text-end bedrag @(Ongeldig(regel.Credit) ? "is-invalid" : null)" inputmode="decimal"
+                               @bind="regel.Credit" @bind:event="oninput" aria-label="Credit regel @(i + 1)" />
+                        <button type="button" class="btn btn-sm btn-link text-secondary" title="Regel weghalen" @onclick="() => bewerk.Regels.RemoveAt(index)"
+                                disabled="@(bewerk.Regels.Count <= 2)">✕</button>
+                    </div>
+                }
+                <datalist id="rekeningen">
+                    @foreach (var r in o.Rekeningen)
+                    {
+                        <option value="@r.Weergave"></option>
+                    }
+                </datalist>
+                <div class="d-flex flex-wrap gap-3 small mt-1">
+                    <button type="button" class="btn btn-link btn-sm p-0" @onclick="() => bewerk.Regels.Add(new RegelInvoer())">+ regel</button>
+                    <button type="button" class="btn btn-link btn-sm p-0" @onclick="() => nieuweRekening = new()">nieuwe rekening</button>
+                    <span class="ms-auto journaal-totaal">
+                        debet <span class="bedrag">@Bedragen.Getal(TotaalDebet)</span> ·
+                        credit <span class="bedrag">@Bedragen.Getal(TotaalCredit)</span>
+                        @if (TotaalDebet != TotaalCredit)
+                        {
+                            <span class="status fout fs-6"> · verschil @Bedragen.Getal(TotaalDebet - TotaalCredit)</span>
+                        }
+                    </span>
+                </div>
+
+                @if (nieuweRekening is not null)
+                {
+                    <form class="d-flex flex-wrap gap-2 align-items-center bericht mt-2" id="nieuwe-rekening" @onsubmit="MaakRekening" @onsubmit:preventDefault>
+                        <input class="form-control form-control-sm" style="width:8rem" placeholder="Nummer" @bind="nieuweRekening.Nummer" aria-label="Nummer nieuwe rekening" />
+                        <input class="form-control form-control-sm" style="width:20rem" placeholder="Omschrijving" @bind="nieuweRekening.Omschrijving" aria-label="Omschrijving nieuwe rekening" />
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">Aanmaken</button>
+                        <button type="button" class="btn btn-sm btn-link text-secondary" @onclick="() => nieuweRekening = null">Annuleren</button>
+                        <span class="small text-secondary">Voor een post die nog niet in de administratie staat. Koppel hem daarna bij Rubriceren.</span>
+                    </form>
+                }
+
+                <Foutmeldingen Fouten="fouten" />
+            </div>
+            <div class="card-footer bg-white d-flex gap-2">
+                <button class="btn btn-primary" @onclick="Bewaar" disabled="@(!KanBewaren)">Opslaan</button>
+                <button class="btn btn-link text-secondary" @onclick="Sluit">Annuleren</button>
+            </div>
+        </div>
+    }
+
+    <div class="card correcties">
+        <div class="kolomkop correctie-raster">
+            <span>Nr.</span><span>Omschrijving</span><span class="text-end">Bedrag</span><span class="text-end" title="Effect op het resultaat (positief = hoger)">Resultaat</span><span></span>
+        </div>
+        @foreach (var b in o.Boekingen)
+        {
+            var open = geopend.Contains(b.Id);
+            <div class="correctie-regel correctie-raster" id="boeking-@b.Nummer" data-nummer="@b.Nummer">
+                <span class="nr">@b.Nummer</span>
+                <span class="oms" @onclick="() => Wissel(b.Id)" title="@b.Omschrijving · @b.GewijzigdDoor, @Weergave.DatumTijd(b.GewijzigdOp)">
+                    <span class="pijl" aria-hidden="true">@(open ? "▾" : "▸")</span>
+                    <span class="tekst">@b.Omschrijving</span>
+                    <span class="status">@Kenmerken(b, vorigJaar)</span>
+                </span>
+                <span class="bedrag text-end">@Bedragen.Heel(b.Totaal)</span>
+                <span class="bedrag text-end" title="@(b.Effect.Ongekoppeld > 0 ? "Niet alle rekeningen zijn gekoppeld; het effect is nog onvolledig" : null)">
+                    @(b.Effect.Resultaat == 0 ? "–" : Bedragen.Heel(b.Effect.Resultaat))@(b.Effect.Ongekoppeld > 0 ? "?" : "")
+                </span>
+                <span class="acties">
+                    @if (teVerwijderen == b.Id)
+                    {
+                        <span class="small">verwijderen?</span>
+                        <button class="btn btn-sm btn-link" @onclick="() => Verwijder(b)">ja</button>
+                        <button class="btn btn-sm btn-link" @onclick="() => teVerwijderen = null">nee</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-sm btn-link" title="Wijzigen" @onclick="() => Bewerk(b)">✎</button>
+                        <button class="btn btn-sm btn-link" title="Verwijderen" @onclick="() => teVerwijderen = b.Id">✕</button>
+                    }
+                </span>
+            </div>
+            @if (open)
+            {
+                @foreach (var r in b.Regels)
+                {
+                    <div class="correctie-detail correctie-raster">
+                        <span></span>
+                        <span class="oms" title="@($"{r.Nummer} {r.RekeningOmschrijving}{(r.Toelichting is null ? null : " · " + r.Toelichting)}")">
+                            <span class="nr">@r.Nummer</span> @r.RekeningOmschrijving
+                            @if (r.Toelichting is not null)
+                            {
+                                <span class="text-secondary">· @r.Toelichting</span>
+                            }
+                        </span>
+                        <span class="bedrag text-end" title="@(r.Bedrag > 0 ? "debet" : "credit")">@Bedragen.Heel(r.Bedrag)</span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                }
+            }
+        }
+        @if (o.Boekingen.Count == 0)
+        {
+            <p class="text-center text-secondary my-4">Nog geen correcties in dit dossier.</p>
+        }
+        <div class="card-footer bg-white small text-secondary d-flex flex-wrap gap-3">
+            @if (o.Boekingen.Count > 0)
+            {
+                <span>Effect op het resultaat <span class="bedrag text-body">@Bedragen.Heel(o.Totaal.Resultaat)</span></span>
+                <span>op het eigen vermogen <span class="bedrag text-body">@Bedragen.Heel(o.Totaal.EigenVermogen)</span></span>
+                @if (o.Totaal.Ongekoppeld > 0)
+                {
+                    <span>@o.Totaal.Ongekoppeld regel(s) op een nog niet gekoppelde rekening: <a href="/dossiers/@o.Dossier.Id/rubriceren">rubriceren</a></span>
+                }
+            }
+            <span class="ms-auto">Correcties veranderen de cijfers in het dossier, niet de administratie van de klant.</span>
+        </div>
+    </div>
+}
+
+@code {
+    private bool geladen;
+    private CorrectieOverzicht? o;
+    private BoekingInvoer? bewerk;
+    private Guid? bewerkId;
+    private int bewerkNummer;
+    private NieuweRekening? nieuweRekening;
+    private IReadOnlyList<string>? fouten;
+    private string? melding;
+    private Guid? teVerwijderen;
+    private readonly HashSet<Guid> geopend = [];
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Authenticatie { get; set; } = default!;
+
+    private sealed class BoekingInvoer
+    {
+        public string Omschrijving { get; set; } = "";
+
+        public CorrectieSoort Soort { get; set; }
+
+        public bool Terugkerend { get; set; }
+
+        public bool VerwerktBijKlant { get; set; }
+
+        public List<RegelInvoer> Regels { get; } = [];
+    }
+
+    private sealed class RegelInvoer
+    {
+        public string Rekening { get; set; } = "";
+
+        public string Toelichting { get; set; } = "";
+
+        public string Debet { get; set; } = "";
+
+        public string Credit { get; set; } = "";
+    }
+
+    private sealed class NieuweRekening
+    {
+        public string Nummer { get; set; } = "";
+
+        public string Omschrijving { get; set; } = "";
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await Laad();
+        geladen = true;
+    }
+
+    private async Task Laad() => o = await CorrectieDienst.Overzicht(Id);
+
+    private static string Kenmerken(CorrectieInfo b, int vorigJaar) => string.Join(" · ", new[]
+    {
+        b.Soort == CorrectieSoort.Herrubricering ? "herrubricering" : null,
+        b.Terugkerend ? (b.Overgenomen ? $"terugkerend, uit {vorigJaar}" : "terugkerend") : null,
+        b.VerwerktBijKlant ? "verwerkt bij klant" : null,
+    }.OfType<string>());
+
+    /// <summary>De rekening op een regel: het nummer vooraan, of de volledige tekst uit de lijst.</summary>
+    private RekeningKeuze? Rekening(RegelInvoer regel)
+    {
+        var tekst = regel.Rekening.Trim();
+        if (tekst.Length == 0)
+        {
+            return null;
+        }
+
+        var nummer = tekst.Split(' ', 2)[0];
+        return o!.Rekeningen.FirstOrDefault(r => r.Weergave == tekst) ?? o.Rekeningen.FirstOrDefault(r => r.Nummer == nummer);
+    }
+
+    /// <summary>Na het verlaten van het veld: alleen een nummer wordt "nummer omschrijving".</summary>
+    private void VulAan(RegelInvoer regel)
+    {
+        if (Rekening(regel) is { } rekening)
+        {
+            regel.Rekening = rekening.Weergave;
+        }
+    }
+
+    private static bool Ongeldig(string tekst) => tekst.Trim().Length > 0 && !BedragParser.TryParse(tekst, out _);
+
+    private static decimal Bedrag(string tekst) => BedragParser.TryParse(tekst, out var bedrag) ? bedrag : 0m;
+
+    private decimal TotaalDebet => bewerk?.Regels.Sum(r => Bedrag(r.Debet)) ?? 0;
+
+    private decimal TotaalCredit => bewerk?.Regels.Sum(r => Bedrag(r.Credit)) ?? 0;
+
+    private bool KanBewaren => bewerk is not null && TotaalDebet == TotaalCredit && TotaalDebet != 0
+                               && bewerk.Regels.All(r => (r.Debet + r.Credit).Trim().Length == 0 || (Rekening(r) is not null && !Ongeldig(r.Debet) && !Ongeldig(r.Credit)));
+
+    private void Nieuw()
+    {
+        bewerk = new BoekingInvoer();
+        bewerk.Regels.AddRange([new RegelInvoer(), new RegelInvoer()]);
+        bewerkId = null;
+        fouten = null;
+    }
+
+    private void Bewerk(CorrectieInfo b)
+    {
+        bewerk = new BoekingInvoer { Omschrijving = b.Omschrijving, Soort = b.Soort, Terugkerend = b.Terugkerend, VerwerktBijKlant = b.VerwerktBijKlant };
+        bewerk.Regels.AddRange(b.Regels.Select(r => new RegelInvoer
+        {
+            Rekening = $"{r.Nummer} {r.RekeningOmschrijving}",
+            Toelichting = r.Toelichting ?? "",
+            Debet = r.Bedrag > 0 ? Bedragen.Getal(r.Bedrag) : "",
+            Credit = r.Bedrag < 0 ? Bedragen.Getal(-r.Bedrag) : "",
+        }));
+        bewerkId = b.Id;
+        bewerkNummer = b.Nummer;
+        fouten = null;
+    }
+
+    private void Sluit()
+    {
+        bewerk = null;
+        nieuweRekening = null;
+        fouten = null;
+    }
+
+    private async Task Bewaar()
+    {
+        var regels = bewerk!.Regels
+            .Where(r => (r.Debet + r.Credit).Trim().Length > 0)
+            .Select(r => new CorrectieRegelInvoer(Rekening(r)!.Id, Bedrag(r.Debet) - Bedrag(r.Credit), r.Toelichting))
+            .ToList();
+        var invoer = new CorrectieInvoer(bewerk.Omschrijving, bewerk.Soort, bewerk.Terugkerend, bewerk.VerwerktBijKlant, regels);
+        var uitkomst = await CorrectieDienst.Bewaar(Id, bewerkId, invoer, await Wie());
+        if (!uitkomst.IsGelukt)
+        {
+            fouten = uitkomst.Fouten;
+            return;
+        }
+
+        await Laad();
+        var nummer = o?.Boekingen.FirstOrDefault(b => b.Id == uitkomst.Waarde)?.Nummer;
+        melding = $"Correctie {nummer} opgeslagen";
+        Sluit();
+    }
+
+    private async Task MaakRekening()
+    {
+        var uitkomst = await CorrectieDienst.MaakRekening(Id, nieuweRekening!.Nummer, nieuweRekening.Omschrijving, await Wie());
+        if (!uitkomst.IsGelukt)
+        {
+            fouten = uitkomst.Fouten;
+            return;
+        }
+
+        await Laad();
+        var rekening = o!.Rekeningen.Single(r => r.Id == uitkomst.Waarde);
+        var leeg = bewerk!.Regels.FirstOrDefault(r => r.Rekening.Trim().Length == 0);
+        if (leeg is null)
+        {
+            leeg = new RegelInvoer();
+            bewerk.Regels.Add(leeg);
+        }
+
+        leeg.Rekening = rekening.Weergave;
+        nieuweRekening = null;
+        fouten = null;
+    }
+
+    private async Task Verwijder(CorrectieInfo b)
+    {
+        var uitkomst = await CorrectieDienst.Verwijder(Id, b.Id, await Wie());
+        teVerwijderen = null;
+        melding = uitkomst.IsGelukt ? $"Correctie {b.Nummer} verwijderd" : string.Join(" ", uitkomst.Fouten);
+        await Laad();
+    }
+
+    private async Task NeemOver()
+    {
+        var uitkomst = await CorrectieDienst.NeemTerugkerendeOver(Id, await Wie());
+        melding = uitkomst.IsGelukt ? $"{uitkomst.Waarde} terugkerende correctie(s) overgenomen; controleer de bedragen" : string.Join(" ", uitkomst.Fouten);
+        await Laad();
+    }
+
+    private void Wissel(Guid id)
+    {
+        if (!geopend.Remove(id))
+        {
+            geopend.Add(id);
+        }
+    }
+
+    private async Task<Uitvoerder> Wie() => (await Authenticatie).User.AlsUitvoerder();
+}

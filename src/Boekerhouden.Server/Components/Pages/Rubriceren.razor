@@ -40,6 +40,7 @@ else
             <span class="small text-secondary">@o.Percentage% gekoppeld</span>
         </div>
     </div>
+    <DossierMenu DossierId="o.Dossier.Id" Actief="/rubriceren" />
 
     @if (o.Schema is null)
     {
@@ -103,7 +104,7 @@ else
                                                 @onclick="() => KoppelVoorstel(r)">→ @KortLabel(voorstel.Code)?</button>
                                     }
                                 </span>
-                                <span class="bedrag text-end" title="@(r.SaldoVorig is { } v ? $"{o.Dossier.Boekjaar - 1}: {Bedragen.Heel(v)}" : null)"><Bedrag Waarde="r.Saldo" /></span>
+                                <span class="bedrag text-end" title="@SaldoTitel(r)"><Bedrag Waarde="r.Saldo" /></span>
                             </div>
                         }
                         @if (!ZichtbareRekeningen.Any())
@@ -412,6 +413,12 @@ else
 
         return $"{string.Join(" › ", pad)} · {code}" + (o!.IsHernoemd(code ?? string.Empty) && rgs is not null ? $" (RGS: {rgs.Omschrijving})" : string.Empty);
     }
+
+    private string SaldoTitel(RubriceerRekening r) => string.Join(" · ", new[]
+    {
+        r.Correcties != 0 ? $"incl. correcties {Bedragen.Heel(r.Correcties)}" : null,
+        r.SaldoVorig is { } v ? $"{o!.Dossier.Boekjaar - 1}: {Bedragen.Heel(v)}" : null,
+    }.OfType<string>());
 
     private static string BronTekst(KoppelBron bron) => bron switch
     {

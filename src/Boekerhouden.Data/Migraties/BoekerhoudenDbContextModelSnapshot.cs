@@ -61,6 +61,95 @@ namespace Boekerhouden.Data.Migraties
                     b.ToTable("AuditRegels", (string)null);
                 });
 
+            modelBuilder.Entity("Boekerhouden.Data.Correctieboeking", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AangemaaktDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("AangemaaktOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DossierId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("GewijzigdDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("GewijzigdOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Nummer")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Omschrijving")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<Guid?>("OvergenomenVanId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Soort")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<bool>("Terugkerend")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("VerwerktBijKlant")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OvergenomenVanId");
+
+                    b.HasIndex("DossierId", "Nummer")
+                        .IsUnique();
+
+                    b.ToTable("Correctieboekingen", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.Correctieregel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Bedrag")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("CorrectieboekingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("GrootboekrekeningId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Omschrijving")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<int>("Volgorde")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CorrectieboekingId");
+
+                    b.HasIndex("GrootboekrekeningId");
+
+                    b.ToTable("Correctieregels", (string)null);
+                });
+
             modelBuilder.Entity("Boekerhouden.Data.Dossier", b =>
                 {
                     b.Property<Guid>("Id")
@@ -197,6 +286,9 @@ namespace Boekerhouden.Data.Migraties
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("AangemaaktBijCorrectie")
+                        .HasColumnType("boolean");
 
                     b.Property<Guid>("KlantId")
                         .HasColumnType("uuid");
@@ -753,6 +845,37 @@ namespace Boekerhouden.Data.Migraties
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Boekerhouden.Data.Correctieboeking", b =>
+                {
+                    b.HasOne("Boekerhouden.Data.Dossier", null)
+                        .WithMany()
+                        .HasForeignKey("DossierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Boekerhouden.Data.Correctieboeking", null)
+                        .WithMany()
+                        .HasForeignKey("OvergenomenVanId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.Correctieregel", b =>
+                {
+                    b.HasOne("Boekerhouden.Data.Correctieboeking", null)
+                        .WithMany("Regels")
+                        .HasForeignKey("CorrectieboekingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Boekerhouden.Data.Grootboekrekening", "Grootboekrekening")
+                        .WithMany()
+                        .HasForeignKey("GrootboekrekeningId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Grootboekrekening");
+                });
+
             modelBuilder.Entity("Boekerhouden.Data.Dossier", b =>
                 {
                     b.HasOne("Boekerhouden.Data.Klant", "Klant")
@@ -895,6 +1018,11 @@ namespace Boekerhouden.Data.Migraties
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.Correctieboeking", b =>
+                {
+                    b.Navigation("Regels");
                 });
 
             modelBuilder.Entity("Boekerhouden.Data.ImportBatch", b =>

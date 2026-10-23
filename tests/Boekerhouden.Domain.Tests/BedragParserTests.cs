@@ -1,7 +1,6 @@
 using System.Globalization;
-using Boekerhouden.Import;
 
-namespace Boekerhouden.Import.Tests;
+namespace Boekerhouden.Domain.Tests;
 
 public class BedragParserTests
 {

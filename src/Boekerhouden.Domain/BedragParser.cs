@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Boekerhouden.Import;
+namespace Boekerhouden.Domain;
 
 /// <summary>
 /// Leest bedragen uit tekst, in Nederlandse (<c>1.234,56</c>) en Engelse (<c>1,234.56</c>) notatie.
@@ -17,7 +17,7 @@ namespace Boekerhouden.Import;
 /// </list>
 /// Het aantal decimalen wordt hier niet beperkt; dat controleert de aanroeper.
 /// </remarks>
-internal static class BedragParser
+public static class BedragParser
 {
     public static bool TryParse(string invoer, out decimal bedrag)
     {

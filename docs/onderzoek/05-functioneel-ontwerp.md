@@ -106,6 +106,16 @@ Twee panelen:
 ### S6 – Correctieboekingen
 Journaalpostinvoer met regels (rekening, omschrijving, debet, credit) en een balanscontrole (Σ = 0). Soort boeking, een vinkje "terugkerend" (wordt automatisch meegenomen in het volgende dossier) en een vinkje "verwerkt in administratie klant". Overzicht van alle correcties met hun effect op het resultaat en het eigen vermogen.
 
+> **Gebouwd in plakje 4** (`/dossiers/{id}/correcties`):
+> - Invoer met regels: rekening (nummer of naam, met een keuzelijst), optionele omschrijving, debet en credit. Bedragen in Nederlandse of Engelse notatie. Het verschil staat eronder; *Opslaan* kan pas als debet en credit gelijk zijn (C08).
+> - Soort: *correctie* of *herrubricering* (alleen een andere indeling; de klant hoeft niets te boeken). Fiscale correcties volgen met de Vpb-module (plakje 7).
+> - *Nieuwe rekening*: voor een post die de klant niet heeft, bijv. een nog te betalen post. Leest de klant later een saldibalans in met hetzelfde nummer, dan is het dezelfde rekening.
+> - De lijst toont per boeking het totaal en het effect op het resultaat; uitklappen toont de regels. Onderaan het effect op resultaat en eigen vermogen; een vraagteken als een regel op een nog niet gekoppelde rekening staat.
+> - Uit het dossier van vorig jaar: *terugkerende* boekingen in één keer overnemen, en een signaal als correcties van vorig jaar niet in de administratie van de klant zijn verwerkt (dan sluit de beginbalans waarschijnlijk niet aan, controle C03).
+> - Elke toevoeging, wijziging en verwijdering staat in het wijzigingslog, met de exacte bedragen.
+>
+> **Proefbalans** (`/dossiers/{id}/proefbalans`): per post de kolommen administratie, correcties, huidig, vorig, verschil en %. Doorklikken van hoofdpost naar subpost, rekening en de correctie op die rekening. De kolommen administratie en correcties verschijnen alleen als er correcties zijn. Vanuit het dossieroverzicht opent een klik op een hoofdpost de proefbalans op die post.
+
 ### S7 – Rapporteditor
 - Inhoudsopgave van het rapport (secties aan/uit volgens het sjabloon en de voorwaarden).
 - Per tekstsectie: de standaardtekst met ingevulde variabelen. Bewerken maakt een dossierspecifieke versie, met de optie "terugzetten naar standaard".

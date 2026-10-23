@@ -21,7 +21,8 @@ public sealed record RubriceerRekening(
     decimal? Saldo,
     decimal? SaldoVorig,
     KoppelInfo? Koppeling,
-    VoorstelInfo? Voorstel)
+    VoorstelInfo? Voorstel,
+    decimal Correcties = 0)
 {
     public bool HeeftSaldo => (Saldo ?? 0) != 0 || (SaldoVorig ?? 0) != 0;
 }
@@ -83,7 +84,7 @@ public sealed class RubriceerDienst(IDbContextFactory<BoekerhoudenDbContext> dbF
 
         var schema = await rgs.ActiefSchema();
         var selectie = RgsDienst.SelectieVoor(dossier.Rechtsvorm);
-        var saldi = await Saldi(db, dossier.KlantId, dossier.Boekjaar);
+        var saldi = await DossierSaldi.Haal(db, dossier.KlantId, dossier.Boekjaar, dossier.Soort);
         var rekeningen = await db.Grootboekrekeningen.AsNoTracking()
             .Where(g => g.KlantId == dossier.KlantId)
             .OrderBy(g => g.Nummer)
@@ -118,7 +119,7 @@ public sealed class RubriceerDienst(IDbContextFactory<BoekerhoudenDbContext> dbF
                 schema,
                 eigenPosten,
                 koppelingen.Values.ToDictionary(k => k.GrootboekrekeningId, k => new KoppelDoel(k.Code, k.EigenPostId)),
-                [.. rekeningen.Select(r => new RekeningSaldo(r.Id, r.Nummer, r.Omschrijving, saldi[r.Id].Huidig, saldi[r.Id].Vorig))]);
+                [.. rekeningen.Select(r => new RekeningSaldo(r.Id, r.Nummer, r.Omschrijving, saldi[r.Id].Huidig, saldi[r.Id].Vorig, saldi[r.Id].Correcties))]);
 
             if (metVoorstellen)
             {
@@ -141,7 +142,8 @@ public sealed class RubriceerDienst(IDbContextFactory<BoekerhoudenDbContext> dbF
                 saldi[r.Id].Huidig,
                 saldi[r.Id].Vorig,
                 koppelingen.TryGetValue(r.Id, out var k) ? new KoppelInfo(k.Code, k.EigenPostId, k.Bron) : null,
-                voorstellen.GetValueOrDefault(r.Id)))],
+                voorstellen.GetValueOrDefault(r.Id),
+                saldi[r.Id].Correcties))],
             eigenPosten,
             klantNamen,
             kantoorNamen,
@@ -607,21 +609,6 @@ public sealed class RubriceerDienst(IDbContextFactory<BoekerhoudenDbContext> dbF
         && decimal.TryParse(b, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var y)
             ? x.CompareTo(y)
             : string.CompareOrdinal(a, b);
-
-    private static async Task<Dictionary<Guid, (decimal? Huidig, decimal? Vorig)>> Saldi(BoekerhoudenDbContext db, Guid klantId, int boekjaar)
-    {
-        var regels = await (from s in db.Saldi.AsNoTracking()
-                            join b in db.ImportBatches.AsNoTracking() on s.ImportBatchId equals b.Id
-                            where b.KlantId == klantId && b.Actief && (b.Boekjaar == boekjaar || b.Boekjaar == boekjaar - 1)
-                            select new { s.GrootboekrekeningId, b.Boekjaar, s.Bedrag })
-            .ToListAsync();
-        // Het kantoor werkt in hele euro's; afrondingsverschillen worden verdeeld, zodat elk jaar blijft sluiten.
-        var huidig = Afronding.OpHeleEuros(regels.Where(r => r.Boekjaar == boekjaar).Select(r => KeyValuePair.Create(r.GrootboekrekeningId, r.Bedrag)));
-        var vorig = Afronding.OpHeleEuros(regels.Where(r => r.Boekjaar == boekjaar - 1).Select(r => KeyValuePair.Create(r.GrootboekrekeningId, r.Bedrag)));
-        return huidig.Keys.Union(vorig.Keys).ToDictionary(
-            id => id,
-            id => (huidig.TryGetValue(id, out var h) ? h : (decimal?)null, vorig.TryGetValue(id, out var v) ? v : (decimal?)null));
-    }
 
     private static string Opsomming(IEnumerable<string> items)
     {

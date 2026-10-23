@@ -82,6 +82,7 @@ public static class Opstart
         services.AddSingleton<RgsDienst>();
         services.AddSingleton<RubriceerDienst>();
         services.AddSingleton<SjabloonDienst>();
+        services.AddSingleton<CorrectieDienst>();
     }
 
     public static void ConfigureerPijplijn(WebApplication app)

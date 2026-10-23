@@ -33,6 +33,10 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
 
     public DbSet<SjabloonRegel> SjabloonRegels => Set<SjabloonRegel>();
 
+    public DbSet<Correctieboeking> Correctieboekingen => Set<Correctieboeking>();
+
+    public DbSet<Correctieregel> Correctieregels => Set<Correctieregel>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -174,6 +178,29 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
             e.Property(r => r.Omschrijving).HasMaxLength(300);
             e.Property(r => r.Code).HasMaxLength(20);
             e.Property(r => r.GewijzigdDoor).HasMaxLength(200);
+        });
+
+        builder.Entity<Correctieboeking>(e =>
+        {
+            e.ToTable("Correctieboekingen");
+            e.HasIndex(c => new { c.DossierId, c.Nummer }).IsUnique();
+            e.HasIndex(c => c.OvergenomenVanId);
+            e.HasOne<Dossier>().WithMany().HasForeignKey(c => c.DossierId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Correctieboeking>().WithMany().HasForeignKey(c => c.OvergenomenVanId).OnDelete(DeleteBehavior.SetNull);
+            e.Property(c => c.Omschrijving).HasMaxLength(300);
+            e.Property(c => c.Soort).HasConversion<string>().HasMaxLength(30);
+            e.Property(c => c.AangemaaktDoor).HasMaxLength(200);
+            e.Property(c => c.GewijzigdDoor).HasMaxLength(200);
+        });
+
+        builder.Entity<Correctieregel>(e =>
+        {
+            e.ToTable("Correctieregels");
+            e.HasIndex(r => r.GrootboekrekeningId);
+            e.HasOne<Correctieboeking>().WithMany(c => c.Regels).HasForeignKey(r => r.CorrectieboekingId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(r => r.Grootboekrekening).WithMany().HasForeignKey(r => r.GrootboekrekeningId).OnDelete(DeleteBehavior.Restrict);
+            e.Property(r => r.Bedrag).HasPrecision(18, 2);
+            e.Property(r => r.Omschrijving).HasMaxLength(300);
         });
 
         builder.Entity<AuditRegel>(e =>

@@ -78,6 +78,9 @@ public sealed class Grootboekrekening
     public string Omschrijving { get; set; } = string.Empty;
 
     public string? RgsCode { get; set; }
+
+    /// <summary>In het dossier aangemaakt voor een correctie; staat (nog) niet in de administratie van de klant.</summary>
+    public bool AangemaaktBijCorrectie { get; set; }
 }
 
 /// <summary>

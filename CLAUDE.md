@@ -24,14 +24,15 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
 
 ## Structuur
 
-- `src/Boekerhouden.Domain` – domein (saldibalans, bedragen; `Rgs/`: RGS-codes, boom en selectie per rechtsvorm;
-  `Rubricering/`: proefbalans per post met omslag, voorstellen); geen I/O.
+- `src/Boekerhouden.Domain` – domein (saldibalans, bedragen en `BedragParser`; `Rgs/`: RGS-codes, boom en selectie per
+  rechtsvorm; `Rubricering/`: proefbalans per post met omslag, voorstellen; `Correcties/`: boekingscontrole (C08),
+  effect op resultaat en eigen vermogen, gecorrigeerde saldi); geen I/O.
 - `src/Boekerhouden.Import` – importsjabloon (.xlsx/.csv) inlezen en controleren (I1–I6, I11), sjabloon genereren,
   het officiële RGS-werkboek lezen (`RgsWerkboekLezer`).
 - `src/Boekerhouden.Cli` – opdrachtregel om sjablonen te maken en bestanden te controleren.
 - `src/Boekerhouden.Data` – EF Core + PostgreSQL: entiteiten, Identity (gebruikers, rollen), migraties (`Migraties/`).
 - `src/Boekerhouden.Server` – Blazor Server-app: `Diensten/` (klanten, dossiers, import met I7/I9/I10, gebruikers,
-  wijzigingslog), `Identiteit/` (inloggen, wachtwoordbeleid), `Components/` (schermen; accountpagina's statisch,
+  wijzigingslog, rubriceren, correcties; `DossierSaldi` = saldi van een dossier na correcties, met vorig jaar), `Identiteit/` (inloggen, wachtwoordbeleid), `Components/` (schermen; accountpagina's statisch,
   de rest interactief).
 - `tests/` – xUnit-tests; `tests/Fictief/` – verzonnen testklanten (met `genereer.py`); `tests/Gedeeld/` – gedeelde
   testhulp, o.a. een klein uittreksel uit RGS 3.8 (`RgsTestWerkboek`).

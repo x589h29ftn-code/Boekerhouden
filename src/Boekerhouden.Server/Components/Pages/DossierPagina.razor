@@ -27,7 +27,8 @@ else
         <h1 class="h3 mb-0">@dossier.Naam</h1>
         <DossierStatusLabel Status="dossier.Status" />
     </div>
-    <p class="text-secondary">@dossier.Klantnummer @dossier.KlantNaam · @Weergave.Tekst(dossier.Rechtsvorm) · @Weergave.Tekst(dossier.Soort)</p>
+    <p class="text-secondary mb-2">@dossier.Klantnummer @dossier.KlantNaam · @Weergave.Tekst(dossier.Rechtsvorm) · @Weergave.Tekst(dossier.Soort)</p>
+    <DossierMenu DossierId="dossier.Id" />
 
     <ImportPaneel KlantId="dossier.KlantId" Klantnummer="@dossier.Klantnummer" KlantNaam="@dossier.KlantNaam"
                   Boekjaar="dossier.Boekjaar" OnGeimporteerd="Geimporteerd" />
@@ -36,12 +37,12 @@ else
     {
         <div class="card mt-4" id="rubricering">
             <div class="card-header d-flex align-items-center gap-3">
-                <span class="fw-semibold me-auto">Rubricering</span>
+                <span class="fw-semibold me-auto">Proefbalans per hoofdpost @(rubricering.Rekeningen.Any(r => r.Correcties != 0) ? "(na correcties)" : null)</span>
                 @if (rubricering.Schema is not null)
                 {
                     <span class="small text-secondary">@rubricering.Gekoppeld van @rubricering.Relevant rekeningen gekoppeld (@rubricering.Percentage%)</span>
                 }
-                <a class="btn btn-sm btn-primary" href="/dossiers/@dossier.Id/rubriceren">Rubriceren</a>
+                <a class="btn btn-sm btn-outline-secondary" href="/dossiers/@dossier.Id/rubriceren">Rubriceren</a>
             </div>
             @if (rubricering is { Schema: not null, Balans: { } balans } && rubricering.Gekoppeld > 0)
             {
@@ -53,7 +54,7 @@ else
                         @foreach (var post in rubricering.Schema.Hoofdposten.Where(p => balans.Totaal(p.Code).Aantal > 0))
                         {
                             <tr>
-                                <td title="RGS @post.Code">@rubricering.Naam(post.Code)</td>
+                                <td title="RGS @post.Code"><a class="link-body-emphasis link-underline-opacity-0 link-underline-opacity-75-hover" href="/dossiers/@dossier.Id/proefbalans?open=@post.Code">@rubricering.Naam(post.Code)</a></td>
                                 <td class="text-end bedrag">@Bedragen.Heel(balans.Totaal(post.Code).Huidig)</td>
                                 <td class="text-end bedrag text-secondary">@Bedragen.Heel(balans.Totaal(post.Code).Vorig)</td>
                             </tr>

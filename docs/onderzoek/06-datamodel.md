@@ -110,6 +110,7 @@ Optioneel *KoppelingSplitsing*: een rekening verdeeld over meerdere RGS-codes (p
 **Mutatie** (optioneel, voor drill-down vanuit een rubriek naar boekingen): ImportBatchId, GrootboekrekeningId, Dagboek, Boekstuknummer, Datum, Omschrijving, Bedrag, D/C, Relatie.
 
 **Correctieboeking** (memoriaal in het dossier): Id, DossierId, Nummer, Datum, Omschrijving, Soort (`Correctie`, `Herrubricering`, `Fiscale correctie`, `Terugkerend`), Status (`Concept`/`Verwerkt`), DoorgevoerdInAdministratieKlant (ja/nee, zodat je kunt bijhouden of de klant de boeking zelf ook verwerkt). Regels: GrootboekrekeningId, Bedrag (+ debet / − credit), Omschrijving. **Validatie: de som van de regels is altijd 0.**
+*Gebouwd (plakje 4):* `Correctieboeking` (Nummer per dossier, Omschrijving, Soort `Correctie`/`Herrubricering`, Terugkerend, VerwerktBijKlant, OvergenomenVanId) en `Correctieregel` (Volgorde, GrootboekrekeningId, Bedrag, Omschrijving). Geen datum (het boekjaar volgt uit het dossier) en geen status; *Terugkerend* is een vinkje in plaats van een soort. Een grootboekrekening die voor een correctie is aangemaakt, heeft `AangemaaktBijCorrectie`.
 
 *(Vervallen: een aparte planningskolom en materialiteitsdrempel. De keuze van materiële posten ligt bij de gebruiker; zie DossierPost in [§10.6](10-werkprogramma-en-materialiteit.md#106-uitbreiding-datamodel).)*
 
@@ -147,7 +148,7 @@ Optioneel *KoppelingSplitsing*: een rekening verdeeld over meerdere RGS-codes (p
 | Saldo administratie | Beginsaldo + Σ mutaties t/m laatste periode (actieve importbatch) |
 | Correcties | Σ correctieregels op deze rekening |
 | **Huidig** | Saldo administratie + Correcties |
-| **Vorig** | *Huidig* uit het (gesloten) dossier van vorig jaar, of bij het eerste jaar een aparte import of handmatige invoer |
+| **Vorig** | *Huidig* uit het (gesloten) dossier van vorig jaar, of bij het eerste jaar een aparte import of handmatige invoer. *Gebouwd:* de saldibalans van vorig jaar plus de correcties uit het dossier van vorig jaar (zelfde soort opdracht) |
 | **Verschil** | Huidig − Vorig, absoluut en in % |
 
 Rubrieksaldi zijn de som van de rekeningen per rubriek, opgeteld via de boom (rollup).

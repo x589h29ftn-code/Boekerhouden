@@ -1,0 +1,307 @@
+@page "/dossiers/{Id:guid}/proefbalans"
+@using Boekerhouden.Domain.Rubricering
+@inject RubriceerDienst RubriceerDienst
+@inject CorrectieDienst CorrectieDienst
+
+<PageTitle>Proefbalans @(o?.Dossier.Naam) – Boekerhouden</PageTitle>
+
+@if (!geladen)
+{
+    <p class="text-secondary">Laden…</p>
+}
+else if (o is null)
+{
+    <div class="alert alert-warning">Dit dossier bestaat niet (meer). <a href="/">Terug naar de klanten</a></div>
+}
+else
+{
+    <nav aria-label="kruimelpad">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Klanten</a></li>
+            <li class="breadcrumb-item"><a href="/klanten/@o.Dossier.KlantId">@o.Dossier.KlantNaam</a></li>
+            <li class="breadcrumb-item"><a href="/dossiers/@o.Dossier.Id">@o.Dossier.Naam</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Proefbalans</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex align-items-center flex-wrap gap-3 mb-2">
+        <h1 class="h3 mb-0 me-auto">Proefbalans</h1>
+        <span class="small text-secondary">@(MetCorrecties ? $"na {AantalCorrecties} correctie(s)" : "zonder correcties") · vergelijkende cijfers @(o.Dossier.Boekjaar - 1)</span>
+    </div>
+    <DossierMenu DossierId="o.Dossier.Id" Actief="/proefbalans" />
+
+    @if (o.Schema is null || o.Balans is null)
+    {
+        <div class="alert alert-warning">Er is nog geen RGS-werkboek ingelezen; de proefbalans per post volgt na het rubriceren.</div>
+    }
+    else
+    {
+        <div class="card proefbalans-boom" style="--kolommen:@(MetCorrecties ? 5 : 3)">
+            <div class="card-header d-flex align-items-center gap-2">
+                <span class="fw-semibold me-auto">Per post, na correcties</span>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="AllesOpen">alles open</button>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="() => open.Clear()">inklappen</button>
+            </div>
+            <div class="kolomkop pb-raster">
+                <span>Post</span>
+                @if (MetCorrecties)
+                {
+                    <span class="text-end" title="Saldo volgens de administratie van de klant">Administratie</span>
+                    <span class="text-end">Correcties</span>
+                }
+                <span class="text-end">@o.Dossier.Boekjaar</span>
+                <span class="text-end">@(o.Dossier.Boekjaar - 1)</span>
+                <span class="text-end">Verschil</span>
+                <span class="text-end">%</span>
+            </div>
+            <div class="pb-regels">
+                @foreach (var regel in Regels())
+                {
+                    @switch (regel)
+                    {
+                        case KopRegel kop:
+                            <div class="boom-kop">@kop.Tekst</div>
+                            break;
+                        case TotaalRegel t:
+                            <div class="pb-raster pb-totaal">
+                                <span>@t.Tekst</span>
+                                @Kolommen(t.Totaal.Administratie, t.Totaal.Correcties, t.Totaal.Huidig, t.Totaal.Vorig)
+                            </div>
+                            break;
+                        case PostRegel p:
+                            var totaal = o.Balans.Totaal(p.Knoop.Sleutel);
+                            <div class="pb-raster pb-post niveau-@p.Knoop.Niveau @(p.Knoop.EigenId is not null ? "eigen" : null)" style="--diepte:@p.Diepte" data-sleutel="@p.Knoop.Sleutel">
+                                <span class="naam" @onclick="() => Wissel(p.Knoop.Sleutel)" title="@Titel(p.Knoop)">
+                                    <span class="pijl" aria-hidden="true">@(p.KanOpen ? (p.Open ? "▾" : "▸") : "")</span>@o.Naam(p.Knoop.Sleutel)
+                                </span>
+                                @Kolommen(totaal.Administratie, totaal.Correcties, totaal.Huidig, totaal.Vorig)
+                            </div>
+                            break;
+                        case RekeningRegel rr:
+                            var r = rr.Rekening;
+                            <div class="pb-raster pb-rekening" style="--diepte:@rr.Diepte" data-rekening="@r.Nummer">
+                                <span class="naam" @onclick="() => Wissel(RekeningSleutel(r))" title="@r.Nummer @r.Omschrijving">
+                                    <span class="pijl" aria-hidden="true">@(rr.KanOpen ? (rr.Open ? "▾" : "▸") : "")</span><span class="nr">@r.Nummer</span> @r.Omschrijving
+                                </span>
+                                @Kolommen(r.Saldo is { } s ? s - r.Correcties : null, r.Correcties, r.Saldo, r.SaldoVorig)
+                            </div>
+                            break;
+                        case BoekingRegel br:
+                            <div class="pb-raster pb-boeking" style="--diepte:@br.Diepte">
+                                <span class="naam" title="Correctie @br.Nummer: @br.Omschrijving">
+                                    <a href="/dossiers/@Id/correcties#boeking-@br.Nummer">correctie @br.Nummer</a> · @br.Omschrijving
+                                </span>
+                                @if (MetCorrecties)
+                                {
+                                    <span></span>
+                                    <span class="bedrag text-end">@Bedragen.Heel(br.Bedrag)</span>
+                                }
+                                <span></span><span></span><span></span><span></span>
+                            </div>
+                            break;
+                    }
+                }
+            </div>
+            <div class="card-footer bg-white small text-secondary d-flex flex-wrap gap-3">
+                <span>Resultaat @o.Dossier.Boekjaar <span class="bedrag text-body">@Bedragen.Heel(o.Balans.ResultaatHuidig)</span></span>
+                <span>@(o.Dossier.Boekjaar - 1) <span class="bedrag text-body">@Bedragen.Heel(o.Balans.ResultaatVorig)</span></span>
+                @if (o.Balans.Ongekoppeld.Aantal > 0)
+                {
+                    <span class="status let-op fs-6">@o.Balans.Ongekoppeld.Aantal rekening(en) nog niet gekoppeld</span>
+                    <a href="/dossiers/@Id/rubriceren">rubriceren</a>
+                }
+                else if (o.Balans.Balans.Huidig == o.Balans.ResultaatHuidig)
+                {
+                    <span class="ms-auto">✓ alles gekoppeld; de balans sluit op het resultaat</span>
+                }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private bool geladen;
+    private RubriceerOverzicht? o;
+    private CorrectieOverzicht? correcties;
+    private readonly HashSet<string> open = new(StringComparer.Ordinal);
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    /// <summary>Een post die bij het openen al open moet staan, bijv. vanuit het dossier (?open=BMva).</summary>
+    [SupplyParameterFromQuery(Name = "open")]
+    public string? OpenBijStart { get; set; }
+
+    private sealed record Knoop(string Sleutel, string Code, int Niveau, Guid? EigenId);
+
+    private abstract record Regel;
+
+    private sealed record KopRegel(string Tekst) : Regel;
+
+    private sealed record TotaalRegel(string Tekst, PostTotaal Totaal) : Regel;
+
+    private sealed record PostRegel(Knoop Knoop, int Diepte, bool Open, bool KanOpen) : Regel;
+
+    private sealed record RekeningRegel(RubriceerRekening Rekening, int Diepte, bool Open, bool KanOpen) : Regel;
+
+    private sealed record BoekingRegel(int Nummer, string Omschrijving, decimal Bedrag, int Diepte) : Regel;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        o = await RubriceerDienst.Overzicht(Id, metVoorstellen: false);
+        correcties = await CorrectieDienst.Overzicht(Id);
+        if (!string.IsNullOrEmpty(OpenBijStart))
+        {
+            open.Add(OpenBijStart);
+        }
+
+        geladen = true;
+    }
+
+    private int AantalCorrecties => correcties?.Boekingen.Count ?? 0;
+
+    private bool MetCorrecties => AantalCorrecties > 0;
+
+    private static string RekeningSleutel(RubriceerRekening r) => "rek:" + r.Id.ToString("N");
+
+    /// <summary>De bedragkolommen van een regel: (administratie, correcties,) huidig, vorig, verschil en %.</summary>
+    private RenderFragment Kolommen(decimal? administratie, decimal correcties, decimal? huidig, decimal? vorig) => __builder =>
+    {
+        var verschil = (huidig ?? 0) - (vorig ?? 0);
+        if (MetCorrecties)
+        {
+            <span class="bedrag text-end vorig">@(administratie is { } a ? Bedragen.Heel(a) : "")</span>
+            <span class="bedrag text-end">@(correcties != 0 ? Bedragen.Heel(correcties) : "")</span>
+        }
+
+        <span class="bedrag text-end">@(huidig is { } h ? Bedragen.Heel(h) : "")</span>
+        <span class="bedrag text-end vorig">@(vorig is { } v ? Bedragen.Heel(v) : "")</span>
+        <span class="bedrag text-end">@(verschil != 0 ? Bedragen.Heel(verschil) : "")</span>
+        <span class="bedrag text-end vorig">@Percentage(verschil, vorig ?? 0)</span>
+    };
+
+    private static string Percentage(decimal verschil, decimal vorig) =>
+        vorig == 0 || verschil == 0 ? "" : $"{Math.Round(verschil / Math.Abs(vorig) * 100, 0, MidpointRounding.AwayFromZero):0}%";
+
+    private string Titel(Knoop k) => k.EigenId is null ? $"RGS {k.Code}" : $"eigen post onder RGS {k.Code}";
+
+    /// <summary>De gevulde posten onder een post: hoofdpost → subposten → eigen posten (ook die onder een grootboekcode).</summary>
+    private IEnumerable<Knoop> Kinderen(Knoop ouder)
+    {
+        if (ouder.EigenId is not null)
+        {
+            return [];
+        }
+
+        if (ouder.Niveau < 3)
+        {
+            return o!.Schema!.Kinderen(ouder.Code).Where(c => c.Niveau <= 3).Select(c => new Knoop(c.Code, c.Code, c.Niveau, null))
+                .Where(k => o.Balans!.Totaal(k.Sleutel).Aantal > 0);
+        }
+
+        return o!.EigenPosten
+            .Where(p => p.OuderCode == ouder.Code || o.Schema!.Zoek(p.OuderCode)?.Ouder == ouder.Code)
+            .Select(p => new Knoop(PostBalans.EigenSleutel(p.Id), p.OuderCode, ouder.Niveau + 1, p.Id))
+            .Where(k => o.Balans!.Totaal(k.Sleutel).Aantal > 0);
+    }
+
+    /// <summary>De rekeningen die (na omslag) op deze subpost of een grootboekcode eronder staan, of op de eigen post.</summary>
+    private IEnumerable<RubriceerRekening> RekeningenOp(Knoop k)
+    {
+        if (k.Niveau < 3)
+        {
+            return [];
+        }
+
+        var plaatsing = o!.Balans!.Plaatsing;
+        return o.Rekeningen
+            .Where(r => plaatsing.TryGetValue(r.Id, out var p)
+                        && (k.EigenId is not null
+                            ? p == k.Sleutel
+                            : p == k.Code || (!p.StartsWith(PostBalans.EigenVoorvoegsel, StringComparison.Ordinal) && o.Schema!.Zoek(p) is { Niveau: 4 } c && c.Ouder == k.Code)))
+            .Where(r => r.HeeftSaldo || r.Correcties != 0)
+            .OrderBy(r => r.Nummer, StringComparer.Ordinal);
+    }
+
+    private IEnumerable<BoekingRegel> BoekingenOp(RubriceerRekening r, int diepte) =>
+        correcties?.Boekingen.SelectMany(b => b.Regels.Where(x => x.RekeningId == r.Id).Select(x => new BoekingRegel(b.Nummer, b.Omschrijving, x.Bedrag, diepte))) ?? [];
+
+    private List<Regel> Regels()
+    {
+        var regels = new List<Regel>();
+        foreach (var (zijde, kop) in new[] { ("B", "Balans"), ("W", "Winst-en-verliesrekening") })
+        {
+            regels.Add(new KopRegel(kop));
+            foreach (var knoop in Kinderen(new Knoop(zijde, zijde, 1, null)))
+            {
+                VoegToe(regels, knoop, 0);
+            }
+
+            regels.Add(new TotaalRegel(zijde == "B" ? "Saldo balans (activa − passiva)" : "Saldo winst-en-verliesrekening", o!.Balans!.Totaal(zijde)));
+        }
+
+        var ongekoppeld = o!.Rekeningen.Where(r => r.Koppeling is null && (r.HeeftSaldo || r.Correcties != 0)).ToList();
+        if (ongekoppeld.Count > 0)
+        {
+            regels.Add(new KopRegel("Nog niet gekoppeld"));
+            foreach (var r in ongekoppeld)
+            {
+                VoegRekeningToe(regels, r, 0);
+            }
+        }
+
+        return regels;
+    }
+
+    private void VoegToe(List<Regel> regels, Knoop k, int diepte)
+    {
+        var kinderen = Kinderen(k).ToList();
+        var rekeningen = RekeningenOp(k).ToList();
+        var isOpen = open.Contains(k.Sleutel);
+        regels.Add(new PostRegel(k, diepte, isOpen, kinderen.Count > 0 || rekeningen.Count > 0));
+        if (!isOpen)
+        {
+            return;
+        }
+
+        foreach (var kind in kinderen)
+        {
+            VoegToe(regels, kind, diepte + 1);
+        }
+
+        foreach (var r in rekeningen)
+        {
+            VoegRekeningToe(regels, r, diepte + 1);
+        }
+    }
+
+    private void VoegRekeningToe(List<Regel> regels, RubriceerRekening r, int diepte)
+    {
+        var boekingen = BoekingenOp(r, diepte + 1).ToList();
+        var isOpen = open.Contains(RekeningSleutel(r));
+        regels.Add(new RekeningRegel(r, diepte, isOpen, boekingen.Count > 0));
+        if (isOpen)
+        {
+            regels.AddRange(boekingen);
+        }
+    }
+
+    private void Wissel(string sleutel)
+    {
+        if (!open.Remove(sleutel))
+        {
+            open.Add(sleutel);
+        }
+    }
+
+    private void AllesOpen()
+    {
+        foreach (var code in o!.Schema!.Alle.Where(c => c.Niveau is 2 or 3).Select(c => c.Code))
+        {
+            if (o.Balans!.Totaal(code).Aantal > 0)
+            {
+                open.Add(code);
+            }
+        }
+    }
+}

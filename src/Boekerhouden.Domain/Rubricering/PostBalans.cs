@@ -8,10 +8,20 @@ public sealed record EigenPost(Guid Id, string OuderCode, string Naam);
 /// <summary>Waar een grootboekrekening aan gekoppeld is: een RGS-code, eventueel via een eigen post onder die code.</summary>
 public sealed record KoppelDoel(string Code, Guid? EigenPostId = null);
 
-/// <summary>Het saldo van een grootboekrekening in het boekjaar en het vorige jaar (null = niet ingelezen).</summary>
-public sealed record RekeningSaldo(Guid RekeningId, string Nummer, string Omschrijving, decimal? Huidig, decimal? Vorig);
+/// <summary>
+/// Het saldo van een grootboekrekening in het boekjaar en het vorige jaar (null = niet ingelezen). Huidig is na
+/// correcties; <paramref name="Correcties"/> is het deel daarvan dat uit de correctieboekingen komt.
+/// </summary>
+public sealed record RekeningSaldo(Guid RekeningId, string Nummer, string Omschrijving, decimal? Huidig, decimal? Vorig, decimal Correcties = 0);
 
-public readonly record struct PostTotaal(decimal Huidig, decimal Vorig, int Aantal);
+/// <param name="Correcties">Het deel van <paramref name="Huidig"/> dat uit correctieboekingen komt.</param>
+public readonly record struct PostTotaal(decimal Huidig, decimal Vorig, int Aantal, decimal Correcties = 0)
+{
+    /// <summary>Het saldo volgens de administratie van de klant (huidig zonder correcties).</summary>
+    public decimal Administratie => Huidig - Correcties;
+
+    public decimal Verschil => Huidig - Vorig;
+}
 
 public enum SignaalSoort
 {
@@ -72,7 +82,7 @@ public sealed class PostBalans
     public static string EigenSleutel(Guid id) => EigenVoorvoegsel + id.ToString("N");
 
     public PostTotaal Totaal(string sleutel) =>
-        totalen.TryGetValue(sleutel, out var t) ? new PostTotaal(t.Huidig, t.Vorig, t.Rekeningen.Count) : default;
+        totalen.TryGetValue(sleutel, out var t) ? new PostTotaal(t.Huidig, t.Vorig, t.Rekeningen.Count, t.Correcties) : default;
 
     public static PostBalans Bereken(
         RgsSchema schema,
@@ -97,7 +107,7 @@ public sealed class PostBalans
             {
                 if (huidig != 0 || vorig != 0)
                 {
-                    ongekoppeld.Tel(saldo.RekeningId, huidig, vorig);
+                    ongekoppeld.Tel(saldo.RekeningId, huidig, vorig, saldo.Correcties);
                     balans.signalen.Add(new Signaal(SignaalSoort.Ongekoppeld, saldo.RekeningId,
                         $"{saldo.Nummer} {saldo.Omschrijving} is nog niet gekoppeld."));
                 }
@@ -117,50 +127,50 @@ public sealed class PostBalans
                     $"{saldo.Nummer} {saldo.Omschrijving} staat {(huidig > 0 ? "debet" : "credit")}; {code.Omschrijving} ({code.Code}) is normaal {(code.Kant == Saldokant.Debet ? "debet" : "credit")}."));
             }
 
-            balans.plaatsing[saldo.RekeningId] = balans.Plaats(schema, posten, doel, code, saldo.RekeningId, huidig, huidig: true);
+            balans.plaatsing[saldo.RekeningId] = balans.Plaats(schema, posten, doel, code, saldo.RekeningId, huidig, huidig: true, saldo.Correcties);
             balans.Plaats(schema, posten, doel, code, saldo.RekeningId, vorig, huidig: false);
         }
 
-        balans.Ongekoppeld = new PostTotaal(ongekoppeld.Huidig, ongekoppeld.Vorig, ongekoppeld.Rekeningen.Count);
+        balans.Ongekoppeld = new PostTotaal(ongekoppeld.Huidig, ongekoppeld.Vorig, ongekoppeld.Rekeningen.Count, ongekoppeld.Correcties);
         return balans;
     }
 
-    private string Plaats(RgsSchema schema, Dictionary<Guid, EigenPost> posten, KoppelDoel doel, RgsCode? code, Guid rekening, decimal bedrag, bool huidig)
+    private string Plaats(RgsSchema schema, Dictionary<Guid, EigenPost> posten, KoppelDoel doel, RgsCode? code, Guid rekening, decimal bedrag, bool huidig, decimal correcties = 0)
     {
         if (code?.Omslagcode is { } omslag && !code.IsNormaleKant(bedrag) && schema.Zoek(omslag) is not null)
         {
-            TelMetVoorouders(schema, omslag, rekening, bedrag, huidig);
+            TelMetVoorouders(schema, omslag, rekening, bedrag, huidig, correcties);
             return omslag;
         }
 
         if (doel.EigenPostId is { } id && posten.TryGetValue(id, out var post))
         {
-            Tel(EigenSleutel(id), rekening, bedrag, huidig);
-            TelMetVoorouders(schema, post.OuderCode, rekening, bedrag, huidig);
+            Tel(EigenSleutel(id), rekening, bedrag, huidig, correcties);
+            TelMetVoorouders(schema, post.OuderCode, rekening, bedrag, huidig, correcties);
             return EigenSleutel(id);
         }
 
-        TelMetVoorouders(schema, doel.Code, rekening, bedrag, huidig);
+        TelMetVoorouders(schema, doel.Code, rekening, bedrag, huidig, correcties);
         return doel.Code;
     }
 
-    private void TelMetVoorouders(RgsSchema schema, string code, Guid rekening, decimal bedrag, bool huidig)
+    private void TelMetVoorouders(RgsSchema schema, string code, Guid rekening, decimal bedrag, bool huidig, decimal correcties)
     {
-        Tel(code, rekening, bedrag, huidig);
+        Tel(code, rekening, bedrag, huidig, correcties);
         if (schema.Zoek(code) is null)
         {
             // Onbekende code: tel in elk geval mee bij balans of W&V, zodat de totalen blijven kloppen.
-            Tel(code[..1], rekening, bedrag, huidig);
+            Tel(code[..1], rekening, bedrag, huidig, correcties);
             return;
         }
 
         foreach (var ouder in schema.Voorouders(code))
         {
-            Tel(ouder.Code, rekening, bedrag, huidig);
+            Tel(ouder.Code, rekening, bedrag, huidig, correcties);
         }
     }
 
-    private void Tel(string sleutel, Guid rekening, decimal bedrag, bool huidig)
+    private void Tel(string sleutel, Guid rekening, decimal bedrag, bool huidig, decimal correcties)
     {
         if (!totalen.TryGetValue(sleutel, out var teller))
         {
@@ -168,7 +178,7 @@ public sealed class PostBalans
             totalen[sleutel] = teller;
         }
 
-        teller.Tel(rekening, huidig ? bedrag : 0, huidig ? 0 : bedrag);
+        teller.Tel(rekening, huidig ? bedrag : 0, huidig ? 0 : bedrag, correcties);
     }
 
     private sealed class Teller
@@ -177,12 +187,15 @@ public sealed class PostBalans
 
         public decimal Vorig { get; private set; }
 
+        public decimal Correcties { get; private set; }
+
         public HashSet<Guid> Rekeningen { get; } = [];
 
-        public void Tel(Guid rekening, decimal huidig, decimal vorig)
+        public void Tel(Guid rekening, decimal huidig, decimal vorig, decimal correcties = 0)
         {
             Huidig += huidig;
             Vorig += vorig;
+            Correcties += correcties;
             Rekeningen.Add(rekening);
         }
     }

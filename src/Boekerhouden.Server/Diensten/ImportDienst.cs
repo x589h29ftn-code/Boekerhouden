@@ -131,6 +131,9 @@ public sealed class ImportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFact
                 rekening.Omschrijving = regel.Omschrijving;
                 rekening.RgsCode = regel.RgsCode ?? rekening.RgsCode;
             }
+
+            // Een rekening die eerder voor een correctie is aangemaakt, staat nu ook in de administratie.
+            rekening.AangemaaktBijCorrectie = false;
         }
 
         await db.ImportBatches.Where(b => b.KlantId == klantId && b.Boekjaar == boekjaar && b.Actief)

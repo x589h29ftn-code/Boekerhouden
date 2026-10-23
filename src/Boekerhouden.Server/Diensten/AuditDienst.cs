@@ -65,4 +65,9 @@ public static class AuditActies
     public const string EigenPostVerwijderd = "Eigen post verwijderd";
     public const string PostHernoemd = "Post hernoemd";
     public const string SjabloonregelVerwijderd = "Sjabloonregel verwijderd";
+    public const string CorrectieToegevoegd = "Correctie toegevoegd";
+    public const string CorrectieGewijzigd = "Correctie gewijzigd";
+    public const string CorrectieVerwijderd = "Correctie verwijderd";
+    public const string CorrectiesOvergenomen = "Terugkerende correcties overgenomen";
+    public const string RekeningAangemaakt = "Grootboekrekening aangemaakt";
 }

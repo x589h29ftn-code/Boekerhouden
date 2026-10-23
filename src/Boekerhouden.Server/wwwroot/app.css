@@ -103,6 +103,31 @@ tr.klikbaar {
     background: #fafbfc;
 }
 
+/* Dossiermenu: tekstlinks, de huidige pagina donker met een dunne lijn eronder. */
+.dossiermenu {
+    display: flex;
+    gap: 1.25rem;
+    margin: 0 0 1rem;
+    border-bottom: 1px solid #e3e6e9;
+}
+
+    .dossiermenu a {
+        padding: .35rem 0;
+        margin-bottom: -1px;
+        color: #6c757d;
+        text-decoration: none;
+        border-bottom: 2px solid transparent;
+    }
+
+        .dossiermenu a:hover {
+            color: #212529;
+        }
+
+        .dossiermenu a.actief {
+            color: #212529;
+            border-bottom-color: #6c8fb3;
+        }
+
 /* Rubriceren: rustig, één regel per rekening of post; details in de tooltip. */
 .rubriceer-voortgang {
     display: flex;
@@ -376,3 +401,197 @@ tr.klikbaar {
     .rekening-in-boom:hover {
         background: var(--kleur-hover);
     }
+
+/* Correcties: journaalpost invoeren en de lijst met boekingen. */
+.journaal-raster {
+    display: grid;
+    grid-template-columns: minmax(12rem, 2fr) minmax(8rem, 2fr) 8rem 8rem 2rem;
+    column-gap: .5rem;
+    align-items: center;
+}
+
+    .kolomkop.journaal-raster {
+        padding: 0 0 .25rem;
+        font-size: .75rem;
+        color: #8a939b;
+    }
+
+.journaal-regel {
+    margin-bottom: .3rem;
+}
+
+.journaal-totaal {
+    color: #6c757d;
+}
+
+.correcties {
+    --kleur-zacht: #8a939b;
+    --kleur-lijn: #eef0f2;
+    --kleur-hover: #f5f7f9;
+}
+
+    .correcties .kolomkop {
+        padding: .3rem .75rem;
+        font-size: .75rem;
+        color: var(--kleur-zacht);
+        border-bottom: 1px solid var(--kleur-lijn);
+    }
+
+.correctie-raster {
+    display: grid;
+    grid-template-columns: 2.5rem minmax(0, 1fr) 7rem 7rem 6.5rem;
+    column-gap: .6rem;
+    align-items: center;
+}
+
+.correctie-regel, .correctie-detail {
+    min-height: 1.9rem;
+    padding: 0 .75rem;
+    font-size: .9rem;
+    border-bottom: 1px solid var(--kleur-lijn);
+}
+
+    .correctie-regel:hover {
+        background: var(--kleur-hover);
+    }
+
+    .correctie-regel .oms, .correctie-detail .oms {
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .correctie-regel .oms {
+        cursor: pointer;
+    }
+
+        .correctie-regel .oms .status {
+            margin-left: .5rem;
+        }
+
+    .correctie-regel .pijl {
+        display: inline-block;
+        width: 1rem;
+        color: var(--kleur-zacht);
+    }
+
+    .correctie-regel .nr, .correctie-detail .nr {
+        font-variant-numeric: tabular-nums;
+        color: #5a6670;
+    }
+
+.correctie-detail {
+    font-size: .8rem;
+    color: #5a6670;
+    background: #fbfbfc;
+}
+
+    .correctie-detail .oms {
+        padding-left: 1rem;
+    }
+
+.correcties .bedrag, .proefbalans-boom .bedrag, .correctie-invoer .bedrag {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.correcties .acties {
+    visibility: hidden;
+    text-align: right;
+    white-space: nowrap;
+}
+
+    .correcties .acties .btn {
+        font-size: .8rem;
+        color: #5a6670;
+        text-decoration: none;
+        padding: 0 .25rem;
+    }
+
+.correctie-regel:is(:hover, :focus-within) .acties {
+    visibility: visible;
+}
+
+/* Proefbalans: posten met administratie, correcties, huidig, vorig, verschil en %. */
+.proefbalans-boom {
+    --kleur-zacht: #8a939b;
+    --kleur-lijn: #eef0f2;
+    --kleur-hover: #f5f7f9;
+}
+
+    .proefbalans-boom .kolomkop {
+        padding: .3rem .75rem;
+        font-size: .75rem;
+        color: var(--kleur-zacht);
+        border-bottom: 1px solid var(--kleur-lijn);
+    }
+
+.pb-raster {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) repeat(var(--kolommen, 3), 6.5rem) 3.5rem;
+    column-gap: .6rem;
+    align-items: center;
+}
+
+.pb-regels {
+    padding-bottom: .5rem;
+}
+
+.pb-post, .pb-rekening, .pb-boeking, .pb-totaal {
+    min-height: 1.9rem;
+    padding: 0 .75rem 0 calc(.5rem + var(--diepte, 0) * 1.1rem);
+    font-size: .9rem;
+}
+
+    .pb-post:hover, .pb-rekening:hover {
+        background: var(--kleur-hover);
+    }
+
+    .pb-post.niveau-2 {
+        font-weight: 600;
+    }
+
+    .pb-post .naam, .pb-rekening .naam, .pb-boeking .naam {
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+    }
+
+    .pb-post .pijl, .pb-rekening .pijl {
+        display: inline-block;
+        width: 1rem;
+        color: var(--kleur-zacht);
+        font-weight: normal;
+    }
+
+.pb-rekening {
+    font-size: .8rem;
+    color: #5a6670;
+}
+
+    .pb-rekening .nr {
+        font-variant-numeric: tabular-nums;
+        color: var(--kleur-zacht);
+    }
+
+.pb-boeking {
+    font-size: .78rem;
+    color: var(--kleur-zacht);
+}
+
+    .pb-boeking a {
+        color: inherit;
+    }
+
+.pb-totaal {
+    margin-top: .25rem;
+    border-top: 1px solid var(--kleur-lijn);
+    font-weight: 600;
+}
+
+.proefbalans-boom .vorig {
+    color: var(--kleur-zacht);
+}
