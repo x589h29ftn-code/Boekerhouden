@@ -36,7 +36,7 @@
                             <td>@r.Omschrijving</td>
                             <td><span class="font-monospace small text-secondary">@r.Code</span> @r.CodeOmschrijving</td>
                             <td class="small">@Weergave.DatumTijd(r.GewijzigdOp) door @r.GewijzigdDoor</td>
-                            <td class="text-end"><button class="btn btn-sm btn-link text-danger" title="Regel verwijderen" @onclick="() => Verwijder(r.Id)">verwijderen</button></td>
+                            <td class="text-end"><button class="btn btn-sm btn-link text-secondary" title="Regel verwijderen" @onclick="() => Verwijder(r.Id)">verwijderen</button></td>
                         </tr>
                     }
                 </tbody>

@@ -31,7 +31,7 @@
 
         @if (gelukt is not null)
         {
-            <div class="alert alert-success mt-3 mb-0" role="status">@gelukt</div>
+            <div class="bericht mt-3" role="status" id="import-gelukt">✓ @gelukt</div>
         }
 
         @if (controle is not null && !bezig)
@@ -41,11 +41,11 @@
                     Controle van @controle.Bestandsnaam voor @controle.Boekjaar:
                     @if (controle.KanImporteren)
                     {
-                        <span class="text-success">in orde</span>
+                        <span>in orde</span>
                     }
                     else
                     {
-                        <span class="text-danger">niet in te lezen</span>
+                        <span class="status fout fs-6">niet in te lezen</span>
                     }
                 </div>
                 @if (controle.Saldibalans is { } balans)
@@ -60,8 +60,8 @@
                 <ul class="list-group mb-3 importmeldingen">
                     @foreach (var melding in controle.Meldingen.OrderBy(m => m.Ernst))
                     {
-                        <li class="list-group-item @Klasse(melding.Ernst)">
-                            <span class="badge @Badge(melding.Ernst) me-2">@melding.Code</span>
+                        <li class="list-group-item">
+                            <span class="status @Klasse(melding.Ernst) me-2">@melding.Code</span>
                             @if (melding.Rij is { } rij)
                             {
                                 <span class="text-secondary me-1">rij @rij:</span>
@@ -212,15 +212,8 @@
 
     private static string Klasse(MeldingErnst ernst) => ernst switch
     {
-        MeldingErnst.Fout => "list-group-item-danger",
-        MeldingErnst.Waarschuwing => "list-group-item-warning",
-        _ => "list-group-item-light",
-    };
-
-    private static string Badge(MeldingErnst ernst) => ernst switch
-    {
-        MeldingErnst.Fout => "text-bg-danger",
-        MeldingErnst.Waarschuwing => "text-bg-warning",
-        _ => "text-bg-secondary",
+        MeldingErnst.Fout => "fout",
+        MeldingErnst.Waarschuwing => "let-op",
+        _ => string.Empty,
     };
 }

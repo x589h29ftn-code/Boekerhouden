@@ -31,6 +31,18 @@
 
 ## 5.2 Schermen (afgeleid van de schermafbeeldingen)
 
+### Vormgeving: rustige uitstraling (besluit opdrachtgever, 23-10-2026)
+
+Na het koppelscherm van plakje 3 is dit de stijl voor alle schermen:
+
+- **Eén regel per item.** Lange tekst wordt afgekapt; de volledige tekst staat in de tooltip.
+- **Details naar de tooltip**: codes (RGS), het volledige pad, de bron van een koppeling en het bedrag van vorig jaar als dat niet in een eigen kolom staat.
+- **Weinig kleur.** Geen gekleurde labels of badges en geen rode bedragen (negatief = minteken). Een status is kleine grijze tekst (`.status`); alleen een fout (`.status.fout`) of iets dat aandacht vraagt (`.status.let-op`) krijgt een gedempte kleur. Kleur verder alleen waar die iets betekent, zoals de plek waar je iets neerzet.
+- **Knoppen pas bij aanwijzen** (✎, ＋, ✕) op regels in lijsten en bomen. De hoofdactie van een scherm blijft altijd zichtbaar.
+- **Meldingen klein.** Een bevestiging staat kort naast de titel of in een neutraal kader (`.bericht`), niet als groot gekleurd vlak. Rode meldingen alleen voor fouten die je moet oplossen.
+- **Bedragen in hele euro's**, rechts uitgelijnd met cijfers van gelijke breedte; vorig jaar in grijs.
+- **Zelden gebruikte opties achter een schakelaar**, zoals de RGS-grootboekcodes (niveau 4) in het koppelscherm.
+
 ### S1 – Klantenmonitor (screenshot 1)
 Een tabel met alle klanten:
 

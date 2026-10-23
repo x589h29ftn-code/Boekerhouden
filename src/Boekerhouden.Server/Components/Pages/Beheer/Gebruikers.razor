@@ -14,11 +14,11 @@
 
 @if (tijdelijkWachtwoord is not null)
 {
-    <div class="alert alert-success" role="status">
+    <div class="bericht mb-3" role="status">
         <div>Tijdelijk wachtwoord voor <strong>@tijdelijkVoor</strong>:</div>
         <div class="fs-4 font-monospace my-2" id="tijdelijk-wachtwoord">@tijdelijkWachtwoord</div>
         <div class="small">Geef dit persoonlijk door. Het wordt maar één keer getoond; bij de eerste keer inloggen kiest de gebruiker een eigen wachtwoord.</div>
-        <button class="btn btn-sm btn-outline-success mt-2" @onclick="() => tijdelijkWachtwoord = null">Gezien</button>
+        <button class="btn btn-sm btn-outline-secondary mt-2" @onclick="() => tijdelijkWachtwoord = null">Gezien</button>
     </div>
 }
 <Foutmeldingen Fouten="actieFouten" />
@@ -84,19 +84,19 @@
                         <td>
                             @if (!g.Actief)
                             {
-                                <span class="badge text-bg-secondary">gedeactiveerd</span>
+                                <span class="status">gedeactiveerd</span>
                             }
                             else if (g.Geblokkeerd)
                             {
-                                <span class="badge text-bg-danger" title="Te vaak een verkeerd wachtwoord">geblokkeerd</span>
+                                <span class="status fout" title="Te vaak een verkeerd wachtwoord">geblokkeerd</span>
                             }
                             else if (g.MoetWachtwoordWijzigen)
                             {
-                                <span class="badge text-bg-warning">tijdelijk wachtwoord</span>
+                                <span class="status let-op">tijdelijk wachtwoord</span>
                             }
                             else
                             {
-                                <span class="badge text-bg-success">actief</span>
+                                <span class="status">actief</span>
                             }
                         </td>
                         <td class="text-end text-nowrap">

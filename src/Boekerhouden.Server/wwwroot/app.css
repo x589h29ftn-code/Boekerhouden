@@ -79,6 +79,30 @@ tr.klikbaar {
         content: "Er is een fout opgetreden.";
     }
 
+/* Rustige uitstraling (docs §5.2): status als kleine grijze tekst, meldingen neutraal; kleur alleen bij een fout of
+   iets dat aandacht vraagt. */
+.status {
+    font-size: .8rem;
+    font-weight: normal;
+    color: #6c757d;
+    white-space: nowrap;
+}
+
+    .status.let-op {
+        color: #8a6d1f;
+    }
+
+    .status.fout {
+        color: #a33a3a;
+    }
+
+.bericht {
+    padding: .6rem .85rem;
+    border: 1px solid #e3e6e9;
+    border-radius: .375rem;
+    background: #fafbfc;
+}
+
 /* Rubriceren: rustig, één regel per rekening of post; details in de tooltip. */
 .rubriceer-voortgang {
     display: flex;

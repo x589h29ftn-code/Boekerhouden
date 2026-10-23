@@ -21,7 +21,7 @@
     <Foutmeldingen Fouten="fouten" />
     @if (verslag is not null)
     {
-        <div class="alert alert-success mt-3 mb-0" id="rgs-verslag">
+        <div class="bericht mt-3" id="rgs-verslag">
             <div class="fw-semibold mb-1">RGS @verslag.Versie ingelezen@(verslag.Actief ? " en actief gemaakt" : " (niet actief: er is al een nieuwere versie)").</div>
             <ul class="mb-0 small">
                 <li>Codes per niveau: @string.Join(" · ", verslag.PerNiveau.Select(n => $"niveau {n.Key}: {n.Value}"))</li>
@@ -29,7 +29,7 @@
                 <li>Te koppelen grootboekcodes: BV @verslag.BvGrootboekcodes, eenmanszaak @verslag.EenmanszaakGrootboekcodes</li>
                 @foreach (var melding in verslag.Meldingen)
                 {
-                    <li class="text-warning-emphasis">@(melding.Rij is { } rij ? $"Rij {rij}: " : string.Empty)@melding.Tekst</li>
+                    <li class="status let-op">@(melding.Rij is { } rij ? $"Rij {rij}: " : string.Empty)@melding.Tekst</li>
                 }
             </ul>
         </div>
@@ -50,7 +50,7 @@
                     <tr>
                         <td>RGS @v.Versie @if (v.Actief)
                             {
-                                <span class="badge text-bg-success ms-1">actief</span>
+                                <span class="status ms-1">actief</span>
                             }
                         </td>
                         <td>@v.Bestandsnaam</td>
