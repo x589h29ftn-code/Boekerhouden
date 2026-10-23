@@ -1,119 +1,97 @@
-# 8. Wat hebben we nodig? Roadmap, risico's en beslispunten
+# 8. Wat hebben we nodig? Besluiten, roadmap en risico's
 
-## 8.1 Wat we nodig hebben om te bouwen
+> **Bijgewerkt op 23-10-2026** met de besluiten van de opdrachtgever en de analyse van de
+> voorbeeldrapporten ([hoofdstuk 9](09-analyse-voorbeeldrapporten.md)). Openstaande vragen staan in de
+> [vragenlijst](11-vragenlijst.md).
+
+## 8.1 Besluitenlog
+
+| # | Datum | Besluit | Gevolg |
+|---|---|---|---|
+| B1 | 23-10-2026 | **Meerdere gebruikers, met eigen wachtwoord** | Kantoorserver-model met centrale PostgreSQL-database en ASP.NET Core Identity ([§7.2](07-technische-architectuur.md#72-architectuurkeuze-voor-meerdere-gebruikers), [§7.8](07-technische-architectuur.md#78-inloggen-rechten-en-beveiliging)). Definitief na vraag A2 (offline werken?) |
+| B2 | 23-10-2026 | **Eigen werkprogramma** in een sjabloon. Een post die als **materieel** wordt aangevinkt, krijgt zijn werkprogramma in de uitvoering. Stappen zijn per dossier toe te voegen en te verwijderen | Werkprogramma-engine met materialiteit ([hoofdstuk 10](10-werkprogramma-en-materialiteit.md)). Geen SRA-licentie nodig |
+| B3 | 23-10-2026 | Rechtsvormen: **BV micro, BV klein, eenmanszaak, VOF** | Twee rubriekenschema's (BV en IB) en drie rapportsjablonen (BV klein, BV micro, winstaangifte EZ/VOF) |
+| B5 | 23-10-2026 | Export naar **PDF én Word** | De Word-renderer (OpenXML) zit in de MVP. Beleid voor definitieve versies: vraag D8 |
+| – | 23-10-2026 | De rapportnorm is de **voorbeeldrapporten** (BV klein jaarrekening; EZ bijlage aangifte IB) | Kengetallen, meerjarenoverzicht, fiscale positie (Vpb) en verschillenanalyse horen in de MVP ([§9.6](09-analyse-voorbeeldrapporten.md#96-gevolgen-voor-scope-en-planning)) |
+
+**Nog open:**
+- **B4** (wie bouwt): zie vraag F2.
+- **B6** (UI-technologie): Blazor, nu als Blazor Server ([§7.2](07-technische-architectuur.md#72-architectuurkeuze-voor-meerdere-gebruikers)).
+- **B7** (migratie): zie vragen B4 en E4.
+
+## 8.2 Wat we nodig hebben om te bouwen
 
 ### Mensen
 
 | Rol | Omvang (indicatie) | Taken |
 |---|---|---|
-| **Ontwikkelaar (.NET/C#)** | 1 fte gedurende de MVP | Architectuur, import, rubriceringsengine, werkprogramma-engine, rapportgenerator, UI. Kan versneld worden met AI-ondersteuning (Claude Code), maar elke regel moet gereviewd en getest worden |
-| **Vaktechnisch verantwoordelijke (accountant)** | 0,2–0,4 fte | Productowner. Stelt rubriekenschema, RGS→rubriek-tabel, werkprogramma, standaardteksten en rapportsjablonen op; test met echte dossiers. **Dit is de kritieke rol: de inhoud is minstens de helft van het product** |
-| **Testgebruikers** (2–3 medewerkers) | Pilotfase | Echte dossiers parallel draaien naast Visionplanner |
-| **Beheer/ICT** | Beperkt | Installatie, back-up, code-signing, later de databaseserver |
+| **Ontwikkelaar (.NET/C#)** | 1 fte tijdens de MVP | Architectuur, import, rubriceringsengine, werkprogramma-engine, rapportgenerator (PDF en Word), UI, inloggen. Versnelling met AI-ondersteuning is mogelijk, maar alles wordt gereviewd en getest |
+| **Vaktechnisch verantwoordelijke** | 0,2–0,4 fte | Productowner. Stelt rubriekenschema's, RGS→rubriek-tabel, werkprogramma, standaardteksten en rapportsjablonen op, en test met echte dossiers |
+| **ICT-beheer / partner** | Beperkt | Server of VM, back-up, certificaten, VPN, installatie |
+| **Testgebruikers** (2–3) | Pilotfase | Dossiers parallel draaien naast Visionplanner |
 
-### Middelen en licenties
+### Middelen
 
 | Wat | Kosten (indicatie) | Opmerking |
 |---|---|---|
-| .NET 10 SDK, Visual Studio Community/Code, GitHub | € 0 – laag | Visual Studio Community is gratis voor kleine organisaties; anders VS Professional |
-| Open-source bibliotheken (zie [§7.4](07-technische-architectuur.md#74-bibliotheken-en-licenties)) | € 0 | MIT/Apache-licenties |
-| Code-signing-certificaat | ca. € 100–400 per jaar | Tegen Windows SmartScreen-waarschuwingen |
-| (Optioneel) QuestPDF | € 0 zolang de omzet < USD 1 mln, anders een betaalde licentie | Alleen als we niet voor HTML→PDF kiezen |
-| (Optioneel) licentie SRA/NOAB-werkprogramma | Op aanvraag | Alleen als je hun inhoud wilt gebruiken (zie beslispunt B2) |
-| (Later) databaseserver | € 0 (PostgreSQL / SQL Server Express) + hardware/VM | Voor multi-user |
+| Kantoorserver of VM (Windows Server), 4 cores, 8–16 GB RAM | Bestaande hardware, of een VM bij de ICT-partner | Inclusief back-up en een kopie buiten de server |
+| PostgreSQL | € 0 | Open source |
+| Windows Server-licentie (als er nog geen is) | Afhankelijk van de ICT-partner | Linux kan ook; dat scheelt licentiekosten |
+| TLS-certificaat (intern of extern) | € 0 – laag | Let's Encrypt of een interne CA |
+| Code-signing-certificaat (client-installer) | ca. € 100–400 per jaar | Tegen SmartScreen-waarschuwingen |
+| Ontwikkeltools (.NET 10 SDK, VS Code of Visual Studio, GitHub) | € 0 – laag | |
+| Open-source bibliotheken | € 0 | MIT/Apache, zie [§7.4](07-technische-architectuur.md#74-bibliotheken-en-licenties) |
 
 ### Data en inhoud
-
-1. **Testbestanden**: 10–20 XAF-bestanden (3.1/3.2 én 4.0) en Excel-proefbalansen uit de pakketten die het kantoor ziet, plus het bijbehorende eindrapport uit Visionplanner als referentie (*golden master*). AVG: geanonimiseerd of met een verwerkingsgrondslag, alleen op beveiligde apparaten.
-2. **RGS 3.8-werkboek** (download van referentiegrootboekschema.nl), en straks 3.9.
-3. **NBA-voorbeeldrapporten 2025** (MijnNBA) en de **NBA-verklaringengenerator**, als basis voor rapportsjablonen en verklaringsteksten.
-4. **Eigen bestaande teksten** van het kantoor: grondslagen, opdrachtbevestiging, LOR, standaardantwoorden voor de acceptatie (zoals in je schermafbeelding *Scope opdracht*).
-5. **Een export van bestaande Visionplanner-dossiers** (PDF's van rapporten en dossiers) als archief én als referentie voor de inhoudsopbouw.
-
-## 8.2 Roadmap
-
-> De doorlooptijden zijn **ruwe indicaties** voor 1 fte ontwikkeling plus 0,2–0,4 fte vaktechniek.
-> Ze hangen sterk af van ervaring, AI-ondersteuning en hoe snel de inhoud klaar is. Na fase 0
-> stellen we ze bij.
-
-| Fase | Inhoud | Indicatie | Resultaat |
-|---|---|---|---|
-| **0. Verkenning en proefjes** | Demo-account Nmbrs Reporting bekijken om de open vragen te beantwoorden. Proefjes met (1) XAF-parser op echte bestanden, (2) Blazor Hybrid-schil, (3) HTML→PDF met paginering en inhoudsopgave. Rubriekenschema en RGS-tabel opzetten | 2–4 weken | Technische keuzes bevestigd, eerste schema |
-| **1. Fundament** | Datamodel en database, klant- en dossierbeheer, import XAF/Excel, RGS-beheer, rubriceringsengine en koppelscherm, proefbalans met correcties, controles C01–C08 | 6–8 weken | Van auditfile naar sluitende, gerubriceerde proefbalans |
-| **2. Dossier** | Werkprogramma-engine (sjablonen, voorwaarden, verplicht), dossierboom, aftekenen en goedkeuren, reviewpunten, bijlagen, cijferbeoordeling (planning/huidig/vorig/delta), specificaties, verloopoverzichten | 6–8 weken | Volledig dossier zoals in de schermafbeeldingen |
-| **3. Rapport** | Rapportsjablonen, standaardteksten met variabelen, balans/W&V/toelichting/specificaties, samenstellingsverklaring, PDF (concept/definitief), dossier sluiten en archiveren, audit trail | 6–8 weken | Eerste complete financieel rapport BV klein |
-| **4. Pilot** | 5–10 echte dossiers parallel aan Visionplanner, verschillen analyseren, installer en updates, back-up, gebruikershandleiding | 4–6 weken | Productierijpe versie 1.0 voor één gebruiker |
-| **5. Uitbreidingen** | Multi-user (PostgreSQL/SQL Server), IB-ondernemer/VOF-rapport (kapitaalsvergelijking, winstverdeling), kengetallen, fiscale positie/Vpb, Word-export, stichtingen, AI-voorstellen bij rubriceren, Visionplanner-Excelprofiel, RGS Brugstaat | doorlopend | |
-
-**MVP (fasen 0–4): circa 6–8 maanden doorlooptijd.**
-Daarnaast **jaarlijks onderhoud**: RGS-versie, XAF-wijzigingen, RJk-jaareditie, NV COS-aanpassingen, grensbedragen en teksten. Reken op enkele weken per jaar (ontwikkeling en vaktechniek samen).
-
-### Volgorde van de inhoud (vaktechniek), parallel aan de ontwikkeling
-
-1. Rubriekenschema BV (fase 0–1).
-2. RGS→rubriek-tabel en koppelsjablonen voor de 2–3 meest voorkomende pakketten (fase 1).
-3. Werkprogramma samenstellen BV klein, plus acceptatie en afronding (fase 2).
-4. Standaardteksten (verklaring, grondslagen, toelichting) en rapportsjabloon BV klein en micro (fase 3).
-5. IB-schema, rapportsjabloon en werkprogramma aangifte-plus (fase 5).
+1. **Testset**: 10–20 XAF-bestanden met de Visionplanner-rapporten (vraag B2).
+2. **RGS 3.8-werkboek**, en 3.9 zodra die definitief is.
+3. **NBA-verklaringengenerator en voorbeeldrapporten** (MijnNBA) voor de teksten.
+4. **Kantoorteksten**: grondslagen, opdrachtbevestiging, LOR, standaardantwoorden acceptatie, en de bestaande teksten uit de voorbeeldrapporten.
+5. **Huisstijl**: logo, kleuren, lettertype en de handtekening per accountant (vraag D9).
+6. **Historische cijfers** voor 5-jaarskengetallen (vraag B4).
 
 ## 8.3 Risico's
 
 | # | Risico | Kans/impact | Maatregel |
 |---|---|---|---|
-| R1 | **De inhoud wordt onderschat.** Schema's, werkprogramma's en teksten zijn veel werk en vragen vakkennis | Hoog/hoog | Vaktechnisch verantwoordelijke vanaf dag 1. Beginnen met één variant (BV klein); NBA-voorbeeldrapporten als basis |
-| R2 | **Intellectueel eigendom.** SRA-werkprogramma, NBA-ledenmateriaal en Visionplanner-teksten mogen niet zomaar worden overgenomen | Middel/hoog | Eigen teksten schrijven of een licentie regelen. Visionplanner alleen *functioneel* nabouwen, niet de vormgeving of teksten kopiëren |
-| R3 | **Vaktechnische fouten in de rapporten** (verkeerde rubricering, afronding, verkeerde verklaringsvariant) | Middel/hoog | Golden-master-tests tegen Visionplanner-uitkomsten, controles C01–C15, pilot met parallelle dossiers, review door de accountant |
-| R4 | **Verschillen in XAF per pakket**, en de overgang naar XAF 4.0 per 1-1-2027 | Hoog/middel | Testset per pakket, XSD-validatie, 3.x en 4.0 vanaf het begin ondersteunen, duidelijke meldingen |
-| R5 | **Multi-user blijkt eerder nodig** (samensteller én reviewer tegelijk) | Middel/middel | EF Core zonder SQLite-specifieke code, optimistische concurrency, PostgreSQL-route voorbereid (beslispunt B1) |
-| R6 | **Scope creep.** Visionplanner heeft tien jaar functionaliteit | Hoog/middel | Strikte MVP-lijst ([§5.1](05-functioneel-ontwerp.md#51-modules-in-één-oogopslag)), alles daarbuiten naar fase 5 |
-| R7 | **Regelgeving verandert** (NV COS/ISQM 2026–2027, RJk, RGS 3.9) | Zeker/middel | Versiebeheer op sjablonen en teksten, en een jaarlijkse onderhoudscyclus |
-| R8 | **Afhankelijkheid van één ontwikkelaar** | Middel/hoog | Code in GitHub, tests, architectuurdocumentatie (deze map), conventionele technologie (.NET) |
-| R9 | **AVG en beveiliging** (klantgegevens op laptops) | Middel/hoog | BitLocker, rollen, audit log, back-ups, dataminimalisatie, verwerkingsregister bijwerken |
-| R10 | **Licentiewijzigingen** van bibliotheken (zoals QuestPDF en CKEditor eerder) | Middel/laag | Waar mogelijk MIT/Apache; alternatieven in de architectuur (HTML→PDF) |
+| R1 | **De inhoud wordt onderschat**: schema's, werkprogramma en teksten | Hoog/hoog | Vaktechnisch verantwoordelijke vanaf dag 1. Beginnen met BV klein, en de voorbeeldrapporten als norm |
+| R2 | **Intellectueel eigendom**: SRA, NBA-ledenmateriaal, Visionplanner | Middel/hoog | Eigen werkprogramma (besluit B2) en eigen teksten. Visionplanner alleen functioneel nabouwen |
+| R3 | **Vaktechnische fouten in rapporten** | Middel/hoog | Golden-master-tests tegen Visionplanner-uitkomsten, controles, parallelle pilot, review door de accountant |
+| R4 | **XAF-variatie per pakket**, en XAF 4.0 per 1-1-2027 | Hoog/middel | Testset per pakket, XSD-validatie, 3.x en 4.0 vanaf het begin |
+| R5 | **Server en beheer**: uitval of een slechte back-up treft alle gebruikers tegelijk | Middel/hoog | Een ICT-partner, back-up met hersteltest, monitoring, een eenvoudige installatie |
+| R6 | **Scope creep** (Visionplanner heeft tien jaar functionaliteit) | Hoog/middel | Strikte MVP. Alles buiten de lijst gaat naar fase 5 |
+| R7 | **Regelgeving verandert** (NV COS/ISQM, RJk, RGS 3.9, Vpb-tarieven) | Zeker/middel | Versiebeheer op sjablonen en teksten, en parameters per jaar |
+| R8 | **Afhankelijkheid van één ontwikkelaar** | Middel/hoog | GitHub, tests, deze documentatie, gangbare technologie |
+| R9 | **Beveiliging en AVG**: meerdere gebruikers en toegang buiten kantoor | Middel/hoog | Wachtwoordbeleid, lockout, tweestapsverificatie buiten kantoor, HTTPS, audit log, database niet bereikbaar vanaf werkplekken |
+| R10 | **Deponering valt buiten de scope**: er ontstaat een procesgat bij BV's | Hoog/middel | Vraag D4: tijdelijk via de KvK-dienst of een bestaand pakket, SBR later |
 
-## 8.4 Beslispunten voor jou
+## 8.4 Roadmap (bijgewerkt)
 
-| # | Beslissing | Opties | Advies |
+> De doorlooptijden zijn **ruwe indicaties** voor 1 fte ontwikkeling plus 0,2–0,4 fte vaktechniek.
+> Ten opzichte van de eerste versie komen erbij: meerdere gebruikers en inloggen, Word-export,
+> EZ/VOF in de MVP, en kengetallen, meerjarenoverzicht en Vpb in de MVP. Bijstellen na fase 0.
+
+| Fase | Inhoud | Indicatie | Resultaat |
 |---|---|---|---|
-| **B1** | Eén gebruiker of meerdere gebruikers? | (a) Standalone, één gebruiker per database (SQLite). (b) Vanaf het begin een databaseserver op kantoor | **(a) voor de MVP en pilot, (b) vóór de uitrol op kantoor.** De architectuur houdt (b) open. Wil je vanaf het begin met reviewer en samensteller tegelijk werken, kies dan direct (b) |
-| **B2** | Werkprogramma-inhoud | (a) Eigen kantoorwerkprogramma. (b) Licentie op het SRA/NOAB-werkprogramma (lidmaatschap en toestemming van de licentiegever nodig) | **(a)**, op basis van [§2.4](02-vaktechnisch-kader.md#24-werkprogramma-samenstellen). De engine kan later (b) laden als dat juridisch kan |
-| **B3** | Rechtsvormen in de MVP | BV micro/klein, eenmanszaak/VOF, stichting | **BV micro en klein** in de MVP, **IB-ondernemer** direct daarna. Kijk in de klantenportefeuille welke het meest voorkomt |
-| **B4** | Wie bouwt het? | Zelf met Claude Code, een freelance .NET-ontwikkelaar, of een softwarebureau | Een ervaren .NET-ontwikkelaar (eventueel met AI-ondersteuning). De vaktechniek blijft altijd in eigen huis |
-| **B5** | Rapportexport | Alleen PDF, of ook Word | **PDF in de MVP**, Word in fase 5. Word-nabewerking ondermijnt de dossierintegriteit, want het uitgebrachte rapport moet overeenkomen met het dossier |
-| **B6** | UI-technologie | Blazor Hybrid in WPF, of klassiek WPF | **Blazor Hybrid** ([§7.2](07-technische-architectuur.md#72-keuze-ui-technologie)). Bevestigen na het proefje in fase 0 |
-| **B7** | Migratie vanuit Visionplanner | Geen; alleen vorig-jaarcijfers; of volledige dossiers | **Archief als PDF bewaren** en vorig-jaarcijfers per klant via XAF of Excel ("Cijfers vorig") importeren. Een volledige dossiermigratie is niet zinvol |
+| **0. Verkenning en proefjes** | Vragenlijst P1 beantwoorden. Demo Nmbrs Reporting. Proefjes: (1) XAF-parser op echte bestanden, (2) Blazor Server en inloggen op een testserver, (3) HTML→PDF (Playwright en Paged.js) en DOCX met de opmaak uit de voorbeeldrapporten. Rubriekenschema BV en IB opzetten | 3–4 weken | Architectuur bevestigd, eerste schema's, één rapportpagina pixel-gelijk aan het voorbeeld |
+| **1. Fundament** | Server, database, inloggen en rollen, audit log. Klant- en dossierbeheer, import XAF/Excel, RGS-beheer, rubriceringsengine en koppelscherm, proefbalans met correcties, controles | 8–10 weken | Van auditfile naar een sluitende, gerubriceerde proefbalans, met meerdere gebruikers |
+| **2. Dossier en werkprogramma** | Werkprogramma-engine (sjablonen, posten, stappen), **materialiteit en materieel-vinkje**, stappen toevoegen en verwijderen, aftekenen en goedkeuren, reviewpunten, bijlagen, cijferbeoordeling, specificaties, verloopoverzichten | 8–10 weken | Volledig dossier zoals in de schermafbeeldingen |
+| **3. Rapport** | Bouwstenen B01–B22, rapportsjablonen **BV klein, BV micro en winstaangifte EZ/VOF**, standaardteksten, kengetallen (5 jaar), meerjarenoverzicht, verschillenanalyse, **Vpb-berekening**, PDF en **Word**, voettekst per opdrachttype, handtekening, dossier sluiten en archiveren | 10–12 weken | Rapporten gelijkwaardig aan de voorbeeldrapporten |
+| **4. Pilot** | 5–10 echte dossiers parallel aan Visionplanner, verschillen analyseren, historische cijfers importeren, installatie op de kantoorserver, back-up en hersteltest, handleiding | 4–6 weken | Productierijpe versie 1.0 |
+| **5. Uitbreidingen** | Tweestapsverificatie/SSO (als niet in de MVP), digitale ondertekening, AI-voorstellen bij rubriceren, RGS Brugstaat, stichtingen, publicatiestukken/SBR, Engelse rapporten | Doorlopend | |
 
-## 8.5 Openstaande vragen (geconsolideerd)
+**MVP (fasen 0–4): circa 8–11 maanden doorlooptijd.**
+Daarnaast **jaarlijks onderhoud** (RGS, XAF, RJk, NV COS, Vpb-tarieven, grensbedragen, teksten): enkele weken per jaar.
 
-**Voor een demo- of proefaccount Nmbrs Reporting** (zie [hoofdstuk 1](01-hoe-werkt-visionplanner-compilation.md#open-vragen)):
-- het goedkeuringsmechaniek en de rollen;
-- correctieboekingen;
-- splitsen van rekeningen;
-- doorrollen van vorig jaar;
-- drill-down naar transacties;
-- drempels van de alerts;
-- nummering van het rapport;
-- Word-export.
+### Volgorde van de inhoud (vaktechniek), parallel aan de bouw
+1. Rubriekenschema BV en IB, en de RGS→rubriek-tabel (fase 0–1).
+2. Koppelsjablonen voor de meest voorkomende pakketten (fase 1).
+3. Werkprogramma *Samenstellen BV* met de postprogramma's per post, en *Winstaangifte EZ/VOF* (fase 2).
+4. Standaardteksten en rapportsjablonen, op basis van de voorbeeldrapporten (fase 3).
 
-**Vaktechnisch** (zie [hoofdstuk 2](02-vaktechnisch-kader.md#open-vragen-vaktechnisch)):
-- letterlijke NBA-verklaringsteksten;
-- Bijlage 1 van HR 1136;
-- afsluit- en bewaartermijn onder SKM1;
-- of klein vrijgesteld is van 2:368;
-- de huidige modellen uit het BMJ;
-- licenties van de werkprogramma's.
+## 8.5 Volgende stappen
 
-**Technisch** (zie [hoofdstuk 3](03-gegevensimport-xaf-excel-rgs.md#open-vragen)):
-- RGS-licentie;
-- de officiële XSD van XAF 4.0;
-- `accTp = M`;
-- de eigenaardigheden per pakket;
-- het formaat van de RGS Brugstaat.
-
-## 8.6 Concrete volgende stappen
-
-1. **Beslispunten B1–B7** doorlopen (een uur overleg is genoeg).
-2. **Testset verzamelen**: XAF-bestanden en Visionplanner-rapporten van 10–20 representatieve klanten.
-3. **Demo-account Nmbrs Reporting** aanvragen, of een collega met toegang een uur laten meekijken, om de open vragen uit hoofdstuk 1 te beantwoorden.
-4. **Fase 0 starten**: de solution opzetten (structuur uit [§7.3](07-technische-architectuur.md#73-oplossingsopbouw-projecten)), XAF-parser met tests op de testset, en proefjes voor de UI-schil en PDF.
-5. **Vaktechniek start parallel** met het rubriekenschema BV en de RGS→rubriek-tabel.
+1. **Vragenlijst P1** beantwoorden ([hoofdstuk 11](11-vragenlijst.md)), vooral A2 (offline werken), A3 (server), C1–C4 (materialiteit), D1–D4 (opdrachttypen en rapporten) en F1–F3 (planning, bouwer, repository).
+2. **Testset en voorbeelden** aanleveren via een beveiligde map, niet via GitHub: XAF-bestanden met Visionplanner-rapporten, een voorbeeldrapport **VOF** en **BV micro**, huisstijlbestanden.
+3. **Demo Nmbrs Reporting** voor de open vragen uit [hoofdstuk 1](01-hoe-werkt-visionplanner-compilation.md#open-vragen).
+4. **Fase 0 starten**: de solution opzetten ([§7.3](07-technische-architectuur.md#73-oplossingsopbouw-projecten)), en proefjes voor parser, server met inloggen, en PDF/Word.

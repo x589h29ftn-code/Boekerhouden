@@ -1,30 +1,37 @@
-# 7. Technische architectuur (Windows, standalone)
+# 7. Technische architectuur
 
-> Dit hoofdstuk beschrijft hoe we de applicatie technisch opzetten. Het is een advies;
-> de knopen die jij moet doorhakken staan in [hoofdstuk 8](08-roadmap-risico-s-en-beslispunten.md).
+> **Bijgewerkt op 23-10-2026** na het besluit *"meerdere gebruikers met wachtwoord"*. De
+> eerdere aanpak (één gebruiker, SQLite-bestand) is vervangen door een **kantoorserver-model**.
+> Openstaande keuzes staan in de [vragenlijst](11-vragenlijst.md) (vooral: werken medewerkers ook
+> offline of buiten kantoor?).
 
 ## 7.1 Uitgangspunten
 
-1. **Windows 10/11-desktop, werkt offline.** Er is geen cloud nodig en er zijn geen API-koppelingen (die vallen buiten de scope).
-2. **Bedragen zijn altijd exact.** In de code gebruiken we `decimal` en nooit `double`/`float`. In de database staan bedragen als gehele eurocenten.
-3. **Grote auditfiles kunnen geen kwaad.** Een XAF-bestand kan honderden MB groot zijn. We lezen het daarom *streaming* in (XmlReader) en laden het niet als DOM in het geheugen.
-4. **Inhoud is data, geen code.** Rubriekenschema's, werkprogramma's, standaardteksten en rapportsjablonen staan als beheerbare data in de applicatie (met versies). Zo kan een vaktechnisch beheerder ze aanpassen zonder programmeur.
-5. **We kunnen later groeien.** Van één gebruiker naar een kantoorserver met meerdere gebruikers, en eventueel naar een webversie, zonder het domein opnieuw te schrijven.
-6. **Ontwikkelen en testen kan ook buiten Windows.** Dat is belangrijk als je (deels) met Claude Code in een cloudomgeving werkt, want die draait op Linux. Alles behalve de dunne Windows-schil moet daar te bouwen en te testen zijn.
+1. **On-premises Windows-oplossing voor meerdere gebruikers.** Iedere gebruiker logt in met een eigen naam en wachtwoord. Er is geen cloud en zijn geen API-koppelingen (die vallen buiten de scope).
+2. **Eén centrale database.** Samensteller en reviewer werken tegelijk in hetzelfde dossier.
+3. **Bedragen zijn altijd exact.** In de code `decimal`, nooit `double`/`float`. In de database staan bedragen als gehele eurocenten of `numeric`.
+4. **Grote auditfiles kunnen geen kwaad.** Een XAF-bestand kan honderden MB zijn. We lezen het *streaming* in (XmlReader), niet als DOM.
+5. **Inhoud is data, geen code.** Rubriekenschema's, werkprogramma's, standaardteksten en rapportsjablonen staan als beheerbare data in de app, met versies.
+6. **Ontwikkelen en testen kan ook buiten Windows.** Alles behalve de dunne Windows-schil moet op Linux en in CI te bouwen en te testen zijn.
 
-## 7.2 Keuze UI-technologie
+## 7.2 Architectuurkeuze voor meerdere gebruikers
 
-| Optie | Voordelen | Nadelen |
-|---|---|---|
-| **.NET 10 + WPF (klassiek XAML)** | Volwassen en Windows-native, veel kennis beschikbaar, goede datagrids. | Een rich-text-editor en rapportweergave (zoals in de screenshots) zijn zonder dure commerciële componenten lastig. Rapportpreview en PDF worden twee aparte werelden. UI alleen te testen op Windows. |
-| **.NET 10 + WPF-schil met Blazor Hybrid (`BlazorWebView`/WebView2)** ✅ | De UI is HTML/CSS, en dat past bij de documentachtige schermen van Visionplanner (boom, tabellen, tekstblokken, rapportweergave). Bewezen open-source editors (TipTap/ProseMirror) zijn bruikbaar. Preview en PDF gebruiken dezelfde rendering. Domein en UI blijven in C#. Componenten zijn later herbruikbaar in een webversie. UI is ook in een browser te testen (Playwright). | Vereist de WebView2-runtime (standaard aanwezig op Windows 11, meestal ook op 10). Er komt een klein beetje JavaScript bij (editor, paginering). |
-| WinUI 3 | Moderne Fluent-look | Dunner ecosysteem voor data-intensieve LOB-apps en Windows App SDK-afhankelijkheid. Rich-text-probleem blijft. |
-| Avalonia | Cross-platform en lijkt op WPF | Cross-platform is niet nodig. Rich-text-probleem blijft. |
-| Electron/Tauri + TypeScript | Groot web-ecosysteem | JavaScript kent geen exacte decimale getallen (aparte library nodig), zwaarder, geen .NET-bibliotheken voor XML/Excel/Word. |
+| Model | Hoe | Voordelen | Nadelen |
+|---|---|---|---|
+| **A. Kantoorserver met webtechniek** ✅ | ASP.NET Core + **Blazor Server** draait als Windows-service op een kantoorserver (of VM), met **PostgreSQL** ernaast. Medewerkers openen de app in een **dunne Windows-app** (WebView2-venster met eigen icoon, geïnstalleerd met Velopack) of gewoon in Edge/Chrome | Meerdere gebruikers en inloggen zitten er standaard in (ASP.NET Core Identity). **De database is niet bereikbaar vanaf de werkplekken**, dus rechten en audit trail zijn niet te omzeilen. Eén plek om te updaten. PDF en Word worden centraal gemaakt. De UI-componenten (Razor) zijn dezelfde als in het eerdere ontwerp | Vereist een server die altijd aan staat. Buiten kantoor alleen via VPN of een beveiligde publicatie. Niet offline |
+| B. Desktop-app met centrale database | Blazor Hybrid/WPF op elke pc, die rechtstreeks verbindt met PostgreSQL op de server | Werkt als een "echte" desktop-app. PDF via WebView2 op de pc | **Elke pc heeft databasewachtwoorden**, dus een technisch onderlegde gebruiker kan de app-rechten en audit trail omzeilen. Afvangen kost veel werk (databaserollen per gebruiker). Updates op elke pc. Buiten kantoor ook VPN nodig |
+| C. Desktop-app + eigen applicatieserver (API) | WPF/Blazor Hybrid-client praat met een ASP.NET Core Web API | Veilig en een volwaardige desktop-app | **Het meeste bouwwerk**: een volledige API-laag erbij. Offline vraagt nog steeds synchronisatie |
 
-**Advies: .NET 10 (LTS, ondersteund tot november 2028) met een dunne WPF-schil die Blazor Hybrid host.**
-.NET 8 en 9 lopen in november 2026 uit ondersteuning, dus begin je nu met .NET 10.
-Bron: [.NET Support Policy](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core), [Blazor Hybrid (Microsoft Learn)](https://learn.microsoft.com/en-us/aspnet/core/blazor/hybrid).
+**Advies: model A.**
+- Het voldoet het eenvoudigst en veiligst aan "meerdere gebruikers met wachtwoord".
+- Voor de gebruiker voelt het als een Windows-applicatie (eigen venster en icoon), terwijl het technisch één centrale installatie is.
+- Omdat de UI al in Blazor (Razor-componenten) was gepland, is het verschil met het eerdere ontwerp vooral het *hostingmodel*. Domeinlogica, import, rubricering en rapportage blijven gelijk.
+- Wil het kantoor later naar de cloud (bijv. een Azure-VM of hosting), dan kan dit model daar ongewijzigd heen.
+
+> **Wanneer toch model B of C?** Als medewerkers regelmatig **zonder verbinding** met kantoor
+> moeten werken, bijv. bij klanten zonder internet of VPN. Dat staat als vraag in de [vragenlijst](11-vragenlijst.md).
+
+**.NET 10** (LTS, ondersteund tot november 2028). Bron: [.NET Support Policy](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core), [Blazor (Microsoft Learn)](https://learn.microsoft.com/en-us/aspnet/core/blazor/hybrid).
 
 ## 7.3 Oplossingsopbouw (projecten)
 
@@ -32,101 +39,133 @@ Bron: [.NET Support Policy](https://dotnet.microsoft.com/en-us/platform/support/
 Boekerhouden.sln
 ├─ src/
 │  ├─ Boekerhouden.Domain        // Entiteiten, rekenregels, aansluitcontroles (pure C#, geen I/O)
-│  ├─ Boekerhouden.Import        // XAF 3.x-parser, Excel/CSV-proefbalans, RGS-referentietabel
-│  ├─ Boekerhouden.Mapping       // Rubriceringsengine (sjabloon → RGS → handmatig → voorstellen)
-│  ├─ Boekerhouden.Reporting     // Rapportmodel, sjablonen (Liquid), renderers HTML / PDF / DOCX
-│  ├─ Boekerhouden.Data          // EF Core DbContext, migraties, SQLite (later PostgreSQL)
+│  ├─ Boekerhouden.Import        // XAF 3.x/4.0-parser, Excel/CSV-proefbalans, RGS-referentietabel
+│  ├─ Boekerhouden.Mapping       // Rubriceringsengine (handmatig → sjabloon → RGS → voorstel)
+│  ├─ Boekerhouden.Workprogram   // Werkprogramma-engine, materialiteit, stappen (hfst. 10)
+│  ├─ Boekerhouden.Reporting     // Rapportmodel, bouwstenen (hfst. 9), renderers HTML / PDF / DOCX
+│  ├─ Boekerhouden.Data          // EF Core DbContext, migraties, PostgreSQL
 │  ├─ Boekerhouden.UI            // Razor Class Library: alle schermen/componenten
-│  ├─ Boekerhouden.Desktop       // WPF-host: venster, BlazorWebView, bestandsdialogen, PDF-print
-│  └─ Boekerhouden.DevHost       // (optioneel) ASP.NET Core-host om de UI in een browser te draaien
+│  ├─ Boekerhouden.Server        // ASP.NET Core: Blazor Server, Identity/inloggen, achtergrondtaken
+│  └─ Boekerhouden.Client        // Dunne Windows-app: WebView2-venster naar de server, downloads/printen
 └─ tests/
    ├─ Boekerhouden.Domain.Tests
-   ├─ Boekerhouden.Import.Tests  // "golden files": geanonimiseerde XAF's → verwachte proefbalans
+   ├─ Boekerhouden.Import.Tests  // golden files: geanonimiseerde XAF's → verwachte proefbalans
    ├─ Boekerhouden.Mapping.Tests
-   ├─ Boekerhouden.Reporting.Tests // snapshot-tests van gegenereerde rapporten (Verify)
-   └─ Boekerhouden.UI.Tests      // bUnit + Playwright tegen DevHost
+   ├─ Boekerhouden.Workprogram.Tests
+   ├─ Boekerhouden.Reporting.Tests // snapshot-tests van rapporten (Verify)
+   └─ Boekerhouden.UI.Tests      // bUnit + Playwright end-to-end tegen de server
 ```
 
-Alleen `Boekerhouden.Desktop` is Windows-specifiek. De rest bouwt en test op Windows, Linux en CI.
+Alleen `Boekerhouden.Client` is Windows-specifiek. De server draait op Windows Server, maar kan ook op Linux. Alles bouwt en test in CI.
 
 ## 7.4 Bibliotheken en licenties
 
 | Doel | Bibliotheek | Licentie | Opmerking |
 |---|---|---|---|
-| Database-toegang | EF Core + Microsoft.Data.Sqlite | MIT | Later Npgsql (PostgreSQL-licentie) of SQL Server-provider |
-| Excel lezen/schrijven (.xlsx) | ClosedXML | MIT | Import proefbalans en export specificaties |
+| Web/UI-host | ASP.NET Core + Blazor Server | MIT | |
+| **Inloggen en gebruikersbeheer** | **ASP.NET Core Identity** | MIT | Wachtwoordhashing (PBKDF2), lockout, wachtwoordbeleid, optioneel tweestapsverificatie (TOTP-app) |
+| Database | EF Core + **Npgsql** (PostgreSQL) | MIT / PostgreSQL-licentie | Alternatief: SQL Server Express (gratis, maximaal 10 GB per database) |
+| Excel lezen/schrijven (.xlsx) | ClosedXML | MIT | Import proefbalans, export specificaties |
 | Oude Excel (.xls) | ExcelDataReader | MIT | Alleen lezen |
-| CSV | CsvHelper | MS-PL / Apache-2.0 | Scheidingsteken- en encodingdetectie |
-| XML Auditfile | System.Xml (`XmlReader` + XSD-validatie) | .NET (MIT) | Streaming, valideren tegen de officiële XSD |
-| Tekstsjablonen met variabelen | Fluid (Liquid-syntax) of Scriban | MIT / BSD-2 | Veilig (sandboxed), door beheerder te bewerken: `{{ klant.naam }}`, `{% if klant.rechtsvorm == "BV" %}` |
-| Rich-text-editor | TipTap (kern) / ProseMirror | MIT | TipTap Pro-extensies zijn commercieel, die hebben we niet nodig. **CKEditor 5 vermijden**: dat is GPL of commercieel, en voor GPL-gebruik is sinds v44 ook een licentiesleutel verplicht ([CKEditor docs](https://ckeditor.com/docs/ckeditor5/latest/support/licensing/license-key-and-activation.html)). |
-| Paginering HTML-rapport | Paged.js | MIT | Kop- en voetteksten, paginanummers, inhoudsopgave met paginanummers |
-| HTML → PDF | WebView2 `PrintToPdfAsync` | Onderdeel van Windows/WebView2 | Geen extra licentie. Chromium ondersteunt sinds versie 131 `@page`-margeboxen met `counter(page)`/`counter(pages)` ([Chrome-blog](https://developer.chrome.com/blog/print-margins)). |
-| PDF (alternatief, code-gedreven) | QuestPDF | **Community License, source-available, sinds 2026 geen MIT meer** | Gratis onder USD 1 mln jaaromzet, anders betaald ([QuestPDF licentie](https://questpdf.com/license/community.html)) |
-| Word-export (.docx) | DocumentFormat.OpenXml (+ evt. HtmlToOpenXml) | MIT | Voor kantoren die een rapport nog in Word willen nabewerken |
-| Installer en updates | Velopack | MIT | Per-gebruiker installeren zonder adminrechten, delta-updates ([docs](https://docs.velopack.io/getting-started/wpf)) |
+| CSV | CsvHelper | MS-PL / Apache-2.0 | |
+| XML Auditfile | System.Xml (`XmlReader` + XSD-validatie) | MIT | Streaming |
+| Tekstsjablonen met variabelen | Fluid (Liquid) of Scriban | MIT / BSD-2 | `{{ klant.naam }}`, `{% if klant.rechtsvorm == "BV" %}` |
+| Rich-text-editor | TipTap (kern) / ProseMirror | MIT | **CKEditor 5 vermijden**: GPL of commercieel, met een verplichte licentiesleutel sinds v44 ([docs](https://ckeditor.com/docs/ckeditor5/latest/support/licensing/license-key-and-activation.html)) |
+| Paginering HTML-rapport | Paged.js | MIT | Kop- en voetteksten, paginanummers, inhoudsopgave met paginanummers, keep-with-next |
+| **HTML → PDF (server)** | **Playwright for .NET** (headless Chromium) | Apache-2.0 | Dezelfde Chromium-rendering als de preview; `@page`-margeboxen sinds Chromium 131 ([Chrome-blog](https://developer.chrome.com/blog/print-margins)) |
+| PDF (alternatief) | QuestPDF | Community License (source-available, sinds 2026 geen MIT) | Gratis onder USD 1 mln omzet ([licentie](https://questpdf.com/license/community.html)) |
+| **Word-export (.docx)** | DocumentFormat.OpenXml | MIT | Rechtstreeks uit het rapportmodel opgebouwd, niet via HTML, zodat de huisstijl en tabellen netjes blijven |
+| Client-installer en updates | Velopack | MIT | Voor de dunne Windows-app ([docs](https://docs.velopack.io/getting-started/wpf)) |
 | Logging | Serilog | Apache-2.0 | Nooit klantgegevens in logs |
 | Tests | xUnit, bUnit, Verify, Playwright | Apache-2.0 / MIT | |
 
-**Commerciële component-suites** (Syncfusion, DevExpress, Telerik) bieden kant-en-klare grids, rich-text en Word/PDF-componenten. Syncfusion heeft een gratis Community License, maar alleen bij minder dan USD 1 mln omzet, maximaal 5 ontwikkelaars en maximaal 10 medewerkers, en Syncfusion beoordeelt dat zelf ([bron](https://syncfusion.com/sales/products/winui)). Advies: niet op bouwen. Een kantoor groeit snel boven die grens uit, en dan zit je vast aan een jaarlicentie per ontwikkelaar.
+**Commerciële component-suites** (Syncfusion, DevExpress, Telerik): niet op bouwen. De gratis Syncfusion-licentie geldt alleen bij minder dan USD 1 mln omzet, maximaal 5 ontwikkelaars en maximaal 10 medewerkers.
 
 ## 7.5 Gegevensopslag
 
-### Fase 1 – één gebruiker per database
-- **SQLite**: één databasebestand plus een map `bijlagen/`, met EF Core-migraties.
-- **Niet** met meerdere gebruikers tegelijk via een netwerkshare gebruiken. SQLite raadt dat zelf af, omdat file-locking over SMB tot corruptie kan leiden ([SQLite-forum](https://sqlite.org/forum/forumpost/6423b047ae1c8779f705d15a744a63a50ad8457ca205978ebee9353cf48fcac6?t=c)).
-- **Bedragen als `long` (eurocenten)** via een EF Core value converter. SQLite kent geen decimal, en EF Core kan op `decimal`-kolommen in SQLite niet server-side sorteren, vergelijken of optellen ([EF Core SQLite limitations](https://learn.microsoft.com/en-us/ef/core/providers/sqlite/limitations)).
-  Voor percentages en rentes gebruiken we een aparte decimal-kolom, als tekst opgeslagen.
-
-### Fase 2 – kantoor met meerdere gebruikers (samensteller én reviewer)
-- **PostgreSQL** (gratis) of **SQL Server Express** (gratis, maximaal 10 GB per database) op een kantoorserver of NAS-VM, met hetzelfde EF Core-model.
-- Vermijd daarom nu al SQLite-specifieke SQL. Alle queries lopen via EF Core/LINQ en worden met beide providers getest.
-- Optimistische concurrency (row version) op dossieronderdelen, plus "dossier in gebruik door …"-indicatie.
-
-### Bijlagen
-- Bestanden staan in een *content-addressed* map (bestandsnaam = SHA-256-hash) en de metadata staat in de database (originele naam, type, gekoppeld aan welk dossieronderdeel, geüpload door/op).
-- Zo kan de hash aantonen dat een bijlage in een gesloten dossier niet meer gewijzigd is.
+- **PostgreSQL** op de kantoorserver vanaf de eerste versie. Een SQLite-bestand is ongeschikt voor meerdere gelijktijdige gebruikers ([SQLite-forum](https://sqlite.org/forum/forumpost/6423b047ae1c8779f705d15a744a63a50ad8457ca205978ebee9353cf48fcac6?t=c)).
+- **Bedragen** als `numeric(18,2)` of `bigint`-centen, in het domein altijd `decimal`.
+- **Gelijktijdig werken**:
+  - optimistische concurrency (row version) per dossieronderdeel;
+  - een indicatie "Jan werkt nu in *Vorderingen*";
+  - live verversen via Blazor Server/SignalR wanneer een collega iets afrondt of goedkeurt.
+- **Bijlagen** staan in een *content-addressed* map op de server (bestandsnaam = SHA-256-hash), met de metadata in de database. Alternatief: in PostgreSQL zelf, zodat één back-up alles bevat. Dat is af te wegen op volume.
+- **Back-up**:
+  - nachtelijke `pg_dump` plus de bijlagenmap, met rotatie (dag, week, maand) en een kopie buiten de server;
+  - periodiek een **hersteltest**;
+  - een melding in de beheerpagina als de laatste back-up te oud is.
 
 ## 7.6 Rapportgeneratie (één model, meerdere uitvoerformaten)
 
 ```
-Rapportsjabloon (data, versie)  ─┐
-Dossier: klant, proefbalans,     ├─►  Rapportmodel (C#)  ─┬─► HTML  → preview in app
-correcties, specificaties,       │    - hoofdstukken       │          → PDF via WebView2 + Paged.js
-teksten, instellingen           ─┘    - tabellen (afgerond)└─► DOCX  via OpenXML
-                                      - teksten (variabelen ingevuld)
+Rapportsjabloon (bouwstenen B01–B22, hfst. 9) ─┐
+Dossier: klant, proefbalans, correcties,       ├─► Rapportmodel (C#) ─┬─► HTML  → preview in app
+specificaties, verloopoverzichten, teksten,    │   hoofdstukken,      ├─► PDF   via Playwright/Chromium + Paged.js
+historie (5 jaar), fiscale berekening          ┘   tabellen, teksten  └─► DOCX  via OpenXML (huisstijl-sjabloon .dotx)
 ```
 
-- **Eén rapportmodel** is de bron voor preview, PDF en Word, zodat de uitvoerformaten niet uit elkaar lopen.
-- **Afronden** op hele euro's gebeurt in het rapportmodel, met verdeling van afrondingsverschillen ("largest remainder") zodat optellingen in het rapport kloppen. De onderliggende administratie blijft in centen.
-- **Watermerk "CONCEPT"** staat op elk rapport totdat het dossieronderdeel *Uitbrengen rapport* is goedgekeurd.
-- **Definitieve versie**: bij uitbrengen slaan we de PDF met hash en tijdstempel op in het dossier, als bewijs van wat er is uitgebracht.
+- **Eén rapportmodel** is de bron voor preview, PDF en Word.
+- **Afronding** op hele euro's in het rapportmodel, met verdeling van afrondingsverschillen zodat de optellingen kloppen. Ook verdelingen zoals de resultaatbestemming volgen een vaste afrondingsregel (zie [§9.5](09-analyse-voorbeeldrapporten.md#95-wat-de-voorbeelden-leren-over-kwaliteit-en-waar-wij-het-beter-doen)).
+- **Voettekst per opdrachttype**: "Samenstellingsverklaring afgegeven", "Geen accountantscontrole toegepast" plus datum, of "CONCEPT".
+- **Definitieve versie**: bij uitbrengen slaan we de PDF met hash en tijdstempel op in het dossier.
+- **Word-export** is bedoeld voor nabewerking. Een in Word aangepaste versie is daarna *niet meer gelijk* aan het dossier. Daarom: wie Word als definitief gebruikt, uploadt de definitieve PDF terug in het dossier. Dit beleid staat in de [vragenlijst](11-vragenlijst.md).
 
 ## 7.7 Audit trail, integriteit en dossierafsluiting
 
-- **Wijzigingslog** (append-only): wie, wanneer, welk object, oude en nieuwe waarde. Dit is nodig voor reviews en kwaliteitstoetsing.
-- **Aftekeningen**: *uitgevoerd door/op* en *goedgekeurd door/op* per onderdeel. Een inhoudelijke wijziging na goedkeuring zet de goedkeuring terug (onderdeel wordt weer "open"). Zo werkt Visionplanners "Goedgekeurd door … op …" ook (zie [hoofdstuk 1](01-hoe-werkt-visionplanner-compilation.md)).
-- **Dossier sluiten**: na sluiten is alles alleen-lezen. Heropenen kan alleen met een reden en wordt gelogd. Het sluiten moet binnen de termijn uit de beroepsregels gebeuren (zie [hoofdstuk 2](02-vaktechnisch-kader.md)).
-- **Bewaartermijn**: dossiers worden minimaal 7 jaar bewaard. Er komt een archieffunctie: een gesloten dossier exporteren als één bestand (zip met PDF's, bijlagen en een JSON-export).
+- **Wijzigingslog** (append-only): wie, wanneer, wat, oude en nieuwe waarde. De database is alleen voor de server bereikbaar, dus de log is niet te omzeilen vanaf een werkplek.
+- **Aftekeningen**: uitgevoerd door/op en goedgekeurd door/op per onderdeel en per stap. Een wijziging na goedkeuring zet de goedkeuring terug.
+- **Dossier sluiten**: alleen-lezen na de sluittermijn. Heropenen alleen met een reden, of zoals in Visionplanner alleen een kopie (zie de vragenlijst).
+- **Bewaartermijn** minimaal 7 jaar, met een archiefexport (zip met PDF's, bijlagen en JSON).
 
-## 7.8 Beveiliging en AVG
+## 7.8 Inloggen, rechten en beveiliging
 
-- **Gebruikers**: in fase 1 koppelen we de Windows-gebruikersnaam aan een gebruiker in de app (rollen: medewerker, reviewer/accountant, beheerder). We slaan zelf geen wachtwoorden op.
-- **Versleuteling**: BitLocker op alle laptops en desktops (organisatorische maatregel). Databaseversleuteling (SQLCipher) is optioneel; check vooraf de licentie van de gebruikte build.
-- **Dataminimalisatie**: geen BSN's opslaan tenzij echt nodig. Relatiegegevens (debiteuren en crediteuren) uit de XAF alleen importeren als ze voor specificaties nodig zijn.
-- **Back-ups**: automatische back-up (`VACUUM INTO` / SQLite online backup) bij afsluiten, met rotatie, plus een melding als de laatste back-up te oud is.
-- **Logs**: alleen technische informatie, geen bedragen, namen of omschrijvingen.
+**Accounts**
+- **De beheerder maakt de accounts aan**; er is geen zelfregistratie.
+- Bij de eerste keer inloggen moet de gebruiker het wachtwoord wijzigen.
+- Een wachtwoord resetten doet de beheerder. Per e-mail kan alleen als er een SMTP-server beschikbaar is.
+
+**Wachtwoorden en sessies**
+- **Wachtwoordbeleid**: minimaal 12 tekens, met een controle tegen veelgebruikte wachtwoorden.
+- **Lockout** na 5 mislukte pogingen (15 minuten).
+- **Hashing**: PBKDF2 via ASP.NET Core Identity. Wachtwoorden worden nooit leesbaar opgeslagen.
+- **Optioneel tweestapsverificatie** met een authenticator-app (TOTP). Advies: verplicht bij toegang buiten kantoor.
+- **Sessies** verlopen na een instelbare inactiviteit, bijv. 8 uur of 30 minuten.
+- Inlogpogingen (geslaagd en mislukt) worden in de audit log vastgelegd.
+
+**Rollen**
+
+| Rol | Mag |
+|---|---|
+| Medewerker | Dossiers bewerken, stappen uitvoeren en toevoegen, rapporten (concept) genereren |
+| Reviewer | Plus goedkeuren, reviewpunten, standaardstappen verwijderen |
+| Accountant (tekenbevoegd) | Plus rapport definitief uitbrengen, verklaring ondertekenen (handtekeningafbeelding) |
+| Beheerder | Gebruikers, sjablonen, rubriekenschema's, RGS, standaardteksten, huisstijl, parameters |
+
+Een gebruiker kan meerdere rollen hebben. Of er toegang per klant of team nodig is, staat in de vragenlijst.
+
+**Overige maatregelen**
+- **HTTPS** ook op het interne netwerk, met een certificaat van een interne CA of Let's Encrypt via DNS.
+- **AVG**:
+  - BitLocker op de server;
+  - minimale persoonsgegevens (geen BSN tenzij nodig);
+  - het verwerkingsregister bijwerken;
+  - logs zonder klantgegevens.
+- **Toegang buiten kantoor**: alleen via VPN, of via een reverse proxy met verplichte tweestapsverificatie. Nooit de database open naar internet.
 
 ## 7.9 Uitrol
 
-- **Velopack** voor installatie en automatische updates vanuit een kantoorshare of webserver.
-- **Code-signing-certificaat** (bijvoorbeeld Azure Artifact/Trusted Signing of een OV-certificaat), zodat Windows SmartScreen geen waarschuwing geeft.
-- **WebView2 Evergreen Runtime** controleren bij installatie (bootstrapper meeleveren voor oudere Windows 10-machines).
-- **Data buiten de installatiemap**: database en instellingen staan in `%LocalAppData%\Boekerhouden\` of in een door de gebruiker gekozen map, nooit in de installatiemap. Velopack vervangt die map bij een update.
+- **Server**:
+  - één installatiepakket: de app als Windows-service, plus PostgreSQL;
+  - migraties draaien automatisch bij een update;
+  - een server met 4 cores en 8–16 GB RAM is ruim voldoende voor een klein kantoor (schatting).
+- **Werkplekken**: de dunne Windows-app (Velopack, zonder adminrechten), of een snelkoppeling in Edge ("Als app installeren").
+- **Code-signing-certificaat** voor de client-installer, tegen SmartScreen-waarschuwingen.
+- **Updates**: de server wordt centraal bijgewerkt; de client werkt zichzelf bij via Velopack.
 
 ## 7.10 Ontwikkel- en teststrategie
 
-- **Domeinregels eerst, met tests**: proefbalans opbouwen, correcties, rubriceren, aansluitcontroles en afronding zijn allemaal pure functies met unit-tests.
-- **Golden files**: verzamel 10 à 20 *geanonimiseerde* XAF-bestanden en Excel-proefbalansen uit verschillende pakketten (Exact, Twinfield, SnelStart, AFAS, e-Boekhouden, Moneybird) met de verwachte proefbalans en rubricering. Elke wijziging wordt hiertegen getest.
-- **Rapport-snapshots**: een gegenereerd rapport (HTML) voor een vaste testklant wordt vergeleken met een goedgekeurde versie (Verify). Zo zie je onbedoelde verschillen direct.
-- **CI** (GitHub Actions): tests op `ubuntu-latest`, installer bouwen en tekenen op `windows-latest`.
+- **Domeinregels eerst, met tests**: proefbalans, correcties, rubriceren, materialiteit, aansluitcontroles, afronding en Vpb-berekening.
+- **Golden files**: 10–20 geanonimiseerde XAF-bestanden en de bijbehorende Visionplanner-rapporten. Onze uitkomst moet hetzelfde zijn, of een verklaarbaar verschil hebben.
+- **Rapport-snapshots** (Verify): een gegenereerd rapport wordt vergeleken met de goedgekeurde versie.
+- **End-to-end tests** (Playwright): inloggen, dossier aanmaken, importeren, koppelen, materieel aanvinken, stappen afronden, rapport genereren.
+- **CI** (GitHub Actions): tests op Linux; client-installer bouwen en tekenen op Windows.

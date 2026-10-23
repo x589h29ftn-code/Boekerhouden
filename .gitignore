@@ -1,0 +1,3 @@
+# Klantdata en testbestanden horen nooit in deze repository
+/testdata/
+*.xaf

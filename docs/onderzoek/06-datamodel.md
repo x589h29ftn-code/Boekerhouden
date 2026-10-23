@@ -1,5 +1,7 @@
 # 6. Datamodel
 
+> **Aanvulling 23-10-2026:** het datamodel voor materialiteit, posten en stappen staat in [§10.5](10-werkprogramma-en-materialiteit.md#105-uitbreiding-datamodel). De gegevens die de rapporten extra nodig hebben (statuten, fiscale eenheid, aandelenkapitaal, fte en historie) staan in [§9.4](09-analyse-voorbeeldrapporten.md#94-gegevens-die-we-nodig-hebben-naast-de-proefbalans).
+
 > Dit is een logisch model: de entiteiten en hun relaties, op het niveau dat nodig is om te
 > bouwen. Veldnamen zijn Nederlands, zodat ze aansluiten op de vaktaal. Het fysieke model
 > (EF Core) volgt hieruit.
@@ -53,7 +55,7 @@ erDiagram
 
 ### Kantoorniveau
 
-**Gebruiker**: Id, Naam, Initialen, WindowsAccount, Rol (`Medewerker`, `Reviewer`, `Accountant/Tekenbevoegd`, `Beheerder`), Actief.
+**Gebruiker** (ASP.NET Core Identity): Id, Gebruikersnaam, Naam, Initialen, Titel (bijv. AA/RA), Wachtwoordhash, Lockout, 2FA-gegevens, Rollen (`Medewerker`, `Reviewer`, `Accountant`, `Beheerder`), HandtekeningAfbeelding (alleen tekenbevoegden), Actief, MoetWachtwoordWijzigen.
 
 **Rubriekenschema** (= Visionplanners "rapportagestructuur"): Id, Naam (bijv. *BV klein*, *IB-ondernemer*, *Stichting*), Versie, Status (`Concept`/`Actief`/`Vervallen`).
 

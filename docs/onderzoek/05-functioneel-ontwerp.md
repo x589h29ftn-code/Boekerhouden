@@ -1,5 +1,7 @@
 # 5. Functioneel ontwerp
 
+> **Bijgewerkt op 23-10-2026**: meerdere gebruikers met wachtwoord (M0), het werkprogramma met materialiteit (M7), PDF en Word (M10), en kengetallen en Vpb in de MVP (M13/M14). Rechtsvormen: BV micro, BV klein, eenmanszaak en VOF.
+
 > Dit hoofdstuk vertaalt hoe Visionplanner werkt ([hoofdstuk 1](01-hoe-werkt-visionplanner-compilation.md)),
 > de beroepsregels ([hoofdstuk 2](02-vaktechnisch-kader.md)) en de import- en rubriceringslogica
 > ([hoofdstukken 3](03-gegevensimport-xaf-excel-rgs.md) en [4](04-rubricering-ontwerp.md)) naar modules
@@ -15,14 +17,15 @@
 | M4 | Import | XAF-auditfile en Excel/CSV-proefbalans inlezen, herimport, importhistorie | ✅ |
 | M5 | Rubriceren (koppelen) | Grootboekrekeningen aan rubrieken koppelen via sjabloon, RGS of handmatig, met voorstellen | ✅ |
 | M6 | Proefbalans en correcties | Gecorrigeerde proefbalans, memoriaal- en herrubriceringsboekingen | ✅ |
-| M7 | Werkprogramma en dossieronderdelen | Fasen, onderdelen en blokken invullen, aftekenen, goedkeuren | ✅ |
+| M0 | Inloggen en gebruikers | Eigen account met wachtwoord, rollen, lockout, audit log (besluit B1, [§7.8](07-technische-architectuur.md#78-inloggen-rechten-en-beveiliging)) | ✅ |
+| M7 | Werkprogramma en dossieronderdelen | Fasen, onderdelen en stappen invullen, **materialiteit en materieel-vinkje per post**, stappen toevoegen en verwijderen, aftekenen, goedkeuren ([hoofdstuk 10](10-werkprogramma-en-materialiteit.md)) | ✅ |
 | M8 | Cijferbeoordeling | Huidig, vorig, planning en delta per post met toelichting | ✅ |
 | M9 | Specificaties en verloopoverzichten | Specificeren van posten, verloop vaste activa en eigen vermogen | ✅ |
-| M10 | Rapportgenerator | Financieel rapport samenstellen uit sjabloon, standaardteksten en cijfers, met preview, PDF en Word | ✅ (PDF), Word later |
+| M10 | Rapportgenerator | Financieel rapport samenstellen uit sjabloon, bouwstenen ([hoofdstuk 9](09-analyse-voorbeeldrapporten.md)), standaardteksten en cijfers, met preview, PDF en Word | ✅ PDF + Word (besluit B5) |
 | M11 | Review en afronding | Reviewpunten, goedkeuring, rapport uitbrengen, dossier sluiten en archiveren | ✅ |
 | M12 | Beheer (kantoor) | Rubriekenschema's, RGS-tabel, koppelsjablonen, werkprogramma's, standaardteksten, rapportsjablonen, gebruikers | ✅ (basis) |
-| M13 | Kengetallen | Liquiditeit, solvabiliteit, rentabiliteit, marges | Fase 2 |
-| M14 | Fiscale positie | Fiscale winstberekening, VPB-berekening, fiscale correcties | Fase 2 |
+| M13 | Kengetallen en meerjarenoverzicht | Liquiditeit, solvabiliteit, omloopsnelheid, rentabiliteit, marges, fte-kengetallen over 5 jaar, verschillenanalyse | ✅ (staat in het voorbeeldrapport BV) |
+| M14 | Fiscale positie | Vpb-berekening (incl. fiscale eenheid-variant), belastinglast en belastingpositie. Fiscale winst IB: zie vragenlijst D6 | ✅ Vpb; IB volgens D6 |
 | M15 | Taken en planning | Taken per klant/dossier, deadlines, urenregistratie | Fase 2 |
 | — | SBR/XBRL-deponering, API-koppelingen boekhoudpakketten | | ❌ Buiten scope |
 
