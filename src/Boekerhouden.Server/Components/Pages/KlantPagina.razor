@@ -1,0 +1,223 @@
+@page "/klanten/{Id:guid}"
+@inject KlantDienst KlantDienst
+@inject DossierDienst DossierDienst
+@inject ImportDienst ImportDienst
+@inject NavigationManager Navigatie
+@inject TimeProvider Tijd
+
+<PageTitle>@(klant?.Naam ?? "Klant") – Boekerhouden</PageTitle>
+
+<nav aria-label="kruimelpad">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Klanten</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@klant?.Naam</li>
+    </ol>
+</nav>
+
+@if (!geladen)
+{
+    <p class="text-secondary">Laden…</p>
+}
+else if (klant is null)
+{
+    <div class="alert alert-warning">Deze klant bestaat niet (meer). <a href="/">Terug naar de klanten</a></div>
+}
+else
+{
+    <div class="d-flex align-items-start mb-3">
+        <div class="me-auto">
+            <h1 class="h3 mb-1">@klant.Naam</h1>
+            <div class="text-secondary">
+                @klant.Klantnummer · @Weergave.Tekst(klant.Rechtsvorm)
+                @if (klant.Plaats is not null)
+                {
+                    <span> · @klant.Plaats</span>
+                }
+                @if (klant.KvkNummer is not null)
+                {
+                    <span> · KvK @klant.KvkNummer</span>
+                }
+            </div>
+        </div>
+        @if (!wijzigen)
+        {
+            <button class="btn btn-outline-secondary" @onclick="StartWijzigen">Klantgegevens wijzigen</button>
+        }
+    </div>
+
+    @if (wijzigen)
+    {
+        <div class="card card-body mb-4">
+            <KlantFormulier Model="klantModel" Fouten="klantFouten" OnOpslaan="KlantOpslaan" OnAnnuleren="@(() => wijzigen = false)" />
+        </div>
+    }
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="card">
+                <div class="card-header fw-semibold">Dossiers</div>
+                @if (dossiers.Count == 0)
+                {
+                    <div class="card-body text-secondary">Nog geen dossiers. Maak hieronder het eerste dossier aan.</div>
+                }
+                else
+                {
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr><th>Dossier</th><th>Boekjaar</th><th>Opdracht</th><th>Status</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var d in dossiers)
+                            {
+                                <tr class="klikbaar" @onclick="@(() => Navigatie.NavigateTo($"/dossiers/{d.Id}"))">
+                                    <td><a href="/dossiers/@d.Id" @onclick:stopPropagation>@d.Naam</a></td>
+                                    <td>@d.Boekjaar</td>
+                                    <td>@Weergave.Tekst(d.Soort)</td>
+                                    <td><DossierStatusLabel Status="d.Status" /></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                <div class="card-footer bg-white">
+                    <EditForm Model="nieuwDossier" OnSubmit="DossierMaken" FormName="nieuw-dossier" class="row g-2 align-items-end">
+                        <div class="col-auto">
+                            <label for="boekjaar" class="form-label small mb-1">Boekjaar</label>
+                            <InputNumber id="boekjaar" @bind-Value="nieuwDossier.Boekjaar" class="form-control" style="width:7rem" />
+                        </div>
+                        <div class="col">
+                            <label for="soort" class="form-label small mb-1">Opdracht</label>
+                            <InputSelect id="soort" @bind-Value="nieuwDossier.Soort" class="form-select">
+                                @foreach (var soort in Enum.GetValues<SoortOpdracht>())
+                                {
+                                    <option value="@soort">@Weergave.Tekst(soort)</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-auto">
+                            <button type="submit" class="btn btn-primary">Nieuw dossier</button>
+                        </div>
+                    </EditForm>
+                    <Foutmeldingen Fouten="dossierFouten" />
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="card">
+                <div class="card-header fw-semibold">Ingelezen saldibalansen</div>
+                @if (imports.Count == 0)
+                {
+                    <div class="card-body text-secondary">Nog niets ingelezen. Dat doe je in een dossier.</div>
+                }
+                else
+                {
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr><th>Jaar</th><th>Bestand</th><th>Ingelezen</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var i in imports)
+                            {
+                                <tr class="@(i.Actief ? null : "text-secondary")">
+                                    <td>@i.Boekjaar</td>
+                                    <td>
+                                        <span title="@i.AantalRegels regels">@i.Bestandsnaam</span>
+                                        @if (!i.Actief)
+                                        {
+                                            <span class="badge text-bg-light border ms-1" title="Vervangen door een nieuwere import">vervangen</span>
+                                        }
+                                    </td>
+                                    <td class="small">@Weergave.DatumTijd(i.GeimporteerdOp)<br />@i.GeimporteerdDoor</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool geladen;
+    private Klant? klant;
+    private IReadOnlyList<DossierSamenvatting> dossiers = [];
+    private IReadOnlyList<ImportOverzichtRegel> imports = [];
+    private bool wijzigen;
+    private KlantFormulier.KlantModel klantModel = new();
+    private IReadOnlyList<string>? klantFouten;
+    private readonly NieuwDossierModel nieuwDossier = new();
+    private IReadOnlyList<string>? dossierFouten;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Authenticatie { get; set; } = default!;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await Laad();
+        if (klant is not null)
+        {
+            // Standaard: het afgelopen boekjaar, met de gebruikelijke opdracht bij de rechtsvorm.
+            nieuwDossier.Boekjaar = Tijd.GetLocalNow().Year - 1;
+            nieuwDossier.Soort = DossierDienst.StandaardSoort(klant.Rechtsvorm);
+        }
+
+        geladen = true;
+    }
+
+    private async Task Laad()
+    {
+        klant = await KlantDienst.Haal(Id);
+        if (klant is not null)
+        {
+            dossiers = await DossierDienst.VoorKlant(Id);
+            imports = await ImportDienst.Imports(Id);
+        }
+    }
+
+    private void StartWijzigen()
+    {
+        klantModel = KlantFormulier.KlantModel.Van(klant!);
+        klantFouten = null;
+        wijzigen = true;
+    }
+
+    private async Task KlantOpslaan(KlantInvoer invoer)
+    {
+        var uitkomst = await KlantDienst.Wijzig(Id, invoer, await Wie());
+        if (uitkomst.IsGelukt)
+        {
+            wijzigen = false;
+            await Laad();
+        }
+        else
+        {
+            klantFouten = uitkomst.Fouten;
+        }
+    }
+
+    private async Task DossierMaken()
+    {
+        var uitkomst = await DossierDienst.Maak(Id, nieuwDossier.Boekjaar, nieuwDossier.Soort, await Wie());
+        if (uitkomst.IsGelukt)
+        {
+            Navigatie.NavigateTo($"/dossiers/{uitkomst.Waarde}");
+        }
+        else
+        {
+            dossierFouten = uitkomst.Fouten;
+        }
+    }
+
+    private async Task<Uitvoerder> Wie() => (await Authenticatie).User.AlsUitvoerder();
+
+    private sealed class NieuwDossierModel
+    {
+        public int Boekjaar { get; set; }
+
+        public SoortOpdracht Soort { get; set; }
+    }
+}

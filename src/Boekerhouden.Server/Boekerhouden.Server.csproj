@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Boekerhouden.Data\Boekerhouden.Data.csproj" />
+    <ProjectReference Include="..\Boekerhouden.Import\Boekerhouden.Import.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Boekerhouden.Server.Tests" />
+  </ItemGroup>
+
+</Project>

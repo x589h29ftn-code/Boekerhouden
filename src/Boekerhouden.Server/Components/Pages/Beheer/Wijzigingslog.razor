@@ -1,0 +1,44 @@
+@page "/beheer/wijzigingslog"
+@attribute [Authorize(Roles = Rollen.Beheerder)]
+@inject AuditDienst Audit
+
+<PageTitle>Wijzigingslog – Boekerhouden</PageTitle>
+
+<div class="d-flex align-items-center mb-3 gap-2">
+    <h1 class="h3 mb-0 me-auto">Wijzigingslog</h1>
+    <input class="form-control w-auto" type="search" placeholder="Zoek op gebruiker, actie of onderwerp" aria-label="Zoeken"
+           @bind="zoek" @bind:event="oninput" @bind:after="Laad" />
+</div>
+
+@if (regels is not null)
+{
+    <div class="card">
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+                <tr><th style="width:10rem">Tijdstip</th><th>Gebruiker</th><th>Actie</th><th>Onderwerp</th><th>Details</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var r in regels)
+                {
+                    <tr>
+                        <td class="text-nowrap">@Weergave.DatumTijd(r.Tijdstip)</td>
+                        <td>@r.Gebruiker</td>
+                        <td>@r.Actie</td>
+                        <td>@r.Onderwerp</td>
+                        <td class="small text-secondary text-break">@r.Details</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <p class="small text-secondary mt-2">De laatste @regels.Count regels. Het log kan niet worden gewijzigd of gewist.</p>
+}
+
+@code {
+    private IReadOnlyList<AuditRegel>? regels;
+    private string? zoek;
+
+    protected override Task OnInitializedAsync() => Laad();
+
+    private async Task Laad() => regels = await Audit.Recent(zoek);
+}

@@ -1,0 +1,112 @@
+@page "/dossiers/{Id:guid}"
+@inject DossierDienst DossierDienst
+@inject ImportDienst ImportDienst
+
+<PageTitle>@(dossier is null ? "Dossier" : $"{dossier.Naam} – {dossier.KlantNaam}") – Boekerhouden</PageTitle>
+
+@if (!geladen)
+{
+    <p class="text-secondary">Laden…</p>
+}
+else if (dossier is null)
+{
+    <div class="alert alert-warning">Dit dossier bestaat niet (meer). <a href="/">Terug naar de klanten</a></div>
+}
+else
+{
+    <nav aria-label="kruimelpad">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Klanten</a></li>
+            <li class="breadcrumb-item"><a href="/klanten/@dossier.KlantId">@dossier.KlantNaam</a></li>
+            <li class="breadcrumb-item active" aria-current="page">@dossier.Naam</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex align-items-center gap-2 mb-1">
+        <h1 class="h3 mb-0">@dossier.Naam</h1>
+        <DossierStatusLabel Status="dossier.Status" />
+    </div>
+    <p class="text-secondary">@dossier.Klantnummer @dossier.KlantNaam · @Weergave.Tekst(dossier.Rechtsvorm) · @Weergave.Tekst(dossier.Soort)</p>
+
+    <ImportPaneel KlantId="dossier.KlantId" Klantnummer="@dossier.Klantnummer" KlantNaam="@dossier.KlantNaam"
+                  Boekjaar="dossier.Boekjaar" OnGeimporteerd="Geimporteerd" />
+
+    <div class="card mt-4">
+        <div class="card-header d-flex align-items-center">
+            <span class="fw-semibold me-auto">Saldibalans @dossier.Boekjaar</span>
+            @if (proefbalans?.Import is { } import)
+            {
+                <span class="small text-secondary">
+                    @import.Bestandsnaam · @import.AantalRegels regels · ingelezen @Weergave.DatumTijd(import.GeimporteerdOp) door @import.GeimporteerdDoor
+                </span>
+            }
+        </div>
+        @if (proefbalans is null || proefbalans.Regels.Count == 0)
+        {
+            <div class="card-body text-secondary">Nog geen saldibalans ingelezen voor @dossier.Boekjaar.</div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0 proefbalans">
+                    <thead>
+                        <tr>
+                            <th style="width:9rem">Grootboek</th>
+                            <th>Omschrijving</th>
+                            <th class="text-end" style="width:11rem">@dossier.Boekjaar</th>
+                            <th class="text-end" style="width:11rem">@(dossier.Boekjaar - 1)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var regel in proefbalans.Regels)
+                        {
+                            <tr>
+                                <td class="font-monospace">@regel.Nummer</td>
+                                <td>@regel.Omschrijving</td>
+                                <td class="text-end font-monospace"><Bedrag Waarde="regel.Bedrag" /></td>
+                                <td class="text-end font-monospace text-secondary"><Bedrag Waarde="regel.BedragVorigJaar" /></td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr class="fw-semibold">
+                            <td colspan="2">Saldo (moet nihil zijn)</td>
+                            <td class="text-end font-monospace">@Bedragen.Getal(proefbalans.Totaal)</td>
+                            <td class="text-end font-monospace text-secondary">@(proefbalans.ImportVorigJaar is null ? "–" : Bedragen.Getal(proefbalans.TotaalVorigJaar))</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div class="card-footer bg-white small text-secondary">
+                Debet positief, credit negatief.
+                @if (proefbalans.ImportVorigJaar is null)
+                {
+                    <span>Lees ook @(dossier.Boekjaar - 1) in voor de vergelijkende cijfers (kies het jaar hierboven).</span>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private bool geladen;
+    private DossierDetail? dossier;
+    private Proefbalans? proefbalans;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await Laad();
+        geladen = true;
+    }
+
+    private async Task Laad()
+    {
+        dossier = await DossierDienst.Haal(Id);
+        proefbalans = dossier is null ? null : await ImportDienst.Proefbalans(dossier.KlantId, dossier.Boekjaar);
+    }
+
+    private Task Geimporteerd() => Laad();
+}

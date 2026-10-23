@@ -1,0 +1,90 @@
+<EditForm Model="Model" OnSubmit="Verstuur" FormName="klant">
+    <div class="row g-3">
+        <div class="col-sm-3">
+            <label for="klantnummer" class="form-label">Klantnummer</label>
+            <InputText id="klantnummer" @bind-Value="Model.Klantnummer" class="form-control" />
+        </div>
+        <div class="col-sm-9">
+            <label for="naam" class="form-label">Naam</label>
+            <InputText id="naam" @bind-Value="Model.Naam" class="form-control" />
+        </div>
+        <div class="col-sm-3">
+            <label for="rechtsvorm" class="form-label">Rechtsvorm</label>
+            <InputSelect id="rechtsvorm" @bind-Value="Model.Rechtsvorm" class="form-select">
+                @foreach (var vorm in Enum.GetValues<Rechtsvorm>())
+                {
+                    <option value="@vorm">@Weergave.Tekst(vorm)</option>
+                }
+            </InputSelect>
+        </div>
+        <div class="col-sm-3">
+            <label for="kvk" class="form-label">KvK-nummer <span class="text-secondary">(optioneel)</span></label>
+            <InputText id="kvk" @bind-Value="Model.KvkNummer" class="form-control" inputmode="numeric" maxlength="8" />
+        </div>
+        <div class="col-sm-6">
+            <label for="plaats" class="form-label">Plaats <span class="text-secondary">(optioneel)</span></label>
+            <InputText id="plaats" @bind-Value="Model.Plaats" class="form-control" />
+        </div>
+    </div>
+    <Foutmeldingen Fouten="Fouten" />
+    <div class="mt-3 d-flex gap-2">
+        <button type="submit" class="btn btn-primary" disabled="@bezig">Opslaan</button>
+        @if (OnAnnuleren.HasDelegate)
+        {
+            <button type="button" class="btn btn-outline-secondary" @onclick="OnAnnuleren">Annuleren</button>
+        }
+    </div>
+</EditForm>
+
+@code {
+    private bool bezig;
+
+    [Parameter, EditorRequired]
+    public KlantModel Model { get; set; } = default!;
+
+    [Parameter]
+    public IReadOnlyList<string>? Fouten { get; set; }
+
+    [Parameter]
+    public EventCallback<KlantInvoer> OnOpslaan { get; set; }
+
+    [Parameter]
+    public EventCallback OnAnnuleren { get; set; }
+
+    private async Task Verstuur()
+    {
+        bezig = true;
+        try
+        {
+            await OnOpslaan.InvokeAsync(Model.AlsInvoer());
+        }
+        finally
+        {
+            bezig = false;
+        }
+    }
+
+    public sealed class KlantModel
+    {
+        public string Klantnummer { get; set; } = "";
+
+        public string Naam { get; set; } = "";
+
+        public Rechtsvorm Rechtsvorm { get; set; } = Rechtsvorm.BV;
+
+        public string? KvkNummer { get; set; }
+
+        public string? Plaats { get; set; }
+
+        public static KlantModel Van(Klant klant) => new()
+        {
+            Klantnummer = klant.Klantnummer,
+            Naam = klant.Naam,
+            Rechtsvorm = klant.Rechtsvorm,
+            KvkNummer = klant.KvkNummer,
+            Plaats = klant.Plaats,
+        };
+
+        public KlantInvoer AlsInvoer() => new(Klantnummer, Naam, Rechtsvorm, KvkNummer, Plaats);
+    }
+}

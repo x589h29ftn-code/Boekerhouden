@@ -1,0 +1,43 @@
+@inherits LayoutComponentBase
+
+<header class="navbar navbar-expand bg-white border-bottom shadow-sm px-3">
+    <a class="navbar-brand fw-semibold" href="/">
+        <img src="favicon.svg" alt="" width="24" height="24" class="me-1 align-text-bottom" />
+        Boekerhouden
+    </a>
+    <nav class="navbar-nav me-auto">
+        <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">Klanten</NavLink>
+        <AuthorizeView Roles="@Rollen.Beheerder">
+            <NavLink class="nav-link" href="/beheer/gebruikers">Gebruikers</NavLink>
+            <NavLink class="nav-link" href="/beheer/wijzigingslog">Wijzigingslog</NavLink>
+        </AuthorizeView>
+    </nav>
+    <AuthorizeView>
+        <div class="d-flex align-items-center gap-2">
+            <span class="text-secondary small" title="Ingelogd als">@context.User.WeergaveNaam()</span>
+            <a class="btn btn-sm btn-outline-secondary" href="/wachtwoord-wijzigen" data-enhance-nav="false">Wachtwoord wijzigen</a>
+            <form action="/account/uitloggen" method="post" class="m-0">
+                <AntiforgeryToken />
+                <button type="submit" class="btn btn-sm btn-outline-secondary">Uitloggen</button>
+            </form>
+        </div>
+    </AuthorizeView>
+</header>
+
+<main class="container-xl py-4">
+    <ErrorBoundary @ref="foutgrens">
+        <ChildContent>
+            @Body
+        </ChildContent>
+        <ErrorContent>
+            <div class="alert alert-danger">
+                Er ging iets mis. Probeer het opnieuw; blijft het misgaan, meld dan wat je deed bij de beheerder.
+                <button class="btn btn-sm btn-outline-danger ms-2" @onclick="() => foutgrens?.Recover()">Verder</button>
+            </div>
+        </ErrorContent>
+    </ErrorBoundary>
+</main>
+
+@code {
+    private ErrorBoundary? foutgrens;
+}

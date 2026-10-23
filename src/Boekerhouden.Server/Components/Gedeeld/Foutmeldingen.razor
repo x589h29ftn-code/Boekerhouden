@@ -1,0 +1,23 @@
+@if (Fouten is { Count: > 0 })
+{
+    <div class="alert alert-danger" role="alert">
+        @if (Fouten.Count == 1)
+        {
+            @Fouten[0]
+        }
+        else
+        {
+            <ul class="mb-0">
+                @foreach (var fout in Fouten)
+                {
+                    <li>@fout</li>
+                }
+            </ul>
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public IReadOnlyList<string>? Fouten { get; set; }
+}

@@ -1,0 +1,227 @@
+@page "/beheer/gebruikers"
+@attribute [Authorize(Roles = Rollen.Beheerder)]
+@inject GebruikerDienst GebruikerDienst
+
+<PageTitle>Gebruikers – Boekerhouden</PageTitle>
+
+<div class="d-flex align-items-center mb-3">
+    <h1 class="h3 mb-0 me-auto">Gebruikers</h1>
+    @if (formulier is null)
+    {
+        <button class="btn btn-primary" @onclick="Nieuw">Nieuwe gebruiker</button>
+    }
+</div>
+
+@if (tijdelijkWachtwoord is not null)
+{
+    <div class="alert alert-success" role="status">
+        <div>Tijdelijk wachtwoord voor <strong>@tijdelijkVoor</strong>:</div>
+        <div class="fs-4 font-monospace my-2" id="tijdelijk-wachtwoord">@tijdelijkWachtwoord</div>
+        <div class="small">Geef dit persoonlijk door. Het wordt maar één keer getoond; bij de eerste keer inloggen kiest de gebruiker een eigen wachtwoord.</div>
+        <button class="btn btn-sm btn-outline-success mt-2" @onclick="() => tijdelijkWachtwoord = null">Gezien</button>
+    </div>
+}
+<Foutmeldingen Fouten="actieFouten" />
+
+@if (formulier is not null)
+{
+    <div class="card card-body mb-4">
+        <h2 class="h5">@(bewerkId is null ? "Nieuwe gebruiker" : "Gebruiker wijzigen")</h2>
+        <EditForm Model="formulier" OnSubmit="Opslaan" FormName="gebruiker">
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <label for="g-naam" class="form-label">Naam</label>
+                    <InputText id="g-naam" @bind-Value="formulier.Naam" class="form-control" />
+                </div>
+                <div class="col-md-2">
+                    <label for="g-initialen" class="form-label">Initialen</label>
+                    <InputText id="g-initialen" @bind-Value="formulier.Initialen" class="form-control" />
+                </div>
+                <div class="col-md-2">
+                    <label for="g-titel" class="form-label">Titel</label>
+                    <InputText id="g-titel" @bind-Value="formulier.Titel" class="form-control" placeholder="AA, RA" />
+                </div>
+                <div class="col-md-3">
+                    <label for="g-email" class="form-label">E-mailadres</label>
+                    <InputText id="g-email" @bind-Value="formulier.Email" class="form-control" />
+                </div>
+                <div class="col-12">
+                    <div class="form-label">Rollen</div>
+                    @foreach (var rol in Rollen.Alle)
+                    {
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="rol-@rol" checked="@formulier.Rollen.Contains(rol)"
+                                   @onchange="e => ZetRol(rol, (bool)e.Value!)" />
+                            <label class="form-check-label" for="rol-@rol">@rol</label>
+                        </div>
+                    }
+                    <div class="form-text">Review is niet verplicht. De rol bepaalt later wie mag reviewen en wie mag ondertekenen.</div>
+                </div>
+            </div>
+            <Foutmeldingen Fouten="formulierFouten" />
+            <div class="mt-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Opslaan</button>
+                <button type="button" class="btn btn-outline-secondary" @onclick="() => formulier = null">Annuleren</button>
+            </div>
+        </EditForm>
+    </div>
+}
+
+@if (gebruikers is not null)
+{
+    <div class="card">
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr><th>Naam</th><th>E-mailadres</th><th>Rollen</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var g in gebruikers)
+                {
+                    <tr class="@(g.Actief ? null : "text-secondary")">
+                        <td>@g.Naam <span class="text-secondary">(@g.Initialen@(g.Titel is null ? "" : $", {g.Titel}"))</span></td>
+                        <td>@g.Email</td>
+                        <td>@string.Join(", ", g.Rollen)</td>
+                        <td>
+                            @if (!g.Actief)
+                            {
+                                <span class="badge text-bg-secondary">gedeactiveerd</span>
+                            }
+                            else if (g.Geblokkeerd)
+                            {
+                                <span class="badge text-bg-danger" title="Te vaak een verkeerd wachtwoord">geblokkeerd</span>
+                            }
+                            else if (g.MoetWachtwoordWijzigen)
+                            {
+                                <span class="badge text-bg-warning">tijdelijk wachtwoord</span>
+                            }
+                            else
+                            {
+                                <span class="badge text-bg-success">actief</span>
+                            }
+                        </td>
+                        <td class="text-end text-nowrap">
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => Bewerk(g)">Wijzigen</button>
+                            @if (g.Actief)
+                            {
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => Reset(g)">Nieuw wachtwoord</button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => ZetActief(g, false)">Deactiveren</button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-sm btn-outline-success" @onclick="() => ZetActief(g, true)">Activeren</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <p class="small text-secondary mt-2">Gebruikers worden niet verwijderd maar gedeactiveerd, zodat hun naam in dossiers en het wijzigingslog herleidbaar blijft.</p>
+}
+
+@code {
+    private IReadOnlyList<GebruikerRegel>? gebruikers;
+    private GebruikerModel? formulier;
+    private Guid? bewerkId;
+    private IReadOnlyList<string>? formulierFouten;
+    private IReadOnlyList<string>? actieFouten;
+    private string? tijdelijkWachtwoord;
+    private string? tijdelijkVoor;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Authenticatie { get; set; } = default!;
+
+    protected override Task OnInitializedAsync() => Laad();
+
+    private async Task Laad() => gebruikers = await GebruikerDienst.Lijst();
+
+    private void Nieuw()
+    {
+        bewerkId = null;
+        formulierFouten = null;
+        formulier = new GebruikerModel { Rollen = [Rollen.Medewerker] };
+    }
+
+    private void Bewerk(GebruikerRegel g)
+    {
+        bewerkId = g.Id;
+        formulierFouten = null;
+        formulier = new GebruikerModel { Naam = g.Naam, Initialen = g.Initialen, Titel = g.Titel, Email = g.Email, Rollen = [.. g.Rollen] };
+    }
+
+    private void ZetRol(string rol, bool aan)
+    {
+        if (aan)
+        {
+            formulier!.Rollen.Add(rol);
+        }
+        else
+        {
+            formulier!.Rollen.Remove(rol);
+        }
+    }
+
+    private async Task Opslaan()
+    {
+        var invoer = new GebruikerInvoer(formulier!.Email, formulier.Naam, formulier.Initialen, formulier.Titel,
+            [.. Rollen.Alle.Where(formulier.Rollen.Contains)]);
+        var wie = await Wie();
+        if (bewerkId is { } id)
+        {
+            var uitkomst = await GebruikerDienst.Wijzig(id, invoer, wie);
+            formulierFouten = uitkomst.Fouten;
+            if (uitkomst.IsGelukt)
+            {
+                formulier = null;
+            }
+        }
+        else
+        {
+            var uitkomst = await GebruikerDienst.Maak(invoer, wie);
+            formulierFouten = uitkomst.Fouten;
+            if (uitkomst.IsGelukt)
+            {
+                tijdelijkWachtwoord = uitkomst.Waarde;
+                tijdelijkVoor = invoer.Naam;
+                formulier = null;
+            }
+        }
+
+        await Laad();
+    }
+
+    private async Task Reset(GebruikerRegel g)
+    {
+        var uitkomst = await GebruikerDienst.ResetWachtwoord(g.Id, await Wie());
+        actieFouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            tijdelijkWachtwoord = uitkomst.Waarde;
+            tijdelijkVoor = g.Naam;
+        }
+
+        await Laad();
+    }
+
+    private async Task ZetActief(GebruikerRegel g, bool actief)
+    {
+        var uitkomst = await GebruikerDienst.ZetActief(g.Id, actief, await Wie());
+        actieFouten = uitkomst.Fouten;
+        await Laad();
+    }
+
+    private async Task<Uitvoerder> Wie() => (await Authenticatie).User.AlsUitvoerder();
+
+    private sealed class GebruikerModel
+    {
+        public string Naam { get; set; } = "";
+
+        public string Initialen { get; set; } = "";
+
+        public string? Titel { get; set; }
+
+        public string Email { get; set; } = "";
+
+        public HashSet<string> Rollen { get; set; } = [];
+    }
+}

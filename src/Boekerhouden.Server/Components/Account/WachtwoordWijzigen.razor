@@ -1,0 +1,96 @@
+@page "/wachtwoord-wijzigen"
+@attribute [Authorize]
+@inject SignInManager<Gebruiker> SignIn
+@inject UserManager<Gebruiker> Gebruikers
+@inject AuditDienst Audit
+@inject NavigationManager Navigatie
+
+<PageTitle>Wachtwoord wijzigen – Boekerhouden</PageTitle>
+
+<h1 class="h5 mb-3">Wachtwoord wijzigen</h1>
+@if (moetWijzigen)
+{
+    <div class="alert alert-info small">Je bent ingelogd met een tijdelijk wachtwoord. Kies eerst een eigen wachtwoord.</div>
+}
+<Foutmeldingen Fouten="fouten" />
+<EditForm Model="Invoer" method="post" OnSubmit="Wijzig" FormName="wachtwoord-wijzigen">
+    <div class="mb-3">
+        <label for="huidig" class="form-label">Huidig wachtwoord</label>
+        <InputText id="huidig" type="password" @bind-Value="Invoer.Huidig" class="form-control" autocomplete="current-password" autofocus />
+    </div>
+    <div class="mb-3">
+        <label for="nieuw" class="form-label">Nieuw wachtwoord</label>
+        <InputText id="nieuw" type="password" @bind-Value="Invoer.Nieuw" class="form-control" autocomplete="new-password" />
+        <div class="form-text">Minstens 12 tekens, met een hoofdletter, een kleine letter en een cijfer. Een zin van een paar woorden werkt goed.</div>
+    </div>
+    <div class="mb-3">
+        <label for="herhaal" class="form-label">Herhaal nieuw wachtwoord</label>
+        <InputText id="herhaal" type="password" @bind-Value="Invoer.Herhaal" class="form-control" autocomplete="new-password" />
+    </div>
+    <button type="submit" class="btn btn-primary w-100">Wachtwoord opslaan</button>
+</EditForm>
+@if (!moetWijzigen)
+{
+    <p class="mt-3 mb-0 text-center"><a href="/">Terug naar Boekerhouden</a></p>
+}
+
+@code {
+    private IReadOnlyList<string>? fouten;
+    private bool moetWijzigen;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm]
+    private WachtwoordInvoer Invoer { get; set; } = default!;
+
+    protected override void OnInitialized()
+    {
+        Invoer ??= new();
+        moetWijzigen = HttpContext.User.HasClaim(BoekerhoudenClaims.MoetWachtwoordWijzigen, "true");
+    }
+
+    private async Task Wijzig()
+    {
+        if (Invoer.Nieuw != Invoer.Herhaal)
+        {
+            fouten = ["De twee nieuwe wachtwoorden zijn niet gelijk."];
+            return;
+        }
+
+        if (Invoer.Nieuw == Invoer.Huidig)
+        {
+            fouten = ["Kies een ander wachtwoord dan het huidige."];
+            return;
+        }
+
+        var gebruiker = await Gebruikers.GetUserAsync(HttpContext.User);
+        if (gebruiker is null)
+        {
+            Navigatie.NavigateTo("/inloggen");
+            return;
+        }
+
+        var resultaat = await Gebruikers.ChangePasswordAsync(gebruiker, Invoer.Huidig, Invoer.Nieuw);
+        if (!resultaat.Succeeded)
+        {
+            fouten = [.. resultaat.Errors.Select(e => e.Code == nameof(IdentityErrorDescriber.PasswordMismatch) ? "Het huidige wachtwoord is onjuist." : e.Description)];
+            return;
+        }
+
+        gebruiker.MoetWachtwoordWijzigen = false;
+        await Gebruikers.UpdateAsync(gebruiker);
+        await SignIn.RefreshSignInAsync(gebruiker);
+        await Audit.Log(new Uitvoerder(gebruiker.Id, gebruiker.Naam), AuditActies.WachtwoordGewijzigd);
+        Navigatie.NavigateTo("/");
+    }
+
+    private sealed class WachtwoordInvoer
+    {
+        public string Huidig { get; set; } = "";
+
+        public string Nieuw { get; set; } = "";
+
+        public string Herhaal { get; set; } = "";
+    }
+}

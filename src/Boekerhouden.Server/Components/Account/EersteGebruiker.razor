@@ -1,0 +1,97 @@
+@page "/eerste-gebruiker"
+@attribute [AllowAnonymous]
+@inject GebruikerDienst GebruikerDienst
+@inject SignInManager<Gebruiker> SignIn
+@inject UserManager<Gebruiker> Gebruikers
+@inject NavigationManager Navigatie
+
+<PageTitle>Eerste gebruiker – Boekerhouden</PageTitle>
+
+<h1 class="h5 mb-2">Welkom</h1>
+<p class="text-secondary small">Er is nog niemand. Maak het eerste account aan; dat krijgt alle rollen, ook <em>beheerder</em>. Daarna voeg je de collega's toe via <em>Gebruikers</em>.</p>
+<Foutmeldingen Fouten="fouten" />
+<EditForm Model="Invoer" method="post" OnSubmit="Maak" FormName="eerste-gebruiker">
+    <div class="mb-2">
+        <label for="naam" class="form-label">Naam</label>
+        <InputText id="naam" @bind-Value="Invoer.Naam" class="form-control" autofocus />
+    </div>
+    <div class="row g-2 mb-2">
+        <div class="col">
+            <label for="initialen" class="form-label">Initialen</label>
+            <InputText id="initialen" @bind-Value="Invoer.Initialen" class="form-control" />
+        </div>
+        <div class="col">
+            <label for="titel" class="form-label">Titel <span class="text-secondary">(optioneel)</span></label>
+            <InputText id="titel" @bind-Value="Invoer.Titel" class="form-control" placeholder="AA of RA" />
+        </div>
+    </div>
+    <div class="mb-2">
+        <label for="email" class="form-label">E-mailadres (gebruikersnaam)</label>
+        <InputText id="email" @bind-Value="Invoer.Email" class="form-control" autocomplete="username" />
+    </div>
+    <div class="mb-2">
+        <label for="wachtwoord" class="form-label">Wachtwoord</label>
+        <InputText id="wachtwoord" type="password" @bind-Value="Invoer.Wachtwoord" class="form-control" autocomplete="new-password" />
+        <div class="form-text">Minstens 12 tekens, met een hoofdletter, een kleine letter en een cijfer.</div>
+    </div>
+    <div class="mb-3">
+        <label for="herhaal" class="form-label">Herhaal wachtwoord</label>
+        <InputText id="herhaal" type="password" @bind-Value="Invoer.Herhaal" class="form-control" autocomplete="new-password" />
+    </div>
+    <button type="submit" class="btn btn-primary w-100">Account aanmaken</button>
+</EditForm>
+
+@code {
+    private IReadOnlyList<string>? fouten;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm]
+    private EersteInvoer Invoer { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Invoer ??= new();
+        if (!await GebruikerDienst.EersteBeheerderNodig())
+        {
+            Navigatie.NavigateTo("/inloggen");
+        }
+    }
+
+    private async Task Maak()
+    {
+        if (Invoer.Wachtwoord != Invoer.Herhaal)
+        {
+            fouten = ["De twee wachtwoorden zijn niet gelijk."];
+            return;
+        }
+
+        var invoer = new GebruikerInvoer(Invoer.Email, Invoer.Naam, Invoer.Initialen, Invoer.Titel, Rollen.Alle);
+        var uitkomst = await GebruikerDienst.MaakEersteBeheerder(invoer, Invoer.Wachtwoord);
+        if (!uitkomst.IsGelukt)
+        {
+            fouten = uitkomst.Fouten;
+            return;
+        }
+
+        var gebruiker = await Gebruikers.FindByEmailAsync(Invoer.Email.Trim());
+        await SignIn.SignInAsync(gebruiker!, isPersistent: false);
+        Navigatie.NavigateTo("/");
+    }
+
+    private sealed class EersteInvoer
+    {
+        public string Naam { get; set; } = "";
+
+        public string Initialen { get; set; } = "";
+
+        public string? Titel { get; set; }
+
+        public string Email { get; set; } = "";
+
+        public string Wachtwoord { get; set; } = "";
+
+        public string Herhaal { get; set; } = "";
+    }
+}

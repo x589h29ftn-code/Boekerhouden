@@ -1,0 +1,18 @@
+@page "/fout"
+@attribute [AllowAnonymous]
+@using System.Diagnostics
+
+<PageTitle>Fout – Boekerhouden</PageTitle>
+
+<h1 class="h3 text-danger">Er ging iets mis</h1>
+<p>Probeer het opnieuw. Blijft het misgaan, meld dan aan de beheerder wat je deed en deze code:</p>
+<p><code>@RequestId</code></p>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+
+    protected override void OnInitialized() => RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}

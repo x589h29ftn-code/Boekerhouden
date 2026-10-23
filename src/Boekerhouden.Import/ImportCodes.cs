@@ -21,6 +21,15 @@ public static class ImportCodes
     /// <summary>Som van alle bedragen is nihil.</summary>
     public const string SaldoNihil = "I6";
 
+    /// <summary>Klant in het bestand wijkt af van de gekozen klant (waarschuwing).</summary>
+    public const string KlantAfwijkend = "I7";
+
+    /// <summary>Er is al een saldibalans voor dit boekjaar; importeren vervangt die (waarschuwing).</summary>
+    public const string BestaandeImport = "I9";
+
+    /// <summary>Verschillen met de vorige import of het vorige jaar (informatie).</summary>
+    public const string Verschillen = "I10";
+
     /// <summary>RGS-code heeft geen geldig formaat (waarschuwing; de code wordt genegeerd).</summary>
     public const string RgsFormaat = "I11";
 }

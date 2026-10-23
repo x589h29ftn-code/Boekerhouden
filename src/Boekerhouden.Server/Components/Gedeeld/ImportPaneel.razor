@@ -1,0 +1,226 @@
+@using Boekerhouden.Import
+@inject ImportDienst ImportDienst
+
+<div class="card">
+    <div class="card-header fw-semibold">Saldibalans inlezen</div>
+    <div class="card-body">
+        <p class="small text-secondary mb-3">
+            Gebruik het <a href="@SjabloonLink" download>importsjabloon</a> (Excel of CSV) of een export met de kolommen
+            grootboeknummer, omschrijving en bedrag (debet +, credit −). Er wordt alleen ingelezen als het saldo nihil is.
+        </p>
+        <div class="row g-2 align-items-end">
+            <div class="col-auto">
+                <label for="importjaar" class="form-label small mb-1">Boekjaar</label>
+                <select id="importjaar" class="form-select" @bind="gekozenJaar" @bind:after="JaarGewijzigd">
+                    @for (var jaar = Boekjaar; jaar >= Boekjaar - 4; jaar--)
+                    {
+                        <option value="@jaar">@jaar@(jaar == Boekjaar ? "" : " (vergelijkend)")</option>
+                    }
+                </select>
+            </div>
+            <div class="col">
+                <label for="importbestand" class="form-label small mb-1">Bestand (.xlsx of .csv)</label>
+                <InputFile id="importbestand" OnChange="BestandGekozen" accept=".xlsx,.xlsm,.csv,.txt" class="form-control" @key="bestandKey" />
+            </div>
+        </div>
+
+        @if (bezig)
+        {
+            <div class="mt-3 text-secondary"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Bezig…</div>
+        }
+
+        @if (gelukt is not null)
+        {
+            <div class="alert alert-success mt-3 mb-0" role="status">@gelukt</div>
+        }
+
+        @if (controle is not null && !bezig)
+        {
+            <div class="mt-3" id="importcontrole">
+                <div class="fw-semibold mb-2">
+                    Controle van @controle.Bestandsnaam voor @controle.Boekjaar:
+                    @if (controle.KanImporteren)
+                    {
+                        <span class="text-success">in orde</span>
+                    }
+                    else
+                    {
+                        <span class="text-danger">niet in te lezen</span>
+                    }
+                </div>
+                @if (controle.Saldibalans is { } balans)
+                {
+                    <ul class="list-inline small mb-2">
+                        <li class="list-inline-item">@balans.Regels.Count rekeningen</li>
+                        <li class="list-inline-item">· debet € @Bedragen.Getal(balans.TotaalDebet)</li>
+                        <li class="list-inline-item">· credit € @Bedragen.Getal(balans.TotaalCredit)</li>
+                        <li class="list-inline-item">· saldo € @Bedragen.Getal(balans.Saldo)</li>
+                    </ul>
+                }
+                <ul class="list-group mb-3 importmeldingen">
+                    @foreach (var melding in controle.Meldingen.OrderBy(m => m.Ernst))
+                    {
+                        <li class="list-group-item @Klasse(melding.Ernst)">
+                            <span class="badge @Badge(melding.Ernst) me-2">@melding.Code</span>
+                            @if (melding.Rij is { } rij)
+                            {
+                                <span class="text-secondary me-1">rij @rij:</span>
+                            }
+                            @melding.Tekst
+                        </li>
+                    }
+                </ul>
+                @if (controle.KanImporteren)
+                {
+                    @if (controle.Waarschuwingen.Any())
+                    {
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="waarschuwingen-gelezen" @bind="waarschuwingenGelezen" />
+                            <label class="form-check-label" for="waarschuwingen-gelezen">Ik heb de waarschuwingen gelezen en wil toch inlezen</label>
+                        </div>
+                    }
+                    <button class="btn btn-primary" @onclick="Importeer" disabled="@(controle.Waarschuwingen.Any() && !waarschuwingenGelezen)">
+                        @(controle.VervangtBestaande ? $"Saldibalans {controle.Boekjaar} vervangen" : $"Saldibalans {controle.Boekjaar} inlezen")
+                    </button>
+                    <button class="btn btn-outline-secondary ms-2" @onclick="Annuleer">Annuleren</button>
+                }
+                <Foutmeldingen Fouten="fouten" />
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private int gekozenJaar;
+    private byte[]? inhoud;
+    private string? bestandsnaam;
+    private ImportControle? controle;
+    private bool bezig;
+    private bool waarschuwingenGelezen;
+    private string? gelukt;
+    private IReadOnlyList<string>? fouten;
+    private int bestandKey;
+
+    [Parameter, EditorRequired]
+    public Guid KlantId { get; set; }
+
+    [Parameter, EditorRequired]
+    public string Klantnummer { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public string KlantNaam { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public int Boekjaar { get; set; }
+
+    [Parameter]
+    public EventCallback OnGeimporteerd { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Authenticatie { get; set; } = default!;
+
+    private string SjabloonLink =>
+        $"/importsjabloon.xlsx?boekjaar={gekozenJaar}&klant={Uri.EscapeDataString($"{Klantnummer} {KlantNaam}")}";
+
+    protected override void OnInitialized() => gekozenJaar = Boekjaar;
+
+    private async Task BestandGekozen(InputFileChangeEventArgs e)
+    {
+        gelukt = null;
+        fouten = null;
+        controle = null;
+        bezig = true;
+        try
+        {
+            await using var stream = e.File.OpenReadStream(ImportDienst.MaximaleBestandsgrootte);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            inhoud = buffer.ToArray();
+            bestandsnaam = e.File.Name;
+        }
+        catch (IOException)
+        {
+            inhoud = null;
+            fouten = ["Het bestand kon niet worden gelezen. Is het groter dan 20 MB?"];
+            bezig = false;
+            return;
+        }
+
+        await Controleer();
+    }
+
+    private async Task JaarGewijzigd()
+    {
+        gelukt = null;
+        if (inhoud is not null)
+        {
+            await Controleer();
+        }
+    }
+
+    private async Task Controleer()
+    {
+        bezig = true;
+        waarschuwingenGelezen = false;
+        try
+        {
+            controle = await ImportDienst.Controleer(KlantId, gekozenJaar, inhoud!, bestandsnaam!);
+        }
+        finally
+        {
+            bezig = false;
+        }
+    }
+
+    private async Task Importeer()
+    {
+        bezig = true;
+        try
+        {
+            var wie = (await Authenticatie).User.AlsUitvoerder();
+            var uitkomst = await ImportDienst.Importeer(KlantId, gekozenJaar, inhoud!, bestandsnaam!, wie);
+            if (!uitkomst.IsGelukt)
+            {
+                fouten = uitkomst.Fouten;
+                return;
+            }
+
+            gelukt = $"Saldibalans {gekozenJaar} ingelezen: {controle!.Saldibalans!.Regels.Count} rekeningen uit {bestandsnaam}.";
+            Wis();
+            await OnGeimporteerd.InvokeAsync();
+        }
+        finally
+        {
+            bezig = false;
+        }
+    }
+
+    private void Annuleer()
+    {
+        gelukt = null;
+        fouten = null;
+        Wis();
+    }
+
+    private void Wis()
+    {
+        controle = null;
+        inhoud = null;
+        bestandsnaam = null;
+        bestandKey++;
+    }
+
+    private static string Klasse(MeldingErnst ernst) => ernst switch
+    {
+        MeldingErnst.Fout => "list-group-item-danger",
+        MeldingErnst.Waarschuwing => "list-group-item-warning",
+        _ => "list-group-item-light",
+    };
+
+    private static string Badge(MeldingErnst ernst) => ernst switch
+    {
+        MeldingErnst.Fout => "text-bg-danger",
+        MeldingErnst.Waarschuwing => "text-bg-warning",
+        _ => "text-bg-secondary",
+    };
+}

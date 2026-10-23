@@ -1,0 +1,83 @@
+@page "/"
+@inject KlantDienst KlantDienst
+@inject NavigationManager Navigatie
+
+<PageTitle>Klanten – Boekerhouden</PageTitle>
+
+<div class="d-flex align-items-center mb-3 gap-2">
+    <h1 class="h3 mb-0 me-auto">Klanten</h1>
+    <input class="form-control w-auto" type="search" placeholder="Zoek op naam of nummer" aria-label="Zoeken"
+           @bind="zoek" @bind:event="oninput" @bind:after="Laad" />
+    <a class="btn btn-primary" href="/klanten/nieuw">Nieuwe klant</a>
+</div>
+
+@if (klanten is null)
+{
+    <p class="text-secondary">Laden…</p>
+}
+else if (klanten.Count == 0)
+{
+    <div class="card card-body text-center text-secondary py-5">
+        @if (string.IsNullOrWhiteSpace(zoek))
+        {
+            <p class="mb-2">Er zijn nog geen klanten.</p>
+            <div><a class="btn btn-primary" href="/klanten/nieuw">Eerste klant toevoegen</a></div>
+        }
+        else
+        {
+            <p class="mb-0">Geen klanten gevonden voor ‘@zoek’.</p>
+        }
+    </div>
+}
+else
+{
+    <div class="card">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Nummer</th>
+                    <th>Naam</th>
+                    <th>Rechtsvorm</th>
+                    <th>Plaats</th>
+                    <th>Laatste dossier</th>
+                    <th>Laatste import</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var klant in klanten)
+                {
+                    <tr class="klikbaar" @onclick="() => Navigatie.NavigateTo(KlantPad(klant.Id))">
+                        <td>@klant.Klantnummer</td>
+                        <td><a href="@KlantPad(klant.Id)" @onclick:stopPropagation>@klant.Naam</a></td>
+                        <td>@Weergave.Tekst(klant.Rechtsvorm)</td>
+                        <td>@klant.Plaats</td>
+                        <td>
+                            @if (klant.LaatsteDossier is { } dossier)
+                            {
+                                <a href="/dossiers/@dossier.Id" @onclick:stopPropagation>@dossier.Naam</a>
+                                <DossierStatusLabel Status="dossier.Status" />
+                            }
+                            else
+                            {
+                                <span class="text-secondary">–</span>
+                            }
+                        </td>
+                        <td>@(klant.LaatsteImport is { } op ? Weergave.DatumTijd(op) : "–")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <p class="text-secondary small mt-2">@klanten.Count klant(en)</p>
+}
+
+@code {
+    private IReadOnlyList<KlantRegel>? klanten;
+    private string? zoek;
+
+    protected override Task OnInitializedAsync() => Laad();
+
+    private async Task Laad() => klanten = await KlantDienst.Lijst(zoek);
+
+    private static string KlantPad(Guid id) => $"/klanten/{id}";
+}

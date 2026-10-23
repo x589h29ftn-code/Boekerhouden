@@ -1,0 +1,13 @@
+<span class="badge @Klasse">@Weergave.Tekst(Status)</span>
+
+@code {
+    [Parameter]
+    public DossierStatus Status { get; set; }
+
+    private string Klasse => Status switch
+    {
+        DossierStatus.Nieuw => "text-bg-secondary",
+        DossierStatus.InUitvoering => "text-bg-primary",
+        _ => "text-bg-light",
+    };
+}

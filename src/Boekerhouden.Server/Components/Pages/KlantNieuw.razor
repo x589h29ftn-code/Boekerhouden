@@ -1,0 +1,38 @@
+@page "/klanten/nieuw"
+@inject KlantDienst KlantDienst
+@inject NavigationManager Navigatie
+
+<PageTitle>Nieuwe klant – Boekerhouden</PageTitle>
+
+<nav aria-label="kruimelpad">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Klanten</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Nieuwe klant</li>
+    </ol>
+</nav>
+<h1 class="h3 mb-3">Nieuwe klant</h1>
+<div class="card card-body">
+    <KlantFormulier Model="model" Fouten="fouten" OnOpslaan="Opslaan" OnAnnuleren="@(() => Navigatie.NavigateTo("/"))" />
+</div>
+
+@code {
+    private readonly KlantFormulier.KlantModel model = new();
+    private IReadOnlyList<string>? fouten;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Authenticatie { get; set; } = default!;
+
+    private async Task Opslaan(KlantInvoer invoer)
+    {
+        var wie = (await Authenticatie).User.AlsUitvoerder();
+        var uitkomst = await KlantDienst.Maak(invoer, wie);
+        if (uitkomst.IsGelukt)
+        {
+            Navigatie.NavigateTo($"/klanten/{uitkomst.Waarde}");
+        }
+        else
+        {
+            fouten = uitkomst.Fouten;
+        }
+    }
+}

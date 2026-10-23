@@ -1,0 +1,68 @@
+:root {
+    --bh-accent: #1f5f8b;
+}
+
+html, body {
+    font-family: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: #f4f6f8;
+}
+
+.btn-primary {
+    --bs-btn-bg: var(--bh-accent);
+    --bs-btn-border-color: var(--bh-accent);
+    --bs-btn-hover-bg: #174a6d;
+    --bs-btn-hover-border-color: #174a6d;
+    --bs-btn-disabled-bg: var(--bh-accent);
+    --bs-btn-disabled-border-color: var(--bh-accent);
+}
+
+a {
+    color: var(--bh-accent);
+}
+
+h1:focus {
+    outline: none;
+}
+
+.navbar .nav-link.active {
+    color: var(--bh-accent);
+    font-weight: 600;
+}
+
+tr.klikbaar {
+    cursor: pointer;
+}
+
+.card > .table > thead > tr > th {
+    background: #fafbfc;
+    font-weight: 600;
+    font-size: .875rem;
+    color: #495057;
+}
+
+.proefbalans td.font-monospace, .proefbalans th {
+    white-space: nowrap;
+}
+
+.account-achtergrond {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.account-kaart {
+    width: 100%;
+    max-width: 26rem;
+}
+
+.blazor-error-boundary {
+    background: #b32121;
+    padding: 1rem;
+    color: white;
+}
+
+    .blazor-error-boundary::after {
+        content: "Er is een fout opgetreden.";
+    }

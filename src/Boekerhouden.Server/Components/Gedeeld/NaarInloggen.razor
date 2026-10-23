@@ -1,0 +1,9 @@
+@inject NavigationManager Navigatie
+
+@code {
+    protected override void OnInitialized()
+    {
+        var terug = "/" + Navigatie.ToBaseRelativePath(Navigatie.Uri);
+        Navigatie.NavigateTo($"inloggen?ReturnUrl={Uri.EscapeDataString(terug)}", forceLoad: true);
+    }
+}
