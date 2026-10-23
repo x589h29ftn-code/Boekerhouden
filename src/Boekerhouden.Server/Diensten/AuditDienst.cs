@@ -69,5 +69,6 @@ public static class AuditActies
     public const string CorrectieGewijzigd = "Correctie gewijzigd";
     public const string CorrectieVerwijderd = "Correctie verwijderd";
     public const string CorrectiesOvergenomen = "Terugkerende correcties overgenomen";
+    public const string CorrectiesGeexporteerd = "Correcties geëxporteerd";
     public const string RekeningAangemaakt = "Grootboekrekening aangemaakt";
 }

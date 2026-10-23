@@ -12,6 +12,8 @@ jobs:
       DOTNET_NOLOGO: 1
       # De servertests maken per testklasse een eigen database aan op deze server.
       BOEKERHOUDEN_TEST_DB: Host=localhost;Username=boekerhouden;Password=boekerhouden-dev
+      # De PDF-test gebruikt de Chrome van de runner; daar werkt de sandbox van Chrome niet.
+      Pdf__ZonderSandbox: "true"
     services:
       postgres:
         image: postgres:16

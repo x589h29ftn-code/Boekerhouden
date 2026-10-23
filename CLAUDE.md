@@ -33,7 +33,8 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
 - `src/Boekerhouden.Data` – EF Core + PostgreSQL: entiteiten, Identity (gebruikers, rollen), migraties (`Migraties/`).
 - `src/Boekerhouden.Server` – Blazor Server-app: `Diensten/` (klanten, dossiers, import met I7/I9/I10, gebruikers,
   wijzigingslog, rubriceren, correcties; `DossierSaldi` = saldi van een dossier na correcties, met vorig jaar), `Identiteit/` (inloggen, wachtwoordbeleid), `Components/` (schermen; accountpagina's statisch,
-  de rest interactief).
+  de rest interactief), `Export/` (correcties naar Excel en PDF; `PdfDienst` maakt PDF's met Edge/Chromium zonder
+  venster, instellingen in sectie `Pdf`).
 - `tests/` – xUnit-tests; `tests/Fictief/` – verzonnen testklanten (met `genereer.py`); `tests/Gedeeld/` – gedeelde
   testhulp, o.a. een klein uittreksel uit RGS 3.8 (`RgsTestWerkboek`).
 - Pakketversies centraal in `Directory.Packages.props`; build-instellingen in `Directory.Build.props`.

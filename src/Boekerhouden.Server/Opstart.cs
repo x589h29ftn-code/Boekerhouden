@@ -2,6 +2,7 @@ using Boekerhouden.Data;
 using Boekerhouden.Import;
 using Boekerhouden.Server.Components;
 using Boekerhouden.Server.Diensten;
+using Boekerhouden.Server.Export;
 using Boekerhouden.Server.Identiteit;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -83,6 +84,8 @@ public static class Opstart
         services.AddSingleton<RubriceerDienst>();
         services.AddSingleton<SjabloonDienst>();
         services.AddSingleton<CorrectieDienst>();
+        services.Configure<PdfOpties>(builder.Configuration.GetSection("Pdf"));
+        services.AddSingleton<PdfDienst>();
     }
 
     public static void ConfigureerPijplijn(WebApplication app)
@@ -113,6 +116,8 @@ public static class Opstart
             await signIn.SignOutAsync();
             return TypedResults.LocalRedirect("~/inloggen");
         });
+
+        ExportEindpunten.Map(app);
 
         app.MapGet("/importsjabloon.xlsx", ([FromQuery] int? boekjaar, [FromQuery] string? klant) =>
         {

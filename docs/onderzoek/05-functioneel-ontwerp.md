@@ -113,6 +113,7 @@ Journaalpostinvoer met regels (rekening, omschrijving, debet, credit) en een bal
 > - De lijst toont per boeking het totaal en het effect op het resultaat; uitklappen toont de regels. Onderaan het effect op resultaat en eigen vermogen; een vraagteken als een regel op een nog niet gekoppelde rekening staat.
 > - Uit het dossier van vorig jaar: *terugkerende* boekingen in één keer overnemen, en een signaal als correcties van vorig jaar niet in de administratie van de klant zijn verwerkt (dan sluit de beginbalans waarschijnlijk niet aan, controle C03).
 > - Elke toevoeging, wijziging en verwijdering staat in het wijzigingslog, met de exacte bedragen.
+> - **Exporteren** naar Excel (blad *Correcties*: één regel per boekingsregel, met filters en totalen; blad *Overzicht*: per boeking het effect op resultaat en eigen vermogen) en naar PDF (A4, per boeking een tabel, paginanummers). Met *alleen wat de klant nog moet boeken* blijven herrubriceringen en al verwerkte correcties weg: dat is het journaal voor de klant. Bedragen staan exact, met centen. Elke export staat in het wijzigingslog.
 >
 > **Proefbalans** (`/dossiers/{id}/proefbalans`): per post de kolommen administratie, correcties, huidig, vorig, verschil en %. Doorklikken van hoofdpost naar subpost, rekening en de correctie op die rekening. De kolommen administratie en correcties verschijnen alleen als er correcties zijn. Vanuit het dossieroverzicht opent een klik op een hoofdpost de proefbalans op die post.
 

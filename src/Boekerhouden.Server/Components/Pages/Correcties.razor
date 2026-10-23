@@ -1,6 +1,8 @@
 @page "/dossiers/{Id:guid}/correcties"
 @using Boekerhouden.Domain.Correcties
+@using Boekerhouden.Server.Export
 @inject CorrectieDienst CorrectieDienst
+@inject PdfDienst PdfDienst
 
 <PageTitle>Correcties @(o?.Dossier.Naam) – Boekerhouden</PageTitle>
 
@@ -168,7 +170,7 @@ else
                 <span class="oms" @onclick="() => Wissel(b.Id)" title="@b.Omschrijving · @b.GewijzigdDoor, @Weergave.DatumTijd(b.GewijzigdOp)">
                     <span class="pijl" aria-hidden="true">@(open ? "▾" : "▸")</span>
                     <span class="tekst">@b.Omschrijving</span>
-                    <span class="status">@Kenmerken(b, vorigJaar)</span>
+                    <span class="status">@CorrectieExport.Kenmerken(b, vorigJaar)</span>
                 </span>
                 <span class="bedrag text-end">@Bedragen.Heel(b.Totaal)</span>
                 <span class="bedrag text-end" title="@(b.Effect.Ongekoppeld > 0 ? "Niet alle rekeningen zijn gekoppeld; het effect is nog onvolledig" : null)">
@@ -210,7 +212,7 @@ else
         }
         @if (o.Boekingen.Count == 0)
         {
-            <p class="text-center text-secondary my-4">Nog geen correcties in dit dossier.</p>
+            <p class="text-center text-secondary my-4">Nog geen correcties in dit dossier. Correcties veranderen de cijfers in het dossier, niet de administratie van de klant.</p>
         }
         <div class="card-footer bg-white small text-secondary d-flex flex-wrap gap-3">
             @if (o.Boekingen.Count > 0)
@@ -222,7 +224,25 @@ else
                     <span>@o.Totaal.Ongekoppeld regel(s) op een nog niet gekoppelde rekening: <a href="/dossiers/@o.Dossier.Id/rubriceren">rubriceren</a></span>
                 }
             }
-            <span class="ms-auto">Correcties veranderen de cijfers in het dossier, niet de administratie van de klant.</span>
+            @if (o.Boekingen.Count > 0)
+            {
+                <span class="ms-auto export" id="export">
+                    exporteren
+                    <a href="@ExportEindpunten.Adres(Id, "xlsx", alleenTeVerwerken)" download>Excel</a> ·
+                    @if (pdfMogelijk)
+                    {
+                        <a href="@ExportEindpunten.Adres(Id, "pdf", alleenTeVerwerken)" download>PDF</a>
+                    }
+                    else
+                    {
+                        <span title="Er is op de server geen browser gevonden om PDF's te maken (Edge of Chromium)">PDF</span>
+                    }
+                    <span class="form-check form-check-inline ms-2 mb-0">
+                        <input class="form-check-input" type="checkbox" id="te-verwerken" @bind="alleenTeVerwerken" />
+                        <label class="form-check-label" for="te-verwerken">alleen wat de klant nog moet boeken</label>
+                    </span>
+                </span>
+            }
         </div>
     </div>
 }
@@ -238,6 +258,8 @@ else
     private string? melding;
     private Guid? teVerwijderen;
     private readonly HashSet<Guid> geopend = [];
+    private bool alleenTeVerwerken;
+    private bool pdfMogelijk;
 
     [Parameter]
     public Guid Id { get; set; }
@@ -278,18 +300,12 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
+        pdfMogelijk = PdfDienst.Browser is { } browser && File.Exists(browser);
         await Laad();
         geladen = true;
     }
 
     private async Task Laad() => o = await CorrectieDienst.Overzicht(Id);
-
-    private static string Kenmerken(CorrectieInfo b, int vorigJaar) => string.Join(" · ", new[]
-    {
-        b.Soort == CorrectieSoort.Herrubricering ? "herrubricering" : null,
-        b.Terugkerend ? (b.Overgenomen ? $"terugkerend, uit {vorigJaar}" : "terugkerend") : null,
-        b.VerwerktBijKlant ? "verwerkt bij klant" : null,
-    }.OfType<string>());
 
     /// <summary>De rekening op een regel: het nummer vooraan, of de volledige tekst uit de lijst.</summary>
     private RekeningKeuze? Rekening(RegelInvoer regel)

@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text.RegularExpressions;
 using Boekerhouden.Data;
 using Boekerhouden.Server.Diensten;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -7,7 +6,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 namespace Boekerhouden.Server.Tests;
 
 /// <summary>Inloggen, uitloggen en autorisatie via echte HTTP-verzoeken (zoals een browser zonder JavaScript).</summary>
-public sealed partial class InloggenTests(ServerFixture server) : IClassFixture<ServerFixture>
+public sealed class InloggenTests(ServerFixture server) : IClassFixture<ServerFixture>
 {
     private HttpClient NieuweClient() => server.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
 
@@ -44,7 +43,7 @@ public sealed partial class InloggenTests(ServerFixture server) : IClassFixture<
         await server.Beheerder();
         using var client = NieuweClient();
 
-        var antwoord = await LogIn(client, "beheer@kantoor.test", TestGegevens.Wachtwoord, "/");
+        var antwoord = await Aanmelden.LogIn(client, "beheer@kantoor.test", TestGegevens.Wachtwoord, "/");
         Assert.Equal(HttpStatusCode.Redirect, antwoord.StatusCode);
         Assert.Equal("/", antwoord.Doel());
 
@@ -69,7 +68,7 @@ public sealed partial class InloggenTests(ServerFixture server) : IClassFixture<
         await server.Beheerder();
         using var client = NieuweClient();
 
-        var antwoord = await LogIn(client, "beheer@kantoor.test", TestGegevens.Wachtwoord, "https://voorbeeld.invalid/phishing");
+        var antwoord = await Aanmelden.LogIn(client, "beheer@kantoor.test", TestGegevens.Wachtwoord, "https://voorbeeld.invalid/phishing");
 
         Assert.Equal(HttpStatusCode.Redirect, antwoord.StatusCode);
         Assert.Equal("/", antwoord.Doel());
@@ -85,16 +84,16 @@ public sealed partial class InloggenTests(ServerFixture server) : IClassFixture<
 
         for (var poging = 1; poging <= 4; poging++)
         {
-            var fout = await LogIn(client, "blokkade@kantoor.test", "Fout-Wachtwoord-99", "/");
+            var fout = await Aanmelden.LogIn(client, "blokkade@kantoor.test", "Fout-Wachtwoord-99", "/");
             Assert.Equal(HttpStatusCode.OK, fout.StatusCode);
             Assert.Contains("Onjuist e-mailadres of wachtwoord", await fout.Content.ReadAsStringAsync(), StringComparison.Ordinal);
         }
 
-        var vijfde = await LogIn(client, "blokkade@kantoor.test", "Fout-Wachtwoord-99", "/");
+        var vijfde = await Aanmelden.LogIn(client, "blokkade@kantoor.test", "Fout-Wachtwoord-99", "/");
         Assert.Equal("/geblokkeerd", vijfde.Doel());
 
         // Ook het juiste wachtwoord helpt nu niet meer.
-        var juist = await LogIn(client, "blokkade@kantoor.test", tijdelijk, "/");
+        var juist = await Aanmelden.LogIn(client, "blokkade@kantoor.test", tijdelijk, "/");
         Assert.Equal("/geblokkeerd", juist.Doel());
     }
 
@@ -106,7 +105,7 @@ public sealed partial class InloggenTests(ServerFixture server) : IClassFixture<
             new GebruikerInvoer("eerstewijzigen@kantoor.test", "Eva Eerst", "EE", null, [Rollen.Medewerker]), beheerder)).Waarde!;
         using var client = NieuweClient();
 
-        var inloggen = await LogIn(client, "eerstewijzigen@kantoor.test", tijdelijk, "/");
+        var inloggen = await Aanmelden.LogIn(client, "eerstewijzigen@kantoor.test", tijdelijk, "/");
         Assert.Equal("/wachtwoord-wijzigen", inloggen.Doel());
 
         var elders = await client.GetAsync(new Uri("/", UriKind.Relative));
@@ -115,7 +114,7 @@ public sealed partial class InloggenTests(ServerFixture server) : IClassFixture<
         var formulier = await client.GetStringAsync(new Uri("/wachtwoord-wijzigen", UriKind.Relative));
         var gewijzigd = await client.PostAsync(new Uri("/wachtwoord-wijzigen", UriKind.Relative), new FormUrlEncodedContent(new Dictionary<string, string>
         {
-            ["__RequestVerificationToken"] = Token(formulier),
+            ["__RequestVerificationToken"] = Aanmelden.Token(formulier),
             ["_handler"] = "wachtwoord-wijzigen",
             ["Invoer.Huidig"] = tijdelijk,
             ["Invoer.Nieuw"] = "Rode-Fiets-Berg-77",
@@ -134,11 +133,11 @@ public sealed partial class InloggenTests(ServerFixture server) : IClassFixture<
         var gebruikers = server.Dienst<GebruikerDienst>();
         var tijdelijk = (await gebruikers.Maak(new GebruikerInvoer("geenbeheer@kantoor.test", "Gijs Geen", "GG", null, [Rollen.Medewerker]), beheerder)).Waarde!;
         using var client = NieuweClient();
-        await LogIn(client, "geenbeheer@kantoor.test", tijdelijk, "/");
+        await Aanmelden.LogIn(client, "geenbeheer@kantoor.test", tijdelijk, "/");
         var formulier = await client.GetStringAsync(new Uri("/wachtwoord-wijzigen", UriKind.Relative));
         await client.PostAsync(new Uri("/wachtwoord-wijzigen", UriKind.Relative), new FormUrlEncodedContent(new Dictionary<string, string>
         {
-            ["__RequestVerificationToken"] = Token(formulier),
+            ["__RequestVerificationToken"] = Aanmelden.Token(formulier),
             ["_handler"] = "wachtwoord-wijzigen",
             ["Invoer.Huidig"] = tijdelijk,
             ["Invoer.Nieuw"] = "Blauwe-Zee-Golf-31",
@@ -156,38 +155,18 @@ public sealed partial class InloggenTests(ServerFixture server) : IClassFixture<
     {
         await server.Beheerder();
         using var client = NieuweClient();
-        await LogIn(client, "beheer@kantoor.test", TestGegevens.Wachtwoord, "/");
+        await Aanmelden.LogIn(client, "beheer@kantoor.test", TestGegevens.Wachtwoord, "/");
         var pagina = await client.GetStringAsync(new Uri("/", UriKind.Relative));
 
         var uit = await client.PostAsync(new Uri("/account/uitloggen", UriKind.Relative), new FormUrlEncodedContent(new Dictionary<string, string>
         {
-            ["__RequestVerificationToken"] = Token(pagina),
+            ["__RequestVerificationToken"] = Aanmelden.Token(pagina),
         }));
 
         Assert.Equal("/inloggen", uit.Doel());
         var daarna = await client.GetAsync(new Uri("/", UriKind.Relative));
         Assert.Equal(HttpStatusCode.Redirect, daarna.StatusCode);
     }
-
-    private static async Task<HttpResponseMessage> LogIn(HttpClient client, string email, string wachtwoord, string terugNaar)
-    {
-        var url = new Uri($"/inloggen?ReturnUrl={Uri.EscapeDataString(terugNaar)}", UriKind.Relative);
-        var formulier = await client.GetStringAsync(url);
-        return await client.PostAsync(url, new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["__RequestVerificationToken"] = Token(formulier),
-            ["_handler"] = "inloggen",
-            ["Invoer.Email"] = email,
-            ["Invoer.Wachtwoord"] = wachtwoord,
-        }));
-    }
-
-    private static string Token(string html) => TokenPatroon().Match(html) is { Success: true } m
-        ? WebUtility.HtmlDecode(m.Groups[1].Value)
-        : throw new InvalidOperationException("Geen antiforgery-token in de pagina.");
-
-    [GeneratedRegex("name=\"__RequestVerificationToken\" value=\"([^\"]+)\"")]
-    private static partial Regex TokenPatroon();
 }
 
 internal static class AntwoordUitbreidingen
