@@ -56,4 +56,13 @@ public static class AuditActies
     public const string KlantGewijzigd = "Klant gewijzigd";
     public const string DossierAangemaakt = "Dossier aangemaakt";
     public const string SaldibalansGeimporteerd = "Saldibalans geïmporteerd";
+    public const string RgsIngelezen = "RGS ingelezen";
+    public const string RgsGeactiveerd = "RGS-versie actief gemaakt";
+    public const string Gekoppeld = "Rekeningen gekoppeld";
+    public const string Ontkoppeld = "Rekeningen ontkoppeld";
+    public const string AutomatischGekoppeld = "Automatisch gekoppeld";
+    public const string EigenPostToegevoegd = "Eigen post toegevoegd";
+    public const string EigenPostVerwijderd = "Eigen post verwijderd";
+    public const string PostHernoemd = "Post hernoemd";
+    public const string SjabloonregelVerwijderd = "Sjabloonregel verwijderd";
 }

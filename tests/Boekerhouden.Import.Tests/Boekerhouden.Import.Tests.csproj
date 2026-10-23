@@ -16,6 +16,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Gedeeld\*.cs" Link="Gedeeld\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Boekerhouden.Import\Boekerhouden.Import.csproj" />
   </ItemGroup>
 

@@ -79,6 +79,9 @@ public static class Opstart
         services.AddSingleton<DossierDienst>();
         services.AddSingleton<ImportDienst>();
         services.AddSingleton<GebruikerDienst>();
+        services.AddSingleton<RgsDienst>();
+        services.AddSingleton<RubriceerDienst>();
+        services.AddSingleton<SjabloonDienst>();
     }
 
     public static void ConfigureerPijplijn(WebApplication app)

@@ -19,6 +19,20 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
 
     public DbSet<AuditRegel> AuditRegels => Set<AuditRegel>();
 
+    public DbSet<RgsVersie> RgsVersies => Set<RgsVersie>();
+
+    public DbSet<RgsCodeRegel> RgsCodes => Set<RgsCodeRegel>();
+
+    public DbSet<Koppeling> Koppelingen => Set<Koppeling>();
+
+    public DbSet<KlantEigenPost> EigenPosten => Set<KlantEigenPost>();
+
+    public DbSet<KlantPostNaam> KlantPostNamen => Set<KlantPostNaam>();
+
+    public DbSet<KantoorPostNaam> KantoorPostNamen => Set<KantoorPostNaam>();
+
+    public DbSet<SjabloonRegel> SjabloonRegels => Set<SjabloonRegel>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -84,6 +98,82 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
             e.HasOne<ImportBatch>().WithMany(b => b.Saldi).HasForeignKey(s => s.ImportBatchId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(s => s.Grootboekrekening).WithMany().HasForeignKey(s => s.GrootboekrekeningId).OnDelete(DeleteBehavior.Restrict);
             e.Property(s => s.Bedrag).HasPrecision(18, 2);
+        });
+
+        builder.Entity<RgsVersie>(e =>
+        {
+            e.ToTable("RgsVersies");
+            e.HasIndex(v => v.Sha256).IsUnique();
+            e.HasIndex(v => v.Actief).IsUnique().HasFilter("\"Actief\"");
+            e.Property(v => v.Versie).HasMaxLength(20);
+            e.Property(v => v.Bestandsnaam).HasMaxLength(260);
+            e.Property(v => v.Sha256).HasMaxLength(64);
+            e.Property(v => v.IngelezenDoor).HasMaxLength(200);
+        });
+
+        builder.Entity<RgsCodeRegel>(e =>
+        {
+            e.ToTable("RgsCodes");
+            e.HasIndex(c => new { c.RgsVersieId, c.Code }).IsUnique();
+            e.HasOne<RgsVersie>().WithMany(v => v.Codes).HasForeignKey(c => c.RgsVersieId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(c => c.Code).HasMaxLength(20);
+            e.Property(c => c.Ouder).HasMaxLength(20);
+            e.Property(c => c.Omslagcode).HasMaxLength(20);
+            e.Property(c => c.Omschrijving).HasMaxLength(500);
+            e.Property(c => c.OmschrijvingLang).HasMaxLength(1000);
+            e.Property(c => c.Kant).HasMaxLength(1);
+            e.Property(c => c.Referentienummer).HasMaxLength(20);
+        });
+
+        builder.Entity<KlantEigenPost>(e =>
+        {
+            e.ToTable("EigenPosten");
+            e.HasIndex(p => new { p.KlantId, p.OuderCode });
+            e.HasOne<Klant>().WithMany().HasForeignKey(p => p.KlantId).OnDelete(DeleteBehavior.Restrict);
+            e.Property(p => p.OuderCode).HasMaxLength(20);
+            e.Property(p => p.Naam).HasMaxLength(300);
+            e.Property(p => p.AangemaaktDoor).HasMaxLength(200);
+        });
+
+        builder.Entity<Koppeling>(e =>
+        {
+            e.ToTable("Koppelingen");
+            e.HasIndex(k => k.GrootboekrekeningId).IsUnique();
+            e.HasIndex(k => k.KlantId);
+            e.HasOne<Klant>().WithMany().HasForeignKey(k => k.KlantId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Grootboekrekening>().WithMany().HasForeignKey(k => k.GrootboekrekeningId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<KlantEigenPost>().WithMany().HasForeignKey(k => k.EigenPostId).OnDelete(DeleteBehavior.Restrict);
+            e.Property(k => k.Code).HasMaxLength(20);
+            e.Property(k => k.RgsVersie).HasMaxLength(20);
+            e.Property(k => k.Bron).HasConversion<string>().HasMaxLength(20);
+            e.Property(k => k.GewijzigdDoor).HasMaxLength(200);
+        });
+
+        builder.Entity<KlantPostNaam>(e =>
+        {
+            e.ToTable("KlantPostNamen");
+            e.HasKey(n => new { n.KlantId, n.Code });
+            e.HasOne<Klant>().WithMany().HasForeignKey(n => n.KlantId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(n => n.Code).HasMaxLength(60);
+            e.Property(n => n.Naam).HasMaxLength(300);
+        });
+
+        builder.Entity<KantoorPostNaam>(e =>
+        {
+            e.ToTable("KantoorPostNamen");
+            e.HasKey(n => n.Code);
+            e.Property(n => n.Code).HasMaxLength(20);
+            e.Property(n => n.Naam).HasMaxLength(300);
+        });
+
+        builder.Entity<SjabloonRegel>(e =>
+        {
+            e.ToTable("SjabloonRegels");
+            e.HasIndex(r => r.Rekeningnummer).IsUnique();
+            e.Property(r => r.Rekeningnummer).HasMaxLength(50);
+            e.Property(r => r.Omschrijving).HasMaxLength(300);
+            e.Property(r => r.Code).HasMaxLength(20);
+            e.Property(r => r.GewijzigdDoor).HasMaxLength(200);
         });
 
         builder.Entity<AuditRegel>(e =>

@@ -51,6 +51,16 @@ public sealed class ServerFixture : WebApplicationFactory<Program>, IAsyncLifeti
         builder.UseSetting($"ConnectionStrings:{Opstart.Verbindingsnaam}", Verbinding);
     }
 
+    /// <summary>Leest (eenmalig) het RGS-testuittreksel in, zodat er een actieve RGS-versie is.</summary>
+    public async Task MetRgs()
+    {
+        if (await Dienst<RgsDienst>().ActiefSchema() is null)
+        {
+            var uitkomst = await Dienst<RgsDienst>().Importeer(global::Boekerhouden.Tests.Gedeeld.RgsTestWerkboek.Maak(), global::Boekerhouden.Tests.Gedeeld.RgsTestWerkboek.Bestandsnaam, new Uitvoerder(null, "Test"));
+            Assert.True(uitkomst.IsGelukt, string.Join("; ", uitkomst.Fouten));
+        }
+    }
+
     /// <summary>Maakt (eenmalig) een beheerder aan en geeft die als uitvoerder terug.</summary>
     public async Task<Uitvoerder> Beheerder()
     {

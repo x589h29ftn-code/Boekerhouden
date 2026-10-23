@@ -45,7 +45,7 @@ public sealed record Proefbalans(int Boekjaar, ImportOverzichtRegel? Import, Imp
 /// Importeert saldibalansen per klant en boekjaar. Controleren en importeren zijn twee stappen: de gebruiker ziet eerst
 /// alle meldingen. Importeren leest het bestand opnieuw in, zodat er nooit iets anders wordt opgeslagen dan is gecontroleerd.
 /// </summary>
-public sealed class ImportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFactory, AuditDienst audit, TimeProvider tijd)
+public sealed class ImportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFactory, AuditDienst audit, RubriceerDienst rubriceer, TimeProvider tijd)
 {
     /// <summary>Grotere bestanden weigeren we; een saldibalans is hooguit enkele duizenden regels.</summary>
     public const long MaximaleBestandsgrootte = 20 * 1024 * 1024;
@@ -168,6 +168,9 @@ public sealed class ImportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFact
         await audit.Log(wie, AuditActies.SaldibalansGeimporteerd, $"{KlantDienst.Onderwerp(klant)} – boekjaar {boekjaar}",
             $"{batch.Bestandsnaam}; {batch.AantalRegels} regels; debet {Bedragen.Euro(batch.TotaalDebet)}; SHA-256 {batch.Sha256}" +
             (controle.VervangtBestaande ? "; vervangt de vorige import" : string.Empty));
+
+        // Nieuwe rekeningen meteen koppelen waar dat zeker kan (kantoorsjabloon of RGS-code uit het bestand).
+        await rubriceer.AutomatischKoppelen(klantId, wie);
         return Uitkomst<Guid>.Met(batch.Id);
     }
 
