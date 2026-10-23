@@ -1,0 +1,65 @@
+@page "/beheer/koppelsjabloon"
+@attribute [Authorize(Roles = Rollen.Beheerder)]
+@inject SjabloonDienst SjabloonDienst
+
+<PageTitle>Koppelsjabloon – Boekerhouden</PageTitle>
+
+<div class="d-flex align-items-center mb-3 gap-2">
+    <h1 class="h3 mb-0 me-auto">Koppelsjabloon</h1>
+    <input class="form-control w-auto" type="search" placeholder="Zoek nummer, omschrijving of code" aria-label="Zoeken"
+           @bind="zoek" @bind:event="oninput" @bind:after="Laad" />
+</div>
+<p class="text-secondary">
+    Rekeningnummers die bij het kantoor altijd aan dezelfde rubriek horen. Bij het inlezen van een saldibalans worden rekeningen met
+    hetzelfde nummer en een vergelijkbare omschrijving automatisch gekoppeld; bij een andere omschrijving wordt het een voorstel.
+    Regels komen erbij door bij het rubriceren <em>koppelingen onthouden in kantoorsjabloon</em> aan te laten staan.
+</p>
+
+@if (regels is not null)
+{
+    @if (regels.Count == 0)
+    {
+        <p class="text-secondary">Het sjabloon is nog leeg.</p>
+    }
+    else
+    {
+        <div class="card">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr><th>Rekening</th><th>Omschrijving</th><th>RGS</th><th>Vastgelegd</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in regels)
+                    {
+                        <tr>
+                            <td class="font-monospace">@r.Rekeningnummer</td>
+                            <td>@r.Omschrijving</td>
+                            <td><span class="font-monospace small text-secondary">@r.Code</span> @r.CodeOmschrijving</td>
+                            <td class="small">@Weergave.DatumTijd(r.GewijzigdOp) door @r.GewijzigdDoor</td>
+                            <td class="text-end"><button class="btn btn-sm btn-link text-danger" title="Regel verwijderen" @onclick="() => Verwijder(r.Id)">verwijderen</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <p class="small text-secondary mt-2">@regels.Count regel(s). Verwijderen verandert bestaande koppelingen niet.</p>
+    }
+}
+
+@code {
+    private IReadOnlyList<SjabloonRegelInfo>? regels;
+    private string? zoek;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Authenticatie { get; set; } = default!;
+
+    protected override Task OnInitializedAsync() => Laad();
+
+    private async Task Laad() => regels = await SjabloonDienst.Lijst(zoek);
+
+    private async Task Verwijder(Guid id)
+    {
+        await SjabloonDienst.Verwijder(id, (await Authenticatie).User.AlsUitvoerder());
+        await Laad();
+    }
+}

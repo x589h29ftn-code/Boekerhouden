@@ -1,6 +1,7 @@
 @page "/dossiers/{Id:guid}"
 @inject DossierDienst DossierDienst
 @inject ImportDienst ImportDienst
+@inject RubriceerDienst RubriceerDienst
 
 <PageTitle>@(dossier is null ? "Dossier" : $"{dossier.Naam} – {dossier.KlantNaam}") – Boekerhouden</PageTitle>
 
@@ -30,6 +31,61 @@ else
 
     <ImportPaneel KlantId="dossier.KlantId" Klantnummer="@dossier.Klantnummer" KlantNaam="@dossier.KlantNaam"
                   Boekjaar="dossier.Boekjaar" OnGeimporteerd="Geimporteerd" />
+
+    @if (rubricering is { Rekeningen.Count: > 0 })
+    {
+        <div class="card mt-4" id="rubricering">
+            <div class="card-header d-flex align-items-center gap-3">
+                <span class="fw-semibold me-auto">Rubricering</span>
+                @if (rubricering.Schema is not null)
+                {
+                    <span class="small text-secondary">@rubricering.Gekoppeld van @rubricering.Relevant rekeningen gekoppeld (@rubricering.Percentage%)</span>
+                }
+                <a class="btn btn-sm btn-primary" href="/dossiers/@dossier.Id/rubriceren">Rubriceren</a>
+            </div>
+            @if (rubricering is { Schema: not null, Balans: { } balans } && rubricering.Gekoppeld > 0)
+            {
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr><th>Hoofdpost</th><th class="text-end" style="width:11rem">@dossier.Boekjaar</th><th class="text-end" style="width:11rem">@(dossier.Boekjaar - 1)</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var post in rubricering.Schema.Hoofdposten.Where(p => balans.Totaal(p.Code).Aantal > 0))
+                        {
+                            <tr>
+                                <td>@rubricering.Naam(post.Code) <span class="text-secondary small font-monospace">@post.Code</span></td>
+                                <td class="text-end bedrag">@Bedragen.Getal(balans.Totaal(post.Code).Huidig)</td>
+                                <td class="text-end bedrag text-secondary">@Bedragen.Getal(balans.Totaal(post.Code).Vorig)</td>
+                            </tr>
+                        }
+                        @if (balans.Ongekoppeld.Aantal > 0)
+                        {
+                            <tr class="table-warning">
+                                <td>Nog niet gekoppeld (@balans.Ongekoppeld.Aantal rekeningen)</td>
+                                <td class="text-end bedrag">@Bedragen.Getal(balans.Ongekoppeld.Huidig)</td>
+                                <td class="text-end bedrag">@Bedragen.Getal(balans.Ongekoppeld.Vorig)</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr class="fw-semibold">
+                            <td>Resultaat</td>
+                            <td class="text-end bedrag">@Bedragen.Getal(balans.ResultaatHuidig)</td>
+                            <td class="text-end bedrag text-secondary">@Bedragen.Getal(balans.ResultaatVorig)</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            }
+            else if (rubricering.Schema is null)
+            {
+                <div class="card-body small text-secondary">Er is nog geen RGS-werkboek ingelezen (Beheer › RGS).</div>
+            }
+            else
+            {
+                <div class="card-body small text-secondary">Nog niets gekoppeld. Koppel de grootboekrekeningen aan de rubrieken van RGS.</div>
+            }
+        </div>
+    }
 
     <div class="card mt-4">
         <div class="card-header d-flex align-items-center">
@@ -92,6 +148,7 @@ else
     private bool geladen;
     private DossierDetail? dossier;
     private Proefbalans? proefbalans;
+    private RubriceerOverzicht? rubricering;
 
     [Parameter]
     public Guid Id { get; set; }
@@ -106,6 +163,7 @@ else
     {
         dossier = await DossierDienst.Haal(Id);
         proefbalans = dossier is null ? null : await ImportDienst.Proefbalans(dossier.KlantId, dossier.Boekjaar);
+        rubricering = dossier is null ? null : await RubriceerDienst.Overzicht(dossier.Id, metVoorstellen: false);
     }
 
     private Task Geimporteerd() => Laad();

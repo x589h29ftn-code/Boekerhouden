@@ -18,7 +18,10 @@ public enum SignaalSoort
     /// <summary>Rekening met saldo maar zonder koppeling.</summary>
     Ongekoppeld,
 
-    /// <summary>Balanssaldo aan de andere kant dan de RGS-code, en de code heeft geen omslagcode.</summary>
+    /// <summary>
+    /// Balanssaldo aan de andere kant dan de RGS-grootboekcode (niveau 4), en de code heeft geen omslagcode. Op een
+    /// subpost (niveau 3) staan aanschafwaarde en afschrijving vaak samen; daar is beide kanten normaal.
+    /// </summary>
     VerkeerdeKant,
 
     /// <summary>Gekoppeld aan een code die niet (meer) in de actieve RGS-versie staat, of inactief is.</summary>
@@ -108,7 +111,7 @@ public sealed class PostBalans
                 balans.signalen.Add(new Signaal(SignaalSoort.OnbekendeCode, saldo.RekeningId,
                     $"{saldo.Nummer} {saldo.Omschrijving} is gekoppeld aan {doel.Code}, die niet (meer) actief is in RGS {schema.Versie}."));
             }
-            else if (code is { IsBalans: true, Omslagcode: null } && !code.IsNormaleKant(huidig))
+            else if (code is { IsBalans: true, Omslagcode: null, Niveau: 4 } && !code.IsNormaleKant(huidig))
             {
                 balans.signalen.Add(new Signaal(SignaalSoort.VerkeerdeKant, saldo.RekeningId,
                     $"{saldo.Nummer} {saldo.Omschrijving} staat {(huidig > 0 ? "debet" : "credit")}; {code.Omschrijving} ({code.Code}) is normaal {(code.Kant == Saldokant.Debet ? "debet" : "credit")}."));

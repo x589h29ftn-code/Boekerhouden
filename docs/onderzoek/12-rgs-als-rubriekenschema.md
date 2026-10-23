@@ -151,7 +151,7 @@ De `Recap` van het werkboek beschrijft de werkwijze: kies een basisset en filter
 | Begin met | `Basis` (of het tabblad `MKB`) | `EZ/VOF` (kiesfilter) |
 | Weg | `Inactief`, `Nivo5`, `EZ/VOF`-specifiek (privévermogen natuurlijke personen), `Agro`, `Bank`, `OZW-Coop-Sticht-FWO`, `WoCo`-specifiek. `WKR` alleen als de werkkostenregeling niet apart wordt geboekt | `Inactief`, `Nivo5`, **`BV`-specifiek** (o.a. aandelenkapitaal), sectorfilters |
 | **Niet** wegfilteren | De `BV`-kolom: die bevat juist het aandelenkapitaal | |
-| Codes op niveau 4 (3.8) | ca. 1.042 | ca. 928 |
+| Codes op niveau 4 (3.8) | 1.050 (gemeten met Boekerhouden) | 928 |
 
 - **Een grootteklasse kent RGS niet.** Micro, klein en middelgroot (BW2 Titel 9; grensbedragen sinds 2024: klein tot € 7,5 mln balanstotaal / € 15 mln omzet / < 50 werknemers) bepalen alleen de **presentatie** en het KvK-rapport, niet de rubricering [1].
 - **De `Uitgebreid`-set** voegt onder meer financiële instrumenten en specifieke reserves toe. Voorstel: standaard uit, per klant aan te zetten.
@@ -225,7 +225,7 @@ De `Recap` van het werkboek beschrijft de werkwijze: kies een basisset en filter
    - de filters per rechtsvorm bevestigen;
    - een koppelsjabloon voor het rekeningschema van het kantoor opbouwen.
 
-**Plakje 3 wordt:**
+**Plakje 3 (gebouwd 23-10-2026):**
 1. **RGS inlezen** (beheer):
    - officieel werkboek uploaden en het hoofdblad inlezen (kolommen op positie, kiezen/wegfilteren);
    - meerdere versies naast elkaar, één actieve;
@@ -242,11 +242,43 @@ De `Recap` van het werkboek beschrijft de werkwijze: kies een basisset en filter
    - een boom niveau 2 → 3 → 4 → grootboekrekening, huidig en vorig jaar, met de omslag toegepast;
    - controles: B/W-conflict, verkeerde kant, ongekoppeld, I8.
 
+**Hoe het rubriceerscherm werkt** (wensen van de opdrachtgever, 23-10-2026):
+- **Links** staan de grootboekrekeningen, met saldo en de gekoppelde post of een voorstel. **Rechts** staat de boom: hoofdposten (RGS niveau 2), subposten (niveau 3) en grootboekcodes (niveau 4), met de totalen van het boekjaar en het vorige jaar.
+- **Slepen:**
+  - sleep een rekening (of een selectie) naar een post;
+  - sleep je over een hoofdpost (bijv. *Materiële vaste activa*), dan klapt die open en verschijnen de subposten (bijv. *Bedrijfsgebouwen*, *Automobielen en overige transportmiddelen*);
+  - neerzetten kan op een subpost, een grootboekcode of een eigen post. Een hoofdpost is te grof.
+  - Zonder muis: selecteer de rekeningen en klik bij de post op *hierheen*.
+- **Eigen posten:**
+  - met ＋ voeg je onder een subpost een eigen post toe, bijv. *Overige vorderingen 1, 2, 3* onder *Overige vorderingen*;
+  - zo'n post geldt per klant en verschijnt in de jaarrekening. Voor aangifte en SBR telt hij als de RGS-post erboven;
+  - verwijder je de post, dan blijven de rekeningen gekoppeld aan de post erboven.
+- **Hernoemen:**
+  - met ✎ geef je elke post een eigen naam voor de jaarrekening;
+  - dat kan voor deze klant, of (beheerder) **voor alle klanten** als kantoorstandaard, bijv. *Automobielen en overige transportmiddelen* → *Vervoermiddelen*;
+  - de klantnaam gaat voor de kantoornaam, en *Standaard* zet de RGS-omschrijving terug.
+- **Voorstellen:**
+  - volgorde: kantoorsjabloon (zelfde nummer, andere omschrijving), dan andere klanten (zelfde nummer en omschrijving), dan de omschrijving;
+  - de omschrijving wordt vergeleken met de RGS-omschrijvingen, met een kleine lijst vaktermen;
+  - zijn de rekeningnummers erboven en eronder al aan de balans gekoppeld (of aan de W&V), dan wordt alleen aan die kant gezocht. Daardoor worden de voorstellen beter naarmate er meer gekoppeld is;
+  - een voorstel wordt nooit automatisch toegepast. *Voorstellen overnemen* doet het in één keer, met het label *voorstel* bij de rekening;
+  - posten van de functionele W&V-indeling (`WVkf`, `WAkf`) worden niet voorgesteld.
+- **Automatisch:**
+  - bij het inlezen van een saldibalans koppelt de app wat zeker is: het kantoorsjabloon bij hetzelfde nummer en een vergelijkbare omschrijving, of de RGS-code uit het bestand;
+  - handmatige en bevestigde koppelingen blijven altijd staan;
+  - in de rondgang met de fictieve bakkerij was een tweede klant met hetzelfde rekeningschema meteen voor 88% gekoppeld.
+
+**Nog niet gebouwd** (volgt wanneer nodig):
+- controle I8 (W&V leeg);
+- kantoorsjabloon in en uit Excel;
+- de `Uitgebreid`-set per klant;
+- hulp bij verfijnen van niveau 3 naar 4 (voor de aangifte).
+
 ## 12.11 Open punten
 
-1. **Werkboek 3.8** (en in december 3.9) downloaden. Bij voorkeur ook in deze sessie aanleveren, zodat het inlezen tegen het echte bestand getest kan worden; het komt niet in git.
-2. **Koppeltabel** "RGS 3.8 mapping naar SBR NT20 concepten" (Excel) downloaden. Nodig in plakje 6/7, voor de regels van de jaarrekening en de IB-aangifte.
-3. **Volledige lijst van de 42 hoofdrubrieken** en de FOR-code bevestigen uit het werkboek.
+1. ~~Werkboek 3.8~~: aangeleverd en ingelezen (4.979 codes). In december **3.9** inlezen via Beheer › RGS.
+2. ~~Koppeling met de rapporten~~: de RGS Taxonomie (3.4 en 3.8, `NT20_RGS_20251210.zip`) is aangeleverd. Die bevat per RGS-code de koppeling naar de KvK-jaarrekening (micro/klein) en de IB- en Vpb-aangifte. Nodig in plakje 6/7; de bestanden blijven buiten git.
+3. ~~Hoofdrubrieken en FOR~~: bevestigd uit het werkboek. De FOR is `BEivFirFor` (Fiscale reserves › Fiscale oudedagsreserve); de mutatie FOR staat in de W&V onder `WMfo`.
 4. Gebruiksvoorwaarden navragen bij de Taakgroep RGS (alleen nodig bij verspreiding buiten kantoor).
 5. **Vraag B3**: gebruikt het kantoor bij (bijna) alle klanten hetzelfde rekeningschema? Dan is één koppelsjabloon het startpunt.
 

@@ -1,0 +1,127 @@
+@page "/beheer/rgs"
+@attribute [Authorize(Roles = Rollen.Beheerder)]
+@inject RgsDienst RgsDienst
+
+<PageTitle>RGS – Boekerhouden</PageTitle>
+
+<h1 class="h3 mb-3">RGS (Referentie GrootboekSchema)</h1>
+<p class="text-secondary">
+    De rubrieken van Boekerhouden zijn de codes uit RGS. Download het officiële werkboek (bijv. <em>RGS 3.8-def.xlsx</em>) uit de
+    Kennisbank op referentiegrootboekschema.nl en lees het hier in. Een nieuwere versie wordt meteen actief; koppelingen blijven staan,
+    want de codes zijn stabiel.
+</p>
+
+<div class="card card-body mb-4">
+    <label for="rgsbestand" class="form-label fw-semibold">RGS-werkboek inlezen (.xlsx)</label>
+    <InputFile id="rgsbestand" OnChange="BestandGekozen" accept=".xlsx" class="form-control" @key="bestandKey" />
+    @if (bezig)
+    {
+        <div class="mt-3 text-secondary"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Werkboek inlezen… (enkele seconden)</div>
+    }
+    <Foutmeldingen Fouten="fouten" />
+    @if (verslag is not null)
+    {
+        <div class="alert alert-success mt-3 mb-0" id="rgs-verslag">
+            <div class="fw-semibold mb-1">RGS @verslag.Versie ingelezen@(verslag.Actief ? " en actief gemaakt" : " (niet actief: er is al een nieuwere versie)").</div>
+            <ul class="mb-0 small">
+                <li>Codes per niveau: @string.Join(" · ", verslag.PerNiveau.Select(n => $"niveau {n.Key}: {n.Value}"))</li>
+                <li>@verslag.Inactief vervallen codes, @verslag.MetOmslag codes met een omslagcode</li>
+                <li>Te koppelen grootboekcodes: BV @verslag.BvGrootboekcodes, eenmanszaak @verslag.EenmanszaakGrootboekcodes</li>
+                @foreach (var melding in verslag.Meldingen)
+                {
+                    <li class="text-warning-emphasis">@(melding.Rij is { } rij ? $"Rij {rij}: " : string.Empty)@melding.Tekst</li>
+                }
+            </ul>
+        </div>
+    }
+</div>
+
+@if (versies is { Count: > 0 })
+{
+    <div class="card">
+        <div class="card-header fw-semibold">Ingelezen versies</div>
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr><th>Versie</th><th>Bestand</th><th class="text-end">Codes</th><th>Ingelezen</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var v in versies)
+                {
+                    <tr>
+                        <td>RGS @v.Versie @if (v.Actief)
+                            {
+                                <span class="badge text-bg-success ms-1">actief</span>
+                            }
+                        </td>
+                        <td>@v.Bestandsnaam</td>
+                        <td class="text-end">@v.AantalCodes</td>
+                        <td class="small">@Weergave.DatumTijd(v.IngelezenOp) door @v.IngelezenDoor</td>
+                        <td class="text-end">
+                            @if (!v.Actief)
+                            {
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => Activeer(v.Id)">Actief maken</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+else if (versies is not null)
+{
+    <p class="text-secondary">Er is nog geen RGS-werkboek ingelezen.</p>
+}
+
+@code {
+    private IReadOnlyList<RgsVersieRegel>? versies;
+    private RgsInleesVerslag? verslag;
+    private IReadOnlyList<string>? fouten;
+    private bool bezig;
+    private int bestandKey;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Authenticatie { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync() => versies = await RgsDienst.Versies();
+
+    private async Task BestandGekozen(InputFileChangeEventArgs e)
+    {
+        fouten = null;
+        verslag = null;
+        bezig = true;
+        try
+        {
+            await using var stream = e.File.OpenReadStream(RgsDienst.MaximaleBestandsgrootte);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            var uitkomst = await RgsDienst.Importeer(buffer.ToArray(), e.File.Name, (await Authenticatie).User.AlsUitvoerder());
+            if (uitkomst.IsGelukt)
+            {
+                verslag = uitkomst.Waarde;
+            }
+            else
+            {
+                fouten = uitkomst.Fouten;
+            }
+        }
+        catch (IOException)
+        {
+            fouten = ["Het bestand kon niet worden gelezen. Is het groter dan 50 MB?"];
+        }
+        finally
+        {
+            bezig = false;
+            bestandKey++;
+        }
+
+        versies = await RgsDienst.Versies();
+    }
+
+    private async Task Activeer(Guid id)
+    {
+        var uitkomst = await RgsDienst.Activeer(id, (await Authenticatie).User.AlsUitvoerder());
+        fouten = uitkomst.Fouten;
+        versies = await RgsDienst.Versies();
+    }
+}

@@ -1,0 +1,622 @@
+@page "/dossiers/{Id:guid}/rubriceren"
+@using Boekerhouden.Domain.Rgs
+@using Boekerhouden.Domain.Rubricering
+@inject RubriceerDienst RubriceerDienst
+
+<PageTitle>Rubriceren @(o?.Dossier.Naam) – Boekerhouden</PageTitle>
+
+@if (!geladen)
+{
+    <p class="text-secondary">Laden…</p>
+}
+else if (o is null)
+{
+    <div class="alert alert-warning">Dit dossier bestaat niet (meer). <a href="/">Terug naar de klanten</a></div>
+}
+else
+{
+    <nav aria-label="kruimelpad">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Klanten</a></li>
+            <li class="breadcrumb-item"><a href="/klanten/@o.Dossier.KlantId">@o.Dossier.KlantNaam</a></li>
+            <li class="breadcrumb-item"><a href="/dossiers/@o.Dossier.Id">@o.Dossier.Naam</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Rubriceren</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+        <h1 class="h3 mb-0 me-auto">Rubriceren</h1>
+        <div class="rubriceer-voortgang" title="@o.Gekoppeld van @o.Relevant rekeningen met saldo gekoppeld">
+            <div class="progress" role="progressbar" aria-valuenow="@o.Percentage" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar @(o.Percentage == 100 ? "bg-success" : null)" style="width:@(o.Percentage)%"></div>
+            </div>
+            <span class="small text-secondary">@o.Percentage% gekoppeld</span>
+        </div>
+    </div>
+
+    @if (o.Schema is null)
+    {
+        <div class="alert alert-warning">
+            Er is nog geen RGS-werkboek ingelezen, dus er zijn nog geen rubrieken.
+            <AuthorizeView Roles="@Rollen.Beheerder">
+                <Authorized>Lees het in via <a href="/beheer/rgs">Beheer › RGS</a>.</Authorized>
+                <NotAuthorized>Vraag de beheerder om het in te lezen.</NotAuthorized>
+            </AuthorizeView>
+        </div>
+    }
+    else
+    {
+        @if (melding is not null)
+        {
+            <div class="alert @(meldingIsFout ? "alert-danger" : "alert-success") py-2 d-flex align-items-center" role="status">
+                <span class="me-auto">@melding</span>
+                <button class="btn-close" aria-label="Sluiten" @onclick="() => melding = null"></button>
+            </div>
+        }
+
+        <div class="row g-3 rubriceren">
+            @* Links: de grootboekrekeningen *@
+            <div class="col-lg-5">
+                <div class="card h-100">
+                    <div class="card-header d-flex align-items-center gap-2 flex-wrap">
+                        <span class="fw-semibold me-auto">Grootboekrekeningen @o.Dossier.Boekjaar</span>
+                        <select class="form-select form-select-sm w-auto" @bind="filterLinks" aria-label="Welke rekeningen">
+                            <option value="open">Nog te koppelen</option>
+                            <option value="alle">Alle</option>
+                        </select>
+                    </div>
+                    <div class="card-body py-2 border-bottom d-flex gap-2 flex-wrap align-items-center">
+                        <input type="search" class="form-control form-control-sm w-auto flex-grow-1" placeholder="Zoek nummer of omschrijving"
+                               @bind="zoekLinks" @bind:event="oninput" aria-label="Zoek rekening" />
+                        @if (AantalVoorstellen > 0)
+                        {
+                            <button class="btn btn-sm btn-outline-success" @onclick="AccepteerVoorstellen"
+                                    title="Neem de voorgestelde rubriek over voor @(geselecteerd.Count > 0 ? "de geselecteerde rekeningen" : "alle rekeningen met een voorstel")">
+                                ✓ Voorstellen overnemen (@AantalVoorstellen)
+                            </button>
+                        }
+                    </div>
+                    <div class="rekeningen-lijst">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th style="width:2rem"><input type="checkbox" class="form-check-input" aria-label="Alles selecteren"
+                                                                  checked="@(ZichtbareRekeningen.Any() && ZichtbareRekeningen.All(r => geselecteerd.Contains(r.Id)))"
+                                                                  @onchange="e => SelecteerAlles((bool)e.Value!)" /></th>
+                                    <th>Rekening en rubriek</th>
+                                    <th class="text-end">Saldo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var r in ZichtbareRekeningen)
+                                {
+                                    <tr draggable="true" class="sleepbaar @(geselecteerd.Contains(r.Id) ? "table-active" : null)" data-rekening="@r.Nummer"
+                                        @ondragstart="() => BeginSlepen(r.Id)">
+                                        <td><input type="checkbox" class="form-check-input" checked="@geselecteerd.Contains(r.Id)"
+                                                   aria-label="Selecteer @r.Nummer" @onchange="e => Selecteer(r.Id, (bool)e.Value!)" /></td>
+                                        <td>
+                                            <div><span class="font-monospace small text-secondary me-1">@r.Nummer</span>@r.Omschrijving</div>
+                                            <div class="small rubriek">
+                                                @if (r.Koppeling is { } k)
+                                                {
+                                                    <span title="@k.Code">→ @MetOuder(k.Sleutel)</span>
+                                                    <BronLabel Bron="k.Bron" />
+                                                }
+                                                else if (r.Voorstel is { } voorstel && o.Schema.Zoek(voorstel.Code) is { } vc)
+                                                {
+                                                    <span class="text-secondary fst-italic" title="Voorstel (@voorstel.Herkomst): @vc.Code">voorstel: @MetOuder(vc.Code)</span>
+                                                    <button class="btn btn-link btn-sm p-0 ms-1 text-success align-baseline" title="Voorstel overnemen" @onclick="() => KoppelVoorstel(r)">✓ overnemen</button>
+                                                }
+                                                else if (r.HeeftSaldo)
+                                                {
+                                                    <span class="badge text-bg-warning">ongekoppeld</span>
+                                                }
+                                            </div>
+                                        </td>
+                                        <td class="text-end bedrag" title="@(r.SaldoVorig is { } v ? $"{o.Dossier.Boekjaar - 1}: {Bedragen.Getal(v)}" : null)"><Bedrag Waarde="r.Saldo" /></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        @if (!ZichtbareRekeningen.Any())
+                        {
+                            <p class="text-center text-secondary my-4">@(filterLinks == "open" ? "Alle rekeningen met saldo zijn gekoppeld." : "Geen rekeningen gevonden.")</p>
+                        }
+                    </div>
+                    <div class="card-footer bg-white small text-secondary">
+                        Sleep rekeningen naar een post rechts, of selecteer ze en klik bij de post op <em>hierheen</em>.
+                        @if (geselecteerd.Count > 0)
+                        {
+                            <strong class="text-body">@geselecteerd.Count geselecteerd.</strong>
+                            <button class="btn btn-link btn-sm p-0 align-baseline" @onclick="Ontkoppel">ontkoppelen</button>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            @* Rechts: de posten (RGS) *@
+            <div class="col-lg-7">
+                <div class="card h-100">
+                    <div class="card-header d-flex align-items-center gap-2 flex-wrap">
+                        <span class="fw-semibold me-auto">Posten <span class="text-secondary fw-normal small">RGS @o.Schema.Versie · @o.Selectie.Naam</span></span>
+                        <input type="search" class="form-control form-control-sm w-auto" placeholder="Zoek post of code"
+                               @bind="zoekRechts" @bind:event="oninput" aria-label="Zoek post" />
+                        <div class="form-check form-switch mb-0 small">
+                            <input class="form-check-input" type="checkbox" id="metSaldo" @bind="alleenGevuld" />
+                            <label class="form-check-label" for="metSaldo">alleen gevuld</label>
+                        </div>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="ClapIn">inklappen</button>
+                    </div>
+                    <div class="card-body py-2 border-bottom small d-flex gap-3 flex-wrap align-items-center">
+                        <span class="text-secondary">Bedragen @o.Dossier.Boekjaar · <span class="vorig">@(o.Dossier.Boekjaar - 1)</span></span>
+                        <AuthorizeView Roles="@Rollen.Beheerder">
+                            <div class="form-check mb-0 ms-auto" title="Ook bij andere klanten met hetzelfde rekeningnummer en een vergelijkbare omschrijving automatisch koppelen">
+                                <input class="form-check-input" type="checkbox" id="onthouden" @bind="onthouden" />
+                                <label class="form-check-label" for="onthouden">koppelingen onthouden in kantoorsjabloon</label>
+                            </div>
+                        </AuthorizeView>
+                    </div>
+                    <div class="posten-boom">
+                        @foreach (var regel in BoomRegels())
+                        {
+                            @switch (regel)
+                            {
+                                case KopRegel kop:
+                                    <div class="boom-kop">@kop.Tekst</div>
+                                    break;
+                                case KnoopRegel kr:
+                                    var k = kr.Knoop;
+                                    var totaal = o.Balans!.Totaal(k.Sleutel);
+                                    var rgs = o.Schema.Zoek(k.Code);
+                                    <div class="knoop niveau-@k.Niveau @(KanKoppelen(k) ? "dropdoel" : null) @(k.EigenId is not null ? "eigen" : null)"
+                                         style="--diepte:@kr.Diepte" data-sleutel="@k.Sleutel"
+                                         @ondrop="() => Neerzetten(k)" @ondragenter="() => OpenBijSlepen(k)">
+                                        <button type="button" class="pijl" disabled="@(!kr.KanOpen)" aria-label="@(kr.Open ? "Inklappen" : "Uitklappen")" @onclick="() => Wissel(k.Sleutel)">
+                                            @(kr.KanOpen ? (kr.Open ? "▾" : "▸") : "")
+                                        </button>
+                                        @if (hernoemSleutel == k.Sleutel)
+                                        {
+                                            <form class="d-flex gap-1 align-items-center flex-grow-1" @onsubmit="Hernoem" @onsubmit:preventDefault>
+                                                <input class="form-control form-control-sm" @bind="hernoemNaam" aria-label="Nieuwe naam" autofocus />
+                                                @if (isBeheerder && k.EigenId is null)
+                                                {
+                                                    <label class="small text-nowrap"><input type="checkbox" class="form-check-input" @bind="hernoemKantoorbreed" /> voor alle klanten</label>
+                                                }
+                                                <button type="submit" class="btn btn-sm btn-primary">Opslaan</button>
+                                                @if (k.EigenId is null && o.IsHernoemd(k.Code))
+                                                {
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Terug naar de standaardnaam" @onclick="() => HernoemTerug(k)">Standaard</button>
+                                                }
+                                                <button type="button" class="btn btn-sm btn-link" @onclick="() => hernoemSleutel = null">Annuleren</button>
+                                            </form>
+                                        }
+                                        else
+                                        {
+                                            <span class="naam" @onclick="() => Wissel(k.Sleutel)">
+                                                @if (kr.MetPad)
+                                                {
+                                                    <span class="pad">@Pad(k) › </span>
+                                                }
+                                                @o.Naam(k.Sleutel)
+                                                @if (k.EigenId is not null)
+                                                {
+                                                    <span class="badge text-bg-info ms-1">eigen</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="code" title="@(o.IsHernoemd(k.Code) ? $"RGS: {rgs?.Omschrijving}" : rgs?.OmschrijvingLang)">@k.Code</span>
+                                                }
+                                            </span>
+                                            <span class="acties">
+                                                @if (geselecteerd.Count > 0 && KanKoppelen(k))
+                                                {
+                                                    <button class="btn btn-sm btn-outline-primary py-0" title="Geselecteerde rekeningen hier koppelen" @onclick="() => KoppelSelectie(k)">← hierheen</button>
+                                                }
+                                                <button class="btn btn-sm btn-link py-0" title="Hernoemen (voor de jaarrekening)" @onclick="() => BeginHernoemen(k)">✎</button>
+                                                @if (k.EigenId is null && k.Niveau is 3 or 4)
+                                                {
+                                                    <button class="btn btn-sm btn-link py-0" title="Eigen post toevoegen onder deze post" @onclick="() => BeginNieuw(k)">＋</button>
+                                                }
+                                                @if (k.EigenId is { } eigenId)
+                                                {
+                                                    <button class="btn btn-sm btn-link py-0 text-danger" title="Eigen post verwijderen" @onclick="() => VerwijderEigen(eigenId)">🗑</button>
+                                                }
+                                            </span>
+                                            <span class="totaal bedrag">@(totaal.Aantal > 0 ? Bedragen.Getal(totaal.Huidig) : "")</span>
+                                            <span class="totaal bedrag vorig">@(totaal.Aantal > 0 ? Bedragen.Getal(totaal.Vorig) : "")</span>
+                                        }
+                                    </div>
+                                    break;
+                                case NieuwRegel nr:
+                                    <form class="knoop-nieuw d-flex gap-1" style="--diepte:@nr.Diepte" @onsubmit="VoegToe" @onsubmit:preventDefault>
+                                        <input class="form-control form-control-sm" placeholder="Naam van de nieuwe post, bijv. @(o.Naam(nr.OuderCode)) 1" @bind="nieuweNaam" aria-label="Naam nieuwe post" autofocus />
+                                        <button type="submit" class="btn btn-sm btn-primary">Toevoegen</button>
+                                        <button type="button" class="btn btn-sm btn-link" @onclick="() => nieuwOnder = null">Annuleren</button>
+                                    </form>
+                                    break;
+                                case RekeningRegel rr:
+                                    var r = rr.Rekening;
+                                    <div class="rekening-in-boom sleepbaar" draggable="true" style="--diepte:@rr.Diepte" data-rekening="@r.Nummer"
+                                         @ondragstart="() => BeginSlepen(r.Id)">
+                                        <span class="font-monospace small text-secondary">@r.Nummer</span>
+                                        <span class="flex-grow-1">@r.Omschrijving <BronLabel Bron="r.Koppeling!.Bron" /></span>
+                                        <span class="totaal bedrag"><Bedrag Waarde="r.Saldo" /></span>
+                                        <span class="totaal bedrag vorig"><Bedrag Waarde="r.SaldoVorig" /></span>
+                                        <button class="btn btn-sm btn-link py-0 text-secondary" title="Ontkoppelen" @onclick="() => OntkoppelEen(r.Id)">✕</button>
+                                    </div>
+                                    break;
+                            }
+                        }
+
+                        @if (Zoekresultaten is { Count: 0 })
+                        {
+                            <p class="text-center text-secondary my-4">Geen posten gevonden voor ‘@zoekRechts’.</p>
+                        }
+                    </div>
+                    <div class="card-footer bg-white small">
+                        <div class="d-flex flex-wrap gap-3">
+                            <span title="Saldo van alle balansposten; na volledig koppelen gelijk aan het resultaat">Activa − passiva: <strong class="bedrag">@Bedragen.Getal(o.Balans!.Balans.Huidig)</strong></span>
+                            <span>Resultaat: <strong class="bedrag">@Bedragen.Getal(o.Balans.ResultaatHuidig)</strong></span>
+                            @if (o.Balans.Ongekoppeld.Aantal > 0)
+                            {
+                                <span class="text-warning-emphasis">Ongekoppeld: @o.Balans.Ongekoppeld.Aantal rekening(en), saldo <span class="bedrag">@Bedragen.Getal(o.Balans.Ongekoppeld.Huidig)</span></span>
+                            }
+                            @if (o.Balans.Ongekoppeld.Aantal == 0 && o.Balans.Balans.Huidig == o.Balans.ResultaatHuidig)
+                            {
+                                <span class="text-success ms-auto">✓ alles gekoppeld; balans sluit op het resultaat</span>
+                            }
+                        </div>
+                        @foreach (var signaal in o.Balans.Signalen.Where(s => s.Soort != SignaalSoort.Ongekoppeld))
+                        {
+                            <div class="text-warning-emphasis mt-1">⚠ @signaal.Tekst</div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private bool geladen;
+    private RubriceerOverzicht? o;
+    private readonly HashSet<Guid> geselecteerd = [];
+    private readonly HashSet<string> open = new(StringComparer.Ordinal);
+    private List<Guid> gesleept = [];
+    private string filterLinks = "open";
+    private string? zoekLinks;
+    private string? zoekRechts;
+    private bool alleenGevuld;
+    private bool onthouden;
+    private string? melding;
+    private bool meldingIsFout;
+    private string? hernoemSleutel;
+    private string hernoemNaam = "";
+    private bool hernoemKantoorbreed;
+    private string? nieuwOnder;
+    private string nieuweNaam = "";
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Authenticatie { get; set; } = default!;
+
+    private bool isBeheerder;
+
+    /// <summary>Een post in de boom: een RGS-code of een eigen post (EigenId).</summary>
+    private sealed record Knoop(string Sleutel, string Code, int Niveau, Guid? EigenId);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        isBeheerder = (await Authenticatie).User.IsInRole(Rollen.Beheerder);
+        onthouden = isBeheerder;
+        await Laad();
+        geladen = true;
+    }
+
+    private async Task Laad()
+    {
+        o = await RubriceerDienst.Overzicht(Id);
+        geselecteerd.IntersectWith(o?.Rekeningen.Select(r => r.Id) ?? []);
+    }
+
+    private IEnumerable<RubriceerRekening> ZichtbareRekeningen =>
+        o is null ? [] : o.Rekeningen
+            .Where(r => filterLinks == "alle" || (r.Koppeling is null && r.HeeftSaldo))
+            .Where(r => string.IsNullOrWhiteSpace(zoekLinks)
+                        || r.Nummer.Contains(zoekLinks.Trim(), StringComparison.OrdinalIgnoreCase)
+                        || r.Omschrijving.Contains(zoekLinks.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    private int AantalVoorstellen => o?.Rekeningen.Count(r => r.Voorstel is not null && r.Koppeling is null
+                                                              && (geselecteerd.Count == 0 || geselecteerd.Contains(r.Id))) ?? 0;
+
+    private IEnumerable<Knoop> Kinderen(Knoop ouder)
+    {
+        if (o?.Schema is null || ouder.EigenId is not null)
+        {
+            return [];
+        }
+
+        var eigen = o.EigenPosten.Where(p => p.OuderCode == ouder.Code)
+            .Select(p => new Knoop(PostBalans.EigenSleutel(p.Id), p.OuderCode, ouder.Niveau + 1, p.Id));
+        var rgs = ouder.Niveau >= 4
+            ? []
+            : o.Schema.Kinderen(ouder.Code).Where(c => o.Codes.Contains(c.Code)).Select(c => new Knoop(c.Code, c.Code, c.Niveau, null));
+        return eigen.Concat(rgs).Where(k => !alleenGevuld || o.Balans!.Totaal(k.Sleutel).Aantal > 0);
+    }
+
+    private IEnumerable<RubriceerRekening> RekeningenOp(string sleutel) =>
+        o?.Rekeningen.Where(r => r.Koppeling?.Sleutel == sleutel) ?? [];
+
+    /// <summary>Naam van een post met die van de post erboven, want "Verkrijgingsprijs" zegt zonder "Inventaris" weinig.</summary>
+    private string MetOuder(string sleutel)
+    {
+        var code = o!.Schema!.Zoek(sleutel);
+        var ouder = sleutel.StartsWith(PostBalans.EigenVoorvoegsel, StringComparison.Ordinal)
+            ? null
+            : code is { Niveau: 4, Ouder: { } o4 } ? o4 : null;
+        return ouder is null ? o.Naam(sleutel) : $"{o.Naam(ouder)} › {o.Naam(sleutel)}";
+    }
+
+    private static bool KanKoppelen(Knoop k) => k.EigenId is not null || k.Niveau is 3 or 4;
+
+    private List<Knoop>? Zoekresultaten
+    {
+        get
+        {
+            if (o?.Schema is null || string.IsNullOrWhiteSpace(zoekRechts) || zoekRechts.Trim().Length < 2)
+            {
+                return null;
+            }
+
+            var tekst = zoekRechts.Trim();
+            var rgs = o.Schema.Alle
+                .Where(c => c.Niveau is 3 or 4 && o.Codes.Contains(c.Code)
+                            && (o.Naam(c.Code).Contains(tekst, StringComparison.OrdinalIgnoreCase) || c.Code.Contains(tekst, StringComparison.OrdinalIgnoreCase)))
+                .Select(c => new Knoop(c.Code, c.Code, c.Niveau, null));
+            var eigen = o.EigenPosten.Where(p => p.Naam.Contains(tekst, StringComparison.OrdinalIgnoreCase))
+                .Select(p => new Knoop(PostBalans.EigenSleutel(p.Id), p.OuderCode, (o.Schema.Zoek(p.OuderCode)?.Niveau ?? 3) + 1, p.Id));
+            return [.. eigen.Concat(rgs).Take(60)];
+        }
+    }
+
+    private string Pad(Knoop k) =>
+        string.Join(" › ", (k.EigenId is null ? o!.Schema!.Voorouders(k.Code) : [o!.Schema!.Zoek(k.Code)!, .. o.Schema.Voorouders(k.Code)])
+            .Where(c => c.Niveau >= 2).Reverse().Select(c => o.Naam(c.Code)));
+
+    private abstract record Regel;
+
+    private sealed record KopRegel(string Tekst) : Regel;
+
+    private sealed record KnoopRegel(Knoop Knoop, int Diepte, bool Open, bool KanOpen, bool MetPad) : Regel;
+
+    private sealed record NieuwRegel(string OuderCode, int Diepte) : Regel;
+
+    private sealed record RekeningRegel(RubriceerRekening Rekening, int Diepte) : Regel;
+
+    /// <summary>De zichtbare regels van de boom (of de zoekresultaten), van boven naar beneden.</summary>
+    private List<Regel> BoomRegels()
+    {
+        var regels = new List<Regel>();
+        if (Zoekresultaten is { } resultaten)
+        {
+            regels.AddRange(resultaten.Select(k => new KnoopRegel(k, 0, false, false, MetPad: true)));
+            return regels;
+        }
+
+        foreach (var (zijde, kop) in new[] { ("B", "Balans"), ("W", "Winst-en-verliesrekening") })
+        {
+            regels.Add(new KopRegel(kop));
+            foreach (var knoop in Kinderen(new Knoop(zijde, zijde, 1, null)))
+            {
+                BouwRegels(regels, knoop, 0);
+            }
+        }
+
+        return regels;
+    }
+
+    private void BouwRegels(List<Regel> regels, Knoop k, int diepte)
+    {
+        var kinderen = Kinderen(k).ToList();
+        var rekeningen = RekeningenOp(k.Sleutel).ToList();
+        var nieuw = nieuwOnder == k.Code && k.EigenId is null;
+        var isOpen = open.Contains(k.Sleutel);
+        regels.Add(new KnoopRegel(k, diepte, isOpen, kinderen.Count > 0 || rekeningen.Count > 0 || nieuw, MetPad: false));
+        if (!isOpen)
+        {
+            return;
+        }
+
+        if (nieuw)
+        {
+            regels.Add(new NieuwRegel(k.Code, diepte + 1));
+        }
+
+        foreach (var kind in kinderen)
+        {
+            BouwRegels(regels, kind, diepte + 1);
+        }
+
+        regels.AddRange(rekeningen.Select(r => new RekeningRegel(r, diepte + 1)));
+    }
+
+    private void Wissel(string sleutel)
+    {
+        if (!open.Remove(sleutel))
+        {
+            open.Add(sleutel);
+        }
+    }
+
+    private void ClapIn() => open.Clear();
+
+    private void OpenBijSlepen(Knoop k)
+    {
+        // Slepen boven een hoofdpost klapt die open, zodat de subposten zichtbaar worden.
+        if (gesleept.Count > 0 && k.Niveau == 2)
+        {
+            open.Add(k.Sleutel);
+        }
+    }
+
+    private void Selecteer(Guid id, bool aan)
+    {
+        if (aan)
+        {
+            geselecteerd.Add(id);
+        }
+        else
+        {
+            geselecteerd.Remove(id);
+        }
+    }
+
+    private void SelecteerAlles(bool aan)
+    {
+        foreach (var r in ZichtbareRekeningen)
+        {
+            Selecteer(r.Id, aan);
+        }
+    }
+
+    private void BeginSlepen(Guid id) =>
+        gesleept = geselecteerd.Contains(id) ? [.. geselecteerd] : [id];
+
+    private async Task Neerzetten(Knoop k)
+    {
+        var rekeningen = gesleept;
+        gesleept = [];
+        if (rekeningen.Count == 0)
+        {
+            return;
+        }
+
+        if (!KanKoppelen(k))
+        {
+            open.Add(k.Sleutel);
+            Meld("Zet de rekening op een subpost (een niveau dieper); de hoofdpost is opengeklapt.", fout: true);
+            return;
+        }
+
+        await Koppel(rekeningen, k);
+    }
+
+    private Task KoppelSelectie(Knoop k) => Koppel([.. geselecteerd], k);
+
+    private async Task Koppel(IReadOnlyCollection<Guid> rekeningen, Knoop k)
+    {
+        var uitkomst = await RubriceerDienst.Koppel(o!.Dossier.KlantId, rekeningen, k.Sleutel, onthouden, await Wie());
+        if (uitkomst.IsGelukt)
+        {
+            Meld($"{rekeningen.Count} rekening(en) gekoppeld aan {o.Naam(k.Sleutel)}.");
+            geselecteerd.ExceptWith(rekeningen);
+            await Laad();
+        }
+        else
+        {
+            Meld(string.Join(" ", uitkomst.Fouten), fout: true);
+        }
+    }
+
+    private async Task KoppelVoorstel(RubriceerRekening r)
+    {
+        var uitkomst = await RubriceerDienst.Koppel(o!.Dossier.KlantId, [r.Id], r.Voorstel!.Code, onthouden, await Wie(), KoppelBron.Voorstel);
+        if (uitkomst.IsGelukt)
+        {
+            Meld($"{r.Nummer} {r.Omschrijving} gekoppeld aan {o.Naam(r.Voorstel.Code)}.");
+            await Laad();
+        }
+        else
+        {
+            Meld(string.Join(" ", uitkomst.Fouten), fout: true);
+        }
+    }
+
+    private async Task AccepteerVoorstellen()
+    {
+        var uitkomst = await RubriceerDienst.AccepteerVoorstellen(Id, geselecteerd.Count > 0 ? [.. geselecteerd] : null, onthouden, await Wie());
+        Meld(uitkomst.IsGelukt ? $"{uitkomst.Waarde} voorstel(len) overgenomen. Controleer ze in de boom." : string.Join(" ", uitkomst.Fouten), !uitkomst.IsGelukt);
+        geselecteerd.Clear();
+        await Laad();
+    }
+
+    private async Task Ontkoppel()
+    {
+        await RubriceerDienst.Ontkoppel(o!.Dossier.KlantId, [.. geselecteerd], await Wie());
+        Meld($"{geselecteerd.Count} rekening(en) ontkoppeld.");
+        geselecteerd.Clear();
+        await Laad();
+    }
+
+    private async Task OntkoppelEen(Guid id)
+    {
+        await RubriceerDienst.Ontkoppel(o!.Dossier.KlantId, [id], await Wie());
+        await Laad();
+    }
+
+    private void BeginHernoemen(Knoop k)
+    {
+        hernoemSleutel = k.Sleutel;
+        hernoemNaam = o!.Naam(k.Sleutel);
+        hernoemKantoorbreed = false;
+    }
+
+    private async Task Hernoem()
+    {
+        var uitkomst = await RubriceerDienst.Hernoem(o!.Dossier.KlantId, hernoemSleutel!, hernoemNaam, hernoemKantoorbreed, await Wie());
+        Meld(uitkomst.IsGelukt ? $"Hernoemd naar '{hernoemNaam.Trim()}'{(hernoemKantoorbreed ? " (voor alle klanten)" : string.Empty)}." : string.Join(" ", uitkomst.Fouten), !uitkomst.IsGelukt);
+        hernoemSleutel = null;
+        await Laad();
+    }
+
+    private async Task HernoemTerug(Knoop k)
+    {
+        await RubriceerDienst.Hernoem(o!.Dossier.KlantId, k.Sleutel, null, kantoorbreed: false, await Wie());
+        if (isBeheerder && o.KantoorNamen.ContainsKey(k.Code) && hernoemKantoorbreed)
+        {
+            await RubriceerDienst.Hernoem(o.Dossier.KlantId, k.Sleutel, null, kantoorbreed: true, await Wie());
+        }
+
+        hernoemSleutel = null;
+        await Laad();
+    }
+
+    private void BeginNieuw(Knoop k)
+    {
+        nieuwOnder = k.Code;
+        nieuweNaam = "";
+        open.Add(k.Sleutel);
+    }
+
+    private async Task VoegToe()
+    {
+        var uitkomst = await RubriceerDienst.VoegEigenPostToe(o!.Dossier.KlantId, nieuwOnder!, nieuweNaam, await Wie());
+        if (uitkomst.IsGelukt)
+        {
+            Meld($"Post '{nieuweNaam.Trim()}' toegevoegd. Sleep er rekeningen naartoe.");
+            nieuwOnder = null;
+            await Laad();
+        }
+        else
+        {
+            Meld(string.Join(" ", uitkomst.Fouten), fout: true);
+        }
+    }
+
+    private async Task VerwijderEigen(Guid id)
+    {
+        var uitkomst = await RubriceerDienst.VerwijderEigenPost(o!.Dossier.KlantId, id, await Wie());
+        Meld(uitkomst.IsGelukt ? "Eigen post verwijderd; de rekeningen staan nu op de post erboven." : string.Join(" ", uitkomst.Fouten), !uitkomst.IsGelukt);
+        await Laad();
+    }
+
+    private void Meld(string tekst, bool fout = false)
+    {
+        melding = tekst;
+        meldingIsFout = fout;
+    }
+
+    private async Task<Uitvoerder> Wie() => (await Authenticatie).User.AlsUitvoerder();
+}

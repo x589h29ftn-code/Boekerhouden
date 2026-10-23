@@ -35,7 +35,7 @@
 - **B6** (UI-technologie): Blazor Server ([§7.2](07-technische-architectuur.md#72-architectuurkeuze-voor-meerdere-gebruikers)).
 - **B7** (migratie): bestaande dossiers als PDF-archief; vorige jaren via het importsjabloon.
 
-Voor plakje 3 zijn de vragen **B3** (rekeningschema van het kantoor) en **B7** (het RGS-werkboek aanleveren) nodig. De overige vragen ([hoofdstuk 11](11-vragenlijst.md)) komen per plakje aan de orde.
+Vraag **B3** (gebruikt het kantoor bij alle klanten hetzelfde rekeningschema?) bepaalt hoe snel het kantoorsjabloon vol raakt. De overige vragen ([hoofdstuk 11](11-vragenlijst.md)) komen per plakje aan de orde.
 
 ## 8.2 Wat we nodig hebben om te bouwen
 
@@ -100,7 +100,7 @@ vroeg zichtbaar is.
 |---|---|---|---|
 | 1 ✅ | **Fundament en importsjabloon**: solution, domeinmodel, inlezen sjabloon met alle controles (saldo nihil), proefbalans; fictieve testdata | Een saldibalans wordt ingelezen en gecontroleerd (via tests en de opdrachtregel). **Gereed 23-10-2026**; ook gangbare exports ("Rekening, Omschr, Saldo") worden herkend | Fictieve testklanten |
 | 2 ✅ | **Eerste werkende app**: server (Blazor), database, inloggen en rollen, klanten en dossiers, import via scherm, audit log | Inloggen, klant en dossier aanmaken, sjabloon uploaden. **Gereed 23-10-2026**; met controles I7, I9 en I10, saldibalans met vorig jaar ernaast, gebruikersbeheer en wijzigingslog | – |
-| 3 | **Rubriceren op RGS** ([§12.10](12-rgs-als-rubriekenschema.md#1210-gevolgen-voor-het-ontwerp-en-plakje-3)): RGS-werkboek inlezen, filter per rechtsvorm, koppelscherm, kantoor-koppelsjabloon, voorstellen, gekoppeld %, proefbalans per hoofd- en subpost met omslag, controles (o.a. I8) | 100% gekoppelde proefbalans per RGS-hoofdpost | Officieel RGS-werkboek 3.8 (download); bevestiging filters per rechtsvorm; het rekeningschema van het kantoor (B3) |
+| 3 ✅ | **Rubriceren op RGS** ([§12.10](12-rgs-als-rubriekenschema.md#1210-gevolgen-voor-het-ontwerp-en-plakje-3)): RGS-werkboek inlezen, filter per rechtsvorm, koppelscherm, kantoor-koppelsjabloon, voorstellen, gekoppeld %, proefbalans per hoofd- en subpost met omslag, controles | 100% gekoppelde proefbalans per RGS-hoofdpost. **Gereed 23-10-2026**: slepen naar posten, eigen posten en hernoemen (per klant of kantoorbreed), voorstellen, automatisch koppelen na import. Nog open: I8, sjabloon in/uit Excel, `Uitgebreid` per klant | Officieel RGS-werkboek 3.8 (aangeleverd); het rekeningschema van het kantoor (B3) |
 | 4 | **Proefbalans en correcties**: huidig, vorig, verschil, doorklikken, correctieboekingen, vergelijkende cijfers | Sluitende, gecorrigeerde proefbalans | – |
 | 5 | **Dossier en werkprogramma**: sjabloonbeheer, keuze materiële posten, stappen (toevoegen en verwijderen), aftekenen, optionele reviewpunten, bijlagen, klantenoverzicht met signalen | Volledig uitwerkbaar dossier | Werkprogramma *Samenstellen jaarrekening* en *Winstaangifte opstellen* |
 | 6 | **Rapport I**: rapportmodel, balans, W&V, specificaties, presentatie-editor per post, HTML-preview, PDF | Eerste rapport als PDF | Rapportsjabloon BV klein en eenmanszaak (structuur) |
@@ -120,5 +120,6 @@ vroeg zichtbaar is.
 ## 8.5 Volgende stappen
 
 1. ~~Plakje 1 en 2~~: gereed. De app draait: inloggen, klanten en dossiers, saldibalans inlezen.
-2. **Plakje 3 (rubriceren op RGS)**: het rubriekenschema is RGS (B23). Nodig is het officiële werkboek RGS 3.8 (en in december 3.9); het onderzoek staat in [hoofdstuk 12](12-rgs-als-rubriekenschema.md).
-3. **Later**: de server-pc aanschaffen (vóór plakje 9) en de echte testset verzamelen (vóór de pilot).
+2. ~~Plakje 3 (rubriceren op RGS)~~: gereed. In december het werkboek **RGS 3.9** inlezen.
+3. **Plakje 4 (proefbalans en correcties)**: correctieboekingen in het dossier, verschillen met vorig jaar en doorklikken.
+4. **Later**: de server-pc aanschaffen (vóór plakje 9) en de echte testset verzamelen (vóór de pilot).

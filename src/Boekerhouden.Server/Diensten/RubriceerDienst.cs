@@ -122,7 +122,9 @@ public sealed class RubriceerDienst(IDbContextFactory<BoekerhoudenDbContext> dbF
             if (metVoorstellen)
             {
                 var open = rekeningen.Where(r => !koppelingen.ContainsKey(r.Id)).ToList();
-                voorstellen = await Voorstellen(db, schema, selectie, codes, dossier.KlantId, open);
+                var bekend = rekeningen.Where(r => koppelingen.ContainsKey(r.Id))
+                    .Select(r => (r.Nummer, Zijde: koppelingen[r.Id].Code[0])).ToList();
+                voorstellen = await Voorstellen(db, schema, selectie, dossier.KlantId, open, bekend);
             }
         }
 
@@ -495,7 +497,7 @@ public sealed class RubriceerDienst(IDbContextFactory<BoekerhoudenDbContext> dbF
     }
 
     private async Task<Dictionary<Guid, VoorstelInfo>> Voorstellen(
-        BoekerhoudenDbContext db, RgsSchema schema, RgsSelectie selectie, IReadOnlySet<string> codes, Guid klantId, List<Grootboekrekening> open)
+        BoekerhoudenDbContext db, RgsSchema schema, RgsSelectie selectie, Guid klantId, List<Grootboekrekening> open, List<(string Nummer, char Zijde)> bekend)
     {
         var resultaat = new Dictionary<Guid, VoorstelInfo>();
         if (open.Count == 0)
@@ -534,7 +536,7 @@ public sealed class RubriceerDienst(IDbContextFactory<BoekerhoudenDbContext> dbF
                 continue;
             }
 
-            if (voorsteller.StelVoor(rekening.Omschrijving) is { } voorstel)
+            if (voorsteller.StelVoor(rekening.Omschrijving, Zijde(rekening.Nummer, bekend)) is { } voorstel)
             {
                 resultaat[rekening.Id] = new VoorstelInfo(voorstel.Code.Code, "omschrijving");
             }
@@ -562,6 +564,26 @@ public sealed class RubriceerDienst(IDbContextFactory<BoekerhoudenDbContext> dbF
             return voorsteller;
         }
     }
+
+    /// <summary>
+    /// Balans of W&amp;V afleiden uit de buren: liggen de dichtstbijzijnde gekoppelde rekeningnummers erboven en eronder
+    /// aan dezelfde kant, dan hoort deze rekening daar waarschijnlijk ook (rekeningschema's zijn op nummer ingedeeld).
+    /// </summary>
+    internal static char? Zijde(string nummer, IReadOnlyList<(string Nummer, char Zijde)> bekend)
+    {
+        var onder = bekend.Where(b => VergelijkNummer(b.Nummer, nummer) < 0).OrderByDescending(b => b.Nummer, NummerVergelijker).FirstOrDefault();
+        var boven = bekend.Where(b => VergelijkNummer(b.Nummer, nummer) > 0).OrderBy(b => b.Nummer, NummerVergelijker).FirstOrDefault();
+        return onder.Nummer is not null && boven.Nummer is not null && onder.Zijde == boven.Zijde ? onder.Zijde : null;
+    }
+
+    private static readonly Comparer<string> NummerVergelijker = Comparer<string>.Create(VergelijkNummer);
+
+    /// <summary>Vergelijkt rekeningnummers als getal waar dat kan ("950" vóór "1000"), anders als tekst.</summary>
+    private static int VergelijkNummer(string a, string b) =>
+        decimal.TryParse(a, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var x)
+        && decimal.TryParse(b, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var y)
+            ? x.CompareTo(y)
+            : string.CompareOrdinal(a, b);
 
     private static async Task<Dictionary<Guid, (decimal? Huidig, decimal? Vorig)>> Saldi(BoekerhoudenDbContext db, Guid klantId, int boekjaar)
     {

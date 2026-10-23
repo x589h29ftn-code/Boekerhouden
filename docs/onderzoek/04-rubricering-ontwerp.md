@@ -133,6 +133,8 @@ RgsCode? BepaalCode(Grootboekrekening r, Klant k, RgsSchema rgs)   // rgs = acti
 
 ## 4.4 Het koppelscherm (functioneel)
 
+> **Gebouwd in plakje 3**, met slepen naar posten, eigen posten en hernoemen; zie [§12.10](12-rgs-als-rubriekenschema.md#1210-gevolgen-voor-het-ontwerp-en-plakje-3). Hieronder het oorspronkelijke ontwerp.
+
 Het koppelscherm werkt zo: links de rekeningen, rechts de RGS-boom (gefilterd voor de rechtsvorm, met zoeken op tekst en code), koppelen door te slepen of met een knop, meerdere tegelijk selecteren, en ontkoppelen.
 
 - **Alleen relevante rekeningen tonen.** Dat zijn rekeningen met boekingen of saldo in het huidige of vorige jaar.

@@ -1,0 +1,17 @@
+@switch (Bron)
+{
+    case KoppelBron.Sjabloon:
+        <span class="badge text-bg-light border ms-1" title="Automatisch gekoppeld via het kantoorsjabloon">sjabloon</span>
+        break;
+    case KoppelBron.Bestand:
+        <span class="badge text-bg-light border ms-1" title="Automatisch gekoppeld via de RGS-code uit het importbestand">bestand</span>
+        break;
+    case KoppelBron.Voorstel:
+        <span class="badge text-bg-light border ms-1" title="Voorstel, bevestigd door een gebruiker">voorstel</span>
+        break;
+}
+
+@code {
+    [Parameter]
+    public KoppelBron Bron { get; set; }
+}

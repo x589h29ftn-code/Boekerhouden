@@ -28,6 +28,7 @@ public sealed class Voorsteller
         ["afschr"] = "afschrijvingen",
         ["afs"] = "afschrijvingen",
         ["afschrijving"] = "afschrijvingen",
+        ["kapitaal"] = "aandelenkapitaal",
         ["cum"] = "cumulatieve",
         ["btw"] = "omzetbelasting",
         ["auto"] = "automobielen",
@@ -43,9 +44,20 @@ public sealed class Voorsteller
         ["vpb"] = "vennootschapsbelasting",
         ["rc"] = "courant",
         ["telefoon"] = "telefoonkosten",
+        ["rabobank"] = "bank",
+        ["ing"] = "bank",
+        ["abn"] = "bank",
+        ["amro"] = "bank",
+        ["asn"] = "bank",
+        ["sns"] = "bank",
+        ["knab"] = "bank",
+        ["bunq"] = "bank",
+        ["triodos"] = "bank",
+        ["regiobank"] = "bank",
+        ["bankrekening"] = "bank",
     };
 
-    private readonly List<(RgsCode Code, string[] Woorden, string[] Ouder)> kandidaten;
+    private readonly List<(RgsCode Code, string[] Kort, string[] Lang, string[] Ouder)> kandidaten;
 
     /// <param name="kandidaten">De codes waaruit gekozen mag worden (bijv. de selectie voor de rechtsvorm, niveau 3 en 4).</param>
     public Voorsteller(RgsSchema schema, IEnumerable<RgsCode> kandidaten)
@@ -55,13 +67,15 @@ public sealed class Voorsteller
         this.kandidaten =
         [
             .. kandidaten
-                .Where(c => c.Niveau is 3 or 4 && !c.Inactief)
-                .Select(c => (c, Woorden(c.Omschrijving + " " + c.OmschrijvingLang).Distinct().ToArray(),
+                .Where(c => c.Niveau is 3 or 4 && !c.Inactief && !IsFunctioneleIndeling(c.Code))
+                .OrderBy(c => c.Volgorde)
+                .Select(c => (c, Woorden(c.Omschrijving).Distinct().ToArray(), Woorden(c.OmschrijvingLang).Distinct().ToArray(),
                     Woorden(schema.Zoek(c.Ouder)?.Omschrijving ?? string.Empty))),
         ];
     }
 
-    public Voorstel? StelVoor(string omschrijving)
+    /// <param name="zijde">'B' of 'W' als bekend is of de rekening op de balans of in de W&amp;V hoort; anders null.</param>
+    public Voorstel? StelVoor(string omschrijving, char? zijde = null)
     {
         var woorden = Woorden(omschrijving);
         if (woorden.Length == 0)
@@ -70,18 +84,23 @@ public sealed class Voorsteller
         }
 
         Voorstel? beste = null;
-        foreach (var (code, eigen, ouder) in kandidaten)
+        foreach (var (code, kort, lang, ouder) in kandidaten)
         {
-            var score = 0.0;
-            foreach (var woord in woorden)
+            if (zijde is { } z && code.Code[0] != z)
             {
-                var opEigen = eigen.Length == 0 ? 0 : eigen.Max(w => Gelijkenis(woord, w));
-                var opOuder = ouder.Length == 0 ? 0 : 0.5 * ouder.Max(w => Gelijkenis(woord, w));
-                score += Math.Max(opEigen, opOuder);
+                continue;
             }
 
-            // Korter en specifieker (niveau 4) wint bij gelijke woorden.
-            score = (score / woorden.Length) - (0.02 * eigen.Length) + (code.Niveau == 4 ? 0.03 : 0);
+            // Per woord de beste treffer: in de korte omschrijving telt volledig, in de lange (die vaak de context
+            // van de ouder herhaalt) iets minder, en in de omschrijving van de ouder half.
+            var score = woorden.Sum(woord => Math.Max(
+                Math.Max(Beste(woord, kort), 0.8 * Beste(woord, lang)),
+                0.5 * Beste(woord, ouder)));
+
+            // Een code met veel woorden die niet in de omschrijving voorkomen ("Vooruitbetaalde autokosten" bij
+            // "Autokosten") past minder goed; een specifieke code (niveau 4) wint bij gelijke stand.
+            var ongebruikt = kort.Length == 0 ? 0 : kort.Count(w => woorden.All(v => Gelijkenis(v, w) < 0.6)) / (double)kort.Length;
+            score = (score / woorden.Length) - (0.02 * kort.Length) - (0.1 * ongebruikt) + (code.Niveau == 4 ? 0.03 : 0);
             if (beste is null || score > beste.Score)
             {
                 beste = new Voorstel(code, score);
@@ -90,6 +109,13 @@ public sealed class Voorsteller
 
         return beste is { Score: >= Drempel } ? beste : null;
     }
+
+    /// <summary>
+    /// Codes van de functionele W&amp;V-indeling (verkoopkosten <c>WVkf</c>, algemene beheerskosten <c>WAkf</c>) stellen we
+    /// niet voor: het MKB presenteert de W&amp;V categoriaal. Neerzetten op die posten kan wel.
+    /// </summary>
+    private static bool IsFunctioneleIndeling(string code) =>
+        code.StartsWith("WVkf", StringComparison.Ordinal) || code.StartsWith("WAkf", StringComparison.Ordinal);
 
     /// <summary>Lijken twee omschrijvingen op elkaar? (Dezelfde woorden, of de ene bevat de andere.)</summary>
     public static bool LijktOp(string a, string b)
@@ -126,6 +152,8 @@ public sealed class Voorsteller
         ];
     }
 
+    private static double Beste(string woord, string[] woorden) => woorden.Length == 0 ? 0 : woorden.Max(w => Gelijkenis(woord, w));
+
     private static double Gelijkenis(string a, string b)
     {
         if (a == b)
@@ -138,6 +166,6 @@ public sealed class Voorsteller
             return 0.8;
         }
 
-        return a.Length >= 5 && b.Length >= 5 && (a.Contains(b, StringComparison.Ordinal) || b.Contains(a, StringComparison.Ordinal)) ? 0.6 : 0;
+        return Math.Min(a.Length, b.Length) >= 4 && (a.Contains(b, StringComparison.Ordinal) || b.Contains(a, StringComparison.Ordinal)) ? 0.6 : 0;
     }
 }

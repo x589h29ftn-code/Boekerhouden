@@ -13,10 +13,12 @@ Het draait op een eigen server-pc op kantoor, met meerdere gebruikers.
 
 ## Status
 
-Plakje 2 van 10 is gereed: een werkende webapp. Je logt in, beheert gebruikers, maakt klanten en
+Plakje 3 van 10 is gereed: een werkende webapp. Je logt in, beheert gebruikers, maakt klanten en
 dossiers aan en leest saldibalansen in (met controles, onder meer saldo nihil), met het vorige jaar
-ernaast. Alles wordt vastgelegd in een wijzigingslog. Ontwerp, besluiten en roadmap:
-[`docs/onderzoek`](docs/onderzoek/README.md).
+ernaast. Daarna rubriceer je op **RGS** (Referentie GrootboekSchema): grootboekrekeningen slepen
+naar een post, eigen posten toevoegen en posten hernoemen voor de jaarrekening, met voorstellen en
+een kantoorsjabloon dat dezelfde rekeningen bij de volgende klant automatisch koppelt. Alles wordt
+vastgelegd in een wijzigingslog. Ontwerp, besluiten en roadmap: [`docs/onderzoek`](docs/onderzoek/README.md).
 
 ## Snel proberen
 
@@ -29,14 +31,16 @@ dotnet test Boekerhouden.slnx                          # alle tests (servertests
 dotnet run --project src/Boekerhouden.Server           # http://localhost:5080
 ```
 
-Bij de eerste keer openen vraagt de app om het eerste account; dat krijgt alle rollen. Verzonnen
-saldibalansen om in te lezen staan in `tests/Fictief/`.
+Bij de eerste keer openen vraagt de app om het eerste account; dat krijgt alle rollen. Lees daarna
+via *RGS* het officiële RGS-werkboek in (download: Kennisbank op referentiegrootboekschema.nl; het
+werkboek staat niet in deze repository). Verzonnen saldibalansen om in te lezen staan in `tests/Fictief/`.
 
 De opdrachtregel werkt zonder database:
 
 ```bash
 dotnet run --project src/Boekerhouden.Cli -- sjabloon importsjabloon.xlsx --boekjaar 2025
 dotnet run --project src/Boekerhouden.Cli -- controleer tests/Fictief/bv-voorbeeld-bakkerij/saldibalans-2025.csv
+dotnet run --project src/Boekerhouden.Cli -- rgs "RGS 3.8-def.xlsx"      # controleert een RGS-werkboek
 ```
 
 Werkafspraken voor ontwikkeling (ook voor AI-sessies): [`CLAUDE.md`](CLAUDE.md).

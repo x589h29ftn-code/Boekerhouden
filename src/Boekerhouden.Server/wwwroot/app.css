@@ -78,3 +78,148 @@ tr.klikbaar {
     .blazor-error-boundary::after {
         content: "Er is een fout opgetreden.";
     }
+
+/* Rubriceren */
+.rubriceer-voortgang {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    min-width: 14rem;
+}
+
+    .rubriceer-voortgang .progress {
+        flex: 1;
+        height: .6rem;
+    }
+
+.rubriceren .card {
+    max-height: calc(100vh - 12rem);
+    min-height: 30rem;
+}
+
+.rubriceren .card-body {
+    flex: 0 0 auto;
+}
+
+.rekeningen-lijst, .posten-boom {
+    overflow-y: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.rekeningen-lijst td.small {
+    line-height: 1.25;
+}
+
+.rekeningen-lijst thead th {
+    position: sticky;
+    top: 0;
+    background: #fafbfc;
+    z-index: 1;
+}
+
+.sleepbaar {
+    cursor: grab;
+}
+
+.posten-boom {
+    padding: .25rem 0 .5rem;
+}
+
+.boom-kop {
+    padding: .5rem 1rem .25rem;
+    font-size: .75rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #6c757d;
+}
+
+.knoop, .rekening-in-boom, .knoop-nieuw {
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .15rem 1rem .15rem calc(.5rem + var(--diepte, 0) * 1.25rem);
+    border-left: 3px solid transparent;
+}
+
+.knoop {
+    min-height: 2rem;
+}
+
+    .knoop.niveau-2 {
+        font-weight: 600;
+    }
+
+    .knoop.niveau-4 {
+        font-size: .9rem;
+    }
+
+    .knoop.eigen .naam {
+        color: #0b5f73;
+    }
+
+    .knoop:hover {
+        background: #f1f4f7;
+    }
+
+    .knoop.dropdoel.doel {
+        background: #e3eefb;
+        border-left-color: var(--bh-accent);
+    }
+
+    .knoop .pijl {
+        border: 0;
+        background: none;
+        width: 1.25rem;
+        padding: 0;
+        color: #6c757d;
+    }
+
+    .knoop .naam {
+        flex: 1;
+        cursor: pointer;
+        min-width: 0;
+    }
+
+    .knoop .pad {
+        color: #6c757d;
+        font-weight: normal;
+    }
+
+    .knoop .code {
+        margin-left: .4rem;
+        font-family: var(--bs-font-monospace);
+        font-size: .7rem;
+        font-weight: normal;
+        color: #adb5bd;
+    }
+
+    .knoop .acties {
+        visibility: hidden;
+        white-space: nowrap;
+    }
+
+    .knoop:hover .acties, .knoop:focus-within .acties {
+        visibility: visible;
+    }
+
+.totaal {
+    width: 7.5rem;
+    text-align: right;
+    font-size: .875rem;
+}
+
+.vorig {
+    color: #6c757d;
+}
+
+.rekening-in-boom {
+    font-size: .85rem;
+    color: #495057;
+    background: #fbfbfc;
+}
+
+    .rekening-in-boom:hover {
+        background: #f1f4f7;
+    }

@@ -64,6 +64,15 @@ erDiagram
 
 **RgsFilter** (per rechtsvorm): het kiesfilter, de wegfilters en of de `Uitgebreid`-set standaard aan staat. Zie [§12.5](12-rgs-als-rubriekenschema.md#125-welke-codes-per-rechtsvorm).
 
+*Gebouwd in plakje 3 (tabellen):*
+- `RgsVersies` en `RgsCodes`: het ingelezen werkboek;
+- `Koppelingen`: rekening → code (+ eigen post, versie, bron `Handmatig`/`Voorstel`/`Sjabloon`/`Bestand`);
+- `EigenPosten` (per klant, onder een RGS-code van niveau 3 of 4);
+- `KlantPostNamen` en `KantoorPostNamen` (eigen namen voor de jaarrekening);
+- `SjabloonRegels` (kantoorsjabloon: rekeningnummer + omschrijving → code).
+
+Het filter per rechtsvorm staat (nog) in code (`RgsSelectie`).
+
 **RgsCodeInstelling** (kantoor, los van RGS): Referentiecode, SpecificatieVerplicht, VerloopoverzichtType (`Geen`/`VasteActiva`/`EigenVermogen`/`Voorziening`/`LanglopendeSchuld`/`RekeningCourant`), afwijkend RapportLabel per rapportvariant.
 
 **Koppelsjabloon** (kantoorregels voor een rekeningschema dat bij meerdere klanten voorkomt): Id, Naam, regels: RekeningnummerVan/Tot of exact nummer, optioneel een omschrijvingspatroon, **Referentiecode**. Wordt aangevuld vanuit handmatige koppelingen ("opnemen in sjabloon").

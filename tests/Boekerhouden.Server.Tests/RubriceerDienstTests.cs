@@ -273,3 +273,23 @@ public sealed class KantoorsjabloonTests(ServerFixture server) : IClassFixture<S
     private static byte[] Csv(int jaar, params string[] regels) =>
         Encoding.UTF8.GetBytes($"Boekjaar;{jaar}\n\nGrootboeknummer;Omschrijving;Bedrag\n{string.Join('\n', regels)}\n");
 }
+
+public sealed class ZijdeUitBurenTests
+{
+    private static readonly (string, char)[] Bekend = [("0200", 'B'), ("1000", 'B'), ("1300", 'B'), ("4000", 'W'), ("4300", 'W'), ("8000", 'W')];
+
+    [Theory]
+    [InlineData("1100", 'B')]
+    [InlineData("4100", 'W')]
+    [InlineData("7000", 'W')]
+    [InlineData("950", 'B')]
+    public void Buren_aan_dezelfde_kant_bepalen_de_zijde(string nummer, char zijde) =>
+        Assert.Equal(zijde, RubriceerDienst.Zijde(nummer, Bekend));
+
+    [Theory]
+    [InlineData("2000")]
+    [InlineData("0100")]
+    [InlineData("9000")]
+    public void Zonder_eenduidige_buren_geen_zijde(string nummer) =>
+        Assert.Null(RubriceerDienst.Zijde(nummer, Bekend));
+}

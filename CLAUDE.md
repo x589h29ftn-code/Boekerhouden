@@ -19,22 +19,28 @@ Warnings zijn errors (`TreatWarningsAsErrors`). In cloudsessies installeert `.cl
 de .NET 10 SDK en PostgreSQL, met rol en database `boekerhouden` (wachtwoord `boekerhouden-dev`).
 `Boekerhouden.Server.Tests` maakt per testklasse een eigen database aan en ruimt die op; een andere
 server kies je met `BOEKERHOUDEN_TEST_DB` (bijv. `Host=...;Username=...;Password=...`). De server past
-migraties bij het starten zelf toe.
+migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien alleen als
+`BOEKERHOUDEN_RGS_WERKBOEK` naar het bestand wijst (het werkboek staat niet in git).
 
 ## Structuur
 
-- `src/Boekerhouden.Domain` – domein (saldibalans, bedragen); geen I/O.
-- `src/Boekerhouden.Import` – importsjabloon (.xlsx/.csv) inlezen en controleren (I1–I6, I11), sjabloon genereren.
+- `src/Boekerhouden.Domain` – domein (saldibalans, bedragen; `Rgs/`: RGS-codes, boom en selectie per rechtsvorm;
+  `Rubricering/`: proefbalans per post met omslag, voorstellen); geen I/O.
+- `src/Boekerhouden.Import` – importsjabloon (.xlsx/.csv) inlezen en controleren (I1–I6, I11), sjabloon genereren,
+  het officiële RGS-werkboek lezen (`RgsWerkboekLezer`).
 - `src/Boekerhouden.Cli` – opdrachtregel om sjablonen te maken en bestanden te controleren.
 - `src/Boekerhouden.Data` – EF Core + PostgreSQL: entiteiten, Identity (gebruikers, rollen), migraties (`Migraties/`).
 - `src/Boekerhouden.Server` – Blazor Server-app: `Diensten/` (klanten, dossiers, import met I7/I9/I10, gebruikers,
   wijzigingslog), `Identiteit/` (inloggen, wachtwoordbeleid), `Components/` (schermen; accountpagina's statisch,
   de rest interactief).
-- `tests/` – xUnit-tests; `tests/Fictief/` – verzonnen testklanten (met `genereer.py`).
+- `tests/` – xUnit-tests; `tests/Fictief/` – verzonnen testklanten (met `genereer.py`); `tests/Gedeeld/` – gedeelde
+  testhulp, o.a. een klein uittreksel uit RGS 3.8 (`RgsTestWerkboek`).
 - Pakketversies centraal in `Directory.Packages.props`; build-instellingen in `Directory.Build.props`.
 
 ## Regels
 
+- **RGS is het rubriekenschema** (docs §12): koppel aan RGS-codes, wijzig of verzin geen codes; eigen indeling via
+  eigen posten en namen. Het officiële werkboek en de taxonomie komen niet in de repository.
 - **Nooit klantgegevens in de repository**: geen echte saldibalansen, rapporten, namen, adressen of
   bedragen van klanten. Echte referentiebestanden blijven buiten git (`/testdata/` staat in `.gitignore`).
   Testdata is verzonnen (`tests/Fictief/`).
