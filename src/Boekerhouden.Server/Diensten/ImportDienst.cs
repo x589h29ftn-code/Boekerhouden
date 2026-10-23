@@ -33,7 +33,10 @@ public sealed record ImportOverzichtRegel(
 
 public sealed record ProefbalansRegel(string Nummer, string Omschrijving, decimal? Bedrag, decimal? BedragVorigJaar);
 
-/// <summary>De saldibalans van een boekjaar uit de actieve import, met het vorige jaar ernaast (als dat is ingelezen).</summary>
+/// <summary>
+/// De saldibalans van een boekjaar uit de actieve import, met het vorige jaar ernaast (als dat is ingelezen), in hele
+/// euro's.
+/// </summary>
 public sealed record Proefbalans(int Boekjaar, ImportOverzichtRegel? Import, ImportOverzichtRegel? ImportVorigJaar, IReadOnlyList<ProefbalansRegel> Regels)
 {
     public decimal Totaal => Regels.Sum(r => r.Bedrag ?? 0m);
@@ -191,8 +194,9 @@ public sealed class ImportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFact
         var huidig = await ActieveBatch(db, klantId, boekjaar);
         var vorig = await ActieveBatch(db, klantId, boekjaar - 1);
 
-        var bedragen = await SaldiPerNummer(db, huidig?.Id);
-        var vorigeBedragen = await SaldiPerNummer(db, vorig?.Id);
+        // In hele euro's, met verdeling van afrondingsverschillen (de exacte bedragen blijven bewaard).
+        var bedragen = Afronding.OpHeleEuros(await SaldiPerNummer(db, huidig?.Id));
+        var vorigeBedragen = Afronding.OpHeleEuros(await SaldiPerNummer(db, vorig?.Id));
         var omschrijvingen = await db.Grootboekrekeningen.AsNoTracking().Where(g => g.KlantId == klantId)
             .ToDictionaryAsync(g => g.Nummer, g => g.Omschrijving, StringComparer.Ordinal);
 

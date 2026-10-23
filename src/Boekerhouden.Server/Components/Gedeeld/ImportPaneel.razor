@@ -52,9 +52,9 @@
                 {
                     <ul class="list-inline small mb-2">
                         <li class="list-inline-item">@balans.Regels.Count rekeningen</li>
-                        <li class="list-inline-item">· debet € @Bedragen.Getal(balans.TotaalDebet)</li>
-                        <li class="list-inline-item">· credit € @Bedragen.Getal(balans.TotaalCredit)</li>
-                        <li class="list-inline-item">· saldo € @Bedragen.Getal(balans.Saldo)</li>
+                        <li class="list-inline-item">· debet @Bedragen.EuroHeel(balans.TotaalDebet)</li>
+                        <li class="list-inline-item">· credit @Bedragen.EuroHeel(balans.TotaalCredit)</li>
+                        <li class="list-inline-item">· saldo @(balans.Saldo == 0 ? "nihil" : Bedragen.DebetCredit(balans.Saldo))</li>
                     </ul>
                 }
                 <ul class="list-group mb-3 importmeldingen">

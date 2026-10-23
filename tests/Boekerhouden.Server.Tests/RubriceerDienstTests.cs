@@ -215,6 +215,26 @@ public sealed class RubriceerDienstTests(ServerFixture server) : IClassFixture<S
         Assert.Equal(0m, o.Balans.Totaal("BLimBan").Huidig);
     }
 
+    [Fact]
+    public async Task Saldi_in_hele_euros_en_de_balans_blijft_sluiten()
+    {
+        await server.MetRgs();
+        var klant = (await server.Dienst<KlantDienst>().Maak(new KlantInvoer(TestGegevens.Klantnummer(), "Centen BV", Rechtsvorm.BV, null, null), Tester)).Waarde;
+        var dossier = (await server.Dienst<DossierDienst>().Maak(klant, 2025, SoortOpdracht.SamenstellenJaarrekening, Tester)).Waarde;
+        await server.Dienst<ImportDienst>().Importeer(klant, 2025, Csv(2025, "1000;Kas;100,40", "1100;Bank;200,40", "0800;Eigen vermogen;-300,80"), "centen.csv", Tester);
+
+        var o = (await Rubriceer.Overzicht(dossier))!;
+        var proefbalans = await server.Dienst<ImportDienst>().Proefbalans(klant, 2025);
+
+        // 100 + 200 - 301 zou niet sluiten; de euro gaat naar het grootste bedrag met de grootste afrondingsrest.
+        Assert.Equal(100m, o.Rekeningen.Single(r => r.Nummer == "1000").Saldo);
+        Assert.Equal(201m, o.Rekeningen.Single(r => r.Nummer == "1100").Saldo);
+        Assert.Equal(-301m, o.Rekeningen.Single(r => r.Nummer == "0800").Saldo);
+        Assert.Equal(0m, o.Balans!.Ongekoppeld.Huidig);
+        Assert.Equal([100m, 201m, -301m], proefbalans.Regels.OrderBy(r => r.Nummer == "0800").ThenBy(r => r.Nummer, StringComparer.Ordinal).Select(r => r.Bedrag!.Value));
+        Assert.Equal(0m, proefbalans.Totaal);
+    }
+
     private static byte[] Csv(int jaar, params string[] regels) =>
         Encoding.UTF8.GetBytes($"Boekjaar;{jaar}\n\nGrootboeknummer;Omschrijving;Bedrag\n{string.Join('\n', regels)}\n");
 }
@@ -287,9 +307,29 @@ public sealed class ZijdeUitBurenTests
         Assert.Equal(zijde, RubriceerDienst.Zijde(nummer, Bekend));
 
     [Theory]
+    [InlineData("2000", 'B')]
+    [InlineData("0100", 'B')]
+    [InlineData("3100", 'B')]
+    [InlineData("9000", 'W')]
+    public void Zonder_eenduidige_buren_het_decimale_stelsel(string nummer, char zijde) =>
+        Assert.Equal(zijde, RubriceerDienst.Zijde(nummer, Bekend));
+
+    [Fact]
+    public void Zonder_gekoppelde_rekeningen_het_decimale_stelsel()
+    {
+        Assert.Equal('B', RubriceerDienst.Zijde("1100", []));
+        Assert.Equal('W', RubriceerDienst.Zijde("4100", []));
+        Assert.Null(RubriceerDienst.Zijde("Kas", []));
+    }
+
+    [Theory]
     [InlineData("2000")]
     [InlineData("0100")]
     [InlineData("9000")]
-    public void Zonder_eenduidige_buren_geen_zijde(string nummer) =>
-        Assert.Null(RubriceerDienst.Zijde(nummer, Bekend));
+    public void Geen_stelsel_als_de_klant_een_eigen_indeling_heeft(string nummer)
+    {
+        // Omzet op 1xxx en kosten op 2xxx: het decimale stelsel geldt hier niet, dus alleen de buren tellen.
+        (string, char)[] eigenIndeling = [("0200", 'B'), ("0900", 'B'), ("1000", 'W'), ("1500", 'W'), ("2000", 'W'), ("8000", 'B')];
+        Assert.Null(RubriceerDienst.Zijde(nummer, eigenIndeling));
+    }
 }

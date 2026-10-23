@@ -116,7 +116,7 @@ historie (5 jaar), fiscale berekening          ┘   tabellen, teksten  └─�
 ```
 
 - **Eén rapportmodel** is de bron voor preview, PDF en Word.
-- **Afronding** op hele euro's in het rapportmodel, met verdeling van afrondingsverschillen zodat de optellingen kloppen. Ook verdelingen zoals de resultaatbestemming volgen een vaste afrondingsregel (zie [§9.5](09-analyse-voorbeeldrapporten.md#95-wat-de-voorbeelden-leren-over-kwaliteit-en-waar-wij-het-beter-doen)).
+- **Afronding** op hele euro's in het rapportmodel, met verdeling van afrondingsverschillen zodat de optellingen kloppen. *Gebouwd (plakje 3):* `Afronding.OpHeleEuros` rondt per boekjaar alle saldi af en verdeelt het verschil over de bedragen met de grootste afrondingsrest (bij gelijke rest het grootste bedrag). Een saldibalans met saldo nihil blijft nihil. De schermen tonen hele euro's; de exacte bedragen blijven in de database en het wijzigingslog. Ook verdelingen zoals de resultaatbestemming volgen een vaste afrondingsregel (zie [§9.5](09-analyse-voorbeeldrapporten.md#95-wat-de-voorbeelden-leren-over-kwaliteit-en-waar-wij-het-beter-doen)).
 - **Voettekst per opdrachttype**: "Samenstellingsverklaring afgegeven", "Geen accountantscontrole toegepast" plus datum, of "CONCEPT".
 - **Definitieve versie**: bij uitbrengen slaan we de PDF met hash en tijdstempel op in het dossier.
 - **Word-export** is bedoeld voor nabewerking. Een in Word aangepaste versie is daarna *niet meer gelijk* aan het dossier. Daarom: wie Word als definitief gebruikt, uploadt de definitieve PDF terug in het dossier. Dit beleid staat in de [vragenlijst](11-vragenlijst.md).

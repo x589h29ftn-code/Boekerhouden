@@ -243,7 +243,13 @@ De `Recap` van het werkboek beschrijft de werkwijze: kies een basisset en filter
    - controles: B/W-conflict, verkeerde kant, ongekoppeld, I8.
 
 **Hoe het rubriceerscherm werkt** (wensen van de opdrachtgever, 23-10-2026):
-- **Links** staan de grootboekrekeningen, met saldo en de gekoppelde post of een voorstel. **Rechts** staat de boom: hoofdposten (RGS niveau 2), subposten (niveau 3) en grootboekcodes (niveau 4), met de totalen van het boekjaar en het vorige jaar.
+- **Links** staan de grootboekrekeningen: nummer, omschrijving, *→ post* en het saldo. Een voorstel staat cursief met een vraagteken; klik erop om het over te nemen. **Rechts** staat de boom: hoofdposten (RGS niveau 2) en subposten (niveau 3), met de totalen van het boekjaar en het vorige jaar.
+- **Rustig scherm:**
+  - één regel per rekening en per post; lange namen worden afgekapt;
+  - de RGS-code, het volledige pad, de bron en het saldo vorig jaar staan in de tooltip;
+  - kleur alleen voor de plek waar je iets neerzet. Knoppen (✎, ＋, ✕, *hierheen*) verschijnen pas als je over een regel gaat;
+  - de grootboekcodes (niveau 4) zijn standaard verborgen. Met de schakelaar *grootboekcodes* komen ze erbij. Verborgen staan de rekeningen en eigen posten van een grootboekcode gewoon onder de subpost.
+- **Bedragen in hele euro's**, met verdeling van afrondingsverschillen ([§7.6](07-technische-architectuur.md#76-rapportgeneratie-één-model-meerdere-uitvoerformaten)), zodat de boom en de balans blijven sluiten.
 - **Slepen:**
   - sleep een rekening (of een selectie) naar een post;
   - sleep je over een hoofdpost (bijv. *Materiële vaste activa*), dan klapt die open en verschijnen de subposten (bijv. *Bedrijfsgebouwen*, *Automobielen en overige transportmiddelen*);
@@ -261,12 +267,19 @@ De `Recap` van het werkboek beschrijft de werkwijze: kies een basisset en filter
   - volgorde: kantoorsjabloon (zelfde nummer, andere omschrijving), dan andere klanten (zelfde nummer en omschrijving), dan de omschrijving;
   - de omschrijving wordt vergeleken met de RGS-omschrijvingen, met een kleine lijst vaktermen;
   - zijn de rekeningnummers erboven en eronder al aan de balans gekoppeld (of aan de W&V), dan wordt alleen aan die kant gezocht. Daardoor worden de voorstellen beter naarmate er meer gekoppeld is;
-  - een voorstel wordt nooit automatisch toegepast. *Voorstellen overnemen* doet het in één keer, met het label *voorstel* bij de rekening;
+  - geven de buren geen uitsluitsel, dan geldt het **decimale rekeningstelsel**: rubriek 0–3 is balans, 4–9 is W&V (zie hieronder). Dat gebeurt alleen als de al gekoppelde rekeningen van de klant dat stelsel volgen (op hooguit één op de tien na). Zo krijgt *9500 Vennootschapsbelasting* geen voorstel meer op de balans;
+  - een voorstel wordt nooit automatisch toegepast. *Voorstellen overnemen* doet het in één keer; de bron *voorstel, bevestigd* staat in de tooltip;
   - posten van de functionele W&V-indeling (`WVkf`, `WAkf`) worden niet voorgesteld.
 - **Automatisch:**
   - bij het inlezen van een saldibalans koppelt de app wat zeker is: het kantoorsjabloon bij hetzelfde nummer en een vergelijkbare omschrijving, of de RGS-code uit het bestand;
   - handmatige en bevestigde koppelingen blijven altijd staan;
-  - in de rondgang met de fictieve bakkerij was een tweede klant met hetzelfde rekeningschema meteen voor 88% gekoppeld.
+  - in de rondgang met de fictieve bakkerij was een tweede klant met hetzelfde rekeningschema meteen voor 85% gekoppeld.
+
+**Uit de RGS-handleiding** (aangeleverd door de opdrachtgever, oktober 2026):
+- **Decimaal stelsel.** Veel rekeningschema's zijn ingedeeld in tien rubrieken: 0 vaste activa, eigen vermogen en langlopende schulden; 1 financiële rekeningen; 2 tussenrekeningen; 3 voorraden; 4 kostensoorten; 5 kostenplaatsen; 6 fabricage; 7 kostprijs; 8 omzet; 9 resultaten. Dus 0–3 balans en 4–9 W&V. Dat gebruiken we als terugval bij de voorstellen (zie boven).
+- **"Overige …"-posten** mogen direct worden gekoppeld (de rekening op *Overige vorderingen*) of indirect, via een eigen post eronder. Beide zijn mogelijk; de eigen post geldt voor aangifte en SBR als de RGS-post erboven.
+- **Correctieposten** (bijv. cumulatieve afschrijvingen, voorziening dubieuze debiteuren) hebben een eigen RGS-code naast de post waarop ze corrigeren. Ze staan in de boom onder dezelfde subpost. In RGS hebben ze zelf de kant credit (bij een activapost), dus een creditsaldo geeft geen signaal *verkeerde kant*.
+- Voor kleine entiteiten volstaan ongeveer **800 regels** op niveau 1–4; met de rechtsvormfilters blijven er voor een BV ruim 1.000 codes op niveau 4 over, waarvan in de praktijk een klein deel wordt gebruikt. Daarom zijn de grootboekcodes standaard verborgen.
 
 **Nog niet gebouwd** (volgt wanneer nodig):
 - controle I8 (W&V leeg);

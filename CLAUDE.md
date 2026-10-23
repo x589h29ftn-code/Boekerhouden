@@ -46,6 +46,8 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   Testdata is verzonnen (`tests/Fictief/`).
 - **Geen verwijzingen naar bestaande samenstelpakketten of leveranciers** in code, documentatie of commitberichten.
 - **Bedragen**: altijd `decimal` (nooit `double`/`float`). Tekenconventie: debet positief, credit negatief.
+  Opslaan en loggen exact; tonen in hele euro's (`Bedragen.Heel`), en sommen afronden met `Afronding.OpHeleEuros`
+  zodat totalen blijven sluiten.
 - **Taal**: domeinnamen, meldingen en documentatie in het Nederlands (bijv. `Saldibalans`, `Grootboeknummer`).
 - **Wijzigingslog**: elke handeling die gegevens wijzigt, logt via `AuditDienst` (wie, wat, onderwerp).
 - **Elke wijziging met tests**; bestaande tests blijven groen. Werk in kleine plakjes (zie `docs/onderzoek` §8.4).

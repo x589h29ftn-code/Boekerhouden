@@ -53,25 +53,25 @@ else
                         @foreach (var post in rubricering.Schema.Hoofdposten.Where(p => balans.Totaal(p.Code).Aantal > 0))
                         {
                             <tr>
-                                <td>@rubricering.Naam(post.Code) <span class="text-secondary small font-monospace">@post.Code</span></td>
-                                <td class="text-end bedrag">@Bedragen.Getal(balans.Totaal(post.Code).Huidig)</td>
-                                <td class="text-end bedrag text-secondary">@Bedragen.Getal(balans.Totaal(post.Code).Vorig)</td>
+                                <td title="RGS @post.Code">@rubricering.Naam(post.Code)</td>
+                                <td class="text-end bedrag">@Bedragen.Heel(balans.Totaal(post.Code).Huidig)</td>
+                                <td class="text-end bedrag text-secondary">@Bedragen.Heel(balans.Totaal(post.Code).Vorig)</td>
                             </tr>
                         }
                         @if (balans.Ongekoppeld.Aantal > 0)
                         {
-                            <tr class="table-warning">
+                            <tr class="fst-italic">
                                 <td>Nog niet gekoppeld (@balans.Ongekoppeld.Aantal rekeningen)</td>
-                                <td class="text-end bedrag">@Bedragen.Getal(balans.Ongekoppeld.Huidig)</td>
-                                <td class="text-end bedrag">@Bedragen.Getal(balans.Ongekoppeld.Vorig)</td>
+                                <td class="text-end bedrag">@Bedragen.Heel(balans.Ongekoppeld.Huidig)</td>
+                                <td class="text-end bedrag text-secondary">@Bedragen.Heel(balans.Ongekoppeld.Vorig)</td>
                             </tr>
                         }
                     </tbody>
                     <tfoot>
                         <tr class="fw-semibold">
                             <td>Resultaat</td>
-                            <td class="text-end bedrag">@Bedragen.Getal(balans.ResultaatHuidig)</td>
-                            <td class="text-end bedrag text-secondary">@Bedragen.Getal(balans.ResultaatVorig)</td>
+                            <td class="text-end bedrag">@Bedragen.Heel(balans.ResultaatHuidig)</td>
+                            <td class="text-end bedrag text-secondary">@Bedragen.Heel(balans.ResultaatVorig)</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -127,8 +127,8 @@ else
                     <tfoot>
                         <tr class="fw-semibold">
                             <td colspan="2">Saldo (moet nihil zijn)</td>
-                            <td class="text-end bedrag">@Bedragen.Getal(proefbalans.Totaal)</td>
-                            <td class="text-end bedrag text-secondary">@(proefbalans.ImportVorigJaar is null ? "–" : Bedragen.Getal(proefbalans.TotaalVorigJaar))</td>
+                            <td class="text-end bedrag">@Bedragen.Heel(proefbalans.Totaal)</td>
+                            <td class="text-end bedrag text-secondary">@(proefbalans.ImportVorigJaar is null ? "–" : Bedragen.Heel(proefbalans.TotaalVorigJaar))</td>
                         </tr>
                     </tfoot>
                 </table>

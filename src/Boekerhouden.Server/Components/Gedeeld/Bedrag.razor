@@ -1,9 +1,10 @@
 @if (Waarde is { } bedrag)
 {
-    <span class="@(bedrag < 0 ? "text-danger" : null)">@Bedragen.Getal(bedrag)</span>
+    @Bedragen.Heel(bedrag)
 }
 
 @code {
+    /// <summary>Bedrag in hele euro's; negatief met een minteken, zonder kleur.</summary>
     [Parameter]
     public decimal? Waarde { get; set; }
 }

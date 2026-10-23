@@ -1,4 +1,5 @@
 using Boekerhouden.Data;
+using Boekerhouden.Domain;
 using Boekerhouden.Domain.Rgs;
 using Boekerhouden.Domain.Rubricering;
 using Microsoft.EntityFrameworkCore;
@@ -568,12 +569,34 @@ public sealed class RubriceerDienst(IDbContextFactory<BoekerhoudenDbContext> dbF
     /// <summary>
     /// Balans of W&amp;V afleiden uit de buren: liggen de dichtstbijzijnde gekoppelde rekeningnummers erboven en eronder
     /// aan dezelfde kant, dan hoort deze rekening daar waarschijnlijk ook (rekeningschema's zijn op nummer ingedeeld).
+    /// Geven de buren geen uitsluitsel, dan het decimale rekeningstelsel (<see cref="ZijdeVolgensStelsel"/>), maar alleen
+    /// als de al gekoppelde rekeningen van de klant dat stelsel volgen.
     /// </summary>
     internal static char? Zijde(string nummer, IReadOnlyList<(string Nummer, char Zijde)> bekend)
     {
         var onder = bekend.Where(b => VergelijkNummer(b.Nummer, nummer) < 0).OrderByDescending(b => b.Nummer, NummerVergelijker).FirstOrDefault();
         var boven = bekend.Where(b => VergelijkNummer(b.Nummer, nummer) > 0).OrderBy(b => b.Nummer, NummerVergelijker).FirstOrDefault();
-        return onder.Nummer is not null && boven.Nummer is not null && onder.Zijde == boven.Zijde ? onder.Zijde : null;
+        if (onder.Nummer is not null && boven.Nummer is not null && onder.Zijde == boven.Zijde)
+        {
+            return onder.Zijde;
+        }
+
+        return ZijdeVolgensStelsel(nummer) is { } zijde && VolgtStelsel(bekend) ? zijde : null;
+    }
+
+    /// <summary>
+    /// Het decimale rekeningstelsel: het eerste cijfer is de rubriek. Rubriek 0–3 (vaste activa en vermogen, financiële
+    /// rekeningen, tussenrekeningen, voorraden) is balans, 4–9 (kosten, kostenplaatsen, fabricage, kostprijs, omzet,
+    /// resultaten) is W&amp;V.
+    /// </summary>
+    internal static char? ZijdeVolgensStelsel(string nummer) =>
+        nummer.Length > 0 && char.IsAsciiDigit(nummer[0]) ? (nummer[0] <= '3' ? 'B' : 'W') : null;
+
+    /// <summary>Volgen de gekoppelde rekeningen het decimale stelsel (op hooguit een op de tien na)?</summary>
+    private static bool VolgtStelsel(IReadOnlyList<(string Nummer, char Zijde)> bekend)
+    {
+        var getoetst = bekend.Where(b => ZijdeVolgensStelsel(b.Nummer) is not null).ToList();
+        return getoetst.Count(b => ZijdeVolgensStelsel(b.Nummer) == b.Zijde) * 10 >= getoetst.Count * 9;
     }
 
     private static readonly Comparer<string> NummerVergelijker = Comparer<string>.Create(VergelijkNummer);
@@ -592,11 +615,12 @@ public sealed class RubriceerDienst(IDbContextFactory<BoekerhoudenDbContext> dbF
                             where b.KlantId == klantId && b.Actief && (b.Boekjaar == boekjaar || b.Boekjaar == boekjaar - 1)
                             select new { s.GrootboekrekeningId, b.Boekjaar, s.Bedrag })
             .ToListAsync();
-        return regels
-            .GroupBy(r => r.GrootboekrekeningId)
-            .ToDictionary(
-                g => g.Key,
-                g => (g.FirstOrDefault(r => r.Boekjaar == boekjaar)?.Bedrag, g.FirstOrDefault(r => r.Boekjaar == boekjaar - 1)?.Bedrag));
+        // Het kantoor werkt in hele euro's; afrondingsverschillen worden verdeeld, zodat elk jaar blijft sluiten.
+        var huidig = Afronding.OpHeleEuros(regels.Where(r => r.Boekjaar == boekjaar).Select(r => KeyValuePair.Create(r.GrootboekrekeningId, r.Bedrag)));
+        var vorig = Afronding.OpHeleEuros(regels.Where(r => r.Boekjaar == boekjaar - 1).Select(r => KeyValuePair.Create(r.GrootboekrekeningId, r.Bedrag)));
+        return huidig.Keys.Union(vorig.Keys).ToDictionary(
+            id => id,
+            id => (huidig.TryGetValue(id, out var h) ? h : (decimal?)null, vorig.TryGetValue(id, out var v) ? v : (decimal?)null));
     }
 
     private static string Opsomming(IEnumerable<string> items)
