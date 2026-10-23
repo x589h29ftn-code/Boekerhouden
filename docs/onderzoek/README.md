@@ -13,6 +13,7 @@ API-koppelingen vallen (voorlopig) buiten de scope.
 | Onderwerp | Besluit |
 |---|---|
 | Gebruikers | **Meerdere gebruikers**, elk met een eigen wachtwoord |
+| Rubrieken | **RGS is het rubriekenschema** (Referentie GrootboekSchema, nu 3.8, in december 3.9). Koppelen op RGS niveau 4; hoofdpost = niveau 2, subpost = niveau 3 |
 | Import | **Standaard importsjabloon**: boekjaar plus grootboeknummer, omschrijving en bedrag. Alleen importeren als het saldo nihil is. XAF-auditfile als tweede route |
 | Werkprogramma | **Eigen werkprogramma** in een sjabloon. Stappen per dossier toe te voegen en te verwijderen |
 | Materiële posten | **De gebruiker kiest**, per **hoofdpost**, met doorklikken naar de subposts. Alleen materiële posten krijgen werk. Niet-materiële posten zijn alleen zichtbaar in het rapport, met aanpasbare presentatie en opmaak |
@@ -42,6 +43,7 @@ API-koppelingen vallen (voorlopig) buiten de scope.
 | 9 | [Analyse voorbeeldrapporten](09-analyse-voorbeeldrapporten.md) | Opbouw van de rapporten, 22 rapportbouwstenen, opmaakregels, benodigde gegevens |
 | 10 | [Werkprogramma en materiële posten](10-werkprogramma-en-materialiteit.md) | Keuze materiële posten, stappen, presentatie per post in het rapport |
 | 11 | [**Vragenlijst**](11-vragenlijst.md) | Beantwoorde en openstaande vragen, met prioriteit en een voorstel per vraag |
+| 12 | [RGS als rubriekenschema](12-rgs-als-rubriekenschema.md) | RGS anno 2026: versies (3.8, 3.9), niveaus, werkboek en filters per rechtsvorm, omslag, koppeling met jaarrekening en aangifte, gevolgen voor plakje 3 |
 
 ## Samenvatting
 
@@ -56,9 +58,10 @@ API-koppelingen vallen (voorlopig) buiten de scope.
    - harde controles: verplichte velden, unieke nummers, geldige bedragen en **som = € 0,00**;
    - hetzelfde sjabloon werkt voor vergelijkende cijfers en historische jaren (5-jaarskengetallen).
 3. **Rubriceren:**
+   - **RGS is het rubriekenschema** ([hoofdstuk 12](12-rgs-als-rubriekenschema.md)): elke rekening van de klant wordt gekoppeld aan één RGS-code; hoofdposten en subposten zijn de RGS-niveaus 2 en 3;
    - de koppeling is een klant-eigenschap die doorrolt over de jaren, met als doel 100% gekoppeld;
-   - RGS-codes (uit XAF of een optionele kolom in het sjabloon) maken automatisch koppelen grotendeels mogelijk;
-   - RGS 3.8 is actueel, en XAF 4.0 wordt per 1-1-2027 de norm.
+   - koppelen gaat via een kantoor-koppelsjabloon, de RGS-code uit het bestand (XAF of het importsjabloon) of handmatig;
+   - RGS 3.8 is actueel, 3.9 wordt op 11-12-2026 definitief, en XAF 4.0 wordt per 1-1-2027 de norm.
 4. **Werkprogramma:**
    - een eigen kantoorsjabloon met hoofdposten en stappen;
    - een materieel aangevinkte hoofdpost krijgt zijn stappen (als kopie) in de uitvoering, met doorklikken naar subposts en grootboekrekeningen;
@@ -73,12 +76,12 @@ API-koppelingen vallen (voorlopig) buiten de scope.
    - een zelfbeherende installatie, en een ingebouwde, versleutelde back-up met herstelknop, want er is geen ICT-partner;
    - inloggen met eigen wachtwoord (ASP.NET Core Identity), en de database is niet bereikbaar vanaf de werkplekken;
    - PDF en Word uit één rapportmodel.
-8. **De inhoud is de helft van het werk:** rubriekenschema's, de RGS→rubriek-tabel, het werkprogramma, standaardteksten en rapportsjablonen. Daarvoor is een vaktechnisch verantwoordelijke nodig.
+8. **De inhoud is de helft van het werk:** het werkprogramma, standaardteksten en rapportsjablonen. Het rubriekenschema is RGS en hoeft niet zelf te worden gemaakt. Daarvoor is een vaktechnisch verantwoordelijke nodig.
 9. **Aanpak en inspanning:**
    - bouwen in **10 plakjes** ([§8.4](08-roadmap-risico-s-en-beslispunten.md#84-roadmap-bouwen-in-plakjes)), elk werkend en getest, zonder deadline;
    - traditioneel zou de MVP grofweg 1.100–1.500 ontwikkeluren plus 250–400 uur inhoud kosten. Met AI-ondersteuning verschuift de eigen tijd naar beschrijven, controleren en inhoud;
    - de planning wordt na plakje 1 en 2 bijgesteld op basis van de werkelijke uren.
-10. **Stand en volgende stap:** plakje 1 (importsjabloon) en plakje 2 (werkende app: inloggen, klanten, dossiers, saldibalans inlezen, wijzigingslog) zijn gereed. Volgende: **plakje 3, rubriceren**, waarvoor eerst het rubriekenschema (inhoud) nodig is.
+10. **Stand en volgende stap:** plakje 1 (importsjabloon) en plakje 2 (werkende app: inloggen, klanten, dossiers, saldibalans inlezen, wijzigingslog) zijn gereed. Volgende: **plakje 3, rubriceren op RGS**. Daarvoor is het officiële RGS-werkboek nodig; een eigen rubriekenschema hoeft niet meer.
 
 ## Over de bronnen
 

@@ -10,7 +10,7 @@
 >
 > De vraagnummers blijven gelijk, zodat eerdere antwoorden te herleiden zijn.
 >
-> **Er staan geen P1-vragen meer open.** De overige vragen komen aan de orde in het plakje waar ze nodig zijn ([§8.4](08-roadmap-risico-s-en-beslispunten.md#84-roadmap-bouwen-in-plakjes)).
+> **Voor plakje 3 (rubriceren op RGS) zijn B3 en B7 nodig.** De overige vragen komen aan de orde in het plakje waar ze nodig zijn ([§8.4](08-roadmap-risico-s-en-beslispunten.md#84-roadmap-bouwen-in-plakjes)).
 
 ## Beantwoord (23-10-2026)
 
@@ -36,6 +36,7 @@
 | F3 | Repository privé? | **Hoeft niet**, maar er mag niet naar bestaande pakketten worden verwezen. Daarom staan er ook nooit klantgegevens of testbestanden in |
 | – | Import | **Standaard importsjabloon**: boekjaar plus grootboeknummer, omschrijving en bedrag; alleen importeren bij saldo nihil |
 | – | Naamgeving | **Algemeen** houden (werknaam *Boekerhouden*) |
+| – | Rubrieken | **RGS is het rubriekenschema** (B23, [hoofdstuk 12](12-rgs-als-rubriekenschema.md)) |
 
 ## A. Organisatie en gebruik
 
@@ -50,9 +51,12 @@
 | # | P | Vraag | Waarom | Voorstel |
 |---|---|---|---|---|
 | B1 | P2 | **Welke boekhoudpakketten** gebruiken je klanten (top 5)? Voert het kantoor zelf administraties? | Testbestanden, koppelsjablonen. De import loopt eerst via het sjabloon, XAF volgt | Per pakket 2–3 voorbeeldbestanden |
-| B3 | P2 | Heeft het kantoor een **eigen standaard-rekeningschema**? Hebben de rekeningen RGS-codes? | Wordt het eerste koppelsjabloon | Als het bestaat, is dat koppelsjabloon nr. 1 |
+| B3 | **P1 voor plakje 3** | Gebruikt het kantoor bij (bijna) alle klanten **hetzelfde rekeningschema**, en in welk pakket? De referentie-kolommenbalans heeft geen RGS-codes en volgt een klassiek decimaal schema | Wordt het eerste koppelsjabloon; bepaalt hoeveel er automatisch gekoppeld wordt | Als het bestaat, is dat koppelsjabloon nr. 1 |
 | B5 | P2 | Hoe worden bij de **eenmanszaak** privéonttrekkingen en -stortingen geboekt (aparte privérekeningen)? | Verloop ondernemingsvermogen | Privérekeningen herkennen via de rubrieken *Privéonttrekkingen/-stortingen* |
-| B6 | P2 | **Importsjabloon**: een optionele kolom **RGS-code** houden, of alleen de drie vaste kolommen? | Gebruiksgemak tegenover automatisch rubriceren | Optionele vierde kolom; leeg mag |
+| B6 | P2 | **Importsjabloon**: een optionele kolom **RGS-code** houden, of alleen de drie vaste kolommen? | Gebruiksgemak tegenover automatisch rubriceren | Optionele vierde kolom; leeg mag (zo gebouwd in plakje 1) |
+| B7 | **P1 voor plakje 3** | Kun je het officiële **RGS-werkboek 3.8** (`RGS 3.8-def.xlsx`, Kennisbank op referentiegrootboekschema.nl) downloaden en aanleveren? Optioneel ook de koppeltabel "RGS 3.8 mapping naar SBR NT20 concepten" | Vanuit de ontwikkelomgeving is de RGS-site niet bereikbaar; het inlezen testen we liefst tegen het echte bestand. Het komt niet in git | Ja; in december ook 3.9 |
+| B8 | P2 | **Koppelniveau**: altijd op RGS niveau 4, of mag niveau 3 (bijv. één rekening "algemene kosten" op `WBedAlk`)? | Niveau 4 is het RGS-advies en nodig voor de aangifte; niveau 3 is soms praktischer | Niveau 4; niveau 3 toegestaan met signaal "grof gekoppeld" |
+| B9 | P2 | **Filters**: BV = `Basis`, eenmanszaak = `EZ/VOF`, met de `Uitgebreid`-set per klant aan te zetten. Akkoord? | Bepaalt welke codes in de keuzelijst staan | Zoals voorgesteld ([§12.5](12-rgs-als-rubriekenschema.md#125-welke-codes-per-rechtsvorm)) |
 
 ## C. Werkprogramma en materiële posten
 

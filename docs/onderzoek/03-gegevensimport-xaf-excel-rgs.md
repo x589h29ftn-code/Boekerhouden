@@ -255,6 +255,10 @@ Tot die tijd zet de gebruiker zo'n export in het standaardsjabloon om (kopiëren
 
 ## 3.4 Referentie GrootboekSchema (RGS)
 
+> **Bijgewerkt 23-10-2026:** RGS is het rubriekenschema van Boekerhouden (B23). De stand van zaken
+> anno 2026 (3.9 bèta, filters per rechtsvorm, werkboek, RGS Taxonomie) en de gevolgen voor het
+> ontwerp staan in [hoofdstuk 12](12-rgs-als-rubriekenschema.md). Waar die afwijken, gaat hoofdstuk 12 voor.
+
 ### Wat, wie, welke versie
 - **RGS** is een gestandaardiseerd grootboekschema met een unieke referentiecode per rekening. Het is ontwikkeld met Belastingdienst, CBS, KvK, banken, softwareleveranciers en accountants [41][50].
   - Beheer: de **Taakgroep RGS** binnen SBR [7].
@@ -262,7 +266,7 @@ Tot die tijd zet de gebruiker zo'n export in het standaardsjabloon om (kopiëren
 - **Versies:**
   - 3.7: definitief 3-3-2025 [4];
   - **3.8: definitief 10-12-2025**, met RGS Taxonomie 3.8 op 2-2-2026 [1][2]. **Dit is de nieuwste definitieve versie (oktober 2026)**;
-  - 3.9 is in alfa/bèta en wordt naar verwachting december 2026 definitief [3][7] (O).
+  - 3.9: alfa 28-7-2026, bèta gepubliceerd (gepland 9-10-2026), **definitief gepland op 11-12-2026** [3][7] ([§12.2](12-rgs-als-rubriekenschema.md#122-versies-en-planning)).
 - **Download:** een Excel-werkboek met o.a. de tabbladen `Totaal-RGS3.8-def`, `MKB-RGS3.8-def` en `Recap` (releasenotes) [7][8]; daarnaast een XBRL-taxonomie [7].
 - **Licentie: niet gevonden.** Het bestand is vrij downloadbaar, maar we vonden geen expliciete gebruiksvoorwaarden voor opname in software. **Navragen bij de Taakgroep RGS** (open vraag).
 
@@ -291,7 +295,8 @@ Tot die tijd zet de gebruiker zo'n export in het standaardsjabloon om (kopiëren
 | `Omschrijving` (kort en lang) | |
 | `D/C` | Normale saldokant |
 | `Nivo` | Niveau |
-| `Basis`, `Uitgebr`, `EZ/VOF`, `ZZP`, `WoCo`, `BV`, `Agro`, `Stichting`, … | Filterkolommen per toepassing (in 3.9 komt `Zorg` erbij) |
+| `Basis`, `Uitgebr`, `EZ/VOF`, `ZZP`, `WoCo` | **Kiesfilters**: hiermee begin je (in 3.9 komt `Zorg` erbij) |
+| `BB`, `Agro`, `WKR`, `EZ/VOF`, `BV`, `WoCo`, `Bank`, … | **Wegfilters**: codes specifiek voor dat gebruik. `EZ/VOF` en `WoCo` staan in beide groepen; de positie bepaalt de betekenis ([§12.4](12-rgs-als-rubriekenschema.md#124-het-werkboek)) |
 | `Inactief` | Vervallen code |
 
 **Omslagcode** [5][7][9]: een bankrekening-courant `BLimBanRba` (D) heeft omslag `BSchSakRba` (rekening-courant kredietinstellingen, C). De omslag wordt **apart voor begin- en eindsaldo** toegepast [7]. Dat is precies het mechanisme voor de "omslagrubriek" in ons datamodel.
@@ -351,7 +356,7 @@ Tot die tijd zet de gebruiker zo'n export in het standaardsjabloon om (kopiëren
 
 ## Open vragen
 
-1. Licentie- en gebruiksvoorwaarden voor het opnemen van de RGS-tabel in eigen software (Taakgroep RGS).
+1. Licentie- en gebruiksvoorwaarden voor het opnemen van de RGS-tabel in eigen software (Taakgroep RGS). Werkwijze tot dan: het werkboek niet in git, de beheerder leest het in ([§12.9](12-rgs-als-rubriekenschema.md#129-licentie-en-gebruik)).
 2. De officiële XAF 4.0-XSD (incl. 4.0.3) en de verplichte velden. Verifiëren op odb.belastingdienst.nl.
 3. De betekenis van `accTp = M` (3.2) en de volledige lijst van `jrnTp`-waarden.
 4. Hoe de XAF-exports van SnelStart, AFAS, e-Boekhouden en King er in de praktijk uitzien (beginbalans, afsluitperioden, plaats van RGS).

@@ -105,7 +105,7 @@
 | **Eenmanszaak / VOF** (IB) | Geen BW2-inrichtingseisen; in de praktijk fiscale grondslagen (goed koopmansgebruik, EK). Er zijn **geen NBA-modelrapporten** voor IB [43]. Wel nodig: balans en W&V op fiscale grondslagen, **kapitaalsvergelijking per ondernemer of vennoot** (beginkapitaal, privéstortingen, privéopnamen inclusief bijtelling auto, resultaataandeel, eindkapitaal), **winstverdeling VOF** (arbeidsbeloning, rente over kapitaal, rest volgens verdeelsleutel) en een fiscale winstberekening als aansluiting met de aangifte (EK). Standaard 4410 is vrijwillig toe te passen op een "aangifte IB-plus"-bijlage [6][42] |
 | **Stichting / vereniging** | RJk C1/C2 (en RJ 640 voor organisaties zonder winststreven) [hfst. 1, 28]. Pas in een latere fase |
 
-**Referentiemateriaal:** de **NBA-voorbeeldrapporten 2025** (december 2025, voor leden via MijnNBA): micro, klein en middelgroot commercieel, klein fiscaal, plus voorbeelden van accountantsrapportages [34]. Voor 2023 bestaan "De Kleine B.V." commercieel en fiscaal als Word-bestand [33]. **Gebruik deze als basis voor onze rapportsjablonen en rubriekenschema's.**
+**Referentiemateriaal:** de **NBA-voorbeeldrapporten 2025** (december 2025, voor leden via MijnNBA): micro, klein en middelgroot commercieel, klein fiscaal, plus voorbeelden van accountantsrapportages [34]. Voor 2023 bestaan "De Kleine B.V." commercieel en fiscaal als Word-bestand [33]. **Gebruik deze als basis voor onze rapportsjablonen.** (Het rubriekenschema is RGS, [hoofdstuk 12](12-rgs-als-rubriekenschema.md).)
 
 ### Voorbeeld-inhoudsopgave samengesteld financieel rapport (BV klein)
 

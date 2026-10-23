@@ -159,7 +159,7 @@ historie (5 jaar), fiscale berekening          ┘   tabellen, teksten  └─�
 | Medewerker | Dossiers bewerken, stappen uitvoeren en toevoegen, rapporten (concept) genereren |
 | Reviewer | Plus reviewpunten plaatsen en posten als *gereviewd* markeren |
 | Accountant (tekenbevoegd) | Plus dossier afronden, rapport definitief uitbrengen, verklaring ondertekenen (handtekeningafbeelding) |
-| Beheerder | Gebruikers, sjablonen, rubriekenschema's, RGS, standaardteksten, huisstijl, parameters |
+| Beheerder | Gebruikers, sjablonen, RGS-versies en -filters, koppelsjablonen, standaardteksten, huisstijl, parameters |
 
 Een gebruiker kan meerdere rollen hebben. **Review is niet verplicht** (besluit A4): een dossier kan zonder review worden afgerond. Is er wel een reviewpunt geplaatst, dan moet dat eerst zijn opgelost. Of er toegang per klant nodig is, staat in de vragenlijst.
 

@@ -1,5 +1,7 @@
 # 6. Datamodel
 
+> **Herzien 23-10-2026: RGS is het rubriekenschema** (B23, [hoofdstuk 12](12-rgs-als-rubriekenschema.md)). De entiteiten *Rubriekenschema*, *Rubriek* en *RgsRubriekKoppeling* vervallen; een koppeling wijst naar een RGS-code.
+
 > **Aanvulling 23-10-2026:** het datamodel voor materiële posten, stappen en rapportpresentatie staat in [§10.6](10-werkprogramma-en-materialiteit.md#106-uitbreiding-datamodel). De gegevens die de rapporten extra nodig hebben (statuten, fiscale eenheid, aandelenkapitaal, fte en historie) staan in [§9.4](09-analyse-voorbeeldrapporten.md#94-gegevens-die-we-nodig-hebben-naast-de-proefbalans).
 
 > Dit is een logisch model: de entiteiten en hun relaties, op het niveau dat nodig is om te
@@ -12,8 +14,8 @@ Het model kent drie niveaus. Koppelingen "rollen door" naar het volgende jaar en
 
 | Niveau | Wat leeft hier | Levensduur |
 |---|---|---|
-| **Kantoor** (beheer) | Gebruikers, rubriekenschema's, RGS-referentietabel, RGS→rubriek-tabel, koppelsjablonen per boekhoudpakket, werkprogrammasjablonen, standaardteksten, rapportsjablonen, huisstijl | Versies; wijzigingen gelden voor *nieuwe* dossiers |
-| **Klant** | Klantgegevens, functionarissen en vennoten, het rekeningschema van de klant (grootboekrekeningen) en de **koppelingen** rekening→rubriek | Doorlopend over alle boekjaren |
+| **Kantoor** (beheer) | Gebruikers, RGS-versies (codes, filters, omslag), kantoorinstellingen per RGS-code, koppelsjablonen, werkprogrammasjablonen, standaardteksten, rapportsjablonen, huisstijl | Versies; wijzigingen gelden voor *nieuwe* dossiers |
+| **Klant** | Klantgegevens, functionarissen en vennoten, het rekeningschema van de klant (grootboekrekeningen) en de **koppelingen** rekening→RGS-code | Doorlopend over alle boekjaren |
 | **Dossier** (klant × boekjaar × opdracht) | Imports en saldi, correctieboekingen, werkprogramma-uitvoering, specificaties, verloopoverzichten, opmerkingen, bijlagen, rapportteksten en rapportversies | Eén boekjaar. Wordt gesloten en daarna alleen-lezen |
 
 ## 6.2 Diagram
@@ -24,12 +26,12 @@ erDiagram
     KLANT ||--o{ DOSSIER : heeft
     KLANT ||--o{ FUNCTIONARIS : heeft
     GROOTBOEKREKENING ||--o{ KOPPELING : "wordt gekoppeld via"
-    RUBRIEK ||--o{ KOPPELING : ontvangt
-    RUBRIEKENSCHEMA ||--o{ RUBRIEK : bevat
-    RUBRIEK ||--o{ RUBRIEK : "is ouder van"
-    RUBRIEK }o--o| RUBRIEK : "omslag bij tegengesteld saldo"
-    RGSCODE ||--o{ RGS_RUBRIEK : ""
-    RUBRIEK ||--o{ RGS_RUBRIEK : ""
+    RGSCODE ||--o{ KOPPELING : ontvangt
+    RGSVERSIE ||--o{ RGSCODE : bevat
+    RGSCODE ||--o{ RGSCODE : "is ouder van"
+    RGSCODE }o--o| RGSCODE : "omslag bij tegengesteld saldo"
+    RGSCODE ||--o| RGSCODEINSTELLING : "kantoorinstelling"
+    KOPPELSJABLOONREGEL }o--|| RGSCODE : "wijst naar"
     KLANT ||--o{ IMPORTBATCH : "heeft per boekjaar"
     IMPORTBATCH ||--o{ SALDO : levert
     GROOTBOEKREKENING ||--o{ SALDO : ""
@@ -44,7 +46,7 @@ erDiagram
     DOSSIERONDERDEEL ||--o{ OPMERKING : bevat
     DOSSIERONDERDEEL ||--o{ BIJLAGE : bevat
     DOSSIER ||--o{ SPECIFICATIEREGEL : heeft
-    RUBRIEK ||--o{ SPECIFICATIEREGEL : specificeert
+    RGSCODE ||--o{ SPECIFICATIEREGEL : specificeert
     DOSSIER ||--o{ VERLOOPREGEL : heeft
     DOSSIER ||--o{ RAPPORTVERSIE : heeft
     DOSSIER }o--o| DOSSIER : "vorig jaar"
@@ -56,15 +58,15 @@ erDiagram
 
 **Gebruiker** (ASP.NET Core Identity): Id, Gebruikersnaam, Naam, Initialen, Titel (bijv. AA/RA), Wachtwoordhash, Lockout, 2FA-gegevens, Rollen (`Medewerker`, `Reviewer`, `Accountant`, `Beheerder`), HandtekeningAfbeelding (alleen tekenbevoegden), Actief, MoetWachtwoordWijzigen.
 
-**Rubriekenschema** (ook wel "rapportagestructuur"): Id, Naam (bijv. *BV klein*, *IB-ondernemer*, *Stichting*), Versie, Status (`Concept`/`Actief`/`Vervallen`).
+**RgsVersie**: Id, Versie (bijv. `3.8`), Status (`Definitief`/`Bèta`), Bestandsnaam, SHA-256, IngelezenOp/Door, Actief (precies één versie is actief).
 
-**Rubriek**: Id, SchemaId, OuderId (boomstructuur), Code, Naam, Soort (`Balans`/`WinstEnVerlies`), Zijde (`Activa`/`Passiva`/`Opbrengsten`/`Kosten`), NormaalSaldo (`D`/`C`), Volgorde, Niveau, **OmslagRubriekId** (waar het saldo heen gaat als het de "verkeerde" kant op staat, bijv. *Bank* debet → *Liquide middelen*, credit → *Schulden aan kredietinstellingen*), SpecificatieVerplicht, VerloopoverzichtType (`Geen`/`VasteActiva`/`EigenVermogen`/`Voorziening`/`LanglopendeSchuld`), RapportLabel(s) per rapportvariant, *(toekomst)* NT-taxonomieconcept voor SBR.
+**RgsCode** (per versie, uit het hoofdblad van het officiële werkboek): Referentiecode (sleutel, bijv. `BMvaBegVvp`), Niveau (1–5), OuderCode (afgeleid uit de code), Omschrijving (kort en lang), D/C, **Omslagcode**, Sortering, Referentienummer (alleen ter informatie), Inactief, **Kiesfilters** (`Basis`, `Uitgebreid`, `EZ/VOF`, `ZZP`, `WoCo`, later `Zorg`) en **wegfilters** (`BV`, `EZ/VOF`, `Agro`, `WKR`, `Bank`, …). Zie [§12.4](12-rgs-als-rubriekenschema.md#124-het-werkboek).
 
-**RgsCode** (referentietabel, per RGS-versie): Referentiecode (bijv. `BIvaKou`), Referentienummer, Omschrijving (kort/lang), Niveau, OuderCode, D/C, Sortering, Filterkenmerken (bijv. van toepassing op ZZP/EZ/BV), RGS-versie.
+**RgsFilter** (per rechtsvorm): het kiesfilter, de wegfilters en of de `Uitgebreid`-set standaard aan staat. Zie [§12.5](12-rgs-als-rubriekenschema.md#125-welke-codes-per-rechtsvorm).
 
-**RgsRubriekKoppeling**: SchemaId, RgsCode, RubriekId. Hoe specifieker de RGS-code, hoe hoger de voorrang (zie [hoofdstuk 4](04-rubricering-ontwerp.md)).
+**RgsCodeInstelling** (kantoor, los van RGS): Referentiecode, SpecificatieVerplicht, VerloopoverzichtType (`Geen`/`VasteActiva`/`EigenVermogen`/`Voorziening`/`LanglopendeSchuld`/`RekeningCourant`), afwijkend RapportLabel per rapportvariant.
 
-**Koppelsjabloon** (kantoorkoppeling per boekhoudpakket of standaard rekeningschema): Id, Naam (bijv. *SnelStart standaard*, *Exact MKB-schema*), regels: RekeningnummerVan/Tot of exact nummer, optioneel een omschrijvingspatroon, RubriekId.
+**Koppelsjabloon** (kantoorregels voor een rekeningschema dat bij meerdere klanten voorkomt): Id, Naam, regels: RekeningnummerVan/Tot of exact nummer, optioneel een omschrijvingspatroon, **Referentiecode**. Wordt aangevuld vanuit handmatige koppelingen ("opnemen in sjabloon").
 
 **Werkprogrammasjabloon**: Id, Naam, AardOpdracht (bijv. `Samenstellen`, `Aangifte plus`), Versie, Status.
 
@@ -84,8 +86,8 @@ erDiagram
 
 **Grootboekrekening**: Id, KlantId, Nummer, Omschrijving, BalansOfWV (uit de import), RgsCode (als de bron die meelevert), Actief. *Sleutel = (KlantId, Nummer).* Bij een herimport koppelen we hierop terug.
 
-**Koppeling**: Id, KlantId, GrootboekrekeningId, RubriekId, **Bron** (`Handmatig`, `Klant-vorig-jaar`, `RGS`, `Koppelsjabloon`, `Voorstel`), **Status** (`Voorgesteld`/`Bevestigd`), GeldigVanafBoekjaar, BevestigdDoor/Op.
-Optioneel *KoppelingSplitsing*: een rekening verdeeld over meerdere rubrieken (percentage of vast bedrag). Gebruik dit spaarzaam; een correctieboeking (herrubricering) is meestal transparanter.
+**Koppeling**: Id, KlantId, GrootboekrekeningId, **Referentiecode** (+ RGS-versie waaruit de code komt), **Bron** (`Handmatig`, `Koppelsjabloon`, `Bestand`, `Voorstel`), **Status** (`Voorgesteld`/`Bevestigd`), GeldigVanafBoekjaar, BevestigdDoor/Op.
+Optioneel *KoppelingSplitsing*: een rekening verdeeld over meerdere RGS-codes (percentage of vast bedrag). Gebruik dit spaarzaam; een correctieboeking (herrubricering) is meestal transparanter.
 
 ### Dossierniveau
 

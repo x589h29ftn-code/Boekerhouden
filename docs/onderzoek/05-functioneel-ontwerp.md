@@ -15,7 +15,7 @@
 | M2 | Klantbeheer | Klantgegevens, rechtsvorm, grootte, functionarissen, Wwft-profiel | ✅ |
 | M3 | Dossierbeheer | Dossier aanmaken per boekjaar en opdracht, sjabloon kiezen, vorig jaar doorrollen | ✅ |
 | M4 | Import | **Standaard importsjabloon** (boekjaar + grootboeknummer, omschrijving, bedrag, controle op saldo nihil; [§3.3](03-gegevensimport-xaf-excel-rgs.md#33-standaard-importsjabloon-excelcsv)) en XAF-auditfile. Herimport, importhistorie, ook voor vorige jaren | ✅ (sjabloon eerst) |
-| M5 | Rubriceren (koppelen) | Grootboekrekeningen aan rubrieken koppelen via sjabloon, RGS of handmatig, met voorstellen | ✅ |
+| M5 | Rubriceren (koppelen) | Grootboekrekeningen aan RGS-codes koppelen (RGS is het rubriekenschema, [hfst. 12](12-rgs-als-rubriekenschema.md)) via koppelsjabloon, de RGS-code uit het bestand of handmatig, met voorstellen | ✅ |
 | M6 | Proefbalans en correcties | Gecorrigeerde proefbalans, memoriaal- en herrubriceringsboekingen | ✅ |
 | M0 | Inloggen en gebruikers | Eigen account met wachtwoord, rollen, lockout, audit log (besluit B1, [§7.8](07-technische-architectuur.md#78-inloggen-rechten-en-beveiliging)) | ✅ |
 | M7 | Werkprogramma en dossieronderdelen | Fasen, onderdelen en stappen invullen. **De gebruiker vinkt per hoofdpost aan of die materieel is**, met doorklikken naar de subposts. Alleen materiële posten krijgen werk. Stappen toevoegen en verwijderen, aftekenen, goedkeuren ([hoofdstuk 10](10-werkprogramma-en-materialiteit.md)) | ✅ |
@@ -23,7 +23,7 @@
 | M9 | Rapportpresentatie per post | Voor **alle** posten: specificaties (uit het grootboek, samenvoegen, omschrijving aanpassen, verbergen), verloopoverzichten, toelichtende tekst, opmaak ([§10.4](10-werkprogramma-en-materialiteit.md#104-rapport-presentatie-en-opmaak-per-post)) | ✅ |
 | M10 | Rapportgenerator | Financieel rapport samenstellen uit sjabloon, bouwstenen ([hoofdstuk 9](09-analyse-voorbeeldrapporten.md)), standaardteksten en cijfers, met preview, PDF en Word | ✅ PDF + Word (besluit B5) |
 | M11 | Review en afronding | Reviewpunten, goedkeuring, rapport uitbrengen, dossier sluiten en archiveren | ✅ |
-| M12 | Beheer (kantoor) | Rubriekenschema's, RGS-tabel, koppelsjablonen, werkprogramma's, standaardteksten, rapportsjablonen, gebruikers | ✅ (basis) |
+| M12 | Beheer (kantoor) | RGS-versies en filters per rechtsvorm, koppelsjablonen, werkprogramma's, standaardteksten, rapportsjablonen, gebruikers | ✅ (basis) |
 | M13 | Kengetallen en meerjarenoverzicht | Liquiditeit, solvabiliteit, omloopsnelheid, rentabiliteit, marges, fte-kengetallen over 5 jaar, verschillenanalyse | ✅ (staat in het voorbeeldrapport BV) |
 | M14 | Fiscale positie | Vpb-berekening (incl. fiscale eenheid-variant), belastinglast en belastingpositie. Fiscale winst IB: zie vragenlijst D6 | ✅ Vpb; IB volgens D6 |
 | M15 | Taken en planning | Taken per klant/dossier, deadlines, urenregistratie | Fase 2 |
@@ -40,7 +40,7 @@ Een tabel met alle klanten:
 | Alerts | Aantal signalen. Voorbeelden: ongekoppelde rekeningen met saldo, proefbalans niet in evenwicht, beginbalans sluit niet aan op vorig jaar, specificatie wijkt af van saldo, open reviewpunten, dossier te lang open |
 | Geïmporteerd | Datum laatste import. **Rood** als die ouder is dan de drempel (bijv. 90 dagen) of ouder dan de einddatum van het boekjaar |
 | Laatst bewerkt | Datum en medewerker van de laatste wijziging. Rood als het lang geleden is |
-| Gekoppeld | % van de grootboekrekeningen *met saldo* dat aan een rubriek is gekoppeld. Doel: 100% |
+| Gekoppeld | % van de grootboekrekeningen *met saldo* dat aan een RGS-code is gekoppeld. Doel: 100% |
 | Lopend dossier | Boekjaar, opdrachttype en status van het lopende dossier |
 | Open taken | Aantal open taken en reviewpunten |
 
@@ -86,8 +86,8 @@ Drie kolommen:
 
 ### S5 – Koppelscherm (rubriceren)
 Twee panelen:
-- **Links**: lijst grootboekrekeningen met nummer, omschrijving, RGS-code, saldo, huidige rubriek, bron (sjabloon, RGS, vorig jaar, handmatig, voorstel) en status. Filters: *ongekoppeld*, *voorgesteld*, *gewijzigd t.o.v. vorig jaar*, *saldo ≠ 0*.
-- **Rechts**: de rubriekenboom met totalen.
+- **Links**: lijst grootboekrekeningen met nummer, omschrijving, saldo, gekoppelde RGS-code en hoofdpost, bron (handmatig, sjabloon, bestand, voorstel) en status. Filters: *ongekoppeld*, *voorgesteld*, *gewijzigd t.o.v. vorig jaar*, *saldo ≠ 0*.
+- **Rechts**: de RGS-boom (gefilterd voor de rechtsvorm, met zoeken op tekst en code) met totalen per hoofd- en subpost.
 - **Acties**: slepen naar een rubriek, meerdere tegelijk koppelen, voorstel accepteren of afwijzen, "toepassen op alle jaren", en "opslaan in kantoorkoppelsjabloon" (alleen voor beheerders).
 - **Voortgangsbalk**: "Gekoppeld: 97% (3 rekeningen met saldo ongekoppeld)".
 
@@ -101,7 +101,7 @@ Journaalpostinvoer met regels (rekening, omschrijving, debet, credit) en een bal
 - Live preview (gepagineerd), daarna **PDF genereren** (concept met watermerk, of definitief bij het uitbrengen).
 
 ### S8 – Beheer
-- **Rubriekenschema-editor** (boom), RGS-import (Excel uit RGS-download) en het beheer van de **RGS→rubriek-tabel**.
+- **RGS-beheer**: het officiële werkboek inlezen (per versie, één actief), filters per rechtsvorm, kantoorinstellingen per code (specificatie verplicht, verloopoverzicht, rapportlabel).
 - **Koppelsjablonen** per boekhoudpakket.
 - **Werkprogramma-editor**: fasen, onderdelen, blokken, verplicht, voorwaarden en versies.
 - **Standaardtekstbibliotheek** met variabelenlijst en preview.
@@ -130,7 +130,7 @@ Klant aanmaken ─► Dossier 2025 aanmaken (soort opdracht "Samenstellen jaarre
 | Code | Controle | Ernst |
 |---|---|---|
 | C01 | Proefbalans import in evenwicht (Σ debet = Σ credit) | Blokkerend voor import |
-| C02 | Alle rekeningen met saldo ≠ 0 gekoppeld aan een rubriek | Blokkerend voor definitief rapport |
+| C02 | Alle rekeningen met saldo ≠ 0 gekoppeld aan een RGS-code | Blokkerend voor definitief rapport |
 | C03 | Beginbalans huidig jaar = gecorrigeerde eindbalans vorig dossier (per rekening of rubriek) | Waarschuwing; blokkerend tenzij toegelicht |
 | C04 | Resultaat volgens W&V = resultaat in eigen vermogen (onverdeeld resultaat / kapitaalsvergelijking) | Blokkerend |
 | C05 | Balans: totaal activa = totaal passiva (na rubricering en omslag) | Blokkerend |
