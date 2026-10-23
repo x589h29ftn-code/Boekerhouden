@@ -1,0 +1,30 @@
+@* Een stap van een werkprogrammasjabloon toevoegen of wijzigen. *@
+<form class="wp-stap-detail stap-formulier" @onsubmit="OnBewaar" @onsubmit:preventDefault>
+    <input class="form-control form-control-sm mb-2" placeholder="Titel" @bind="Invoer.Titel" aria-label="Titel stap" autofocus />
+    <textarea class="form-control form-control-sm mb-2" rows="2" placeholder="Instructie" @bind="Invoer.Instructie" aria-label="Instructie stap"></textarea>
+    <div class="d-flex align-items-center gap-2">
+        <label class="small me-auto"><input type="checkbox" class="form-check-input" @bind="Invoer.Verplicht" /> verplicht</label>
+        <button type="submit" class="btn btn-sm btn-primary">Opslaan</button>
+        <button type="button" class="btn btn-sm btn-link text-secondary" @onclick="OnAnnuleer">Annuleren</button>
+    </div>
+</form>
+
+@code {
+    public sealed class Velden
+    {
+        public string Titel { get; set; } = "";
+
+        public string? Instructie { get; set; }
+
+        public bool Verplicht { get; set; }
+    }
+
+    [Parameter, EditorRequired]
+    public Velden Invoer { get; set; } = new();
+
+    [Parameter]
+    public EventCallback OnBewaar { get; set; }
+
+    [Parameter]
+    public EventCallback OnAnnuleer { get; set; }
+}

@@ -595,3 +595,225 @@ tr.klikbaar {
 .proefbalans-boom .vorig {
     color: var(--kleur-zacht);
 }
+
+/* Werkprogramma: links de onderdelen per fase, rechts het gekozen onderdeel. */
+.werkprogramma {
+    --kleur-zacht: #8a939b;
+    --kleur-lijn: #eef0f2;
+    --kleur-hover: #f5f7f9;
+}
+
+    .werkprogramma .bedrag {
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    .werkprogramma .vorig {
+        color: var(--kleur-zacht);
+    }
+
+.wp-boom {
+    position: sticky;
+    top: 1rem;
+}
+
+    .wp-boom .boom-kop {
+        padding-left: .5rem;
+    }
+
+.wp-onderdeel {
+    display: flex;
+    width: 100%;
+    gap: .5rem;
+    align-items: center;
+    padding: .3rem .5rem;
+    border: 0;
+    border-left: 2px solid transparent;
+    background: none;
+    text-align: left;
+    font-size: .9rem;
+    color: #212529;
+}
+
+    .wp-onderdeel:hover {
+        background: var(--kleur-hover);
+    }
+
+    .wp-onderdeel.actief {
+        background: #eef3f8;
+        border-left-color: #6c8fb3;
+    }
+
+    .wp-onderdeel .titel {
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+.wp-leeg {
+    padding: .2rem .5rem;
+    font-size: .8rem;
+    color: var(--kleur-zacht);
+}
+
+.wp-sectie {
+    border-bottom: 1px solid var(--kleur-lijn);
+    padding-bottom: .25rem;
+}
+
+    .wp-sectie.notitie {
+        padding: 0 .75rem .75rem;
+    }
+
+.wp-sectie-kop {
+    display: flex;
+    align-items: baseline;
+    gap: .75rem;
+    padding: .6rem .75rem .3rem;
+    font-size: .75rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--kleur-zacht);
+}
+
+    .wp-sectie-kop .small, .wp-sectie-kop a, .wp-sectie-kop .status {
+        text-transform: none;
+        letter-spacing: normal;
+        font-weight: normal;
+    }
+
+.wp-sectie.notitie .wp-sectie-kop {
+    padding-left: 0;
+}
+
+.mp-raster {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 6.5rem 6.5rem 5.5rem;
+    column-gap: .6rem;
+    align-items: center;
+    padding: 0 .75rem;
+}
+
+    .werkprogramma .kolomkop.mp-raster, .werkprogramma .kolomkop.pb-raster {
+        padding-top: .2rem;
+        padding-bottom: .2rem;
+        font-size: .75rem;
+        color: var(--kleur-zacht);
+        border-bottom: 1px solid var(--kleur-lijn);
+    }
+
+.mp-regel, .mp-sub {
+    min-height: 1.9rem;
+    font-size: .9rem;
+}
+
+    .mp-regel:hover {
+        background: var(--kleur-hover);
+    }
+
+    .mp-regel .naam, .mp-sub .naam {
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .mp-regel .naam {
+        cursor: pointer;
+    }
+
+    .mp-regel .pijl {
+        display: inline-block;
+        width: 1rem;
+        color: var(--kleur-zacht);
+    }
+
+.mp-sub {
+    padding-left: 2rem;
+    font-size: .8rem;
+    color: #5a6670;
+}
+
+.wp-stap {
+    border-bottom: 1px solid var(--kleur-lijn);
+}
+
+    .wp-stap:last-of-type {
+        border-bottom: 0;
+    }
+
+    .wp-stap.verwijderd .titel {
+        color: var(--kleur-zacht);
+        text-decoration: line-through;
+    }
+
+.wp-stap-regel {
+    display: grid;
+    grid-template-columns: 1.1rem minmax(0, 1fr) auto auto;
+    column-gap: .6rem;
+    align-items: center;
+    min-height: 2rem;
+    padding: 0 .75rem;
+    font-size: .9rem;
+}
+
+    .wp-stap-regel:hover {
+        background: var(--kleur-hover);
+    }
+
+    .wp-stap-regel .titel {
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+    }
+
+    .wp-stap-regel > .status {
+        max-width: 22rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .wp-stap-regel .acties {
+        visibility: hidden;
+        white-space: nowrap;
+    }
+
+        .wp-stap-regel .acties .btn {
+            font-size: .8rem;
+            color: #5a6670;
+            text-decoration: none;
+            padding: 0 .25rem;
+        }
+
+    .wp-stap-regel:is(:hover, :focus-within) .acties {
+        visibility: visible;
+    }
+
+.wp-stap-detail {
+    padding: .25rem .75rem .75rem 2.45rem;
+}
+
+    .wp-stap-detail .instructie {
+        margin-bottom: .4rem;
+        font-size: .85rem;
+        color: #5a6670;
+    }
+
+.sjabloon-beheer .card {
+    overflow: hidden;
+}
+
+.sjabloon-onderdeel .wp-stap-regel.kop {
+    background: #fafbfc;
+    border-bottom: 1px solid var(--kleur-lijn);
+}
+
+.werkprogramma .kolomkop.pb-raster {
+    padding-left: .5rem;
+    padding-right: .75rem;
+}

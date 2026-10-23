@@ -35,4 +35,20 @@ public static class Weergave
         DossierStatus.InUitvoering => "In uitvoering",
         _ => status.ToString(),
     };
+
+    public static string Tekst(StapStatus status) => status switch
+    {
+        StapStatus.Open => "open",
+        StapStatus.Gereed => "gereed",
+        StapStatus.NietVanToepassing => "niet van toepassing",
+        _ => status.ToString(),
+    };
+
+    public static string Tekst(Fase fase) => fase switch
+    {
+        Fase.Voorbereiding => "Voorbereiding",
+        Fase.Uitvoering => "Uitvoering",
+        Fase.Afronding => "Afronding",
+        _ => fase.ToString(),
+    };
 }

@@ -1,0 +1,18 @@
+@* Een vrij tekstveld dat bewaart bij het verlaten van het veld. *@
+<div class="wp-sectie notitie">
+    <label class="wp-sectie-kop" for="@id"><span class="me-auto">@Label</span></label>
+    <textarea id="@id" class="form-control form-control-sm" rows="3" value="@Tekst" @onchange="e => OnBewaar.InvokeAsync((string?)e.Value)"></textarea>
+</div>
+
+@code {
+    private readonly string id = "notitie-" + Guid.NewGuid().ToString("N")[..8];
+
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = "";
+
+    [Parameter]
+    public string? Tekst { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> OnBewaar { get; set; }
+}

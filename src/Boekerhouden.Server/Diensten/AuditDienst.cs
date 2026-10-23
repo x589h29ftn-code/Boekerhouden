@@ -70,5 +70,15 @@ public static class AuditActies
     public const string CorrectieVerwijderd = "Correctie verwijderd";
     public const string CorrectiesOvergenomen = "Terugkerende correcties overgenomen";
     public const string CorrectiesGeexporteerd = "Correcties geëxporteerd";
+    public const string WerkprogrammaGestart = "Werkprogramma gestart";
+    public const string PostMaterieel = "Post materieel";
+    public const string PostNietMaterieel = "Post niet materieel";
+    public const string StapBeantwoord = "Stap beantwoord";
+    public const string StapAfgetekend = "Stap afgetekend";
+    public const string StapToegevoegd = "Stap toegevoegd";
+    public const string StapVerwijderd = "Stap verwijderd";
+    public const string StapHersteld = "Stap hersteld";
+    public const string NotitieGewijzigd = "Notitie gewijzigd";
+    public const string SjabloonGewijzigd = "Werkprogrammasjabloon gewijzigd";
     public const string RekeningAangemaakt = "Grootboekrekening aangemaakt";
 }

@@ -59,6 +59,9 @@ public sealed class Dossier
 
     public string Naam { get; set; } = string.Empty;
 
+    /// <summary>De versie van het werkprogrammasjabloon waarmee het dossier is gestart; null = nog niet gestart.</summary>
+    public string? WerkprogrammaVersie { get; set; }
+
     public DateTimeOffset AangemaaktOp { get; set; }
 
     public DateTimeOffset GewijzigdOp { get; set; }

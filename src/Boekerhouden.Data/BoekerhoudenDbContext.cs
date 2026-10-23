@@ -37,6 +37,18 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
 
     public DbSet<Correctieregel> Correctieregels => Set<Correctieregel>();
 
+    public DbSet<WerkprogrammaSjabloon> WerkprogrammaSjablonen => Set<WerkprogrammaSjabloon>();
+
+    public DbSet<SjabloonOnderdeel> SjabloonOnderdelen => Set<SjabloonOnderdeel>();
+
+    public DbSet<SjabloonStap> SjabloonStappen => Set<SjabloonStap>();
+
+    public DbSet<DossierOnderdeel> DossierOnderdelen => Set<DossierOnderdeel>();
+
+    public DbSet<DossierStap> DossierStappen => Set<DossierStap>();
+
+    public DbSet<DossierPostKeuze> PostKeuzes => Set<DossierPostKeuze>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -70,6 +82,7 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
             e.Property(d => d.Status).HasConversion<string>().HasMaxLength(30);
             e.Property(d => d.Naam).HasMaxLength(200);
             e.Property(d => d.GewijzigdDoor).HasMaxLength(200);
+            e.Property(d => d.WerkprogrammaVersie).HasMaxLength(40);
         });
 
         builder.Entity<Grootboekrekening>(e =>
@@ -201,6 +214,73 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
             e.HasOne(r => r.Grootboekrekening).WithMany().HasForeignKey(r => r.GrootboekrekeningId).OnDelete(DeleteBehavior.Restrict);
             e.Property(r => r.Bedrag).HasPrecision(18, 2);
             e.Property(r => r.Omschrijving).HasMaxLength(300);
+        });
+
+        builder.Entity<WerkprogrammaSjabloon>(e =>
+        {
+            e.ToTable("WerkprogrammaSjablonen");
+            e.HasIndex(w => w.SoortOpdracht).IsUnique();
+            e.Property(w => w.SoortOpdracht).HasConversion<string>().HasMaxLength(40);
+            e.Property(w => w.Naam).HasMaxLength(200);
+            e.Property(w => w.Versie).HasMaxLength(40);
+            e.Property(w => w.GewijzigdDoor).HasMaxLength(200);
+        });
+
+        builder.Entity<SjabloonOnderdeel>(e =>
+        {
+            e.ToTable("SjabloonOnderdelen");
+            e.HasOne<WerkprogrammaSjabloon>().WithMany(w => w.Onderdelen).HasForeignKey(o => o.SjabloonId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(o => o.Fase).HasConversion<string>().HasMaxLength(20);
+            e.Property(o => o.Soort).HasConversion<string>().HasMaxLength(20);
+            e.Property(o => o.Titel).HasMaxLength(200);
+            e.Property(o => o.HoofdpostCode).HasMaxLength(20);
+        });
+
+        builder.Entity<SjabloonStap>(e =>
+        {
+            e.ToTable("SjabloonStappen");
+            e.HasOne<SjabloonOnderdeel>().WithMany(o => o.Stappen).HasForeignKey(s => s.OnderdeelId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(s => s.Titel).HasMaxLength(300);
+            e.Property(s => s.Instructie).HasMaxLength(4000);
+            e.Property(s => s.Controle).HasConversion<string>().HasMaxLength(40);
+        });
+
+        builder.Entity<DossierOnderdeel>(e =>
+        {
+            e.ToTable("DossierOnderdelen");
+            e.HasIndex(o => o.DossierId);
+            e.HasIndex(o => new { o.DossierId, o.HoofdpostCode }).IsUnique().HasFilter("\"HoofdpostCode\" IS NOT NULL");
+            e.HasOne<Dossier>().WithMany().HasForeignKey(o => o.DossierId).OnDelete(DeleteBehavior.Restrict);
+            e.Property(o => o.Fase).HasConversion<string>().HasMaxLength(20);
+            e.Property(o => o.Soort).HasConversion<string>().HasMaxLength(20);
+            e.Property(o => o.Titel).HasMaxLength(200);
+            e.Property(o => o.HoofdpostCode).HasMaxLength(20);
+            e.Property(o => o.Notitie).HasMaxLength(20000);
+            e.Property(o => o.GereviewdDoor).HasMaxLength(200);
+        });
+
+        builder.Entity<DossierStap>(e =>
+        {
+            e.ToTable("DossierStappen");
+            e.HasOne<DossierOnderdeel>().WithMany(o => o.Stappen).HasForeignKey(s => s.OnderdeelId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(s => s.Titel).HasMaxLength(300);
+            e.Property(s => s.Instructie).HasMaxLength(4000);
+            e.Property(s => s.Controle).HasConversion<string>().HasMaxLength(40);
+            e.Property(s => s.Status).HasConversion<string>().HasMaxLength(30);
+            e.Property(s => s.Antwoord).HasMaxLength(20000);
+            e.Property(s => s.Reden).HasMaxLength(1000);
+            e.Property(s => s.UitgevoerdDoor).HasMaxLength(200);
+            e.Property(s => s.VerwijderdDoor).HasMaxLength(200);
+            e.Property(s => s.AangemaaktDoor).HasMaxLength(200);
+        });
+
+        builder.Entity<DossierPostKeuze>(e =>
+        {
+            e.ToTable("DossierPostKeuzes");
+            e.HasKey(k => new { k.DossierId, k.HoofdpostCode });
+            e.HasOne<Dossier>().WithMany().HasForeignKey(k => k.DossierId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(k => k.HoofdpostCode).HasMaxLength(20);
+            e.Property(k => k.GewijzigdDoor).HasMaxLength(200);
         });
 
         builder.Entity<AuditRegel>(e =>

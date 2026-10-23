@@ -4,6 +4,7 @@ using Boekerhouden.Server.Components;
 using Boekerhouden.Server.Diensten;
 using Boekerhouden.Server.Export;
 using Boekerhouden.Server.Identiteit;
+using Boekerhouden.Server.Werkprogramma;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -84,6 +85,8 @@ public static class Opstart
         services.AddSingleton<RubriceerDienst>();
         services.AddSingleton<SjabloonDienst>();
         services.AddSingleton<CorrectieDienst>();
+        services.AddSingleton<WerkprogrammaDienst>();
+        services.AddSingleton<WerkprogrammaSjabloonDienst>();
         services.Configure<PdfOpties>(builder.Configuration.GetSection("Pdf"));
         services.AddSingleton<PdfDienst>();
     }
@@ -144,5 +147,16 @@ public static class Opstart
                 await rollen.CreateAsync(new IdentityRole<Guid>(rol) { Id = Guid.NewGuid() });
             }
         }
+
+        // Een eerste werkprogramma per soort opdracht, als het kantoor er nog geen heeft.
+        foreach (var soort in Enum.GetValues<SoortOpdracht>())
+        {
+            if (!await db.WerkprogrammaSjablonen.AnyAsync(w => w.SoortOpdracht == soort))
+            {
+                db.WerkprogrammaSjablonen.Add(StandaardWerkprogramma.Maak(soort, DateTimeOffset.UtcNow));
+            }
+        }
+
+        await db.SaveChangesAsync();
     }
 }

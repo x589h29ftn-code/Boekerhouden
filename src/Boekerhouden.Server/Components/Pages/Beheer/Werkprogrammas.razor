@@ -1,0 +1,229 @@
+@page "/beheer/werkprogramma"
+@attribute [Authorize(Roles = Rollen.Beheerder)]
+@inject WerkprogrammaSjabloonDienst SjabloonDienst
+
+<PageTitle>Werkprogramma's – Boekerhouden</PageTitle>
+
+<div class="d-flex align-items-center flex-wrap gap-3 mb-2">
+    <h1 class="h3 mb-0 me-auto">Werkprogramma's</h1>
+    @if (melding is not null)
+    {
+        <span class="rubriceer-melding @(meldingIsFout ? "fout" : null)" role="status">
+            @melding
+            <button class="btn-close btn-sm ms-1" aria-label="Sluiten" @onclick="() => melding = null"></button>
+        </span>
+    }
+</div>
+<p class="text-secondary small">
+    Het werkprogramma van het kantoor per soort opdracht. Een dossier krijgt bij de start een kopie; wijzigingen hier gelden
+    voor dossiers die daarna starten. In de uitvoering hoort elk onderdeel bij een RGS-hoofdpost en verschijnt het alleen als
+    die post materieel is. Stappen met * zijn verplicht: in een dossier kunnen ze niet weg, alleen op niet van toepassing.
+</p>
+
+@if (sjablonen is null)
+{
+    <p class="text-secondary">Laden…</p>
+}
+else
+{
+    <nav class="dossiermenu" aria-label="Sjablonen">
+        @foreach (var s in sjablonen)
+        {
+            <a href="" class="@(s.Id == sjabloon?.Id ? "actief" : null)" @onclick="() => Open(s.Id)" @onclick:preventDefault>@s.Naam</a>
+        }
+    </nav>
+
+    @if (sjabloon is not null)
+    {
+        <form class="d-flex align-items-center gap-2 mb-3 small" @onsubmit="ZetVersie" @onsubmit:preventDefault>
+            <label for="versie" class="text-secondary">Versie</label>
+            <input id="versie" class="form-control form-control-sm" style="width:8rem" @bind="versie" />
+            <button type="submit" class="btn btn-sm btn-outline-secondary">Opslaan</button>
+            <span class="text-secondary ms-2">gewijzigd @Weergave.DatumTijd(sjabloon.GewijzigdOp) door @sjabloon.GewijzigdDoor</span>
+        </form>
+
+        <div class="werkprogramma sjabloon-beheer">
+            @foreach (var fase in Enum.GetValues<Fase>())
+            {
+                <div class="boom-kop">@Weergave.Tekst(fase)</div>
+                @foreach (var o in sjabloon.Onderdelen.Where(x => x.Fase == fase))
+                {
+                    <div class="card mb-2 sjabloon-onderdeel" data-onderdeel="@o.Titel">
+                        <div class="wp-stap-regel kop">
+                            <span></span>
+                            <span class="titel fw-semibold">@o.Titel@(o.Verplicht ? " *" : null)</span>
+                            <span class="status">@(o.HoofdpostCode is { } hp ? $"RGS {hp}" : o.Soort == OnderdeelSoort.MaterielePosten ? "keuze materiële posten" : null)</span>
+                            <span class="acties">
+                                @if (o.Soort != OnderdeelSoort.MaterielePosten)
+                                {
+                                    <button class="btn btn-sm btn-link" title="Onderdeel verwijderen" @onclick="() => VerwijderOnderdeel(o)">✕</button>
+                                }
+                            </span>
+                        </div>
+                        @foreach (var s in o.Stappen)
+                        {
+                            @if (bewerkStap == s.Id)
+                            {
+                                <StapFormulier Invoer="stapInvoer" OnBewaar="() => BewaarStap(o.Id, s.Id)" OnAnnuleer="() => bewerkStap = null" />
+                            }
+                            else
+                            {
+                                <div class="wp-stap-regel" data-stap="@s.Titel">
+                                    <span></span>
+                                    <span class="titel" title="@s.Instructie">@s.Titel@(s.Verplicht ? " *" : null)</span>
+                                    <span class="status">@(s.Controle != StapControle.Geen ? "met controle" : null)</span>
+                                    <span class="acties">
+                                        <button class="btn btn-sm btn-link" title="Wijzigen" @onclick="() => BeginBewerken(s)">✎</button>
+                                        <button class="btn btn-sm btn-link" title="Omhoog" @onclick="() => Verplaats(s, -1)">↑</button>
+                                        <button class="btn btn-sm btn-link" title="Omlaag" @onclick="() => Verplaats(s, 1)">↓</button>
+                                        <button class="btn btn-sm btn-link" title="Verwijderen" @onclick="() => VerwijderStap(s)">✕</button>
+                                    </span>
+                                </div>
+                            }
+                        }
+                        @if (nieuweStapIn == o.Id)
+                        {
+                            <StapFormulier Invoer="stapInvoer" OnBewaar="() => BewaarStap(o.Id, null)" OnAnnuleer="() => nieuweStapIn = null" />
+                        }
+                        else
+                        {
+                            <div class="px-3 pb-2"><button class="btn btn-sm btn-link p-0" @onclick="() => BeginNieuweStap(o.Id)">+ stap</button></div>
+                        }
+                    </div>
+                }
+                @if (nieuwOnderdeelIn == fase)
+                {
+                    <form class="bericht mb-3 d-flex flex-wrap gap-2 align-items-center" @onsubmit="VoegOnderdeelToe" @onsubmit:preventDefault>
+                        <input class="form-control form-control-sm" style="width:18rem" placeholder="Titel" @bind="onderdeelTitel" aria-label="Titel onderdeel" />
+                        @if (fase == Fase.Uitvoering)
+                        {
+                            <input class="form-control form-control-sm" style="width:9rem" placeholder="RGS, bijv. BVas" @bind="onderdeelCode" aria-label="RGS-hoofdpost" />
+                        }
+                        else
+                        {
+                            <label class="small"><input type="checkbox" class="form-check-input" @bind="onderdeelVerplicht" /> verplicht</label>
+                        }
+                        <button type="submit" class="btn btn-sm btn-primary">Toevoegen</button>
+                        <button type="button" class="btn btn-sm btn-link text-secondary" @onclick="() => nieuwOnderdeelIn = null">Annuleren</button>
+                    </form>
+                }
+                else
+                {
+                    <div class="mb-3"><button class="btn btn-sm btn-link p-0" @onclick="() => BeginNieuwOnderdeel(fase)">+ onderdeel</button></div>
+                }
+            }
+        </div>
+    }
+}
+
+@code {
+    private IReadOnlyList<SjabloonSamenvatting>? sjablonen;
+    private WerkprogrammaSjabloon? sjabloon;
+    private string versie = "";
+    private Guid? bewerkStap;
+    private Guid? nieuweStapIn;
+    private StapFormulier.Velden stapInvoer = new();
+    private Fase? nieuwOnderdeelIn;
+    private string onderdeelTitel = "";
+    private string? onderdeelCode;
+    private bool onderdeelVerplicht;
+    private string? melding;
+    private bool meldingIsFout;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Authenticatie { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        sjablonen = await SjabloonDienst.Lijst();
+        if (sjablonen.Count > 0)
+        {
+            await Open(sjablonen[0].Id);
+        }
+    }
+
+    private async Task Open(Guid id)
+    {
+        sjabloon = await SjabloonDienst.Haal(id);
+        versie = sjabloon?.Versie ?? "";
+        bewerkStap = null;
+        nieuweStapIn = null;
+        nieuwOnderdeelIn = null;
+    }
+
+    private Task Herlaad() => Open(sjabloon!.Id);
+
+    private async Task ZetVersie()
+    {
+        Meld(await SjabloonDienst.ZetVersie(sjabloon!.Id, versie, await Wie()), $"Versie {versie.Trim()} opgeslagen");
+        await Herlaad();
+    }
+
+    private void BeginBewerken(SjabloonStap s)
+    {
+        stapInvoer = new StapFormulier.Velden { Titel = s.Titel, Instructie = s.Instructie, Verplicht = s.Verplicht };
+        bewerkStap = s.Id;
+        nieuweStapIn = null;
+    }
+
+    private void BeginNieuweStap(Guid onderdeelId)
+    {
+        stapInvoer = new StapFormulier.Velden();
+        nieuweStapIn = onderdeelId;
+        bewerkStap = null;
+    }
+
+    private async Task BewaarStap(Guid onderdeelId, Guid? stapId)
+    {
+        var uitkomst = await SjabloonDienst.BewaarStap(onderdeelId, stapId, new SjabloonStapInvoer(stapInvoer.Titel, stapInvoer.Instructie, stapInvoer.Verplicht), await Wie());
+        Meld(uitkomst, $"Stap '{stapInvoer.Titel.Trim()}' opgeslagen");
+        if (uitkomst.IsGelukt)
+        {
+            await Herlaad();
+        }
+    }
+
+    private async Task VerwijderStap(SjabloonStap s)
+    {
+        Meld(await SjabloonDienst.VerwijderStap(s.Id, await Wie()), $"Stap '{s.Titel}' verwijderd");
+        await Herlaad();
+    }
+
+    private async Task Verplaats(SjabloonStap s, int richting)
+    {
+        await SjabloonDienst.VerplaatsStap(s.Id, richting, await Wie());
+        await Herlaad();
+    }
+
+    private void BeginNieuwOnderdeel(Fase fase)
+    {
+        nieuwOnderdeelIn = fase;
+        onderdeelTitel = "";
+        onderdeelCode = null;
+        onderdeelVerplicht = false;
+    }
+
+    private async Task VoegOnderdeelToe()
+    {
+        var uitkomst = await SjabloonDienst.VoegOnderdeelToe(sjabloon!.Id, nieuwOnderdeelIn!.Value, onderdeelTitel, onderdeelCode, onderdeelVerplicht, await Wie());
+        Meld(uitkomst, $"Onderdeel '{onderdeelTitel.Trim()}' toegevoegd");
+        if (uitkomst.IsGelukt)
+        {
+            await Herlaad();
+        }
+    }
+
+    private async Task VerwijderOnderdeel(SjabloonOnderdeel o)
+    {
+        Meld(await SjabloonDienst.VerwijderOnderdeel(o.Id, await Wie()), $"Onderdeel '{o.Titel}' verwijderd");
+        await Herlaad();
+    }
+
+    private void Meld(Uitkomst uitkomst, string gelukt)
+    {
+        melding = uitkomst.IsGelukt ? gelukt : string.Join(" ", uitkomst.Fouten);
+        meldingIsFout = !uitkomst.IsGelukt;
+    }
+
+    private async Task<Uitvoerder> Wie() => (await Authenticatie).User.AlsUitvoerder();
+}

@@ -188,12 +188,177 @@ namespace Boekerhouden.Data.Migraties
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
+                    b.Property<string>("WerkprogrammaVersie")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("KlantId", "Boekjaar", "SoortOpdracht")
                         .IsUnique();
 
                     b.ToTable("Dossiers", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.DossierOnderdeel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("BronOnderdeelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DossierId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Fase")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("GereviewdDoor")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset?>("GereviewdOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("HoofdpostCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Notitie")
+                        .HasMaxLength(20000)
+                        .HasColumnType("character varying(20000)");
+
+                    b.Property<string>("Soort")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Titel")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("Verplicht")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Volgorde")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DossierId");
+
+                    b.HasIndex("DossierId", "HoofdpostCode")
+                        .IsUnique()
+                        .HasFilter("\"HoofdpostCode\" IS NOT NULL");
+
+                    b.ToTable("DossierOnderdelen", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.DossierPostKeuze", b =>
+                {
+                    b.Property<Guid>("DossierId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("HoofdpostCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("GewijzigdDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("GewijzigdOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Materieel")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("DossierId", "HoofdpostCode");
+
+                    b.ToTable("DossierPostKeuzes", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.DossierStap", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AangemaaktDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("AangemaaktOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Antwoord")
+                        .HasMaxLength(20000)
+                        .HasColumnType("character varying(20000)");
+
+                    b.Property<Guid?>("BronStapId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Controle")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Instructie")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<Guid>("OnderdeelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reden")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("Titel")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("UitgevoerdDoor")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset?>("UitgevoerdOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Verplicht")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("Verwijderd")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("VerwijderdDoor")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset?>("VerwijderdOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Volgorde")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OnderdeelId");
+
+                    b.ToTable("DossierStappen", (string)null);
                 });
 
             modelBuilder.Entity("Boekerhouden.Data.Gebruiker", b =>
@@ -678,6 +843,47 @@ namespace Boekerhouden.Data.Migraties
                     b.ToTable("Saldi", (string)null);
                 });
 
+            modelBuilder.Entity("Boekerhouden.Data.SjabloonOnderdeel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Fase")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("HoofdpostCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("SjabloonId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Soort")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Titel")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("Verplicht")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Volgorde")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SjabloonId");
+
+                    b.ToTable("SjabloonOnderdelen", (string)null);
+                });
+
             modelBuilder.Entity("Boekerhouden.Data.SjabloonRegel", b =>
                 {
                     b.Property<Guid>("Id")
@@ -713,6 +919,79 @@ namespace Boekerhouden.Data.Migraties
                         .IsUnique();
 
                     b.ToTable("SjabloonRegels", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.SjabloonStap", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Controle")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Instructie")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<Guid>("OnderdeelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Titel")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<bool>("Verplicht")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Volgorde")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OnderdeelId");
+
+                    b.ToTable("SjabloonStappen", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.WerkprogrammaSjabloon", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("GewijzigdDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("GewijzigdOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Naam")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("SoortOpdracht")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Versie")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SoortOpdracht")
+                        .IsUnique();
+
+                    b.ToTable("WerkprogrammaSjablonen", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
@@ -887,6 +1166,33 @@ namespace Boekerhouden.Data.Migraties
                     b.Navigation("Klant");
                 });
 
+            modelBuilder.Entity("Boekerhouden.Data.DossierOnderdeel", b =>
+                {
+                    b.HasOne("Boekerhouden.Data.Dossier", null)
+                        .WithMany()
+                        .HasForeignKey("DossierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.DossierPostKeuze", b =>
+                {
+                    b.HasOne("Boekerhouden.Data.Dossier", null)
+                        .WithMany()
+                        .HasForeignKey("DossierId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.DossierStap", b =>
+                {
+                    b.HasOne("Boekerhouden.Data.DossierOnderdeel", null)
+                        .WithMany("Stappen")
+                        .HasForeignKey("OnderdeelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Boekerhouden.Data.Grootboekrekening", b =>
                 {
                     b.HasOne("Boekerhouden.Data.Klant", null)
@@ -969,6 +1275,24 @@ namespace Boekerhouden.Data.Migraties
                     b.Navigation("Grootboekrekening");
                 });
 
+            modelBuilder.Entity("Boekerhouden.Data.SjabloonOnderdeel", b =>
+                {
+                    b.HasOne("Boekerhouden.Data.WerkprogrammaSjabloon", null)
+                        .WithMany("Onderdelen")
+                        .HasForeignKey("SjabloonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.SjabloonStap", b =>
+                {
+                    b.HasOne("Boekerhouden.Data.SjabloonOnderdeel", null)
+                        .WithMany("Stappen")
+                        .HasForeignKey("OnderdeelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", null)
@@ -1025,6 +1349,11 @@ namespace Boekerhouden.Data.Migraties
                     b.Navigation("Regels");
                 });
 
+            modelBuilder.Entity("Boekerhouden.Data.DossierOnderdeel", b =>
+                {
+                    b.Navigation("Stappen");
+                });
+
             modelBuilder.Entity("Boekerhouden.Data.ImportBatch", b =>
                 {
                     b.Navigation("Saldi");
@@ -1038,6 +1367,16 @@ namespace Boekerhouden.Data.Migraties
             modelBuilder.Entity("Boekerhouden.Data.RgsVersie", b =>
                 {
                     b.Navigation("Codes");
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.SjabloonOnderdeel", b =>
+                {
+                    b.Navigation("Stappen");
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.WerkprogrammaSjabloon", b =>
+                {
+                    b.Navigation("Onderdelen");
                 });
 #pragma warning restore 612, 618
         }
