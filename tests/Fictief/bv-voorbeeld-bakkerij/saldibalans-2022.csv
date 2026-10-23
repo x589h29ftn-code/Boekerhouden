@@ -1,0 +1,38 @@
+﻿Boekjaar;2022
+Klant;Voorbeeld Bakkerij B.V.
+
+Grootboeknummer;Omschrijving;Bedrag
+0200;Inventaris aanschafwaarde;97.000,00
+0210;Inventaris cumulatieve afschrijving;-48.200,00
+0300;Vervoermiddelen aanschafwaarde;45.000,00
+0310;Vervoermiddelen cumulatieve afschrijving;-18.000,00
+0500;Geplaatst kapitaal;-18.000,00
+0550;Overige reserves;-56.542,35
+0700;Lening ING;-80.000,00
+1000;Kas;914,00
+1100;Rabobank rekening-courant;116.499,49
+1110;Rabobank spaarrekening;55.000,00
+1300;Debiteuren;107.480,46
+1310;Voorziening dubieuze debiteuren;-4.776,91
+1400;Vooruitbetaalde kosten;2.799,32
+1500;Crediteuren;-42.503,65
+1600;Te betalen omzetbelasting;-41.797,96
+1610;Te betalen loonheffing;-29.295,00
+1620;Te betalen vennootschapsbelasting;-23.454,67
+1800;Nog te betalen kosten;-8.744,94
+3000;Voorraad grondstoffen;46.613,17
+4000;Brutolonen;325.500,00
+4010;Sociale lasten;68.355,00
+4020;Pensioenlasten;19.530,00
+4100;Huur bedrijfsruimte;36.720,00
+4110;Gas, water en elektra;19.946,36
+4200;Autokosten;18.695,14
+4300;Kantoorkosten;9.095,68
+4400;Verkoopkosten;10.204,00
+4500;Accountantskosten;8.739,86
+4800;Afschrijving inventaris;9.700,00
+4810;Afschrijving vervoermiddelen;9.000,00
+7000;Inkoop grondstoffen;531.295,62
+8000;Omzet;-1.194.227,29
+9100;Rentelasten lening;4.000,00
+9500;Vennootschapsbelasting;23.454,67

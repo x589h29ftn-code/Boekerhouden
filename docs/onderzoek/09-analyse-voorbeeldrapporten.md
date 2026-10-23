@@ -115,3 +115,25 @@ De rapportgenerator wordt opgebouwd uit herbruikbare **bouwstenen**. Een rapport
 ## 9.6 Gevolgen voor scope en planning
 
 De MVP wordt groter dan in [hoofdstuk 8](08-roadmap-risico-s-en-beslispunten.md) aangenomen. Het voorbeeldrapport BV klein bevat namelijk kengetallen, een meerjarenoverzicht, de fiscale positie (Vpb) en een verschillenanalyse. Die zaten eerst in "fase 5" en horen nu in de MVP, omdat het rapport zonder die onderdelen het huidige rapport niet kan vervangen. Zie de bijgewerkte roadmap.
+
+## 9.7 Lessen uit een referentiecasus (kolommenbalans met eindrapport)
+
+Het kantoor leverde van één BV een ingelezen kolommenbalans én het bijbehorende definitieve rapport aan,
+als referentie. De bestanden staan **niet** in de repository; hieronder alleen de algemene lessen
+(zonder namen of bedragen).
+
+| # | Waarneming | Gevolg voor het ontwerp |
+|---|---|---|
+| 1 | De export heeft de kolommen *Rekening, Omschr, Saldo*, de kopregel op rij 1 en het boekjaar alleen als **naam van het werkblad**; grootboeknummers met een punt, zoals `0210.01` | Import herkent gangbare kolomnamen; het boekjaar kan bij het importeren worden opgegeven (gebouwd in plakje 1, [§3.3](03-gegevensimport-xaf-excel-rgs.md#33-standaard-importsjabloon-excelcsv)) |
+| 2 | De saldibalans is **vóór afsluiting**: W&V-rekeningen bevatten het jaar, de reserves de beginstand. Het rapport toont de balans **na resultaatbestemming** | Het rapportmodel telt het resultaat (volgens het voorstel resultaatbestemming) bij het eigen vermogen op; het verloop eigen vermogen toont "Resultaat boekjaar" als mutatie |
+| 3 | Een belastingrekening met een **debetsaldo** staat in het rapport onder de vorderingen; een crediteurenrekening met een klein debetsaldo blijft juist negatief onder de schulden | **Omslag is per rubriek in te stellen** (aan/uit), niet automatisch voor alle rekeningen ([§4.3](04-rubricering-ontwerp.md#43-de-koppelengine)) |
+| 4 | Meerdere grootboekrekeningen (inventaris én vervoermiddelen, aanschaf én cumulatieve afschrijving) vormen samen één balansregel; in de toelichting staan ze weer apart | Rubriek op balansniveau, specificatie op grootboekniveau ([§10.4](10-werkprogramma-en-materialiteit.md#104-rapport-presentatie-en-opmaak-per-post)) |
+| 5 | Afgeronde bedragen worden zo verdeeld dat **subtotalen en de balans sluiten** (een regel wijkt daardoor soms € 1 af van de afronding van het onderliggende saldo) | Afronding met verdeling van afrondingsverschillen in het rapportmodel ([§7.6](07-technische-architectuur.md#76-rapportgeneratie-één-model-meerdere-uitvoerformaten)) |
+| 6 | In de W&V-toelichting zijn omschrijvingen van grootboekrekeningen **hernoemd** en rekeningen **samengevoegd** | Presentatie-editor: omschrijving aanpassen en regels samenvoegen, per klant onthouden |
+| 7 | Het verloop van een rekening-courant met de directie toont: stand 1 januari, opgenomen gelden, bijgeschreven rente, stand 31 december | Verloopoverzicht met regels die naar een grootboekrekening verwijzen (rente uit de W&V), een **sluitpost** (opgenomen gelden) en begin/eind uit de balans; zo werkt het ook zonder boekingen |
+| 8 | Het verloop materiële vaste activa (aanschafwaarde, cumulatieve afschrijving, investeringen, afschrijvingen) is af te leiden uit de saldi van aanschaf- en afschrijvingsrekeningen van twee jaren | Verloopoverzicht MVA automatisch vullen uit de saldibalansen van huidig en vorig jaar, met handmatige correctie (bijv. desinvesteringen) |
+| 9 | De fiscale positie toont "voldaan op voorlopige aanslagen" en een saldo uit voorgaande jaren | De Vpb-module heeft invoervelden voor betaalde voorlopige aanslagen en posities van vorige jaren, en sluit aan op het saldo van de Vpb-rekening |
+| 10 | Bij een jonge vennootschap (één vergelijkend jaar) vervallen de vijfjarenoverzichten; de structuur is verder gelijk aan voorbeeld A | Kengetallen en meerjarenoverzicht tonen alleen de jaren die er zijn |
+
+Advies: bewaar deze kolommenbalans en het rapport (buiten git) als **eerste golden master** voor de plakjes 3–7.
+

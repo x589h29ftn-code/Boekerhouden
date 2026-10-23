@@ -1,3 +1,15 @@
 # Klantdata en testbestanden horen nooit in deze repository
 /testdata/
 *.xaf
+
+# Build-uitvoer
+bin/
+obj/
+TestResults/
+*.user
+.vs/
+.idea/
+
+# Tijdelijke bestanden
+*.tmp
+~$*.xlsx

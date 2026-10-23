@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Boekerhouden.Domain\Boekerhouden.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ClosedXML" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Boekerhouden.Import.Tests" />
+  </ItemGroup>
+
+</Project>

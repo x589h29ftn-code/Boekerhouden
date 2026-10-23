@@ -1,0 +1,7 @@
+Boekjaar;2025
+Klant;Voorbeeld met fout
+
+Grootboeknummer;Omschrijving;Bedrag
+1100;Bank;1.000,00
+1100;Bank (tweede keer);250,00
+0500;Geplaatst kapitaal;-1.250,00

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Boekerhouden.Cli/Boekerhouden.Cli.csproj" />
+    <Project Path="src/Boekerhouden.Domain/Boekerhouden.Domain.csproj" />
+    <Project Path="src/Boekerhouden.Import/Boekerhouden.Import.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Boekerhouden.Domain.Tests/Boekerhouden.Domain.Tests.csproj" />
+    <Project Path="tests/Boekerhouden.Import.Tests/Boekerhouden.Import.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,38 @@
+﻿Boekjaar;2023
+Klant;Voorbeeld Bakkerij B.V.
+
+Grootboeknummer;Omschrijving;Bedrag
+0200;Inventaris aanschafwaarde;97.000,00
+0210;Inventaris cumulatieve afschrijving;-57.900,00
+0300;Vervoermiddelen aanschafwaarde;45.000,00
+0310;Vervoermiddelen cumulatieve afschrijving;-27.000,00
+0500;Geplaatst kapitaal;-18.000,00
+0550;Overige reserves;-66.533,31
+0700;Lening ING;-60.000,00
+1000;Kas;641,93
+1100;Rabobank rekening-courant;182.266,33
+1110;Rabobank spaarrekening;60.000,00
+1300;Debiteuren;119.769,78
+1310;Voorziening dubieuze debiteuren;-5.323,10
+1400;Vooruitbetaalde kosten;3.974,65
+1500;Crediteuren;-47.374,99
+1600;Te betalen omzetbelasting;-46.577,13
+1610;Te betalen loonheffing;-30.759,75
+1620;Te betalen vennootschapsbelasting;-34.882,73
+1800;Nog te betalen kosten;-7.327,75
+3000;Voorraad grondstoffen;41.736,67
+4000;Brutolonen;341.775,00
+4010;Sociale lasten;71.772,75
+4020;Pensioenlasten;20.506,50
+4100;Huur bedrijfsruimte;37.454,40
+4110;Gas, water en elektra;16.240,94
+4200;Autokosten;17.348,32
+4300;Kantoorkosten;8.745,71
+4400;Verkoopkosten;11.582,03
+4500;Accountantskosten;7.668,94
+4800;Afschrijving inventaris;9.700,00
+4810;Afschrijving vervoermiddelen;9.000,00
+7000;Inkoop grondstoffen;592.187,36
+8000;Omzet;-1.330.775,28
+9100;Rentelasten lening;3.200,00
+9500;Vennootschapsbelasting;34.882,73

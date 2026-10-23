@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <!-- Nederlandse identifiers en meldingen; geen eisen aan Engelstalige naamgeving of culture-overloads in meldingen. -->
+    <NoWarn>$(NoWarn);CA1303;CA1707;CA1711;CA1716</NoWarn>
+  </PropertyGroup>
+</Project>

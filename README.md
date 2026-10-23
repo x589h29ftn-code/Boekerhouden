@@ -11,4 +11,20 @@ Het werkt zo:
 
 Het draait op een eigen server-pc op kantoor, met meerdere gebruikers.
 
-**Status:** onderzoeks- en ontwerpfase. Zie [`docs/onderzoek`](docs/onderzoek/README.md).
+## Status
+
+Plakje 1 van 10 is gereed: het importsjabloon inlezen en controleren (onder meer saldo nihil), met
+verzonnen testklanten. Ontwerp, besluiten en roadmap: [`docs/onderzoek`](docs/onderzoek/README.md).
+
+## Snel proberen
+
+Vereist de [.NET 10 SDK](https://dotnet.microsoft.com/).
+
+```bash
+dotnet test Boekerhouden.slnx
+dotnet run --project src/Boekerhouden.Cli -- sjabloon importsjabloon.xlsx --boekjaar 2025
+dotnet run --project src/Boekerhouden.Cli -- controleer tests/Fictief/bv-voorbeeld-bakkerij/saldibalans-2025.csv
+dotnet run --project src/Boekerhouden.Cli -- controleer tests/Fictief/fouten/saldo-niet-nihil.csv
+```
+
+Werkafspraken voor ontwikkeling (ook voor AI-sessies): [`CLAUDE.md`](CLAUDE.md).

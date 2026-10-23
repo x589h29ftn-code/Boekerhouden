@@ -1,0 +1,29 @@
+Boekjaar;2023
+Klant;Schildersbedrijf Voorbeeld
+
+Grootboeknummer;Omschrijving;Bedrag
+0200;Bedrijfsauto aanschafwaarde;32000,00
+0210;Bedrijfsauto cumulatieve afschrijving;-19200,00
+0250;Gereedschap aanschafwaarde;15500,00
+0260;Gereedschap cumulatieve afschrijving;-7950,00
+0600;Ondernemingsvermogen;-43476,38
+0650;Fiscale oudedagsreserve;-8500,00
+0700;Privéonttrekkingen;66914,48
+0710;Privéstortingen;0,00
+1000;Kas;572,96
+1100;ING zakelijke rekening;38075,16
+1300;Debiteuren;11116,46
+1500;Crediteuren;-2852,13
+1600;Te betalen omzetbelasting;-5558,23
+1800;Nog te betalen kosten;-2229,50
+4200;Autokosten;7211,62
+4300;Telefoon en internet;1046,43
+4400;Verzekeringen;2568,06
+4500;Accountantskosten;2484,48
+4600;Kleine aanschaffingen;903,91
+4800;Afschrijving bedrijfsauto;4800,00
+4810;Afschrijving gereedschap;1550,00
+7000;Inkoop verf en materialen;33828,94
+7100;Uitbesteed werk;9810,93
+8000;Omzet schilderwerk;-138955,75
+9100;Rente en bankkosten;338,56

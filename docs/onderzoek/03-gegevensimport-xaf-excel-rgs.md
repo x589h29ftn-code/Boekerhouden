@@ -152,6 +152,10 @@ Dit sjabloon is de **eerste importroute die we bouwen**. Elk pakket kan een sald
 exporteren, dus het werkt altijd. XAF volgt daarna voor automatische RGS-codes en drill-down
 naar boekingen.
 
+> **Gebouwd in plakje 1** (`src/Boekerhouden.Import`): inlezen van .xlsx en .csv, controles I1–I6 en I11,
+> en het genereren van een leeg sjabloon. Proberen kan met
+> `boekerhouden controleer <bestand> [--boekjaar 2025]` en `boekerhouden sjabloon <uit.xlsx>`.
+
 ### Opbouw van het sjabloon
 
 De applicatie levert het sjabloon zelf via de knop *Download importsjabloon* (`.xlsx`).
@@ -176,12 +180,26 @@ CSV met dezelfde kolommen kan ook.
 
 | Veld | Verplicht | Regels |
 |---|---|---|
-| **Boekjaar** (cel B1) | ✅ | Vier cijfers, bijv. `2025`. Bepaalt in welk jaar de saldi landen. De importdialoog toont het ter bevestiging |
+| **Boekjaar** (cel B1) | ✅ | Vier cijfers, bijv. `2025`. Bepaalt in welk jaar de saldi landen. **Mag ook bij het importeren worden opgegeven** (nodig voor exports zonder boekjaarcel). Staat het op beide plekken, dan moeten ze gelijk zijn |
 | Klant (cel B2) | – | Optioneel; ter controle dat het bestand bij de juiste klant hoort (waarschuwing bij afwijking) |
-| **Grootboeknummer** | ✅ | Als tekst (voorloopnullen blijven behouden), uniek in het bestand |
+| **Grootboeknummer** | ✅ | Als tekst (voorloopnullen en nummers als `0210.01` blijven behouden), uniek in het bestand |
 | **Omschrijving** | ✅ | Wordt de omschrijving van de grootboekrekening bij de klant |
-| **Bedrag** | ✅ | Eindsaldo per einde boekjaar. **Debet = positief, credit = negatief.** Hoogstens 2 decimalen. Nederlandse (`1.234,56`) en Engelse (`1234.56`) notatie worden herkend |
+| **Bedrag** | ✅ | Eindsaldo per einde boekjaar. **Debet = positief, credit = negatief.** Hoogstens 2 decimalen. Nederlandse (`1.234,56`) en Engelse (`1,234.56`) notatie worden herkend; ook `(125,40)` en `125,40-` als negatief. Een leeg bedrag telt als nihil |
 | RGS-code (kolom D) | – | Optioneel. Is hij ingevuld en geldig, dan rubriceert de applicatie de rekening automatisch ([§4.3](04-rubricering-ontwerp.md#43-de-koppelengine)) |
+
+**Gangbare kolomnamen** worden ook herkend, zodat een export uit een boekhoudpakket vaak zonder
+aanpassing kan worden ingelezen (vergelijking zonder hoofdletters, spaties en punten):
+
+| Kolom | Ook herkend als |
+|---|---|
+| Grootboeknummer | Rekening, Rekeningnummer, Rekeningnr, Rek.nr., Grootboekrekening, Grootboek, Nummer, Nr |
+| Omschrijving | Omschr, Naam, Rekeningnaam, Grootboekomschrijving |
+| Bedrag | Saldo, Eindsaldo |
+| RGS-code | elke kolomnaam die met "RGS" begint |
+
+De kopregel mag op elke rij staan en de kolommen in elke volgorde. Een regel zonder grootboeknummer
+waarvan de omschrijving met "Totaal" begint, wordt overgeslagen (totaalregel onder de tabel).
+Exports met aparte debet- en creditkolommen passen nog niet; daarvoor komt later de kolomtoewijzer.
 
 *Bedrag* is het saldo zoals in de saldibalans: balansrekeningen met hun eindstand, W&V-rekeningen
 met hun jaartotaal. Omdat elke boeking in evenwicht is, is de som van alle saldi altijd nihil. Een
@@ -191,8 +209,8 @@ verschil betekent dat er regels ontbreken of verkeerd zijn overgenomen, bijvoorb
 
 | # | Controle | Bij afwijking |
 |---|---|---|
-| I1 | Bestand leesbaar, kolomkoppen *Grootboeknummer, Omschrijving, Bedrag* aanwezig | ❌ Import stopt, met een melding welke kolom ontbreekt |
-| I2 | Boekjaar ingevuld en geldig | ❌ Import stopt |
+| I1 | Bestand leesbaar (.xlsx of .csv), kolomkoppen *Grootboeknummer, Omschrijving, Bedrag* (of een synoniem) aanwezig | ❌ Import stopt, met een melding welke kolom ontbreekt |
+| I2 | Boekjaar ingevuld (in het bestand of bij het importeren) en geldig; beide gelijk als het op twee plekken staat | ❌ Import stopt |
 | I3 | Elke regel heeft een grootboeknummer en een omschrijving; lege regels worden overgeslagen | ❌ Import stopt, met de regelnummers |
 | I4 | Grootboeknummers zijn uniek | ❌ Import stopt, met de dubbele nummers |
 | I5 | Bedragen zijn geldige getallen met hoogstens 2 decimalen | ❌ Import stopt, met de regelnummers |
@@ -201,6 +219,9 @@ verschil betekent dat er regels ontbreken of verkeerd zijn overgenomen, bijvoorb
 | I8 | Alle W&V-rekeningen hebben saldo 0, dus de jaarafsluiting is al geboekt | ⚠️ Waarschuwing: "W&V lijkt leeg, is het resultaat al naar het eigen vermogen geboekt?" |
 | I9 | Er zijn al gegevens voor dit jaar | ⚠️ Vraag: vervangen? De oude import blijft in de historie bewaard; koppelingen en correctieboekingen blijven staan |
 | I10 | Verschillen met de vorige import of het vorige jaar: nieuwe rekeningen, verdwenen rekeningen, andere omschrijving bij hetzelfde nummer | ℹ️ Overzicht ter informatie |
+| I11 | RGS-code (indien ingevuld) heeft een geldig formaat (letters, begint met B of W) | ⚠️ Waarschuwing; de code wordt genegeerd |
+
+*I1–I6 en I11 zijn gebouwd in plakje 1. I7–I10 vragen klant- en dossiergegevens en volgen in plakje 2 (I7, I9, I10) en plakje 3 (I8, als bekend is welke rekeningen W&V zijn).* Alle fouten worden in één keer gemeld, zodat de gebruiker ze in één ronde kan herstellen.
 
 **Pas als I1–I6 slagen**, wordt er geïmporteerd:
 1. Grootboekrekeningen worden aangemaakt of bijgewerkt bij de klant, met nummer als sleutel.

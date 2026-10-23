@@ -97,7 +97,7 @@ vroeg zichtbaar is.
 
 | # | Plakje | Resultaat | Inhoud (vaktechniek) die dan nodig is |
 |---|---|---|---|
-| 1 | **Fundament en importsjabloon**: solution, domeinmodel, inlezen sjabloon met alle controles (saldo nihil), proefbalans; fictieve testdata | Een saldibalans wordt ingelezen en gecontroleerd (via tests) | Fictieve testklanten |
+| 1 ✅ | **Fundament en importsjabloon**: solution, domeinmodel, inlezen sjabloon met alle controles (saldo nihil), proefbalans; fictieve testdata | Een saldibalans wordt ingelezen en gecontroleerd (via tests en de opdrachtregel). **Gereed 23-10-2026**; ook gangbare exports ("Rekening, Omschr, Saldo") worden herkend | Fictieve testklanten |
 | 2 | **Eerste werkende app**: server (Blazor), database, inloggen en rollen, klanten en dossiers, import via scherm, audit log | Inloggen, klant en dossier aanmaken, sjabloon uploaden | – |
 | 3 | **Rubriceren**: rubriekenschema, koppelscherm, RGS-tabel, koppelsjablonen, gekoppeld %, controles | 100% gekoppelde proefbalans per rubriek | Rubriekenschema BV en IB, met hoofd- en subposten; RGS→rubriek-tabel |
 | 4 | **Proefbalans en correcties**: huidig, vorig, verschil, doorklikken, correctieboekingen, vergelijkende cijfers | Sluitende, gecorrigeerde proefbalans | – |
