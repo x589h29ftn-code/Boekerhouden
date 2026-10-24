@@ -1,0 +1,191 @@
+@* Doorlezen (afronding): de signalen uit de cijfers en het rapport afhandelen, en de bespreekpunten met de klant. *@
+@using Boekerhouden.Domain.Doorlezen
+@inject DoorleesDienst DoorleesDienst
+
+<div class="wp-sectie" id="signalen">
+    <div class="wp-sectie-kop">
+        <span class="me-auto">Signalen</span>
+        @if (overzicht is not null)
+        {
+            <span class="status" title="Vaste controles op samenhang in de cijfers en het rapport; een hulp, geen oordeel.">
+                @(overzicht.Signalen.Count == 0 ? "geen" : overzicht.Open == 0 ? "alles afgehandeld" : $"{overzicht.Open} open van {overzicht.Signalen.Count}")
+            </span>
+        }
+    </div>
+    @if (overzicht is null)
+    {
+        <p class="text-secondary small m-3">Laden…</p>
+    }
+    else if (overzicht.Signalen.Count == 0)
+    {
+        <p class="text-secondary small mx-3 my-2">Geen signalen uit de cijfers en het rapport.</p>
+    }
+    else
+    {
+        @foreach (var l in overzicht.Signalen)
+        {
+            var s = l.Signaal;
+            <div class="ls-regel" data-signaal="@s.Sleutel" @key="(s.Sleutel, versie)">
+                <span class="titel" title="@($"{s.Titel}\n{s.Tekst}")" @onclick="() => Wissel(s.Sleutel)">
+                    <span class="pijl" aria-hidden="true">@(uitgeklapt == s.Sleutel ? "▾" : "▸")</span>@s.Titel
+                </span>
+                <span class="status" title="@(l.Door is null ? null : $"{l.Door}, {Weergave.DatumTijd(l.Op!.Value)}")">@Status(l)</span>
+                @if (!overzicht.Geparafeerd)
+                {
+                    <span class="acties">
+                        @if (l.Afhandeling is null)
+                        {
+                            <button class="btn btn-sm btn-link p-0" @onclick="() => Open(s.Sleutel)">in orde</button>
+                            <button class="btn btn-sm btn-link p-0" @onclick="() => NaarBespreking(s)">bespreekpunt</button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-sm btn-link p-0" @onclick="() => Heropen(s)">heropen</button>
+                        }
+                        @if (s.Post is { } post)
+                        {
+                            <a class="btn btn-sm btn-link p-0" href="/dossiers/@DossierId/werkprogramma?post=@post">naar de post</a>
+                        }
+                    </span>
+                }
+            </div>
+            @if (uitgeklapt == s.Sleutel)
+            {
+                <div class="ls-detail">
+                    <p class="instructie mb-1">@s.Tekst</p>
+                    @if (l.Afhandeling is null && !overzicht.Geparafeerd)
+                    {
+                        <form class="d-flex gap-2" @onsubmit="() => InOrde(s)" @onsubmit:preventDefault>
+                            <input class="form-control form-control-sm" placeholder="Waarom is het in orde?" aria-label="Toelichting @s.Titel" @bind="toelichting" />
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">In orde</button>
+                        </form>
+                    }
+                </div>
+            }
+        }
+    }
+</div>
+
+<div class="wp-sectie" id="bespreekpunten">
+    <div class="wp-sectie-kop">
+        <span class="me-auto">Bespreekpunten</span>
+        @if (overzicht is { Bespreekpunten.Count: > 0 })
+        {
+            <span class="status">@overzicht.Bespreekpunten.Count</span>
+        }
+    </div>
+    @if (overzicht is not null)
+    {
+        @foreach (var p in overzicht.Bespreekpunten)
+        {
+            <div class="ls-regel" data-bespreekpunt="@p.Onderwerp" @key="(p.Id, versie)">
+                <span class="titel" title="@(p.Toelichting is null ? p.Onderwerp : $"{p.Onderwerp}\n{p.Toelichting}")">@p.Onderwerp</span>
+                <span class="status" title="@($"{p.AangemaaktDoor}, {Weergave.DatumTijd(p.AangemaaktOp)}")">@(p.IsBesproken ? "besproken" : p.Signaal is null ? "eigen punt" : "uit de signalen")</span>
+                @if (!p.IsBesproken)
+                {
+                    <span class="acties">
+                        <button class="btn btn-sm btn-link p-0" @onclick="() => Verwijder(p)">verwijderen</button>
+                    </span>
+                }
+            </div>
+        }
+        <form class="d-flex gap-2 mx-3 my-2" @onsubmit="VoegToe" @onsubmit:preventDefault>
+            <input class="form-control form-control-sm" placeholder="Nieuw bespreekpunt" aria-label="Nieuw bespreekpunt" @bind="nieuwOnderwerp" />
+            <button type="submit" class="btn btn-sm btn-outline-secondary">Toevoegen</button>
+        </form>
+    }
+</div>
+
+@code {
+    private DoorleesOverzicht? overzicht;
+    private string? uitgeklapt;
+    private string? toelichting;
+    private string? nieuwOnderwerp;
+    private int versie;
+
+    [Parameter, EditorRequired]
+    public Guid DossierId { get; set; }
+
+    /// <summary>Wordt verhoogd door de pagina als er iets is gewijzigd (bijv. de paraaf); dan opnieuw laden.</summary>
+    [Parameter]
+    public int Stand { get; set; }
+
+    [Parameter]
+    public EventCallback<(Uitkomst Uitkomst, string Gelukt)> OnMelding { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Authenticatie { get; set; } = default!;
+
+    private (Guid, int)? geladen;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Alleen opnieuw laden als het dossier of de stand verandert: de signalen vragen het hele rapport.
+        if (geladen != (DossierId, Stand))
+        {
+            geladen = (DossierId, Stand);
+            await Laad();
+        }
+    }
+
+    private async Task Laad()
+    {
+        versie++;
+        overzicht = await DoorleesDienst.Overzicht(DossierId);
+    }
+
+    private static string Status(LeespuntInfo l) => l.Afhandeling switch
+    {
+        LeesAfhandeling.InOrde => $"in orde: {l.Toelichting}",
+        LeesAfhandeling.Bespreekpunt => "bespreekpunt",
+        _ => "open",
+    };
+
+    private void Wissel(string sleutel) => uitgeklapt = uitgeklapt == sleutel ? null : sleutel;
+
+    private void Open(string sleutel)
+    {
+        uitgeklapt = sleutel;
+        toelichting = null;
+    }
+
+    private async Task InOrde(Leessignaal s)
+    {
+        var uitkomst = await DoorleesDienst.InOrde(DossierId, s.Sleutel, toelichting, await Wie());
+        if (uitkomst.IsGelukt)
+        {
+            uitgeklapt = null;
+            toelichting = null;
+        }
+
+        await Klaar(uitkomst, $"'{s.Titel}' in orde");
+    }
+
+    private async Task NaarBespreking(Leessignaal s) =>
+        await Klaar(await DoorleesDienst.NaarBespreking(DossierId, s.Sleutel, await Wie()), $"'{s.Titel}' bij de bespreekpunten");
+
+    private async Task Heropen(Leessignaal s) =>
+        await Klaar(await DoorleesDienst.Heropen(DossierId, s.Sleutel, await Wie()), $"'{s.Titel}' weer open");
+
+    private async Task VoegToe()
+    {
+        var uitkomst = await DoorleesDienst.VoegBespreekpuntToe(DossierId, nieuwOnderwerp, null, await Wie());
+        if (uitkomst.IsGelukt)
+        {
+            nieuwOnderwerp = null;
+        }
+
+        await Klaar(uitkomst, "Bespreekpunt toegevoegd");
+    }
+
+    private async Task Verwijder(BespreekpuntInfo p) =>
+        await Klaar(await DoorleesDienst.VerwijderBespreekpunt(p.Id, await Wie()), $"'{p.Onderwerp}' verwijderd");
+
+    private async Task Klaar(Uitkomst uitkomst, string gelukt)
+    {
+        await OnMelding.InvokeAsync((uitkomst, gelukt));
+        await Laad();
+    }
+
+    private async Task<Uitvoerder> Wie() => (await Authenticatie).User.AlsUitvoerder();
+}

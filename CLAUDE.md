@@ -27,14 +27,14 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
 
 - `src/Boekerhouden.Domain` – domein (saldibalans, bedragen en `BedragParser`; `Rgs/`: RGS-codes, boom en selectie per
   rechtsvorm; `Rubricering/`: proefbalans per post met omslag en saldering per eigen post, voorstellen; `Correcties/`: boekingscontrole (C08),
-  effect op resultaat en eigen vermogen, gecorrigeerde saldi; `Rapport/`: rapportmodel en `RapportOpbouw` voor balans, W&V
+  effect op resultaat en eigen vermogen, gecorrigeerde saldi; `Doorlezen/`: signalen bij het doorlezen; `Rapport/`: rapportmodel en `RapportOpbouw` voor balans, W&V
   en specificaties, `RapportVariabelen` voor `{boekjaar}` e.d. in teksten); geen I/O.
 - `src/Boekerhouden.Import` – importsjabloon (.xlsx/.csv) inlezen en controleren (I1–I6, I11), sjabloon genereren,
   het officiële RGS-werkboek lezen (`RgsWerkboekLezer`).
 - `src/Boekerhouden.Cli` – opdrachtregel om sjablonen te maken en bestanden te controleren.
 - `src/Boekerhouden.Data` – EF Core + PostgreSQL: entiteiten, Identity (gebruikers, rollen), migraties (`Migraties/`).
 - `src/Boekerhouden.Server` – Blazor Server-app: `Diensten/` (klanten, dossiers, import met I7/I9/I10, gebruikers,
-  wijzigingslog, rubriceren, correcties, werkprogramma en review, bijlagen, signalen, kantoor en huisstijl, rapport en
+  wijzigingslog, rubriceren, correcties, werkprogramma en review, doorlezen en bespreekpunten, bijlagen, signalen, kantoor en huisstijl, rapport en
   presentatie per klant, grondslagen; `DossierSaldi` = saldi van een dossier na correcties, met vorig jaar;
   `Jaarversies` = instellingen die gelden vanaf een boekjaar, nooit met terugwerkende kracht), `Werkprogramma/` (het meegeleverde standaardwerkprogramma), `Grondslagen/` (de
   meegeleverde bibliotheek: algemene toelichting en grondslagen, commercieel en fiscaal, met `{naam}` e.d.), `Identiteit/` (inloggen, wachtwoordbeleid), `Components/` (schermen; accountpagina's statisch,

@@ -93,7 +93,7 @@ public sealed record WerkprogrammaOverzicht(
 /// Het werkprogramma van een dossier (docs hoofdstuk 10): een kopie van het kantoorsjabloon, de keuze van materiële
 /// posten, en stappen die worden afgetekend, toegevoegd of (met reden) verwijderd.
 /// </summary>
-public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext> dbFactory, RubriceerDienst rubriceer, AuditDienst audit, TimeProvider tijd)
+public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext> dbFactory, RubriceerDienst rubriceer, DoorleesDienst doorlezen, AuditDienst audit, TimeProvider tijd)
 {
     public const int MaximaleTekst = 20000;
 
@@ -547,6 +547,9 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
                 return o is null || o.Gekoppeld < o.Relevant
                     ? $"Nog niet alle rekeningen met saldo zijn gekoppeld ({o?.Gekoppeld} van {o?.Relevant}). Rubriceer ze eerst."
                     : null;
+            case StapControle.SignalenAfgehandeld:
+                var open = await doorlezen.OpenSignalen(dossierId);
+                return open > 0 ? $"Nog {open} signaal/signalen bij het doorlezen open. Handel ze af als in orde of als bespreekpunt." : null;
             case StapControle.MaterielePostenGekozen:
                 // Standaard is elke post niet van toepassing; de gebruiker tekent af als de beoordeling klaar is.
                 return null;

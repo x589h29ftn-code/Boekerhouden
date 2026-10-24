@@ -248,4 +248,36 @@ Aanvulling op [hoofdstuk 6](06-datamodel.md):
 
 **Meegeleverde inhoud** (versie 2026.2): een ongewijzigd standaardsjabloon gaat bij het starten van de server mee naar de nieuwe versie; een door het kantoor aangepast sjabloon blijft zoals het is. Lopende dossiers houden hun kopie.
 
-**Volgt**: doorlezen met automatische signalen uit de cijfers (7b), bespreekpunten, bespreekverslag en erkenning door de klant (7c), en de samenstellingsverklaring in het rapport van de BV (7d). De winstaangifte van de eenmanszaak is een aangifte-plusopdracht: zonder samenstellingsverklaring.
+**Volgt**: bespreekpunten, bespreekverslag en erkenning door de klant (7c), en de samenstellingsverklaring in het rapport van de BV (7d). De winstaangifte van de eenmanszaak is een aangifte-plusopdracht: zonder samenstellingsverklaring.
+
+## 10.10 Doorlezen met signalen en paraaf (plakje 7b)
+
+**Afronding › Doorlezen** (vervangt *Evaluatie*; standaardwerkprogramma 2026.3) toont boven de stappen twee lijsten.
+
+**Signalen**: vaste controles op samenhang in de cijfers (na correcties) en het rapport. Ze zijn een hulp, geen oordeel, en worden bij elke keer openen opnieuw uitgerekend (`Leessignalen` in het domein).
+
+| Signaal | Wanneer |
+|---|---|
+| Uit het rapport | Elke waarschuwing van het rapport, bijv. *grondslagen nog niet gekozen* of *tekst tussen [ ] nog invullen* |
+| Negatief eigen vermogen | BV: eigen vermogen negatief en de alinea over de continuïteit staat niet in de toelichting. Eenmanszaak: negatief ondernemingsvermogen |
+| Winst zonder vennootschapsbelasting | BV: resultaat vóór belastingen positief, geen belasting geboekt |
+| Rekening-courant zonder rente | Saldo rekening-courant of lening met bestuurder of aandeelhouder, en niets op de rentecodes daarvoor |
+| Afschrijvingen en vaste activa | Afschrijvingen zonder vaste activa, of materiële vaste activa zonder afschrijvingen |
+| Brutomarge | Wijkt 5 procentpunt of meer af van vorig jaar |
+| Groot verschil met vorig jaar | Per hoofdpost: verschil van minstens 5% van de omvang (het grootste van balanstotaal en omzet, minimaal € 1.000) én minstens 25% van vorig jaar. Niet bij een post met een cijferbeoordeling |
+| Aan de andere kant | Een balanspost met een saldo aan de andere kant (behalve eigen vermogen) |
+| Zonder grondslag | BV: een balanspost met saldo waarvan de grondslag uit staat |
+
+Per signaal (één regel; details in de tooltip of door open te klikken; acties bij aanwijzen):
+- **in orde** met een korte toelichting (verplicht);
+- **bespreekpunt**: het signaal komt bij de bespreekpunten voor de klant;
+- **heropen** maakt de afhandeling ongedaan (een nog niet besproken bespreekpunt vervalt dan ook);
+- **naar de post** opent de post in de uitvoering.
+
+**Bespreekpunten**: de punten uit de signalen en eigen punten (bijv. een vraag die bij het uitwerken opkwam). De bespreking zelf volgt in 7c.
+
+**Stap *Signalen afgehandeld*** (verplicht) kan pas worden afgetekend als er geen open signalen meer zijn. Verder: *Lezen in samenhang* (verplicht), *Fraude en niet-naleving*, *Significante aangelegenheden* en *Continuïteit* (BV).
+
+**Paraaf**: het onderdeel Doorlezen wordt niet *gereviewd* maar **geparafeerd**, en alleen door een gebruiker met de rol accountant (ook terugzetten). Daarna ligt de afhandeling van de signalen vast.
+
+Alles staat in het wijzigingslog (*Signaal in orde*, *Signaal heropend*, *Bespreekpunt toegevoegd*, *Bespreekpunt verwijderd*, *Onderdeel gereviewd*).

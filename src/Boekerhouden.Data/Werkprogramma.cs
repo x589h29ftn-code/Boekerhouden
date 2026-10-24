@@ -17,6 +17,9 @@ public enum OnderdeelSoort
 
     /// <summary>De uitvoering van één materiële hoofdpost (RGS niveau 2): cijfers, notitie en stappen.</summary>
     Post,
+
+    /// <summary>Doorlezen in de afronding: de signalen uit de cijfers en het rapport afhandelen; de accountant parafeert.</summary>
+    Doorlezen,
 }
 
 /// <summary>
@@ -47,6 +50,9 @@ public enum StapControle
 
     /// <summary>Alle grootboekrekeningen met saldo zijn aan RGS gekoppeld.</summary>
     AllesGekoppeld,
+
+    /// <summary>Elk signaal bij het doorlezen is afgehandeld (in orde of bespreekpunt).</summary>
+    SignalenAfgehandeld,
 }
 
 /// <summary>

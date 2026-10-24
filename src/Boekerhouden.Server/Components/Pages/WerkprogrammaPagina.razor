@@ -124,8 +124,8 @@ else
                         }
                         @if (o.IsGereviewd)
                         {
-                            <span class="small text-secondary" id="gereviewd">gereviewd door @o.GereviewdDoor, @Weergave.DatumTijd(o.GereviewdOp!.Value)</span>
-                            @if (isReviewer)
+                            <span class="small text-secondary" id="gereviewd">@(o.Soort == OnderdeelSoort.Doorlezen ? "geparafeerd" : "gereviewd") door @o.GereviewdDoor, @Weergave.DatumTijd(o.GereviewdOp!.Value)</span>
+                            @if (o.Soort == OnderdeelSoort.Doorlezen ? isAccountant : isReviewer)
                             {
                                 <button class="btn btn-sm btn-link text-secondary p-0" @onclick="() => ReviewTerug(o)">terugzetten</button>
                             }
@@ -133,9 +133,9 @@ else
                         else
                         {
                             <span class="small text-secondary">@OnderdeelStatus(o)</span>
-                            @if (isReviewer)
+                            @if (o.Soort == OnderdeelSoort.Doorlezen ? isAccountant : isReviewer)
                             {
-                                <button class="btn btn-sm btn-outline-secondary" disabled="@(o.NietTeReviewen is not null)" title="@o.NietTeReviewen" @onclick="() => Reviewen(o)">Gereviewd</button>
+                                <button class="btn btn-sm btn-outline-secondary" disabled="@(o.NietTeReviewen is not null)" title="@(o.NietTeReviewen ?? (o.Soort == OnderdeelSoort.Doorlezen ? "Paraaf van de accountant: het rapport is doorgelezen." : null))" @onclick="() => Reviewen(o)">@(o.Soort == OnderdeelSoort.Doorlezen ? "Paraaf" : "Gereviewd")</button>
                             }
                         }
                         @if (o.Stappen.Any(s => s.Verwijderd))
@@ -149,6 +149,11 @@ else
                     @if (o.Soort == OnderdeelSoort.Post && o.HoofdpostCode is { } risicopost && w.Keuzes.GetValueOrDefault(risicopost) is { Beoordeling: PostBeoordeling.Risicopost } risicokeuze)
                     {
                         @Risico(risicopost, risicokeuze.Risico)
+                    }
+
+                    @if (o.Soort == OnderdeelSoort.Doorlezen)
+                    {
+                        <Doorlezen DossierId="@Id" Stand="@versie" OnMelding="m => Meld(m.Uitkomst, m.Gelukt)" />
                     }
 
                     @if (o.Soort == OnderdeelSoort.MaterielePosten)
@@ -421,6 +426,7 @@ else
     private string? melding;
     private bool meldingIsFout;
     private bool isReviewer;
+    private bool isAccountant;
     private Guid? oplossen;
     private string? reactie;
     private string? puntTekst;
@@ -450,7 +456,8 @@ else
     protected override async Task OnParametersSetAsync()
     {
         var gebruiker = (await Authenticatie).User;
-        isReviewer = gebruiker.IsInRole(Rollen.Reviewer) || gebruiker.IsInRole(Rollen.Accountant);
+        isAccountant = gebruiker.IsInRole(Rollen.Accountant);
+        isReviewer = gebruiker.IsInRole(Rollen.Reviewer) || isAccountant;
         gekozenId = OnderdeelBijStart;
         gekozenPost = PostBijStart;
         await Laad();
@@ -570,7 +577,7 @@ else
     };
 
     private static string OnderdeelStatus(OnderdeelInfo o) =>
-        o.GereviewdDoor is not null ? "gereviewd"
+        o.GereviewdDoor is not null ? (o.Soort == OnderdeelSoort.Doorlezen ? "geparafeerd" : "gereviewd")
         : o.Aantal == 0 ? ""
         : o.IsGereed ? "gereed"
         : $"{o.Klaar}/{o.Aantal}";
@@ -851,13 +858,13 @@ else
 
     private async Task Reviewen(OnderdeelInfo o)
     {
-        Meld(await ReviewDienst.Reviewen(o.Id, await Wie()), $"'{o.Titel}' gereviewd");
+        Meld(await ReviewDienst.Reviewen(o.Id, await Wie()), $"'{o.Titel}' {(o.Soort == OnderdeelSoort.Doorlezen ? "geparafeerd" : "gereviewd")}");
         await Laad();
     }
 
     private async Task ReviewTerug(OnderdeelInfo o)
     {
-        Meld(await ReviewDienst.ReviewTerug(o.Id, await Wie()), $"Review van '{o.Titel}' teruggezet");
+        Meld(await ReviewDienst.ReviewTerug(o.Id, await Wie()), $"{(o.Soort == OnderdeelSoort.Doorlezen ? "Paraaf" : "Review")} van '{o.Titel}' teruggezet");
         await Laad();
     }
 

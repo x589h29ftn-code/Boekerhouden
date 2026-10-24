@@ -51,6 +51,10 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
 
     public DbSet<Reviewpunt> Reviewpunten => Set<Reviewpunt>();
 
+    public DbSet<DossierLeespunt> Leespunten => Set<DossierLeespunt>();
+
+    public DbSet<Bespreekpunt> Bespreekpunten => Set<Bespreekpunt>();
+
     public DbSet<Bijlage> Bijlagen => Set<Bijlage>();
 
     public DbSet<BijlageInhoud> BijlageInhouden => Set<BijlageInhoud>();
@@ -320,6 +324,31 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
             e.Property(k => k.Beoordeling).HasConversion<string>().HasMaxLength(30);
             e.Property(k => k.Risico).HasMaxLength(1000);
             e.Property(k => k.GewijzigdDoor).HasMaxLength(200);
+        });
+
+        builder.Entity<DossierLeespunt>(e =>
+        {
+            e.ToTable("DossierLeespunten");
+            e.HasKey(l => new { l.DossierId, l.Sleutel });
+            e.HasOne<Dossier>().WithMany().HasForeignKey(l => l.DossierId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(l => l.Sleutel).HasMaxLength(200);
+            e.Property(l => l.Titel).HasMaxLength(300);
+            e.Property(l => l.Afhandeling).HasConversion<string>().HasMaxLength(30);
+            e.Property(l => l.Toelichting).HasMaxLength(4000);
+            e.Property(l => l.Door).HasMaxLength(200);
+        });
+
+        builder.Entity<Bespreekpunt>(e =>
+        {
+            e.ToTable("Bespreekpunten");
+            e.HasIndex(p => p.DossierId);
+            e.HasOne<Dossier>().WithMany().HasForeignKey(p => p.DossierId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(p => p.Onderwerp).HasMaxLength(300);
+            e.Property(p => p.Toelichting).HasMaxLength(4000);
+            e.Property(p => p.Signaal).HasMaxLength(200);
+            e.Property(p => p.Uitkomst).HasMaxLength(4000);
+            e.Property(p => p.AangemaaktDoor).HasMaxLength(200);
+            e.Property(p => p.GewijzigdDoor).HasMaxLength(200);
         });
 
         builder.Entity<Reviewpunt>(e =>

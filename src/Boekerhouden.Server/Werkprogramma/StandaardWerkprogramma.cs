@@ -9,7 +9,7 @@ namespace Boekerhouden.Server.Werkprogramma;
 /// </summary>
 public static class StandaardWerkprogramma
 {
-    public const string Versie = "2026.2";
+    public const string Versie = "2026.3";
 
     /// <summary>Wie het meegeleverde sjabloon "gewijzigd" heeft; zolang dat zo is, gaat het mee met een nieuwe standaardversie.</summary>
     public const string Door = "Standaard";
@@ -125,11 +125,14 @@ public static class StandaardWerkprogramma
         {
             onderdelen.Add(Post("WBel", "Belastingen",
                 Stap("Vennootschapsbelasting", "Bereken de vennootschapsbelasting en sluit die aan op de balans (fiscale positie).")));
-            onderdelen.Add(Onderdeel(Fase.Afronding, "Evaluatie", verplicht: true,
-                Stap("Lezen in samenhang", "Lees de samengestelde jaarrekening. Is die op het oog vrij van evidente onjuistheden en volledig?", verplicht: true),
+            onderdelen.Add(Onderdeel(Fase.Afronding, "Doorlezen", verplicht: true, OnderdeelSoort.Doorlezen,
+            [
+                Signalen,
+                Stap("Lezen in samenhang", "Lees de samengestelde jaarrekening als geheel. Past die bij wat je van de cliënt weet (kennis van de cliënt), zijn de toelichtingen volledig en is ze op het oog vrij van evidente onjuistheden?", verplicht: true),
                 Stap("Fraude en niet-naleving", "Zijn er aanwijzingen voor fraude of het niet naleven van wet- en regelgeving? Zo ja: leg de stappen vast."),
-                Stap("Significante aangelegenheden", "Zijn de significante aangelegenheden vastgelegd en met de cliënt besproken?"),
-                Stap("Continuïteit", "Zijn er gebeurtenissen of omstandigheden die twijfel doen rijzen over de continuïteit?")));
+                Stap("Significante aangelegenheden", "Staan de significante aangelegenheden bij de bespreekpunten, om met de cliënt te bespreken?"),
+                Stap("Continuïteit", "Zijn er gebeurtenissen of omstandigheden die twijfel doen rijzen over de continuïteit? Zo ja: staat de alinea over de continuïteit in de toelichting?"),
+            ]));
             onderdelen.Add(Onderdeel(Fase.Afronding, "Bevestiging klant", verplicht: true,
                 Stap("Bevestigingsbrief", "Laat het bestuur de bevestigingsbrief tekenen en leg de datum vast.", verplicht: true)));
             onderdelen.Add(Onderdeel(Fase.Afronding, "Uitbrengen rapport", verplicht: true,
@@ -138,9 +141,12 @@ public static class StandaardWerkprogramma
         }
         else
         {
-            onderdelen.Add(Onderdeel(Fase.Afronding, "Evaluatie", verplicht: true,
-                Stap("Lezen in samenhang", "Lees de cijfers en de aangifte in samenhang. Zijn ze op het oog vrij van evidente onjuistheden en volledig?", verplicht: true),
-                Stap("Fraude en niet-naleving", "Zijn er aanwijzingen voor fraude of het niet naleven van wet- en regelgeving? Zo ja: leg de stappen vast.")));
+            onderdelen.Add(Onderdeel(Fase.Afronding, "Doorlezen", verplicht: true, OnderdeelSoort.Doorlezen,
+            [
+                Signalen,
+                Stap("Lezen in samenhang", "Lees de cijfers en de aangifte in samenhang. Passen ze bij wat je van de ondernemer weet en zijn ze op het oog vrij van evidente onjuistheden en volledig?", verplicht: true),
+                Stap("Fraude en niet-naleving", "Zijn er aanwijzingen voor fraude of het niet naleven van wet- en regelgeving? Zo ja: leg de stappen vast."),
+            ]));
             onderdelen.Add(Onderdeel(Fase.Afronding, "Fiscale winst en aangifte", verplicht: true,
                 Stap("Fiscale winst", "Bereken de fiscale winst en sluit die aan op het resultaat.", verplicht: true),
                 Stap("Ondernemersfaciliteiten", "Beoordeel urencriterium, zelfstandigenaftrek, MKB-winstvrijstelling en investeringsaftrek."),
@@ -169,6 +175,9 @@ public static class StandaardWerkprogramma
 
         return sjabloon;
     }
+
+    private static SjabloonStap Signalen =>
+        Stap("Signalen afgehandeld", "Handel elk signaal uit de cijfers en het rapport af: in orde (met een korte toelichting) of als bespreekpunt met de klant.", verplicht: true, StapControle.SignalenAfgehandeld);
 
     private static SjabloonOnderdeel Onderdeel(Fase fase, string titel, bool verplicht, params SjabloonStap[] stappen) =>
         Onderdeel(fase, titel, verplicht, OnderdeelSoort.Algemeen, stappen);

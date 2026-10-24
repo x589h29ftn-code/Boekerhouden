@@ -92,6 +92,7 @@ public static class Opstart
         services.AddSingleton<SignaalDienst>();
         services.AddSingleton<KantoorDienst>();
         services.AddSingleton<RapportDienst>();
+        services.AddSingleton<DoorleesDienst>();
         services.AddSingleton<GrondslagDienst>();
         services.Configure<PdfOpties>(builder.Configuration.GetSection("Pdf"));
         services.AddSingleton<PdfDienst>();

@@ -115,6 +115,11 @@ public sealed class ReviewDienst(IDbContextFactory<BoekerhoudenDbContext> dbFact
             return Uitkomst.Mislukt("Dit onderdeel bestaat niet (meer).");
         }
 
+        if (onderdeel.Soort == OnderdeelSoort.Doorlezen && !await IsAccountant(db, wie))
+        {
+            return Uitkomst.Mislukt(AlleenAccountant);
+        }
+
         var open = onderdeel.Stappen.Count(s => !s.Verwijderd && s.Status == StapStatus.Open);
         var punten = await db.Reviewpunten.CountAsync(p => p.OnderdeelId == onderdeelId && !p.Opgelost);
         if (onderdeel.GereviewdDoor is not null || open > 0 || punten > 0)
@@ -147,6 +152,11 @@ public sealed class ReviewDienst(IDbContextFactory<BoekerhoudenDbContext> dbFact
             return Uitkomst.Mislukt("Dit onderdeel is niet gereviewd.");
         }
 
+        if (onderdeel.Soort == OnderdeelSoort.Doorlezen && !await IsAccountant(db, wie))
+        {
+            return Uitkomst.Mislukt(AlleenAccountant);
+        }
+
         onderdeel.GereviewdDoor = null;
         onderdeel.GereviewdOp = null;
         await db.SaveChangesAsync();
@@ -154,6 +164,16 @@ public sealed class ReviewDienst(IDbContextFactory<BoekerhoudenDbContext> dbFact
         await audit.Log(wie, AuditActies.ReviewTeruggezet, WerkprogrammaDienst.Onderwerp(dossier), onderdeel.Titel);
         return Uitkomst.Gelukt;
     }
+
+    public const string AlleenAccountant = "Alleen een accountant kan het doorlezen paraferen of de paraaf terugzetten.";
+
+    private static Task<bool> IsAccountant(BoekerhoudenDbContext db, Uitvoerder wie) =>
+        wie.Id is not { } id
+            ? Task.FromResult(false)
+            : (from ur in db.UserRoles
+               join r in db.Roles on ur.RoleId equals r.Id
+               where ur.UserId == id && r.Name == Rollen.Accountant
+               select ur).AnyAsync();
 
     /// <summary>Heeft de gebruiker de rol reviewer of accountant?</summary>
     internal static Task<bool> MagReviewen(BoekerhoudenDbContext db, Uitvoerder wie) =>
