@@ -55,6 +55,12 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
 
     public DbSet<BijlageInhoud> BijlageInhouden => Set<BijlageInhoud>();
 
+    public DbSet<Kantoorinstellingen> Kantoorinstellingen => Set<Kantoorinstellingen>();
+
+    public DbSet<RekeningPresentatie> RekeningPresentaties => Set<RekeningPresentatie>();
+
+    public DbSet<PostPresentatie> PostPresentaties => Set<PostPresentatie>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -321,6 +327,39 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
         {
             e.ToTable("BijlageInhouden");
             e.HasKey(i => i.BijlageId);
+        });
+
+        builder.Entity<Kantoorinstellingen>(e =>
+        {
+            e.ToTable("Kantoorinstellingen");
+            e.Property(k => k.Id).ValueGeneratedNever();
+            e.Property(k => k.Naam).HasMaxLength(200);
+            e.Property(k => k.Adres).HasMaxLength(200);
+            e.Property(k => k.Postcode).HasMaxLength(20);
+            e.Property(k => k.Plaats).HasMaxLength(100);
+            e.Property(k => k.Kleur).HasMaxLength(7);
+            e.Property(k => k.LogoType).HasMaxLength(40);
+            e.Property(k => k.GewijzigdDoor).HasMaxLength(200);
+        });
+
+        builder.Entity<RekeningPresentatie>(e =>
+        {
+            e.ToTable("RekeningPresentaties");
+            e.HasKey(r => r.GrootboekrekeningId);
+            e.HasIndex(r => r.KlantId);
+            e.HasOne<Grootboekrekening>().WithOne().HasForeignKey<RekeningPresentatie>(r => r.GrootboekrekeningId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Klant>().WithMany().HasForeignKey(r => r.KlantId).OnDelete(DeleteBehavior.Restrict);
+            e.Property(r => r.Omschrijving).HasMaxLength(300);
+            e.Property(r => r.GewijzigdDoor).HasMaxLength(200);
+        });
+
+        builder.Entity<PostPresentatie>(e =>
+        {
+            e.ToTable("PostPresentaties");
+            e.HasKey(p => new { p.KlantId, p.Sleutel });
+            e.HasOne<Klant>().WithMany().HasForeignKey(p => p.KlantId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(p => p.Sleutel).HasMaxLength(60);
+            e.Property(p => p.GewijzigdDoor).HasMaxLength(200);
         });
 
         builder.Entity<AuditRegel>(e =>

@@ -87,5 +87,8 @@ public static class AuditActies
     public const string ReviewTeruggezet = "Review teruggezet";
     public const string BijlageToegevoegd = "Bijlage toegevoegd";
     public const string BijlageVerwijderd = "Bijlage verwijderd";
+    public const string KantoorGewijzigd = "Kantoorgegevens gewijzigd";
+    public const string PresentatieGewijzigd = "Presentatie gewijzigd";
+    public const string RapportGemaakt = "Rapport gemaakt";
     public const string RekeningAangemaakt = "Grootboekrekening aangemaakt";
 }

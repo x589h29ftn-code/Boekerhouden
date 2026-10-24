@@ -15,6 +15,10 @@ public static class Weergave
     public static string Datum(DateTimeOffset tijdstip) =>
         TimeZoneInfo.ConvertTime(tijdstip, Amsterdam).ToString("dd-MM-yyyy", Nederlands);
 
+    /// <summary>Bijvoorbeeld "24 oktober 2026", zoals in een rapport.</summary>
+    public static string DatumVoluit(DateTimeOffset tijdstip) =>
+        TimeZoneInfo.ConvertTime(tijdstip, Amsterdam).ToString("d MMMM yyyy", Nederlands);
+
     public static string Tekst(Rechtsvorm rechtsvorm) => rechtsvorm switch
     {
         Rechtsvorm.BV => "BV",

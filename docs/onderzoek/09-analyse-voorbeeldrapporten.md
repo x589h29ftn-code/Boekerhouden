@@ -87,6 +87,14 @@ De rapportgenerator wordt opgebouwd uit herbruikbare **bouwstenen**. Een rapport
 - **Kop- en voettekst** per deel instelbaar. Voettekst met **statustekst per opdrachttype** ("Samenstellingsverklaring afgegeven", "Geen accountantscontrole toegepast" + datum, en "CONCEPT" zolang niet definitief).
 - **Paginering**: hoofdstuk op een nieuwe pagina, tabellen niet splitsen waar dat kan, **koppen nooit los onderaan een pagina** (keep-with-next).
 
+*Gebouwd (plakje 6):* B01 voorblad (logo, klantnaam, "te {plaats}", titel, kantoorgegevens), B02
+inhoudsopgave (nog zonder paginanummers), B03 tussenblad, B05 genummerde hoofdstukken en paragrafen,
+B08 balans en W&V (tweekoloms, vergelijkend jaar, brutomarge) en B09 specificaties uit de grootboekrekeningen
+(groepen per RGS-subpost, subtotalen, eigen posten als één regel, verborgen rekeningen als *Overige*). De
+opmaakregels hierboven zijn toegepast: hele euro's, nul als `-`, lijnen boven subtotalen en een dubbele lijn
+onder eindtotalen, en de voettekst met klant, status ("Concept", bij de aangifte "Geen accountantscontrole
+toegepast" met datum) en paginanummer. Elk hoofdstuk begint op een nieuwe pagina; tabellen worden niet gesplitst.
+
 ## 9.4 Gegevens die we nodig hebben, naast de proefbalans
 
 | Gegeven | Waar vastleggen | Doorrollen? |

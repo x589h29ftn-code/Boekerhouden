@@ -834,3 +834,75 @@ tr.klikbaar {
     align-items: baseline;
     font-size: .85rem;
 }
+
+.kantoor-logo {
+    max-height: 5rem;
+    max-width: 16rem;
+    object-fit: contain;
+}
+
+/* Rapport: links de inhoud of de presentatie, rechts het voorbeeld (pagina's onder elkaar). */
+.rapport-inhoud {
+    font-size: .875rem;
+    line-height: 1.9;
+}
+
+    .rapport-inhoud .nr {
+        display: inline-block;
+        min-width: 2rem;
+        color: #8a939b;
+    }
+
+    .rapport-inhoud a {
+        display: block;
+        color: #212529;
+        text-decoration: none;
+    }
+
+        .rapport-inhoud a:hover {
+            text-decoration: underline;
+        }
+
+    .rapport-inhoud a.rapport-paragraaf {
+        padding-left: 2rem;
+        color: #495057;
+    }
+
+.rapport-voorbeeld {
+    width: 100%;
+    height: calc(100vh - 14rem);
+    min-height: 32rem;
+    border: 1px solid #e3e6e9;
+    border-radius: .375rem;
+    background: #e9ecef;
+}
+
+.rapport-presentatie details {
+    border-bottom: 1px solid #eef0f2;
+}
+
+.rapport-presentatie summary {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .3rem .25rem;
+    font-size: .875rem;
+    cursor: pointer;
+}
+
+    .rapport-presentatie summary:hover {
+        background: #f5f7f9;
+    }
+
+.presentatie-rekening {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .15rem .25rem .15rem 1rem;
+}
+
+    .presentatie-rekening .nummer {
+        min-width: 4rem;
+        font-size: .8rem;
+        color: #8a939b;
+    }

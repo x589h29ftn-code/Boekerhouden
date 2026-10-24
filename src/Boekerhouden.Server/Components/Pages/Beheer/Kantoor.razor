@@ -1,0 +1,133 @@
+@page "/beheer/kantoor"
+@attribute [Authorize(Roles = Rollen.Beheerder)]
+@inject KantoorDienst KantoorDienst
+
+<PageTitle>Kantoor – Boekerhouden</PageTitle>
+
+<div class="d-flex align-items-center flex-wrap gap-3 mb-2">
+    <h1 class="h3 mb-0 me-auto">Kantoor</h1>
+    @if (melding is not null)
+    {
+        <span class="rubriceer-melding @(meldingIsFout ? "fout" : null)" role="status">
+            @melding
+            <button class="btn-close btn-sm ms-1" aria-label="Sluiten" @onclick="() => melding = null"></button>
+        </span>
+    }
+</div>
+<p class="text-secondary small">De gegevens en de huisstijl van het kantoor, voor het voorblad en de opmaak van de rapporten.</p>
+
+@if (kantoor is not null)
+{
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <form class="card card-body" @onsubmit="Bewaar" @onsubmit:preventDefault>
+                <div class="mb-2">
+                    <label class="form-label small" for="kantoor-naam">Naam</label>
+                    <input id="kantoor-naam" class="form-control" @bind="invoer.Naam" maxlength="200" />
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small" for="kantoor-adres">Adres</label>
+                    <input id="kantoor-adres" class="form-control" @bind="invoer.Adres" maxlength="200" />
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-4">
+                        <label class="form-label small" for="kantoor-postcode">Postcode</label>
+                        <input id="kantoor-postcode" class="form-control" @bind="invoer.Postcode" maxlength="20" />
+                    </div>
+                    <div class="col-8">
+                        <label class="form-label small" for="kantoor-plaats">Plaats</label>
+                        <input id="kantoor-plaats" class="form-control" @bind="invoer.Plaats" maxlength="100" />
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small" for="kantoor-kleur">Huisstijlkleur (koppen en lijnen)</label>
+                    <div class="d-flex gap-2 align-items-center">
+                        <input type="color" class="form-control form-control-color" @bind="invoer.Kleur" aria-label="Kleur kiezen" />
+                        <input id="kantoor-kleur" class="form-control w-auto" @bind="invoer.Kleur" maxlength="7" />
+                    </div>
+                </div>
+                <div><button type="submit" class="btn btn-primary">Opslaan</button></div>
+            </form>
+        </div>
+        <div class="col-lg-6">
+            <div class="card card-body">
+                <div class="small mb-2">Logo (PNG of JPEG, hoogstens 1 MB)</div>
+                @if (kantoor.Logo is { } logo)
+                {
+                    <img class="kantoor-logo mb-2" src="data:@kantoor.LogoType;base64,@Convert.ToBase64String(logo)" alt="Logo van het kantoor" />
+                    <div><button class="btn btn-sm btn-link text-secondary p-0" @onclick="VerwijderLogo">logo verwijderen</button></div>
+                }
+                <InputFile class="form-control form-control-sm mt-2" accept="image/png,image/jpeg" OnChange="ZetLogo" aria-label="Logo kiezen" />
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private Kantoorinstellingen? kantoor;
+    private Invoer invoer = new();
+    private string? melding;
+    private bool meldingIsFout;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Authenticatie { get; set; } = default!;
+
+    private sealed class Invoer
+    {
+        public string Naam { get; set; } = "";
+
+        public string? Adres { get; set; }
+
+        public string? Postcode { get; set; }
+
+        public string? Plaats { get; set; }
+
+        public string Kleur { get; set; } = "#1f4e79";
+    }
+
+    protected override Task OnInitializedAsync() => Laad();
+
+    private async Task Laad()
+    {
+        kantoor = await KantoorDienst.Haal();
+        invoer = new Invoer { Naam = kantoor.Naam, Adres = kantoor.Adres, Postcode = kantoor.Postcode, Plaats = kantoor.Plaats, Kleur = kantoor.Kleur };
+    }
+
+    private async Task Bewaar()
+    {
+        Meld(await KantoorDienst.Bewaar(new KantoorInvoer(invoer.Naam, invoer.Adres, invoer.Postcode, invoer.Plaats, invoer.Kleur), await Wie()), "Opgeslagen");
+        await Laad();
+    }
+
+    private async Task ZetLogo(InputFileChangeEventArgs e)
+    {
+        if (e.File.Size > KantoorDienst.MaximaleLogoGrootte)
+        {
+            Meld(Uitkomst.Mislukt("Een logo is hoogstens 1 MB."), "");
+            return;
+        }
+
+        using var buffer = new MemoryStream();
+        await using (var stroom = e.File.OpenReadStream(KantoorDienst.MaximaleLogoGrootte))
+        {
+            await stroom.CopyToAsync(buffer);
+        }
+
+        Meld(await KantoorDienst.ZetLogo(buffer.ToArray(), e.File.ContentType, await Wie()), "Logo opgeslagen");
+        await Laad();
+    }
+
+    private async Task VerwijderLogo()
+    {
+        Meld(await KantoorDienst.VerwijderLogo(await Wie()), "Logo verwijderd");
+        await Laad();
+    }
+
+    private void Meld(Uitkomst uitkomst, string gelukt)
+    {
+        melding = uitkomst.IsGelukt ? gelukt : string.Join(" ", uitkomst.Fouten);
+        meldingIsFout = !uitkomst.IsGelukt;
+    }
+
+    private async Task<Uitvoerder> Wie() => (await Authenticatie).User.AlsUitvoerder();
+}

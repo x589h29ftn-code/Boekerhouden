@@ -81,6 +81,17 @@ Voor **elke** post, materieel of niet, is er in *Rapport* een presentatie-editor
 Aanpassingen worden **per klant onthouden** en rollen door naar het volgende jaar. Zo hoef je
 samenvoegingen en omschrijvingen maar één keer in te stellen.
 
+*Gebouwd (plakje 6):* in het dossier onder *Rapport* (`/dossiers/{id}/rapport`) staan links de inhoud
+(klik = naar die plek in het voorbeeld) en rechts het voorbeeld van het rapport, met een knop **PDF**.
+Achter de schakelaar *presentatie aanpassen* staat per hoofdpost met saldo:
+- **specificatie** aan of uit;
+- per rekening een **omschrijving** voor het rapport (leeg = die uit de administratie);
+- **in Overige**: de rekening telt mee in de regel *Overige* van zijn groep, zodat de specificatie blijft aansluiten.
+
+Rekeningen onder een eigen post staan als één regel met de naam van de eigen post. Alles geldt per klant
+en staat in het wijzigingslog. Nog niet gebouwd: regels samenvoegen of in een andere volgorde, subkoppen,
+handmatige specificatieregels, verloopoverzichten, toelichtende tekst en opmaak per post.
+
 ## 10.5 Het sjabloon (beheer)
 
 ```
@@ -152,5 +163,5 @@ Aanvulling op [hoofdstuk 6](06-datamodel.md):
 
 **Klantenoverzicht** (S1): per klant het laatste dossier met gekoppeld %, de voortgang van het werkprogramma (stappen klaar) en signalen: geen saldibalans, rekeningen met saldo niet gekoppeld, open reviewpunten, keuze materiële posten niet afgetekend. Met de schakelaar *alleen met signalen*. Dezelfde regel staat bovenaan het dossieroverzicht.
 
-**Nog niet gebouwd**: antwoordtypes (ja/nee, bedrag), voorwaarden per stap (rechtsvorm, grootte), verwijzing naar regelgeving, *stap voorstellen voor het sjabloon*, het review-overzicht per dossier, en de tab *Rapport* met de presentatie per post (plakje 6).
+**Nog niet gebouwd**: antwoordtypes (ja/nee, bedrag), voorwaarden per stap (rechtsvorm, grootte), verwijzing naar regelgeving, *stap voorstellen voor het sjabloon* en het review-overzicht per dossier. De tab *Rapport* met de presentatie per post is gebouwd in plakje 6 ([§10.4](#104-rapport-presentatie-en-opmaak-per-post)).
 

@@ -610,6 +610,53 @@ namespace Boekerhouden.Data.Migraties
                     b.ToTable("KantoorPostNamen", (string)null);
                 });
 
+            modelBuilder.Entity("Boekerhouden.Data.Kantoorinstellingen", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Adres")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("GewijzigdDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("GewijzigdOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Kleur")
+                        .IsRequired()
+                        .HasMaxLength(7)
+                        .HasColumnType("character varying(7)");
+
+                    b.Property<byte[]>("Logo")
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("LogoType")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Naam")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Plaats")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Postcode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Kantoorinstellingen", (string)null);
+                });
+
             modelBuilder.Entity("Boekerhouden.Data.Klant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -762,6 +809,61 @@ namespace Boekerhouden.Data.Migraties
                     b.HasIndex("KlantId");
 
                     b.ToTable("Koppelingen", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.PostPresentatie", b =>
+                {
+                    b.Property<Guid>("KlantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Sleutel")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("GewijzigdDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("GewijzigdOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("ToonSpecificatie")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("KlantId", "Sleutel");
+
+                    b.ToTable("PostPresentaties", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.RekeningPresentatie", b =>
+                {
+                    b.Property<Guid>("GrootboekrekeningId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("GewijzigdDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("GewijzigdOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("KlantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Omschrijving")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<bool>("Verbergen")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("GrootboekrekeningId");
+
+                    b.HasIndex("KlantId");
+
+                    b.ToTable("RekeningPresentaties", (string)null);
                 });
 
             modelBuilder.Entity("Boekerhouden.Data.Reviewpunt", b =>
@@ -1377,6 +1479,30 @@ namespace Boekerhouden.Data.Migraties
                     b.HasOne("Boekerhouden.Data.Grootboekrekening", null)
                         .WithMany()
                         .HasForeignKey("GrootboekrekeningId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Boekerhouden.Data.Klant", null)
+                        .WithMany()
+                        .HasForeignKey("KlantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.PostPresentatie", b =>
+                {
+                    b.HasOne("Boekerhouden.Data.Klant", null)
+                        .WithMany()
+                        .HasForeignKey("KlantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.RekeningPresentatie", b =>
+                {
+                    b.HasOne("Boekerhouden.Data.Grootboekrekening", null)
+                        .WithOne()
+                        .HasForeignKey("Boekerhouden.Data.RekeningPresentatie", "GrootboekrekeningId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

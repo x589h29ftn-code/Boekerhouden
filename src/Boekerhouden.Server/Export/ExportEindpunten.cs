@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Boekerhouden.Server.Export;
 
-/// <summary>Downloads: de correcties van een dossier als Excel of PDF (in het wijzigingslog) en bijlagen.</summary>
+/// <summary>Downloads: de correcties van een dossier als Excel of PDF, het rapport (voorbeeld en PDF) en bijlagen.</summary>
 internal static class ExportEindpunten
 {
     public const string Xlsx = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -13,7 +13,53 @@ internal static class ExportEindpunten
     {
         app.MapGet("/dossiers/{id:guid}/correcties.xlsx", Excel).RequireAuthorization();
         app.MapGet("/dossiers/{id:guid}/correcties.pdf", Pdf).RequireAuthorization();
+        app.MapGet("/dossiers/{id:guid}/rapport.html", RapportVoorbeeld).RequireAuthorization();
+        app.MapGet("/dossiers/{id:guid}/rapport.pdf", RapportPdf).RequireAuthorization();
         app.MapGet("/bijlagen/{id:guid}", Bijlage).RequireAuthorization();
+    }
+
+    /// <summary>Het rapport als HTML, voor het voorbeeld op de rapportpagina (alleen binnen de eigen site te tonen).</summary>
+    private static async Task<IResult> RapportVoorbeeld(Guid id, RapportDienst rapporten, HttpContext context)
+    {
+        if (await rapporten.Maak(id) is not { } uitkomst)
+        {
+            return TypedResults.NotFound();
+        }
+
+        if (!uitkomst.IsGelukt)
+        {
+            return TypedResults.Content(string.Join(" ", uitkomst.Fouten), "text/plain; charset=utf-8", statusCode: StatusCodes.Status409Conflict);
+        }
+
+        context.Response.Headers.ContentSecurityPolicy = RapportHtml.Beveiliging + "; frame-ancestors 'self'";
+        context.Response.Headers.XContentTypeOptions = "nosniff";
+        context.Response.Headers.CacheControl = "no-store";
+        return TypedResults.Content(RapportHtml.Maak(uitkomst.Waarde!), "text/html; charset=utf-8");
+    }
+
+    private static async Task<IResult> RapportPdf(Guid id, RapportDienst rapporten, PdfDienst pdf, AuditDienst audit, HttpContext context)
+    {
+        if (await rapporten.Maak(id) is not { } uitkomst)
+        {
+            return TypedResults.NotFound();
+        }
+
+        if (!uitkomst.IsGelukt)
+        {
+            return TypedResults.Content(string.Join(" ", uitkomst.Fouten), "text/plain; charset=utf-8", statusCode: StatusCodes.Status409Conflict);
+        }
+
+        var inhoud = uitkomst.Waarde!;
+        var bestand = await pdf.Maak(RapportHtml.Maak(inhoud), context.RequestAborted);
+        if (!bestand.IsGelukt)
+        {
+            return TypedResults.Content(string.Join(" ", bestand.Fouten), "text/plain; charset=utf-8", statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+
+        await audit.Log(context.User.AlsUitvoerder(), AuditActies.RapportGemaakt,
+            $"{inhoud.Dossier.Klantnummer} {inhoud.Dossier.KlantNaam} – {inhoud.Dossier.Naam}",
+            $"{inhoud.Rapport.Titel}{(inhoud.Rapport.Concept ? " (concept)" : null)}, PDF");
+        return TypedResults.File(bestand.Waarde!, "application/pdf", RapportHtml.Bestandsnaam(inhoud));
     }
 
     /// <summary>Een bijlage downloaden; altijd als bestand (nooit in de browser tonen) en zonder type-raden.</summary>

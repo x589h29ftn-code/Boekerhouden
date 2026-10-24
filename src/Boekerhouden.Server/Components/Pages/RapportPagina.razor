@@ -1,0 +1,210 @@
+@page "/dossiers/{Id:guid}/rapport"
+@using Boekerhouden.Domain.Rapport
+@using Boekerhouden.Server.Export
+@inject DossierDienst DossierDienst
+@inject RapportDienst RapportDienst
+
+<PageTitle>Rapport @(dossier?.Naam) – Boekerhouden</PageTitle>
+
+@if (!geladen)
+{
+    <p class="text-secondary">Laden…</p>
+}
+else if (dossier is null)
+{
+    <div class="alert alert-warning">Dit dossier bestaat niet (meer). <a href="/">Terug naar de klanten</a></div>
+}
+else
+{
+    <nav aria-label="kruimelpad">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Klanten</a></li>
+            <li class="breadcrumb-item"><a href="/klanten/@dossier.KlantId">@dossier.KlantNaam</a></li>
+            <li class="breadcrumb-item"><a href="/dossiers/@dossier.Id">@dossier.Naam</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Rapport</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex align-items-center flex-wrap gap-3 mb-2">
+        <h1 class="h3 mb-0 me-auto">Rapport</h1>
+        @if (melding is not null)
+        {
+            <span class="rubriceer-melding @(meldingIsFout ? "fout" : null)" role="status">
+                @melding
+                <button class="btn-close btn-sm ms-1" aria-label="Sluiten" @onclick="() => melding = null"></button>
+            </span>
+        }
+        <span class="form-check form-switch mb-0 small text-nowrap" title="Omschrijvingen van rekeningen, rekeningen in Overige en welke specificaties in het rapport komen">
+            <input class="form-check-input" type="checkbox" id="presentatie-aanpassen" @bind="aanpassen" @bind:after="LaadPresentatie" />
+            <label class="form-check-label" for="presentatie-aanpassen">presentatie aanpassen</label>
+        </span>
+        @if (rapport is not null)
+        {
+            <a class="btn btn-sm btn-outline-secondary" href="@($"/dossiers/{Id}/rapport.pdf")" download>PDF</a>
+        }
+    </div>
+    <DossierMenu DossierId="dossier.Id" Actief="/rapport" />
+
+    @if (fout is not null)
+    {
+        <div class="alert alert-warning">@fout</div>
+    }
+    else if (rapport is not null)
+    {
+        <div class="d-flex flex-wrap gap-3 mb-2" id="rapportstand">
+            <span class="status">@rapport.Titel@(rapport.Concept ? " · concept" : null)</span>
+            @foreach (var waarschuwing in rapport.Waarschuwingen)
+            {
+                <span class="status let-op">@waarschuwing</span>
+            }
+        </div>
+
+        <div class="row g-3">
+            <div class="@(aanpassen ? "col-xl-5" : "col-xl-3")">
+                @if (!aanpassen)
+                {
+                    <div class="rapport-inhoud" aria-label="Inhoud van het rapport">
+                        @foreach (var deel in rapport.Delen)
+                        {
+                            <div class="status mb-1">@deel.Titel</div>
+                            @foreach (var h in deel.Hoofdstukken)
+                            {
+                                <a class="rapport-hoofdstuk" href="@Voorbeeld(RapportHtml.Anker(h))" target="voorbeeld"><span class="nr">@h.Nummer</span>@h.Titel</a>
+                                @if (h.Paragrafen)
+                                {
+                                    var p = 0;
+                                    @foreach (var tabel in h.Blokken.OfType<TabelBlok>().Select(b => b.Tabel))
+                                    {
+                                        p++;
+                                        <a class="rapport-paragraaf" href="@Voorbeeld(tabel.Code is null ? null : RapportHtml.Anker(tabel.Code))" target="voorbeeld"><span class="nr">@($"{h.Nummer}.{p}")</span>@tabel.Titel</a>
+                                    }
+                                }
+                            }
+                        }
+                    </div>
+                }
+                else if (presentatie is not null)
+                {
+                    <div class="rapport-presentatie">
+                        <p class="small text-secondary mb-2">
+                            Per klant; geldt ook voor volgende jaren. Een rekening in Overige telt mee in de regel "Overige" van zijn post.
+                        </p>
+                        @foreach (var post in presentatie.Posten)
+                        {
+                            <details @key="(post.Code, versie)" open="@(openPost == post.Code)">
+                                <summary @onclick="() => openPost = openPost == post.Code ? null : post.Code">
+                                    <span class="me-auto" title="@post.Code">@post.Naam</span>
+                                    <span class="form-check form-switch mb-0 small" @onclick:stopPropagation="true">
+                                        <input class="form-check-input" type="checkbox" id="@($"spec-{post.Code}")" checked="@post.ToonSpecificatie"
+                                               @onchange="e => ZetSpecificatie(post, e)" />
+                                        <label class="form-check-label" for="@($"spec-{post.Code}")">specificatie</label>
+                                    </span>
+                                </summary>
+                                @if (post.Rekeningen.Count == 0)
+                                {
+                                    <div class="status ps-3 py-1">Alleen eigen posten; die staan elk als één regel in de specificatie.</div>
+                                }
+                                @foreach (var r in post.Rekeningen)
+                                {
+                                    <div class="presentatie-rekening" @key="(r.Id, versie)">
+                                        <span class="nummer" title="@($"{r.Nummer} {r.Omschrijving} · {Bedragen.Heel(r.Huidig ?? 0)} / vorig jaar {Bedragen.Heel(r.Vorig ?? 0)}")">@r.Nummer</span>
+                                        <input class="form-control form-control-sm" value="@r.RapportOmschrijving" placeholder="@r.Omschrijving"
+                                               maxlength="@RapportDienst.MaximaleOmschrijving" disabled="@r.Verbergen"
+                                               aria-label="@($"Omschrijving in het rapport voor {r.Nummer}")"
+                                               @onchange="e => ZetOmschrijving(post, r, e)" />
+                                        <label class="small text-nowrap text-secondary">
+                                            <input class="form-check-input me-1" type="checkbox" checked="@r.Verbergen" @onchange="e => ZetVerbergen(post, r, e)" />in Overige
+                                        </label>
+                                    </div>
+                                }
+                            </details>
+                        }
+                    </div>
+                }
+            </div>
+            <div class="@(aanpassen ? "col-xl-7" : "col-xl-9")">
+                <iframe class="rapport-voorbeeld" name="voorbeeld" sandbox title="Voorbeeld van het rapport" src="@Voorbeeld(openPost is null ? null : RapportHtml.Anker(openPost))"></iframe>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private bool geladen;
+    private DossierDetail? dossier;
+    private Rapport? rapport;
+    private string? fout;
+    private bool aanpassen;
+    private PresentatieOverzicht? presentatie;
+    private string? openPost;
+    private int versie;
+    private string? melding;
+    private bool meldingIsFout;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Authenticatie { get; set; } = default!;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        dossier = await DossierDienst.Haal(Id);
+        if (dossier is not null)
+        {
+            await Laad();
+        }
+
+        geladen = true;
+    }
+
+    private async Task Laad()
+    {
+        var uitkomst = await RapportDienst.Maak(Id);
+        rapport = uitkomst?.Waarde?.Rapport;
+        fout = uitkomst is { IsGelukt: false } ? string.Join(" ", uitkomst.Fouten) : null;
+        versie++;
+        if (aanpassen)
+        {
+            presentatie = await RapportDienst.Presentatie(Id);
+        }
+    }
+
+    private async Task LaadPresentatie()
+    {
+        presentatie = aanpassen ? await RapportDienst.Presentatie(Id) : null;
+    }
+
+    private async Task ZetSpecificatie(PostPresentatieInfo post, ChangeEventArgs e)
+    {
+        var tonen = e.Value is true;
+        await Na(await RapportDienst.ZetSpecificatie(dossier!.KlantId, post.Code, tonen, await Wie()),
+            $"Specificatie {post.Naam} {(tonen ? "wel" : "niet")} in het rapport");
+    }
+
+    private async Task ZetOmschrijving(PostPresentatieInfo post, RekeningPresentatieInfo r, ChangeEventArgs e)
+    {
+        openPost = post.Code;
+        await Na(await RapportDienst.ZetWeergave(dossier!.KlantId, r.Id, e.Value?.ToString(), r.Verbergen, await Wie()), "Omschrijving opgeslagen");
+    }
+
+    private async Task ZetVerbergen(PostPresentatieInfo post, RekeningPresentatieInfo r, ChangeEventArgs e)
+    {
+        var verbergen = e.Value is true;
+        openPost = post.Code;
+        await Na(await RapportDienst.ZetWeergave(dossier!.KlantId, r.Id, r.RapportOmschrijving, verbergen, await Wie()),
+            verbergen ? $"{r.Nummer} telt mee in Overige" : $"{r.Nummer} staat weer apart");
+    }
+
+    private async Task Na(Uitkomst uitkomst, string gelukt)
+    {
+        melding = uitkomst.IsGelukt ? gelukt : string.Join(" ", uitkomst.Fouten);
+        meldingIsFout = !uitkomst.IsGelukt;
+        await Laad();
+    }
+
+    /// <summary>Het adres van het voorbeeld; de versie laadt het opnieuw na een wijziging, het anker springt naar een plek.</summary>
+    private string Voorbeeld(string? anker) => $"/dossiers/{Id}/rapport.html?v={versie}{(anker is null ? null : "#" + anker)}";
+
+    private async Task<Uitvoerder> Wie() => (await Authenticatie).User.AlsUitvoerder();
+}

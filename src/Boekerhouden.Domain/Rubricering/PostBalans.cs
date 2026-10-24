@@ -50,6 +50,7 @@ public sealed class PostBalans
 
     private readonly Dictionary<string, Teller> totalen = new(StringComparer.Ordinal);
     private readonly Dictionary<Guid, string> plaatsing = [];
+    private readonly Dictionary<Guid, string> plaatsingVorig = [];
     private readonly List<Signaal> signalen = [];
 
     private PostBalans()
@@ -58,6 +59,9 @@ public sealed class PostBalans
 
     /// <summary>Waar elke gekoppelde rekening in het boekjaar staat: de sleutel van de post, na omslag.</summary>
     public IReadOnlyDictionary<Guid, string> Plaatsing => plaatsing;
+
+    /// <summary>Hetzelfde voor het vorige jaar; dat kan door omslag een andere post zijn.</summary>
+    public IReadOnlyDictionary<Guid, string> PlaatsingVorig => plaatsingVorig;
 
     public IReadOnlyList<Signaal> Signalen => signalen;
 
@@ -128,7 +132,7 @@ public sealed class PostBalans
             }
 
             balans.plaatsing[saldo.RekeningId] = balans.Plaats(schema, posten, doel, code, saldo.RekeningId, huidig, huidig: true, saldo.Correcties);
-            balans.Plaats(schema, posten, doel, code, saldo.RekeningId, vorig, huidig: false);
+            balans.plaatsingVorig[saldo.RekeningId] = balans.Plaats(schema, posten, doel, code, saldo.RekeningId, vorig, huidig: false);
         }
 
         balans.Ongekoppeld = new PostTotaal(ongekoppeld.Huidig, ongekoppeld.Vorig, ongekoppeld.Rekeningen.Count, ongekoppeld.Correcties);

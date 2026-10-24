@@ -26,16 +26,17 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
 
 - `src/Boekerhouden.Domain` – domein (saldibalans, bedragen en `BedragParser`; `Rgs/`: RGS-codes, boom en selectie per
   rechtsvorm; `Rubricering/`: proefbalans per post met omslag, voorstellen; `Correcties/`: boekingscontrole (C08),
-  effect op resultaat en eigen vermogen, gecorrigeerde saldi); geen I/O.
+  effect op resultaat en eigen vermogen, gecorrigeerde saldi; `Rapport/`: rapportmodel en `RapportOpbouw` voor balans, W&V
+  en specificaties); geen I/O.
 - `src/Boekerhouden.Import` – importsjabloon (.xlsx/.csv) inlezen en controleren (I1–I6, I11), sjabloon genereren,
   het officiële RGS-werkboek lezen (`RgsWerkboekLezer`).
 - `src/Boekerhouden.Cli` – opdrachtregel om sjablonen te maken en bestanden te controleren.
 - `src/Boekerhouden.Data` – EF Core + PostgreSQL: entiteiten, Identity (gebruikers, rollen), migraties (`Migraties/`).
 - `src/Boekerhouden.Server` – Blazor Server-app: `Diensten/` (klanten, dossiers, import met I7/I9/I10, gebruikers,
-  wijzigingslog, rubriceren, correcties, werkprogramma en review, bijlagen, signalen; `DossierSaldi` = saldi van een
-  dossier na correcties, met vorig jaar), `Werkprogramma/` (het meegeleverde standaardwerkprogramma), `Identiteit/` (inloggen, wachtwoordbeleid), `Components/` (schermen; accountpagina's statisch,
-  de rest interactief), `Export/` (correcties naar Excel en PDF; `PdfDienst` maakt PDF's met Edge/Chromium zonder
-  venster, instellingen in sectie `Pdf`).
+  wijzigingslog, rubriceren, correcties, werkprogramma en review, bijlagen, signalen, kantoor en huisstijl, rapport en
+  presentatie per klant; `DossierSaldi` = saldi van een dossier na correcties, met vorig jaar), `Werkprogramma/` (het meegeleverde standaardwerkprogramma), `Identiteit/` (inloggen, wachtwoordbeleid), `Components/` (schermen; accountpagina's statisch,
+  de rest interactief), `Export/` (correcties naar Excel en PDF; `RapportHtml` = het rapport als HTML voor
+  voorbeeld en PDF; `PdfDienst` maakt PDF's met Edge/Chromium zonder venster, instellingen in sectie `Pdf`).
 - `tests/` – xUnit-tests; `tests/Fictief/` – verzonnen testklanten (met `genereer.py`); `tests/Gedeeld/` – gedeelde
   testhulp, o.a. een klein uittreksel uit RGS 3.8 (`RgsTestWerkboek`).
 - Pakketversies centraal in `Directory.Packages.props`; build-instellingen in `Directory.Build.props`.
