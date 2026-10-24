@@ -81,6 +81,22 @@ public sealed class RapportVariabelenTests
     }
 
     [Fact]
+    public void Klantenkaart_in_de_variabelen_met_terugval_op_naam_en_plaats()
+    {
+        var leeg = Gegevens();
+        var kaart = leeg with { Kaart = new Klantkaart("Dorpsstraat 12 A", "1234 AB", "123456789", "47.72", "Voorbeeld Holding B.V.", "Amsterdam", new DateOnly(2020, 6, 28)) };
+
+        var zonder = RapportVariabelen.Bepaal(leeg, RapportOpbouw.Balans(leeg));
+        var met = RapportVariabelen.Bepaal(kaart, RapportOpbouw.Balans(kaart));
+
+        Assert.Equal(("[vestigingsadres]", "[RSIN]", "Voorbeeld BV", "Ergens", "[datum oprichting]"),
+            (zonder["adres"], zonder["rsin"], zonder["statutaire_naam"], zonder["statutaire_zetel"], zonder["oprichtingsdatum"]));
+        Assert.Equal(("Dorpsstraat 12 A", "1234 AB", "123456789", "47.72"), (met["adres"], met["postcode"], met["rsin"], met["sbi"]));
+        Assert.Equal(("Voorbeeld Holding B.V.", "Amsterdam", "28 juni 2020"), (met["statutaire_naam"], met["statutaire_zetel"], met["oprichtingsdatum"]));
+        Assert.All(RapportVariabelen.Lijst.Where(v => !v.Naam.Contains(':', StringComparison.Ordinal)), v => Assert.True(met.ContainsKey(v.Naam), v.Naam));
+    }
+
+    [Fact]
     public void Een_verlies_heeft_een_minteken_en_het_woord_verlies()
     {
         var g = Gegevens(omzet: -10_000m);

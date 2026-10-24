@@ -813,6 +813,10 @@ namespace Boekerhouden.Data.Migraties
                     b.Property<DateTimeOffset>("AangemaaktOp")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Email")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<string>("GewijzigdDoor")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -820,6 +824,10 @@ namespace Boekerhouden.Data.Migraties
 
                     b.Property<DateTimeOffset>("GewijzigdOp")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Huisnummer")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<string>("Klantnummer")
                         .IsRequired()
@@ -835,14 +843,53 @@ namespace Boekerhouden.Data.Migraties
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
+                    b.Property<DateOnly?>("Oprichtingsdatum")
+                        .HasColumnType("date");
+
                     b.Property<string>("Plaats")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Postcode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<string>("Rechtsvorm")
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
+
+                    b.Property<string>("Rsin")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("SbiCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("StatutaireNaam")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("StatutaireZetel")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Straat")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Telefoon")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Toevoeging")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Website")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.HasKey("Id");
 

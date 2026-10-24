@@ -47,7 +47,10 @@ public static class StandaardGrondslagen
         Beide("activiteiten", Toelichting, "Activiteiten", GrondslagOpname.Altijd, "",
             "De activiteiten van {naam} bestaan voornamelijk uit [omschrijving van de activiteiten].");
         Beide("vestiging", Toelichting, "Vestigingsadres, rechtsvorm en inschrijving handelsregister", GrondslagOpname.Altijd, "",
-            "{naam} is een besloten vennootschap met beperkte aansprakelijkheid, gevestigd te {plaats}, en is ingeschreven in het handelsregister onder nummer {kvk}.");
+            "{statutaire_naam} is een besloten vennootschap met beperkte aansprakelijkheid, statutair gevestigd te {statutaire_zetel}. "
+            + "De vennootschap is feitelijk gevestigd op {adres} te {plaats} en is ingeschreven in het handelsregister onder nummer {kvk}.");
+        Beide("oprichting", Toelichting, "Oprichting", GrondslagOpname.Optioneel, "",
+            "{statutaire_naam} is opgericht bij notariële akte van {oprichtingsdatum}. Het eerste boekjaar [loopt van {oprichtingsdatum} tot en met 31 december {boekjaar}].");
         Beide("groepsverhoudingen", Toelichting, "Groepsverhoudingen", GrondslagOpname.Optioneel, "",
             "{naam} behoort tot de groep van [naam moedermaatschappij] te [vestigingsplaats]. Omdat {naam} met haar groepsmaatschappijen ook geconsolideerd als kleine rechtspersoon geldt, "
             + "is consolidatie achterwege gelaten op grond van artikel 2:407 lid 2 sub a BW.");

@@ -26,7 +26,7 @@ public sealed class DemoVullingTests(ServerFixture server) : IClassFixture<Serve
 
         var schilder = Directory.CreateDirectory(Path.Combine(demo, "ez-schilder")).FullName;
         File.Copy(TestGegevens.FictiefPad("ez-schildersbedrijf", "saldibalans-2025.csv"), Path.Combine(schilder, "saldibalans-2025.csv"));
-        File.WriteAllText(Path.Combine(schilder, "klant.json"), """{ "naam": "Schilder Demo", "plaats": "Testplaats", "kvk": "00000000" }""");
+        File.WriteAllText(Path.Combine(schilder, "klant.json"), """{ "naam": "Schilder Demo", "plaats": "Testplaats", "kvk": "00000000", "straat": "Kwastlaan", "huisnummer": "3", "postcode": "1234 AB", "oprichtingsdatum": "2019-01-02" }""");
         Directory.CreateDirectory(Path.Combine(demo, "leeg"));
         return demo;
     }
@@ -44,6 +44,7 @@ public sealed class DemoVullingTests(ServerFixture server) : IClassFixture<Serve
         Assert.Equal([2023, 2024, 2025], bakkerij.Saldibalansen.Keys.Order());
         var schilder = klanten[1];
         Assert.Equal(("Schilder Demo", Rechtsvorm.Eenmanszaak, "Testplaats", "00000000"), (schilder.Naam, schilder.Rechtsvorm, schilder.Plaats, schilder.Kvk));
+        Assert.Equal(("Kwastlaan", "3", "1234 AB", new DateOnly(2019, 1, 2)), (schilder.Gegevens!.Straat, schilder.Gegevens.Huisnummer, schilder.Gegevens.Postcode, schilder.Gegevens.Oprichtingsdatum));
     }
 
     [Fact]

@@ -51,7 +51,7 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
 
         var dossier = overzicht.Dossier;
         await using var db = await dbFactory.CreateDbContextAsync();
-        var klant = await db.Klanten.AsNoTracking().Where(k => k.Id == dossier.KlantId).Select(k => new { k.Plaats, k.KvkNummer }).SingleAsync();
+        var klant = await db.Klanten.AsNoTracking().SingleAsync(k => k.Id == dossier.KlantId);
         var jaarrekening = Soort(dossier.Soort) == RapportSoort.Jaarrekening;
         var metGrondslagen = jaarrekening ? await grondslagen.VoorRapport(dossierId) : null;
 
@@ -99,7 +99,8 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
                     p => p.Kolom, dossier.Boekjaar, StringComparer.Ordinal)
                 .Where(p => p.Value.Tekst is not null).ToDictionary(p => p.Key, p => p.Value.Tekst!, StringComparer.Ordinal),
             (await RekeningPresentaties(db, dossier.KlantId, dossier.Boekjaar)).Values.Where(r => r.VerloopZonderVorig)
-                .Select(r => RapportOpbouw.RekeningSleutel(r.GrootboekrekeningId)).ToHashSet(StringComparer.Ordinal)));
+                .Select(r => RapportOpbouw.RekeningSleutel(r.GrootboekrekeningId)).ToHashSet(StringComparer.Ordinal),
+            new Klantkaart(Server.Weergave.Straat(klant), klant.Postcode, klant.Rsin, klant.SbiCode, klant.StatutaireNaam, klant.StatutaireZetel, klant.Oprichtingsdatum)));
         if (jaarrekening && metGrondslagen?.Verslaggeving is null)
         {
             rapport = rapport with { Waarschuwingen = [.. rapport.Waarschuwingen, "Grondslagen nog niet gekozen."] };

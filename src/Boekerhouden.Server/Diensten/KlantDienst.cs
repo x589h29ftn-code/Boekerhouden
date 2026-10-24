@@ -1,9 +1,37 @@
+using System.Text.RegularExpressions;
 using Boekerhouden.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace Boekerhouden.Server.Diensten;
 
-public sealed record KlantInvoer(string Klantnummer, string Naam, Rechtsvorm Rechtsvorm, string? KvkNummer, string? Plaats);
+public sealed record KlantInvoer(string Klantnummer, string Naam, Rechtsvorm Rechtsvorm, string? KvkNummer, string? Plaats)
+{
+    /// <summary>De overige gegevens van de klantenkaart; null = ongewijzigd laten.</summary>
+    public KlantGegevens? Gegevens { get; init; }
+}
+
+/// <summary>Adres, contact en registratie van een klant (klantenkaart); alles optioneel.</summary>
+public sealed record KlantGegevens(
+    string? Straat = null,
+    string? Huisnummer = null,
+    string? Toevoeging = null,
+    string? Postcode = null,
+    string? Telefoon = null,
+    string? Email = null,
+    string? Website = null,
+    string? Rsin = null,
+    string? SbiCode = null,
+    string? StatutaireNaam = null,
+    string? StatutaireZetel = null,
+    DateOnly? Oprichtingsdatum = null)
+{
+    public static KlantGegevens Van(Klant klant)
+    {
+        ArgumentNullException.ThrowIfNull(klant);
+        return new(klant.Straat, klant.Huisnummer, klant.Toevoeging, klant.Postcode, klant.Telefoon, klant.Email, klant.Website,
+            klant.Rsin, klant.SbiCode, klant.StatutaireNaam, klant.StatutaireZetel, klant.Oprichtingsdatum);
+    }
+}
 
 public sealed record DossierSamenvatting(Guid Id, string Naam, int Boekjaar, SoortOpdracht Soort, DossierStatus Status);
 
@@ -18,7 +46,7 @@ public sealed record KlantRegel(
     DateTimeOffset GewijzigdOp,
     string GewijzigdDoor);
 
-public sealed class KlantDienst(IDbContextFactory<BoekerhoudenDbContext> dbFactory, AuditDienst audit, TimeProvider tijd)
+public sealed partial class KlantDienst(IDbContextFactory<BoekerhoudenDbContext> dbFactory, AuditDienst audit, TimeProvider tijd)
 {
     public async Task<IReadOnlyList<KlantRegel>> Lijst(string? zoek = null)
     {
@@ -109,6 +137,14 @@ public sealed class KlantDienst(IDbContextFactory<BoekerhoudenDbContext> dbFacto
 
     internal static string Onderwerp(Klant klant) => $"{klant.Klantnummer} {klant.Naam}";
 
+    private static string? Leeg(string? tekst) => string.IsNullOrWhiteSpace(tekst) ? null : tekst.Trim();
+
+    [GeneratedRegex(@"^\d{4}\s?[A-Za-z]{2}$")]
+    private static partial Regex PostcodePatroon();
+
+    [GeneratedRegex(@"^\d{2}(\.?\d){0,3}$")]
+    private static partial Regex SbiPatroon();
+
     private static List<string> Valideer(KlantInvoer invoer)
     {
         var fouten = new List<string>();
@@ -128,6 +164,29 @@ public sealed class KlantDienst(IDbContextFactory<BoekerhoudenDbContext> dbFacto
             fouten.Add("Een KvK-nummer bestaat uit 8 cijfers.");
         }
 
+        if (invoer.Gegevens is { } g)
+        {
+            if (Leeg(g.Postcode) is { } postcode && !PostcodePatroon().IsMatch(postcode))
+            {
+                fouten.Add("Een postcode bestaat uit 4 cijfers en 2 letters, bijv. 1234 AB.");
+            }
+
+            if (Leeg(g.Rsin) is { } rsin && (rsin.Length != 9 || !rsin.All(char.IsAsciiDigit)))
+            {
+                fouten.Add("Een RSIN bestaat uit 9 cijfers.");
+            }
+
+            if (Leeg(g.Email) is { } email && (!email.Contains('@', StringComparison.Ordinal) || email.Contains(' ', StringComparison.Ordinal)))
+            {
+                fouten.Add("Vul een geldig e-mailadres in.");
+            }
+
+            if (Leeg(g.SbiCode) is { } sbi && !SbiPatroon().IsMatch(sbi))
+            {
+                fouten.Add("Een SBI-code bestaat uit 2 tot 5 cijfers, eventueel met punten (bijv. 47.72).");
+            }
+        }
+
         return fouten;
     }
 
@@ -138,6 +197,22 @@ public sealed class KlantDienst(IDbContextFactory<BoekerhoudenDbContext> dbFacto
         klant.Rechtsvorm = invoer.Rechtsvorm;
         klant.KvkNummer = string.IsNullOrWhiteSpace(invoer.KvkNummer) ? null : invoer.KvkNummer.Trim();
         klant.Plaats = string.IsNullOrWhiteSpace(invoer.Plaats) ? null : invoer.Plaats.Trim();
+        if (invoer.Gegevens is { } g)
+        {
+            klant.Straat = Leeg(g.Straat);
+            klant.Huisnummer = Leeg(g.Huisnummer);
+            klant.Toevoeging = Leeg(g.Toevoeging);
+            klant.Postcode = Leeg(g.Postcode) is { } postcode ? $"{postcode[..4]} {postcode[^2..].ToUpperInvariant()}" : null;
+            klant.Telefoon = Leeg(g.Telefoon);
+            klant.Email = Leeg(g.Email);
+            klant.Website = Leeg(g.Website);
+            klant.Rsin = Leeg(g.Rsin);
+            klant.SbiCode = Leeg(g.SbiCode);
+            klant.StatutaireNaam = Leeg(g.StatutaireNaam);
+            klant.StatutaireZetel = Leeg(g.StatutaireZetel);
+            klant.Oprichtingsdatum = g.Oprichtingsdatum;
+        }
+
         klant.GewijzigdOp = nu;
         klant.GewijzigdDoor = wie.Naam;
     }

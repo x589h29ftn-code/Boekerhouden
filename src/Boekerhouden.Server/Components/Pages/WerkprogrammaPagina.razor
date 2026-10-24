@@ -466,11 +466,22 @@ else
         rapportInhoud = (await RapportDienst.Maak(Id))?.Waarde;
     }
 
-    /// <summary>De hoofdposten met saldo in de volgorde van de jaarrekening, per balans en winst-en-verliesrekening.</summary>
-    private IEnumerable<(string Groep, List<(string Code, string Naam)> Posten)> PostGroepen =>
-        new[] { ("Balans", 'B'), ("Winst-en-verliesrekening", 'W') }
-            .Select(g => (g.Item1, Hoofdposten.Where(p => p.Code[0] == g.Item2).ToList()))
-            .Where(g => g.Item2.Count > 0);
+    /// <summary>De hoofdposten met saldo in de volgorde van de jaarrekening: activa, passiva (creditposten van de balans) en winst-en-verliesrekening.</summary>
+    private IEnumerable<(string Groep, List<(string Code, string Naam)> Posten)> PostGroepen
+    {
+        get
+        {
+            bool Credit(string code) => r?.Schema?.Zoek(code)?.Kant == Boekerhouden.Domain.Rgs.Saldokant.Credit;
+            return new (string Groep, Func<string, bool> Hoort)[]
+                {
+                    ("Activa", c => c[0] == 'B' && !Credit(c)),
+                    ("Passiva", c => c[0] == 'B' && Credit(c)),
+                    ("Winst-en-verliesrekening", c => c[0] == 'W'),
+                }
+                .Select(g => (g.Groep, Hoofdposten.Where(p => g.Hoort(p.Code)).ToList()))
+                .Where(g => g.Item2.Count > 0);
+        }
+    }
 
     private bool HeeftSaldo(string code) => Hoofdposten.Any(p => p.Code == code);
 

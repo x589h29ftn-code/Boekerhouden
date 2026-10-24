@@ -156,7 +156,8 @@ public sealed class GrondslagDienstTests(ServerFixture server) : IClassFixture<S
 
         Assert.Equal(["Algemene toelichting", "Algemene grondslagen", "Grondslagen voor de waardering van activa en passiva", "Grondslagen voor de bepaling van het resultaat"],
             (await Rapport(huidig)).Hoofdstukken.Single(h => h.Titel == "Algemene toelichting en grondslagen").Blokken.OfType<GroepBlok>().Select(g => g.Titel));
-        Assert.Equal("Voorbeeld Bakkerij B.V. is een besloten vennootschap met beperkte aansprakelijkheid, gevestigd te Ergens, en is ingeschreven in het handelsregister onder nummer [KvK-nummer].",
+        Assert.Equal("Voorbeeld Bakkerij B.V. is een besloten vennootschap met beperkte aansprakelijkheid, statutair gevestigd te Ergens. "
+            + "De vennootschap is feitelijk gevestigd op [vestigingsadres] te Ergens en is ingeschreven in het handelsregister onder nummer [KvK-nummer].",
             blokken.Single(b => b.Sleutel == "vestiging").Tekst);
         Assert.Contains("vormt de leiding van Voorbeeld Bakkerij B.V. zich oordelen", blokken.Single(b => b.Sleutel == "schattingen").Tekst, StringComparison.Ordinal);
         Assert.Contains("per 31 december 2025", blokken.Single(b => b.Sleutel == "continuiteit").Tekst, StringComparison.Ordinal);
@@ -169,8 +170,15 @@ public sealed class GrondslagDienstTests(ServerFixture server) : IClassFixture<S
         Assert.Equal("Voorbeeld Bakkerij B.V. bakt brood in Ergens.", Blokken(await Rapport(huidig)).Single(b => b.Sleutel == "activiteiten").Tekst);
 
         var klant = (await server.Dienst<KlantDienst>().Haal(klantId))!;
-        Assert.True((await server.Dienst<KlantDienst>().Wijzig(klantId, new KlantInvoer(klant.Klantnummer, klant.Naam, Rechtsvorm.BV, "87654321", "Ergens"), Tester)).IsGelukt);
-        Assert.EndsWith("onder nummer 87654321.", Blokken(await Rapport(huidig)).Single(b => b.Sleutel == "vestiging").Tekst, StringComparison.Ordinal);
+        var gegevens = new KlantGegevens(Straat: "Dorpsstraat", Huisnummer: "12", Toevoeging: "A", Postcode: "1234ab", StatutaireNaam: "Bakkerij Holding B.V.",
+            StatutaireZetel: "Amsterdam", Oprichtingsdatum: new DateOnly(2020, 6, 28));
+        Assert.True((await server.Dienst<KlantDienst>().Wijzig(klantId, new KlantInvoer(klant.Klantnummer, klant.Naam, Rechtsvorm.BV, "87654321", "Ergens") { Gegevens = gegevens }, Tester)).IsGelukt);
+        Assert.True((await Grondslagen.ZetOpgenomen(huidig, "oprichting", true, Tester)).IsGelukt);
+        blokken = Blokken(await Rapport(huidig));
+        Assert.Equal("Bakkerij Holding B.V. is een besloten vennootschap met beperkte aansprakelijkheid, statutair gevestigd te Amsterdam. "
+            + "De vennootschap is feitelijk gevestigd op Dorpsstraat 12 A te Ergens en is ingeschreven in het handelsregister onder nummer 87654321.",
+            blokken.Single(b => b.Sleutel == "vestiging").Tekst);
+        Assert.StartsWith("Bakkerij Holding B.V. is opgericht bij notariële akte van 28 juni 2020.", blokken.Single(b => b.Sleutel == "oprichting").Tekst, StringComparison.Ordinal);
     }
 
     [Fact]

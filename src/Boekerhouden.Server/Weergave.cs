@@ -19,6 +19,26 @@ public static class Weergave
     public static string DatumVoluit(DateTimeOffset tijdstip) =>
         TimeZoneInfo.ConvertTime(tijdstip, Amsterdam).ToString("d MMMM yyyy", Nederlands);
 
+    /// <summary>Bijvoorbeeld "28 juni 2024".</summary>
+    public static string DatumVoluit(DateOnly datum) => datum.ToString("d MMMM yyyy", Nederlands);
+
+    /// <summary>Straat, huisnummer en toevoeging, bijv. "Dorpsstraat 12 A"; null als er geen straat is.</summary>
+    public static string? Straat(Klant klant)
+    {
+        ArgumentNullException.ThrowIfNull(klant);
+        return string.IsNullOrWhiteSpace(klant.Straat) ? null
+            : string.Join(' ', new[] { klant.Straat, klant.Huisnummer, klant.Toevoeging }.Where(t => !string.IsNullOrWhiteSpace(t)));
+    }
+
+    /// <summary>Het volledige adres op één regel, bijv. "Dorpsstraat 12 A, 1234 AB Ergens"; null als er niets is.</summary>
+    public static string? Adres(Klant klant)
+    {
+        ArgumentNullException.ThrowIfNull(klant);
+        var plaats = string.Join(' ', new[] { klant.Postcode, klant.Plaats }.Where(t => !string.IsNullOrWhiteSpace(t)));
+        var adres = string.Join(", ", new[] { Straat(klant), plaats }.Where(t => !string.IsNullOrWhiteSpace(t)));
+        return adres.Length == 0 ? null : adres;
+    }
+
     public static string Tekst(Rechtsvorm rechtsvorm) => rechtsvorm switch
     {
         Rechtsvorm.BV => "BV",

@@ -1,10 +1,11 @@
-<EditForm Model="Model" OnSubmit="Verstuur" FormName="klant">
+<EditForm Model="Model" OnSubmit="Verstuur" FormName="klant" class="klantkaart">
+    <div class="status mb-2">Alleen klantnummer, naam en rechtsvorm zijn verplicht.</div>
     <div class="row g-3">
         <div class="col-sm-3">
             <label for="klantnummer" class="form-label">Klantnummer</label>
             <InputText id="klantnummer" @bind-Value="Model.Klantnummer" class="form-control" />
         </div>
-        <div class="col-sm-9">
+        <div class="col-sm-6">
             <label for="naam" class="form-label">Naam</label>
             <InputText id="naam" @bind-Value="Model.Naam" class="form-control" />
         </div>
@@ -17,13 +18,73 @@
                 }
             </InputSelect>
         </div>
+    </div>
+
+    <div class="klantkaart-kop">Adres</div>
+    <div class="row g-3">
+        <div class="col-sm-5">
+            <label for="straat" class="form-label">Straat</label>
+            <InputText id="straat" @bind-Value="Model.Straat" class="form-control" autocomplete="off" />
+        </div>
+        <div class="col-sm-2">
+            <label for="huisnummer" class="form-label">Huisnummer</label>
+            <InputText id="huisnummer" @bind-Value="Model.Huisnummer" class="form-control" />
+        </div>
+        <div class="col-sm-2">
+            <label for="toevoeging" class="form-label">Toevoeging</label>
+            <InputText id="toevoeging" @bind-Value="Model.Toevoeging" class="form-control" />
+        </div>
         <div class="col-sm-3">
-            <label for="kvk" class="form-label">KvK-nummer <span class="text-secondary">(optioneel)</span></label>
+            <label for="postcode" class="form-label">Postcode</label>
+            <InputText id="postcode" @bind-Value="Model.Postcode" class="form-control" maxlength="7" />
+        </div>
+        <div class="col-sm-5">
+            <label for="plaats" class="form-label" title="De vestigingsplaats; staat op het voorblad van het rapport">Plaats</label>
+            <InputText id="plaats" @bind-Value="Model.Plaats" class="form-control" />
+        </div>
+    </div>
+
+    <div class="klantkaart-kop">Contact</div>
+    <div class="row g-3">
+        <div class="col-sm-3">
+            <label for="telefoon" class="form-label">Telefoon</label>
+            <InputText id="telefoon" @bind-Value="Model.Telefoon" class="form-control" inputmode="tel" />
+        </div>
+        <div class="col-sm-5">
+            <label for="email" class="form-label">E-mail</label>
+            <InputText id="email" @bind-Value="Model.Email" class="form-control" inputmode="email" />
+        </div>
+        <div class="col-sm-4">
+            <label for="website" class="form-label">Website</label>
+            <InputText id="website" @bind-Value="Model.Website" class="form-control" />
+        </div>
+    </div>
+
+    <div class="klantkaart-kop">Registratie</div>
+    <div class="row g-3">
+        <div class="col-sm-3">
+            <label for="kvk" class="form-label">KvK-nummer</label>
             <InputText id="kvk" @bind-Value="Model.KvkNummer" class="form-control" inputmode="numeric" maxlength="8" />
         </div>
+        <div class="col-sm-3">
+            <label for="rsin" class="form-label" title="Rechtspersonen en Samenwerkingsverbanden Informatienummer, o.a. voor de aangifte vennootschapsbelasting">RSIN</label>
+            <InputText id="rsin" @bind-Value="Model.Rsin" class="form-control" inputmode="numeric" maxlength="9" />
+        </div>
+        <div class="col-sm-3">
+            <label for="sbi" class="form-label" title="De hoofdactiviteit volgens de Standaard Bedrijfsindeling, bijv. 47.72">SBI-code</label>
+            <InputText id="sbi" @bind-Value="Model.SbiCode" class="form-control" maxlength="6" />
+        </div>
+        <div class="col-sm-3">
+            <label for="oprichting" class="form-label">Opgericht op</label>
+            <InputDate id="oprichting" @bind-Value="Model.Oprichtingsdatum" class="form-control" />
+        </div>
         <div class="col-sm-6">
-            <label for="plaats" class="form-label">Plaats <span class="text-secondary">(optioneel)</span></label>
-            <InputText id="plaats" @bind-Value="Model.Plaats" class="form-control" />
+            <label for="statutaire-naam" class="form-label" title="Alleen invullen als de naam in de statuten afwijkt van de naam hierboven">Statutaire naam</label>
+            <InputText id="statutaire-naam" @bind-Value="Model.StatutaireNaam" class="form-control" placeholder="als anders dan de naam" />
+        </div>
+        <div class="col-sm-6">
+            <label for="statutaire-zetel" class="form-label" title="Alleen invullen als de statutaire zetel afwijkt van de plaats">Statutaire zetel</label>
+            <InputText id="statutaire-zetel" @bind-Value="Model.StatutaireZetel" class="form-control" placeholder="als anders dan de plaats" />
         </div>
     </div>
     <Foutmeldingen Fouten="Fouten" />
@@ -76,6 +137,30 @@
 
         public string? Plaats { get; set; }
 
+        public string? Straat { get; set; }
+
+        public string? Huisnummer { get; set; }
+
+        public string? Toevoeging { get; set; }
+
+        public string? Postcode { get; set; }
+
+        public string? Telefoon { get; set; }
+
+        public string? Email { get; set; }
+
+        public string? Website { get; set; }
+
+        public string? Rsin { get; set; }
+
+        public string? SbiCode { get; set; }
+
+        public string? StatutaireNaam { get; set; }
+
+        public string? StatutaireZetel { get; set; }
+
+        public DateOnly? Oprichtingsdatum { get; set; }
+
         public static KlantModel Van(Klant klant) => new()
         {
             Klantnummer = klant.Klantnummer,
@@ -83,8 +168,23 @@
             Rechtsvorm = klant.Rechtsvorm,
             KvkNummer = klant.KvkNummer,
             Plaats = klant.Plaats,
+            Straat = klant.Straat,
+            Huisnummer = klant.Huisnummer,
+            Toevoeging = klant.Toevoeging,
+            Postcode = klant.Postcode,
+            Telefoon = klant.Telefoon,
+            Email = klant.Email,
+            Website = klant.Website,
+            Rsin = klant.Rsin,
+            SbiCode = klant.SbiCode,
+            StatutaireNaam = klant.StatutaireNaam,
+            StatutaireZetel = klant.StatutaireZetel,
+            Oprichtingsdatum = klant.Oprichtingsdatum,
         };
 
-        public KlantInvoer AlsInvoer() => new(Klantnummer, Naam, Rechtsvorm, KvkNummer, Plaats);
+        public KlantInvoer AlsInvoer() => new(Klantnummer, Naam, Rechtsvorm, KvkNummer, Plaats)
+        {
+            Gegevens = new KlantGegevens(Straat, Huisnummer, Toevoeging, Postcode, Telefoon, Email, Website, Rsin, SbiCode, StatutaireNaam, StatutaireZetel, Oprichtingsdatum),
+        };
     }
 }

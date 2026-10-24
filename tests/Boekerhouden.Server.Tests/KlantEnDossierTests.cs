@@ -29,6 +29,40 @@ public sealed class KlantEnDossierTests(ServerFixture server) : IClassFixture<Se
     }
 
     [Fact]
+    public async Task Klantenkaart_met_adres_contact_en_registratie()
+    {
+        var gegevens = new KlantGegevens(" Dorpsstraat ", "12", "A", "1234ab", "0612345678", "info@voorbeeld.test", "voorbeeld.test", "123456789", "47.72",
+            "Voorbeeld Holding B.V.", "Amsterdam", new DateOnly(2020, 6, 28));
+
+        var id = (await Klanten.Maak(new KlantInvoer(TestGegevens.Klantnummer(), "Voorbeeld B.V.", Rechtsvorm.BV, null, "Ergens") { Gegevens = gegevens }, Tester)).Waarde;
+        var klant = (await Klanten.Haal(id))!;
+
+        Assert.Equal(("Dorpsstraat", "12", "A", "1234 AB"), (klant.Straat, klant.Huisnummer, klant.Toevoeging, klant.Postcode));
+        Assert.Equal(("0612345678", "info@voorbeeld.test", "voorbeeld.test"), (klant.Telefoon, klant.Email, klant.Website));
+        Assert.Equal(("123456789", "47.72", "Voorbeeld Holding B.V.", "Amsterdam"), (klant.Rsin, klant.SbiCode, klant.StatutaireNaam, klant.StatutaireZetel));
+        Assert.Equal(new DateOnly(2020, 6, 28), klant.Oprichtingsdatum);
+        Assert.Equal("Dorpsstraat 12 A, 1234 AB Ergens", Weergave.Adres(klant));
+
+        // Zonder gegevens (bijv. een oud formulier) blijven ze staan.
+        Assert.True((await Klanten.Wijzig(id, new KlantInvoer(klant.Klantnummer, "Voorbeeld B.V.", Rechtsvorm.BV, null, "Ergens"), Tester)).IsGelukt);
+        Assert.Equal("123456789", (await Klanten.Haal(id))!.Rsin);
+    }
+
+    [Fact]
+    public async Task Klantenkaart_controleert_postcode_rsin_email_en_sbi()
+    {
+        var fout = new KlantGegevens(Postcode: "12345", Email: "geen adres", Rsin: "12345", SbiCode: "ab");
+
+        var uitkomst = await Klanten.Maak(new KlantInvoer(TestGegevens.Klantnummer(), "Klant", Rechtsvorm.BV, null, null) { Gegevens = fout }, Tester);
+
+        Assert.False(uitkomst.IsGelukt);
+        Assert.Equal(
+            ["Een postcode bestaat uit 4 cijfers en 2 letters, bijv. 1234 AB.", "Een RSIN bestaat uit 9 cijfers.", "Vul een geldig e-mailadres in.",
+             "Een SBI-code bestaat uit 2 tot 5 cijfers, eventueel met punten (bijv. 47.72)."],
+            uitkomst.Fouten);
+    }
+
+    [Fact]
     public async Task Klantnummer_moet_uniek_zijn()
     {
         var nummer = TestGegevens.Klantnummer();

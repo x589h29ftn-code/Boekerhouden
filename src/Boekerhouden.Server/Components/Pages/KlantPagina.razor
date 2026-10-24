@@ -118,6 +118,25 @@ else
             </div>
         </div>
         <div class="col-lg-5">
+            <div class="card mb-4" id="klantgegevens">
+                <div class="card-header fw-semibold">Klantgegevens</div>
+                <div class="card-body">
+                    @if (Gegevens(klant).ToList() is { Count: > 0 } gegevens)
+                    {
+                        <dl class="klantgegevens">
+                            @foreach (var (label, waarde, uitleg) in gegevens)
+                            {
+                                <dt title="@uitleg">@label</dt>
+                                <dd>@waarde</dd>
+                            }
+                        </dl>
+                    }
+                    else
+                    {
+                        <span class="status">Nog geen adres of registratie. Vul ze aan met Klantgegevens wijzigen.</span>
+                    }
+                </div>
+            </div>
             <div class="card">
                 <div class="card-header fw-semibold">Ingelezen saldibalansen</div>
                 @if (imports.Count == 0)
@@ -154,6 +173,25 @@ else
 }
 
 @code {
+    /// <summary>De ingevulde gegevens van de klantenkaart, één regel per gegeven; lege velden blijven weg.</summary>
+    private static IEnumerable<(string Label, string Waarde, string? Uitleg)> Gegevens(Klant k)
+    {
+        (string, string?, string?)[] regels =
+        [
+            ("Adres", Weergave.Adres(k), null),
+            ("Telefoon", k.Telefoon, null),
+            ("E-mail", k.Email, null),
+            ("Website", k.Website, null),
+            ("KvK-nummer", k.KvkNummer, null),
+            ("RSIN", k.Rsin, "Rechtspersonen en Samenwerkingsverbanden Informatienummer"),
+            ("SBI-code", k.SbiCode, "Hoofdactiviteit volgens de Standaard Bedrijfsindeling"),
+            ("Opgericht", k.Oprichtingsdatum is { } d ? Weergave.DatumVoluit(d) : null, null),
+            ("Statutaire naam", k.StatutaireNaam, null),
+            ("Statutaire zetel", k.StatutaireZetel, null),
+        ];
+        return regels.Where(r => !string.IsNullOrWhiteSpace(r.Item2)).Select(r => (r.Item1, r.Item2!, r.Item3));
+    }
+
     private bool geladen;
     private Klant? klant;
     private IReadOnlyList<DossierSamenvatting> dossiers = [];

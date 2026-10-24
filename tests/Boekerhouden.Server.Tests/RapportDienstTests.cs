@@ -63,7 +63,10 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
     {
         await server.MetRgs();
         var klantnummer = TestGegevens.Klantnummer();
-        var klantId = (await server.Dienst<KlantDienst>().Maak(new KlantInvoer(klantnummer, naam, Rechtsvorm.BV, "12345678", "Ergenshuizen"), Tester)).Waarde;
+        var klantId = (await server.Dienst<KlantDienst>().Maak(new KlantInvoer(klantnummer, naam, Rechtsvorm.BV, "12345678", "Ergenshuizen")
+        {
+            Gegevens = new KlantGegevens(Straat: "Bakkersweg", Huisnummer: "1", Postcode: "1234 AB"),
+        }, Tester)).Waarde;
         foreach (var jaar in new[] { 2024, 2025 })
         {
             Assert.True((await server.Dienst<ImportDienst>().Importeer(klantId, jaar, TestGegevens.Fictief("bv-voorbeeld-bakkerij", $"saldibalans-{jaar}.csv"), $"{jaar}.csv", Tester)).IsGelukt);

@@ -94,6 +94,17 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
             e.Property(k => k.Rechtsvorm).HasConversion<string>().HasMaxLength(30);
             e.Property(k => k.KvkNummer).HasMaxLength(20);
             e.Property(k => k.Plaats).HasMaxLength(100);
+            e.Property(k => k.Straat).HasMaxLength(200);
+            e.Property(k => k.Huisnummer).HasMaxLength(20);
+            e.Property(k => k.Toevoeging).HasMaxLength(20);
+            e.Property(k => k.Postcode).HasMaxLength(20);
+            e.Property(k => k.Telefoon).HasMaxLength(50);
+            e.Property(k => k.Email).HasMaxLength(200);
+            e.Property(k => k.Website).HasMaxLength(200);
+            e.Property(k => k.Rsin).HasMaxLength(20);
+            e.Property(k => k.SbiCode).HasMaxLength(20);
+            e.Property(k => k.StatutaireNaam).HasMaxLength(300);
+            e.Property(k => k.StatutaireZetel).HasMaxLength(100);
             e.Property(k => k.GewijzigdDoor).HasMaxLength(200);
         });
 

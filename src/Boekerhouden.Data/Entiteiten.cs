@@ -33,6 +33,34 @@ public sealed class Klant
 
     public string? Plaats { get; set; }
 
+    public string? Straat { get; set; }
+
+    public string? Huisnummer { get; set; }
+
+    public string? Toevoeging { get; set; }
+
+    public string? Postcode { get; set; }
+
+    public string? Telefoon { get; set; }
+
+    public string? Email { get; set; }
+
+    public string? Website { get; set; }
+
+    /// <summary>Rechtspersonen en Samenwerkingsverbanden Informatienummer (9 cijfers), o.a. voor de aangifte Vpb.</summary>
+    public string? Rsin { get; set; }
+
+    /// <summary>De hoofdactiviteit volgens de Standaard Bedrijfsindeling, bijv. 47.72 of 4772.</summary>
+    public string? SbiCode { get; set; }
+
+    /// <summary>De naam volgens de statuten, als die afwijkt van de handelsnaam.</summary>
+    public string? StatutaireNaam { get; set; }
+
+    /// <summary>De statutaire zetel, als die afwijkt van de vestigingsplaats.</summary>
+    public string? StatutaireZetel { get; set; }
+
+    public DateOnly? Oprichtingsdatum { get; set; }
+
     public DateTimeOffset AangemaaktOp { get; set; }
 
     public DateTimeOffset GewijzigdOp { get; set; }

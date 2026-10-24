@@ -26,6 +26,7 @@ public sealed record SplitsRegel(string Omschrijving, decimal Bedrag, decimal? B
 /// <param name="VorigeVerloopMutaties">De mutaties uit het dossier van vorig jaar, als voorstel voor de kolom vorig jaar.</param>
 /// <param name="Afschrijvingspercentages">Per subpost van de vaste activa een eigen afschrijvingspercentage (tekst).</param>
 /// <param name="VerloopZonderVorigJaar">Verloopoverzichten van rekeningen zonder vorig jaar ernaast.</param>
+/// <param name="Kaart">Adres en registratie van de klant, voor variabelen als {adres} en {statutaire_zetel}.</param>
 public sealed record RapportGegevens(
     RapportSoort Soort,
     string Klantnaam,
@@ -50,7 +51,19 @@ public sealed record RapportGegevens(
     IReadOnlyDictionary<Guid, decimal>? SaldiTweeJaarTerug = null,
     IReadOnlyDictionary<string, IReadOnlyList<VerloopMutatie>>? VorigeVerloopMutaties = null,
     IReadOnlyDictionary<string, string>? Afschrijvingspercentages = null,
-    IReadOnlySet<string>? VerloopZonderVorigJaar = null);
+    IReadOnlySet<string>? VerloopZonderVorigJaar = null,
+    Klantkaart? Kaart = null);
+
+/// <summary>Gegevens van de klantenkaart voor teksten in het rapport ({adres}, {rsin}, {statutaire_zetel} e.d.).</summary>
+/// <param name="Adres">Straat, huisnummer en toevoeging.</param>
+public sealed record Klantkaart(
+    string? Adres = null,
+    string? Postcode = null,
+    string? Rsin = null,
+    string? SbiCode = null,
+    string? StatutaireNaam = null,
+    string? StatutaireZetel = null,
+    DateOnly? Oprichtingsdatum = null);
 
 /// <summary>
 /// Bouwt het rapport (plakje 6, docs §9.1–9.3) uit de proefbalans per post: de balans (tweekoloms, met het resultaat

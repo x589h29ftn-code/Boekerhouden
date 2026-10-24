@@ -23,7 +23,11 @@ public sealed class DemoOpties
 
 /// <summary>Een klant in een demomap: een submap met <c>saldibalans-JJJJ.csv</c> (of .xlsx) en eventueel <c>klant.json</c>.</summary>
 /// <param name="Grondslag">Alleen bij een BV; standaard fiscaal.</param>
-public sealed record DemoKlant(string Map, string Naam, Rechtsvorm Rechtsvorm, string? Plaats, string? Kvk, Verslaggeving Grondslag, IReadOnlyDictionary<int, string> Saldibalansen);
+public sealed record DemoKlant(string Map, string Naam, Rechtsvorm Rechtsvorm, string? Plaats, string? Kvk, Verslaggeving Grondslag, IReadOnlyDictionary<int, string> Saldibalansen)
+{
+    /// <summary>Adres, contact en registratie uit klant.json (klantenkaart).</summary>
+    public KlantGegevens? Gegevens { get; init; }
+}
 
 /// <summary>
 /// Vult een lokale installatie om te proberen: een account, het RGS-werkboek, en per klant in de demomappen een
@@ -81,7 +85,11 @@ public static partial class DemoVulling
                 : mapnaam.StartsWith("ez-", StringComparison.OrdinalIgnoreCase) ? Rechtsvorm.Eenmanszaak : Rechtsvorm.BV;
             var grondslag = info?.Grondslag is { } s ? Enum.Parse<Verslaggeving>(s, ignoreCase: true) : Verslaggeving.Fiscaal;
             var naam = info?.Naam ?? KlantUitBestand(saldibalansen[saldibalansen.Keys.Max()]) ?? mapnaam;
-            klanten.Add(new DemoKlant(submap, naam, rechtsvorm, info?.Plaats, info?.Kvk, grondslag, saldibalansen));
+            klanten.Add(new DemoKlant(submap, naam, rechtsvorm, info?.Plaats, info?.Kvk, grondslag, saldibalansen)
+            {
+                Gegevens = info is null ? null : new KlantGegevens(info.Straat, info.Huisnummer, info.Toevoeging, info.Postcode, info.Telefoon, info.Email, info.Website,
+                    info.Rsin, info.Sbi, info.StatutaireNaam, info.StatutaireZetel, info.Oprichtingsdatum),
+            });
         }
 
         return klanten;
@@ -181,7 +189,7 @@ public static partial class DemoVulling
         }
 
         var klantnummer = await VrijKlantnummer(dbFactory);
-        var klantId = (await services.GetRequiredService<KlantDienst>().Maak(new KlantInvoer(klantnummer, klant.Naam, klant.Rechtsvorm, klant.Kvk, klant.Plaats), wie)).Waarde;
+        var klantId = (await services.GetRequiredService<KlantDienst>().Maak(new KlantInvoer(klantnummer, klant.Naam, klant.Rechtsvorm, klant.Kvk, klant.Plaats) { Gegevens = klant.Gegevens }, wie)).Waarde;
         var import = services.GetRequiredService<ImportDienst>();
         foreach (var (jaar, pad) in klant.Saldibalansen.OrderBy(s => s.Key))
         {
@@ -232,5 +240,22 @@ public static partial class DemoVulling
     [GeneratedRegex(@"^saldibalans-(\d{4})\.(csv|xlsx)$", RegexOptions.IgnoreCase)]
     private static partial Regex SaldibalansPatroon();
 
-    private sealed record KlantJson(string? Naam, string? Rechtsvorm, string? Plaats, string? Kvk, string? Grondslag);
+    private sealed record KlantJson(
+        string? Naam,
+        string? Rechtsvorm,
+        string? Plaats,
+        string? Kvk,
+        string? Grondslag,
+        string? Straat = null,
+        string? Huisnummer = null,
+        string? Toevoeging = null,
+        string? Postcode = null,
+        string? Telefoon = null,
+        string? Email = null,
+        string? Website = null,
+        string? Rsin = null,
+        string? Sbi = null,
+        string? StatutaireNaam = null,
+        string? StatutaireZetel = null,
+        DateOnly? Oprichtingsdatum = null);
 }

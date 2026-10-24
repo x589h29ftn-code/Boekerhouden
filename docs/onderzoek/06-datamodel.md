@@ -100,6 +100,11 @@ rekening, omschrijving, bedrag). `RekeningPresentaties.VerloopZonderVorig` zet v
 ### Klantniveau
 
 **Klant**: Id, Klantnummer, Naam, Rechtsvorm (`BV`, `NV`, `Eenmanszaak`, `VOF`, `Maatschap`, `CV`, `Stichting`, `Vereniging`, `Coöperatie`), KvK-nummer, RSIN/fiscaal nummer, Adres, SBI-code/activiteit, **Grootte** (`Micro`/`Klein`/`Middelgroot`, met de criteria uit BW2 als controle), BoekjaarEindeMaand, Verantwoordelijke (accountant), Medewerker, Wwft-risicoprofiel, Status.
+*Gebouwd (klantenkaart):* naast klantnummer, naam, rechtsvorm, KvK-nummer en plaats ook straat, huisnummer, toevoeging,
+postcode (opgeslagen als `1234 AB`), telefoon, e-mail, website, RSIN (9 cijfers), SBI-code, statutaire naam en
+statutaire zetel (alleen als ze afwijken) en oprichtingsdatum. In rapportteksten als `{adres}`, `{postcode}`, `{rsin}`,
+`{sbi}`, `{statutaire_naam}` (anders de naam), `{statutaire_zetel}` (anders de plaats) en `{oprichtingsdatum}`; een
+leeg gegeven wordt `[…]`, zodat het rapport waarschuwt.
 
 **Functionaris**: Naam, Rol (`Bestuurder`, `Commissaris`, `Vennoot`, `UBO`, `Contactpersoon`), Winstaandeel % (bij VOF/maatschap), Van/Tot.
 

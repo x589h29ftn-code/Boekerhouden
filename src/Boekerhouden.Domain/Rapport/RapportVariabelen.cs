@@ -30,6 +30,13 @@ public static partial class RapportVariabelen
         new("naam", "naam van de klant", Algemeen),
         new("plaats", "vestigingsplaats", Algemeen),
         new("kvk", "KvK-nummer", Algemeen),
+        new("adres", "straat en huisnummer van de vestiging", Algemeen),
+        new("postcode", "postcode van de vestiging", Algemeen),
+        new("rsin", "RSIN", Algemeen),
+        new("sbi", "SBI-code (hoofdactiviteit)", Algemeen),
+        new("statutaire_naam", "naam volgens de statuten (anders de naam)", Algemeen),
+        new("statutaire_zetel", "statutaire zetel (anders de plaats)", Algemeen),
+        new("oprichtingsdatum", "datum van oprichting, bijv. 28 juni 2024", Algemeen),
         new("valuta", "het valutateken (€)", Algemeen),
         new("boekjaar", "het boekjaar, bijv. 2025", Periode),
         new("boekjaar_vorig", "het vorige boekjaar", Periode),
@@ -78,6 +85,13 @@ public static partial class RapportVariabelen
             ["naam"] = g.Klantnaam,
             ["plaats"] = string.IsNullOrWhiteSpace(g.Plaats) ? "[vestigingsplaats]" : g.Plaats.Trim(),
             ["kvk"] = string.IsNullOrWhiteSpace(g.Kvk) ? "[KvK-nummer]" : g.Kvk.Trim(),
+            ["adres"] = Of(g.Kaart?.Adres, "[vestigingsadres]"),
+            ["postcode"] = Of(g.Kaart?.Postcode, "[postcode]"),
+            ["rsin"] = Of(g.Kaart?.Rsin, "[RSIN]"),
+            ["sbi"] = Of(g.Kaart?.SbiCode, "[SBI-code]"),
+            ["statutaire_naam"] = Of(g.Kaart?.StatutaireNaam, g.Klantnaam),
+            ["statutaire_zetel"] = Of(g.Kaart?.StatutaireZetel, Of(g.Plaats, "[statutaire zetel]")),
+            ["oprichtingsdatum"] = g.Kaart?.Oprichtingsdatum is { } opgericht ? opgericht.ToString("d MMMM yyyy", Nederlands) : "[datum oprichting]",
             ["valuta"] = "€",
             ["boekjaar"] = Jaar(g.Boekjaar),
             ["boekjaar_vorig"] = Jaar(g.Boekjaar - 1),
@@ -143,6 +157,8 @@ public static partial class RapportVariabelen
     }
 
     private static string Jaar(int jaar) => jaar.ToString(CultureInfo.InvariantCulture);
+
+    private static string Of(string? waarde, string anders) => string.IsNullOrWhiteSpace(waarde) ? anders : waarde.Trim();
 
     private static string Procent(decimal deel, decimal geheel) =>
         geheel == 0 ? "-" : Math.Round(deel / geheel * 100, 1, MidpointRounding.AwayFromZero).ToString("0.0", Nederlands) + "%";
