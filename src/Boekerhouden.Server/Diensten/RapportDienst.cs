@@ -36,7 +36,8 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
     public const int MaximaleSplitsregels = 50;
 
     /// <summary>Maakt het rapport; null als het dossier niet bestaat.</summary>
-    public async Task<Uitkomst<RapportInhoud>?> Maak(Guid dossierId)
+    /// <param name="metVerklaring">Met de samenstellingsverklaring (BV); zonder bij het doorlezen, dat vóór de erkenning komt.</param>
+    public async Task<Uitkomst<RapportInhoud>?> Maak(Guid dossierId, bool metVerklaring = true)
     {
         var overzicht = await rubriceren.Overzicht(dossierId, metVoorstellen: false);
         if (overzicht is null)
@@ -54,6 +55,7 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
         var klant = await db.Klanten.AsNoTracking().SingleAsync(k => k.Id == dossier.KlantId);
         var jaarrekening = Soort(dossier.Soort) == RapportSoort.Jaarrekening;
         var metGrondslagen = jaarrekening ? await grondslagen.VoorRapport(dossierId) : null;
+        var kantoorinstellingen = await kantoor.Haal();
 
         // Eigen toelichtingen (van dit of een eerder jaar) gaan voor de meegeleverde; een lege betekent: geen.
         var toelichtingen = (await Toelichtingen(db, dossierId)).ToDictionary(t => t.Key, t => t.Value.Tekst, StringComparer.Ordinal);
@@ -100,13 +102,16 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
                 .Where(p => p.Value.Tekst is not null).ToDictionary(p => p.Key, p => p.Value.Tekst!, StringComparer.Ordinal),
             (await RekeningPresentaties(db, dossier.KlantId, dossier.Boekjaar)).Values.Where(r => r.VerloopZonderVorig)
                 .Select(r => RapportOpbouw.RekeningSleutel(r.GrootboekrekeningId)).ToHashSet(StringComparer.Ordinal),
-            new Klantkaart(Server.Weergave.Straat(klant), klant.Postcode, klant.Rsin, klant.SbiCode, klant.StatutaireNaam, klant.StatutaireZetel, klant.Oprichtingsdatum)));
+            new Klantkaart(Server.Weergave.Straat(klant), klant.Postcode, klant.Rsin, klant.SbiCode, klant.StatutaireNaam, klant.StatutaireZetel, klant.Oprichtingsdatum),
+            jaarrekening && metVerklaring
+                ? await VerklaringDienst.Gegevens(db, dossierId, kantoorinstellingen.Naam, kantoorinstellingen.Plaats, metGrondslagen?.Verslaggeving == Verslaggeving.Fiscaal)
+                : null));
         if (jaarrekening && metGrondslagen?.Verslaggeving is null)
         {
             rapport = rapport with { Waarschuwingen = [.. rapport.Waarschuwingen, "Grondslagen nog niet gekozen."] };
         }
 
-        return Uitkomst<RapportInhoud>.Met(new RapportInhoud(dossier with { Grondslag = metGrondslagen?.Verslaggeving }, rapport, await kantoor.Haal(), tijd.GetUtcNow()));
+        return Uitkomst<RapportInhoud>.Met(new RapportInhoud(dossier with { Grondslag = metGrondslagen?.Verslaggeving }, rapport, kantoorinstellingen, tijd.GetUtcNow()));
     }
 
     /// <summary>De presentatie per hoofdpost met saldo, met de rekeningen die in de specificatie staan; null als het dossier niet bestaat.</summary>

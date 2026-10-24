@@ -1,0 +1,88 @@
+@* Uitbrengen rapport (BV): wie de samenstellingsverklaring tekent, de datum en een eigen toelichtende alinea. *@
+@using System.Globalization
+@inject VerklaringDienst VerklaringDienst
+
+@if (v is not null)
+{
+    <div class="wp-sectie" id="verklaring">
+        <div class="wp-sectie-kop">
+            <span class="me-auto">Samenstellingsverklaring</span>
+            <a href="/dossiers/@DossierId/rapport#h1">naar de verklaring in het rapport</a>
+        </div>
+        <div class="bs-raster">
+            <label for="verklaring-accountant">Accountant</label>
+            <select id="verklaring-accountant" class="form-select form-select-sm bs-wijze" disabled="@Vergrendeld"
+                    @onchange="async e => { accountantId = Guid.TryParse((string?)e.Value, out var id) ? id : null; await Bewaar(); }">
+                <option value="" selected="@(accountantId is null)">kies…</option>
+                @foreach (var (id, naam) in v.Accountants)
+                {
+                    <option value="@id" selected="@(accountantId == id)">@naam</option>
+                }
+            </select>
+            <label for="verklaring-datum">Datum</label>
+            <div class="d-flex align-items-baseline gap-3">
+                <input id="verklaring-datum" type="date" class="form-control form-control-sm bs-datum" value="@(datum?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))" disabled="@Vergrendeld"
+                       @onchange="async e => { datum = Datum(e.Value); await Bewaar(); }" />
+                <span class="status small" title="De verklaring is niet eerder gedateerd dan de erkenning door het bestuur (bij de bespreking).">
+                    @(v.Erkenning is { } e ? $"erkenning {Weergave.Datum(e)}" : "erkenning nog niet vastgelegd")
+                </span>
+            </div>
+            <label for="verklaring-toelichting">Toelichting</label>
+            <textarea id="verklaring-toelichting" class="form-control form-control-sm" rows="2" value="@toelichting" disabled="@Vergrendeld"
+                      placeholder="Een eigen toelichtende alinea (optioneel); de alinea over de continuïteit komt er vanzelf bij als die in de toelichting staat."
+                      @onchange="async e => { toelichting = (string?)e.Value; await Bewaar(); }"></textarea>
+        </div>
+        @if (v.Accountants.Count == 0)
+        {
+            <p class="small text-secondary mx-3">Er is nog geen gebruiker met de rol accountant (Gebruikers).</p>
+        }
+    </div>
+}
+
+@code {
+    private VerklaringInfo? v;
+    private DateOnly? datum;
+    private Guid? accountantId;
+    private string? toelichting;
+    private (Guid, int)? geladen;
+
+    [Parameter, EditorRequired]
+    public Guid DossierId { get; set; }
+
+    [Parameter]
+    public int Stand { get; set; }
+
+    [Parameter]
+    public bool Vergrendeld { get; set; }
+
+    [Parameter]
+    public EventCallback<(Uitkomst Uitkomst, string Gelukt)> OnMelding { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Authenticatie { get; set; } = default!;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (geladen != (DossierId, Stand))
+        {
+            geladen = (DossierId, Stand);
+            await Laad();
+        }
+    }
+
+    private async Task Laad()
+    {
+        v = await VerklaringDienst.Overzicht(DossierId);
+        (datum, accountantId, toelichting) = (v?.Datum, v?.AccountantId, v?.Toelichting);
+    }
+
+    private static DateOnly? Datum(object? waarde) =>
+        DateOnly.TryParseExact(waarde as string, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
+
+    private async Task Bewaar()
+    {
+        var uitkomst = await VerklaringDienst.Bewaar(DossierId, datum, accountantId, toelichting, (await Authenticatie).User.AlsUitvoerder());
+        await OnMelding.InvokeAsync((uitkomst, "Samenstellingsverklaring bewaard"));
+        await Laad();
+    }
+}

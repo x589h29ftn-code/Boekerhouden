@@ -83,6 +83,7 @@ public static class AuditActies
     public const string UitkomstVastgelegd = "Uitkomst bespreekpunt";
     public const string ErkenningVastgelegd = "Erkenning vastgelegd";
     public const string BespreekverslagGemaakt = "Bespreekverslag gemaakt";
+    public const string VerklaringGewijzigd = "Samenstellingsverklaring gewijzigd";
     public const string StapBeantwoord = "Stap beantwoord";
     public const string StapAfgetekend = "Stap afgetekend";
     public const string StapToegevoegd = "Stap toegevoegd";

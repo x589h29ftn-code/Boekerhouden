@@ -650,6 +650,36 @@ namespace Boekerhouden.Data.Migraties
                     b.ToTable("DossierToelichtingen", (string)null);
                 });
 
+            modelBuilder.Entity("Boekerhouden.Data.DossierVerklaring", b =>
+                {
+                    b.Property<Guid>("DossierId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AccountantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly?>("Datum")
+                        .HasColumnType("date");
+
+                    b.Property<string>("GewijzigdDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("GewijzigdOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Toelichting")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.HasKey("DossierId");
+
+                    b.HasIndex("AccountantId");
+
+                    b.ToTable("DossierVerklaringen", (string)null);
+                });
+
             modelBuilder.Entity("Boekerhouden.Data.Gebruiker", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1928,6 +1958,20 @@ namespace Boekerhouden.Data.Migraties
 
             modelBuilder.Entity("Boekerhouden.Data.DossierToelichting", b =>
                 {
+                    b.HasOne("Boekerhouden.Data.Dossier", null)
+                        .WithMany()
+                        .HasForeignKey("DossierId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.DossierVerklaring", b =>
+                {
+                    b.HasOne("Boekerhouden.Data.Gebruiker", null)
+                        .WithMany()
+                        .HasForeignKey("AccountantId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Boekerhouden.Data.Dossier", null)
                         .WithMany()
                         .HasForeignKey("DossierId")

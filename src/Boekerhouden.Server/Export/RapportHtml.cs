@@ -175,6 +175,13 @@ public static partial class RapportHtml
         .rapport-document h3 { position: relative; font-size: 9pt; font-weight: 600; line-height: 1.3; margin: 0 0 1mm; }
         .rapport-document .grondslag { break-inside: avoid; margin-bottom: 3.5mm; }
         .rapport-document .grondslag-tekst { white-space: pre-line; }
+        .rapport-document .verklaring { max-width: 150mm; }
+        .rapport-document .verklaring .aan { margin-bottom: 5mm; }
+        .rapport-document .verklaring h3 { font-size: 9pt; font-weight: 600; margin: 4mm 0 1mm; }
+        .rapport-document .verklaring p { margin: 0 0 2mm; white-space: pre-line; }
+        .rapport-document .verklaring .ondertekening { margin-top: 8mm; break-inside: avoid; }
+        .rapport-document .verklaring .kantoor { margin-top: 2mm; }
+        .rapport-document .verklaring .accountant { margin-top: 14mm; }
         .rapport-document table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
         .rapport-document th { font-weight: normal; font-size: 8pt; color: #6c757d; padding: 0 1.5mm 1.5mm; text-align: left; }
         .rapport-document th.jaar { text-align: right; }

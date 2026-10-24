@@ -52,7 +52,8 @@ public sealed record RapportGegevens(
     IReadOnlyDictionary<string, IReadOnlyList<VerloopMutatie>>? VorigeVerloopMutaties = null,
     IReadOnlyDictionary<string, string>? Afschrijvingspercentages = null,
     IReadOnlySet<string>? VerloopZonderVorigJaar = null,
-    Klantkaart? Kaart = null);
+    Klantkaart? Kaart = null,
+    VerklaringGegevens? Verklaring = null);
 
 /// <summary>Gegevens van de klantenkaart voor teksten in het rapport ({adres}, {rsin}, {statutaire_zetel} e.d.).</summary>
 /// <param name="Adres">Straat, huisnummer en toevoeging.</param>
@@ -123,6 +124,17 @@ public static partial class RapportOpbouw
             .Select(b => $"Toelichting {g.Naam(b.Toelichting!)}: tekst tussen [ ] nog invullen."));
         waarschuwingen.AddRange(onbekend.Select(v => $"Onbekende variabele {v} in een tekst."));
 
+        // De samenstellingsverklaring (alleen bij de jaarrekening) staat vooraan; de hoofdstukken nummeren door.
+        var delen = new List<Deel>();
+        if (!ib && g.Verklaring is { } verklaring)
+        {
+            var continuiteit = teksten.OfType<GrondslagBlok>().Any(b => b.Sleutel == "continuiteit" && b.Opgenomen);
+            delen.Add(new Deel("SAMENSTELLINGSVERKLARING", [new Hoofdstuk(1, Samenstellingsverklaring.Titel, [Samenstellingsverklaring.Maak(g, verklaring, continuiteit)])]));
+            hoofdstukken = [.. hoofdstukken.Select(h => h with { Nummer = h.Nummer + 1 })];
+            waarschuwingen.AddRange(Samenstellingsverklaring.Waarschuwingen(verklaring));
+        }
+
+        delen.Add(new Deel($"JAARREKENING {g.Boekjaar}", hoofdstukken));
         return new Rapport(
             g.Soort,
             ib ? $"Bijlage bij de aangifte inkomstenbelasting {g.Boekjaar}" : $"Jaarrekening {g.Boekjaar}",
@@ -131,7 +143,7 @@ public static partial class RapportOpbouw
             g.Boekjaar,
             ib ? "Geen accountantscontrole toegepast" : string.Empty,
             g.Concept,
-            [new Deel($"JAARREKENING {g.Boekjaar}", hoofdstukken)],
+            delen,
             waarschuwingen)
         {
             Variabelen = variabelen,

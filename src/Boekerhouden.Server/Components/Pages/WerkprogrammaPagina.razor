@@ -151,6 +151,11 @@ else
                         @Risico(risicopost, risicokeuze.Risico)
                     }
 
+                    @if (o.Soort == OnderdeelSoort.Uitbrengen)
+                    {
+                        <VerklaringKeuze DossierId="@Id" Stand="@versie" Vergrendeld="@o.IsGereviewd" OnMelding="m => Meld(m.Uitkomst, m.Gelukt)" />
+                    }
+
                     @if (o.Soort == OnderdeelSoort.Bespreking)
                     {
                         <Klantbespreking DossierId="@Id" Soort="@w.Dossier.Soort" Stand="@versie" OnMelding="m => Meld(m.Uitkomst, m.Gelukt)" />

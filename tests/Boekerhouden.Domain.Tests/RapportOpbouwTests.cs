@@ -495,4 +495,61 @@ public sealed class RapportOpbouwTests
         Assert.Equal(2_000m, g.Balans.Totaal("BSchBep").Huidig);
         Assert.Equal(0m, g.Balans.Totaal("BVorVbk").Huidig);
     }
+
+    private static readonly VerklaringGegevens Verklaring = new("Voorbeeld Accountants", "Zwolle", "J. de Vries AA", new DateOnly(2026, 3, 10), Fiscaal: false, Erkenning: new DateOnly(2026, 3, 9));
+
+    [Fact]
+    public void Samenstellingsverklaring_staat_vooraan_en_de_hoofdstukken_nummeren_door()
+    {
+        var rapport = RapportOpbouw.Maak(Gegevens() with { Verklaring = Verklaring, Kaart = new Klantkaart(StatutaireNaam: "Voorbeeld Holding B.V.", StatutaireZetel: "Kampen") });
+
+        Assert.Equal(["SAMENSTELLINGSVERKLARING", "JAARREKENING 2025"], rapport.Delen.Select(d => d.Titel));
+        Assert.Equal([1, 2, 3], rapport.Hoofdstukken.Take(3).Select(h => h.Nummer));
+        Assert.Equal(Samenstellingsverklaring.Titel, rapport.Hoofdstukken.First().Titel);
+        var v = Assert.IsType<VerklaringBlok>(Assert.Single(rapport.Hoofdstukken.First().Blokken));
+        Assert.Equal("Aan: het bestuur van Voorbeeld Holding B.V.", v.Aan);
+        Assert.Equal(["Opdracht", "Onze werkzaamheden", "Uw verantwoordelijkheid", "Beroepsregels"], v.Alineas.Select(a => a.Kop));
+        Assert.Contains("jaarrekening 2025 van Voorbeeld Holding B.V. te Kampen", v.Alineas[0].Tekst, StringComparison.Ordinal);
+        Assert.Contains("Titel 9 Boek 2", v.Alineas[0].Tekst, StringComparison.Ordinal);
+        Assert.Contains("Standaard 4410", v.Alineas[1].Tekst, StringComparison.Ordinal);
+        Assert.Equal(("Zwolle, 10 maart 2026", "Voorbeeld Accountants", "J. de Vries AA"), (v.Ondertekening, v.Kantoor, v.Accountant));
+        Assert.DoesNotContain(rapport.Waarschuwingen, w => w.Contains("verklaring", StringComparison.OrdinalIgnoreCase) || w.Contains("erkenning", StringComparison.Ordinal));
+
+        // Zonder verklaring (en bij de aangifte) blijft het rapport zoals het was.
+        Assert.Single(RapportOpbouw.Maak(Gegevens()).Delen);
+        Assert.Single(RapportOpbouw.Maak(Gegevens(RapportSoort.AangifteBijlage) with { Verklaring = Verklaring }).Delen);
+    }
+
+    [Fact]
+    public void Samenstellingsverklaring_met_continuiteit_fiscale_grondslagen_en_eigen_toelichting()
+    {
+        Grondslag[] bibliotheek = [.. Bibliotheek, new("continuiteit", "Toelichting", "Continuïteit", "Er is onzekerheid.", GrondslagStandaard.Optioneel, [])];
+        var g = Gegevens() with
+        {
+            Grondslagen = bibliotheek,
+            GrondslagKeuzes = new Dictionary<string, GrondslagKeuze> { ["continuiteit"] = new(true, null) },
+            Verklaring = Verklaring with { Fiscaal = true, Toelichting = "De onderneming is in 2026 verhuisd." },
+        };
+
+        var v = RapportOpbouw.Maak(g).Hoofdstukken.First().Blokken.OfType<VerklaringBlok>().Single();
+
+        Assert.Contains("fiscale grondslagen", v.Alineas[0].Tekst, StringComparison.Ordinal);
+        Assert.Equal(["Onzekerheid over de continuïteit", "Toelichting"], v.Alineas.Skip(4).Select(a => a.Kop));
+        Assert.Equal("De onderneming is in 2026 verhuisd.", v.Alineas[^1].Tekst);
+        Assert.Contains("Voorbeeld BV te Ergens", v.Alineas[0].Tekst, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Verklaring_zonder_datum_of_voor_de_erkenning_geeft_een_waarschuwing()
+    {
+        var zonder = RapportOpbouw.Maak(Gegevens() with { Verklaring = Verklaring with { Datum = null, Accountant = null, Erkenning = null } });
+        var v = zonder.Hoofdstukken.First().Blokken.OfType<VerklaringBlok>().Single();
+        Assert.Equal(("Zwolle, [datum]", null), (v.Ondertekening, v.Accountant));
+        Assert.Contains("Samenstellingsverklaring: datum en accountant nog invullen.", zonder.Waarschuwingen);
+        Assert.Contains("De erkenning door het bestuur is nog niet vastgelegd.", zonder.Waarschuwingen);
+
+        Assert.Equal(["De samenstellingsverklaring is gedateerd vóór de erkenning door het bestuur (11 maart 2026)."],
+            Samenstellingsverklaring.Waarschuwingen(Verklaring with { Erkenning = new DateOnly(2026, 3, 11) }));
+        Assert.Empty(Samenstellingsverklaring.Waarschuwingen(Verklaring with { Erkenning = Verklaring.Datum }));
+    }
 }

@@ -99,3 +99,20 @@ public sealed class Bespreking
 
     public DateTimeOffset GewijzigdOp { get; set; }
 }
+
+/// <summary>De samenstellingsverklaring van een dossier (BV): wie tekent, de datum en eventueel een eigen toelichtende alinea.</summary>
+public sealed class DossierVerklaring
+{
+    public Guid DossierId { get; set; }
+
+    public DateOnly? Datum { get; set; }
+
+    /// <summary>De gebruiker met de rol accountant die de verklaring ondertekent.</summary>
+    public Guid? AccountantId { get; set; }
+
+    public string? Toelichting { get; set; }
+
+    public string GewijzigdDoor { get; set; } = string.Empty;
+
+    public DateTimeOffset GewijzigdOp { get; set; }
+}

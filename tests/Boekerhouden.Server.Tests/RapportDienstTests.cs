@@ -89,6 +89,10 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
     private static Tabel Tabel(Rapport rapport, string? titel) =>
         rapport.Hoofdstukken.SelectMany(h => h.Blokken).OfType<TabelBlok>().Select(b => b.Tabel).First(t => t.Titel == titel);
 
+    /// <summary>De waarschuwingen, zonder die over de samenstellingsverklaring en de erkenning (die komen pas aan het eind).</summary>
+    private static IEnumerable<string> ZonderVerklaring(Rapport rapport) =>
+        rapport.Waarschuwingen.Where(w => !w.Contains("amenstellingsverklaring", StringComparison.Ordinal) && !w.StartsWith("De erkenning", StringComparison.Ordinal));
+
     [Fact]
     public async Task Rapport_van_een_gerubriceerd_dossier_sluit_en_toont_het_resultaat()
     {
@@ -101,7 +105,7 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
         Assert.Equal("Jaarrekening 2025", rapport.Titel);
         Assert.Equal("Ergenshuizen", rapport.Plaats);
         Assert.True(rapport.Concept);
-        Assert.Empty(rapport.Waarschuwingen);
+        Assert.Empty(ZonderVerklaring(rapport));
 
         var activa = Tabel(rapport, "Activa").Regels[^1];
         var passiva = Tabel(rapport, "Passiva").Regels[^1];
@@ -282,7 +286,7 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
         var schulden = Tabel(rapport, "Kortlopende schulden");
         Assert.Equal([3_000m, 2_500m, 2_390m], schulden.Regels.Where(r => r.Bron?.Soort == Onderwerp.Uitsplitsing).Select(r => r.Detail!.Value));
         Assert.Equal([2_800m, 2_000m, 3_633m], schulden.Regels.Where(r => r.Bron?.Soort == Onderwerp.Uitsplitsing).Select(r => r.DetailVorig!.Value));
-        Assert.Empty(rapport.Waarschuwingen);
+        Assert.Empty(ZonderVerklaring(rapport));
         Assert.Contains(rapport.Hoofdstukken.SelectMany(h => h.Blokken).OfType<TekstBlok>(), b => b.Toelichting == "BMva");
 
         var html = await RapportHtml.Maak(server.Services, inhoud);
@@ -318,7 +322,7 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
         Assert.True((await Rapporten.BewaarUitsplitsing(dossierId, rekeningen["1800"], [], Tester)).IsGelukt);
         rapport = (await Rapporten.Maak(dossierId))!.Waarde!.Rapport;
         Assert.Contains(Tabel(rapport, "Kortlopende schulden").Regels, r => r.Omschrijving == "Nog te betalen kosten" && r.Detail == 7_890m);
-        Assert.Empty(rapport.Waarschuwingen);
+        Assert.Empty(ZonderVerklaring(rapport));
     }
 
     private static string? Toelichting(Rapport rapport, string sleutel) =>

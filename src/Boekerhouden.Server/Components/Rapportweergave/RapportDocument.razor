@@ -233,6 +233,25 @@
         {
             <p>@vast.Tekst</p>
         }
+        else if (blok is VerklaringBlok verklaring)
+        {
+            <div class="blok verklaring">
+                <p class="aan">@verklaring.Aan</p>
+                @foreach (var alinea in verklaring.Alineas)
+                {
+                    @if (alinea.Kop is not null)
+                    {
+                        <h3>@alinea.Kop</h3>
+                    }
+                    <p>@alinea.Tekst</p>
+                }
+                <div class="ondertekening">
+                    <div>@verklaring.Ondertekening</div>
+                    <div class="kantoor">@verklaring.Kantoor</div>
+                    <div class="accountant">@(verklaring.Accountant ?? "[accountant]")</div>
+                </div>
+            </div>
+        }
     };
 
     /// <summary>

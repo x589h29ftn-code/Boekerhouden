@@ -9,7 +9,7 @@ namespace Boekerhouden.Server.Werkprogramma;
 /// </summary>
 public static class StandaardWerkprogramma
 {
-    public const string Versie = "2026.4";
+    public const string Versie = "2026.5";
 
     /// <summary>Wie het meegeleverde sjabloon "gewijzigd" heeft; zolang dat zo is, gaat het mee met een nieuwe standaardversie.</summary>
     public const string Door = "Standaard";
@@ -138,9 +138,11 @@ public static class StandaardWerkprogramma
                 Stap("Bespreekpunten besproken", "Bespreek de bespreekpunten (ook de significante aangelegenheden) met het bestuur en leg per punt de uitkomst vast. Het bespreekverslag is als PDF te downloaden.", verplicht: true, StapControle.BespreekpuntenBesproken),
                 Stap("Erkenning door het bestuur", "Het bestuur bevestigt schriftelijk dat het verantwoordelijk is voor de jaarrekening en dat de verstrekte gegevens juist en volledig zijn. Leg vast wie en wanneer.", verplicht: true, StapControle.ErkenningVastgelegd),
             ]));
-            onderdelen.Add(Onderdeel(Fase.Afronding, "Uitbrengen rapport", verplicht: true,
-                Stap("Datum verklaring", "De samenstellingsverklaring is gedateerd op of na de datum van de erkenning door het bestuur.", verplicht: true),
-                Stap("Rapport verstrekt", "Het definitieve rapport is aan de cliënt verstrekt.")));
+            onderdelen.Add(Onderdeel(Fase.Afronding, "Uitbrengen rapport", verplicht: true, OnderdeelSoort.Uitbrengen,
+            [
+                Stap("Datum verklaring", "Kies de accountant die tekent en de datum van de samenstellingsverklaring: op of na de datum van de erkenning door het bestuur.", verplicht: true, StapControle.DatumVerklaring),
+                Stap("Rapport verstrekt", "Het definitieve rapport is aan de cliënt verstrekt."),
+            ]));
         }
         else
         {

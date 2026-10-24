@@ -222,7 +222,7 @@ public sealed class DoorleesDienst(IDbContextFactory<BoekerhoudenDbContext> dbFa
             return [];
         }
 
-        var rapport = (await rapporten.Maak(dossierId)) is { IsGelukt: true } r ? r.Waarde!.Rapport : null;
+        var rapport = (await rapporten.Maak(dossierId, metVerklaring: false)) is { IsGelukt: true } r ? r.Waarde!.Rapport : null;
         var grondslagen = rapport?.Hoofdstukken.SelectMany(h => h.Blokken).OfType<GrondslagBlok>().ToList();
         var toegelicht = await db.DossierOnderdelen.AsNoTracking()
             .Where(o => o.DossierId == dossierId && o.Soort == OnderdeelSoort.Post && o.HoofdpostCode != null && o.Notitie != null && o.Notitie != "")

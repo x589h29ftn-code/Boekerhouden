@@ -60,7 +60,7 @@ public sealed class GrondslagDienstTests(ServerFixture server) : IClassFixture<S
 
         var rapport = await Rapport(huidig);
 
-        Assert.Equal(["Balans per 31 december 2025", "Winst-en-verliesrekening over 2025", "Algemene toelichting en grondslagen", "Toelichting op de balans", "Toelichting op de winst-en-verliesrekening"],
+        Assert.Equal(["Samenstellingsverklaring van de accountant", "Balans per 31 december 2025", "Winst-en-verliesrekening over 2025", "Algemene toelichting en grondslagen", "Toelichting op de balans", "Toelichting op de winst-en-verliesrekening"],
             rapport.Hoofdstukken.Select(h => h.Titel));
         var blokken = Blokken(rapport);
         Assert.True(blokken.Single(b => b.Sleutel == "mva").Opgenomen);

@@ -248,7 +248,7 @@ Aanvulling op [hoofdstuk 6](06-datamodel.md):
 
 **Meegeleverde inhoud** (versie 2026.2): een ongewijzigd standaardsjabloon gaat bij het starten van de server mee naar de nieuwe versie; een door het kantoor aangepast sjabloon blijft zoals het is. Lopende dossiers houden hun kopie.
 
-**Volgt**: de samenstellingsverklaring in het rapport van de BV (7d). De winstaangifte van de eenmanszaak is een aangifte-plusopdracht: zonder samenstellingsverklaring.
+De winstaangifte van de eenmanszaak is een aangifte-plusopdracht: zonder samenstellingsverklaring.
 
 ## 10.10 Doorlezen met signalen en paraaf (plakje 7b)
 
@@ -290,7 +290,7 @@ Alles staat in het wijzigingslog (*Signaal in orde*, *Signaal heropend*, *Bespre
 - **Bespreekpunten**: dezelfde lijst als bij het doorlezen. Per punt de **uitkomst** (wat is besproken of afgesproken) en het vinkje **significante aangelegenheid**. Leegmaken van de uitkomst zet het punt weer open. Een besproken punt kan niet meer weg.
 - **Erkenning**: wie namens de klant de verantwoordelijkheid erkent, de datum en de wijze (bevestigingsbrief, e-mail, anders). De tekst, in eigen woorden: bij de BV *het bestuur bevestigt dat het verantwoordelijk is voor de jaarrekening en dat de verstrekte gegevens en inlichtingen juist en volledig zijn*; bij de eenmanszaak bevestigt de ondernemer de juistheid en volledigheid van de gegevens voor de cijfers en de aangifte.
 
-**Controles bij aftekenen**: *Bespreekpunten besproken* kan pas met een datum en een uitkomst bij elk punt; *Erkenning* pas als wie en wanneer zijn vastgelegd. *Uitbrengen rapport › Datum verklaring*: op of na de datum van de erkenning (de controle volgt met de verklaring in 7d).
+**Controles bij aftekenen**: *Bespreekpunten besproken* kan pas met een datum en een uitkomst bij elk punt; *Erkenning* pas als wie en wanneer zijn vastgelegd. *Uitbrengen rapport › Datum verklaring*: op of na de datum van de erkenning (§10.12).
 
 **Review**: na *gereviewd* ligt de bespreking vast (uitkomsten en erkenning).
 
@@ -299,3 +299,24 @@ Alles staat in het wijzigingslog (*Signaal in orde*, *Signaal heropend*, *Bespre
 De teksten van de signalen zijn neutraal (feiten en een vraag), zodat ze als toelichting bij een bespreekpunt in het verslag kunnen staan.
 
 Wijzigingslog: *Bespreking vastgelegd*, *Uitkomst bespreekpunt*, *Erkenning vastgelegd*, *Bespreekverslag gemaakt*.
+
+## 10.12 Samenstellingsverklaring (plakje 7d)
+
+Alleen bij *Samenstellen jaarrekening* (BV). De winstaangifte van de eenmanszaak is aangifte-plus: zonder verklaring.
+
+**In het rapport** staat vooraan een deel *SAMENSTELLINGSVERKLARING* met hoofdstuk 1 *Samenstellingsverklaring van de accountant*; de hoofdstukken van de jaarrekening nummeren door (2 Balans, 3 Winst-en-verliesrekening, …). De tekst is in eigen woorden opgesteld langs wat Standaard 4410 vraagt (`Samenstellingsverklaring` in het domein):
+
+- **aanhef**: aan het bestuur van de statutaire naam (anders de klantnaam);
+- **Opdracht**: wat is samengesteld (balans, W&V, toelichting) op basis van de verstrekte gegevens, en het stelsel: Titel 9 Boek 2 BW, of fiscale grondslagen (art. 2:396 lid 6 BW), volgens de keuze bij de grondslagen;
+- **Onze werkzaamheden**: Standaard 4410; geen controle- of beoordelingsopdracht, dus geen oordeel of conclusie;
+- **Uw verantwoordelijkheid**: juistheid en volledigheid van de gegevens en de jaarrekening;
+- **Beroepsregels**: de fundamentele beginselen;
+- **Onzekerheid over de continuïteit**: alleen als de alinea *Continuïteit* in de algemene toelichting is opgenomen; de verklaring verwijst ernaar;
+- **Toelichting**: een eigen toelichtende alinea (optioneel);
+- **ondertekening**: plaats van het kantoor, datum, kantoornaam en accountant met titel (bijv. *J. de Vries AA*); zolang ze ontbreken staat er *[datum]* of *[accountant]*.
+
+**Afronding › Uitbrengen rapport** (standaardwerkprogramma 2026.5): kies de accountant (een actieve gebruiker met de rol accountant), de datum (niet in de toekomst) en eventueel de eigen alinea; de datum van de erkenning staat ernaast. De stap *Datum verklaring* kan pas als accountant en datum zijn ingevuld, de erkenning is vastgelegd en de verklaring niet eerder is gedateerd dan de erkenning.
+
+**Waarschuwingen in het concept**: *datum en accountant nog invullen*, *erkenning nog niet vastgelegd* of *gedateerd vóór de erkenning*. Bij het doorlezen tellen deze niet als signaal (de erkenning volgt pas na de bespreking).
+
+Wijzigingslog: *Samenstellingsverklaring gewijzigd*. Ondertekenen en het definitieve rapport (zonder concept) volgen met de goedkeuring in plakje 8.

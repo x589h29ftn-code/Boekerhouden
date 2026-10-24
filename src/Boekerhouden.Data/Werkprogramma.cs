@@ -23,6 +23,9 @@ public enum OnderdeelSoort
 
     /// <summary>De bespreking met de klant: uitkomst per bespreekpunt, het bespreekverslag en de erkenning.</summary>
     Bespreking,
+
+    /// <summary>Uitbrengen van het rapport: de samenstellingsverklaring (wie tekent en wanneer).</summary>
+    Uitbrengen,
 }
 
 /// <summary>
@@ -62,6 +65,9 @@ public enum StapControle
 
     /// <summary>De erkenning door de klant is vastgelegd (wie en wanneer).</summary>
     ErkenningVastgelegd,
+
+    /// <summary>De samenstellingsverklaring heeft een accountant en een datum, op of na de erkenning.</summary>
+    DatumVerklaring,
 }
 
 /// <summary>

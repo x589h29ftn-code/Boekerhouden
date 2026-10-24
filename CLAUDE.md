@@ -28,7 +28,7 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
 - `src/Boekerhouden.Domain` – domein (saldibalans, bedragen en `BedragParser`; `Rgs/`: RGS-codes, boom en selectie per
   rechtsvorm; `Rubricering/`: proefbalans per post met omslag en saldering per eigen post, voorstellen; `Correcties/`: boekingscontrole (C08),
   effect op resultaat en eigen vermogen, gecorrigeerde saldi; `Doorlezen/`: signalen bij het doorlezen; `Rapport/`: rapportmodel en `RapportOpbouw` voor balans, W&V
-  en specificaties, `RapportVariabelen` voor `{boekjaar}` e.d. in teksten); geen I/O.
+  en specificaties, `RapportVariabelen` voor `{boekjaar}` e.d. in teksten, `Samenstellingsverklaring` voor de BV); geen I/O.
 - `src/Boekerhouden.Import` – importsjabloon (.xlsx/.csv) inlezen en controleren (I1–I6, I11), sjabloon genereren,
   het officiële RGS-werkboek lezen (`RgsWerkboekLezer`).
 - `src/Boekerhouden.Cli` – opdrachtregel om sjablonen te maken en bestanden te controleren.
