@@ -7,15 +7,11 @@
     <h3>
         @if (Document.Bewerkbaar)
         {
-            <button type="button" class="klap" title="@(Grondslag.Opgenomen ? "Dichtklappen: niet in het rapport" : "Openklappen: in het rapport")"
+            <button type="button" class="klap" title="@(Grondslag.Opgenomen ? "Dichtklappen" : "Openklappen")"
                     aria-expanded="@(Grondslag.Opgenomen ? "true" : "false")" aria-label="@($"{Grondslag.Titel} {(Grondslag.Opgenomen ? "dichtklappen" : "openklappen")}")"
                     @onclick="() => Document.KlapGrondslag(Grondslag.Sleutel, !Grondslag.Opgenomen)">@(Grondslag.Opgenomen ? "▾" : "▸")</button>
         }
         @Grondslag.Titel
-        @if (Document.Bewerkbaar && !Grondslag.Opgenomen)
-        {
-            <span class="niet-opgenomen">niet in het rapport</span>
-        }
     </h3>
     @if (Grondslag.Opgenomen)
     {
@@ -30,7 +26,6 @@
                 {
                     <button type="button" class="btn btn-link btn-sm py-0 text-secondary" @onclick="Standaard">standaardtekst terugzetten</button>
                 }
-                <span class="text-secondary">Geldt voor dit dossier en volgende jaren.</span>
             </div>
         }
         else if (Document.Bewerkbaar)

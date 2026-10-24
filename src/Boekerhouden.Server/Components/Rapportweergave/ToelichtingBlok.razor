@@ -4,14 +4,10 @@
 {
     <div class="toelichting">
         <textarea @ref="invoer" class="inline-invoer" @bind="waarde" @bind:event="oninput" maxlength="@RapportDienst.MaximaleToelichting"
-                  aria-label="Toelichting"></textarea>
+                  aria-label="Toelichting" title="@(vorigJaar ? "Tekst van vorig jaar" : null)"></textarea>
         <div class="d-flex gap-2 align-items-center mt-1" style="font-size: 8pt">
             <button type="button" class="btn btn-primary btn-sm py-0" @onclick="Bewaar">Opslaan</button>
             <button type="button" class="btn btn-link btn-sm py-0 text-secondary" @onclick="() => bewerken = false">Annuleren</button>
-            @if (vorigJaar)
-            {
-                <span class="text-secondary">tekst van vorig jaar als voorstel</span>
-            }
         </div>
     </div>
 }

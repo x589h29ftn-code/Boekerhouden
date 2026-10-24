@@ -92,7 +92,7 @@ public sealed class GrondslagDienstTests(ServerFixture server) : IClassFixture<S
         var rapport = await Rapport(huidig);
 
         Assert.DoesNotContain(rapport.Hoofdstukken, h => h.Titel == "Grondslagen");
-        Assert.Contains(rapport.Waarschuwingen, w => w.StartsWith("Kies of de jaarrekening op commerciële of fiscale grondslagen", StringComparison.Ordinal));
+        Assert.Contains(rapport.Waarschuwingen, w => w == "Grondslagen nog niet gekozen.");
         Assert.Null((await server.Dienst<DossierDienst>().Haal(huidig))!.Grondslag);
     }
 
@@ -136,7 +136,7 @@ public sealed class GrondslagDienstTests(ServerFixture server) : IClassFixture<S
         Assert.True((await Grondslagen.ZetOpgenomen(huidig, "foutenherstel", true, Tester)).IsGelukt);
 
         var inhoud = (await server.Dienst<RapportDienst>().Maak(huidig))!.Waarde!;
-        Assert.Contains(inhoud.Rapport.Waarschuwingen, w => w == "In de grondslag \"Foutenherstel\" staat nog tekst tussen [ ] om in te vullen.");
+        Assert.Contains(inhoud.Rapport.Waarschuwingen, w => w == "Foutenherstel: tekst tussen [ ] nog invullen.");
 
         var html = await RapportHtml.Maak(server.Services, inhoud);
         Assert.Contains("Foutenherstel", html, StringComparison.Ordinal);

@@ -360,7 +360,7 @@ public sealed class RapportOpbouwTests
         Assert.Equal(1_500m, rest.Detail);
         Assert.Equal(2_000m, rest.DetailVorig);
         Assert.Equal(4_000m, Regel(schulden, "Totaal").Detail);
-        Assert.Contains(rapport.Waarschuwingen, w => w.StartsWith("De uitsplitsing van 1600 Crediteuren sluit niet aan", StringComparison.Ordinal));
+        Assert.Contains(rapport.Waarschuwingen, w => w.StartsWith("Uitsplitsing 1600 Crediteuren sluit niet aan", StringComparison.Ordinal));
     }
 
     [Fact]

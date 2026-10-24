@@ -75,7 +75,7 @@ public static partial class RapportOpbouw
             var grondslagen = Grondslagen(g);
             hoofdstukken.Add(new Hoofdstuk(hoofdstukken.Count + 1, "Grondslagen", grondslagen, Paragrafen: true));
             waarschuwingen.AddRange(grondslagen.OfType<GrondslagBlok>().Where(b => b.Opgenomen && InTeVullen().IsMatch(b.Tekst))
-                .Select(b => $"In de grondslag \"{b.Titel}\" staat nog tekst tussen [ ] om in te vullen."));
+                .Select(b => $"{b.Titel}: tekst tussen [ ] nog invullen."));
         }
 
         hoofdstukken.Add(new Hoofdstuk(hoofdstukken.Count + 1, ib ? "Specificaties van de balans" : "Toelichting op de balans", Specificaties(g, balans: true, waarschuwingen), Paragrafen: true));
@@ -384,7 +384,7 @@ public static partial class RapportOpbouw
 
         if (restHuidig != 0 || restVorig != 0)
         {
-            waarschuwingen?.Add($"De uitsplitsing van {r.Nummer} {omschrijving} sluit niet aan op het saldo: verschil {Bedragen.Heel(restHuidig)} (vorig jaar {Bedragen.Heel(restVorig)}).");
+            waarschuwingen?.Add($"Uitsplitsing {r.Nummer} {omschrijving} sluit niet aan: verschil {Bedragen.Heel(restHuidig)} (vorig jaar {Bedragen.Heel(restVorig)}).");
             yield return new Regel(RegelSoort.Detail, NietGespecificeerd, restHuidig, null, restVorig)
             {
                 Bron = new Bron(Onderwerp.Uitsplitsing, r.Nummer, r.RekeningId, $"Verschil tussen de uitsplitsing en het saldo van rekening {r.Nummer}"),
@@ -507,13 +507,13 @@ public static partial class RapportOpbouw
         var waarschuwingen = new List<string>();
         if (g.Balans.Ongekoppeld.Aantal > 0)
         {
-            waarschuwingen.Add($"{g.Balans.Ongekoppeld.Aantal} rekening(en) met saldo zijn nog niet gerubriceerd; ze staan samen als \"Nog niet gerubriceerd\" op de balans.");
+            waarschuwingen.Add($"{g.Balans.Ongekoppeld.Aantal} rekening(en) met saldo nog niet gerubriceerd.");
         }
 
         var onbekend = g.Balans.Signalen.Count(s => s.Soort == SignaalSoort.OnbekendeCode);
         if (onbekend > 0)
         {
-            waarschuwingen.Add($"{onbekend} rekening(en) zijn gekoppeld aan een RGS-code die niet (meer) in het schema staat; de posten zijn onvolledig.");
+            waarschuwingen.Add($"{onbekend} rekening(en) gekoppeld aan een RGS-code die niet (meer) bestaat.");
         }
 
         var activa = balans[0].Regels[^1];

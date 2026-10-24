@@ -35,7 +35,7 @@ else
                 <button class="btn-close btn-sm ms-1" aria-label="Sluiten" @onclick="() => melding = null"></button>
             </span>
         }
-        <span class="form-check form-switch mb-0 small text-nowrap" title="Welke specificaties in het rapport komen en welke rekeningen in Overige">
+        <span class="form-check form-switch mb-0 small text-nowrap" title="Per post de specificatie aan of uit, en rekeningen samen in Overige. Geldt per klant, ook volgende jaren.">
             <input class="form-check-input" type="checkbox" id="presentatie-aanpassen" @bind="aanpassen" @bind:after="LaadPresentatie" />
             <label class="form-check-label" for="presentatie-aanpassen">presentatie aanpassen</label>
         </span>
@@ -90,10 +90,6 @@ else
                     else if (presentatie is not null)
                     {
                         <div class="rapport-presentatie">
-                            <p class="small text-secondary mb-2">
-                                Per klant; geldt ook voor volgende jaren. Een rekening in Overige telt mee in de regel "Overige" van zijn groep.
-                                Namen en omschrijvingen pas je aan door ze in het rapport aan te klikken.
-                            </p>
                             @foreach (var post in presentatie.Posten)
                             {
                                 <details @key="(post.Code, versie)" open="@(openPost == post.Code)">

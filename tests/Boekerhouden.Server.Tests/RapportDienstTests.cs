@@ -263,7 +263,7 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
         var rest = Tabel(rapport, "Kortlopende schulden").Regels.Single(r => r.Omschrijving == RapportOpbouw.NietGespecificeerd);
         Assert.Equal(4_890m, rest.Detail);
         Assert.Equal(8_433m, rest.DetailVorig);
-        Assert.Contains(rapport.Waarschuwingen, w => w.StartsWith("De uitsplitsing van 1800", StringComparison.Ordinal));
+        Assert.Contains(rapport.Waarschuwingen, w => w.StartsWith("Uitsplitsing 1800", StringComparison.Ordinal));
 
         Assert.True((await Rapporten.BewaarUitsplitsing(dossierId, rekeningen["1800"], [], Tester)).IsGelukt);
         rapport = (await Rapporten.Maak(dossierId))!.Waarde!.Rapport;

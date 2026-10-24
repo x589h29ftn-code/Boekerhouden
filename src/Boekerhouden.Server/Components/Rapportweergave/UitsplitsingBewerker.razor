@@ -2,7 +2,7 @@
 @using Boekerhouden.Domain.Rapport
 @inject RapportDienst RapportDienst
 
-<div class="uitsplitsing">
+<div class="uitsplitsing" title="@Uitleg">
     @if (regels is null)
     {
         <span class="status">Laden…</span>
@@ -43,7 +43,6 @@
             {
                 <button type="button" class="btn btn-link btn-sm py-0 text-secondary" @onclick="Verwijder">uitsplitsing verwijderen</button>
             }
-            <span class="text-secondary">@Uitleg</span>
         </div>
     }
 </div>
@@ -107,8 +106,8 @@
 
     /// <summary>"sluit aan" of het verschil met het saldo (een afrondingsverschil onder een euro telt niet).</summary>
     private static RenderFragment Controle(decimal totaal, decimal saldo) => Math.Abs(saldo - totaal) < 1
-        ? @<span class="status">@Bedragen.Heel(totaal) · sluit aan</span>
-        : @<span class="status fout" title="@($"Saldo {Bedragen.Heel(saldo)}")">verschil @Bedragen.Heel(saldo - totaal)</span>;
+        ? @<span class="status" title="@($"Totaal {Bedragen.Heel(totaal)}")">sluit aan</span>
+        : @<span class="status let-op" title="@($"Totaal {Bedragen.Heel(totaal)}, saldo {Bedragen.Heel(saldo)}")">verschil @Bedragen.Heel(saldo - totaal)</span>;
 
     private async Task Bewaar()
     {

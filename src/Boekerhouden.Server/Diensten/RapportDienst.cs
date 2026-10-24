@@ -77,7 +77,7 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
             metGrondslagen?.Keuzes));
         if (jaarrekening && metGrondslagen?.Verslaggeving is null)
         {
-            rapport = rapport with { Waarschuwingen = [.. rapport.Waarschuwingen, "Kies of de jaarrekening op commerciële of fiscale grondslagen is opgesteld; daarna staan de grondslagen in het rapport."] };
+            rapport = rapport with { Waarschuwingen = [.. rapport.Waarschuwingen, "Grondslagen nog niet gekozen."] };
         }
 
         return Uitkomst<RapportInhoud>.Met(new RapportInhoud(dossier with { Grondslag = metGrondslagen?.Verslaggeving }, rapport, await kantoor.Haal(), tijd.GetUtcNow()));

@@ -209,7 +209,6 @@ public static partial class RapportHtml
           .rapport-document tr.bewerker td { padding: 2mm 0 3mm 5mm; }
           .rapport-document h2.dicht, .rapport-document .grondslag.dicht h3 { color: #adb5bd; font-weight: normal; }
           .rapport-document .grondslag.dicht { margin-bottom: 1mm; }
-          .rapport-document .niet-opgenomen { margin-left: 2mm; font-size: 7.5pt; font-weight: normal; color: #adb5bd; }
           .rapport-document .invullen { color: #8a6d1f; background: #fff6d6; }
         }
         @media print {

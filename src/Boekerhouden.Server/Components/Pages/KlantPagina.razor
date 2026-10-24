@@ -109,7 +109,8 @@ else
                             </div>
                         }
                         <div class="col-auto">
-                            <button type="submit" class="btn btn-primary">Nieuw dossier</button>
+                            <button type="submit" class="btn btn-primary" disabled="@(MetGrondslagen && nieuwDossier.Grondslag is null)"
+                                    title="@(MetGrondslagen && nieuwDossier.Grondslag is null ? "Kies eerst de grondslagen" : null)">Nieuw dossier</button>
                         </div>
                     </EditForm>
                     <Foutmeldingen Fouten="dossierFouten" />
@@ -221,7 +222,6 @@ else
     {
         if (MetGrondslagen && nieuwDossier.Grondslag is null)
         {
-            dossierFouten = ["Kies of de jaarrekening op commerciële of fiscale grondslagen wordt opgesteld."];
             return;
         }
 

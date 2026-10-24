@@ -1,30 +1,26 @@
-@* De keuze commerciële of fiscale grondslagen voor de jaarrekening van een BV. Zonder keuze een vraag; anders de keuze met "wijzigen". *@
+@* De keuze commerciële of fiscale grondslagen voor de jaarrekening van een BV: één rustige regel, de uitleg in de tooltip. *@
 @inject GrondslagDienst GrondslagDienst
 
-@if (Huidig is null || wijzigen)
-{
-    <div class="bericht d-flex flex-wrap align-items-center gap-2 small mb-3" id="grondslagkeuze">
-        <span class="me-auto">
-            Is de jaarrekening opgesteld op commerciële of op fiscale grondslagen? Dat bepaalt de grondslagen en waarderingen,
-            bijv. latente belastingen (alleen commercieel) en afschrijving op panden tot de WOZ-waarde (fiscaal).
-        </span>
+<div class="small text-secondary mb-2 d-flex align-items-center gap-2" id="grondslagkeuze"
+     title="Bepaalt de grondslagen en waarderingen, bijv. latente belastingen (alleen commercieel) en afschrijving op panden tot de WOZ-waarde (fiscaal).">
+    @if (Huidig is null || wijzigen)
+    {
+        <span>Grondslagen:</span>
         @foreach (var keuze in Enum.GetValues<Verslaggeving>())
         {
-            <button type="button" class="btn btn-sm @(keuze == Huidig ? "btn-primary" : "btn-outline-secondary")" @onclick="() => Kies(keuze)">@Weergave.Tekst(keuze)</button>
+            <button type="button" class="btn btn-sm py-0 @(keuze == Huidig ? "btn-secondary" : "btn-outline-secondary")" @onclick="() => Kies(keuze)">@Weergave.Tekst(keuze)</button>
         }
         @if (wijzigen)
         {
-            <button type="button" class="btn btn-sm btn-link text-secondary" @onclick="() => wijzigen = false">annuleren</button>
+            <button type="button" class="btn btn-link btn-sm p-0 text-secondary" @onclick="() => wijzigen = false">annuleren</button>
         }
-    </div>
-}
-else
-{
-    <div class="small text-secondary mb-2" id="grondslagkeuze">
-        @Weergave.Tekst(Huidig.Value)
-        <button type="button" class="btn btn-link btn-sm p-0 ms-1 align-baseline text-secondary" @onclick="() => wijzigen = true">wijzigen</button>
-    </div>
-}
+    }
+    else
+    {
+        <span>@Weergave.Tekst(Huidig.Value)</span>
+        <button type="button" class="btn btn-link btn-sm p-0 text-secondary" @onclick="() => wijzigen = true">wijzigen</button>
+    }
+</div>
 
 @code {
     private bool wijzigen;
