@@ -216,6 +216,16 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
         Assert.Contains("Verloop materiële vaste activa", html, StringComparison.Ordinal);
         Assert.Contains("Grondslagen", html, StringComparison.Ordinal);
         Assert.True(html.IndexOf("Verloop materiële vaste activa", StringComparison.Ordinal) < html.IndexOf("Grondslagen", StringComparison.Ordinal));
+
+        async Task<string> Deel(PostDeel deel) => WebUtility.HtmlDecode(await renderer.Dispatcher.InvokeAsync(async () => (await renderer.RenderComponentAsync<RapportDocument>(
+            ParameterView.FromDictionary(new Dictionary<string, object?> { [nameof(RapportDocument.Inhoud)] = inhoud, [nameof(RapportDocument.Post)] = "BMva", [nameof(RapportDocument.Deel)] = deel }))).ToHtmlString()));
+        var rapportage = await Deel(PostDeel.Rapportage);
+        var grondslagen = await Deel(PostDeel.Grondslagen);
+
+        Assert.Contains("Verloop materiële vaste activa", rapportage, StringComparison.Ordinal);
+        Assert.DoesNotContain("class=\"grondslag", rapportage, StringComparison.Ordinal);
+        Assert.Contains("class=\"grondslag", grondslagen, StringComparison.Ordinal);
+        Assert.DoesNotContain("Verloop materiële vaste activa", grondslagen, StringComparison.Ordinal);
     }
 
     [Fact]

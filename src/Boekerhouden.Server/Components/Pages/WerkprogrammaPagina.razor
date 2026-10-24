@@ -104,6 +104,7 @@ else
                     </div>
                     @Cijfers(postZonderWerk)
                     @InRapport(postZonderWerk)
+                    @Grondslag(postZonderWerk)
                     @VorigeVolgende(postZonderWerk)
                 </div>
             }
@@ -208,7 +209,6 @@ else
                     {
                         @Cijfers(postCode)
                         <Notitie Label="Cijferbeoordeling" Tekst="@o.Notitie" OnBewaar="t => BewaarNotitie(o, t)" />
-                        @InRapport(postCode)
                     }
 
                     <div class="wp-sectie" id="stappen">
@@ -384,6 +384,11 @@ else
                             <button type="submit" class="btn btn-sm btn-outline-secondary text-nowrap">Plaatsen</button>
                         </form>
                     </div>
+                    @if (o.Soort == OnderdeelSoort.Post && o.HoofdpostCode is { } rapportpost)
+                    {
+                        @InRapport(rapportpost)
+                        @Grondslag(rapportpost)
+                    }
                     @if (o.Fase == Fase.Uitvoering && o.HoofdpostCode is { } huidig && HeeftSaldo(huidig))
                     {
                         @VorigeVolgende(huidig)
@@ -606,10 +611,45 @@ else
                 <a class="small" href="/dossiers/@Id/rapport#@RapportHtml.Anker(code)">naar het rapport</a>
             </div>
             <div class="wp-rapportfragment">
-                <RapportDocument Inhoud="rapportInhoud" Post="@(code)" Bewerkbaar="true" Gewijzigd="NaRapportWijziging" Wie="Wie" @key="(code, versie)" />
-                @if (p.Titel is null && p.Verlopen.Count == 0 && p.Grondslagen.Count == 0)
+                <RapportDocument Inhoud="rapportInhoud" Post="@(code)" Deel="PostDeel.Rapportage" Bewerkbaar="true" Gewijzigd="NaRapportWijziging" Wie="Wie" @key="(code, versie)" />
+                @if (p.Titel is null && p.Verlopen.Count == 0)
                 {
                     <div class="status">Deze post staat niet in het rapport. Zet de specificatie aan om hem te tonen en toe te lichten.</div>
+                }
+            </div>
+        </div>
+    };
+
+    /// <summary>
+    /// Tot slot de grondslag van de post, zoals in de algemene toelichting van de jaarrekening: aan of uit en de tekst
+    /// aan te passen (vanaf dit jaar).
+    /// </summary>
+    private RenderFragment Grondslag(string code) => __builder =>
+    {
+        if (rapportInhoud is not { Rapport.Soort: RapportSoort.Jaarrekening })
+        {
+            return;
+        }
+
+        var heeft = rapportInhoud.Rapport.Hoofdstukken.SelectMany(h => h.Blokken).OfType<GrondslagBlok>()
+            .Any(g => g.Codes.Any(c => c.StartsWith(code, StringComparison.Ordinal)));
+        var hoofdstuk = rapportInhoud.Rapport.Hoofdstukken.FirstOrDefault(h => h.Blokken.Any(b => b is GrondslagBlok));
+        <div class="wp-sectie" id="grondslag">
+            <div class="wp-sectie-kop">
+                <span class="me-auto">Grondslag</span>
+                @if (hoofdstuk is not null)
+                {
+                    <a class="small" href="/dossiers/@Id/rapport#@RapportHtml.Anker(hoofdstuk)">naar de algemene toelichting</a>
+                }
+            </div>
+            <div class="wp-rapportfragment">
+                @if (heeft)
+                {
+                    <RapportDocument Inhoud="rapportInhoud" Post="@(code)" Deel="PostDeel.Grondslagen" Bewerkbaar="true" Gewijzigd="NaRapportWijziging" Wie="Wie" @key="(code, versie, 2)" />
+                }
+                else
+                {
+                    <div class="status">Er is geen grondslag die bij deze post hoort; de algemene grondslagen staan in de algemene toelichting.</div>
                 }
             </div>
         </div>

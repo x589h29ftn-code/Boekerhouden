@@ -10,9 +10,14 @@
     {
         var grondslagKop = false;
         <div class="rapport-document rapport-fragment" style="--huisstijl: @RapportHtml.Kleur(Inhoud.Kantoor)">
-            @foreach (var (h, blok, toelichting, paragraaf) in BlokkenVan(alleen))
+            @foreach (var (h, blok, toelichting, paragraaf) in BlokkenVan(alleen).Where(b => Deel switch
             {
-                @if (blok is GrondslagBlok && !grondslagKop)
+                PostDeel.Rapportage => b.Blok is not GrondslagBlok,
+                PostDeel.Grondslagen => b.Blok is GrondslagBlok,
+                _ => true,
+            }))
+            {
+                @if (blok is GrondslagBlok && Deel == PostDeel.Alles && !grondslagKop)
                 {
                     grondslagKop = true;
                     <h2 class="groep">Grondslagen <span class="kop-uitleg">(in de algemene toelichting)</span></h2>
@@ -124,6 +129,10 @@
     /// <summary>Alleen de blokken van deze hoofdpost tonen (in het werkprogramma); null = het hele rapport.</summary>
     [Parameter]
     public string? Post { get; set; }
+
+    /// <summary>Bij <see cref="Post"/>: alles, alleen wat bij de post in het rapport staat, of alleen zijn grondslagen.</summary>
+    [Parameter]
+    public PostDeel Deel { get; set; }
 
     public bool KanRekeningenTonen => Bewerkbaar && RekeningenTonen.HasDelegate;
 
