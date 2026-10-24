@@ -210,6 +210,7 @@ public static partial class RapportHtml
           .rapport-document textarea.inline-invoer { min-height: 22mm; white-space: pre-wrap; }
           .rapport-document tr.verschil td { color: #8a6d1f; }
           .rapport-document tr.toonbaar td.bedrag { cursor: pointer; }
+          .rapport-document .kop-uitleg { font-weight: normal; text-transform: none; color: #6c757d; }
           .rapport-document tr.dropdoel.doel td { background: #e8eef5; }
           .rapport-document tr.bewerker td { padding: 2mm 0 3mm; }
           .rapport-document h2.dicht, .rapport-document .grondslag.dicht h3 { color: #adb5bd; font-weight: normal; }

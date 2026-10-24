@@ -3,6 +3,11 @@ using Boekerhouden.Data;
 using Boekerhouden.Domain.Rapport;
 using Boekerhouden.Domain.Rubricering;
 using Boekerhouden.Server.Diensten;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.Components;
+using Boekerhouden.Server.Components.Rapportweergave;
 using Boekerhouden.Server.Export;
 using Microsoft.AspNetCore.Mvc.Testing;
 
@@ -190,6 +195,27 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
         Assert.Equal("-", RapportHtml.Bedrag(0.4m));
         Assert.Equal(string.Empty, RapportHtml.Bedrag(null));
         Assert.Equal("-1.235", RapportHtml.Bedrag(-1_234.5m));
+    }
+
+    [Fact]
+    public async Task Het_rapportdeel_van_een_post_heeft_alleen_die_post_met_verloop_en_grondslagen()
+    {
+        var (_, dossierId, _, _) = await Bakkerij();
+        var inhoud = (await Rapporten.Maak(dossierId))!.Waarde!;
+        await using var scope = server.Services.CreateAsyncScope();
+        await using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
+
+        var html = await renderer.Dispatcher.InvokeAsync(async () => (await renderer.RenderComponentAsync<RapportDocument>(
+            ParameterView.FromDictionary(new Dictionary<string, object?> { [nameof(RapportDocument.Inhoud)] = inhoud, [nameof(RapportDocument.Post)] = "BMva" }))).ToHtmlString());
+        html = WebUtility.HtmlDecode(html);
+
+        Assert.Contains("rapport-fragment", html, StringComparison.Ordinal);
+        Assert.Contains("data-post=\"BMva\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-post=\"BVor\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("voorblad", html, StringComparison.Ordinal);
+        Assert.Contains("Verloop materiële vaste activa", html, StringComparison.Ordinal);
+        Assert.Contains("Grondslagen", html, StringComparison.Ordinal);
+        Assert.True(html.IndexOf("Verloop materiële vaste activa", StringComparison.Ordinal) < html.IndexOf("Grondslagen", StringComparison.Ordinal));
     }
 
     [Fact]

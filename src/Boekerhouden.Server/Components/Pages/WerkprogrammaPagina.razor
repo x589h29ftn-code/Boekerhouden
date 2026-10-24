@@ -1,6 +1,7 @@
 @page "/dossiers/{Id:guid}/werkprogramma"
 @using Boekerhouden.Domain.Rapport
 @using Boekerhouden.Domain.Rubricering
+@using Boekerhouden.Server.Components.Rapportweergave
 @using Boekerhouden.Server.Export
 @inject WerkprogrammaDienst WerkprogrammaDienst
 @inject RubriceerDienst RubriceerDienst
@@ -41,6 +42,9 @@ else
         <span class="small text-secondary">@Weergave.Tekst(w.Dossier.Soort) · versie @w.Versie</span>
     </div>
     <DossierMenu DossierId="w.Dossier.Id" Actief="/werkprogramma" Post="@HuidigePost" />
+    <HeadContent>
+        <style>@((MarkupString)RapportHtml.Stijl)</style>
+    </HeadContent>
 
     <div class="row g-3 werkprogramma">
         <div class="col-lg-3">
@@ -397,7 +401,7 @@ else
     private RubriceerOverzicht? r;
     private Guid? gekozenId;
     private string? gekozenPost;
-    private Rapport? rapport;
+    private RapportInhoud? rapportInhoud;
     private Guid? openStap;
     private Guid? nvtStap;
     private string nvtReden = string.Empty;
@@ -454,7 +458,7 @@ else
         versie++;
         w = await WerkprogrammaDienst.Overzicht(Id, await Wie());
         r = await RubriceerDienst.Overzicht(Id, metVoorstellen: false);
-        rapport = (await RapportDienst.Maak(Id))?.Waarde?.Rapport;
+        rapportInhoud = (await RapportDienst.Maak(Id))?.Waarde;
     }
 
     /// <summary>De hoofdposten met saldo in de volgorde van de jaarrekening, per balans en winst-en-verliesrekening.</summary>
@@ -578,38 +582,55 @@ else
         gekozenPost = code;
     }
 
-    /// <summary>Wat er van de post in het rapport staat (specificatie, toelichting, grondslagen, verloop), met een link ernaartoe.</summary>
+    /// <summary>
+    /// De post zoals in het rapport: specificatie, toelichting, verloop en grondslagen, met dezelfde bewerkingen als in
+    /// de rapportviewer (uitsplitsen, toelichten, verloop, grondslagen). Wat hier verandert, staat zo in het rapport.
+    /// </summary>
     private RenderFragment InRapport(string code) => __builder =>
     {
-        if (rapport is null)
+        if (rapportInhoud is null)
         {
             return;
         }
 
-        var p = RapportPerPost.Bij(rapport, code);
+        var p = RapportPerPost.Bij(rapportInhoud.Rapport, code);
+        var specificatie = rapportInhoud.Rapport.Hoofdstukken.SelectMany(h => h.Blokken).OfType<TabelBlok>().Any(t => t.Tabel.Code == code);
         <div class="wp-sectie" id="in-rapport">
             <div class="wp-sectie-kop">
                 <span class="me-auto">In het rapport</span>
+                <span class="form-check form-switch mb-0 small" title="Of de specificatie van deze post in het rapport staat. Geldt voor de klant, ook volgende jaren.">
+                    <input class="form-check-input" type="checkbox" id="specificatie" checked="@specificatie" @key="(code, versie)"
+                           @onchange="e => ZetSpecificatie(code, (bool)e.Value!)" />
+                    <label class="form-check-label" for="specificatie">specificatie</label>
+                </span>
                 <a class="small" href="/dossiers/@Id/rapport#@RapportHtml.Anker(code)">naar het rapport</a>
             </div>
-            <dl class="wp-rapport">
-                <dt>Specificatie</dt>
-                <dd>@(p.Titel is null ? "niet opgenomen" : p.Regels == 0 ? "alleen een toelichting" : Aantal(p.Regels, "regel", "regels"))</dd>
-                <dt>Toelichting</dt>
-                <dd title="@p.Toelichting">@(p.Toelichting ?? "geen")</dd>
-                @if (rapport.Soort == RapportSoort.Jaarrekening)
+            <div class="wp-rapportfragment">
+                <RapportDocument Inhoud="rapportInhoud" Post="@(code)" Bewerkbaar="true" Gewijzigd="NaRapportWijziging" Wie="Wie" @key="(code, versie)" />
+                @if (p.Titel is null && p.Verlopen.Count == 0 && p.Grondslagen.Count == 0)
                 {
-                    <dt>Grondslagen</dt>
-                    <dd>@(p.Grondslagen.Count > 0 ? string.Join(", ", p.Grondslagen) : "geen")</dd>
+                    <div class="status">Deze post staat niet in het rapport. Zet de specificatie aan om hem te tonen en toe te lichten.</div>
                 }
-                @if (code.StartsWith('B'))
-                {
-                    <dt>Verloop</dt>
-                    <dd>@(p.Verlopen.Count > 0 ? string.Join(", ", p.Verlopen) : "geen")</dd>
-                }
-            </dl>
+            </div>
         </div>
     };
+
+    private async Task ZetSpecificatie(string code, bool tonen)
+    {
+        Meld(await RapportDienst.ZetSpecificatie(Id, code, tonen, await Wie()), $"Specificatie {Naam(code)} {(tonen ? "wel" : "niet")} in het rapport");
+        await Laad();
+    }
+
+    /// <summary>Na een wijziging in het rapportdeel: de melding tonen en alles opnieuw laden.</summary>
+    private async Task NaRapportWijziging((Uitkomst Uitkomst, string? Melding) wijziging)
+    {
+        if (wijziging.Melding is not null || !wijziging.Uitkomst.IsGelukt)
+        {
+            Meld(wijziging.Uitkomst, wijziging.Melding ?? string.Empty);
+        }
+
+        await Laad();
+    }
 
     /// <summary>Naar de vorige of volgende post, zodat je het hele rapport doorloopt.</summary>
     private RenderFragment VorigeVolgende(string code) => __builder =>

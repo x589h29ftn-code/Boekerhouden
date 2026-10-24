@@ -6,6 +6,23 @@
 @inject GrondslagDienst GrondslagDienst
 
 <CascadingValue Value="this" IsFixed="true">
+    @if (Post is { } alleen)
+    {
+        var grondslagKop = false;
+        <div class="rapport-document rapport-fragment" style="--huisstijl: @RapportHtml.Kleur(Inhoud.Kantoor)">
+            @foreach (var (h, blok, toelichting, paragraaf) in BlokkenVan(alleen))
+            {
+                @if (blok is GrondslagBlok && !grondslagKop)
+                {
+                    grondslagKop = true;
+                    <h2 class="groep">Grondslagen <span class="kop-uitleg">(in de algemene toelichting)</span></h2>
+                }
+                @BlokWeergave(h, blok, toelichting, paragraaf)
+            }
+        </div>
+    }
+    else
+    {
     <div class="rapport-document" style="--huisstijl: @RapportHtml.Kleur(Inhoud.Kantoor)">
         <section class="voorblad">
             <div class="boven">
@@ -67,74 +84,13 @@
                     <h1><span class="nr">@h.Nummer</span>@h.Titel</h1>
                     @foreach (var (blok, toelichting, paragraaf) in Blokken(h))
                     {
-                        if (blok is TabelBlok { Tabel: var tabel })
-                        {
-                            <div class="blok" id="@(tabel.Code is null ? null : RapportHtml.Anker(tabel.Code))" data-post="@tabel.Code">
-                                @if (tabel.Titel is not null)
-                                {
-                                    <h2>
-                                        @if (paragraaf is not null)
-                                        {
-                                            <span class="nr">@paragraaf</span>
-                                        }
-                                        <BewerkbareTekst Tekst="@tabel.Titel" Titel="@tabel.Bron?.Herkomst" Bewerkbaar="@(Bewerkbaar && tabel.Bron is not null)"
-                                                         Opslaan="naam => Hernoem(tabel.Bron!, naam)" />
-                                    </h2>
-                                }
-                                <RapportTabel Tabel="tabel" />
-                                @if (tabel.Code is not null && (toelichting is not null || Bewerkbaar))
-                                {
-                                    <ToelichtingBlok Sleutel="@tabel.Code" Tekst="@toelichting?.Tekst" Sjabloon="@toelichting?.Sjabloon" />
-                                }
-                                @if (Bewerkbaar && tabel.Code is { } post && post.StartsWith('B') && !h.Blokken.OfType<VerloopBlok>().Any(v => v.Verloop.Sleutel == post))
-                                {
-                                    <button type="button" class="bewerk-actie" title="Een verloopoverzicht per subpost, vanaf dit jaar" @onclick="() => ZetVerloop(post, true)">verloop toevoegen</button>
-                                }
-                            </div>
-                        }
-                        else if (blok is TekstBlok { Toelichting: { } sleutel } tekst)
-                        {
-                            <div class="blok" id="@RapportHtml.Anker(sleutel)" data-post="@sleutel">
-                                @if (tekst.Titel is not null)
-                                {
-                                    <h2>
-                                        @if (paragraaf is not null)
-                                        {
-                                            <span class="nr">@paragraaf</span>
-                                        }
-                                        @tekst.Titel
-                                    </h2>
-                                }
-                                <ToelichtingBlok Sleutel="@sleutel" Tekst="@tekst.Tekst" Sjabloon="@tekst.Sjabloon" />
-                            </div>
-                        }
-                        else if (blok is GroepBlok groep && (groep.HeeftOpgenomen || Bewerkbaar))
-                        {
-                            <h2 class="groep@(groep.HeeftOpgenomen ? null : " dicht")">
-                                @if (paragraaf is not null)
-                                {
-                                    <span class="nr">@paragraaf</span>
-                                }
-                                @groep.Titel
-                            </h2>
-                        }
-                        else if (blok is VerloopBlok { Verloop: var verloop })
-                        {
-                            <VerloopWeergave Verloop="verloop" @key="verloop" />
-                        }
-                        else if (blok is GrondslagBlok grondslag && (grondslag.Opgenomen || Bewerkbaar))
-                        {
-                            <GrondslagWeergave Grondslag="grondslag" />
-                        }
-                        else if (blok is TekstBlok vast)
-                        {
-                            <p>@vast.Tekst</p>
-                        }
+                        @BlokWeergave(h, blok, toelichting, paragraaf)
                     }
                 </section>
             }
         }
     </div>
+    }
 </CascadingValue>
 
 @code {
@@ -164,6 +120,10 @@
     /// <summary>Een rekening is neergezet op een regel; het argument is het doel (RGS-code of eigen post).</summary>
     [Parameter]
     public EventCallback<string> Neergezet { get; set; }
+
+    /// <summary>Alleen de blokken van deze hoofdpost tonen (in het werkprogramma); null = het hele rapport.</summary>
+    [Parameter]
+    public string? Post { get; set; }
 
     public bool KanRekeningenTonen => Bewerkbaar && RekeningenTonen.HasDelegate;
 
@@ -196,6 +156,120 @@
 
             yield return (blok, null, paragraaf);
         }
+    }
+
+    /// <summary>Eén blok van het rapport (specificatie met toelichting, losse toelichting, groepskop, verloop of grondslag).</summary>
+    private RenderFragment BlokWeergave(Hoofdstuk h, Blok blok, TekstBlok? toelichting, string? paragraaf) => __builder =>
+    {
+        @if (blok is TabelBlok { Tabel: var tabel })
+        {
+            <div class="blok" id="@(tabel.Code is null ? null : RapportHtml.Anker(tabel.Code))" data-post="@tabel.Code">
+                @if (tabel.Titel is not null)
+                {
+                    <h2>
+                        @if (paragraaf is not null)
+                        {
+                            <span class="nr">@paragraaf</span>
+                        }
+                        <BewerkbareTekst Tekst="@tabel.Titel" Titel="@tabel.Bron?.Herkomst" Bewerkbaar="@(Bewerkbaar && tabel.Bron is not null)"
+                                         Opslaan="naam => Hernoem(tabel.Bron!, naam)" />
+                    </h2>
+                }
+                <RapportTabel Tabel="tabel" />
+                @if (tabel.Code is not null && (toelichting is not null || Bewerkbaar))
+                {
+                    <ToelichtingBlok Sleutel="@tabel.Code" Tekst="@toelichting?.Tekst" Sjabloon="@toelichting?.Sjabloon" />
+                }
+                @if (Bewerkbaar && tabel.Code is { } post && post.StartsWith('B') && !h.Blokken.OfType<VerloopBlok>().Any(v => v.Verloop.Sleutel == post))
+                {
+                    <button type="button" class="bewerk-actie" title="Een verloopoverzicht per subpost, vanaf dit jaar" @onclick="() => ZetVerloop(post, true)">verloop toevoegen</button>
+                }
+            </div>
+        }
+        else if (blok is TekstBlok { Toelichting: { } sleutel } tekst)
+        {
+            <div class="blok" id="@RapportHtml.Anker(sleutel)" data-post="@sleutel">
+                @if (tekst.Titel is not null)
+                {
+                    <h2>
+                        @if (paragraaf is not null)
+                        {
+                            <span class="nr">@paragraaf</span>
+                        }
+                        @tekst.Titel
+                    </h2>
+                }
+                <ToelichtingBlok Sleutel="@sleutel" Tekst="@tekst.Tekst" Sjabloon="@tekst.Sjabloon" />
+            </div>
+        }
+        else if (blok is GroepBlok groep && (groep.HeeftOpgenomen || Bewerkbaar))
+        {
+            <h2 class="groep@(groep.HeeftOpgenomen ? null : " dicht")">
+                @if (paragraaf is not null)
+                {
+                    <span class="nr">@paragraaf</span>
+                }
+                @groep.Titel
+            </h2>
+        }
+        else if (blok is VerloopBlok { Verloop: var verloop })
+        {
+            <VerloopWeergave Verloop="verloop" @key="verloop" />
+        }
+        else if (blok is GrondslagBlok grondslag && (grondslag.Opgenomen || Bewerkbaar))
+        {
+            <GrondslagWeergave Grondslag="grondslag" />
+        }
+        else if (blok is TekstBlok vast)
+        {
+            <p>@vast.Tekst</p>
+        }
+    };
+
+    /// <summary>
+    /// De blokken van één hoofdpost, voor het werkprogramma: de specificatie (met toelichting en verloop toevoegen),
+    /// een losse toelichting, de verloopoverzichten eronder (ook die van rekeningen) en daarna de grondslagen met een
+    /// code onder de post.
+    /// </summary>
+    private IEnumerable<(Hoofdstuk H, Blok Blok, TekstBlok? Toelichting, string? Paragraaf)> BlokkenVan(string post)
+    {
+        var blokken = new List<(Hoofdstuk, Blok, TekstBlok?, string?)>();
+        var grondslagen = new List<(Hoofdstuk, Blok, TekstBlok?, string?)>();
+        string? vorige = null;
+        foreach (var h in R.Hoofdstukken)
+        {
+            foreach (var (blok, toelichting, paragraaf) in Blokken(h))
+            {
+                switch (blok)
+                {
+                    case TabelBlok { Tabel.Code: { } code }:
+                        vorige = code;
+                        if (code == post)
+                        {
+                            blokken.Add((h, blok, toelichting, paragraaf));
+                        }
+
+                        break;
+                    case TekstBlok { Toelichting: { } code }:
+                        vorige = code;
+                        if (code == post)
+                        {
+                            blokken.Add((h, blok, null, paragraaf));
+                        }
+
+                        break;
+                    case VerloopBlok { Verloop.Sleutel: var sleutel } when sleutel == post
+                        || (vorige == post && sleutel.StartsWith(RapportOpbouw.RekeningVoorvoegsel, StringComparison.Ordinal)):
+                        blokken.Add((h, blok, null, paragraaf));
+                        break;
+                    case GrondslagBlok grondslag when grondslag.Codes.Any(c => c.StartsWith(post, StringComparison.Ordinal)):
+                        grondslagen.Add((h, blok, null, paragraaf));
+                        break;
+                }
+            }
+        }
+
+        return [.. blokken, .. grondslagen];
     }
 
     public Guid DossierId => Inhoud.Dossier.Id;

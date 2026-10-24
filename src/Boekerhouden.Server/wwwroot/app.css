@@ -666,26 +666,17 @@ tr.klikbaar {
     color: var(--kleur-zacht);
 }
 
-.wp-rapport {
-    display: grid;
-    grid-template-columns: 8rem minmax(0, 1fr);
-    gap: .15rem .75rem;
-    margin: 0;
-    padding: .2rem .75rem .5rem;
-    font-size: .875rem;
+.wp-rapportfragment {
+    padding: .25rem .75rem .5rem 8mm;
 }
 
-    .wp-rapport dt {
-        font-weight: normal;
-        color: var(--kleur-zacht);
+    .wp-rapportfragment .rapport-fragment {
+        max-width: 170mm;
     }
 
-    .wp-rapport dd {
-        margin: 0;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
+        .wp-rapportfragment .rapport-fragment .blok:last-child {
+            margin-bottom: 3mm;
+        }
 
 .wp-volgende {
     display: flex;
