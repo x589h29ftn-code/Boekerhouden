@@ -18,7 +18,21 @@ public sealed record StapInfo(
     DateTimeOffset? UitgevoerdOp,
     bool Verwijderd,
     string? VerwijderdDoor,
-    DateTimeOffset? VerwijderdOp);
+    DateTimeOffset? VerwijderdOp,
+    IReadOnlyList<BijlageInfo> Bijlagen);
+
+public sealed record BijlageInfo(Guid Id, string Bestandsnaam, long Grootte, string Door, DateTimeOffset Op);
+
+public sealed record ReviewpuntInfo(
+    Guid Id,
+    Guid? StapId,
+    string Tekst,
+    string Door,
+    DateTimeOffset Op,
+    bool Opgelost,
+    string? Reactie,
+    string? OpgelostDoor,
+    DateTimeOffset? OpgelostOp);
 
 public sealed record OnderdeelInfo(
     Guid Id,
@@ -30,7 +44,8 @@ public sealed record OnderdeelInfo(
     string? Notitie,
     string? GereviewdDoor,
     DateTimeOffset? GereviewdOp,
-    IReadOnlyList<StapInfo> Stappen)
+    IReadOnlyList<StapInfo> Stappen,
+    IReadOnlyList<ReviewpuntInfo> Reviewpunten)
 {
     public IEnumerable<StapInfo> Actief => Stappen.Where(s => !s.Verwijderd);
 
@@ -40,6 +55,17 @@ public sealed record OnderdeelInfo(
 
     /// <summary>Alle (niet-verwijderde) stappen gereed of niet van toepassing.</summary>
     public bool IsGereed => Klaar == Aantal;
+
+    public int OpenPunten => Reviewpunten.Count(p => !p.Opgelost);
+
+    public bool IsGereviewd => GereviewdDoor is not null;
+
+    /// <summary>Waarom het onderdeel (nog) niet gereviewd kan worden; null = het kan.</summary>
+    public string? NietTeReviewen =>
+        IsGereviewd ? "Het onderdeel is al gereviewd."
+        : !IsGereed ? "Nog niet alle stappen zijn gereed of niet van toepassing."
+        : OpenPunten > 0 ? "Er staan nog reviewpunten open."
+        : null;
 }
 
 /// <param name="Keuzes">Per hoofdpost (RGS niveau 2): materieel of bewust niet materieel; ontbreekt = nog niet gekozen.</param>
@@ -81,12 +107,18 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
             .ToListAsync();
         var keuzes = await db.PostKeuzes.AsNoTracking().Where(k => k.DossierId == dossierId)
             .ToDictionaryAsync(k => k.HoofdpostCode, k => k.Materieel, StringComparer.Ordinal);
+        var punten = (await db.Reviewpunten.AsNoTracking().Where(r => r.DossierId == dossierId).OrderBy(r => r.Op).ToListAsync())
+            .ToLookup(r => r.OnderdeelId);
+        var bijlagen = (await db.Bijlagen.AsNoTracking().Where(b => b.DossierId == dossierId).OrderBy(b => b.Op)
+                .Select(b => new { b.StapId, Info = new BijlageInfo(b.Id, b.Bestandsnaam, b.Grootte, b.Door, b.Op) })
+                .ToListAsync())
+            .ToLookup(b => b.StapId, b => b.Info);
 
         return new WerkprogrammaOverzicht(
             new DossierDetail(dossier.Id, dossier.Naam, dossier.Boekjaar, dossier.SoortOpdracht, dossier.Status, dossier.KlantId,
                 dossier.Klant!.Klantnummer, dossier.Klant.Naam, dossier.Klant.Rechtsvorm),
             dossier.WerkprogrammaVersie!,
-            [.. onderdelen.OrderBy(o => o.Fase).ThenBy(o => o.Volgorde).Select(Info)],
+            [.. onderdelen.OrderBy(o => o.Fase).ThenBy(o => o.Volgorde).Select(o => Info(o, punten[o.Id], bijlagen))],
             keuzes);
     }
 
@@ -131,7 +163,15 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
         }
         else if (post is not null)
         {
-            var ingevuld = post.Stappen.Any(IsIngevuld) || !string.IsNullOrWhiteSpace(post.Notitie);
+            if (post.GereviewdDoor is not null)
+            {
+                return Uitkomst.Mislukt(Gereviewd);
+            }
+
+            var stapIds = post.Stappen.Select(s => s.Id).ToList();
+            var ingevuld = post.Stappen.Any(IsIngevuld) || !string.IsNullOrWhiteSpace(post.Notitie)
+                           || await db.Bijlagen.AnyAsync(b => stapIds.Contains(b.StapId))
+                           || await db.Reviewpunten.AnyAsync(r => r.OnderdeelId == post.Id);
             if (ingevuld && ingevuldBewaren is null)
             {
                 return Uitkomst.Mislukt(BewarenOfVerwijderen);
@@ -206,6 +246,11 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
         }
 
         var (stap, onderdeel, dossier) = gevonden;
+        if (onderdeel.GereviewdDoor is not null)
+        {
+            return Uitkomst.Mislukt(Gereviewd);
+        }
+
         var nieuw = string.IsNullOrWhiteSpace(antwoord) ? null : antwoord.Trim();
         if (nieuw == stap.Antwoord)
         {
@@ -232,6 +277,11 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
         }
 
         var (stap, onderdeel, dossier) = gevonden;
+        if (onderdeel.GereviewdDoor is not null)
+        {
+            return Uitkomst.Mislukt(Gereviewd);
+        }
+
         if (stap.Verwijderd)
         {
             return Uitkomst.Mislukt("Deze stap is verwijderd; herstel hem eerst.");
@@ -274,6 +324,11 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
             return Uitkomst<Guid>.Mislukt("Dit onderdeel bestaat niet (meer).");
         }
 
+        if (onderdeel.GereviewdDoor is not null)
+        {
+            return Uitkomst<Guid>.Mislukt(Gereviewd);
+        }
+
         var nu = tijd.GetUtcNow();
         var stap = new DossierStap
         {
@@ -306,13 +361,18 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
         }
 
         var (stap, onderdeel, dossier) = gevonden;
+        if (onderdeel.GereviewdDoor is not null)
+        {
+            return Uitkomst.Mislukt(Gereviewd);
+        }
+
         if (stap.Verplicht)
         {
             return Uitkomst.Mislukt("Een verplichte stap kan niet worden verwijderd. Zet hem op niet van toepassing, met een reden.");
         }
 
         reden = string.IsNullOrWhiteSpace(reden) ? null : reden.Trim();
-        if (stap.BronStapId is null && !IsIngevuld(stap))
+        if (stap.BronStapId is null && !IsIngevuld(stap) && !await db.Bijlagen.AnyAsync(b => b.StapId == stap.Id))
         {
             db.DossierStappen.Remove(stap);
         }
@@ -343,6 +403,11 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
         }
 
         var (stap, onderdeel, dossier) = gevonden;
+        if (onderdeel.GereviewdDoor is not null)
+        {
+            return Uitkomst.Mislukt(Gereviewd);
+        }
+
         stap.Verwijderd = false;
         stap.VerwijderdDoor = null;
         stap.VerwijderdOp = null;
@@ -360,6 +425,11 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
         if (await Stap(db, stapId) is not { } gevonden)
         {
             return Uitkomst.Mislukt("Deze stap bestaat niet (meer).");
+        }
+
+        if (gevonden.Onderdeel.GereviewdDoor is not null)
+        {
+            return Uitkomst.Mislukt(Gereviewd);
         }
 
         var stappen = await db.DossierStappen.Where(s => s.OnderdeelId == gevonden.Onderdeel.Id && !s.Verwijderd).OrderBy(s => s.Volgorde).ToListAsync();
@@ -397,6 +467,11 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
             return Uitkomst.Mislukt("Dit onderdeel bestaat niet (meer).");
         }
 
+        if (onderdeel.GereviewdDoor is not null)
+        {
+            return Uitkomst.Mislukt(Gereviewd);
+        }
+
         var nieuw = string.IsNullOrWhiteSpace(notitie) ? null : notitie.Trim();
         if (nieuw == onderdeel.Notitie)
         {
@@ -423,6 +498,8 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
             .Where(p => balans.Totaal(p.Code) is { Aantal: > 0 } t && (t.Huidig != 0 || t.Vorig != 0))
             .Select(p => (p.Code, o.Naam(p.Code)))];
     }
+
+    public const string Gereviewd = "Dit onderdeel is gereviewd. Zet de review eerst terug om iets te wijzigen.";
 
     public const string BewarenOfVerwijderen = "Bij deze post zijn al stappen ingevuld. Kies of die bewaard blijven (als niet van toepassing) of verwijderd worden.";
 
@@ -523,7 +600,7 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
         return sjabloon;
     }
 
-    private static async Task<(DossierStap Stap, DossierOnderdeel Onderdeel, Dossier Dossier)?> Stap(BoekerhoudenDbContext db, Guid stapId)
+    internal static async Task<(DossierStap Stap, DossierOnderdeel Onderdeel, Dossier Dossier)?> Stap(BoekerhoudenDbContext db, Guid stapId)
     {
         var stap = await db.DossierStappen.SingleOrDefaultAsync(s => s.Id == stapId);
         if (stap is null)
@@ -538,7 +615,7 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
 
     private static bool IsIngevuld(DossierStap stap) => stap.Status != StapStatus.Open || !string.IsNullOrWhiteSpace(stap.Antwoord);
 
-    private static OnderdeelInfo Info(DossierOnderdeel o) => new(
+    private static OnderdeelInfo Info(DossierOnderdeel o, IEnumerable<Reviewpunt> punten, ILookup<Guid, BijlageInfo> bijlagen) => new(
         o.Id,
         o.Fase,
         o.Soort,
@@ -550,7 +627,8 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
         o.GereviewdOp,
         [.. o.Stappen.OrderBy(s => s.Volgorde).Select(s => new StapInfo(
             s.Id, s.Titel, s.Instructie, s.Verplicht, s.BronStapId is null, s.Controle, s.Status, s.Antwoord, s.Reden,
-            s.UitgevoerdDoor, s.UitgevoerdOp, s.Verwijderd, s.VerwijderdDoor, s.VerwijderdOp))]);
+            s.UitgevoerdDoor, s.UitgevoerdOp, s.Verwijderd, s.VerwijderdDoor, s.VerwijderdOp, [.. bijlagen[s.Id]]))],
+        [.. punten.Select(p => new ReviewpuntInfo(p.Id, p.StapId, p.Tekst, p.Door, p.Op, p.Opgelost, p.Reactie, p.OpgelostDoor, p.OpgelostOp))]);
 
-    private static string Onderwerp(Dossier dossier) => $"{KlantDienst.Onderwerp(dossier.Klant!)} – {dossier.Naam}";
+    internal static string Onderwerp(Dossier dossier) => $"{KlantDienst.Onderwerp(dossier.Klant!)} – {dossier.Naam}";
 }

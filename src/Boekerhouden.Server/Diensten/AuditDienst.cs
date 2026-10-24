@@ -80,5 +80,12 @@ public static class AuditActies
     public const string StapHersteld = "Stap hersteld";
     public const string NotitieGewijzigd = "Notitie gewijzigd";
     public const string SjabloonGewijzigd = "Werkprogrammasjabloon gewijzigd";
+    public const string ReviewpuntGeplaatst = "Reviewpunt geplaatst";
+    public const string ReviewpuntOpgelost = "Reviewpunt opgelost";
+    public const string ReviewpuntHeropend = "Reviewpunt heropend";
+    public const string OnderdeelGereviewd = "Onderdeel gereviewd";
+    public const string ReviewTeruggezet = "Review teruggezet";
+    public const string BijlageToegevoegd = "Bijlage toegevoegd";
+    public const string BijlageVerwijderd = "Bijlage verwijderd";
     public const string RekeningAangemaakt = "Grootboekrekening aangemaakt";
 }

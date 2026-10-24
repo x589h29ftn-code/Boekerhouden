@@ -49,6 +49,12 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
 
     public DbSet<DossierPostKeuze> PostKeuzes => Set<DossierPostKeuze>();
 
+    public DbSet<Reviewpunt> Reviewpunten => Set<Reviewpunt>();
+
+    public DbSet<Bijlage> Bijlagen => Set<Bijlage>();
+
+    public DbSet<BijlageInhoud> BijlageInhouden => Set<BijlageInhoud>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -281,6 +287,40 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
             e.HasOne<Dossier>().WithMany().HasForeignKey(k => k.DossierId).OnDelete(DeleteBehavior.Cascade);
             e.Property(k => k.HoofdpostCode).HasMaxLength(20);
             e.Property(k => k.GewijzigdDoor).HasMaxLength(200);
+        });
+
+        builder.Entity<Reviewpunt>(e =>
+        {
+            e.ToTable("Reviewpunten");
+            e.HasIndex(r => r.DossierId);
+            e.HasIndex(r => r.OnderdeelId);
+            e.HasOne<Dossier>().WithMany().HasForeignKey(r => r.DossierId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<DossierOnderdeel>().WithMany().HasForeignKey(r => r.OnderdeelId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<DossierStap>().WithMany().HasForeignKey(r => r.StapId).OnDelete(DeleteBehavior.SetNull);
+            e.Property(r => r.Tekst).HasMaxLength(4000);
+            e.Property(r => r.Reactie).HasMaxLength(4000);
+            e.Property(r => r.Door).HasMaxLength(200);
+            e.Property(r => r.OpgelostDoor).HasMaxLength(200);
+        });
+
+        builder.Entity<Bijlage>(e =>
+        {
+            e.ToTable("Bijlagen");
+            e.HasIndex(b => b.StapId);
+            e.HasIndex(b => b.DossierId);
+            e.HasOne<Dossier>().WithMany().HasForeignKey(b => b.DossierId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<DossierStap>().WithMany().HasForeignKey(b => b.StapId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(b => b.Inhoud).WithOne().HasForeignKey<BijlageInhoud>(i => i.BijlageId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(b => b.Bestandsnaam).HasMaxLength(260);
+            e.Property(b => b.ContentType).HasMaxLength(200);
+            e.Property(b => b.Sha256).HasMaxLength(64);
+            e.Property(b => b.Door).HasMaxLength(200);
+        });
+
+        builder.Entity<BijlageInhoud>(e =>
+        {
+            e.ToTable("BijlageInhouden");
+            e.HasKey(i => i.BijlageId);
         });
 
         builder.Entity<AuditRegel>(e =>

@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Boekerhouden.Server.Export;
 
-/// <summary>Downloads: de correcties van een dossier als Excel of PDF. Elke export komt in het wijzigingslog.</summary>
+/// <summary>Downloads: de correcties van een dossier als Excel of PDF (in het wijzigingslog) en bijlagen.</summary>
 internal static class ExportEindpunten
 {
     public const string Xlsx = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -13,7 +13,29 @@ internal static class ExportEindpunten
     {
         app.MapGet("/dossiers/{id:guid}/correcties.xlsx", Excel).RequireAuthorization();
         app.MapGet("/dossiers/{id:guid}/correcties.pdf", Pdf).RequireAuthorization();
+        app.MapGet("/bijlagen/{id:guid}", Bijlage).RequireAuthorization();
     }
+
+    /// <summary>Een bijlage downloaden; altijd als bestand (nooit in de browser tonen) en zonder type-raden.</summary>
+    private static async Task<IResult> Bijlage(Guid id, BijlageDienst bijlagen, HttpContext context)
+    {
+        if (await bijlagen.Haal(id) is not { } bestand)
+        {
+            return TypedResults.NotFound();
+        }
+
+        context.Response.Headers.XContentTypeOptions = "nosniff";
+        return TypedResults.File(bestand.Inhoud, VeiligType(bestand.ContentType), bestand.Bestandsnaam);
+    }
+
+    private static readonly HashSet<string> VeiligeTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "application/pdf", "image/png", "image/jpeg", "text/csv", "text/plain", Xlsx,
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel", "application/msword", "message/rfc822",
+    };
+
+    private static string VeiligType(string type) => VeiligeTypes.Contains(type) ? type : "application/octet-stream";
 
     /// <summary>Het downloadadres; met <paramref name="alleenTeVerwerken"/> alleen wat de klant nog moet boeken.</summary>
     public static string Adres(Guid dossierId, string formaat, bool alleenTeVerwerken) =>

@@ -185,3 +185,62 @@ public sealed class DossierPostKeuze
 
     public string GewijzigdDoor { get; set; } = string.Empty;
 }
+
+/// <summary>Een reviewpunt bij een onderdeel (eventueel bij één stap). Een onderdeel met open punten kan niet gereviewd.</summary>
+public sealed class Reviewpunt
+{
+    public Guid Id { get; set; }
+
+    public Guid DossierId { get; set; }
+
+    public Guid OnderdeelId { get; set; }
+
+    public Guid? StapId { get; set; }
+
+    public string Tekst { get; set; } = string.Empty;
+
+    public string Door { get; set; } = string.Empty;
+
+    public DateTimeOffset Op { get; set; }
+
+    public bool Opgelost { get; set; }
+
+    /// <summary>De reactie van wie het punt oplost.</summary>
+    public string? Reactie { get; set; }
+
+    public string? OpgelostDoor { get; set; }
+
+    public DateTimeOffset? OpgelostOp { get; set; }
+}
+
+/// <summary>Een bijlage bij een stap in het dossier. De inhoud staat apart, zodat lijsten die niet hoeven te laden.</summary>
+public sealed class Bijlage
+{
+    public Guid Id { get; set; }
+
+    public Guid DossierId { get; set; }
+
+    public Guid StapId { get; set; }
+
+    public string Bestandsnaam { get; set; } = string.Empty;
+
+    public string ContentType { get; set; } = string.Empty;
+
+    public long Grootte { get; set; }
+
+    /// <summary>SHA-256 van de inhoud, als bewijs van wat er is opgeslagen.</summary>
+    public string Sha256 { get; set; } = string.Empty;
+
+    public string Door { get; set; } = string.Empty;
+
+    public DateTimeOffset Op { get; set; }
+
+    public BijlageInhoud? Inhoud { get; set; }
+}
+
+public sealed class BijlageInhoud
+{
+    public Guid BijlageId { get; set; }
+
+    public byte[] Data { get; set; } = [];
+}

@@ -817,3 +817,20 @@ tr.klikbaar {
     padding-left: .5rem;
     padding-right: .75rem;
 }
+
+.reviewpunt {
+    padding: .4rem .75rem;
+    font-size: .9rem;
+    border-bottom: 1px solid var(--kleur-lijn);
+}
+
+    .reviewpunt.opgelost > div:first-child {
+        color: var(--kleur-zacht);
+    }
+
+.bijlagen .bijlage {
+    display: flex;
+    gap: .6rem;
+    align-items: baseline;
+    font-size: .85rem;
+}
