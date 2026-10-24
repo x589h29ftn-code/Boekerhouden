@@ -73,7 +73,7 @@ public static partial class RapportOpbouw
         if (!ib && g.Grondslagen is not null)
         {
             var grondslagen = Grondslagen(g);
-            hoofdstukken.Add(new Hoofdstuk(hoofdstukken.Count + 1, "Grondslagen", grondslagen, Paragrafen: true));
+            hoofdstukken.Add(new Hoofdstuk(hoofdstukken.Count + 1, "Algemene toelichting en grondslagen", grondslagen, Paragrafen: true));
             waarschuwingen.AddRange(grondslagen.OfType<GrondslagBlok>().Where(b => b.Opgenomen && InTeVullen().IsMatch(b.Tekst))
                 .Select(b => $"{b.Titel}: tekst tussen [ ] nog invullen."));
         }
@@ -196,9 +196,10 @@ public static partial class RapportOpbouw
     }
 
     /// <summary>
-    /// De grondslagen per groep (algemeen, waardering, resultaatbepaling). Een grondslag bij een post staat er als die
-    /// post een saldo heeft; algemene grondslagen staan er altijd; optionele (bijv. foutenherstel) staan dicht. De
-    /// keuze in het dossier gaat voor: open of dicht, en een eigen tekst. Dichte grondslagen ziet alleen de viewer.
+    /// De algemene toelichting en de grondslagen per groep (algemene toelichting, algemene grondslagen, waardering,
+    /// resultaatbepaling). Een grondslag bij een post staat er als die post een saldo heeft; algemene grondslagen staan
+    /// er altijd; optionele (bijv. foutenherstel) staan dicht, tenzij een van hun posten een saldo heeft. De keuze in
+    /// het dossier gaat voor: open of dicht, en een eigen tekst. Dichte grondslagen ziet alleen de viewer.
     /// </summary>
     public static IReadOnlyList<Blok> Grondslagen(RapportGegevens g)
     {
@@ -210,13 +211,13 @@ public static partial class RapportOpbouw
             foreach (var grondslag in groep)
             {
                 var keuze = g.GrondslagKeuzes?.GetValueOrDefault(grondslag.Sleutel);
-                var relevant = grondslag.Standaard != GrondslagStandaard.BijPost || grondslag.Codes.Any(c => HeeftSaldo(g, c));
-                if (!relevant && keuze?.Opgenomen != true)
+                var metSaldo = grondslag.Codes.Any(c => HeeftSaldo(g, c));
+                if (grondslag.Standaard == GrondslagStandaard.BijPost && !metSaldo && keuze?.Opgenomen != true)
                 {
                     continue;
                 }
 
-                var standaard = grondslag.Standaard != GrondslagStandaard.Optioneel;
+                var standaard = grondslag.Standaard != GrondslagStandaard.Optioneel || metSaldo;
                 var eigen = !string.IsNullOrWhiteSpace(keuze?.Tekst);
                 items.Add(new GrondslagBlok(grondslag.Sleutel, grondslag.Titel, eigen ? keuze!.Tekst! : grondslag.Tekst, keuze?.Opgenomen ?? standaard, eigen));
             }

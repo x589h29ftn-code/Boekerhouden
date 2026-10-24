@@ -24,9 +24,10 @@ werkprogramma per dossier volgt het kantoorsjabloon: materiële posten kiezen, s
 reviewpunten en bijlagen; het klantenoverzicht toont per klant de voortgang en wat aandacht vraagt.
 Het rapport (jaarrekening voor de BV, bijlage bij de aangifte IB voor de eenmanszaak) controleer en
 bewerk je in een viewer in de app: posten in- en uitklappen, namen en toelichtingen aanpassen, rekeningen
-uitsplitsen met een controletelling. Bij een BV kies je commerciële of fiscale grondslagen; de passende
-grondslagen staan dan standaard bij de posten met saldo. De concept-PDF in de huisstijl van het kantoor is precies wat
-je daar ziet.
+uitsplitsen met een controletelling. Bij een BV kies je commerciële of fiscale grondslagen; de algemene toelichting
+en de passende grondslagen staan dan standaard bij de posten met saldo. Een eigen post zoals de omzetbelasting kan
+per jaar worden gesaldeerd, zodat een te vorderen saldo vanzelf onder de vorderingen staat. De concept-PDF in de
+huisstijl van het kantoor is precies wat je daar ziet.
 Alles wordt vastgelegd in een wijzigingslog. Ontwerp, besluiten en roadmap: [`docs/onderzoek`](docs/onderzoek/README.md).
 
 ## Snel proberen

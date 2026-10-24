@@ -19,7 +19,10 @@ public enum GrondslagOpname
     /// <summary>Als een van de gekoppelde RGS-posten een saldo heeft (dit jaar of vorig jaar).</summary>
     BijPost,
 
-    /// <summary>Standaard niet; de gebruiker zet hem aan (bijv. foutenherstel of stelselwijziging).</summary>
+    /// <summary>
+    /// Standaard dicht; de gebruiker zet hem aan (bijv. foutenherstel of stelselwijziging). Met RGS-codes staat hij
+    /// open als een van die posten een saldo heeft (bijv. bijzondere waardeverminderingen).
+    /// </summary>
     Optioneel,
 }
 

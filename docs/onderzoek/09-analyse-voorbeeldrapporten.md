@@ -101,21 +101,35 @@ waarderingsgrondslagen) wordt opgesteld; het voorstel is de keuze van vorig jaar
 keuze bepaalt de teksten: fiscaal bijvoorbeeld geen latente belastingen en afschrijving op panden tot de bodemwaarde
 (100% van de WOZ-waarde); commercieel o.a. schattingen en latente belastingen.
 
-De jaarrekening krijgt een hoofdstuk *Grondslagen* tussen de W&V en de toelichting, in drie groepen: algemeen,
-waardering van activa en passiva, en bepaling van het resultaat. Elke grondslag in de bibliotheek (Beheer ›
-Grondslagen) heeft een tekst per variant en een standaard:
+De jaarrekening krijgt een hoofdstuk *Algemene toelichting en grondslagen* tussen de W&V en de toelichting, in vier
+groepen zoals in gangbare modeljaarrekeningen: algemene toelichting (activiteiten, vestiging en inschrijving,
+groepsverhoudingen, continuïteit, stelsel- en schattingswijzigingen, schattingen, foutenherstel), algemene grondslagen
+(algemeen, vergelijking, vreemde valuta, leasing, bijzondere posten), waardering van activa en passiva, en bepaling
+van het resultaat. Elk onderdeel in de bibliotheek (Beheer › Grondslagen) heeft een tekst per variant en een
+standaard:
 
 | Standaard | Voorbeelden | In de jaarrekening |
 |---|---|---|
-| **Altijd** | Algemeen, vergelijking met het voorgaande jaar, schattingen | Open |
-| **Bij post** (RGS-codes) | MVA bij `BMva`, voorraden bij `BVrd`, latente belastingen bij `BFvaLbv`, `BVorLbv`, `BVrzVvbVlb` | Open als een van de posten een saldo heeft (dit of vorig jaar); anders niet getoond |
-| **Optioneel** | Continuïteit, stelselwijziging, schattingswijziging, foutenherstel, gebeurtenissen na balansdatum, verbonden partijen | Dicht; in de viewer open te klappen |
+| **Altijd** | Activiteiten, vestiging en inschrijving, schattingen, algemeen, vergelijking met het voorgaande jaar, kosten | Open |
+| **Bij post** (RGS-codes) | MVA bij `BMva`, voorraden bij `BVrd`, latente belastingen bij `BFvaLbv`, `BVorLbv`, `BVrzVvbVlb`, herinvesteringsreserve bij `BEivFirHer`, oudedagsverplichting bij `BLasOdv`, `BSchOdv`, langlopende schulden bij `BLas` | Open als een van de posten een saldo heeft (dit of vorig jaar); anders niet getoond |
+| **Optioneel** | Continuïteit, stelselwijziging, overgang naar fiscale grondslagen, foutenherstel, vreemde valuta, leasing, subsidies; bijzondere waardeverminderingen (bij `WWvi`, `WWfa`) | Dicht; in de viewer open te klappen. Met RGS-codes open als een van die posten een saldo heeft |
 
-In de viewer klap je een grondslag met het driehoekje open (in het rapport) of dicht, en klik je de tekst aan om die
+Alleen fiscaal: overgang naar fiscale grondslagen, afwijking ten opzichte van afdeling 6, herinvesteringsreserve.
+Alleen commercieel: latente belastingen en herwaarderingsreserve. Een kasstroomoverzicht en een staat van baten en
+lasten horen niet bij deze jaarrekeningen en staan er niet in.
+
+`{naam}`, `{plaats}`, `{kvk}` en `{boekjaar}` in een tekst worden per klant ingevuld (ook in een eigen tekst in de
+viewer); ontbreekt het KvK-nummer of de plaats bij de klant, dan staat er *[KvK-nummer]* of *[vestigingsplaats]*.
+In de viewer klap je een onderdeel met het driehoekje open (in het rapport) of dicht, en klik je de tekst aan om die
 voor het dossier aan te passen. Tekst tussen [vierkante haken] moet nog worden ingevuld; die is in de viewer
-gemarkeerd en geeft een waarschuwing. Keuzes rollen door naar volgende jaren, behalve bij *jaargebonden* grondslagen
-(zoals foutenherstel), die elk jaar opnieuw dicht beginnen. De eenmanszaak (bijlage bij de aangifte) heeft geen
-grondslagen, zoals voorbeeld B. De meegeleverde teksten zijn in eigen woorden opgesteld; het kantoor stelt ze vast.
+gemarkeerd en geeft een waarschuwing (bijv. de activiteiten in het eerste jaar). Keuzes rollen door naar volgende
+jaren, behalve bij *jaargebonden* onderdelen (zoals foutenherstel), die elk jaar opnieuw dicht beginnen. De
+eenmanszaak (bijlage bij de aangifte) heeft geen grondslagen, zoals voorbeeld B.
+
+De meegeleverde teksten zijn in eigen woorden opgesteld aan de hand van modeljaarrekeningen 2024 (commercieel en
+fiscaal), zonder de aanwijzingen en verwijzingen uit die modellen; het kantoor stelt ze vast. Bij een nieuwe versie
+van de app krijgen onderdelen die het kantoor niet heeft aangepast de nieuwe standaardtekst; aangepaste teksten
+blijven staan (*standaard terugzetten* laat een onderdeel weer meegaan).
 
 ## 9.4 Gegevens die we nodig hebben, naast de proefbalans
 

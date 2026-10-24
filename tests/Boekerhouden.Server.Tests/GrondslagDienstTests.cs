@@ -2,6 +2,8 @@ using Boekerhouden.Data;
 using Boekerhouden.Domain.Rapport;
 using Boekerhouden.Server.Diensten;
 using Boekerhouden.Server.Export;
+using Boekerhouden.Server.Grondslagen;
+using Microsoft.EntityFrameworkCore;
 
 namespace Boekerhouden.Server.Tests;
 
@@ -38,7 +40,7 @@ public sealed class GrondslagDienstTests(ServerFixture server) : IClassFixture<S
     private async Task<Rapport> Rapport(Guid dossierId) => (await server.Dienst<RapportDienst>().Maak(dossierId))!.Waarde!.Rapport;
 
     private static List<GrondslagBlok> Blokken(Rapport rapport) =>
-        [.. rapport.Hoofdstukken.Single(h => h.Titel == "Grondslagen").Blokken.OfType<GrondslagBlok>()];
+        [.. rapport.Hoofdstukken.Single(h => h.Titel == "Algemene toelichting en grondslagen").Blokken.OfType<GrondslagBlok>()];
 
     [Fact]
     public async Task De_meegeleverde_bibliotheek_staat_klaar()
@@ -58,13 +60,13 @@ public sealed class GrondslagDienstTests(ServerFixture server) : IClassFixture<S
 
         var rapport = await Rapport(huidig);
 
-        Assert.Equal(["Balans per 31 december 2025", "Winst-en-verliesrekening over 2025", "Grondslagen", "Toelichting op de balans", "Toelichting op de winst-en-verliesrekening"],
+        Assert.Equal(["Balans per 31 december 2025", "Winst-en-verliesrekening over 2025", "Algemene toelichting en grondslagen", "Toelichting op de balans", "Toelichting op de winst-en-verliesrekening"],
             rapport.Hoofdstukken.Select(h => h.Titel));
         var blokken = Blokken(rapport);
         Assert.True(blokken.Single(b => b.Sleutel == "mva").Opgenomen);
         Assert.Contains("WOZ-waarde", blokken.Single(b => b.Sleutel == "mva").Tekst, StringComparison.Ordinal);
         Assert.Contains("geen latente belastingen", blokken.Single(b => b.Sleutel == "belastingen").Tekst, StringComparison.Ordinal);
-        Assert.DoesNotContain(blokken, b => b.Sleutel is "latentie" or "voorraden" or "schattingen");
+        Assert.DoesNotContain(blokken, b => b.Sleutel is "latentie" or "voorraden" or "herwaardering");
         Assert.False(blokken.Single(b => b.Sleutel == "foutenherstel").Opgenomen);
         Assert.DoesNotContain(rapport.Waarschuwingen, w => w.Contains("grondslag", StringComparison.OrdinalIgnoreCase));
     }
@@ -91,7 +93,7 @@ public sealed class GrondslagDienstTests(ServerFixture server) : IClassFixture<S
 
         var rapport = await Rapport(huidig);
 
-        Assert.DoesNotContain(rapport.Hoofdstukken, h => h.Titel == "Grondslagen");
+        Assert.DoesNotContain(rapport.Hoofdstukken, h => h.Titel.Contains("grondslagen", StringComparison.Ordinal));
         Assert.Contains(rapport.Waarschuwingen, w => w == "Grondslagen nog niet gekozen.");
         Assert.Null((await server.Dienst<DossierDienst>().Haal(huidig))!.Grondslag);
     }
@@ -143,6 +145,78 @@ public sealed class GrondslagDienstTests(ServerFixture server) : IClassFixture<S
         Assert.Contains("vaste activa", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Gebeurtenissen na balansdatum", html, StringComparison.Ordinal);
         Assert.DoesNotContain("niet in het rapport", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task De_algemene_toelichting_vult_de_gegevens_van_de_klant_in()
+    {
+        var (klantId, _, huidig, _) = await Bakkerij();
+
+        var blokken = Blokken(await Rapport(huidig));
+
+        Assert.Equal(["Algemene toelichting", "Algemene grondslagen", "Grondslagen voor de waardering van activa en passiva", "Grondslagen voor de bepaling van het resultaat"],
+            (await Rapport(huidig)).Hoofdstukken.Single(h => h.Titel == "Algemene toelichting en grondslagen").Blokken.OfType<GroepBlok>().Select(g => g.Titel));
+        Assert.Equal("Voorbeeld Bakkerij B.V. is een besloten vennootschap met beperkte aansprakelijkheid, gevestigd te Ergens, en is ingeschreven in het handelsregister onder nummer [KvK-nummer].",
+            blokken.Single(b => b.Sleutel == "vestiging").Tekst);
+        Assert.Contains("vormt de leiding van Voorbeeld Bakkerij B.V. zich oordelen", blokken.Single(b => b.Sleutel == "schattingen").Tekst, StringComparison.Ordinal);
+        Assert.Contains("per 31 december 2025", blokken.Single(b => b.Sleutel == "continuiteit").Tekst, StringComparison.Ordinal);
+        Assert.False(blokken.Single(b => b.Sleutel == "continuiteit").Opgenomen);
+        Assert.Contains((await server.Dienst<RapportDienst>().Maak(huidig))!.Waarde!.Rapport.Waarschuwingen,
+            w => w == "Vestigingsadres, rechtsvorm en inschrijving handelsregister: tekst tussen [ ] nog invullen.");
+
+        // Een eigen tekst mag de variabelen ook gebruiken.
+        Assert.True((await Grondslagen.ZetTekst(huidig, "activiteiten", "{naam} bakt brood in {plaats}.", Tester)).IsGelukt);
+        Assert.Equal("Voorbeeld Bakkerij B.V. bakt brood in Ergens.", Blokken(await Rapport(huidig)).Single(b => b.Sleutel == "activiteiten").Tekst);
+
+        var klant = (await server.Dienst<KlantDienst>().Haal(klantId))!;
+        Assert.True((await server.Dienst<KlantDienst>().Wijzig(klantId, new KlantInvoer(klant.Klantnummer, klant.Naam, Rechtsvorm.BV, "87654321", "Ergens"), Tester)).IsGelukt);
+        Assert.EndsWith("onder nummer 87654321.", Blokken(await Rapport(huidig)).Single(b => b.Sleutel == "vestiging").Tekst, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Fiscale_grondslagen_hebben_eigen_onderdelen()
+    {
+        var bibliotheek = await Grondslagen.Bibliotheek();
+
+        Assert.Contains(bibliotheek, g => g.Sleutel == "herinvestering" && g.TekstCommercieel is null && g.Codes == "BEivFirHer");
+        Assert.Contains(bibliotheek, g => g.Sleutel == "fiscaalvoorheteerst" && g.TekstCommercieel is null && g.Jaargebonden);
+        Assert.Contains(bibliotheek, g => g.Sleutel == "herwaardering" && g.TekstFiscaal is null);
+        Assert.Contains(bibliotheek, g => g.Sleutel == "waardevermindering" && g.Opname == GrondslagOpname.Optioneel && g.Codes == "WWvi,WWfa");
+        Assert.DoesNotContain(bibliotheek, g => g.Titel.Contains("kasstroom", StringComparison.OrdinalIgnoreCase) || g.Titel.Contains("staat van baten en lasten", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task Nieuwe_standaardteksten_gaan_over_wat_het_kantoor_niet_heeft_aangepast()
+    {
+        await server.MetRgs();
+        var nu = DateTimeOffset.UtcNow;
+        await using (var db = await server.Dienst<IDbContextFactory<BoekerhoudenDbContext>>().CreateDbContextAsync())
+        {
+            var omzet = await db.GrondslagSjablonen.SingleAsync(g => g.Sleutel == "omzet");
+            omzet.TekstFiscaal = "Een oude standaardtekst.";
+            omzet.Volgorde = 999;
+            var kosten = await db.GrondslagSjablonen.SingleAsync(g => g.Sleutel == "kosten");
+            kosten.TekstFiscaal = "De tekst van het kantoor.";
+            kosten.GewijzigdDoor = "Iemand van kantoor";
+            db.GrondslagSjablonen.Add(new GrondslagSjabloon { Sleutel = "vervallen", Groep = "Algemeen", Titel = "Vervallen", TekstFiscaal = "x", GewijzigdDoor = "Standaard" });
+            db.GrondslagSjablonen.Add(new GrondslagSjabloon { Sleutel = "eigen", Groep = "Algemeen", Titel = "Eigen", TekstFiscaal = "x", GewijzigdDoor = "Iemand van kantoor" });
+            await db.SaveChangesAsync();
+            await GrondslagDienst.VulAan(db, nu);
+        }
+
+        var bibliotheek = await Grondslagen.Bibliotheek();
+        var standaard = StandaardGrondslagen.Maak(nu);
+        Assert.Equal(standaard.Single(g => g.Sleutel == "omzet").TekstFiscaal, bibliotheek.Single(g => g.Sleutel == "omzet").TekstFiscaal);
+        Assert.Equal(standaard.Single(g => g.Sleutel == "omzet").Volgorde, bibliotheek.Single(g => g.Sleutel == "omzet").Volgorde);
+        Assert.Equal("De tekst van het kantoor.", bibliotheek.Single(g => g.Sleutel == "kosten").TekstFiscaal);
+        Assert.DoesNotContain(bibliotheek, g => g.Sleutel == "vervallen");
+        Assert.Contains(bibliotheek, g => g.Sleutel == "eigen");
+
+        Assert.True((await Grondslagen.HerstelStandaard("kosten", Tester)).IsGelukt);
+        Assert.Equal(StandaardGrondslagen.Door, (await Grondslagen.Bibliotheek()).Single(g => g.Sleutel == "kosten").GewijzigdDoor);
+
+        await using var opruimen = await server.Dienst<IDbContextFactory<BoekerhoudenDbContext>>().CreateDbContextAsync();
+        await opruimen.GrondslagSjablonen.Where(g => g.Sleutel == "eigen").ExecuteDeleteAsync();
     }
 
     [Fact]

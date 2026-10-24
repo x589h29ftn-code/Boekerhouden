@@ -124,7 +124,7 @@ public enum GrondslagStandaard
     /// <summary>Als een van de gekoppelde posten een saldo heeft (dit of vorig jaar).</summary>
     BijPost,
 
-    /// <summary>Standaard niet (bijv. foutenherstel); de gebruiker zet hem aan.</summary>
+    /// <summary>Standaard dicht (bijv. foutenherstel), tenzij een van de gekoppelde posten een saldo heeft.</summary>
     Optioneel,
 }
 
