@@ -160,6 +160,11 @@ public sealed class DossierOnderdeel
 
     public DateTimeOffset? GereviewdOp { get; set; }
 
+    /// <summary>Gemeld als gereed voor review (door wie de stappen uitvoerde); vervalt als er weer iets open gaat.</summary>
+    public string? TerReviewDoor { get; set; }
+
+    public DateTimeOffset? TerReviewOp { get; set; }
+
     public List<DossierStap> Stappen { get; set; } = [];
 }
 
@@ -240,6 +245,12 @@ public sealed class Reviewpunt
     public string Door { get; set; } = string.Empty;
 
     public DateTimeOffset Op { get; set; }
+
+    /// <summary>De gebruiker die de opmerking moet oppakken; null = niemand in het bijzonder.</summary>
+    public Guid? ToegewezenAanId { get; set; }
+
+    /// <summary>De naam van die gebruiker (zoals bij het toewijzen).</summary>
+    public string? ToegewezenAan { get; set; }
 
     public bool Opgelost { get; set; }
 

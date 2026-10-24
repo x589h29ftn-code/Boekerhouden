@@ -490,6 +490,13 @@ namespace Boekerhouden.Data.Migraties
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<string>("TerReviewDoor")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset?>("TerReviewOp")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Titel")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -1304,6 +1311,13 @@ namespace Boekerhouden.Data.Migraties
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)");
 
+                    b.Property<string>("ToegewezenAan")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid?>("ToegewezenAanId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("DossierId");
@@ -1311,6 +1325,8 @@ namespace Boekerhouden.Data.Migraties
                     b.HasIndex("OnderdeelId");
 
                     b.HasIndex("StapId");
+
+                    b.HasIndex("ToegewezenAanId");
 
                     b.ToTable("Reviewpunten", (string)null);
                 });

@@ -1458,3 +1458,156 @@ tr.klikbaar {
     padding-left: 1.5rem;
     padding-right: 1.5rem;
 }
+
+/* Werkstappen in het dossier: titel met rechts de status en de afvinkknop; het antwoordveld staat altijd open. */
+.wp-stap-regel.stap-kop {
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    padding-top: .35rem;
+}
+
+    .wp-stap-regel.stap-kop .titel {
+        cursor: default;
+    }
+
+    .wp-stap-regel.stap-kop:hover {
+        background: none;
+    }
+
+.wp-stap .wp-stap-detail {
+    padding: 0 .75rem .6rem;
+}
+
+.wp-stap .afvinken {
+    width: 1.6rem;
+    height: 1.6rem;
+    padding: 0;
+    border: 1px solid #c9d1d8;
+    border-radius: 50%;
+    background: #fff;
+    color: #c9d1d8;
+    font-size: .85rem;
+    line-height: 1;
+}
+
+    .wp-stap .afvinken:hover:not(:disabled) {
+        border-color: #6f8f7a;
+        color: #3f7a55;
+    }
+
+    .wp-stap .afvinken.aan {
+        border-color: #3f7a55;
+        background: #3f7a55;
+        color: #fff;
+    }
+
+    .wp-stap .afvinken:disabled:not(.aan) {
+        opacity: .5;
+    }
+
+.wp-stap .bijlagen {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem 1rem;
+    margin-top: .3rem;
+    font-size: .8rem;
+}
+
+.wp-stap .bijlage-toevoegen {
+    color: var(--kleur-zacht);
+    cursor: pointer;
+}
+
+    .wp-stap .bijlage-toevoegen:hover {
+        color: var(--bs-body-color);
+    }
+
+/* Open reviewopmerkingen bovenaan een onderdeel. */
+.wp-opmerkingen {
+    margin: .5rem .75rem;
+    padding: .25rem 0;
+    border-left: 2px solid #d9c690;
+    background: #fdfaf1;
+}
+
+    .wp-opmerkingen .reviewpunt {
+        border-bottom: 0;
+    }
+
+    .wp-opmerkingen > .btn {
+        margin: 0 .75rem .25rem;
+        font-size: .8rem;
+    }
+
+/* Het plusje rechtsboven in een onderdeel. */
+.toevoegmenu {
+    position: relative;
+}
+
+    .toevoegmenu summary {
+        width: 1.75rem;
+        height: 1.75rem;
+        line-height: 1.6rem;
+        list-style: none;
+        border: 1px solid #c9d1d8;
+        border-radius: 50%;
+        color: #5a6670;
+        font-size: 1.1rem;
+        text-align: center;
+        cursor: pointer;
+    }
+
+        .toevoegmenu summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .toevoegmenu summary:hover, .toevoegmenu[open] summary {
+            background: #eef2f5;
+        }
+
+    .toevoegmenu .menu {
+        position: absolute;
+        right: 0;
+        top: calc(100% + .3rem);
+        z-index: 30;
+        min-width: 14rem;
+        padding: .3rem 0;
+        background: #fff;
+        border: 1px solid #e3e7eb;
+        border-radius: .4rem;
+        box-shadow: 0 .4rem 1rem rgba(0, 0, 0, .06);
+        font-size: .9rem;
+        font-weight: normal;
+    }
+
+        .toevoegmenu .menu button {
+            display: block;
+            width: 100%;
+            padding: .3rem .9rem;
+            border: 0;
+            background: none;
+            text-align: left;
+        }
+
+            .toevoegmenu .menu button:hover {
+                background: #f4f6f8;
+            }
+
+/* Onderaan een onderdeel: gereed voor review en gereviewd. */
+.wp-afronden {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .75rem;
+    border-top: 1px solid var(--kleur-lijn);
+    background: #fafbfc;
+}
+
+.status.gereviewd {
+    color: #3f7a55;
+    font-weight: 600;
+}
+
+    .wp-opmerkingen.rustig {
+        border-left-color: transparent;
+        background: none;
+    }

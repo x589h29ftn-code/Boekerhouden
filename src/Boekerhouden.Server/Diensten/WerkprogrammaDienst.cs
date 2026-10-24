@@ -43,7 +43,11 @@ public sealed record ReviewpuntInfo(
     bool Opgelost,
     string? Reactie,
     string? OpgelostDoor,
-    DateTimeOffset? OpgelostOp);
+    DateTimeOffset? OpgelostOp)
+{
+    /// <summary>Wie de opmerking moet oppakken; null = niemand in het bijzonder.</summary>
+    public string? ToegewezenAan { get; init; }
+}
 
 public sealed record OnderdeelInfo(
     Guid Id,
@@ -70,6 +74,13 @@ public sealed record OnderdeelInfo(
     public int OpenPunten => Reviewpunten.Count(p => !p.Opgelost);
 
     public bool IsGereviewd => GereviewdDoor is not null;
+
+    /// <summary>Gemeld als gereed voor review; null = (nog) niet.</summary>
+    public string? TerReviewDoor { get; init; }
+
+    public DateTimeOffset? TerReviewOp { get; init; }
+
+    public bool IsTerReview => TerReviewDoor is not null;
 
     /// <summary>Waarom het onderdeel (nog) niet gereviewd kan worden; null = het kan.</summary>
     public string? NietTeReviewen =>
@@ -332,6 +343,12 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
         stap.Reden = status == StapStatus.NietVanToepassing ? reden : null;
         stap.UitgevoerdDoor = status == StapStatus.Open ? null : wie.Naam;
         stap.UitgevoerdOp = status == StapStatus.Open ? null : tijd.GetUtcNow();
+        if (status == StapStatus.Open)
+        {
+            // Er staat weer iets open: dan is het onderdeel ook niet meer gereed voor review.
+            (onderdeel.TerReviewDoor, onderdeel.TerReviewOp) = (null, null);
+        }
+
         await db.SaveChangesAsync();
         await audit.Log(wie, AuditActies.StapAfgetekend, Onderwerp(dossier),
             $"{onderdeel.Titel} – {stap.Titel}: {Weergave.Tekst(status)}{(reden is null ? null : $" ({reden})")}");
@@ -371,6 +388,7 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
             AangemaaktDoor = wie.Naam,
         };
         db.DossierStappen.Add(stap);
+        (onderdeel.TerReviewDoor, onderdeel.TerReviewOp) = (null, null);
         await db.SaveChangesAsync();
         var dossier = await db.Dossiers.Include(d => d.Klant).SingleAsync(d => d.Id == onderdeel.DossierId);
         await audit.Log(wie, AuditActies.StapToegevoegd, Onderwerp(dossier), $"{onderdeel.Titel} – {titel}");
@@ -722,7 +740,11 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
         {
             OvergenomenVan = s.OvergenomenVan,
         })],
-        [.. punten.Select(p => new ReviewpuntInfo(p.Id, p.StapId, p.Tekst, p.Door, p.Op, p.Opgelost, p.Reactie, p.OpgelostDoor, p.OpgelostOp))]);
+        [.. punten.Select(p => new ReviewpuntInfo(p.Id, p.StapId, p.Tekst, p.Door, p.Op, p.Opgelost, p.Reactie, p.OpgelostDoor, p.OpgelostOp) { ToegewezenAan = p.ToegewezenAan })])
+    {
+        TerReviewDoor = o.TerReviewDoor,
+        TerReviewOp = o.TerReviewOp,
+    };
 
     internal static string Onderwerp(Dossier dossier) => $"{KlantDienst.Onderwerp(dossier.Klant!)} – {dossier.Naam}";
 }

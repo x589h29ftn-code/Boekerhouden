@@ -302,6 +302,7 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
             e.Property(o => o.HoofdpostCode).HasMaxLength(20);
             e.Property(o => o.Notitie).HasMaxLength(20000);
             e.Property(o => o.GereviewdDoor).HasMaxLength(200);
+            e.Property(o => o.TerReviewDoor).HasMaxLength(200);
         });
 
         builder.Entity<DossierStap>(e =>
@@ -389,6 +390,8 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
             e.Property(r => r.Reactie).HasMaxLength(4000);
             e.Property(r => r.Door).HasMaxLength(200);
             e.Property(r => r.OpgelostDoor).HasMaxLength(200);
+            e.Property(r => r.ToegewezenAan).HasMaxLength(200);
+            e.HasIndex(r => r.ToegewezenAanId);
         });
 
         builder.Entity<Bijlage>(e =>

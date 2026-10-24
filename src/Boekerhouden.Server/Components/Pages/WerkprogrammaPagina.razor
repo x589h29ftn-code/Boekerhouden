@@ -8,6 +8,8 @@
 @inject ReviewDienst ReviewDienst
 @inject BijlageDienst BijlageDienst
 @inject RapportDienst RapportDienst
+@inject DoorleesDienst DoorleesDienst
+@inject GebruikerDienst GebruikerDienst
 
 <PageTitle>Werkprogramma @(w?.Dossier.Naam) – Boekerhouden</PageTitle>
 
@@ -64,9 +66,16 @@ else
                                     <span class="titel">@naam</span>
                                     @if (od is { OpenPunten: > 0 })
                                     {
-                                        <span class="status let-op" title="Open reviewpunten">@Aantal(od.OpenPunten, "punt", "punten")</span>
+                                        <span class="status let-op" title="Open reviewopmerkingen">@Aantal(od.OpenPunten, "opmerking", "opmerkingen")</span>
                                     }
-                                    <span class="status" title="@(od is null ? null : $"{Weergave.Tekst(w.Keuzes.GetValueOrDefault(hoofdpost)?.Beoordeling ?? PostBeoordeling.Materieel)}: stappen gereed")">@(od is null ? null : (w.Keuzes.GetValueOrDefault(hoofdpost) is { Beoordeling: PostBeoordeling.Risicopost } ? "risico " : null) + (OnderdeelStatus(od) is { Length: > 0 } st ? st : "materieel"))</span>
+                                    @if (od is { IsGereviewd: true })
+                                    {
+                                        <span class="status gereviewd" title="@KopStatus(od)">✓</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status" title="@(od is null ? null : $"{Weergave.Tekst(w.Keuzes.GetValueOrDefault(hoofdpost)?.Beoordeling ?? PostBeoordeling.Materieel)}: stappen gereed")">@(od is null ? null : (w.Keuzes.GetValueOrDefault(hoofdpost) is { Beoordeling: PostBeoordeling.Risicopost } ? "risico " : null) + (OnderdeelStatus(od) is { Length: > 0 } st ? st : "materieel"))</span>
+                                    }
                                 </button>
                             }
                         }
@@ -77,9 +86,16 @@ else
                             <span class="titel">@od.Titel@(od.Verplicht ? " *" : null)</span>
                             @if (od.OpenPunten > 0)
                             {
-                                <span class="status let-op" title="Open reviewpunten">@Aantal(od.OpenPunten, "punt", "punten")</span>
+                                <span class="status let-op" title="Open reviewopmerkingen">@Aantal(od.OpenPunten, "opmerking", "opmerkingen")</span>
                             }
-                            <span class="status">@OnderdeelStatus(od)</span>
+                            @if (od.IsGereviewd)
+                            {
+                                <span class="status gereviewd" title="@KopStatus(od)">✓</span>
+                            }
+                            else
+                            {
+                                <span class="status">@OnderdeelStatus(od)</span>
+                            }
                         </button>
                     }
                     @if (fase == Fase.Uitvoering && Hoofdposten.Count == 0 && !w.Onderdelen.Any(x => x.Fase == Fase.Uitvoering))
@@ -122,22 +138,7 @@ else
                         {
                             @Beoordeling(beoordeeldePost)
                         }
-                        @if (o.IsGereviewd)
-                        {
-                            <span class="small text-secondary" id="gereviewd">@(o.Soort == OnderdeelSoort.Doorlezen ? "geparafeerd" : "gereviewd") door @o.GereviewdDoor, @Weergave.DatumTijd(o.GereviewdOp!.Value)</span>
-                            @if (o.Soort == OnderdeelSoort.Doorlezen ? isAccountant : isReviewer)
-                            {
-                                <button class="btn btn-sm btn-link text-secondary p-0" @onclick="() => ReviewTerug(o)">terugzetten</button>
-                            }
-                        }
-                        else
-                        {
-                            <span class="small text-secondary">@OnderdeelStatus(o)</span>
-                            @if (o.Soort == OnderdeelSoort.Doorlezen ? isAccountant : isReviewer)
-                            {
-                                <button class="btn btn-sm btn-outline-secondary" disabled="@(o.NietTeReviewen is not null)" title="@(o.NietTeReviewen ?? (o.Soort == OnderdeelSoort.Doorlezen ? "Paraaf van de accountant: het rapport is doorgelezen." : null))" @onclick="() => Reviewen(o)">@(o.Soort == OnderdeelSoort.Doorlezen ? "Paraaf" : "Gereviewd")</button>
-                            }
-                        }
+                        <span class="small text-secondary" id="onderdeelstatus">@KopStatus(o)</span>
                         @if (o.Stappen.Any(s => s.Verwijderd))
                         {
                             <span class="form-check form-switch mb-0 small">
@@ -145,7 +146,47 @@ else
                                 <label class="form-check-label" for="verwijderd">verwijderde stappen</label>
                             </span>
                         }
+                        <details class="uitklapmenu toevoegmenu">
+                            <summary title="Toevoegen" aria-label="Toevoegen">+</summary>
+                            <div class="menu">
+                                <button type="button" @onclick="() => BeginToevoegen(o, Toevoegen.Bespreekpunt)">Bespreekpunt toevoegen</button>
+                                <button type="button" @onclick="() => BeginToevoegen(o, Toevoegen.Reviewopmerking)">Reviewopmerking toevoegen</button>
+                            </div>
+                        </details>
                     </div>
+                    @if (toevoegen == Toevoegen.Bespreekpunt)
+                    {
+                        <form class="bericht m-2 d-flex gap-2" id="bespreekpunt-toevoegen" @onsubmit="() => VoegBespreekpuntToe()" @onsubmit:preventDefault>
+                            <input class="form-control form-control-sm" placeholder="Bespreekpunt voor de klant" @bind="toevoegTekst" aria-label="Nieuw bespreekpunt" autofocus />
+                            <button type="submit" class="btn btn-sm btn-outline-secondary text-nowrap">Toevoegen</button>
+                            <button type="button" class="btn btn-sm btn-link text-secondary" @onclick="() => toevoegen = null">Annuleren</button>
+                        </form>
+                    }
+                    else if (toevoegen == Toevoegen.Reviewopmerking)
+                    {
+                        <form class="bericht m-2" id="reviewopmerking-toevoegen" @onsubmit="() => PlaatsPunt(o)" @onsubmit:preventDefault>
+                            <textarea class="form-control form-control-sm mb-2" rows="2" placeholder="Reviewopmerking" @bind="toevoegTekst" aria-label="Nieuwe reviewopmerking" autofocus></textarea>
+                            <div class="d-flex flex-wrap gap-2">
+                                <select class="form-select form-select-sm w-auto" @bind="puntStap" aria-label="Opmerking bij stap">
+                                    <option value="">hele onderdeel</option>
+                                    @foreach (var s in o.Actief)
+                                    {
+                                        <option value="@s.Id">@s.Titel</option>
+                                    }
+                                </select>
+                                <select class="form-select form-select-sm w-auto" @bind="puntVoor" aria-label="Toewijzen aan">
+                                    <option value="">niet toegewezen</option>
+                                    @foreach (var g in gebruikers)
+                                    {
+                                        <option value="@g.Id">voor @g.Naam</option>
+                                    }
+                                </select>
+                                <button type="submit" class="btn btn-sm btn-outline-secondary ms-auto">Plaatsen</button>
+                                <button type="button" class="btn btn-sm btn-link text-secondary" @onclick="() => toevoegen = null">Annuleren</button>
+                            </div>
+                        </form>
+                    }
+                    @Opmerkingen(o)
                     @if (o.Soort == OnderdeelSoort.Post && o.HoofdpostCode is { } risicopost && w.Keuzes.GetValueOrDefault(risicopost) is { Beoordeling: PostBeoordeling.Risicopost } risicokeuze)
                     {
                         @Risico(risicopost, risicokeuze.Risico)
@@ -230,33 +271,31 @@ else
                         <div class="wp-sectie-kop"><span class="me-auto">Stappen</span></div>
                         @foreach (var s in o.Stappen.Where(s => toonVerwijderd || !s.Verwijderd))
                         {
-                            var isOpen = openStap == s.Id;
-                            <div class="wp-stap @(s.Verwijderd ? "verwijderd" : null) @(isOpen ? "open" : null)" data-stap="@s.Titel" @key="(s.Id, versie)">
-                                <div class="wp-stap-regel">
-                                    <input type="checkbox" class="form-check-input" checked="@(s.Status == StapStatus.Gereed)" disabled="@(s.Verwijderd || s.Status == StapStatus.NietVanToepassing || o.IsGereviewd)"
-                                           aria-label="@s.Titel gereed" title="Aftekenen" @onchange="e => ZetStatus(s, (bool)e.Value! ? StapStatus.Gereed : StapStatus.Open, null)" />
-                                    <span class="titel" @onclick="() => openStap = isOpen ? null : s.Id" title="@s.Instructie">
+                            var vast = s.Verwijderd || o.IsGereviewd;
+                            <div class="wp-stap @(s.Verwijderd ? "verwijderd" : null) @(s.Status == StapStatus.Gereed ? "gereed" : null)" data-stap="@s.Titel" @key="(s.Id, versie)">
+                                <div class="wp-stap-regel stap-kop">
+                                    <span class="titel" title="@s.Instructie">
                                         @s.Titel@(s.Verplicht ? " *" : null)
                                         @if (s.Eigen)
                                         {
                                             <span class="status ms-1">eigen</span>
                                         }
-                                        @if (s.Bijlagen.Count > 0)
-                                        {
-                                            <span class="status ms-2">@Aantal(s.Bijlagen.Count, "bijlage", "bijlagen")</span>
-                                        }
                                         @if (o.Reviewpunten.Count(p => p.StapId == s.Id && !p.Opgelost) is > 0 and var punten)
                                         {
-                                            <span class="status let-op ms-2">@Aantal(punten, "punt", "punten")</span>
+                                            <span class="status let-op ms-2">@Aantal(punten, "opmerking", "opmerkingen")</span>
                                         }
                                     </span>
-                                    <span class="status">@StapTekst(s)</span>
                                     <span class="acties">
-                                        @if (o.IsGereviewd)
+                                        @if (!vast)
                                         {
-                                        }
-                                        else if (!s.Verwijderd)
-                                        {
+                                            @if (s.Status == StapStatus.NietVanToepassing)
+                                            {
+                                                <button class="btn btn-sm btn-link" @onclick="() => ZetStatus(s, StapStatus.Open, null)">weer open</button>
+                                            }
+                                            else if (s.Status == StapStatus.Open)
+                                            {
+                                                <button class="btn btn-sm btn-link" @onclick="() => { nvtStap = s.Id; nvtReden = string.Empty; }">n.v.t.</button>
+                                            }
                                             <button class="btn btn-sm btn-link" title="Omhoog" @onclick="() => Verplaats(s, -1)">↑</button>
                                             <button class="btn btn-sm btn-link" title="Omlaag" @onclick="() => Verplaats(s, 1)">↓</button>
                                             @if (!s.Verplicht)
@@ -264,11 +303,18 @@ else
                                                 <button class="btn btn-sm btn-link" title="Verwijderen" @onclick="() => BeginVerwijderen(s)">✕</button>
                                             }
                                         }
-                                        else
+                                        else if (s.Verwijderd)
                                         {
                                             <button class="btn btn-sm btn-link" @onclick="() => Herstel(s)">herstellen</button>
                                         }
                                     </span>
+                                    <span class="status">@StapTekst(s)</span>
+                                    @if (!s.Verwijderd)
+                                    {
+                                        <button type="button" class="afvinken @(s.Status == StapStatus.Gereed ? "aan" : null)" disabled="@(vast || s.Status == StapStatus.NietVanToepassing)"
+                                                title="@(s.Status == StapStatus.Gereed ? "Afgevinkt; klik om weer open te zetten" : "Afvinken")" aria-label="@s.Titel afvinken" aria-pressed="@(s.Status == StapStatus.Gereed ? "true" : "false")"
+                                                @onclick="() => ZetStatus(s, s.Status == StapStatus.Gereed ? StapStatus.Open : StapStatus.Gereed, null)">✓</button>
+                                    }
                                 </div>
                                 @if (verwijderStap == s.Id)
                                 {
@@ -278,60 +324,38 @@ else
                                         <button type="button" class="btn btn-sm btn-link text-secondary" @onclick="() => verwijderStap = null">Annuleren</button>
                                     </form>
                                 }
-                                @if (isOpen)
+                                @if (nvtStap == s.Id)
+                                {
+                                    <form class="wp-stap-detail d-flex gap-2" @onsubmit="() => ZetStatus(s, StapStatus.NietVanToepassing, nvtReden)" @onsubmit:preventDefault>
+                                        <input class="form-control form-control-sm" placeholder="Reden" @bind="nvtReden" aria-label="Reden niet van toepassing" autofocus />
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary text-nowrap">Niet van toepassing</button>
+                                        <button type="button" class="btn btn-sm btn-link text-secondary" @onclick="() => nvtStap = null">Annuleren</button>
+                                    </form>
+                                }
+                                @if (!s.Verwijderd)
                                 {
                                     <div class="wp-stap-detail">
-                                        @if (s.Instructie is not null)
-                                        {
-                                            <p class="instructie">@s.Instructie</p>
-                                        }
-                                        <textarea class="form-control form-control-sm" rows="3" placeholder="Antwoord of uitwerking" value="@s.Antwoord" disabled="@(s.Verwijderd || o.IsGereviewd)"
+                                        <textarea class="form-control form-control-sm" rows="2" placeholder="@(s.Instructie ?? "Antwoord of uitwerking")" value="@s.Antwoord" disabled="@vast"
                                                   aria-label="Antwoord @s.Titel" @onchange="e => BewaarAntwoord(s, (string?)e.Value)"></textarea>
-                                        <div class="bijlagen mt-2">
+                                        <div class="bijlagen">
                                             @foreach (var b in s.Bijlagen)
                                             {
-                                                <div class="bijlage" @key="b.Id">
-                                                    <a href="/bijlagen/@b.Id" download title="@b.Door, @Weergave.DatumTijd(b.Op)">@b.Bestandsnaam</a>
-                                                    <span class="status">@Grootte(b.Grootte)</span>
-                                                    @if (!o.IsGereviewd)
+                                                <span class="bijlage" @key="b.Id">
+                                                    <a href="/bijlagen/@b.Id" download title="@b.Door, @Weergave.DatumTijd(b.Op), @Grootte(b.Grootte)">@b.Bestandsnaam</a>
+                                                    @if (!vast)
                                                     {
                                                         <button class="btn btn-sm btn-link text-secondary p-0" title="Bijlage verwijderen" @onclick="() => VerwijderBijlage(b)">✕</button>
                                                     }
-                                                </div>
+                                                </span>
                                             }
-                                            @if (!s.Verwijderd && !o.IsGereviewd)
+                                            @if (!vast)
                                             {
-                                                <label class="small text-secondary">
-                                                    bijlage toevoegen
-                                                    <InputFile class="form-control form-control-sm d-inline-block w-auto ms-1" OnChange="e => Upload(s, e)" aria-label="@($"Bijlage bij {s.Titel}")" />
+                                                <label class="bijlage-toevoegen" title="Bijlage toevoegen (tot 25 MB)">
+                                                    + bijlage
+                                                    <InputFile class="visually-hidden" OnChange="e => Upload(s, e)" aria-label="@($"Bijlage bij {s.Titel}")" />
                                                 </label>
                                             }
                                         </div>
-                                        @if (!s.Verwijderd && !o.IsGereviewd)
-                                        {
-                                            <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-                                                @if (s.Status != StapStatus.Gereed)
-                                                {
-                                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => ZetStatus(s, StapStatus.Gereed, null)">Aftekenen</button>
-                                                }
-                                                @if (s.Status != StapStatus.Open)
-                                                {
-                                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => ZetStatus(s, StapStatus.Open, null)">Weer openzetten</button>
-                                                }
-                                                @if (s.Status != StapStatus.NietVanToepassing)
-                                                {
-                                                    @if (nvtStap == s.Id)
-                                                    {
-                                                        <input class="form-control form-control-sm w-auto flex-grow-1" placeholder="Reden" @bind="nvtReden" aria-label="Reden niet van toepassing" />
-                                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => ZetStatus(s, StapStatus.NietVanToepassing, nvtReden)">Niet van toepassing</button>
-                                                    }
-                                                    else
-                                                    {
-                                                        <button class="btn btn-sm btn-link text-secondary" @onclick="() => { nvtStap = s.Id; nvtReden = string.Empty; }">niet van toepassing…</button>
-                                                    }
-                                                }
-                                            </div>
-                                        }
                                     </div>
                                 }
                             </div>
@@ -351,59 +375,12 @@ else
                         }
                     </div>
 
-                    <div class="wp-sectie" id="reviewpunten">
-                        <div class="wp-sectie-kop"><span class="me-auto">Reviewpunten</span></div>
-                        @foreach (var p in o.Reviewpunten.OrderBy(p => p.Opgelost).ThenBy(p => p.Op))
-                        {
-                            <div class="reviewpunt @(p.Opgelost ? "opgelost" : null)" @key="(p.Id, versie)">
-                                <div class="d-flex gap-2 align-items-baseline">
-                                    <span class="me-auto">
-                                        @if (p.StapId is { } stapId && o.Stappen.FirstOrDefault(x => x.Id == stapId) is { } bij)
-                                        {
-                                            <span class="status me-1">@bij.Titel:</span>
-                                        }
-                                        @p.Tekst
-                                    </span>
-                                    <span class="status">@p.Door, @Weergave.Datum(p.Op)</span>
-                                </div>
-                                @if (p.Opgelost)
-                                {
-                                    <div class="small text-secondary">
-                                        @($"opgelost door {p.OpgelostDoor}{(p.Reactie is null ? null : ": " + p.Reactie)}")
-                                        <button class="btn btn-sm btn-link text-secondary p-0 ms-1" @onclick="() => Heropen(p)">heropenen</button>
-                                    </div>
-                                }
-                                else if (oplossen == p.Id)
-                                {
-                                    <form class="d-flex gap-2 mt-1" @onsubmit="() => LosOp(p)" @onsubmit:preventDefault>
-                                        <input class="form-control form-control-sm" placeholder="Reactie (optioneel)" @bind="reactie" aria-label="Reactie op reviewpunt" />
-                                        <button type="submit" class="btn btn-sm btn-outline-secondary">Opgelost</button>
-                                        <button type="button" class="btn btn-sm btn-link text-secondary" @onclick="() => oplossen = null">Annuleren</button>
-                                    </form>
-                                }
-                                else
-                                {
-                                    <button class="btn btn-sm btn-link p-0" @onclick="() => { oplossen = p.Id; reactie = null; }">oplossen…</button>
-                                }
-                            </div>
-                        }
-                        <form class="d-flex gap-2 p-2" @onsubmit="() => PlaatsPunt(o)" @onsubmit:preventDefault>
-                            <select class="form-select form-select-sm w-auto" @bind="puntStap" aria-label="Reviewpunt bij stap">
-                                <option value="">hele onderdeel</option>
-                                @foreach (var s in o.Actief)
-                                {
-                                    <option value="@s.Id">@s.Titel</option>
-                                }
-                            </select>
-                            <input class="form-control form-control-sm" placeholder="Nieuw reviewpunt" @bind="puntTekst" aria-label="Nieuw reviewpunt" />
-                            <button type="submit" class="btn btn-sm btn-outline-secondary text-nowrap">Plaatsen</button>
-                        </form>
-                    </div>
                     @if (o.Soort == OnderdeelSoort.Post && o.HoofdpostCode is { } rapportpost)
                     {
                         @InRapport(rapportpost)
                         @Grondslag(rapportpost)
                     }
+                    @Afronden(o)
                     @if (o.Fase == Fase.Uitvoering && o.HoofdpostCode is { } huidig && HeeftSaldo(huidig))
                     {
                         @VorigeVolgende(huidig)
@@ -423,7 +400,6 @@ else
     private Guid? gekozenId;
     private string? gekozenPost;
     private RapportInhoud? rapportInhoud;
-    private Guid? openStap;
     private Guid? nvtStap;
     private string nvtReden = string.Empty;
     private Guid? verwijderStap;
@@ -439,8 +415,18 @@ else
     private bool isAccountant;
     private Guid? oplossen;
     private string? reactie;
-    private string? puntTekst;
     private Guid? puntStap;
+    private Guid? puntVoor;
+    private Toevoegen? toevoegen;
+    private string? toevoegTekst;
+    private bool toonOpgelost;
+    private IReadOnlyList<GebruikerRegel> gebruikers = [];
+
+    private enum Toevoegen
+    {
+        Bespreekpunt,
+        Reviewopmerking,
+    }
     private readonly HashSet<string> open = new(StringComparer.Ordinal);
 
     [Parameter]
@@ -467,6 +453,7 @@ else
     {
         var gebruiker = (await Authenticatie).User;
         isAccountant = gebruiker.IsInRole(Rollen.Accountant);
+        gebruikers = [.. (await GebruikerDienst.Lijst()).Where(g => g.Actief).OrderBy(g => g.Naam)];
         isReviewer = gebruiker.IsInRole(Rollen.Reviewer) || isAccountant;
         gekozenId = OnderdeelBijStart;
         gekozenPost = PostBijStart;
@@ -588,6 +575,7 @@ else
 
     private static string OnderdeelStatus(OnderdeelInfo o) =>
         o.GereviewdDoor is not null ? (o.Soort == OnderdeelSoort.Doorlezen ? "geparafeerd" : "gereviewd")
+        : o.IsTerReview ? "ter review"
         : o.Aantal == 0 ? ""
         : o.IsGereed ? "gereed"
         : $"{o.Klaar}/{o.Aantal}";
@@ -605,7 +593,6 @@ else
     {
         gekozenId = onderdeelId;
         gekozenPost = null;
-        openStap = null;
         nieuweStap = false;
         verwijderStap = null;
         afmelden = null;
@@ -880,16 +867,136 @@ else
 
     private async Task PlaatsPunt(OnderdeelInfo o)
     {
-        var uitkomst = await ReviewDienst.PlaatsPunt(o.Id, puntStap, puntTekst ?? string.Empty, await Wie());
-        Meld(uitkomst, "Reviewpunt geplaatst");
+        var uitkomst = await ReviewDienst.PlaatsPunt(o.Id, puntStap, toevoegTekst ?? string.Empty, await Wie(), puntVoor);
+        Meld(uitkomst, "Reviewopmerking geplaatst");
         if (uitkomst.IsGelukt)
         {
-            puntTekst = null;
-            puntStap = null;
+            (toevoegen, toevoegTekst, puntStap, puntVoor) = (null, null, null, null);
         }
 
         await Laad();
     }
+
+    private void BeginToevoegen(OnderdeelInfo o, Toevoegen wat)
+    {
+        toevoegen = wat;
+        toevoegTekst = wat == Toevoegen.Bespreekpunt ? $"{o.Titel}: " : null;
+        (puntStap, puntVoor) = (null, null);
+    }
+
+    private async Task VoegBespreekpuntToe()
+    {
+        var uitkomst = await DoorleesDienst.VoegBespreekpuntToe(Id, toevoegTekst, null, await Wie());
+        Meld(uitkomst, "Bespreekpunt toegevoegd (bij Bespreking met de klant)");
+        if (uitkomst.IsGelukt)
+        {
+            (toevoegen, toevoegTekst) = (null, null);
+        }
+    }
+
+    private async Task GereedVoorReview(OnderdeelInfo o)
+    {
+        Meld(await ReviewDienst.GereedVoorReview(o.Id, await Wie()), $"'{o.Titel}' staat klaar voor review");
+        await Laad();
+    }
+
+    private async Task TrekReviewIn(OnderdeelInfo o)
+    {
+        Meld(await ReviewDienst.TrekReviewIn(o.Id, await Wie()), $"'{o.Titel}' staat niet meer klaar voor review");
+        await Laad();
+    }
+
+    /// <summary>De stand in de kop van het onderdeel: gereviewd, gereed voor review of hoeveel stappen klaar zijn.</summary>
+    private static string KopStatus(OnderdeelInfo o) => o switch
+    {
+        { IsGereviewd: true } => $"{(o.Soort == OnderdeelSoort.Doorlezen ? "geparafeerd" : "gereviewd")} door {o.GereviewdDoor}, {Weergave.Datum(o.GereviewdOp!.Value)}",
+        { IsTerReview: true } => $"gereed voor review ({o.TerReviewDoor}, {Weergave.Datum(o.TerReviewOp!.Value)})",
+        _ => OnderdeelStatus(o),
+    };
+
+    /// <summary>De open reviewopmerkingen bovenaan het onderdeel (opgeloste achter een schakelaar).</summary>
+    private RenderFragment Opmerkingen(OnderdeelInfo o) => __builder =>
+    {
+        var opgelost = o.Reviewpunten.Count(p => p.Opgelost);
+        if (o.Reviewpunten.Count == 0)
+        {
+            return;
+        }
+
+        <div class="wp-opmerkingen @(o.OpenPunten == 0 && !toonOpgelost ? "rustig" : null)" id="reviewpunten">
+            @foreach (var p in o.Reviewpunten.Where(p => !p.Opgelost || toonOpgelost).OrderBy(p => p.Opgelost).ThenBy(p => p.Op))
+            {
+                <div class="reviewpunt @(p.Opgelost ? "opgelost" : null)" @key="(p.Id, versie)">
+                    <div class="d-flex gap-2 align-items-baseline">
+                        <span class="me-auto">
+                            @if (p.StapId is { } stapId && o.Stappen.FirstOrDefault(x => x.Id == stapId) is { } bij)
+                            {
+                                <span class="status me-1">@bij.Titel:</span>
+                            }
+                            @p.Tekst
+                        </span>
+                        <span class="status" title="@($"{p.Door}, {Weergave.DatumTijd(p.Op)}")">@(p.ToegewezenAan is null ? p.Door : $"{p.Door} → {p.ToegewezenAan}")</span>
+                        @if (!p.Opgelost && oplossen != p.Id)
+                        {
+                            <button class="btn btn-sm btn-link p-0" @onclick="() => { oplossen = p.Id; reactie = null; }">oplossen</button>
+                        }
+                    </div>
+                    @if (p.Opgelost)
+                    {
+                        <div class="small text-secondary">
+                            @($"opgelost door {p.OpgelostDoor}{(p.Reactie is null ? null : ": " + p.Reactie)}")
+                            <button class="btn btn-sm btn-link text-secondary p-0 ms-1" @onclick="() => Heropen(p)">heropenen</button>
+                        </div>
+                    }
+                    else if (oplossen == p.Id)
+                    {
+                        <form class="d-flex gap-2 mt-1" @onsubmit="() => LosOp(p)" @onsubmit:preventDefault>
+                            <input class="form-control form-control-sm" placeholder="Reactie (optioneel)" @bind="reactie" aria-label="Reactie op reviewopmerking" />
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">Opgelost</button>
+                            <button type="button" class="btn btn-sm btn-link text-secondary" @onclick="() => oplossen = null">Annuleren</button>
+                        </form>
+                    }
+                </div>
+            }
+            @if (opgelost > 0)
+            {
+                <button class="btn btn-sm btn-link text-secondary p-0" @onclick="() => toonOpgelost = !toonOpgelost">@(toonOpgelost ? "opgeloste verbergen" : $"{opgelost} opgelost")</button>
+            }
+        </div>
+    };
+
+    /// <summary>Onderaan het onderdeel: gereed melden voor review, en voor een reviewer (bij doorlezen: de accountant) gereviewd aftekenen.</summary>
+    private RenderFragment Afronden(OnderdeelInfo o) => __builder =>
+    {
+        var reviewer = o.Soort == OnderdeelSoort.Doorlezen ? isAccountant : isReviewer;
+        var woord = o.Soort == OnderdeelSoort.Doorlezen ? "Paraaf" : "Gereviewd";
+        <div class="wp-afronden" id="afronden">
+            @if (o.IsGereviewd)
+            {
+                <span class="status gereviewd me-auto">✓ @KopStatus(o)</span>
+                @if (reviewer)
+                {
+                    <button class="btn btn-sm btn-link text-secondary" @onclick="() => ReviewTerug(o)">terugzetten</button>
+                }
+            }
+            else
+            {
+                <span class="status me-auto">@(o.IsTerReview ? KopStatus(o) : o.NietTeReviewen)</span>
+                @if (o.IsTerReview)
+                {
+                    <button class="btn btn-sm btn-link text-secondary" @onclick="() => TrekReviewIn(o)">intrekken</button>
+                }
+                else
+                {
+                    <button class="btn btn-sm btn-outline-secondary" disabled="@(o.NietTeReviewen is not null)" @onclick="() => GereedVoorReview(o)">Gereed voor review</button>
+                }
+                @if (reviewer)
+                {
+                    <button class="btn btn-sm btn-outline-primary" disabled="@(o.NietTeReviewen is not null)" title="@o.NietTeReviewen" @onclick="() => Reviewen(o)">@woord</button>
+                }
+            }
+        </div>
+    };
 
     private async Task LosOp(ReviewpuntInfo p)
     {

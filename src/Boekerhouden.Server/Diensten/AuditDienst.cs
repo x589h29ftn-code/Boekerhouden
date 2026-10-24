@@ -95,6 +95,8 @@ public static class AuditActies
     public const string ReviewpuntOpgelost = "Reviewpunt opgelost";
     public const string ReviewpuntHeropend = "Reviewpunt heropend";
     public const string OnderdeelGereviewd = "Onderdeel gereviewd";
+    public const string GereedVoorReview = "Gereed voor review";
+    public const string ReviewIngetrokken = "Gereed voor review ingetrokken";
     public const string ReviewTeruggezet = "Review teruggezet";
     public const string BijlageToegevoegd = "Bijlage toegevoegd";
     public const string BijlageVerwijderd = "Bijlage verwijderd";

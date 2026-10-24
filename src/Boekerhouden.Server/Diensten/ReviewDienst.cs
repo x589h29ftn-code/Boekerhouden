@@ -11,8 +11,11 @@ public sealed class ReviewDienst(IDbContextFactory<BoekerhoudenDbContext> dbFact
 {
     public const string AlleenReviewers = "Alleen een reviewer of accountant kan een onderdeel als gereviewd aftekenen.";
 
-    /// <summary>Een reviewpunt plaatsen. Was het onderdeel al gereviewd, dan vervalt die review.</summary>
-    public async Task<Uitkomst<Guid>> PlaatsPunt(Guid onderdeelId, Guid? stapId, string tekst, Uitvoerder wie)
+    /// <summary>
+    /// Een reviewopmerking plaatsen, eventueel bij een stap en toegewezen aan een gebruiker. Was het onderdeel al
+    /// gereviewd of gereed voor review, dan vervalt dat.
+    /// </summary>
+    public async Task<Uitkomst<Guid>> PlaatsPunt(Guid onderdeelId, Guid? stapId, string tekst, Uitvoerder wie, Guid? toegewezenAanId = null)
     {
         ArgumentNullException.ThrowIfNull(wie);
         tekst = tekst?.Trim() ?? string.Empty;
@@ -33,8 +36,20 @@ public sealed class ReviewDienst(IDbContextFactory<BoekerhoudenDbContext> dbFact
             return Uitkomst<Guid>.Mislukt("Deze stap hoort niet bij dit onderdeel.");
         }
 
+        string? toegewezenAan = null;
+        if (toegewezenAanId is { } aan)
+        {
+            toegewezenAan = await db.Users.Where(u => u.Id == aan && u.Actief).Select(u => u.Naam).SingleOrDefaultAsync();
+            if (toegewezenAan is null)
+            {
+                return Uitkomst<Guid>.Mislukt("Wijs de opmerking toe aan een actieve gebruiker.");
+            }
+        }
+
         var punt = new Reviewpunt
         {
+            ToegewezenAanId = toegewezenAanId,
+            ToegewezenAan = toegewezenAan,
             Id = Guid.NewGuid(),
             DossierId = onderdeel.DossierId,
             OnderdeelId = onderdeelId,
@@ -47,10 +62,11 @@ public sealed class ReviewDienst(IDbContextFactory<BoekerhoudenDbContext> dbFact
         var vervallen = onderdeel.GereviewdDoor is not null;
         onderdeel.GereviewdDoor = null;
         onderdeel.GereviewdOp = null;
+        (onderdeel.TerReviewDoor, onderdeel.TerReviewOp) = (null, null);
         await db.SaveChangesAsync();
         var dossier = await db.Dossiers.Include(d => d.Klant).SingleAsync(d => d.Id == onderdeel.DossierId);
         await audit.Log(wie, AuditActies.ReviewpuntGeplaatst, WerkprogrammaDienst.Onderwerp(dossier),
-            $"{onderdeel.Titel}: {tekst}{(vervallen ? " (review vervallen)" : null)}");
+            $"{onderdeel.Titel}: {tekst}{(toegewezenAan is null ? null : $" (voor {toegewezenAan})")}{(vervallen ? " (review vervallen)" : null)}");
         return Uitkomst<Guid>.Met(punt.Id);
     }
 
@@ -96,6 +112,55 @@ public sealed class ReviewDienst(IDbContextFactory<BoekerhoudenDbContext> dbFact
         onderdeel.GereviewdOp = null;
         await db.SaveChangesAsync();
         await Log(db, wie, AuditActies.ReviewpuntHeropend, punt, null);
+        return Uitkomst.Gelukt;
+    }
+
+    /// <summary>
+    /// Het onderdeel melden als gereed voor review: alle stappen zijn gereed of niet van toepassing en er staan geen
+    /// reviewopmerkingen open. Een stap die weer open gaat of een nieuwe opmerking laat de melding vervallen.
+    /// </summary>
+    public async Task<Uitkomst> GereedVoorReview(Guid onderdeelId, Uitvoerder wie)
+    {
+        ArgumentNullException.ThrowIfNull(wie);
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var onderdeel = await db.DossierOnderdelen.Include(o => o.Stappen).SingleOrDefaultAsync(o => o.Id == onderdeelId);
+        if (onderdeel is null)
+        {
+            return Uitkomst.Mislukt("Dit onderdeel bestaat niet (meer).");
+        }
+
+        var open = onderdeel.Stappen.Count(s => !s.Verwijderd && s.Status == StapStatus.Open);
+        var punten = await db.Reviewpunten.CountAsync(p => p.OnderdeelId == onderdeelId && !p.Opgelost);
+        if (onderdeel.GereviewdDoor is not null || onderdeel.TerReviewDoor is not null || open > 0 || punten > 0)
+        {
+            return Uitkomst.Mislukt(onderdeel.GereviewdDoor is not null ? "Het onderdeel is al gereviewd."
+                : onderdeel.TerReviewDoor is not null ? "Het onderdeel staat al klaar voor review."
+                : open > 0 ? $"Nog {open} stap(pen) open; vink ze af of zet ze op niet van toepassing."
+                : $"Er staan nog {punten} reviewopmerking(en) open.");
+        }
+
+        (onderdeel.TerReviewDoor, onderdeel.TerReviewOp) = (wie.Naam, tijd.GetUtcNow());
+        await db.SaveChangesAsync();
+        var dossier = await db.Dossiers.Include(d => d.Klant).SingleAsync(d => d.Id == onderdeel.DossierId);
+        await audit.Log(wie, AuditActies.GereedVoorReview, WerkprogrammaDienst.Onderwerp(dossier), onderdeel.Titel);
+        return Uitkomst.Gelukt;
+    }
+
+    /// <summary>De melding "gereed voor review" intrekken (zolang het onderdeel niet is gereviewd).</summary>
+    public async Task<Uitkomst> TrekReviewIn(Guid onderdeelId, Uitvoerder wie)
+    {
+        ArgumentNullException.ThrowIfNull(wie);
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var onderdeel = await db.DossierOnderdelen.SingleOrDefaultAsync(o => o.Id == onderdeelId);
+        if (onderdeel?.TerReviewDoor is null || onderdeel.GereviewdDoor is not null)
+        {
+            return Uitkomst.Mislukt(onderdeel?.GereviewdDoor is not null ? WerkprogrammaDienst.Gereviewd : "Het onderdeel staat niet klaar voor review.");
+        }
+
+        (onderdeel.TerReviewDoor, onderdeel.TerReviewOp) = (null, null);
+        await db.SaveChangesAsync();
+        var dossier = await db.Dossiers.Include(d => d.Klant).SingleAsync(d => d.Id == onderdeel.DossierId);
+        await audit.Log(wie, AuditActies.ReviewIngetrokken, WerkprogrammaDienst.Onderwerp(dossier), onderdeel.Titel);
         return Uitkomst.Gelukt;
     }
 

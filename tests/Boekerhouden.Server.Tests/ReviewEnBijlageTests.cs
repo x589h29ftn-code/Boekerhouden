@@ -124,4 +124,45 @@ public sealed class ReviewEnBijlageTests(ServerFixture server) : IClassFixture<S
         Assert.Empty((await Kennis(dossierId)).Stappen[0].Bijlagen);
         Assert.False((await Bijlagen.VoegToe(stap.Id, "leeg.txt", null, new MemoryStream(), Medewerker)).IsGelukt);
     }
+
+    [Fact]
+    public async Task Gereed_voor_review_vervalt_als_er_weer_iets_open_gaat()
+    {
+        var (dossierId, kennis) = await Dossier();
+
+        Assert.Contains("stap(pen) open", Assert.Single((await Review.GereedVoorReview(kennis.Id, Medewerker)).Fouten), StringComparison.Ordinal);
+        await AllesGereed(kennis);
+        Assert.True((await Review.GereedVoorReview(kennis.Id, Medewerker)).IsGelukt);
+        var gemeld = await Kennis(dossierId);
+        Assert.Equal(("Mo Medewerker", true), (gemeld.TerReviewDoor, gemeld.IsTerReview));
+        Assert.False((await Review.GereedVoorReview(kennis.Id, Medewerker)).IsGelukt);
+
+        // Een stap weer open: niet meer gereed voor review.
+        Assert.True((await Werkprogramma.ZetStatus(kennis.Stappen[0].Id, StapStatus.Open, null, Medewerker)).IsGelukt);
+        Assert.False((await Kennis(dossierId)).IsTerReview);
+
+        Assert.True((await Werkprogramma.ZetStatus(kennis.Stappen[0].Id, StapStatus.Gereed, null, Medewerker)).IsGelukt);
+        Assert.True((await Review.GereedVoorReview(kennis.Id, Medewerker)).IsGelukt);
+        Assert.True((await Review.TrekReviewIn(kennis.Id, Medewerker)).IsGelukt);
+        Assert.False((await Kennis(dossierId)).IsTerReview);
+        Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.GereedVoorReview), a => a.Details == "Kennis van de cliënt");
+    }
+
+    [Fact]
+    public async Task Reviewopmerking_toewijzen_aan_een_gebruiker()
+    {
+        var reviewer = await server.Beheerder();
+        var (dossierId, kennis) = await Dossier();
+        await AllesGereed(kennis);
+        await Review.GereedVoorReview(kennis.Id, Medewerker);
+
+        Assert.False((await Review.PlaatsPunt(kennis.Id, null, "Graag aanvullen.", reviewer, Guid.NewGuid())).IsGelukt);
+        Assert.True((await Review.PlaatsPunt(kennis.Id, kennis.Stappen[0].Id, "Graag aanvullen.", reviewer, reviewer.Id)).IsGelukt);
+
+        var na = await Kennis(dossierId);
+        var punt = Assert.Single(na.Reviewpunten);
+        Assert.Equal(("Bea Beheer", "Graag aanvullen."), (punt.ToegewezenAan, punt.Tekst));
+        Assert.False(na.IsTerReview);
+        Assert.Contains("reviewopmerking(en) open", Assert.Single((await Review.GereedVoorReview(kennis.Id, Medewerker)).Fouten), StringComparison.Ordinal);
+    }
 }
