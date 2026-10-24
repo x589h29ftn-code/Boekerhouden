@@ -50,6 +50,53 @@ Bij de eerste keer openen vraagt de app om het eerste account; dat krijgt alle r
 via *RGS* het officiële RGS-werkboek in (download: Kennisbank op referentiegrootboekschema.nl; het
 werkboek staat niet in deze repository). Verzonnen saldibalansen om in te lezen staan in `tests/Fictief/`.
 
+### Demo: meteen klanten om mee te werken
+
+```bash
+dotnet run --project src/Boekerhouden.Server -- --demo
+```
+
+Met `--demo` vult de app bij het starten wat er nog niet is:
+
+- het account `demo@kantoor.test` (wachtwoord `Blauwe-Fiets-Kade-73`; alleen als er nog geen account is);
+- het RGS-werkboek: het eerste `RGS*.xlsx` in `testdata/` (of `BOEKERHOUDEN_RGS_WERKBOEK`, of `--Demo:RgsWerkboek=...`);
+- kantoorgegevens "Voorbeeld Accountants";
+- per submap van `tests/Fictief/` en `testdata/demo/` een klant: alle `saldibalans-JJJJ.csv` (of `.xlsx`) ingelezen,
+  een dossier voor het laatste jaar en de rekeningen gekoppeld volgens de voorstellen.
+
+De naam van de klant komt uit het bestand (regel `Klant;...`), de rechtsvorm uit de mapnaam (`ez-...` is een
+eenmanszaak, anders een BV). Een eigen `klant.json` in de submap gaat voor:
+
+```json
+{ "naam": "Testklant B.V.", "rechtsvorm": "BV", "plaats": "Testplaats", "kvk": "00000000", "grondslag": "Fiscaal" }
+```
+
+Een klant met dezelfde naam wordt niet nog eens toegevoegd, dus opnieuw starten met `--demo` kan geen kwaad. Echte
+klantbestanden horen in `testdata/`: die map blijft buiten git.
+
+### Lokaal op een Windows-pc
+
+1. Installeer de .NET 10 SDK (`winget install Microsoft.DotNet.SDK.10`), Git (`winget install Git.Git`) en PostgreSQL
+   (installatieprogramma van postgresql.org; onthoud het wachtwoord van gebruiker `postgres`).
+2. Maak in *SQL Shell (psql)*, ingelogd als `postgres`, de rol en de database aan:
+
+   ```sql
+   CREATE ROLE boekerhouden LOGIN CREATEDB PASSWORD 'boekerhouden-dev';
+   CREATE DATABASE boekerhouden OWNER boekerhouden;
+   ```
+
+3. Haal de code op en start de demo:
+
+   ```bash
+   git clone https://github.com/x589h29ftn-code/Boekerhouden.git
+   cd Boekerhouden
+   dotnet run --project src/Boekerhouden.Server -- --demo
+   ```
+
+4. Open http://localhost:5080 en log in met het demo-account. De PDF wordt gemaakt met Edge.
+
+Een lege database om opnieuw te beginnen: `DROP DATABASE boekerhouden WITH (FORCE); CREATE DATABASE boekerhouden OWNER boekerhouden;`.
+
 De opdrachtregel werkt zonder database:
 
 ```bash

@@ -11,6 +11,7 @@ dotnet build Boekerhouden.slnx
 dotnet test Boekerhouden.slnx
 dotnet format Boekerhouden.slnx --verify-no-changes   # opmaak/stijl
 dotnet run --project src/Boekerhouden.Server           # webapp op http://localhost:5080
+dotnet run --project src/Boekerhouden.Server -- --demo   # idem, gevuld met demo-account, RGS en klanten (README)
 dotnet run --project src/Boekerhouden.Cli -- controleer tests/Fictief/bv-voorbeeld-bakkerij/saldibalans-2025.csv
 dotnet ef migrations add <Naam> --project src/Boekerhouden.Data --output-dir Migraties   # na een modelwijziging
 ```
@@ -38,6 +39,7 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   `Jaarversies` = instellingen die gelden vanaf een boekjaar, nooit met terugwerkende kracht), `Werkprogramma/` (het meegeleverde standaardwerkprogramma), `Grondslagen/` (de
   meegeleverde bibliotheek: algemene toelichting en grondslagen, commercieel en fiscaal, met `{naam}` e.d.), `Identiteit/` (inloggen, wachtwoordbeleid), `Components/` (schermen; accountpagina's statisch,
   de rest interactief; `Rapportweergave/` = het rapport als bewerkbare viewer, dezelfde component rendert de PDF),
+  `Demo/` (`--demo`: vult account, RGS-werkboek en klanten uit `tests/Fictief/` en `testdata/demo/`),
   `Export/` (correcties naar Excel en PDF; `RapportHtml` = stijl en A4-document van het rapport; `PdfDienst` maakt
   PDF's met Edge/Chromium zonder venster, instellingen in sectie `Pdf`).
 - `tests/` – xUnit-tests; `tests/Fictief/` – verzonnen testklanten (met `genereer.py`); `tests/Gedeeld/` – gedeelde
