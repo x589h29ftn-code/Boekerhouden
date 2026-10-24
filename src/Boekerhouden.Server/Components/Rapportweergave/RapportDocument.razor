@@ -69,7 +69,7 @@
                     {
                         if (blok is TabelBlok { Tabel: var tabel })
                         {
-                            <div class="blok" id="@(tabel.Code is null ? null : RapportHtml.Anker(tabel.Code))">
+                            <div class="blok" id="@(tabel.Code is null ? null : RapportHtml.Anker(tabel.Code))" data-post="@tabel.Code">
                                 @if (tabel.Titel is not null)
                                 {
                                     <h2>
@@ -94,7 +94,7 @@
                         }
                         else if (blok is TekstBlok { Toelichting: { } sleutel } tekst)
                         {
-                            <div class="blok" id="@RapportHtml.Anker(sleutel)">
+                            <div class="blok" id="@RapportHtml.Anker(sleutel)" data-post="@sleutel">
                                 @if (tekst.Titel is not null)
                                 {
                                     <h2>

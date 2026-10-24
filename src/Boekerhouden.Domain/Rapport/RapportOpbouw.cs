@@ -251,7 +251,7 @@ public static partial class RapportOpbouw
 
                 var standaard = grondslag.Standaard != GrondslagStandaard.Optioneel || metSaldo;
                 var eigen = !string.IsNullOrWhiteSpace(keuze?.Tekst);
-                items.Add(new GrondslagBlok(grondslag.Sleutel, grondslag.Titel, eigen ? keuze!.Tekst! : grondslag.Tekst, keuze?.Opgenomen ?? standaard, eigen));
+                items.Add(new GrondslagBlok(grondslag.Sleutel, grondslag.Titel, eigen ? keuze!.Tekst! : grondslag.Tekst, keuze?.Opgenomen ?? standaard, eigen) { Codes = grondslag.Codes });
             }
 
             if (items.Count > 0)

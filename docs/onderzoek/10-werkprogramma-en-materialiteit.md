@@ -48,7 +48,10 @@ PLANNING – keuze materiële posten                UITVOERING (alleen materiël
 3. **Vinkje uit** →
    - zijn er nog geen stappen ingevuld, dan verdwijnt het programma;
    - zijn er wel stappen ingevuld, dan vraagt het systeem of die bewaard moeten blijven (als "niet van toepassing") of verwijderd. Ingevulde documentatie verdwijnt nooit ongemerkt.
-4. **Niet-materiële posten** verschijnen **niet** in *Uitvoering*: geen vragen, geen stappen, geen cijferbeoordeling. Ze zijn alleen zichtbaar in **Rapport**, waar de presentatie kan worden aangepast ([§10.4](#104-rapport-presentatie-en-opmaak-per-post)).
+4. **Alle posten staan in *Uitvoering*** (besluit oktober 2026), gegroepeerd naar balans en winst-en-verliesrekening in de volgorde van de jaarrekening. Zo loop je het hele rapport post voor post door (‹ vorige · volgende ›) en zet je meteen grondslagen, toelichting en verloop goed.
+   - Elke post toont de cijfers (doorklikken tot de rekeningen) en **In het rapport**: specificatie, toelichting, opgenomen grondslagen en verloopoverzicht, met een link naar die plek in het rapport.
+   - Alleen een **materiële** post krijgt daarnaast de stappen uit het sjabloon, de cijferbeoordeling, bijlagen en reviewpunten. Materieel maken kan ook vanaf de post zelf; uitzetten gaat via Planning (met de vraag of ingevulde stappen bewaard blijven).
+   - **Werkprogramma en rapport volgen elkaar**: sta je bij een post in het werkprogramma, dan openen de tabbladen Rapport en Proefbalans op die post; vanuit het rapport opent Werkprogramma (en Proefbalans) op de post die in beeld is. Het dossiermenu blijft op de rapportpagina bovenaan staan.
 5. **De systeemcontroles gelden altijd voor alle posten**, materieel of niet: alles gekoppeld, balans sluit, specificatie sluit aan op saldo, verloop sluit aan. Dat zijn automatische aansluitingen, geen werk voor de gebruiker.
 
 ## 10.3 Stappen toevoegen en verwijderen (materiële posten)
@@ -154,7 +157,7 @@ Werkprogrammasjabloon "Samenstellen jaarrekening" (BV) v2027.1
 ├─ Voorbereiding
 │  ├─ Acceptatie: Scope opdracht* · Akkoord acceptatie*      (vragen + standaardantwoorden)
 │  └─ Planning: Keuze materiële posten* · Bijzonderheden
-├─ Uitvoering  (alleen materiële hoofdposten worden getoond)
+├─ Uitvoering  (alle hoofdposten met saldo; alleen materiële krijgen stappen)
 │  ├─ Hoofdpost "Materiële vaste activa"   rubrieken: MVA*
 │  │    stappen: 1 Verloopoverzicht aansluiten op grootboek …  2 Investeringen aansluiten op facturen …
 │  │             3 Afschrijvingen narekenen …  4 Desinvesteringen en boekresultaat …

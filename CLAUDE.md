@@ -39,6 +39,7 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   `Jaarversies` = instellingen die gelden vanaf een boekjaar, nooit met terugwerkende kracht), `Werkprogramma/` (het meegeleverde standaardwerkprogramma), `Grondslagen/` (de
   meegeleverde bibliotheek: algemene toelichting en grondslagen, commercieel en fiscaal, met `{naam}` e.d.), `Identiteit/` (inloggen, wachtwoordbeleid), `Components/` (schermen; accountpagina's statisch,
   de rest interactief; `Rapportweergave/` = het rapport als bewerkbare viewer, dezelfde component rendert de PDF),
+  `wwwroot/navigatie.js` (werkprogramma en rapport openen op dezelfde post),
   `Demo/` (`--demo`: vult account, RGS-werkboek en klanten uit `tests/Fictief/` en `testdata/demo/`),
   `Export/` (correcties naar Excel en PDF; `RapportHtml` = stijl en A4-document van het rapport; `PdfDienst` maakt
   PDF's met Edge/Chromium zonder venster, instellingen in sectie `Pdf`).

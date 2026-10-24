@@ -4,6 +4,7 @@
 @using Boekerhouden.Server.Export
 @inject DossierDienst DossierDienst
 @inject RapportDienst RapportDienst
+@inject IJSRuntime JS
 
 <PageTitle>Rapport @(dossier?.Naam) – Boekerhouden</PageTitle>
 
@@ -44,7 +45,7 @@ else
             <a class="btn btn-sm btn-outline-secondary" href="@($"/dossiers/{Id}/rapport.pdf")" download>PDF</a>
         }
     </div>
-    <DossierMenu DossierId="dossier.Id" Actief="/rapport" />
+    <DossierMenu DossierId="dossier.Id" Actief="/rapport" VolgRapport="true" />
     @if (inhoud is { Rapport.Soort: RapportSoort.Jaarrekening, Dossier.Grondslag: null })
     {
         <GrondslagKeuze DossierId="dossier.Id" Gekozen="Laad" />
@@ -141,6 +142,7 @@ else
     private int versie;
     private string? melding;
     private bool meldingIsFout;
+    private bool naarAnker;
 
     [Parameter]
     public Guid Id { get; set; }
@@ -150,6 +152,7 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
+        naarAnker = true;
         dossier = await DossierDienst.Haal(Id);
         if (dossier is not null)
         {
@@ -157,6 +160,16 @@ else
         }
 
         geladen = true;
+    }
+
+    /// <summary>Na het openen met een anker (bijv. vanuit het werkprogramma) naar die post, zodra het rapport er staat.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (naarAnker && inhoud is not null)
+        {
+            naarAnker = false;
+            await JS.InvokeVoidAsync("boekerhouden.naarAnker");
+        }
     }
 
     private async Task Laad()

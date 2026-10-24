@@ -180,6 +180,7 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
         Assert.Contains("1.458.938", html, StringComparison.Ordinal);
         Assert.Contains("id=\"h3\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"post-BMva\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-post=\"BMva\"", html, StringComparison.Ordinal);
     }
 
     [Fact]

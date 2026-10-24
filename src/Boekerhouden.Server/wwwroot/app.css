@@ -111,6 +111,14 @@ tr.klikbaar {
     border-bottom: 1px solid #e3e6e9;
 }
 
+    /* Op de rapportpagina blijft het menu staan, zodat je vanaf elke post naar het werkprogramma kunt. */
+    .dossiermenu.plakkend {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: #f4f6f8;
+    }
+
     .dossiermenu a {
         padding: .35rem 0;
         margin-bottom: -1px;
@@ -652,6 +660,48 @@ tr.klikbaar {
         text-overflow: ellipsis;
     }
 
+.wp-groep {
+    padding: .4rem .5rem .1rem;
+    font-size: .75rem;
+    color: var(--kleur-zacht);
+}
+
+.wp-rapport {
+    display: grid;
+    grid-template-columns: 8rem minmax(0, 1fr);
+    gap: .15rem .75rem;
+    margin: 0;
+    padding: .2rem .75rem .5rem;
+    font-size: .875rem;
+}
+
+    .wp-rapport dt {
+        font-weight: normal;
+        color: var(--kleur-zacht);
+    }
+
+    .wp-rapport dd {
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+.wp-volgende {
+    display: flex;
+    gap: .5rem;
+    padding: .4rem .25rem;
+}
+
+    .wp-volgende .btn-link {
+        color: var(--kleur-zacht);
+        text-decoration: none;
+    }
+
+        .wp-volgende .btn-link:hover {
+            color: inherit;
+        }
+
 .wp-leeg {
     padding: .2rem .5rem;
     font-size: .8rem;
@@ -870,8 +920,8 @@ tr.klikbaar {
 
 .rapport-zijkant {
     position: sticky;
-    top: 1rem;
-    max-height: calc(100vh - 2rem);
+    top: 3rem;
+    max-height: calc(100vh - 4rem);
     overflow-y: auto;
 }
 
@@ -883,8 +933,8 @@ tr.klikbaar {
     background: #e9ecef;
 }
 
-    .rapport-viewer section {
-        scroll-margin-top: 1rem;
+    .rapport-viewer section, .rapport-viewer .blok {
+        scroll-margin-top: 3rem;
     }
 
 .uitsplitsing {

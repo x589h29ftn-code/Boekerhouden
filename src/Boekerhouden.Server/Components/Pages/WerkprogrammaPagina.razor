@@ -1,9 +1,12 @@
 @page "/dossiers/{Id:guid}/werkprogramma"
+@using Boekerhouden.Domain.Rapport
 @using Boekerhouden.Domain.Rubricering
+@using Boekerhouden.Server.Export
 @inject WerkprogrammaDienst WerkprogrammaDienst
 @inject RubriceerDienst RubriceerDienst
 @inject ReviewDienst ReviewDienst
 @inject BijlageDienst BijlageDienst
+@inject RapportDienst RapportDienst
 
 <PageTitle>Werkprogramma @(w?.Dossier.Naam) – Boekerhouden</PageTitle>
 
@@ -37,7 +40,7 @@ else
         }
         <span class="small text-secondary">@Weergave.Tekst(w.Dossier.Soort) · versie @w.Versie</span>
     </div>
-    <DossierMenu DossierId="w.Dossier.Id" Actief="/werkprogramma" />
+    <DossierMenu DossierId="w.Dossier.Id" Actief="/werkprogramma" Post="@HuidigePost" />
 
     <div class="row g-3 werkprogramma">
         <div class="col-lg-3">
@@ -45,7 +48,26 @@ else
                 @foreach (var fase in Enum.GetValues<Fase>())
                 {
                     <div class="boom-kop">@Weergave.Tekst(fase)</div>
-                    @foreach (var od in w.Onderdelen.Where(x => x.Fase == fase))
+                    @if (fase == Fase.Uitvoering)
+                    {
+                        @foreach (var (groep, posten) in PostGroepen)
+                        {
+                            <div class="wp-groep">@groep</div>
+                            @foreach (var (hoofdpost, naam) in posten)
+                            {
+                                var od = UitvoeringVan(hoofdpost);
+                                <button type="button" class="wp-onderdeel @(HuidigePost == hoofdpost ? "actief" : null)" @onclick="() => KiesPost(hoofdpost)" data-post="@hoofdpost" title="RGS @hoofdpost">
+                                    <span class="titel">@naam</span>
+                                    @if (od is { OpenPunten: > 0 })
+                                    {
+                                        <span class="status let-op" title="Open reviewpunten">@Aantal(od.OpenPunten, "punt", "punten")</span>
+                                    }
+                                    <span class="status" title="@(od is null ? null : "Materiële post: stappen gereed")">@(od is null ? null : OnderdeelStatus(od) is { Length: > 0 } st ? st : "materieel")</span>
+                                </button>
+                            }
+                        }
+                    }
+                    @foreach (var od in w.Onderdelen.Where(x => x.Fase == fase && !(fase == Fase.Uitvoering && x.HoofdpostCode is { } c && HeeftSaldo(c))))
                     {
                         <button type="button" class="wp-onderdeel @(od.Id == Gekozen?.Id ? "actief" : null)" @onclick="() => Kies(od.Id)" data-onderdeel="@od.Titel">
                             <span class="titel">@od.Titel@(od.Verplicht ? " *" : null)</span>
@@ -56,16 +78,32 @@ else
                             <span class="status">@OnderdeelStatus(od)</span>
                         </button>
                     }
-                    @if (fase == Fase.Uitvoering && !w.Onderdelen.Any(x => x.Fase == Fase.Uitvoering))
+                    @if (fase == Fase.Uitvoering && Hoofdposten.Count == 0 && !w.Onderdelen.Any(x => x.Fase == Fase.Uitvoering))
                     {
-                        <div class="wp-leeg">Nog geen materiële posten; kies ze bij Planning.</div>
+                        <div class="wp-leeg">Nog geen posten met saldo.</div>
                     }
                 }
             </nav>
         </div>
 
         <div class="col-lg-9">
-            @if (Gekozen is { } o)
+            @if (gekozenPost is { } postZonderWerk && UitvoeringVan(postZonderWerk) is null)
+            {
+                <div class="card wp-inhoud" id="post-uitwerking">
+                    <div class="card-header d-flex align-items-center gap-3">
+                        <span class="fw-semibold me-auto" title="RGS @postZonderWerk">@Naam(postZonderWerk)</span>
+                        <span class="form-check form-switch mb-0 small" title="Een materiële post krijgt de stappen uit het werkprogramma; je tekent ze af en voegt bijlagen toe.">
+                            <input class="form-check-input" type="checkbox" id="materieel" checked="@(w.Keuzes.GetValueOrDefault(postZonderWerk))" @key="(postZonderWerk, versie)"
+                                   @onchange="e => Kies(postZonderWerk, (bool)e.Value!, null)" />
+                            <label class="form-check-label" for="materieel">materieel</label>
+                        </span>
+                    </div>
+                    @Cijfers(postZonderWerk)
+                    @InRapport(postZonderWerk)
+                    @VorigeVolgende(postZonderWerk)
+                </div>
+            }
+            else if (Gekozen is { } o)
             {
                 <div class="card wp-inhoud">
                     <div class="card-header d-flex align-items-center gap-3">
@@ -164,54 +202,9 @@ else
 
                     @if (o.Soort == OnderdeelSoort.Post && o.HoofdpostCode is { } postCode && r?.Balans is not null)
                     {
-                        var totaal = r.Balans.Totaal(postCode);
-                        <div class="wp-sectie" id="cijfers">
-                            <div class="wp-sectie-kop">
-                                <span class="me-auto">Cijfers</span>
-                                @if (w.Keuzes.TryGetValue(postCode, out var mat) && !mat)
-                                {
-                                    <span class="status let-op">niet meer materieel; stappen bewaard</span>
-                                }
-                                <a class="small" href="/dossiers/@Id/proefbalans?open=@postCode">naar de proefbalans</a>
-                            </div>
-                            <div class="kolomkop pb-raster" style="--kolommen:3">
-                                <span>Post</span><span class="text-end">@w.Dossier.Boekjaar</span><span class="text-end">@(w.Dossier.Boekjaar - 1)</span><span class="text-end">Verschil</span><span></span>
-                            </div>
-                            <div class="pb-raster pb-post niveau-2" style="--kolommen:3">
-                                <span class="naam">@r.Naam(postCode)</span>
-                                <span class="bedrag text-end">@Bedragen.Heel(totaal.Huidig)</span>
-                                <span class="bedrag text-end">@Bedragen.Heel(totaal.Vorig)</span>
-                                <span class="bedrag text-end">@Bedragen.Heel(totaal.Verschil)</span>
-                                <span></span>
-                            </div>
-                            @foreach (var sub in Subposten(postCode))
-                            {
-                                var t = r.Balans.Totaal(sub.Code);
-                                <div class="pb-raster pb-post" style="--kolommen:3;--diepte:1">
-                                    <span class="naam" @onclick="() => Wissel(sub.Code)">
-                                        <span class="pijl" aria-hidden="true">@(open.Contains(sub.Code) ? "▾" : "▸")</span>@r.Naam(sub.Code)
-                                    </span>
-                                    <span class="bedrag text-end">@Bedragen.Heel(t.Huidig)</span>
-                                    <span class="bedrag text-end vorig">@Bedragen.Heel(t.Vorig)</span>
-                                    <span class="bedrag text-end">@(t.Verschil != 0 ? Bedragen.Heel(t.Verschil) : "")</span>
-                                    <span></span>
-                                </div>
-                                @if (open.Contains(sub.Code))
-                                {
-                                    @foreach (var rek in RekeningenOnder(sub.Code))
-                                    {
-                                        <div class="pb-raster pb-rekening" style="--kolommen:3;--diepte:2">
-                                            <span class="naam"><span class="nr">@rek.Nummer</span> @rek.Omschrijving</span>
-                                            <span class="bedrag text-end"><Bedrag Waarde="rek.Saldo" /></span>
-                                            <span class="bedrag text-end vorig"><Bedrag Waarde="rek.SaldoVorig" /></span>
-                                            <span class="bedrag text-end">@(((rek.Saldo ?? 0) - (rek.SaldoVorig ?? 0)) is var v && v != 0 ? Bedragen.Heel(v) : "")</span>
-                                            <span></span>
-                                        </div>
-                                    }
-                                }
-                            }
-                        </div>
+                        @Cijfers(postCode)
                         <Notitie Label="Cijferbeoordeling" Tekst="@o.Notitie" OnBewaar="t => BewaarNotitie(o, t)" />
+                        @InRapport(postCode)
                     }
 
                     <div class="wp-sectie" id="stappen">
@@ -387,6 +380,10 @@ else
                             <button type="submit" class="btn btn-sm btn-outline-secondary text-nowrap">Plaatsen</button>
                         </form>
                     </div>
+                    @if (o.Fase == Fase.Uitvoering && o.HoofdpostCode is { } huidig && HeeftSaldo(huidig))
+                    {
+                        @VorigeVolgende(huidig)
+                    }
                 </div>
             }
         </div>
@@ -399,6 +396,8 @@ else
     private WerkprogrammaOverzicht? w;
     private RubriceerOverzicht? r;
     private Guid? gekozenId;
+    private string? gekozenPost;
+    private Rapport? rapport;
     private Guid? openStap;
     private Guid? nvtStap;
     private string nvtReden = string.Empty;
@@ -425,16 +424,25 @@ else
     [SupplyParameterFromQuery(Name = "onderdeel")]
     public Guid? OnderdeelBijStart { get; set; }
 
+    /// <summary>De hoofdpost die bij het openen gekozen is (?post=BMva), bijv. vanuit het rapport.</summary>
+    [SupplyParameterFromQuery(Name = "post")]
+    public string? PostBijStart { get; set; }
+
     [CascadingParameter]
     private Task<AuthenticationState> Authenticatie { get; set; } = default!;
 
-    private OnderdeelInfo? Gekozen => w?.Onderdelen.FirstOrDefault(o => o.Id == gekozenId) ?? w?.Onderdelen.FirstOrDefault();
+    private OnderdeelInfo? Gekozen => gekozenPost is { } post ? UitvoeringVan(post)
+        : w?.Onderdelen.FirstOrDefault(o => o.Id == gekozenId) ?? w?.Onderdelen.FirstOrDefault();
+
+    /// <summary>De hoofdpost waar je bent; de tabbladen Rapport en Proefbalans openen op dezelfde post.</summary>
+    private string? HuidigePost => gekozenPost ?? Gekozen?.HoofdpostCode;
 
     protected override async Task OnParametersSetAsync()
     {
         var gebruiker = (await Authenticatie).User;
         isReviewer = gebruiker.IsInRole(Rollen.Reviewer) || gebruiker.IsInRole(Rollen.Accountant);
         gekozenId = OnderdeelBijStart;
+        gekozenPost = PostBijStart;
         await Laad();
         geladen = true;
     }
@@ -446,7 +454,19 @@ else
         versie++;
         w = await WerkprogrammaDienst.Overzicht(Id, await Wie());
         r = await RubriceerDienst.Overzicht(Id, metVoorstellen: false);
+        rapport = (await RapportDienst.Maak(Id))?.Waarde?.Rapport;
     }
+
+    /// <summary>De hoofdposten met saldo in de volgorde van de jaarrekening, per balans en winst-en-verliesrekening.</summary>
+    private IEnumerable<(string Groep, List<(string Code, string Naam)> Posten)> PostGroepen =>
+        new[] { ("Balans", 'B'), ("Winst-en-verliesrekening", 'W') }
+            .Select(g => (g.Item1, Hoofdposten.Where(p => p.Code[0] == g.Item2).ToList()))
+            .Where(g => g.Item2.Count > 0);
+
+    private bool HeeftSaldo(string code) => Hoofdposten.Any(p => p.Code == code);
+
+    /// <summary>Het onderdeel met de stappen van een materiële post; null bij een post zonder werkprogramma.</summary>
+    private OnderdeelInfo? UitvoeringVan(string code) => w?.Onderdelen.FirstOrDefault(o => o.Fase == Fase.Uitvoering && o.HoofdpostCode == code);
 
     private IReadOnlyList<(string Code, string Naam)> Hoofdposten =>
         r is { Schema: { } schema, Balans: { } balans }
@@ -475,6 +495,59 @@ else
         return code == subpost || (code is not null && r!.Schema!.Zoek(code) is { Niveau: 4 } c && c.Ouder == subpost);
     }
 
+    /// <summary>De cijfers van een hoofdpost: subposten met dit jaar, vorig jaar en verschil, open te klappen tot de rekeningen.</summary>
+    private RenderFragment Cijfers(string postCode) => __builder =>
+    {
+        var totaal = r!.Balans!.Totaal(postCode);
+        var boekjaar = w!.Dossier.Boekjaar;
+        <div class="wp-sectie" id="cijfers">
+            <div class="wp-sectie-kop">
+                <span class="me-auto">Cijfers</span>
+                @if (UitvoeringVan(postCode) is not null && w.Keuzes.TryGetValue(postCode, out var mat) && !mat)
+                {
+                    <span class="status let-op">niet meer materieel; stappen bewaard</span>
+                }
+                <a class="small" href="/dossiers/@Id/proefbalans?open=@postCode">naar de proefbalans</a>
+            </div>
+            <div class="kolomkop pb-raster" style="--kolommen:3">
+                <span>Post</span><span class="text-end">@boekjaar</span><span class="text-end">@(boekjaar - 1)</span><span class="text-end">Verschil</span><span></span>
+            </div>
+            <div class="pb-raster pb-post niveau-2" style="--kolommen:3">
+                <span class="naam">@r.Naam(postCode)</span>
+                <span class="bedrag text-end">@Bedragen.Heel(totaal.Huidig)</span>
+                <span class="bedrag text-end">@Bedragen.Heel(totaal.Vorig)</span>
+                <span class="bedrag text-end">@Bedragen.Heel(totaal.Verschil)</span>
+                <span></span>
+            </div>
+            @foreach (var sub in Subposten(postCode))
+            {
+                var t = r.Balans.Totaal(sub.Code);
+                <div class="pb-raster pb-post" style="--kolommen:3;--diepte:1">
+                    <span class="naam" @onclick="() => Wissel(sub.Code)">
+                        <span class="pijl" aria-hidden="true">@(open.Contains(sub.Code) ? "▾" : "▸")</span>@r.Naam(sub.Code)
+                    </span>
+                    <span class="bedrag text-end">@Bedragen.Heel(t.Huidig)</span>
+                    <span class="bedrag text-end vorig">@Bedragen.Heel(t.Vorig)</span>
+                    <span class="bedrag text-end">@(t.Verschil != 0 ? Bedragen.Heel(t.Verschil) : "")</span>
+                    <span></span>
+                </div>
+                @if (open.Contains(sub.Code))
+                {
+                    @foreach (var rek in RekeningenOnder(sub.Code))
+                    {
+                        <div class="pb-raster pb-rekening" style="--kolommen:3;--diepte:2">
+                            <span class="naam"><span class="nr">@rek.Nummer</span> @rek.Omschrijving</span>
+                            <span class="bedrag text-end"><Bedrag Waarde="rek.Saldo" /></span>
+                            <span class="bedrag text-end vorig"><Bedrag Waarde="rek.SaldoVorig" /></span>
+                            <span class="bedrag text-end">@(((rek.Saldo ?? 0) - (rek.SaldoVorig ?? 0)) is var v && v != 0 ? Bedragen.Heel(v) : "")</span>
+                            <span></span>
+                        </div>
+                    }
+                }
+            }
+        </div>
+    };
+
     private static string OnderdeelStatus(OnderdeelInfo o) =>
         o.GereviewdDoor is not null ? "gereviewd"
         : o.Aantal == 0 ? ""
@@ -492,11 +565,76 @@ else
     private void Kies(Guid onderdeelId)
     {
         gekozenId = onderdeelId;
+        gekozenPost = null;
         openStap = null;
         nieuweStap = false;
         verwijderStap = null;
         afmelden = null;
     }
+
+    private void KiesPost(string code)
+    {
+        Kies(Guid.Empty);
+        gekozenPost = code;
+    }
+
+    /// <summary>Wat er van de post in het rapport staat (specificatie, toelichting, grondslagen, verloop), met een link ernaartoe.</summary>
+    private RenderFragment InRapport(string code) => __builder =>
+    {
+        if (rapport is null)
+        {
+            return;
+        }
+
+        var p = RapportPerPost.Bij(rapport, code);
+        <div class="wp-sectie" id="in-rapport">
+            <div class="wp-sectie-kop">
+                <span class="me-auto">In het rapport</span>
+                <a class="small" href="/dossiers/@Id/rapport#@RapportHtml.Anker(code)">naar het rapport</a>
+            </div>
+            <dl class="wp-rapport">
+                <dt>Specificatie</dt>
+                <dd>@(p.Titel is null ? "niet opgenomen" : p.Regels == 0 ? "alleen een toelichting" : Aantal(p.Regels, "regel", "regels"))</dd>
+                <dt>Toelichting</dt>
+                <dd title="@p.Toelichting">@(p.Toelichting ?? "geen")</dd>
+                @if (rapport.Soort == RapportSoort.Jaarrekening)
+                {
+                    <dt>Grondslagen</dt>
+                    <dd>@(p.Grondslagen.Count > 0 ? string.Join(", ", p.Grondslagen) : "geen")</dd>
+                }
+                @if (code.StartsWith('B'))
+                {
+                    <dt>Verloop</dt>
+                    <dd>@(p.Verlopen.Count > 0 ? string.Join(", ", p.Verlopen) : "geen")</dd>
+                }
+            </dl>
+        </div>
+    };
+
+    /// <summary>Naar de vorige of volgende post, zodat je het hele rapport doorloopt.</summary>
+    private RenderFragment VorigeVolgende(string code) => __builder =>
+    {
+        var posten = Hoofdposten.Select(p => p.Code).ToList();
+        var i = posten.IndexOf(code);
+        if (i < 0)
+        {
+            return;
+        }
+
+        <div class="wp-volgende">
+            @if (i > 0)
+            {
+                var vorige = posten[i - 1];
+                <button type="button" class="btn btn-sm btn-link" @onclick="() => KiesPost(vorige)">‹ @Naam(vorige)</button>
+            }
+            <span class="me-auto"></span>
+            @if (i < posten.Count - 1)
+            {
+                var volgende = posten[i + 1];
+                <button type="button" class="btn btn-sm btn-link" @onclick="() => KiesPost(volgende)">@Naam(volgende) ›</button>
+            }
+        </div>
+    };
 
     private void Wissel(string code)
     {

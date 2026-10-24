@@ -1,8 +1,13 @@
-@* Navigatie binnen een dossier; rustig, de huidige pagina in donkere tekst. *@
-<nav class="dossiermenu" aria-label="Dossier">
+@* Navigatie binnen een dossier; rustig, de huidige pagina in donkere tekst. Met een post (bijv. vanuit het
+   werkprogramma) openen Werkprogramma, Proefbalans en Rapport op die post; vanuit het rapport neemt navigatie.js de
+   post mee die je op dat moment bekijkt. *@
+@using Boekerhouden.Server.Export
+
+<nav class="dossiermenu @(VolgRapport ? "plakkend" : null)" aria-label="Dossier">
     @foreach (var (pad, tekst) in Onderdelen)
     {
-        <a href="@($"/dossiers/{DossierId}{pad}")" class="@(pad == Actief ? "actief" : null)" aria-current="@(pad == Actief ? "page" : null)">@tekst</a>
+        <a href="@Link(pad)" class="@(pad == Actief ? "actief" : null)" aria-current="@(pad == Actief ? "page" : null)"
+           data-volg-post="@(VolgRapport ? Parameter(pad) : null)">@tekst</a>
     }
 </nav>
 
@@ -23,4 +28,33 @@
     /// <summary>Het pad van de huidige pagina, bijv. "" (overzicht) of "/rubriceren".</summary>
     [Parameter]
     public string Actief { get; set; } = "";
+
+    /// <summary>De hoofdpost waar de gebruiker is (RGS-code); de andere pagina's openen dan op die post.</summary>
+    [Parameter]
+    public string? Post { get; set; }
+
+    /// <summary>Op de rapportpagina: de post volgen die in beeld is.</summary>
+    [Parameter]
+    public bool VolgRapport { get; set; }
+
+    /// <summary>De queryparameter waarmee een pagina een post opent; null = die pagina kent geen post.</summary>
+    private static string? Parameter(string pad) => pad switch
+    {
+        "/werkprogramma" => "post",
+        "/proefbalans" => "open",
+        _ => null,
+    };
+
+    private string Link(string pad)
+    {
+        var basis = $"/dossiers/{DossierId}{pad}";
+        if (Post is null || pad == Actief)
+        {
+            return basis;
+        }
+
+        return pad == "/rapport" ? $"{basis}#{RapportHtml.Anker(Post)}"
+            : Parameter(pad) is { } naam ? $"{basis}?{naam}={Uri.EscapeDataString(Post)}"
+            : basis;
+    }
 }

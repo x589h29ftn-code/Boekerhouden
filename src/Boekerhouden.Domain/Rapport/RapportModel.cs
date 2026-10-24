@@ -94,6 +94,9 @@ public sealed record GroepBlok(string Titel, bool HeeftOpgenomen) : Blok;
 /// <param name="EigenTekst">De tekst is in dit dossier aangepast (anders de tekst uit de bibliotheek).</param>
 public sealed record GrondslagBlok(string Sleutel, string Titel, string Tekst, bool Opgenomen, bool EigenTekst) : Blok
 {
+    /// <summary>De RGS-codes waar de grondslag bij hoort (leeg bij een algemene grondslag).</summary>
+    public IReadOnlyList<string> Codes { get; init; } = [];
+
     /// <summary>De tekst zoals ingevoerd, met variabelen (bijv. {naam}); null als er niets in te vullen was.</summary>
     public string? Sjabloon { get; init; }
 }

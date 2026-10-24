@@ -147,6 +147,37 @@ public sealed class VerloopTests
     }
 
     [Fact]
+    public void Per_post_wat_er_in_het_rapport_staat_specificatie_toelichting_verlopen_en_grondslagen()
+    {
+        var rc = RapportOpbouw.RekeningSleutel(Rc);
+        var g = Gegevens(verlopen: new() { [rc] = true }, tweeJaarTerug: new() { [Rc] = 10_000m }) with
+        {
+            Toelichtingen = new Dictionary<string, string> { ["BVor"] = "Alle vorderingen zijn kortlopend." },
+            Grondslagen =
+            [
+                new Grondslag("mva", "Waardering", "Materiële vaste activa", "Tegen verkrijgingsprijs.", GrondslagStandaard.BijPost, ["BMva"]),
+                new Grondslag("rc", "Waardering", "Vorderingen", "Tegen nominale waarde.", GrondslagStandaard.BijPost, ["BVorOvrRcb"]),
+                new Grondslag("alg", "Algemeen", "Schattingen", "Algemeen.", GrondslagStandaard.Altijd, []),
+            ],
+        };
+        var rapport = RapportOpbouw.Maak(g);
+
+        var mva = RapportPerPost.Bij(rapport, "BMva");
+        var vor = RapportPerPost.Bij(rapport, "BVor");
+        var omzet = RapportPerPost.Bij(rapport, "WOmz");
+        var geen = RapportPerPost.Bij(rapport, "BVrd");
+
+        Assert.Equal(("Materiële vaste activa", 4, (string?)null), (mva.Titel, mva.Regels, mva.Toelichting));
+        Assert.Equal(["Verloop materiële vaste activa"], mva.Verlopen);
+        Assert.Equal(["Materiële vaste activa"], mva.Grondslagen);
+        Assert.Equal("Alle vorderingen zijn kortlopend.", vor.Toelichting);
+        Assert.Equal(["Verloop Rekening-courant DGA"], vor.Verlopen);
+        Assert.Equal(["Vorderingen"], vor.Grondslagen);
+        Assert.Equal((1, 0), (omzet.Regels, omzet.Verlopen.Count));
+        Assert.Null(geen.Titel);
+    }
+
+    [Fact]
     public void Een_verloop_bij_een_rekening_staat_met_vorig_jaar_ernaast()
     {
         var rc = RapportOpbouw.RekeningSleutel(Rc);
