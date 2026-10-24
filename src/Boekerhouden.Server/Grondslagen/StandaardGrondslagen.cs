@@ -1,4 +1,3 @@
-using System.Globalization;
 using Boekerhouden.Data;
 
 namespace Boekerhouden.Server.Grondslagen;
@@ -8,8 +7,8 @@ namespace Boekerhouden.Server.Grondslagen;
 /// per onderdeel een tekst voor commerciële grondslagen (Titel 9 Boek 2 BW, RJk) en voor fiscale grondslagen
 /// (art. 2:396 lid 6 BW, Besluit fiscale waarderingsgrondslagen). Opgesteld in eigen woorden aan de hand van
 /// modeljaarrekeningen; een kasstroomoverzicht en een staat van baten en lasten horen er niet bij. Het kantoor past
-/// de teksten aan in Beheer › Grondslagen. {naam}, {plaats}, {kvk} en {boekjaar} worden per klant ingevuld; tekst
-/// tussen [vierkante haken] vult de gebruiker in het dossier in.
+/// de teksten aan in Beheer › Grondslagen. Variabelen als {naam} en {boekjaar} vult het rapport in
+/// (<see cref="Domain.Rapport.RapportVariabelen"/>); tekst tussen [vierkante haken] vult de gebruiker in het dossier in.
 /// </summary>
 public static class StandaardGrondslagen
 {
@@ -20,17 +19,6 @@ public static class StandaardGrondslagen
 
     /// <summary>Wie een meegeleverde grondslag "gewijzigd" heeft; zo'n grondslag gaat mee met nieuwe standaardteksten.</summary>
     public const string Door = "Standaard";
-
-    /// <summary>Vult de variabelen in. Wat bij de klant ontbreekt, wordt tekst om in te vullen (bijv. [KvK-nummer]).</summary>
-    public static string Vul(string tekst, string naam, string? plaats, string? kvk, int boekjaar)
-    {
-        ArgumentNullException.ThrowIfNull(tekst);
-        return tekst
-            .Replace("{naam}", naam, StringComparison.Ordinal)
-            .Replace("{plaats}", string.IsNullOrWhiteSpace(plaats) ? "[vestigingsplaats]" : plaats.Trim(), StringComparison.Ordinal)
-            .Replace("{kvk}", string.IsNullOrWhiteSpace(kvk) ? "[KvK-nummer]" : kvk.Trim(), StringComparison.Ordinal)
-            .Replace("{boekjaar}", boekjaar.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal);
-    }
 
     public static IReadOnlyList<GrondslagSjabloon> Maak(DateTimeOffset nu)
     {

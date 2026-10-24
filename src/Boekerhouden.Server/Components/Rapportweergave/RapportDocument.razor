@@ -84,7 +84,7 @@
                                 <RapportTabel Tabel="tabel" />
                                 @if (tabel.Code is not null && (toelichting is not null || Bewerkbaar))
                                 {
-                                    <ToelichtingBlok Sleutel="@tabel.Code" Tekst="@toelichting" />
+                                    <ToelichtingBlok Sleutel="@tabel.Code" Tekst="@toelichting?.Tekst" Sjabloon="@toelichting?.Sjabloon" />
                                 }
                             </div>
                         }
@@ -101,7 +101,7 @@
                                         @tekst.Titel
                                     </h2>
                                 }
-                                <ToelichtingBlok Sleutel="@sleutel" Tekst="@tekst.Tekst" />
+                                <ToelichtingBlok Sleutel="@sleutel" Tekst="@tekst.Tekst" Sjabloon="@tekst.Sjabloon" />
                             </div>
                         }
                         else if (blok is GroepBlok groep && (groep.HeeftOpgenomen || Bewerkbaar))
@@ -154,7 +154,7 @@
     /// De blokken van een hoofdstuk met hun paragraafnummer (3.1, 3.2, …). Een toelichting direct na de specificatie
     /// van dezelfde post komt bij die tabel, zodat ze samen op een pagina blijven.
     /// </summary>
-    private static IEnumerable<(Blok Blok, string? Toelichting, string? Paragraaf)> Blokken(Hoofdstuk h)
+    private static IEnumerable<(Blok Blok, TekstBlok? Toelichting, string? Paragraaf)> Blokken(Hoofdstuk h)
     {
         var nummer = 0;
         for (var i = 0; i < h.Blokken.Count; i++)
@@ -165,7 +165,7 @@
                 : null;
             if (blok is TabelBlok { Tabel.Code: { } code } && i + 1 < h.Blokken.Count && h.Blokken[i + 1] is TekstBlok { Toelichting: var t } tekst && t == code)
             {
-                yield return (blok, tekst.Tekst, paragraaf);
+                yield return (blok, tekst, paragraaf);
                 i++;
                 continue;
             }

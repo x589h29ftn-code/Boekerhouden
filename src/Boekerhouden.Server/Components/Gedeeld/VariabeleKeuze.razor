@@ -1,0 +1,45 @@
+@* Een variabele invoegen in een tekstvak: één rustige link, met de lijst pas na klikken. In het rapport staan de
+   huidige waarden erbij; in de bibliotheek alleen de omschrijving. *@
+@using Boekerhouden.Domain.Rapport
+@inject IJSRuntime JS
+
+<span class="variabele-keuze">
+    <button type="button" class="btn btn-link btn-sm py-0 px-0 text-secondary" aria-expanded="@(open ? "true" : "false")"
+            title="Een variabele wordt bij het maken van het rapport ingevuld, bijv. {boekjaar} of {nettoresultaat}"
+            @onclick="() => open = !open">variabele invoegen</button>
+    @if (open)
+    {
+        <span class="variabele-lijst" role="listbox" aria-label="Variabelen">
+            @foreach (var groep in RapportVariabelen.Lijst.GroupBy(v => v.Groep))
+            {
+                <span class="variabele-groep">@groep.Key</span>
+                @foreach (var v in groep)
+                {
+                    var waarde = Waarden?.GetValueOrDefault(v.Naam);
+                    <button type="button" role="option" class="variabele" title="@v.Omschrijving" @onclick="() => VoegIn(v)">
+                        <code>{@v.Naam}</code>
+                        <span class="text-secondary">@(waarde ?? v.Omschrijving)</span>
+                    </button>
+                }
+            }
+        </span>
+    }
+</span>
+
+@code {
+    private bool open;
+
+    /// <summary>Het tekstvak waarin de variabele komt.</summary>
+    [Parameter, EditorRequired]
+    public ElementReference Veld { get; set; }
+
+    /// <summary>De waarden in dit rapport; null in de bibliotheek (dan de omschrijving).</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? Waarden { get; set; }
+
+    private async Task VoegIn(Variabele v)
+    {
+        open = false;
+        await JS.InvokeVoidAsync("boekerhouden.voegIn", Veld, $"{{{v.Naam}}}");
+    }
+}

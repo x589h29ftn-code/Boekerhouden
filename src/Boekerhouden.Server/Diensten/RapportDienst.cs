@@ -1,6 +1,7 @@
 using Boekerhouden.Data;
 using Boekerhouden.Domain.Rapport;
 using Boekerhouden.Domain.Rubricering;
+using Boekerhouden.Server.Grondslagen;
 using Microsoft.EntityFrameworkCore;
 
 namespace Boekerhouden.Server.Diensten;
@@ -50,14 +51,24 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
 
         var dossier = overzicht.Dossier;
         await using var db = await dbFactory.CreateDbContextAsync();
-        var plaats = await db.Klanten.AsNoTracking().Where(k => k.Id == dossier.KlantId).Select(k => k.Plaats).SingleAsync();
+        var klant = await db.Klanten.AsNoTracking().Where(k => k.Id == dossier.KlantId).Select(k => new { k.Plaats, k.KvkNummer }).SingleAsync();
         var jaarrekening = Soort(dossier.Soort) == RapportSoort.Jaarrekening;
         var metGrondslagen = jaarrekening ? await grondslagen.VoorRapport(dossierId) : null;
+
+        // Eigen toelichtingen (van dit of een eerder jaar) gaan voor de meegeleverde; een lege betekent: geen.
+        var toelichtingen = (await Toelichtingen(db, dossierId)).ToDictionary(t => t.Key, t => t.Value.Tekst, StringComparer.Ordinal);
+        if (jaarrekening)
+        {
+            foreach (var (sleutel, tekst) in StandaardToelichtingen.Jaarrekening)
+            {
+                toelichtingen.TryAdd(sleutel, tekst);
+            }
+        }
 
         var rapport = RapportOpbouw.Maak(new RapportGegevens(
             Soort(dossier.Soort),
             dossier.KlantNaam,
-            plaats,
+            klant.Plaats,
             dossier.Boekjaar,
             Concept: true,
             overzicht.Schema,
@@ -69,13 +80,13 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
             await ZonderSpecificatie(dossier.KlantId, dossier.Boekjaar),
             (await PostPresentaties(db, dossier.KlantId, dossier.Boekjaar)).Values.Where(p => p.Uitgeklapt is not null)
                 .ToDictionary(p => p.Sleutel, p => p.Uitgeklapt!.Value, StringComparer.Ordinal),
-            (await Toelichtingen(db, dossierId)).Where(t => t.Value.Tekst.Length > 0)
-                .ToDictionary(t => t.Key, t => t.Value.Tekst, StringComparer.Ordinal),
+            toelichtingen.Where(t => t.Value.Length > 0).ToDictionary(StringComparer.Ordinal),
             (await db.UitsplitsingRegels.AsNoTracking().Where(r => r.DossierId == dossierId).OrderBy(r => r.Volgorde).ToListAsync())
                 .GroupBy(r => r.GrootboekrekeningId)
                 .ToDictionary(g => g.Key, g => (IReadOnlyList<SplitsRegel>)[.. g.Select(r => new SplitsRegel(r.Omschrijving, r.Bedrag, r.BedragVorig))]),
             metGrondslagen?.Verslaggeving is null ? null : metGrondslagen.Grondslagen,
-            metGrondslagen?.Keuzes));
+            metGrondslagen?.Keuzes,
+            klant.KvkNummer));
         if (jaarrekening && metGrondslagen?.Verslaggeving is null)
         {
             rapport = rapport with { Waarschuwingen = [.. rapport.Waarschuwingen, "Grondslagen nog niet gekozen."] };
@@ -294,20 +305,23 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
             return Uitkomst.Mislukt("Dossier niet gevonden.");
         }
 
-        var geldend = (await Toelichtingen(db, dossierId)).GetValueOrDefault(sleutel);
-        if ((geldend.Tekst is { Length: > 0 } ? geldend.Tekst : null) == tekst)
+        // Wat geldt (eigen tekst van dit of een eerder jaar, anders de meegeleverde), en wat er vóór dit jaar gold.
+        var standaard = Soort(dossier.SoortOpdracht) == RapportSoort.Jaarrekening ? StandaardToelichtingen.Jaarrekening.GetValueOrDefault(sleutel) : null;
+        string? Geldend(Dictionary<string, (string Tekst, int Boekjaar)> toelichtingen) =>
+            toelichtingen.TryGetValue(sleutel, out var t) ? (t.Tekst.Length > 0 ? t.Tekst : null) : standaard;
+        if (Geldend(await Toelichtingen(db, dossierId)) == tekst)
         {
             return Uitkomst.Gelukt;
         }
 
-        // Wat er vóór dit jaar gold: is de nieuwe tekst daaraan gelijk, dan hoeft dit dossier niets te onthouden.
-        var eerdere = geldend.Boekjaar == dossier.Boekjaar
-            ? (await Toelichtingen(db, dossierId, voor: dossier.Boekjaar)).GetValueOrDefault(sleutel).Tekst
-            : geldend.Tekst;
         var eigen = await db.DossierToelichtingen.SingleOrDefaultAsync(t => t.DossierId == dossierId && t.Sleutel == sleutel);
-        if ((eerdere is { Length: > 0 } ? eerdere : null) == tekst)
+        if (Geldend(await Toelichtingen(db, dossierId, voor: dossier.Boekjaar)) == tekst)
         {
-            db.DossierToelichtingen.Remove(eigen!);
+            // Gelijk aan wat er vóór dit jaar gold: dan hoeft dit dossier niets te onthouden.
+            if (eigen is not null)
+            {
+                db.DossierToelichtingen.Remove(eigen);
+            }
         }
         else
         {

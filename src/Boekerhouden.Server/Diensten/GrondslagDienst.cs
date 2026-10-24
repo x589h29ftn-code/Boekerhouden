@@ -226,30 +226,26 @@ public sealed partial class GrondslagDienst(IDbContextFactory<BoekerhoudenDbCont
     /// De grondslagen voor het rapport van een dossier: de bibliotheek zoals die in het boekjaar geldt, met de tekst
     /// voor de gekozen variant, en per
     /// grondslag de keuze uit dit dossier of, als die er niet is, uit het laatste eerdere jaar (niet bij jaargebonden).
-    /// Naam, plaats, KvK-nummer en boekjaar zijn ingevuld.
+    /// De teksten staan er met hun variabelen ({naam} e.d.); die vult het rapport in.
     /// </summary>
     public async Task<GrondslagenVoorRapport?> VoorRapport(Guid dossierId)
     {
         await using var db = await dbFactory.CreateDbContextAsync();
-        var dossier = await db.Dossiers.AsNoTracking().Include(d => d.Klant).SingleOrDefaultAsync(d => d.Id == dossierId);
-        if (dossier?.Klant is not { } klant)
+        var dossier = await db.Dossiers.AsNoTracking().SingleOrDefaultAsync(d => d.Id == dossierId);
+        if (dossier is null)
         {
             return null;
         }
-
-        string Vul(string tekst) => StandaardGrondslagen.Vul(tekst, klant.Naam, klant.Plaats, klant.KvkNummer, dossier.Boekjaar);
 
         var bibliotheek = await Bibliotheek(db, dossier.Boekjaar);
         var grondslagen = dossier.Grondslag is not { } variant ? [] : bibliotheek
             .Select(g => (g, Tekst: variant == Verslaggeving.Commercieel ? g.TekstCommercieel : g.TekstFiscaal))
             .Where(x => !string.IsNullOrWhiteSpace(x.Tekst))
-            .Select(x => new Grondslag(x.g.Sleutel, x.g.Groep, x.g.Titel, Vul(x.Tekst!), (GrondslagStandaard)x.g.Opname,
+            .Select(x => new Grondslag(x.g.Sleutel, x.g.Groep, x.g.Titel, x.Tekst!, (GrondslagStandaard)x.g.Opname,
                 x.g.Codes.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)))
             .ToList();
 
-        var keuzes = (await GeldendeKeuzes(db, dossier)).ToDictionary(
-            k => k.Key, k => k.Value with { Tekst = k.Value.Tekst is null ? null : Vul(k.Value.Tekst) }, StringComparer.Ordinal);
-        return new GrondslagenVoorRapport(dossier.Grondslag, grondslagen, keuzes);
+        return new GrondslagenVoorRapport(dossier.Grondslag, grondslagen, await GeldendeKeuzes(db, dossier));
     }
 
     /// <summary>Per grondslag de keuze uit dit dossier of, als die er niet is, uit het laatste eerdere jaar (niet bij jaargebonden).</summary>

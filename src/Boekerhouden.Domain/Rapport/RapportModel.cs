@@ -75,6 +75,9 @@ public sealed record TabelBlok(Tabel Tabel) : Blok;
 
 public sealed record TekstBlok(string Tekst) : Blok
 {
+    /// <summary>De tekst zoals ingevoerd, met variabelen (bijv. {boekjaar}); null als er niets in te vullen was.</summary>
+    public string? Sjabloon { get; init; }
+
     /// <summary>De post (hoofdpost) waar de tekst een toelichting bij is; null bij een vaste tekst.</summary>
     public string? Toelichting { get; init; }
 
@@ -89,7 +92,11 @@ public sealed record GroepBlok(string Titel, bool HeeftOpgenomen) : Blok;
 /// <summary>Eén grondslag in het hoofdstuk Grondslagen.</summary>
 /// <param name="Opgenomen">In het rapport (open) of niet (dicht; alleen in de viewer zichtbaar, om aan te zetten).</param>
 /// <param name="EigenTekst">De tekst is in dit dossier aangepast (anders de tekst uit de bibliotheek).</param>
-public sealed record GrondslagBlok(string Sleutel, string Titel, string Tekst, bool Opgenomen, bool EigenTekst) : Blok;
+public sealed record GrondslagBlok(string Sleutel, string Titel, string Tekst, bool Opgenomen, bool EigenTekst) : Blok
+{
+    /// <summary>De tekst zoals ingevoerd, met variabelen (bijv. {naam}); null als er niets in te vullen was.</summary>
+    public string? Sjabloon { get; init; }
+}
 
 /// <summary>Een genummerd hoofdstuk; het begint op een nieuwe pagina.</summary>
 /// <param name="Paragrafen">De titels van de tabellen zijn genummerde paragrafen (3.1, 3.2, …), zoals bij de specificaties.</param>
@@ -113,6 +120,9 @@ public sealed record Rapport(
     IReadOnlyList<string> Waarschuwingen)
 {
     public IEnumerable<Hoofdstuk> Hoofdstukken => Delen.SelectMany(d => d.Hoofdstukken);
+
+    /// <summary>De waarden van de variabelen in dit rapport (zie <see cref="RapportVariabelen"/>), om te tonen bij het invoegen.</summary>
+    public IReadOnlyDictionary<string, string> Variabelen { get; init; } = new Dictionary<string, string>();
 }
 
 /// <summary>Wanneer een grondslag standaard in de jaarrekening staat.</summary>

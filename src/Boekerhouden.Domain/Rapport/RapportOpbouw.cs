@@ -19,6 +19,7 @@ public sealed record SplitsRegel(string Omschrijving, decimal Bedrag, decimal? B
 /// <param name="Uitsplitsingen">Per rekening de regels waarin hij in de specificatie is uitgesplitst.</param>
 /// <param name="Grondslagen">De grondslagen voor de jaarrekening (bibliotheek, al met de tekst voor commercieel of fiscaal); null = geen hoofdstuk.</param>
 /// <param name="GrondslagKeuzes">Per grondslag de keuze in het dossier: opgenomen of niet, en een eigen tekst.</param>
+/// <param name="Kvk">Het KvK-nummer van de klant, voor de variabele {kvk}.</param>
 public sealed record RapportGegevens(
     RapportSoort Soort,
     string Klantnaam,
@@ -36,7 +37,8 @@ public sealed record RapportGegevens(
     IReadOnlyDictionary<string, string>? Toelichtingen = null,
     IReadOnlyDictionary<Guid, IReadOnlyList<SplitsRegel>>? Uitsplitsingen = null,
     IReadOnlyList<Grondslag>? Grondslagen = null,
-    IReadOnlyDictionary<string, GrondslagKeuze>? GrondslagKeuzes = null);
+    IReadOnlyDictionary<string, GrondslagKeuze>? GrondslagKeuzes = null,
+    string? Kvk = null);
 
 /// <summary>
 /// Bouwt het rapport (plakje 6, docs §9.1–9.3) uit de proefbalans per post: de balans (tweekoloms, met het resultaat
@@ -72,14 +74,29 @@ public static partial class RapportOpbouw
         // De grondslagen staan in de jaarrekening van de BV tussen de W&V en de toelichting (docs §9.1).
         if (!ib && g.Grondslagen is not null)
         {
-            var grondslagen = Grondslagen(g);
-            hoofdstukken.Add(new Hoofdstuk(hoofdstukken.Count + 1, "Algemene toelichting en grondslagen", grondslagen, Paragrafen: true));
-            waarschuwingen.AddRange(grondslagen.OfType<GrondslagBlok>().Where(b => b.Opgenomen && InTeVullen().IsMatch(b.Tekst))
-                .Select(b => $"{b.Titel}: tekst tussen [ ] nog invullen."));
+            hoofdstukken.Add(new Hoofdstuk(hoofdstukken.Count + 1, "Algemene toelichting en grondslagen", Grondslagen(g), Paragrafen: true));
         }
 
         hoofdstukken.Add(new Hoofdstuk(hoofdstukken.Count + 1, ib ? "Specificaties van de balans" : "Toelichting op de balans", Specificaties(g, balans: true, waarschuwingen), Paragrafen: true));
         hoofdstukken.Add(new Hoofdstuk(hoofdstukken.Count + 1, ib ? "Specificaties van de winst-en-verliesrekening" : "Toelichting op de winst-en-verliesrekening", Specificaties(g, balans: false, waarschuwingen), Paragrafen: true));
+
+        // Variabelen in de teksten invullen; daarna pas controleren wat nog moet worden ingevuld.
+        var variabelen = RapportVariabelen.Bepaal(g, balans);
+        var onbekend = new SortedSet<string>(StringComparer.Ordinal);
+        string Vul(string tekst) => RapportVariabelen.Vul(tekst, g, variabelen, onbekend);
+        Blok VulIn(Blok blok) => blok switch
+        {
+            GrondslagBlok b when Vul(b.Tekst) is var t && t != b.Tekst => b with { Tekst = t, Sjabloon = b.Tekst },
+            TekstBlok b when Vul(b.Tekst) is var t && t != b.Tekst => b with { Tekst = t, Sjabloon = b.Tekst },
+            _ => blok,
+        };
+        hoofdstukken = [.. hoofdstukken.Select(h => h with { Blokken = [.. h.Blokken.Select(VulIn)] })];
+        var teksten = hoofdstukken.SelectMany(h => h.Blokken).ToList();
+        waarschuwingen.AddRange(teksten.OfType<GrondslagBlok>().Where(b => b.Opgenomen && InTeVullen().IsMatch(b.Tekst))
+            .Select(b => $"{b.Titel}: tekst tussen [ ] nog invullen."));
+        waarschuwingen.AddRange(teksten.OfType<TekstBlok>().Where(b => b.Toelichting is not null && InTeVullen().IsMatch(b.Tekst))
+            .Select(b => $"Toelichting {g.Naam(b.Toelichting!)}: tekst tussen [ ] nog invullen."));
+        waarschuwingen.AddRange(onbekend.Select(v => $"Onbekende variabele {v} in een tekst."));
 
         return new Rapport(
             g.Soort,
@@ -90,7 +107,10 @@ public static partial class RapportOpbouw
             ib ? "Geen accountantscontrole toegepast" : string.Empty,
             g.Concept,
             [new Deel($"JAARREKENING {g.Boekjaar}", hoofdstukken)],
-            waarschuwingen);
+            waarschuwingen)
+        {
+            Variabelen = variabelen,
+        };
     }
 
     /// <summary>Activa en passiva, elk in een tweekolomstabel: per post het totaal, met de subposten als detail.</summary>

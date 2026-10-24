@@ -66,6 +66,7 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
 
         var dossierId = (await server.Dienst<DossierDienst>().Maak(klantId, 2025, SoortOpdracht.SamenstellenJaarrekening, Tester, Verslaggeving.Fiscaal)).Waarde;
         Assert.True((await server.Dienst<GrondslagDienst>().ZetTekst(dossierId, "activiteiten", "De activiteiten van {naam} bestaan uit het bakken en verkopen van brood en banket.", Tester)).IsGelukt);
+        Assert.True((await Rapporten.ZetToelichting(dossierId, "WPer", "Gedurende {boekjaar} waren gemiddeld 3 werknemers in dienst ({boekjaar_vorig}: 3).", Tester)).IsGelukt);
         var rubriceren = server.Dienst<RubriceerDienst>();
         var rekeningen = (await rubriceren.Overzicht(dossierId, metVoorstellen: false))!.Rekeningen.ToDictionary(r => r.Nummer, r => r.Id);
         foreach (var (nummer, code) in Rubricering.Where(r => alles || r.Key != "4300"))
@@ -340,6 +341,31 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
 
         Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.PostHernoemd),
             a => a.Onderwerp!.StartsWith(klantnummer, StringComparison.Ordinal) && a.Details == "BVrd: 'Voorraden' → 'Voorraad grondstoffen' vanaf 2025");
+    }
+
+    [Fact]
+    public async Task Meegeleverde_toelichtingen_vullen_zichzelf_in_en_zijn_weg_te_halen()
+    {
+        var (klantId, dossierId, _, _) = await Bakkerij();
+        var vorigDossier = (await server.Dienst<DossierDienst>().Maak(klantId, 2024, SoortOpdracht.SamenstellenJaarrekening, Tester, Verslaggeving.Fiscaal)).Waarde;
+
+        var inhoud = (await Rapporten.Maak(dossierId))!.Waarde!;
+        var resultaat = Tabel(inhoud.Rapport, null).Regels[^1];
+        var eigen = inhoud.Rapport.Hoofdstukken.SelectMany(h => h.Blokken).OfType<TekstBlok>().Single(b => b.Toelichting == "BEiv");
+        Assert.Equal($"Het ingehouden deel van het resultaat over 2025 bedraagt € {Domain.Bedragen.Heel(resultaat.Totaal!.Value)} (2024: € {Domain.Bedragen.Heel(resultaat.TotaalVorig!.Value)}).", eigen.Tekst);
+        Assert.StartsWith("Het ingehouden deel van het resultaat over {boekjaar}", eigen.Sjabloon, StringComparison.Ordinal);
+        Assert.Contains("Gedurende 2025 waren gemiddeld 3 werknemers in dienst (2024: 3).", Toelichting(inhoud.Rapport, "WPer"), StringComparison.Ordinal);
+        Assert.Contains("[aantal]", Toelichting((await Rapporten.Maak(vorigDossier))!.Waarde!.Rapport, "WPer"), StringComparison.Ordinal);
+
+        // Weghalen in 2025: dan staat er vanaf 2025 geen toelichting, in 2024 wel.
+        Assert.True((await Rapporten.ZetToelichting(dossierId, "BEiv", null, Tester)).IsGelukt);
+        Assert.Null(Toelichting((await Rapporten.Maak(dossierId))!.Waarde!.Rapport, "BEiv"));
+        Assert.StartsWith("Het ingehouden deel van het resultaat over 2024", Toelichting((await Rapporten.Maak(vorigDossier))!.Waarde!.Rapport, "BEiv"), StringComparison.Ordinal);
+
+        // Een eigen tekst met variabelen blijft een sjabloon voor volgende jaren.
+        Assert.True((await Rapporten.ZetToelichting(vorigDossier, "BEiv", "Het eigen vermogen bedraagt {valuta} {eigen_vermogen} ({solvabiliteit} van het balanstotaal).", Tester)).IsGelukt);
+        Assert.Matches(@"^Het eigen vermogen bedraagt € [0-9.]+ \([0-9]+,[0-9]%", Toelichting((await Rapporten.Maak(vorigDossier))!.Waarde!.Rapport, "BEiv"));
+        Assert.Null(Toelichting((await Rapporten.Maak(dossierId))!.Waarde!.Rapport, "BEiv"));
     }
 
     [Fact]

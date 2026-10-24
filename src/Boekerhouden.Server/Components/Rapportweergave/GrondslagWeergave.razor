@@ -22,6 +22,7 @@
             <div class="d-flex gap-2 align-items-center mt-1" style="font-size: 8pt">
                 <button type="button" class="btn btn-primary btn-sm py-0" @onclick="Bewaar">Opslaan</button>
                 <button type="button" class="btn btn-link btn-sm py-0 text-secondary" @onclick="() => bewerken = false">Annuleren</button>
+                <VariabeleKeuze Veld="invoer" Waarden="Document.Inhoud.Rapport.Variabelen" />
                 @if (Grondslag.EigenTekst)
                 {
                     <button type="button" class="btn btn-link btn-sm py-0 text-secondary" @onclick="Standaard">standaardtekst terugzetten</button>
@@ -70,7 +71,7 @@
 
     private void Start()
     {
-        waarde = Grondslag.Tekst;
+        waarde = Grondslag.Sjabloon ?? Grondslag.Tekst;
         bewerken = true;
         focus = true;
     }
@@ -87,7 +88,7 @@
     private async Task Bewaar()
     {
         bewerken = false;
-        if (waarde.Trim() != Grondslag.Tekst)
+        if (waarde.Trim() != (Grondslag.Sjabloon ?? Grondslag.Tekst))
         {
             await Document.GrondslagTekst(Grondslag.Sleutel, waarde);
         }

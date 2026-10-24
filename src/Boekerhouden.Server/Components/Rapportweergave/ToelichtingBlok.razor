@@ -8,6 +8,7 @@
         <div class="d-flex gap-2 align-items-center mt-1" style="font-size: 8pt">
             <button type="button" class="btn btn-primary btn-sm py-0" @onclick="Bewaar">Opslaan</button>
             <button type="button" class="btn btn-link btn-sm py-0 text-secondary" @onclick="() => bewerken = false">Annuleren</button>
+            <VariabeleKeuze Veld="invoer" Waarden="Document.Inhoud.Rapport.Variabelen" />
         </div>
     </div>
 }
@@ -42,9 +43,15 @@ else if (Document.Bewerkbaar)
     [Parameter]
     public string? Tekst { get; set; }
 
+    /// <summary>De tekst met variabelen (zoals ingevoerd); null als die gelijk is aan <see cref="Tekst"/>.</summary>
+    [Parameter]
+    public string? Sjabloon { get; set; }
+
+    private string Ingevoerd => Sjabloon ?? Tekst ?? "";
+
     private void Start()
     {
-        waarde = Tekst ?? "";
+        waarde = Ingevoerd;
         bewerken = true;
         focus = true;
     }
@@ -61,7 +68,7 @@ else if (Document.Bewerkbaar)
     private async Task Bewaar()
     {
         bewerken = false;
-        if (waarde.Trim() != (Tekst ?? ""))
+        if (waarde.Trim() != Ingevoerd)
         {
             await Document.Toelichting(Sleutel, waarde);
         }

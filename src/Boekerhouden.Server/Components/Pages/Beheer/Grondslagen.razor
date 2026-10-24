@@ -25,7 +25,7 @@
         </span>
     }
 </div>
-<p class="text-secondary small" title="Bij post: open als een van de RGS-posten een saldo heeft. Altijd: altijd open. Optioneel: dicht, of open als een van de RGS-posten een saldo heeft. In het rapport zet je per dossier een onderdeel open of dicht en pas je de tekst aan. {naam}, {plaats}, {kvk} en {boekjaar} worden per klant ingevuld; tekst tussen [vierkante haken] vult de gebruiker in. Aanpassingen gelden vanaf het gekozen boekjaar.">
+<p class="text-secondary small" title="Bij post: open als een van de RGS-posten een saldo heeft. Altijd: altijd open. Optioneel: dicht, of open als een van de RGS-posten een saldo heeft. In het rapport zet je per dossier een onderdeel open of dicht en pas je de tekst aan. Variabelen zoals {naam}, {boekjaar} en {nettoresultaat} vult het rapport in; tekst tussen [vierkante haken] vult de gebruiker in. Aanpassingen gelden vanaf het gekozen boekjaar.">
     De algemene toelichting en de grondslagen voor de jaarrekening van een BV, met een tekst voor commerciële en voor fiscale grondslagen.
 </p>
 
@@ -77,11 +77,13 @@
                         <div class="row g-2 mb-2">
                             <div class="col-md-6">
                                 <label class="form-label small" for="grondslag-commercieel">Commerciële grondslagen (leeg = komt niet voor)</label>
-                                <textarea id="grondslag-commercieel" class="form-control form-control-sm" rows="7" @bind="invoer.TekstCommercieel" maxlength="@GrondslagDienst.MaximaleTekst"></textarea>
+                                <textarea id="grondslag-commercieel" @ref="veldCommercieel" class="form-control form-control-sm" rows="7" @bind="invoer.TekstCommercieel" @bind:event="oninput" maxlength="@GrondslagDienst.MaximaleTekst"></textarea>
+                                <VariabeleKeuze Veld="veldCommercieel" />
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label small" for="grondslag-fiscaal">Fiscale grondslagen (leeg = komt niet voor)</label>
-                                <textarea id="grondslag-fiscaal" class="form-control form-control-sm" rows="7" @bind="invoer.TekstFiscaal" maxlength="@GrondslagDienst.MaximaleTekst"></textarea>
+                                <textarea id="grondslag-fiscaal" @ref="veldFiscaal" class="form-control form-control-sm" rows="7" @bind="invoer.TekstFiscaal" @bind:event="oninput" maxlength="@GrondslagDienst.MaximaleTekst"></textarea>
+                                <VariabeleKeuze Veld="veldFiscaal" />
                             </div>
                         </div>
                         <div class="d-flex flex-wrap align-items-center gap-3">
@@ -104,6 +106,8 @@
     private IReadOnlyList<GrondslagSjabloon>? lijst;
     private IReadOnlyDictionary<string, IReadOnlyList<int>> versies = new Dictionary<string, IReadOnlyList<int>>();
     private int boekjaar;
+    private ElementReference veldCommercieel;
+    private ElementReference veldFiscaal;
     private string? open;
     private Invoer invoer = new();
     private int versie;

@@ -27,14 +27,15 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
 - `src/Boekerhouden.Domain` – domein (saldibalans, bedragen en `BedragParser`; `Rgs/`: RGS-codes, boom en selectie per
   rechtsvorm; `Rubricering/`: proefbalans per post met omslag en saldering per eigen post, voorstellen; `Correcties/`: boekingscontrole (C08),
   effect op resultaat en eigen vermogen, gecorrigeerde saldi; `Rapport/`: rapportmodel en `RapportOpbouw` voor balans, W&V
-  en specificaties); geen I/O.
+  en specificaties, `RapportVariabelen` voor `{boekjaar}` e.d. in teksten); geen I/O.
 - `src/Boekerhouden.Import` – importsjabloon (.xlsx/.csv) inlezen en controleren (I1–I6, I11), sjabloon genereren,
   het officiële RGS-werkboek lezen (`RgsWerkboekLezer`).
 - `src/Boekerhouden.Cli` – opdrachtregel om sjablonen te maken en bestanden te controleren.
 - `src/Boekerhouden.Data` – EF Core + PostgreSQL: entiteiten, Identity (gebruikers, rollen), migraties (`Migraties/`).
 - `src/Boekerhouden.Server` – Blazor Server-app: `Diensten/` (klanten, dossiers, import met I7/I9/I10, gebruikers,
   wijzigingslog, rubriceren, correcties, werkprogramma en review, bijlagen, signalen, kantoor en huisstijl, rapport en
-  presentatie per klant, grondslagen; `DossierSaldi` = saldi van een dossier na correcties, met vorig jaar), `Werkprogramma/` (het meegeleverde standaardwerkprogramma), `Grondslagen/` (de
+  presentatie per klant, grondslagen; `DossierSaldi` = saldi van een dossier na correcties, met vorig jaar;
+  `Jaarversies` = instellingen die gelden vanaf een boekjaar, nooit met terugwerkende kracht), `Werkprogramma/` (het meegeleverde standaardwerkprogramma), `Grondslagen/` (de
   meegeleverde bibliotheek: algemene toelichting en grondslagen, commercieel en fiscaal, met `{naam}` e.d.), `Identiteit/` (inloggen, wachtwoordbeleid), `Components/` (schermen; accountpagina's statisch,
   de rest interactief; `Rapportweergave/` = het rapport als bewerkbare viewer, dezelfde component rendert de PDF),
   `Export/` (correcties naar Excel en PDF; `RapportHtml` = stijl en A4-document van het rapport; `PdfDienst` maakt

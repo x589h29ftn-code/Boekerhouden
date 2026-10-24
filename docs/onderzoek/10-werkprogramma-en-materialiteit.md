@@ -110,6 +110,24 @@ Grondslagen kies je het boekjaar, en een aanpassing geldt vanaf dat jaar (zie [�
 De rubricering (koppelingen en eigen posten) geldt per klant voor alle jaren: de vergelijkende cijfers volgen
 zo de indeling van dit jaar. Een uitgebracht rapport wordt bevroren bij het afronden van het dossier (plakje 8).
 
+**Variabelen in teksten.** In elke tekst van het rapport (toelichtingen, grondslagen, ook in de bibliotheek) kun je
+variabelen gebruiken; het rapport vult ze bij het maken in, zodat een tekst die doorrolt elk jaar klopt. In de
+viewer en in Beheer › Grondslagen zet *variabele invoegen* er een op de plek van de cursor (in de viewer met de
+huidige waarde erbij). Bedragen in hele euro's, zoals in het rapport.
+
+| Groep | Variabelen |
+|---|---|
+| Algemeen | `{naam}`, `{plaats}`, `{kvk}`, `{valuta}` (€) |
+| Periode | `{boekjaar}`, `{boekjaar_vorig}`, `{boekjaar_volgend}`, `{begin_boekjaar}` (1 januari 2025), `{einde_boekjaar}` (31 december 2025), `{einde_boekjaar_vorig}` |
+| Bedragen | `{nettoresultaat}` (negatief bij verlies), `{nettoresultaat_vorig}`, `{nettoresultaat_absoluut}`, `{winst_of_verlies}`, `{resultaat_voor_belastingen}`(`_vorig`), `{belastingen}`, `{netto_omzet}`(`_vorig`), `{brutomarge}`(`_vorig`), `{eigen_vermogen}`(`_vorig`, met het resultaat), `{balanstotaal}`(`_vorig`), `{solvabiliteit}`(`_vorig`, bijv. 67,8%) |
+| Posten | `{post:CODE}` en `{post_vorig:CODE}`: het bedrag van een RGS-post, bijv. `{post:BMva}` |
+
+Een onbekende variabele blijft staan en geeft een waarschuwing. Bij de jaarrekening van een BV staan standaard
+twee toelichtingen klaar: bij het eigen vermogen *Het ingehouden deel van het resultaat over {boekjaar} bedraagt
+{valuta} {nettoresultaat} ({boekjaar_vorig}: {valuta} {nettoresultaat_vorig}).* en bij de personeelskosten het
+gemiddeld aantal werknemers (met *[aantal]* om in te vullen). Aanpassen of weghalen kan in de viewer en geldt vanaf
+dat jaar.
+
 ## 10.5 Het sjabloon (beheer)
 
 ```
