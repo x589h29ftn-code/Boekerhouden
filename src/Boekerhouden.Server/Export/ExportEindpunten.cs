@@ -15,6 +15,26 @@ internal static class ExportEindpunten
         app.MapGet("/dossiers/{id:guid}/correcties.pdf", Pdf).RequireAuthorization();
         app.MapGet("/dossiers/{id:guid}/rapport.pdf", RapportPdf).RequireAuthorization();
         app.MapGet("/bijlagen/{id:guid}", Bijlage).RequireAuthorization();
+        app.MapGet("/dossiers/{id:guid}/bespreekverslag.pdf", BespreekverslagPdf).RequireAuthorization();
+    }
+
+    private static async Task<IResult> BespreekverslagPdf(Guid id, BesprekingDienst besprekingen, PdfDienst pdf, AuditDienst audit, HttpContext context)
+    {
+        var wie = context.User.AlsUitvoerder();
+        if (await besprekingen.Verslag(id, wie) is not { } verslag)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var bestand = await pdf.Maak(BespreekverslagHtml.Html(verslag), context.RequestAborted);
+        if (!bestand.IsGelukt)
+        {
+            return TypedResults.Content(string.Join(" ", bestand.Fouten), "text/plain; charset=utf-8", statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+
+        await audit.Log(wie, AuditActies.BespreekverslagGemaakt, $"{verslag.Dossier.Klantnummer} {verslag.Dossier.KlantNaam} – {verslag.Dossier.Naam}",
+            $"{verslag.Bespreking.Punten.Count} bespreekpunt(en), PDF");
+        return TypedResults.File(bestand.Waarde!, "application/pdf", BespreekverslagHtml.Bestandsnaam(verslag));
     }
 
     private static async Task<IResult> RapportPdf(Guid id, RapportDienst rapporten, PdfDienst pdf, AuditDienst audit, HttpContext context)

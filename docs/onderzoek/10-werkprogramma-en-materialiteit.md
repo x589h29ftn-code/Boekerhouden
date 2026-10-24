@@ -248,7 +248,7 @@ Aanvulling op [hoofdstuk 6](06-datamodel.md):
 
 **Meegeleverde inhoud** (versie 2026.2): een ongewijzigd standaardsjabloon gaat bij het starten van de server mee naar de nieuwe versie; een door het kantoor aangepast sjabloon blijft zoals het is. Lopende dossiers houden hun kopie.
 
-**Volgt**: bespreekpunten, bespreekverslag en erkenning door de klant (7c), en de samenstellingsverklaring in het rapport van de BV (7d). De winstaangifte van de eenmanszaak is een aangifte-plusopdracht: zonder samenstellingsverklaring.
+**Volgt**: de samenstellingsverklaring in het rapport van de BV (7d). De winstaangifte van de eenmanszaak is een aangifte-plusopdracht: zonder samenstellingsverklaring.
 
 ## 10.10 Doorlezen met signalen en paraaf (plakje 7b)
 
@@ -274,10 +274,28 @@ Per signaal (één regel; details in de tooltip of door open te klikken; acties 
 - **heropen** maakt de afhandeling ongedaan (een nog niet besproken bespreekpunt vervalt dan ook);
 - **naar de post** opent de post in de uitvoering.
 
-**Bespreekpunten**: de punten uit de signalen en eigen punten (bijv. een vraag die bij het uitwerken opkwam). De bespreking zelf volgt in 7c.
+**Bespreekpunten**: de punten uit de signalen en eigen punten (bijv. een vraag die bij het uitwerken opkwam). De bespreking zelf staat in §10.11.
 
 **Stap *Signalen afgehandeld*** (verplicht) kan pas worden afgetekend als er geen open signalen meer zijn. Verder: *Lezen in samenhang* (verplicht), *Fraude en niet-naleving*, *Significante aangelegenheden* en *Continuïteit* (BV).
 
 **Paraaf**: het onderdeel Doorlezen wordt niet *gereviewd* maar **geparafeerd**, en alleen door een gebruiker met de rol accountant (ook terugzetten). Daarna ligt de afhandeling van de signalen vast.
 
 Alles staat in het wijzigingslog (*Signaal in orde*, *Signaal heropend*, *Bespreekpunt toegevoegd*, *Bespreekpunt verwijderd*, *Onderdeel gereviewd*).
+
+## 10.11 Bespreking met de klant, bespreekverslag en erkenning (plakje 7c)
+
+**Afronding › Bespreking met de klant** (BV; bij de eenmanszaak *Bespreking met de ondernemer*; standaardwerkprogramma 2026.4) vervangt *Bevestiging klant*. Boven de stappen staan drie delen:
+
+- **Bespreking**: datum (niet in de toekomst), aanwezigen en een optionele notitie. Rechtsboven: *bespreekverslag (PDF)*.
+- **Bespreekpunten**: dezelfde lijst als bij het doorlezen. Per punt de **uitkomst** (wat is besproken of afgesproken) en het vinkje **significante aangelegenheid**. Leegmaken van de uitkomst zet het punt weer open. Een besproken punt kan niet meer weg.
+- **Erkenning**: wie namens de klant de verantwoordelijkheid erkent, de datum en de wijze (bevestigingsbrief, e-mail, anders). De tekst, in eigen woorden: bij de BV *het bestuur bevestigt dat het verantwoordelijk is voor de jaarrekening en dat de verstrekte gegevens en inlichtingen juist en volledig zijn*; bij de eenmanszaak bevestigt de ondernemer de juistheid en volledigheid van de gegevens voor de cijfers en de aangifte.
+
+**Controles bij aftekenen**: *Bespreekpunten besproken* kan pas met een datum en een uitkomst bij elk punt; *Erkenning* pas als wie en wanneer zijn vastgelegd. *Uitbrengen rapport › Datum verklaring*: op of na de datum van de erkenning (de controle volgt met de verklaring in 7d).
+
+**Review**: na *gereviewd* ligt de bespreking vast (uitkomsten en erkenning).
+
+**Bespreekverslag (PDF)** (`/dossiers/{id}/bespreekverslag.pdf`): klant, datum en aanwezigen, de notitie, de bespreekpunten met toelichting en uitkomst (significante aangelegenheden gemarkeerd), de erkenning en wie het verslag opstelde. In de rustige stijl van de app; alle tekst is ge-escaped.
+
+De teksten van de signalen zijn neutraal (feiten en een vraag), zodat ze als toelichting bij een bespreekpunt in het verslag kunnen staan.
+
+Wijzigingslog: *Bespreking vastgelegd*, *Uitkomst bespreekpunt*, *Erkenning vastgelegd*, *Bespreekverslag gemaakt*.

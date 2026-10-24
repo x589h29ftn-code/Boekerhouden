@@ -64,12 +64,12 @@ public static class Leessignalen
             if (!jaarrekening)
             {
                 signalen.Add(new("negatief-vermogen", "Negatief ondernemingsvermogen",
-                    $"Het ondernemingsvermogen is {Bedragen.Heel(-vermogen)}. Bespreek de financiering en de continuïteit met de ondernemer.", "BEiv"));
+                    $"Het ondernemingsvermogen is {Bedragen.Heel(-vermogen)}. Hoe is de financiering geregeld?", "BEiv"));
             }
             else if (!continuiteit)
             {
                 signalen.Add(new("negatief-vermogen", "Negatief eigen vermogen",
-                    $"Het eigen vermogen is {Bedragen.Heel(-vermogen)} en de alinea over de continuïteit staat niet in de algemene toelichting. Beoordeel de continuïteit en neem de alinea zo nodig op.", "BEiv"));
+                    $"Het eigen vermogen is {Bedragen.Heel(-vermogen)} en de alinea over de continuïteit staat niet in de algemene toelichting. Is de continuïteit gewaarborgd?", "BEiv"));
             }
         }
 
@@ -123,7 +123,7 @@ public static class Leessignalen
             {
                 var procent = vorig == 0 ? "nieuw" : (verschil > 0 ? "+" : "") + Procent(verschil / Math.Abs(vorig));
                 signalen.Add(new($"verschil:{post.Code}", $"{g.Naam(post.Code)}: groot verschil met vorig jaar",
-                    $"{Bedragen.Heel(huidig)} tegen {Bedragen.Heel(vorig)} vorig jaar ({procent}). Leg uit waar het verschil vandaan komt, in de cijferbeoordeling of hier.", post.Code));
+                    $"{Bedragen.Heel(huidig)} tegen {Bedragen.Heel(vorig)} vorig jaar ({procent}). Waar komt het verschil vandaan?", post.Code));
             }
 
             if (post.IsBalans && post.Code != "BEiv" && !post.IsNormaleKant(t.Huidig))
@@ -138,7 +138,7 @@ public static class Leessignalen
                 if (horend.Count > 0 && !horend.Any(x => x.Opgenomen))
                 {
                     signalen.Add(new($"grondslag:{post.Code}", $"{g.Naam(post.Code)} zonder grondslag",
-                        $"De grondslag voor deze post ({string.Join(", ", horend.Select(x => x.Titel))}) staat niet in de algemene toelichting. Zet hem aan, of leg uit waarom niet.", post.Code));
+                        $"De grondslag voor deze post ({string.Join(", ", horend.Select(x => x.Titel))}) staat niet in de algemene toelichting.", post.Code));
                 }
             }
         }

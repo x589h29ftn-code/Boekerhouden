@@ -55,6 +55,8 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
 
     public DbSet<Bespreekpunt> Bespreekpunten => Set<Bespreekpunt>();
 
+    public DbSet<Bespreking> Besprekingen => Set<Bespreking>();
+
     public DbSet<Bijlage> Bijlagen => Set<Bijlage>();
 
     public DbSet<BijlageInhoud> BijlageInhouden => Set<BijlageInhoud>();
@@ -349,6 +351,18 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
             e.Property(p => p.Uitkomst).HasMaxLength(4000);
             e.Property(p => p.AangemaaktDoor).HasMaxLength(200);
             e.Property(p => p.GewijzigdDoor).HasMaxLength(200);
+        });
+
+        builder.Entity<Bespreking>(e =>
+        {
+            e.ToTable("Besprekingen");
+            e.HasKey(b => b.DossierId);
+            e.HasOne<Dossier>().WithMany().HasForeignKey(b => b.DossierId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(b => b.Aanwezigen).HasMaxLength(500);
+            e.Property(b => b.Notitie).HasMaxLength(4000);
+            e.Property(b => b.ErkendDoor).HasMaxLength(200);
+            e.Property(b => b.Wijze).HasConversion<string>().HasMaxLength(30);
+            e.Property(b => b.GewijzigdDoor).HasMaxLength(200);
         });
 
         builder.Entity<Reviewpunt>(e =>

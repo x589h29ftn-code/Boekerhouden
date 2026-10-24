@@ -9,7 +9,7 @@ namespace Boekerhouden.Server.Werkprogramma;
 /// </summary>
 public static class StandaardWerkprogramma
 {
-    public const string Versie = "2026.3";
+    public const string Versie = "2026.4";
 
     /// <summary>Wie het meegeleverde sjabloon "gewijzigd" heeft; zolang dat zo is, gaat het mee met een nieuwe standaardversie.</summary>
     public const string Door = "Standaard";
@@ -133,11 +133,14 @@ public static class StandaardWerkprogramma
                 Stap("Significante aangelegenheden", "Staan de significante aangelegenheden bij de bespreekpunten, om met de cliënt te bespreken?"),
                 Stap("Continuïteit", "Zijn er gebeurtenissen of omstandigheden die twijfel doen rijzen over de continuïteit? Zo ja: staat de alinea over de continuïteit in de toelichting?"),
             ]));
-            onderdelen.Add(Onderdeel(Fase.Afronding, "Bevestiging klant", verplicht: true,
-                Stap("Bevestigingsbrief", "Laat het bestuur de bevestigingsbrief tekenen en leg de datum vast.", verplicht: true)));
+            onderdelen.Add(Onderdeel(Fase.Afronding, "Bespreking met de klant", verplicht: true, OnderdeelSoort.Bespreking,
+            [
+                Stap("Bespreekpunten besproken", "Bespreek de bespreekpunten (ook de significante aangelegenheden) met het bestuur en leg per punt de uitkomst vast. Het bespreekverslag is als PDF te downloaden.", verplicht: true, StapControle.BespreekpuntenBesproken),
+                Stap("Erkenning door het bestuur", "Het bestuur bevestigt schriftelijk dat het verantwoordelijk is voor de jaarrekening en dat de verstrekte gegevens juist en volledig zijn. Leg vast wie en wanneer.", verplicht: true, StapControle.ErkenningVastgelegd),
+            ]));
             onderdelen.Add(Onderdeel(Fase.Afronding, "Uitbrengen rapport", verplicht: true,
-                Stap("Datum verklaring", "De samenstellingsverklaring is gedateerd op of na de datum van de bevestigingsbrief.", verplicht: true),
-                Stap("Bespreking", "Het rapport is besproken met de cliënt en verstrekt.")));
+                Stap("Datum verklaring", "De samenstellingsverklaring is gedateerd op of na de datum van de erkenning door het bestuur.", verplicht: true),
+                Stap("Rapport verstrekt", "Het definitieve rapport is aan de cliënt verstrekt.")));
         }
         else
         {
@@ -150,7 +153,12 @@ public static class StandaardWerkprogramma
             onderdelen.Add(Onderdeel(Fase.Afronding, "Fiscale winst en aangifte", verplicht: true,
                 Stap("Fiscale winst", "Bereken de fiscale winst en sluit die aan op het resultaat.", verplicht: true),
                 Stap("Ondernemersfaciliteiten", "Beoordeel urencriterium, zelfstandigenaftrek, MKB-winstvrijstelling en investeringsaftrek."),
-                Stap("Aangifte", "De aangifte is besproken met de ondernemer en ingediend.", verplicht: true)));
+                Stap("Aangifte", "De aangifte is na de bespreking met de ondernemer ingediend.", verplicht: true)));
+            onderdelen.Add(Onderdeel(Fase.Afronding, "Bespreking met de ondernemer", verplicht: true, OnderdeelSoort.Bespreking,
+            [
+                Stap("Bespreekpunten besproken", "Bespreek de bespreekpunten met de ondernemer en leg per punt de uitkomst vast. Het bespreekverslag is als PDF te downloaden.", verplicht: true, StapControle.BespreekpuntenBesproken),
+                Stap("Erkenning door de ondernemer", "De ondernemer bevestigt dat de verstrekte gegevens voor de cijfers en de aangifte juist en volledig zijn. Leg vast wie en wanneer.", verplicht: true, StapControle.ErkenningVastgelegd),
+            ]));
         }
 
         onderdelen.Add(Onderdeel(Fase.Afronding, "Afsluiting", verplicht: true,

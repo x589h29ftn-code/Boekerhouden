@@ -19,6 +19,8 @@ public static class Weergave
     public static string DatumVoluit(DateTimeOffset tijdstip) =>
         TimeZoneInfo.ConvertTime(tijdstip, Amsterdam).ToString("d MMMM yyyy", Nederlands);
 
+    public static string Datum(DateOnly datum) => datum.ToString("dd-MM-yyyy", Nederlands);
+
     /// <summary>Bijvoorbeeld "28 juni 2024".</summary>
     public static string DatumVoluit(DateOnly datum) => datum.ToString("d MMMM yyyy", Nederlands);
 
@@ -44,6 +46,13 @@ public static class Weergave
         Rechtsvorm.BV => "BV",
         Rechtsvorm.Eenmanszaak => "Eenmanszaak",
         _ => rechtsvorm.ToString(),
+    };
+
+    public static string Tekst(Erkenningswijze wijze) => wijze switch
+    {
+        Erkenningswijze.Bevestigingsbrief => "bevestigingsbrief",
+        Erkenningswijze.Email => "e-mail",
+        _ => "anders",
     };
 
     public static string Tekst(PostBeoordeling beoordeling) => beoordeling switch

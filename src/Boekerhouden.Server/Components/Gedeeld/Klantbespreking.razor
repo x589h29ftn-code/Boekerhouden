@@ -1,0 +1,199 @@
+@* Bespreking met de klant (afronding): datum en aanwezigen, de uitkomst per bespreekpunt en de erkenning. *@
+@using System.Globalization
+@using Boekerhouden.Server.Export
+@inject BesprekingDienst BesprekingDienst
+@inject DoorleesDienst DoorleesDienst
+
+@if (b is null)
+{
+    <p class="text-secondary small m-3">Laden…</p>
+}
+else
+{
+    <div class="wp-sectie" id="bespreking">
+        <div class="wp-sectie-kop">
+            <span class="me-auto">Bespreking</span>
+            <a href="/dossiers/@DossierId/bespreekverslag.pdf" target="_blank" title="De bespreekpunten met hun uitkomst en de erkenning, als PDF">bespreekverslag (PDF)</a>
+        </div>
+        <div class="bs-raster">
+            <label for="bespreking-datum">Datum</label>
+            <input id="bespreking-datum" type="date" class="form-control form-control-sm bs-datum" value="@Iso(datum)" disabled="@b.Vergrendeld"
+                   @onchange="async e => { datum = Datum(e.Value); await BewaarBespreking(); }" />
+            <label for="bespreking-aanwezig">Aanwezig</label>
+            <input id="bespreking-aanwezig" class="form-control form-control-sm" value="@aanwezigen" disabled="@b.Vergrendeld" placeholder="bijv. de bestuurder en de samensteller"
+                   @onchange="async e => { aanwezigen = (string?)e.Value; await BewaarBespreking(); }" />
+            <label for="bespreking-notitie">Notitie</label>
+            <textarea id="bespreking-notitie" class="form-control form-control-sm" rows="2" value="@notitie" disabled="@b.Vergrendeld" placeholder="Algemeen beeld van de bespreking (optioneel)"
+                      @onchange="async e => { notitie = (string?)e.Value; await BewaarBespreking(); }"></textarea>
+        </div>
+    </div>
+
+    <div class="wp-sectie" id="bespreekpunten">
+        <div class="wp-sectie-kop">
+            <span class="me-auto">Bespreekpunten</span>
+            <span class="status">@(b.Punten.Count == 0 ? "geen" : b.Open == 0 ? "alles besproken" : $"{b.Open} open van {b.Punten.Count}")</span>
+        </div>
+        @foreach (var p in b.Punten)
+        {
+            <div class="ls-regel" data-bespreekpunt="@p.Onderwerp" @key="(p.Id, versie)">
+                <span class="titel" title="@(p.Toelichting is null ? p.Onderwerp : $"{p.Onderwerp}\n{p.Toelichting}")" @onclick="() => Wissel(p)">
+                    <span class="pijl" aria-hidden="true">@(uitgeklapt == p.Id ? "▾" : "▸")</span>@p.Onderwerp
+                </span>
+                <span class="status" title="@p.Uitkomst">@(p.IsBesproken ? $"{(p.Significant ? "significant · " : null)}{p.Uitkomst}" : "open")</span>
+                <span class="acties">
+                    @if (!b.Vergrendeld)
+                    {
+                        <button class="btn btn-sm btn-link p-0" @onclick="() => Wissel(p)">uitkomst</button>
+                    }
+                </span>
+            </div>
+            @if (uitgeklapt == p.Id)
+            {
+                <div class="ls-detail">
+                    @if (p.Toelichting is not null)
+                    {
+                        <p class="instructie mb-1">@p.Toelichting</p>
+                    }
+                    <form @onsubmit="() => BewaarUitkomst(p)" @onsubmit:preventDefault>
+                        <textarea class="form-control form-control-sm mb-1" rows="2" placeholder="Wat is besproken of afgesproken?" aria-label="Uitkomst @p.Onderwerp" disabled="@b.Vergrendeld" @bind="uitkomst"></textarea>
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="form-check mb-0 small me-auto" title="Een aangelegenheid die het bestuur moet weten, bijv. een belangrijke schatting, een correctie of twijfel over de continuïteit.">
+                                <input class="form-check-input" type="checkbox" id="significant-@p.Id" @bind="significant" disabled="@b.Vergrendeld" />
+                                <label class="form-check-label" for="significant-@p.Id">significante aangelegenheid</label>
+                            </span>
+                            <button type="submit" class="btn btn-sm btn-outline-secondary" disabled="@b.Vergrendeld">Opslaan</button>
+                        </div>
+                    </form>
+                </div>
+            }
+        }
+        @if (!b.Vergrendeld)
+        {
+            <form class="d-flex gap-2 mx-3 my-2" @onsubmit="VoegToe" @onsubmit:preventDefault>
+                <input class="form-control form-control-sm" placeholder="Nieuw bespreekpunt" aria-label="Nieuw bespreekpunt" @bind="nieuwOnderwerp" />
+                <button type="submit" class="btn btn-sm btn-outline-secondary">Toevoegen</button>
+            </form>
+        }
+    </div>
+
+    <div class="wp-sectie" id="erkenning">
+        <div class="wp-sectie-kop">
+            <span class="me-auto">Erkenning</span>
+            <span class="status">@(b.IsErkend ? "vastgelegd" : "nog niet vastgelegd")</span>
+        </div>
+        <p class="small text-secondary mx-3 mb-2">@BespreekverslagHtml.Erkenningstekst(Soort)</p>
+        <div class="bs-raster">
+            <label for="erkend-door">Erkend door</label>
+            <input id="erkend-door" class="form-control form-control-sm" value="@erkendDoor" disabled="@b.Vergrendeld" placeholder="naam en functie"
+                   @onchange="async e => { erkendDoor = (string?)e.Value; await BewaarErkenning(); }" />
+            <label for="erkend-op">Datum</label>
+            <div class="d-flex gap-2">
+                <input id="erkend-op" type="date" class="form-control form-control-sm bs-datum" value="@Iso(erkendOp)" disabled="@b.Vergrendeld"
+                       @onchange="async e => { erkendOp = Datum(e.Value); await BewaarErkenning(); }" />
+                <select class="form-select form-select-sm bs-wijze" aria-label="Wijze van erkenning" disabled="@b.Vergrendeld"
+                        @onchange="async e => { wijze = Enum.TryParse<Erkenningswijze>((string?)e.Value, out var w) ? w : null; await BewaarErkenning(); }">
+                    <option value="" selected="@(wijze is null)">wijze…</option>
+                    @foreach (var w in Enum.GetValues<Erkenningswijze>())
+                    {
+                        <option value="@w" selected="@(wijze == w)">@Weergave.Tekst(w)</option>
+                    }
+                </select>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private BesprekingInfo? b;
+    private DateOnly? datum;
+    private string? aanwezigen;
+    private string? notitie;
+    private string? erkendDoor;
+    private DateOnly? erkendOp;
+    private Erkenningswijze? wijze;
+    private Guid? uitgeklapt;
+    private string? uitkomst;
+    private bool significant;
+    private string? nieuwOnderwerp;
+    private int versie;
+    private (Guid, int)? geladen;
+
+    [Parameter, EditorRequired]
+    public Guid DossierId { get; set; }
+
+    [Parameter, EditorRequired]
+    public SoortOpdracht Soort { get; set; }
+
+    /// <summary>Wordt verhoogd door de pagina als er iets is gewijzigd (bijv. de review); dan opnieuw laden.</summary>
+    [Parameter]
+    public int Stand { get; set; }
+
+    [Parameter]
+    public EventCallback<(Uitkomst Uitkomst, string Gelukt)> OnMelding { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Authenticatie { get; set; } = default!;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (geladen != (DossierId, Stand))
+        {
+            geladen = (DossierId, Stand);
+            await Laad();
+        }
+    }
+
+    private async Task Laad()
+    {
+        versie++;
+        b = await BesprekingDienst.Overzicht(DossierId);
+        (datum, aanwezigen, notitie, erkendDoor, erkendOp, wijze) = (b?.Datum, b?.Aanwezigen, b?.Notitie, b?.ErkendDoor, b?.ErkendOp, b?.Wijze);
+    }
+
+    private static string? Iso(DateOnly? d) => d?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    private static DateOnly? Datum(object? waarde) =>
+        DateOnly.TryParseExact(waarde as string, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
+
+    private void Wissel(BespreekpuntInfo p)
+    {
+        uitgeklapt = uitgeklapt == p.Id ? null : p.Id;
+        (uitkomst, significant) = (p.Uitkomst, p.Significant);
+    }
+
+    private async Task BewaarBespreking() =>
+        await Klaar(await BesprekingDienst.BewaarBespreking(DossierId, datum, aanwezigen, notitie, await Wie()), "Bespreking bewaard");
+
+    private async Task BewaarErkenning() =>
+        await Klaar(await BesprekingDienst.BewaarErkenning(DossierId, erkendDoor, erkendOp, wijze, await Wie()), "Erkenning bewaard");
+
+    private async Task BewaarUitkomst(BespreekpuntInfo p)
+    {
+        var gelukt = await BesprekingDienst.BewaarUitkomst(p.Id, uitkomst, significant, await Wie());
+        if (gelukt.IsGelukt)
+        {
+            uitgeklapt = null;
+        }
+
+        await Klaar(gelukt, $"Uitkomst bij '{p.Onderwerp}' bewaard");
+    }
+
+    private async Task VoegToe()
+    {
+        var gelukt = await DoorleesDienst.VoegBespreekpuntToe(DossierId, nieuwOnderwerp, null, await Wie());
+        if (gelukt.IsGelukt)
+        {
+            nieuwOnderwerp = null;
+        }
+
+        await Klaar(gelukt, "Bespreekpunt toegevoegd");
+    }
+
+    private async Task Klaar(Uitkomst gelukt, string tekst)
+    {
+        await OnMelding.InvokeAsync((gelukt, tekst));
+        await Laad();
+    }
+
+    private async Task<Uitvoerder> Wie() => (await Authenticatie).User.AlsUitvoerder();
+}

@@ -43,7 +43,7 @@ public sealed class WerkprogrammaDienstTests(ServerFixture server) : IClassFixtu
         Assert.Equal(nogmaals.Onderdelen.Select(x => x.Id), o.Onderdelen.Select(x => x.Id));
         Assert.DoesNotContain(o.Onderdelen, x => x.Fase == Fase.Uitvoering);
         Assert.Equal(["Opdracht en acceptatie", "Kennis van de cliënt", "Planning"], o.Onderdelen.Where(x => x.Fase == Fase.Voorbereiding).Select(x => x.Titel));
-        Assert.Contains(o.Onderdelen, x => x.Titel == "Bevestiging klant" && x.Verplicht);
+        Assert.Contains(o.Onderdelen, x => x.Titel == "Bespreking met de klant" && x.Verplicht && x.Soort == OnderdeelSoort.Bespreking);
         Assert.All(o.Onderdelen.SelectMany(x => x.Stappen), s => Assert.False(s.Eigen));
         Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.WerkprogrammaGestart), a => a.Details == $"Samenstellen jaarrekening {StandaardWerkprogramma.Versie}");
     }
@@ -203,6 +203,7 @@ public sealed class WerkprogrammaDienstTests(ServerFixture server) : IClassFixtu
 
         Assert.Contains(o.Onderdelen, x => x.Titel == "Kennis van de ondernemer");
         Assert.Contains(o.Onderdelen, x => x.Titel == "Fiscale winst en aangifte");
-        Assert.DoesNotContain(o.Onderdelen, x => x.Titel == "Bevestiging klant");
+        Assert.Contains(o.Onderdelen, x => x.Titel == "Bespreking met de ondernemer" && x.Soort == OnderdeelSoort.Bespreking);
+        Assert.DoesNotContain(o.Onderdelen, x => x.Titel == "Bespreking met de klant");
     }
 }

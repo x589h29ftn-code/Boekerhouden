@@ -41,7 +41,7 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   de rest interactief; `Rapportweergave/` = het rapport als bewerkbare viewer, dezelfde component rendert de PDF),
   `wwwroot/navigatie.js` (werkprogramma en rapport openen op dezelfde post),
   `Demo/` (`--demo`: vult account, RGS-werkboek en klanten uit `tests/Fictief/` en `testdata/demo/`),
-  `Export/` (correcties naar Excel en PDF; `RapportHtml` = stijl en A4-document van het rapport; `PdfDienst` maakt
+  `Export/` (correcties naar Excel en PDF; `BespreekverslagHtml` = bespreekverslag als PDF; `RapportHtml` = stijl en A4-document van het rapport; `PdfDienst` maakt
   PDF's met Edge/Chromium zonder venster, instellingen in sectie `Pdf`).
 - `tests/` – xUnit-tests; `tests/Fictief/` – verzonnen testklanten (met `genereer.py`); `tests/Gedeeld/` – gedeelde
   testhulp, o.a. een klein uittreksel uit RGS 3.8 (`RgsTestWerkboek`).

@@ -144,6 +144,46 @@ namespace Boekerhouden.Data.Migraties
                     b.ToTable("Bespreekpunten", (string)null);
                 });
 
+            modelBuilder.Entity("Boekerhouden.Data.Bespreking", b =>
+                {
+                    b.Property<Guid>("DossierId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Aanwezigen")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateOnly?>("Datum")
+                        .HasColumnType("date");
+
+                    b.Property<string>("ErkendDoor")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateOnly?>("ErkendOp")
+                        .HasColumnType("date");
+
+                    b.Property<string>("GewijzigdDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("GewijzigdOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Notitie")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("Wijze")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.HasKey("DossierId");
+
+                    b.ToTable("Besprekingen", (string)null);
+                });
+
             modelBuilder.Entity("Boekerhouden.Data.Bijlage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1758,6 +1798,15 @@ namespace Boekerhouden.Data.Migraties
                 });
 
             modelBuilder.Entity("Boekerhouden.Data.Bespreekpunt", b =>
+                {
+                    b.HasOne("Boekerhouden.Data.Dossier", null)
+                        .WithMany()
+                        .HasForeignKey("DossierId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.Bespreking", b =>
                 {
                     b.HasOne("Boekerhouden.Data.Dossier", null)
                         .WithMany()

@@ -62,3 +62,40 @@ public sealed class Bespreekpunt
 
     public DateTimeOffset? GewijzigdOp { get; set; }
 }
+
+public enum Erkenningswijze
+{
+    /// <summary>Een getekende bevestigingsbrief (bij de BV de gebruikelijke vorm).</summary>
+    Bevestigingsbrief,
+
+    Email,
+
+    Anders,
+}
+
+/// <summary>
+/// De bespreking met de klant over de bespreekpunten (het bespreekverslag), en de erkenning door het bestuur of de
+/// ondernemer van de verantwoordelijkheid voor de cijfers en de verstrekte informatie. Eén per dossier.
+/// </summary>
+public sealed class Bespreking
+{
+    public Guid DossierId { get; set; }
+
+    public DateOnly? Datum { get; set; }
+
+    /// <summary>Wie er bij waren, bijv. "J. Jansen (bestuurder), A. de Vries (kantoor)".</summary>
+    public string? Aanwezigen { get; set; }
+
+    public string? Notitie { get; set; }
+
+    /// <summary>Wie de verantwoordelijkheid heeft erkend (namens de klant).</summary>
+    public string? ErkendDoor { get; set; }
+
+    public DateOnly? ErkendOp { get; set; }
+
+    public Erkenningswijze? Wijze { get; set; }
+
+    public string GewijzigdDoor { get; set; } = string.Empty;
+
+    public DateTimeOffset GewijzigdOp { get; set; }
+}

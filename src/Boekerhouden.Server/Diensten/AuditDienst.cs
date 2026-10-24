@@ -79,6 +79,10 @@ public static class AuditActies
     public const string SignaalHeropend = "Signaal heropend";
     public const string BespreekpuntToegevoegd = "Bespreekpunt toegevoegd";
     public const string BespreekpuntVerwijderd = "Bespreekpunt verwijderd";
+    public const string BesprekingVastgelegd = "Bespreking vastgelegd";
+    public const string UitkomstVastgelegd = "Uitkomst bespreekpunt";
+    public const string ErkenningVastgelegd = "Erkenning vastgelegd";
+    public const string BespreekverslagGemaakt = "Bespreekverslag gemaakt";
     public const string StapBeantwoord = "Stap beantwoord";
     public const string StapAfgetekend = "Stap afgetekend";
     public const string StapToegevoegd = "Stap toegevoegd";

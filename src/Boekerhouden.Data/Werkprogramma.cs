@@ -20,6 +20,9 @@ public enum OnderdeelSoort
 
     /// <summary>Doorlezen in de afronding: de signalen uit de cijfers en het rapport afhandelen; de accountant parafeert.</summary>
     Doorlezen,
+
+    /// <summary>De bespreking met de klant: uitkomst per bespreekpunt, het bespreekverslag en de erkenning.</summary>
+    Bespreking,
 }
 
 /// <summary>
@@ -53,6 +56,12 @@ public enum StapControle
 
     /// <summary>Elk signaal bij het doorlezen is afgehandeld (in orde of bespreekpunt).</summary>
     SignalenAfgehandeld,
+
+    /// <summary>De bespreking heeft een datum en elk bespreekpunt een uitkomst.</summary>
+    BespreekpuntenBesproken,
+
+    /// <summary>De erkenning door de klant is vastgelegd (wie en wanneer).</summary>
+    ErkenningVastgelegd,
 }
 
 /// <summary>
