@@ -1,0 +1,129 @@
+@* Een tabel uit het rapport. Een lijn staat onder het laatste bedrag vóór een (sub)totaal, een eindtotaal krijgt een
+   dubbele lijn. In de viewer: driehoekjes om in en uit te klappen, namen aanklikken, rekeningen uitsplitsen. *@
+@using Boekerhouden.Domain.Rapport
+@using Boekerhouden.Server.Export
+
+<table class="@(Tabel.Tweekoloms ? "tweekoloms" : "eenkoloms")">
+    <thead>
+        <tr>
+            <th></th>
+            <th class="jaar" colspan="@Span">@Tabel.KopHuidig<br />€</th>
+            <th class="jaar vorig" colspan="@Span">@Tabel.KopVorig<br />€</th>
+        </tr>
+    </thead>
+    <tbody>
+        @for (var i = 0; i < Tabel.Regels.Count; i++)
+        {
+            var regel = Tabel.Regels[i];
+            var volgende = i + 1 < Tabel.Regels.Count ? Tabel.Regels[i + 1].Soort : (RegelSoort?)null;
+            var lijn = volgende is RegelSoort.Subtotaal or RegelSoort.Eindtotaal;
+            var dubbel = regel.Soort == RegelSoort.Eindtotaal;
+            if (regel.Soort == RegelSoort.Kop)
+            {
+                <tr class="kop">
+                    <td class="omschrijving" colspan="@Kolommen">
+                        @Klap(regel)
+                        @Omschrijving(regel)
+                    </td>
+                </tr>
+            }
+            else
+            {
+                <tr class="@Klasse(regel)">
+                    <td class="omschrijving">
+                        @Klap(regel)
+                        @Omschrijving(regel)
+                        @if (Document.Bewerkbaar && regel.Bron is { Soort: Onderwerp.Rekening, Id: { } id } && openSplitsing != id)
+                        {
+                            <button type="button" class="bewerk-actie" @onclick="() => openSplitsing = id">uitsplitsen</button>
+                        }
+                    </td>
+                    @if (Tabel.Tweekoloms)
+                    {
+                        <td class="bedrag">@RapportHtml.Bedrag(regel.Detail)</td>
+                        <td class="@Cel(lijn, dubbel && regel.Totaal is not null)">@RapportHtml.Bedrag(regel.Totaal)</td>
+                        <td class="bedrag vorig">@RapportHtml.Bedrag(regel.DetailVorig)</td>
+                        <td class="@Cel(lijn, dubbel && regel.TotaalVorig is not null, vorig: true)">@RapportHtml.Bedrag(regel.TotaalVorig)</td>
+                    }
+                    else
+                    {
+                        <td class="@Cel(lijn, dubbel)">@RapportHtml.Bedrag(regel.Detail ?? regel.Totaal)</td>
+                        <td class="@Cel(lijn, dubbel, vorig: true)">@RapportHtml.Bedrag(regel.DetailVorig ?? regel.TotaalVorig)</td>
+                    }
+                </tr>
+            }
+
+            @if (openSplitsing is { } open && LaatsteRegel(open) == i)
+            {
+                <tr class="bewerker">
+                    <td colspan="@Kolommen">
+                        <UitsplitsingBewerker RekeningId="open" Omschrijving="@SplitsOmschrijving(open)" Saldo="@Som(open, vorig: false)" SaldoVorig="@Som(open, vorig: true)"
+                                              Sluiten="() => openSplitsing = null" />
+                    </td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>
+
+@code {
+    private Guid? openSplitsing;
+
+    [CascadingParameter]
+    public RapportDocument Document { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public Tabel Tabel { get; set; } = default!;
+
+    private int Kolommen => Tabel.Tweekoloms ? 5 : 3;
+
+    private int Span => Tabel.Tweekoloms ? 2 : 1;
+
+    private static string Klasse(Regel regel) => regel.Soort switch
+    {
+        RegelSoort.Post => "post",
+        RegelSoort.Detail when regel.Omschrijving == RapportOpbouw.NietGespecificeerd && regel.Bron?.Soort == Onderwerp.Uitsplitsing => "detail verschil",
+        RegelSoort.Detail => "detail",
+        RegelSoort.Subtotaal => "subtotaal",
+        _ => "eindtotaal",
+    };
+
+    private static string Cel(bool lijn, bool dubbel, bool vorig = false) =>
+        string.Join(' ', new[] { "bedrag", vorig ? "vorig" : null, lijn ? "lijn" : null, dubbel ? "dubbel" : null }.OfType<string>());
+
+    /// <summary>Het driehoekje om in of uit te klappen; alleen in de viewer en nooit bij afdrukken.</summary>
+    private RenderFragment? Klap(Regel regel) => Document.Bewerkbaar && regel is { Uitgeklapt: { } uit, Bron: { } bron }
+        ? @<button type="button" class="klap" title="@(uit ? "Inklappen" : "Uitklappen")" aria-expanded="@(uit ? "true" : "false")"
+                   aria-label="@($"{regel.Omschrijving} {(uit ? "inklappen" : "uitklappen")}")" @onclick="() => Document.Klap(bron.Sleutel, !uit)">@(uit ? "▾" : "▸")</button>
+        : null;
+
+    private RenderFragment Omschrijving(Regel regel) => regel.Bron switch
+    {
+        { Soort: Onderwerp.Uitsplitsing, Id: { } id } bron when Document.Bewerkbaar =>
+            @<span class="bewerkbaar" title="@($"{bron.Herkomst} · klik om de uitsplitsing aan te passen")" @onclick="() => openSplitsing = id">@regel.Omschrijving</span>,
+        { Soort: Onderwerp.Post or Onderwerp.EigenPost or Onderwerp.Rekening } bron =>
+            @<BewerkbareTekst Tekst="@regel.Omschrijving" Titel="@bron.Herkomst" Bewerkbaar="@Document.Bewerkbaar" Opslaan="naam => Document.Hernoem(bron, naam)" />,
+        _ => @<text>@regel.Omschrijving</text>,
+    };
+
+    /// <summary>De laatste regel van een rekening (of zijn uitsplitsing); daaronder komt de bewerker.</summary>
+    private int LaatsteRegel(Guid rekeningId)
+    {
+        for (var i = Tabel.Regels.Count - 1; i >= 0; i--)
+        {
+            if (Tabel.Regels[i].Bron?.Id == rekeningId)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private IEnumerable<Regel> RegelsVan(Guid rekeningId) => Tabel.Regels.Where(r => r.Bron?.Id == rekeningId && r.Bron.Soort is Onderwerp.Rekening or Onderwerp.Uitsplitsing);
+
+    /// <summary>Het saldo van de rekening zoals in het rapport: de som van zijn regels (bij een uitsplitsing inclusief het verschil).</summary>
+    private decimal Som(Guid rekeningId, bool vorig) => RegelsVan(rekeningId).Sum(r => (vorig ? r.DetailVorig : r.Detail) ?? 0);
+
+    private string SplitsOmschrijving(Guid rekeningId) => RegelsVan(rekeningId).FirstOrDefault()?.Omschrijving ?? "";
+}

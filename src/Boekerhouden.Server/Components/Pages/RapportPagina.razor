@@ -1,5 +1,6 @@
 @page "/dossiers/{Id:guid}/rapport"
 @using Boekerhouden.Domain.Rapport
+@using Boekerhouden.Server.Components.Rapportweergave
 @using Boekerhouden.Server.Export
 @inject DossierDienst DossierDienst
 @inject RapportDienst RapportDienst
@@ -34,11 +35,11 @@ else
                 <button class="btn-close btn-sm ms-1" aria-label="Sluiten" @onclick="() => melding = null"></button>
             </span>
         }
-        <span class="form-check form-switch mb-0 small text-nowrap" title="Omschrijvingen van rekeningen, rekeningen in Overige en welke specificaties in het rapport komen">
+        <span class="form-check form-switch mb-0 small text-nowrap" title="Welke specificaties in het rapport komen en welke rekeningen in Overige">
             <input class="form-check-input" type="checkbox" id="presentatie-aanpassen" @bind="aanpassen" @bind:after="LaadPresentatie" />
             <label class="form-check-label" for="presentatie-aanpassen">presentatie aanpassen</label>
         </span>
-        @if (rapport is not null)
+        @if (inhoud is not null)
         {
             <a class="btn btn-sm btn-outline-secondary" href="@($"/dossiers/{Id}/rapport.pdf")" download>PDF</a>
         }
@@ -49,81 +50,81 @@ else
     {
         <div class="alert alert-warning">@fout</div>
     }
-    else if (rapport is not null)
+    else if (inhoud is not null)
     {
+        <HeadContent>
+            <style>@((MarkupString)RapportHtml.Stijl)</style>
+        </HeadContent>
         <div class="d-flex flex-wrap gap-3 mb-2" id="rapportstand">
-            <span class="status">@rapport.Titel@(rapport.Concept ? " · concept" : null)</span>
-            @foreach (var waarschuwing in rapport.Waarschuwingen)
+            <span class="status" title="Klik in het rapport op een naam of toelichting om die aan te passen; met de driehoekjes klap je posten in en uit. Wat je ziet, staat zo in de PDF.">@inhoud.Rapport.Titel@(inhoud.Rapport.Concept ? " · concept" : null)</span>
+            @foreach (var waarschuwing in inhoud.Rapport.Waarschuwingen)
             {
                 <span class="status let-op">@waarschuwing</span>
             }
         </div>
 
         <div class="row g-3">
-            <div class="@(aanpassen ? "col-xl-5" : "col-xl-3")">
-                @if (!aanpassen)
-                {
-                    <div class="rapport-inhoud" aria-label="Inhoud van het rapport">
-                        @foreach (var deel in rapport.Delen)
-                        {
-                            <div class="status mb-1">@deel.Titel</div>
-                            @foreach (var h in deel.Hoofdstukken)
+            <div class="@(aanpassen ? "col-xl-4" : "col-xl-3")">
+                <div class="rapport-zijkant">
+                    @if (!aanpassen)
+                    {
+                        <nav class="rapport-inhoud" aria-label="Inhoud van het rapport">
+                            @foreach (var deel in inhoud.Rapport.Delen)
                             {
-                                <a class="rapport-hoofdstuk" href="@Voorbeeld(RapportHtml.Anker(h))" target="voorbeeld"><span class="nr">@h.Nummer</span>@h.Titel</a>
-                                @if (h.Paragrafen)
+                                <div class="status mb-1">@deel.Titel</div>
+                                @foreach (var h in deel.Hoofdstukken)
                                 {
-                                    var p = 0;
-                                    @foreach (var tabel in h.Blokken.OfType<TabelBlok>().Select(b => b.Tabel))
+                                    <a class="rapport-hoofdstuk" href="@Anker(RapportHtml.Anker(h))"><span class="nr">@h.Nummer</span>@h.Titel</a>
+                                    @foreach (var (nummer, titel, code) in Paragrafen(h))
                                     {
-                                        p++;
-                                        <a class="rapport-paragraaf" href="@Voorbeeld(tabel.Code is null ? null : RapportHtml.Anker(tabel.Code))" target="voorbeeld"><span class="nr">@($"{h.Nummer}.{p}")</span>@tabel.Titel</a>
+                                        <a class="rapport-paragraaf" href="@Anker(RapportHtml.Anker(code))"><span class="nr">@nummer</span>@titel</a>
                                     }
                                 }
                             }
-                        }
-                    </div>
-                }
-                else if (presentatie is not null)
-                {
-                    <div class="rapport-presentatie">
-                        <p class="small text-secondary mb-2">
-                            Per klant; geldt ook voor volgende jaren. Een rekening in Overige telt mee in de regel "Overige" van zijn post.
-                        </p>
-                        @foreach (var post in presentatie.Posten)
-                        {
-                            <details @key="(post.Code, versie)" open="@(openPost == post.Code)">
-                                <summary @onclick="() => openPost = openPost == post.Code ? null : post.Code">
-                                    <span class="me-auto" title="@post.Code">@post.Naam</span>
-                                    <span class="form-check form-switch mb-0 small" @onclick:stopPropagation="true">
-                                        <input class="form-check-input" type="checkbox" id="@($"spec-{post.Code}")" checked="@post.ToonSpecificatie"
-                                               @onchange="e => ZetSpecificatie(post, e)" />
-                                        <label class="form-check-label" for="@($"spec-{post.Code}")">specificatie</label>
-                                    </span>
-                                </summary>
-                                @if (post.Rekeningen.Count == 0)
-                                {
-                                    <div class="status ps-3 py-1">Alleen eigen posten; die staan elk als één regel in de specificatie.</div>
-                                }
-                                @foreach (var r in post.Rekeningen)
-                                {
-                                    <div class="presentatie-rekening" @key="(r.Id, versie)">
-                                        <span class="nummer" title="@($"{r.Nummer} {r.Omschrijving} · {Bedragen.Heel(r.Huidig ?? 0)} / vorig jaar {Bedragen.Heel(r.Vorig ?? 0)}")">@r.Nummer</span>
-                                        <input class="form-control form-control-sm" value="@r.RapportOmschrijving" placeholder="@r.Omschrijving"
-                                               maxlength="@RapportDienst.MaximaleOmschrijving" disabled="@r.Verbergen"
-                                               aria-label="@($"Omschrijving in het rapport voor {r.Nummer}")"
-                                               @onchange="e => ZetOmschrijving(post, r, e)" />
-                                        <label class="small text-nowrap text-secondary">
-                                            <input class="form-check-input me-1" type="checkbox" checked="@r.Verbergen" @onchange="e => ZetVerbergen(post, r, e)" />in Overige
-                                        </label>
-                                    </div>
-                                }
-                            </details>
-                        }
-                    </div>
-                }
+                        </nav>
+                    }
+                    else if (presentatie is not null)
+                    {
+                        <div class="rapport-presentatie">
+                            <p class="small text-secondary mb-2">
+                                Per klant; geldt ook voor volgende jaren. Een rekening in Overige telt mee in de regel "Overige" van zijn groep.
+                                Namen en omschrijvingen pas je aan door ze in het rapport aan te klikken.
+                            </p>
+                            @foreach (var post in presentatie.Posten)
+                            {
+                                <details @key="(post.Code, versie)" open="@(openPost == post.Code)">
+                                    <summary @onclick="() => openPost = openPost == post.Code ? null : post.Code">
+                                        <span class="me-auto" title="@post.Code">@post.Naam</span>
+                                        <span class="form-check form-switch mb-0 small" @onclick:stopPropagation="true">
+                                            <input class="form-check-input" type="checkbox" id="@($"spec-{post.Code}")" checked="@post.ToonSpecificatie"
+                                                   @onchange="e => ZetSpecificatie(post, e)" />
+                                            <label class="form-check-label" for="@($"spec-{post.Code}")">specificatie</label>
+                                        </span>
+                                    </summary>
+                                    @if (post.Rekeningen.Count == 0)
+                                    {
+                                        <div class="status ps-3 py-1">Alleen eigen posten; die staan elk als één regel in de specificatie.</div>
+                                    }
+                                    @foreach (var r in post.Rekeningen)
+                                    {
+                                        <div class="presentatie-rekening" @key="(r.Id, versie)">
+                                            <span class="nummer">@r.Nummer</span>
+                                            <span class="me-auto small" title="@($"{r.Nummer} {r.Omschrijving} · {Bedragen.Heel(r.Huidig ?? 0)} / vorig jaar {Bedragen.Heel(r.Vorig ?? 0)}")">@(r.RapportOmschrijving ?? r.Omschrijving)</span>
+                                            <label class="small text-nowrap text-secondary">
+                                                <input class="form-check-input me-1" type="checkbox" checked="@r.Verbergen" @onchange="e => ZetVerbergen(post, r, e)" />in Overige
+                                            </label>
+                                        </div>
+                                    }
+                                </details>
+                            }
+                        </div>
+                    }
+                </div>
             </div>
-            <div class="@(aanpassen ? "col-xl-7" : "col-xl-9")">
-                <iframe class="rapport-voorbeeld" name="voorbeeld" sandbox title="Voorbeeld van het rapport" src="@Voorbeeld(openPost is null ? null : RapportHtml.Anker(openPost))"></iframe>
+            <div class="@(aanpassen ? "col-xl-8" : "col-xl-9")">
+                <div class="rapport-viewer">
+                    <RapportDocument Inhoud="inhoud" Bewerkbaar="true" Gewijzigd="NaWijziging" Wie="Wie" />
+                </div>
             </div>
         </div>
     }
@@ -132,7 +133,7 @@ else
 @code {
     private bool geladen;
     private DossierDetail? dossier;
-    private Rapport? rapport;
+    private RapportInhoud? inhoud;
     private string? fout;
     private bool aanpassen;
     private PresentatieOverzicht? presentatie;
@@ -161,7 +162,7 @@ else
     private async Task Laad()
     {
         var uitkomst = await RapportDienst.Maak(Id);
-        rapport = uitkomst?.Waarde?.Rapport;
+        inhoud = uitkomst?.Waarde;
         fout = uitkomst is { IsGelukt: false } ? string.Join(" ", uitkomst.Fouten) : null;
         versie++;
         if (aanpassen)
@@ -182,12 +183,6 @@ else
             $"Specificatie {post.Naam} {(tonen ? "wel" : "niet")} in het rapport");
     }
 
-    private async Task ZetOmschrijving(PostPresentatieInfo post, RekeningPresentatieInfo r, ChangeEventArgs e)
-    {
-        openPost = post.Code;
-        await Na(await RapportDienst.ZetWeergave(dossier!.KlantId, r.Id, e.Value?.ToString(), r.Verbergen, await Wie()), "Omschrijving opgeslagen");
-    }
-
     private async Task ZetVerbergen(PostPresentatieInfo post, RekeningPresentatieInfo r, ChangeEventArgs e)
     {
         var verbergen = e.Value is true;
@@ -203,8 +198,41 @@ else
         await Laad();
     }
 
-    /// <summary>Het adres van het voorbeeld; de versie laadt het opnieuw na een wijziging, het anker springt naar een plek.</summary>
-    private string Voorbeeld(string? anker) => $"/dossiers/{Id}/rapport.html?v={versie}{(anker is null ? null : "#" + anker)}";
+    /// <summary>Na een wijziging in de viewer: de melding tonen en het rapport opnieuw maken.</summary>
+    private async Task NaWijziging((Uitkomst Uitkomst, string? Melding) wijziging)
+    {
+        if (wijziging.Melding is not null || !wijziging.Uitkomst.IsGelukt)
+        {
+            melding = wijziging.Uitkomst.IsGelukt ? wijziging.Melding : string.Join(" ", wijziging.Uitkomst.Fouten);
+            meldingIsFout = !wijziging.Uitkomst.IsGelukt;
+        }
+
+        await Laad();
+    }
+
+    private string Anker(string anker) => $"/dossiers/{Id}/rapport#{anker}";
+
+    /// <summary>De genummerde paragrafen van een hoofdstuk (zoals in het rapport), voor de inhoud links.</summary>
+    private static IEnumerable<(string Nummer, string Titel, string Code)> Paragrafen(Hoofdstuk h)
+    {
+        if (!h.Paragrafen)
+        {
+            yield break;
+        }
+
+        var nummer = 0;
+        foreach (var blok in h.Blokken)
+        {
+            if (blok is TabelBlok { Tabel: { Titel: { } titel, Code: { } code } })
+            {
+                yield return ($"{h.Nummer}.{++nummer}", titel, code);
+            }
+            else if (blok is TekstBlok { Titel: { } tekstTitel, Toelichting: { } sleutel })
+            {
+                yield return ($"{h.Nummer}.{++nummer}", tekstTitel, sleutel);
+            }
+        }
+    }
 
     private async Task<Uitvoerder> Wie() => (await Authenticatie).User.AlsUitvoerder();
 }

@@ -1,0 +1,161 @@
+@* Een rekening in de specificatie uitsplitsen in eigen regels, met een controletelling op het saldo (beide jaren). *@
+@using Boekerhouden.Domain.Rapport
+@inject RapportDienst RapportDienst
+
+<div class="uitsplitsing">
+    @if (regels is null)
+    {
+        <span class="status">Laden…</span>
+    }
+    else
+    {
+        <table class="uitsplitsing-tabel">
+            <tbody>
+                @foreach (var regel in regels)
+                {
+                    <tr @key="regel">
+                        <td><input class="inline-invoer" @bind="regel.Omschrijving" maxlength="200" aria-label="Omschrijving" placeholder="Omschrijving" /></td>
+                        <td class="bedrag"><input class="inline-invoer text-end" @bind="regel.Bedrag" @bind:event="oninput" aria-label="Bedrag" inputmode="decimal" /></td>
+                        <td class="bedrag vorig"><input class="inline-invoer text-end" @bind="regel.BedragVorig" @bind:event="oninput" aria-label="Bedrag vorig jaar" inputmode="decimal" /></td>
+                        <td class="acties">
+                            <button type="button" class="bewerk-actie zichtbaar" title="Regel verwijderen" @onclick="() => regels.Remove(regel)">×</button>
+                        </td>
+                    </tr>
+                }
+                <tr class="controle">
+                    <td>
+                        <button type="button" class="bewerk-actie zichtbaar ms-0" @onclick="Toevoegen">regel toevoegen</button>
+                    </td>
+                    <td class="bedrag">@Controle(Totaal(r => r.Bedrag), Saldo)</td>
+                    <td class="bedrag vorig">@Controle(Totaal(r => r.BedragVorig), SaldoVorig)</td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+        @if (fout is not null)
+        {
+            <div class="status fout">@fout</div>
+        }
+        <div class="d-flex gap-2 align-items-center mt-1" style="font-size: 8pt">
+            <button type="button" class="btn btn-primary btn-sm py-0" @onclick="Bewaar">Opslaan</button>
+            <button type="button" class="btn btn-link btn-sm py-0 text-secondary" @onclick="Sluiten">Annuleren</button>
+            @if (bewaard)
+            {
+                <button type="button" class="btn btn-link btn-sm py-0 text-secondary" @onclick="Verwijder">uitsplitsing verwijderen</button>
+            }
+            <span class="text-secondary">@Uitleg</span>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Invoer>? regels;
+    private bool bewaard;
+    private bool uitVorigJaar;
+    private string? fout;
+
+    [CascadingParameter]
+    public RapportDocument Document { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public Guid RekeningId { get; set; }
+
+    /// <summary>De omschrijving van de rekening in het rapport, voor de eerste regel van een nieuwe uitsplitsing.</summary>
+    [Parameter]
+    public string Omschrijving { get; set; } = "";
+
+    /// <summary>Het saldo zoals in het rapport (hele euro's, positief aan de normale kant).</summary>
+    [Parameter]
+    public decimal Saldo { get; set; }
+
+    [Parameter]
+    public decimal SaldoVorig { get; set; }
+
+    [Parameter]
+    public EventCallback Sluiten { get; set; }
+
+    private sealed class Invoer
+    {
+        public string Omschrijving { get; set; } = "";
+
+        public string Bedrag { get; set; } = "";
+
+        public string BedragVorig { get; set; } = "";
+    }
+
+    private string Uitleg => bewaard ? "Bedragen zoals in het rapport; de regels moeten optellen tot het saldo."
+        : uitVorigJaar ? "Voorstel: de regels van vorig jaar, met hun bedragen als vorig jaar."
+        : "Splits de rekening in regels; ze moeten optellen tot het saldo.";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var info = await RapportDienst.Uitsplitsing(Document.DossierId, RekeningId, Omschrijving, Saldo, SaldoVorig);
+        bewaard = info.Bewaard;
+        uitVorigJaar = info.UitVorigJaar;
+        regels = [.. info.Regels.Select(r => new Invoer
+        {
+            Omschrijving = r.Omschrijving,
+            Bedrag = r.Bedrag == 0 && uitVorigJaar ? "" : Bedragen.Getal(r.Bedrag),
+            BedragVorig = r.BedragVorig is { } v ? Bedragen.Getal(v) : "",
+        })];
+    }
+
+    private void Toevoegen() => regels!.Add(new Invoer());
+
+    private decimal Totaal(Func<Invoer, string> veld) =>
+        regels!.Sum(r => BedragParser.TryParse(veld(r), out var bedrag) ? bedrag : 0m);
+
+    /// <summary>"sluit aan" of het verschil met het saldo (een afrondingsverschil onder een euro telt niet).</summary>
+    private static RenderFragment Controle(decimal totaal, decimal saldo) => Math.Abs(saldo - totaal) < 1
+        ? @<span class="status">@Bedragen.Heel(totaal) · sluit aan</span>
+        : @<span class="status fout" title="@($"Saldo {Bedragen.Heel(saldo)}")">verschil @Bedragen.Heel(saldo - totaal)</span>;
+
+    private async Task Bewaar()
+    {
+        var invoer = new List<SplitsRegel>();
+        foreach (var r in regels!.Where(r => r.Omschrijving.Trim().Length > 0 || r.Bedrag.Trim().Length > 0 || r.BedragVorig.Trim().Length > 0))
+        {
+            if (r.Omschrijving.Trim().Length == 0)
+            {
+                fout = "Geef elke regel een omschrijving.";
+                return;
+            }
+
+            decimal bedrag = 0;
+            if (r.Bedrag.Trim().Length > 0 && !BedragParser.TryParse(r.Bedrag, out bedrag))
+            {
+                fout = $"Geen geldig bedrag bij '{r.Omschrijving}'.";
+                return;
+            }
+
+            decimal? vorig = null;
+            if (r.BedragVorig.Trim().Length > 0)
+            {
+                if (!BedragParser.TryParse(r.BedragVorig, out var v))
+                {
+                    fout = $"Geen geldig bedrag vorig jaar bij '{r.Omschrijving}'.";
+                    return;
+                }
+
+                vorig = v;
+            }
+
+            invoer.Add(new SplitsRegel(r.Omschrijving, bedrag, vorig));
+        }
+
+        var uitkomst = await Document.Uitsplitsing(RekeningId, invoer);
+        fout = uitkomst.IsGelukt ? null : string.Join(" ", uitkomst.Fouten);
+        if (uitkomst.IsGelukt)
+        {
+            await Sluiten.InvokeAsync();
+        }
+    }
+
+    private async Task Verwijder()
+    {
+        if ((await Document.Uitsplitsing(RekeningId, [])).IsGelukt)
+        {
+            await Sluiten.InvokeAsync();
+        }
+    }
+}

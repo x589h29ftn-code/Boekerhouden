@@ -422,6 +422,33 @@ namespace Boekerhouden.Data.Migraties
                     b.ToTable("DossierStappen", (string)null);
                 });
 
+            modelBuilder.Entity("Boekerhouden.Data.DossierToelichting", b =>
+                {
+                    b.Property<Guid>("DossierId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Sleutel")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("GewijzigdDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("GewijzigdOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Tekst")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.HasKey("DossierId", "Sleutel");
+
+                    b.ToTable("DossierToelichtingen", (string)null);
+                });
+
             modelBuilder.Entity("Boekerhouden.Data.Gebruiker", b =>
                 {
                     b.Property<Guid>("Id")
@@ -831,6 +858,9 @@ namespace Boekerhouden.Data.Migraties
                     b.Property<bool>("ToonSpecificatie")
                         .HasColumnType("boolean");
 
+                    b.Property<bool?>("Uitgeklapt")
+                        .HasColumnType("boolean");
+
                     b.HasKey("KlantId", "Sleutel");
 
                     b.ToTable("PostPresentaties", (string)null);
@@ -1173,6 +1203,51 @@ namespace Boekerhouden.Data.Migraties
                     b.ToTable("SjabloonStappen", (string)null);
                 });
 
+            modelBuilder.Entity("Boekerhouden.Data.UitsplitsingRegel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Bedrag")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal?>("BedragVorig")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("DossierId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("GewijzigdDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("GewijzigdOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("GrootboekrekeningId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Omschrijving")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Volgorde")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GrootboekrekeningId");
+
+                    b.HasIndex("DossierId", "GrootboekrekeningId", "Volgorde");
+
+                    b.ToTable("UitsplitsingRegels", (string)null);
+                });
+
             modelBuilder.Entity("Boekerhouden.Data.WerkprogrammaSjabloon", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1433,6 +1508,15 @@ namespace Boekerhouden.Data.Migraties
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Boekerhouden.Data.DossierToelichting", b =>
+                {
+                    b.HasOne("Boekerhouden.Data.Dossier", null)
+                        .WithMany()
+                        .HasForeignKey("DossierId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Boekerhouden.Data.Grootboekrekening", b =>
                 {
                     b.HasOne("Boekerhouden.Data.Klant", null)
@@ -1573,6 +1657,21 @@ namespace Boekerhouden.Data.Migraties
                     b.HasOne("Boekerhouden.Data.SjabloonOnderdeel", null)
                         .WithMany("Stappen")
                         .HasForeignKey("OnderdeelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.UitsplitsingRegel", b =>
+                {
+                    b.HasOne("Boekerhouden.Data.Dossier", null)
+                        .WithMany()
+                        .HasForeignKey("DossierId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Boekerhouden.Data.Grootboekrekening", null)
+                        .WithMany()
+                        .HasForeignKey("GrootboekrekeningId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

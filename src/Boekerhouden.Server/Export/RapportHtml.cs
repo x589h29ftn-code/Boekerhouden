@@ -2,55 +2,60 @@ using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
+using Boekerhouden.Data;
 using Boekerhouden.Domain;
 using Boekerhouden.Domain.Rapport;
+using Boekerhouden.Server.Components.Rapportweergave;
 using Boekerhouden.Server.Diensten;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 
 namespace Boekerhouden.Server.Export;
 
 /// <summary>
-/// Het rapport als HTML: op het scherm als voorbeeld (pagina's onder elkaar), en via de browser zonder venster als PDF
-/// (A4, met paginanummers in de voettekst). Bedragen in hele euro's, nul als "-". Alle tekst is ge-escaped; het
-/// document laadt niets van buiten (het logo staat er als data-URI in).
+/// Het rapport als HTML. De inhoud maakt één Razor-component (<see cref="RapportDocument"/>): in de app bewerkbaar,
+/// voor de PDF statisch gerenderd en verpakt in een A4-document met voettekst en paginanummers. Zo is de PDF precies
+/// wat je in de viewer ziet, zonder de knoppen. Bedragen in hele euro's, nul als "-". Het document laadt niets van
+/// buiten (het logo staat er als data-URI in).
 /// </summary>
 public static partial class RapportHtml
 {
     public const string Beveiliging = "default-src 'none'; style-src 'unsafe-inline'; img-src data:";
 
-    private const string StandaardKleur = "#1f4e79";
+    public const string StandaardKleur = "#1f4e79";
 
     private static readonly HashSet<string> LogoTypes = new(StringComparer.OrdinalIgnoreCase) { "image/png", "image/jpeg" };
 
-    public static string Maak(RapportInhoud inhoud)
+    /// <summary>Het rapport als volledig HTML-document voor de PDF.</summary>
+    public static async Task<string> Maak(IServiceProvider services, RapportInhoud inhoud)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(inhoud);
+        await using var scope = services.CreateAsyncScope();
+        await using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
+        var lichaam = await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            var parameters = ParameterView.FromDictionary(new Dictionary<string, object?> { [nameof(RapportDocument.Inhoud)] = inhoud });
+            return (await renderer.RenderComponentAsync<RapportDocument>(parameters)).ToHtmlString();
+        });
+        return Document(inhoud, lichaam);
+    }
+
+    public static string Document(RapportInhoud inhoud, string lichaam)
     {
         ArgumentNullException.ThrowIfNull(inhoud);
-        var rapport = inhoud.Rapport;
-        var html = new StringBuilder();
-        html.Append(CultureInfo.InvariantCulture, $"""
+        return $"""
             <!doctype html>
             <html lang="nl">
             <head>
             <meta charset="utf-8">
             <meta http-equiv="Content-Security-Policy" content="{Beveiliging}">
-            <title>{E($"{rapport.Titel} {rapport.Klantnaam}")}</title>
-            <style>{Stijl(inhoud)}</style>
+            <title>{E($"{inhoud.Rapport.Titel} {inhoud.Rapport.Klantnaam}")}</title>
+            <style>{PaginaStijl(inhoud)}{Stijl}</style>
             </head>
-            <body>
-            """);
-
-        Voorblad(html, inhoud);
-        Inhoudsopgave(html, rapport);
-        foreach (var deel in rapport.Delen)
-        {
-            html.Append(CultureInfo.InvariantCulture, $"""<section class="tussenblad"><div class="deel">{E(deel.Titel)}</div></section>""");
-            foreach (var hoofdstuk in deel.Hoofdstukken)
-            {
-                Hoofdstuk(html, hoofdstuk);
-            }
-        }
-
-        html.Append("</body></html>");
-        return html.ToString();
+            <body>{lichaam}</body>
+            </html>
+            """;
     }
 
     /// <summary>De bestandsnaam van de PDF, bijv. "Jaarrekening 2025 K001 (concept).pdf".</summary>
@@ -61,146 +66,31 @@ public static partial class RapportHtml
         return string.Concat(naam.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '-' : c)) + ".pdf";
     }
 
-    private static void Voorblad(StringBuilder html, RapportInhoud inhoud)
+    /// <summary>De huisstijlkleur van het kantoor, of de standaardkleur als die ontbreekt of niet klopt.</summary>
+    public static string Kleur(Kantoorinstellingen kantoor)
     {
-        var rapport = inhoud.Rapport;
-        var kantoor = inhoud.Kantoor;
-        var logo = kantoor.Logo is { Length: > 0 } bytes && kantoor.LogoType is { } type && LogoTypes.Contains(type)
-            ? $"""<img class="logo" src="data:{type.ToLowerInvariant()};base64,{Convert.ToBase64String(bytes)}" alt="">"""
-            : string.Empty;
-        var adres = string.Join(" · ", new[] { kantoor.Adres, $"{kantoor.Postcode} {kantoor.Plaats}".Trim() }.Where(t => !string.IsNullOrWhiteSpace(t)));
-        html.Append(CultureInfo.InvariantCulture, $"""
-            <section class="voorblad">
-              <div class="boven">{logo}</div>
-              <div class="midden">
-                <div class="klant">{E(rapport.Klantnaam)}</div>
-                {(rapport.Plaats is { Length: > 0 } plaats ? $"<div class=\"plaats\">te {E(plaats)}</div>" : null)}
-                <div class="titel">{E(rapport.Titel)}</div>
-                {(rapport.Concept ? $"<div class=\"concept\">Concept, {E(Weergave.DatumVoluit(inhoud.Op))}</div>" : null)}
-              </div>
-              <div class="onder">
-                <div>{E(kantoor.Naam)}</div>
-                <div>{E(adres)}</div>
-              </div>
-            </section>
-            """);
+        ArgumentNullException.ThrowIfNull(kantoor);
+        return kantoor.Kleur is { } kleur && KleurPatroon().IsMatch(kleur) ? kleur : StandaardKleur;
     }
 
-    private static void Inhoudsopgave(StringBuilder html, Rapport rapport)
+    /// <summary>Het logo als data-URI; null zonder (geldig) logo.</summary>
+    public static string? Logo(Kantoorinstellingen kantoor)
     {
-        html.Append("""<section class="inhoud"><h1>Inhoudsopgave</h1>""");
-        foreach (var deel in rapport.Delen)
-        {
-            html.Append(CultureInfo.InvariantCulture, $"""<div class="inhoud-deel">{E(deel.Titel)}</div><ol>""");
-            foreach (var hoofdstuk in deel.Hoofdstukken)
-            {
-                html.Append(CultureInfo.InvariantCulture, $"""<li><span class="nr">{hoofdstuk.Nummer}</span>{E(hoofdstuk.Titel)}</li>""");
-            }
-
-            html.Append("</ol>");
-        }
-
-        if (rapport.Concept && rapport.Waarschuwingen.Count > 0)
-        {
-            html.Append("""<div class="aandacht"><div>Nog niet af</div><ul>""");
-            foreach (var waarschuwing in rapport.Waarschuwingen)
-            {
-                html.Append(CultureInfo.InvariantCulture, $"<li>{E(waarschuwing)}</li>");
-            }
-
-            html.Append("</ul></div>");
-        }
-
-        html.Append("</section>");
+        ArgumentNullException.ThrowIfNull(kantoor);
+        return kantoor.Logo is { Length: > 0 } logo && kantoor.LogoType is { } type && LogoTypes.Contains(type)
+            ? $"data:{type.ToLowerInvariant()};base64,{Convert.ToBase64String(logo)}"
+            : null;
     }
 
-    private static void Hoofdstuk(StringBuilder html, Hoofdstuk hoofdstuk)
+    /// <summary>Het anker van een hoofdstuk, bijv. "h3".</summary>
+    public static string Anker(Hoofdstuk hoofdstuk)
     {
-        html.Append(CultureInfo.InvariantCulture, $"""<section class="hoofdstuk" id="{Anker(hoofdstuk)}"><h1><span class="nr">{hoofdstuk.Nummer}</span>{E(hoofdstuk.Titel)}</h1>""");
-        var paragraaf = 0;
-        foreach (var blok in hoofdstuk.Blokken)
-        {
-            switch (blok)
-            {
-                case TekstBlok tekst:
-                    html.Append(CultureInfo.InvariantCulture, $"<p>{E(tekst.Tekst)}</p>");
-                    break;
-                case TabelBlok { Tabel: var tabel }:
-                    var titel = tabel.Titel is null ? null
-                        : hoofdstuk.Paragrafen ? $"""<h2><span class="nr">{hoofdstuk.Nummer}.{++paragraaf}</span>{E(tabel.Titel)}</h2>"""
-                        : $"<h2>{E(tabel.Titel)}</h2>";
-                    var anker = tabel.Code is null ? null : $" id=\"{Anker(tabel.Code)}\"";
-                    html.Append(CultureInfo.InvariantCulture, $"""<div class="blok"{anker}>{titel}""");
-                    Tabel(html, tabel);
-                    html.Append("</div>");
-                    break;
-            }
-        }
-
-        html.Append("</section>");
+        ArgumentNullException.ThrowIfNull(hoofdstuk);
+        return string.Create(CultureInfo.InvariantCulture, $"h{hoofdstuk.Nummer}");
     }
 
-    /// <summary>
-    /// Een tabel: tweekoloms (per jaar een detail- en een totaalkolom) of één kolom per jaar. Een lijn staat onder het
-    /// laatste bedrag vóór een (sub)totaal: onder de detailkolom als het subtotaal detailregels optelt, anders onder
-    /// de totaalkolom. Een eindtotaal krijgt een dubbele lijn.
-    /// </summary>
-    private static void Tabel(StringBuilder html, Tabel tabel)
-    {
-        var kolommen = tabel.Tweekoloms ? 5 : 3;
-        html.Append(CultureInfo.InvariantCulture, $"""<table class="{(tabel.Tweekoloms ? "tweekoloms" : "eenkoloms")}"><thead><tr><th></th>""");
-        var span = tabel.Tweekoloms ? " colspan=\"2\"" : string.Empty;
-        html.Append(CultureInfo.InvariantCulture, $"""<th class="jaar"{span}>{E(tabel.KopHuidig)}<br>€</th><th class="jaar vorig"{span}>{E(tabel.KopVorig)}<br>€</th></tr></thead><tbody>""");
-
-        for (var i = 0; i < tabel.Regels.Count; i++)
-        {
-            var regel = tabel.Regels[i];
-            var volgende = i + 1 < tabel.Regels.Count ? tabel.Regels[i + 1].Soort : (RegelSoort?)null;
-            if (regel.Soort == RegelSoort.Kop)
-            {
-                html.Append(CultureInfo.InvariantCulture, $"""<tr class="kop"><td colspan="{kolommen}">{E(regel.Omschrijving)}</td></tr>""");
-                continue;
-            }
-
-            // Waar de lijn komt: onder de detail- of de totaalkolom van deze regel.
-            var lijn = volgende switch
-            {
-                RegelSoort.Eindtotaal => tabel.Tweekoloms ? "totaal" : "detail",
-                RegelSoort.Subtotaal => regel.Soort == RegelSoort.Detail || !tabel.Tweekoloms ? "detail" : "totaal",
-                _ => null,
-            };
-            var klasse = regel.Soort switch
-            {
-                RegelSoort.Post => "post",
-                RegelSoort.Detail => "detail",
-                RegelSoort.Subtotaal => "subtotaal",
-                _ => "eindtotaal",
-            };
-            html.Append(CultureInfo.InvariantCulture, $"""<tr class="{klasse}"><td class="omschrijving">{E(regel.Omschrijving)}</td>""");
-            if (tabel.Tweekoloms)
-            {
-                html.Append(Cel(regel.Detail, lijn == "detail"))
-                    .Append(Cel(regel.Totaal, lijn == "totaal", regel.Soort == RegelSoort.Eindtotaal))
-                    .Append(Cel(regel.DetailVorig, lijn == "detail", vorig: true))
-                    .Append(Cel(regel.TotaalVorig, lijn == "totaal", regel.Soort == RegelSoort.Eindtotaal, vorig: true));
-            }
-            else
-            {
-                html.Append(Cel(regel.Detail ?? regel.Totaal, lijn is not null, regel.Soort == RegelSoort.Eindtotaal))
-                    .Append(Cel(regel.DetailVorig ?? regel.TotaalVorig, lijn is not null, regel.Soort == RegelSoort.Eindtotaal, vorig: true));
-            }
-
-            html.Append("</tr>");
-        }
-
-        html.Append("</tbody></table>");
-    }
-
-    private static string Cel(decimal? bedrag, bool lijn, bool dubbel = false, bool vorig = false)
-    {
-        var klassen = string.Join(' ', new[] { "bedrag", vorig ? "vorig" : null, lijn ? "lijn" : null, dubbel && bedrag is not null ? "dubbel" : null }.OfType<string>());
-        return $"""<td class="{klassen}">{Bedrag(bedrag)}</td>""";
-    }
+    /// <summary>Het anker van de specificatie van een post, bijv. "post-BMva".</summary>
+    public static string Anker(string code) => "post-" + string.Concat(code.Where(char.IsAsciiLetterOrDigit));
 
     /// <summary>Een bedrag in hele euro's; nul als "-", leeg als er geen bedrag is.</summary>
     public static string Bedrag(decimal? bedrag) => bedrag switch
@@ -209,16 +99,6 @@ public static partial class RapportHtml
         var b when Afronding.OpHeleEuro(b.Value) == 0 => "-",
         var b => Bedragen.Heel(b.Value),
     };
-
-    /// <summary>Het anker van een hoofdstuk in het voorbeeld, bijv. "h3".</summary>
-    public static string Anker(Hoofdstuk hoofdstuk)
-    {
-        ArgumentNullException.ThrowIfNull(hoofdstuk);
-        return string.Create(CultureInfo.InvariantCulture, $"h{hoofdstuk.Nummer}");
-    }
-
-    /// <summary>Het anker van de specificatie van een post in het voorbeeld, bijv. "post-BMva".</summary>
-    public static string Anker(string code) => "post-" + string.Concat(code.Where(char.IsAsciiLetterOrDigit));
 
     private static string E(string? tekst) => WebUtility.HtmlEncode(tekst ?? string.Empty);
 
@@ -239,11 +119,12 @@ public static partial class RapportHtml
         return uit.Append('"').ToString();
     }
 
-    private static string Stijl(RapportInhoud inhoud)
+    /// <summary>De pagina-instellingen voor de PDF: A4, voettekst met klant, status en paginanummer, geen voettekst op het voorblad.</summary>
+    private static string PaginaStijl(RapportInhoud inhoud)
     {
         var rapport = inhoud.Rapport;
-        var kleur = inhoud.Kantoor.Kleur is { } k && KleurPatroon().IsMatch(k) ? k : StandaardKleur;
         var links = CssTekst(rapport.Plaats is { Length: > 0 } plaats ? $"{rapport.Klantnaam}, {plaats}" : rapport.Klantnaam);
+
         // Bij de aangifte staat de datum van het rapport naast "Geen accountantscontrole toegepast" (docs §9.2).
         var datum = rapport.Soort == RapportSoort.AangifteBijlage ? Weergave.DatumVoluit(inhoud.Op) : null;
         var midden = CssTekst(string.Join(" · ", new[] { rapport.Concept ? "Concept" : null, rapport.Statustekst, datum }.Where(t => !string.IsNullOrEmpty(t))));
@@ -253,52 +134,79 @@ public static partial class RapportHtml
               @bottom-center { content: {{midden}}; font: 7.5pt sans-serif; color: #6c757d; }
               @bottom-right { content: "Pagina " counter(page); font: 7.5pt sans-serif; color: #6c757d; } }
             @page voorblad { @bottom-left { content: none; } @bottom-center { content: none; } @bottom-right { content: none; } }
-            * { box-sizing: border-box; }
-            body { font-family: "Segoe UI", "Inter", "DejaVu Sans", "Liberation Sans", Arial, sans-serif; font-size: 9pt; color: #212529; margin: 0; }
-            section { break-before: page; }
-            section:first-child { break-before: auto; }
-            h1 { font-size: 12pt; font-weight: 600; text-transform: uppercase; letter-spacing: .3pt; color: {{kleur}}; margin: 0 0 7mm; }
-            h2 { font-size: 9pt; font-weight: 600; text-transform: uppercase; letter-spacing: .2pt; margin: 0 0 2mm; }
-            .nr { display: inline-block; min-width: 9mm; }
-            .voorblad { page: voorblad; display: flex; flex-direction: column; height: 253mm; }
-            .voorblad .boven { height: 30mm; text-align: right; }
-            .voorblad .logo { max-height: 22mm; max-width: 60mm; }
-            .voorblad .midden { flex: 1; padding-top: 70mm; }
-            .voorblad .klant { font-size: 16pt; font-weight: 600; color: {{kleur}}; }
-            .voorblad .plaats { font-size: 11pt; margin-top: 1mm; }
-            .voorblad .titel { font-size: 20pt; margin-top: 16mm; }
-            .voorblad .concept { font-size: 10pt; color: #6c757d; margin-top: 3mm; }
-            .voorblad .onder { font-size: 8.5pt; color: #6c757d; line-height: 1.5; }
-            .inhoud ol { list-style: none; padding: 0; margin: 0 0 6mm; line-height: 2; }
-            .inhoud-deel { font-weight: 600; margin-bottom: 1mm; }
-            .aandacht { margin-top: 12mm; color: #6c757d; font-size: 8.5pt; }
-            .aandacht div { font-weight: 600; }
-            .aandacht ul { padding-left: 4mm; }
-            .tussenblad .deel { padding-top: 90mm; font-size: 16pt; letter-spacing: 0.5pt; color: {{kleur}}; }
-            .blok { break-inside: avoid; margin-bottom: 8mm; }
-            table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-            th { font-weight: normal; font-size: 8pt; color: #6c757d; padding: 0 1.5mm 1.5mm; }
-            th.jaar { text-align: right; }
-            td { padding: 0.6mm 1.5mm; vertical-align: top; }
-            .tweekoloms td.bedrag { width: 21mm; }
-            .eenkoloms td.bedrag { width: 28mm; }
-            td.bedrag { text-align: right; white-space: nowrap; }
-            .vorig { color: #5a6670; }
-            th.vorig, td.bedrag.vorig { padding-left: 5mm; }
-            tr.kop td { padding-top: 2.5mm; font-weight: 600; }
-            tr.detail td.omschrijving { padding-left: 5mm; }
-            .tweekoloms tr.detail td { color: #495057; }
-            tr.subtotaal td, tr.eindtotaal td { font-weight: 600; }
-            tr.eindtotaal td { padding-top: 1mm; }
-            td.lijn { border-bottom: 0.25mm solid #212529; }
-            td.dubbel { border-bottom: 0.7mm double #212529; }
-            @media screen {
-              body { background: #e9ecef; padding: 6mm 0; }
-              section { background: #fff; width: 210mm; min-height: 297mm; margin: 0 auto 6mm; padding: 22mm 20mm 20mm; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
-              .voorblad { height: 297mm; }
-            }
+            body { margin: 0; }
+            .rapport-document .voorblad { page: voorblad; }
+
             """;
     }
+
+    /// <summary>
+    /// De opmaak van het rapport, voor de viewer en de PDF. Alles valt onder <c>.rapport-document</c>, zodat het in de
+    /// app niets anders raakt; de huisstijlkleur staat als <c>--huisstijl</c> op dat element.
+    /// </summary>
+    public const string Stijl = """
+        .rapport-document { --huisstijl: #1f4e79; font-family: "Segoe UI", "Inter", "DejaVu Sans", "Liberation Sans", Arial, sans-serif; font-size: 9pt; line-height: 1.35; color: #212529; }
+        .rapport-document * { box-sizing: border-box; }
+        .rapport-document section { break-before: page; }
+        .rapport-document section:first-child { break-before: auto; }
+        .rapport-document h1 { font-size: 12pt; font-weight: 600; line-height: 1.3; text-transform: uppercase; letter-spacing: .3pt; color: var(--huisstijl); margin: 0 0 7mm; }
+        .rapport-document h2 { font-size: 9pt; font-weight: 600; line-height: 1.3; text-transform: uppercase; letter-spacing: .2pt; margin: 0 0 2mm; }
+        .rapport-document p { margin: 0 0 2mm; }
+        .rapport-document .nr { display: inline-block; min-width: 9mm; }
+        .rapport-document .voorblad { display: flex; flex-direction: column; height: 253mm; }
+        .rapport-document .voorblad .boven { height: 30mm; text-align: right; }
+        .rapport-document .voorblad .logo { max-height: 22mm; max-width: 60mm; }
+        .rapport-document .voorblad .midden { flex: 1; padding-top: 70mm; }
+        .rapport-document .voorblad .klant { font-size: 16pt; font-weight: 600; color: var(--huisstijl); }
+        .rapport-document .voorblad .plaats { font-size: 11pt; margin-top: 1mm; }
+        .rapport-document .voorblad .titel { font-size: 20pt; margin-top: 16mm; }
+        .rapport-document .voorblad .concept { font-size: 10pt; color: #6c757d; margin-top: 3mm; }
+        .rapport-document .voorblad .onder { font-size: 8.5pt; color: #6c757d; line-height: 1.5; }
+        .rapport-document .inhoud ol { list-style: none; padding: 0; margin: 0 0 6mm; line-height: 2; }
+        .rapport-document .inhoud-deel { font-weight: 600; margin-bottom: 1mm; }
+        .rapport-document .aandacht { margin-top: 12mm; color: #6c757d; font-size: 8.5pt; }
+        .rapport-document .aandacht div { font-weight: 600; }
+        .rapport-document .aandacht ul { padding-left: 4mm; margin: 1mm 0; }
+        .rapport-document .tussenblad .deel { padding-top: 90mm; font-size: 16pt; letter-spacing: .5pt; color: var(--huisstijl); }
+        .rapport-document .blok { break-inside: avoid; margin-bottom: 8mm; }
+        .rapport-document .toelichting { margin-top: 3mm; white-space: pre-line; }
+        .rapport-document table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+        .rapport-document th { font-weight: normal; font-size: 8pt; color: #6c757d; padding: 0 1.5mm 1.5mm; text-align: left; }
+        .rapport-document th.jaar { text-align: right; }
+        .rapport-document td { padding: .6mm 1.5mm; vertical-align: top; border: 0; }
+        .rapport-document td.omschrijving { position: relative; }
+        .rapport-document .tweekoloms td.bedrag { width: 21mm; }
+        .rapport-document .eenkoloms td.bedrag { width: 28mm; }
+        .rapport-document td.bedrag { text-align: right; white-space: nowrap; }
+        .rapport-document .vorig { color: #5a6670; }
+        .rapport-document th.vorig, .rapport-document td.bedrag.vorig { padding-left: 5mm; }
+        .rapport-document tr.kop td { padding-top: 2.5mm; font-weight: 600; }
+        .rapport-document tr.detail td.omschrijving { padding-left: 5mm; }
+        .rapport-document .tweekoloms tr.detail td { color: #495057; }
+        .rapport-document tr.subtotaal td, .rapport-document tr.eindtotaal td { font-weight: 600; }
+        .rapport-document tr.eindtotaal td { padding-top: 1mm; }
+        .rapport-document td.lijn { border-bottom: .25mm solid #212529; }
+        .rapport-document td.dubbel { border-bottom: .7mm double #212529; }
+        @media screen {
+          .rapport-document section { background: #fff; width: 210mm; min-height: 297mm; margin: 0 auto 6mm; padding: 22mm 20mm 20mm; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+          .rapport-document .voorblad { height: 297mm; }
+          .rapport-document .klap { position: absolute; left: -5mm; top: .3mm; width: 4.5mm; padding: 0; border: 0; background: none; color: #8a939b; font-size: 8pt; line-height: 1.6; cursor: pointer; }
+          .rapport-document tr.detail .klap { left: 0; }
+          .rapport-document tr.kop .klap { top: 2.8mm; }
+          .rapport-document .klap:hover { color: #212529; }
+          .rapport-document .bewerkbaar { cursor: text; border-bottom: 1px dotted transparent; }
+          .rapport-document .bewerkbaar:hover { border-bottom-color: #adb5bd; }
+          .rapport-document .bewerk-actie { visibility: hidden; margin-left: 2mm; padding: 0; border: 0; background: none; font-size: 7.5pt; color: #6c757d; text-decoration: underline; cursor: pointer; }
+          .rapport-document tr:hover .bewerk-actie, .rapport-document .blok:hover > .bewerk-actie, .rapport-document .bewerk-actie:focus { visibility: visible; }
+          .rapport-document .inline-invoer { width: 100%; font: inherit; color: inherit; padding: 0 1mm; border: 1px solid #86b7fe; border-radius: 2px; outline: none; }
+          .rapport-document textarea.inline-invoer { min-height: 22mm; white-space: pre-wrap; }
+          .rapport-document tr.verschil td { color: #8a6d1f; }
+          .rapport-document tr.bewerker td { padding: 2mm 0 3mm 5mm; }
+        }
+        @media print {
+          .rapport-document .klap, .rapport-document .bewerk-actie { display: none !important; }
+        }
+        """;
 
     [GeneratedRegex("^#[0-9a-fA-F]{6}$")]
     private static partial Regex KleurPatroon();

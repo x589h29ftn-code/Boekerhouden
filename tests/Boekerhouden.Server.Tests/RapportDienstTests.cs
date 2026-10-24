@@ -162,12 +162,16 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
         var (_, dossierId, _, _) = await Bakkerij("<script>alert('x')</script> & Zn");
         await server.Dienst<KantoorDienst>().Bewaar(new KantoorInvoer("Voorbeeldkantoor", "Dorpsstraat 1", "1234 AB", "Ergens", "#2E6B4F"), Tester);
 
-        var html = RapportHtml.Maak((await Rapporten.Maak(dossierId))!.Waarde!);
+        var html = await RapportHtml.Maak(server.Services, (await Rapporten.Maak(dossierId))!.Waarde!);
 
         Assert.DoesNotContain("<script>", html, StringComparison.Ordinal);
-        Assert.Contains("&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt; &amp; Zn", html, StringComparison.Ordinal);
+        Assert.Contains("&lt;script&gt;alert(", html, StringComparison.Ordinal);
+        Assert.Contains("&lt;/script&gt; &amp; Zn", html, StringComparison.Ordinal);
         Assert.Contains(RapportHtml.Beveiliging, html, StringComparison.Ordinal);
-        Assert.Contains("color: #2e6b4f", html, StringComparison.Ordinal);
+        Assert.Contains("--huisstijl: #2e6b4f", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("class=\"klap\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("class=\"bewerk-actie", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("class=\"bewerkbaar", html, StringComparison.Ordinal);
         Assert.Contains("Voorbeeldkantoor", html, StringComparison.Ordinal);
         Assert.Contains("JAARREKENING 2025", html, StringComparison.Ordinal);
         Assert.Contains("1.458.938", html, StringComparison.Ordinal);
@@ -185,21 +189,16 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
     }
 
     [PdfBrowserFact]
-    public async Task Pdf_en_voorbeeld_vragen_om_inloggen_en_de_pdf_komt_in_het_wijzigingslog()
+    public async Task Pdf_vraagt_om_inloggen_en_komt_in_het_wijzigingslog()
     {
         var (_, dossierId, klantnummer, _) = await Bakkerij();
         await server.Beheerder();
         using var client = server.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
         var pdf = new Uri($"/dossiers/{dossierId}/rapport.pdf", UriKind.Relative);
-        var voorbeeld = new Uri($"/dossiers/{dossierId}/rapport.html", UriKind.Relative);
 
         Assert.Equal(HttpStatusCode.Redirect, (await client.GetAsync(pdf)).StatusCode);
-        Assert.Equal(HttpStatusCode.Redirect, (await client.GetAsync(voorbeeld)).StatusCode);
 
         await Aanmelden.LogIn(client, "beheer@kantoor.test", TestGegevens.Wachtwoord, "/");
-        var html = await client.GetAsync(voorbeeld);
-        Assert.Equal(HttpStatusCode.OK, html.StatusCode);
-        Assert.Contains("frame-ancestors 'self'", html.Headers.GetValues("Content-Security-Policy").Single(), StringComparison.Ordinal);
 
         var antwoord = await client.GetAsync(pdf);
         Assert.Equal(HttpStatusCode.OK, antwoord.StatusCode);
@@ -210,5 +209,85 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
             a => a.Onderwerp!.StartsWith(klantnummer, StringComparison.Ordinal) && a.Details == "Jaarrekening 2025 (concept), PDF");
 
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync(new Uri($"/dossiers/{Guid.NewGuid()}/rapport.pdf", UriKind.Relative))).StatusCode);
+    }
+
+    [Fact]
+    public async Task Uitklappen_toelichting_en_uitsplitsing_staan_in_het_rapport_en_de_pdf()
+    {
+        var (klantId, dossierId, klantnummer, rekeningen) = await Bakkerij();
+
+        Assert.True((await Rapporten.ZetUitgeklapt(klantId, "WBed", true, Tester)).IsGelukt);
+        Assert.True((await Rapporten.ZetToelichting(dossierId, "BMva", "In 2025 is een nieuwe oven gekocht.", Tester)).IsGelukt);
+        var voorstel = await Rapporten.Uitsplitsing(dossierId, rekeningen["1800"], "Nog te betalen kosten", 7_890m, 8_433m);
+        Assert.False(voorstel.Bewaard);
+        Assert.Equal(new SplitsRegel("Nog te betalen kosten", 7_890m, 8_433m), Assert.Single(voorstel.Regels));
+        Assert.True((await Rapporten.BewaarUitsplitsing(dossierId, rekeningen["1800"],
+            [new("Accountantskosten", 3_000m, 2_800m), new("Energie", 2_500m, 2_000m), new("Overige", 2_389.75m, 3_632.87m)], Tester)).IsGelukt);
+
+        var inhoud = (await Rapporten.Maak(dossierId))!.Waarde!;
+        var rapport = inhoud.Rapport;
+        var wv = Tabel(rapport, null);
+        Assert.True(wv.Regels.Single(r => r.Omschrijving == "Overige bedrijfskosten").Uitgeklapt);
+        Assert.Contains(wv.Regels, r => r.Soort == RegelSoort.Detail && r.Bron?.Sleutel == "WBedAut");
+        var schulden = Tabel(rapport, "Kortlopende schulden");
+        Assert.Equal([3_000m, 2_500m, 2_390m], schulden.Regels.Where(r => r.Bron?.Soort == Onderwerp.Uitsplitsing).Select(r => r.Detail!.Value));
+        Assert.Equal([2_800m, 2_000m, 3_633m], schulden.Regels.Where(r => r.Bron?.Soort == Onderwerp.Uitsplitsing).Select(r => r.DetailVorig!.Value));
+        Assert.Empty(rapport.Waarschuwingen);
+        Assert.Contains(rapport.Hoofdstukken.SelectMany(h => h.Blokken).OfType<TekstBlok>(), b => b.Toelichting == "BMva");
+
+        var html = await RapportHtml.Maak(server.Services, inhoud);
+        Assert.Contains("In 2025 is een nieuwe oven gekocht.", html, StringComparison.Ordinal);
+        Assert.Contains("Energie", html, StringComparison.Ordinal);
+
+        var bewaard = await Rapporten.Uitsplitsing(dossierId, rekeningen["1800"], "Nog te betalen kosten", 7_890m, 8_433m);
+        Assert.True(bewaard.Bewaard);
+        Assert.Equal(3, bewaard.Regels.Count);
+
+        var log = await server.Dienst<AuditDienst>().Recent(AuditActies.UitsplitsingGewijzigd);
+        Assert.Contains(log, a => a.Onderwerp!.StartsWith(klantnummer, StringComparison.Ordinal) && a.Details!.StartsWith("1800 Nog te betalen kosten: Accountantskosten 3.000,00 (vorig jaar 2.800,00)", StringComparison.Ordinal));
+        Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.ToelichtingGewijzigd), a => a.Details == "BMva: In 2025 is een nieuwe oven gekocht.");
+        Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.PresentatieGewijzigd), a => a.Details == "WBed uitgeklapt in het rapport");
+    }
+
+    [Fact]
+    public async Task Een_uitsplitsing_die_niet_aansluit_geeft_een_waarschuwing_en_kan_weer_weg()
+    {
+        var (_, dossierId, _, rekeningen) = await Bakkerij();
+
+        Assert.False((await Rapporten.BewaarUitsplitsing(dossierId, rekeningen["1800"], [new(" ", 1m, null)], Tester)).IsGelukt);
+        Assert.False((await Rapporten.BewaarUitsplitsing(dossierId, rekeningen["1800"], [new("Te veel decimalen", 1.234m, null)], Tester)).IsGelukt);
+        Assert.False((await Rapporten.BewaarUitsplitsing(Guid.NewGuid(), rekeningen["1800"], [new("Ander dossier", 1m, null)], Tester)).IsGelukt);
+        Assert.True((await Rapporten.BewaarUitsplitsing(dossierId, rekeningen["1800"], [new("Accountantskosten", 3_000m, null)], Tester)).IsGelukt);
+
+        var rapport = (await Rapporten.Maak(dossierId))!.Waarde!.Rapport;
+        var rest = Tabel(rapport, "Kortlopende schulden").Regels.Single(r => r.Omschrijving == RapportOpbouw.NietGespecificeerd);
+        Assert.Equal(4_890m, rest.Detail);
+        Assert.Equal(8_433m, rest.DetailVorig);
+        Assert.Contains(rapport.Waarschuwingen, w => w.StartsWith("De uitsplitsing van 1800", StringComparison.Ordinal));
+
+        Assert.True((await Rapporten.BewaarUitsplitsing(dossierId, rekeningen["1800"], [], Tester)).IsGelukt);
+        rapport = (await Rapporten.Maak(dossierId))!.Waarde!.Rapport;
+        Assert.Contains(Tabel(rapport, "Kortlopende schulden").Regels, r => r.Omschrijving == "Nog te betalen kosten" && r.Detail == 7_890m);
+        Assert.Empty(rapport.Waarschuwingen);
+    }
+
+    [Fact]
+    public async Task Toelichting_en_uitsplitsing_van_vorig_jaar_zijn_een_voorstel()
+    {
+        var (klantId, dossierId, _, rekeningen) = await Bakkerij();
+        var vorigDossier = (await server.Dienst<DossierDienst>().Maak(klantId, 2024, SoortOpdracht.SamenstellenJaarrekening, Tester)).Waarde;
+        await Rapporten.ZetToelichting(vorigDossier, "BMva", "Tekst van vorig jaar.", Tester);
+        await Rapporten.BewaarUitsplitsing(vorigDossier, rekeningen["1800"], [new("Accountantskosten", 2_800m, null), new("Overige", 5_633m, null)], Tester);
+
+        Assert.Equal("Tekst van vorig jaar.", await Rapporten.ToelichtingVorigJaar(dossierId, "BMva"));
+        Assert.Null(await Rapporten.ToelichtingVorigJaar(dossierId, "BVor"));
+        var voorstel = await Rapporten.Uitsplitsing(dossierId, rekeningen["1800"], "Nog te betalen kosten", 7_890m, 8_433m);
+        Assert.True(voorstel.UitVorigJaar);
+        Assert.False(voorstel.Bewaard);
+        Assert.Equal([new SplitsRegel("Accountantskosten", 0m, 2_800m), new SplitsRegel("Overige", 0m, 5_633m)], voorstel.Regels);
+
+        // Het rapport van dit jaar verandert pas als de toelichting of uitsplitsing hier wordt bewaard.
+        var rapport = (await Rapporten.Maak(dossierId))!.Waarde!.Rapport;
+        Assert.DoesNotContain(rapport.Hoofdstukken.SelectMany(h => h.Blokken).OfType<TekstBlok>(), b => b.Toelichting is not null);
     }
 }

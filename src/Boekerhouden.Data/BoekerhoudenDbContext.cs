@@ -61,6 +61,10 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
 
     public DbSet<PostPresentatie> PostPresentaties => Set<PostPresentatie>();
 
+    public DbSet<DossierToelichting> DossierToelichtingen => Set<DossierToelichting>();
+
+    public DbSet<UitsplitsingRegel> UitsplitsingRegels => Set<UitsplitsingRegel>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -360,6 +364,28 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
             e.HasOne<Klant>().WithMany().HasForeignKey(p => p.KlantId).OnDelete(DeleteBehavior.Cascade);
             e.Property(p => p.Sleutel).HasMaxLength(60);
             e.Property(p => p.GewijzigdDoor).HasMaxLength(200);
+        });
+
+        builder.Entity<DossierToelichting>(e =>
+        {
+            e.ToTable("DossierToelichtingen");
+            e.HasKey(t => new { t.DossierId, t.Sleutel });
+            e.HasOne<Dossier>().WithMany().HasForeignKey(t => t.DossierId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(t => t.Sleutel).HasMaxLength(60);
+            e.Property(t => t.Tekst).HasMaxLength(4000);
+            e.Property(t => t.GewijzigdDoor).HasMaxLength(200);
+        });
+
+        builder.Entity<UitsplitsingRegel>(e =>
+        {
+            e.ToTable("UitsplitsingRegels");
+            e.HasIndex(r => new { r.DossierId, r.GrootboekrekeningId, r.Volgorde });
+            e.HasOne<Dossier>().WithMany().HasForeignKey(r => r.DossierId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Grootboekrekening>().WithMany().HasForeignKey(r => r.GrootboekrekeningId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(r => r.Omschrijving).HasMaxLength(200);
+            e.Property(r => r.Bedrag).HasPrecision(18, 2);
+            e.Property(r => r.BedragVorig).HasPrecision(18, 2);
+            e.Property(r => r.GewijzigdDoor).HasMaxLength(200);
         });
 
         builder.Entity<AuditRegel>(e =>

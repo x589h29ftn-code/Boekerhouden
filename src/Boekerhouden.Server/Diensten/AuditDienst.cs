@@ -90,5 +90,7 @@ public static class AuditActies
     public const string KantoorGewijzigd = "Kantoorgegevens gewijzigd";
     public const string PresentatieGewijzigd = "Presentatie gewijzigd";
     public const string RapportGemaakt = "Rapport gemaakt";
+    public const string ToelichtingGewijzigd = "Toelichting gewijzigd";
+    public const string UitsplitsingGewijzigd = "Uitsplitsing gewijzigd";
     public const string RekeningAangemaakt = "Grootboekrekening aangemaakt";
 }

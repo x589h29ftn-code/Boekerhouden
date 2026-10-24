@@ -16,14 +16,22 @@ public sealed record PostPresentatieInfo(string Code, string Naam, bool ToonSpec
 
 public sealed record PresentatieOverzicht(Guid KlantId, IReadOnlyList<PostPresentatieInfo> Posten);
 
+/// <param name="Regels">De bewaarde uitsplitsing, of een voorstel (uit vorig jaar of één regel met het saldo).</param>
+/// <param name="Bewaard">Of de regels al bewaard zijn (anders is het een voorstel).</param>
+/// <param name="UitVorigJaar">Of het voorstel uit de uitsplitsing van vorig jaar komt.</param>
+public sealed record UitsplitsingInfo(IReadOnlyList<SplitsRegel> Regels, bool Bewaard, bool UitVorigJaar);
+
 /// <summary>
 /// Het rapport van een dossier (plakje 6): de proefbalans na correcties, gepresenteerd als jaarrekening (BV) of als
 /// bijlage bij de aangifte (eenmanszaak). Ook de presentatie per klant: omschrijvingen van rekeningen, rekeningen in
-/// "Overige" en per post wel of geen specificatie. Die rolt door naar volgende jaren.
+/// "Overige", per post wel of geen specificatie en uit- of ingeklapt; die rolt door naar volgende jaren. En per
+/// dossier: toelichtingen bij posten en uitsplitsingen van rekeningen.
 /// </summary>
 public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFactory, RubriceerDienst rubriceren, KantoorDienst kantoor, AuditDienst audit, TimeProvider tijd)
 {
     public const int MaximaleOmschrijving = 300;
+    public const int MaximaleToelichting = 4000;
+    public const int MaximaleSplitsregels = 50;
 
     /// <summary>Maakt het rapport; null als het dossier niet bestaat.</summary>
     public async Task<Uitkomst<RapportInhoud>?> Maak(Guid dossierId)
@@ -55,7 +63,14 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
             overzicht.EigenPosten,
             code => Naam(overzicht, code),
             await Weergave(dossier.KlantId),
-            await ZonderSpecificatie(dossier.KlantId)));
+            await ZonderSpecificatie(dossier.KlantId),
+            await db.PostPresentaties.AsNoTracking().Where(p => p.KlantId == dossier.KlantId && p.Uitgeklapt != null)
+                .ToDictionaryAsync(p => p.Sleutel, p => p.Uitgeklapt!.Value, StringComparer.Ordinal),
+            await db.DossierToelichtingen.AsNoTracking().Where(t => t.DossierId == dossierId)
+                .ToDictionaryAsync(t => t.Sleutel, t => t.Tekst, StringComparer.Ordinal),
+            (await db.UitsplitsingRegels.AsNoTracking().Where(r => r.DossierId == dossierId).OrderBy(r => r.Volgorde).ToListAsync())
+                .GroupBy(r => r.GrootboekrekeningId)
+                .ToDictionary(g => g.Key, g => (IReadOnlyList<SplitsRegel>)[.. g.Select(r => new SplitsRegel(r.Omschrijving, r.Bedrag, r.BedragVorig))])));
         return Uitkomst<RapportInhoud>.Met(new RapportInhoud(dossier, rapport, await kantoor.Haal(), tijd.GetUtcNow()));
     }
 
@@ -191,7 +206,14 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
     }
 
     /// <summary>Of de specificatie van een post (hoofdpost) in het rapport komt.</summary>
-    public async Task<Uitkomst> ZetSpecificatie(Guid klantId, string sleutel, bool tonen, Uitvoerder wie)
+    public Task<Uitkomst> ZetSpecificatie(Guid klantId, string sleutel, bool tonen, Uitvoerder wie) =>
+        ZetPost(klantId, sleutel, p => p.ToonSpecificatie = tonen, $"specificatie {sleutel} {(tonen ? "wel" : "niet")} in het rapport", wie);
+
+    /// <summary>Of een post in het rapport is uitgeklapt (subposten of rekeningen zichtbaar); null = de standaard.</summary>
+    public Task<Uitkomst> ZetUitgeklapt(Guid klantId, string sleutel, bool? uitgeklapt, Uitvoerder wie) =>
+        ZetPost(klantId, sleutel, p => p.Uitgeklapt = uitgeklapt, $"{sleutel} {(uitgeklapt switch { true => "uitgeklapt", false => "ingeklapt", null => "standaard" })} in het rapport", wie);
+
+    private async Task<Uitkomst> ZetPost(Guid klantId, string sleutel, Action<PostPresentatie> wijzig, string wat, Uitvoerder wie)
     {
         ArgumentNullException.ThrowIfNull(sleutel);
         ArgumentNullException.ThrowIfNull(wie);
@@ -208,22 +230,178 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
         }
 
         var presentatie = await db.PostPresentaties.SingleOrDefaultAsync(p => p.KlantId == klantId && p.Sleutel == sleutel);
-        if ((presentatie?.ToonSpecificatie ?? true) == tonen)
+        var nieuw = presentatie is null;
+        presentatie ??= new PostPresentatie { KlantId = klantId, Sleutel = sleutel };
+        var voor = (presentatie.ToonSpecificatie, presentatie.Uitgeklapt);
+        wijzig(presentatie);
+        if (voor == (presentatie.ToonSpecificatie, presentatie.Uitgeklapt))
         {
             return Uitkomst.Gelukt;
         }
 
-        if (tonen)
+        presentatie.GewijzigdOp = tijd.GetUtcNow();
+        presentatie.GewijzigdDoor = wie.Naam;
+        var standaard = presentatie is { ToonSpecificatie: true, Uitgeklapt: null };
+        if (nieuw && !standaard)
         {
-            db.PostPresentaties.Remove(presentatie!);
+            db.PostPresentaties.Add(presentatie);
         }
-        else
+        else if (!nieuw && standaard)
         {
-            db.PostPresentaties.Add(new PostPresentatie { KlantId = klantId, Sleutel = sleutel, ToonSpecificatie = false, GewijzigdOp = tijd.GetUtcNow(), GewijzigdDoor = wie.Naam });
+            // Alles weer standaard: dan hoeft er niets te worden onthouden.
+            db.PostPresentaties.Remove(presentatie);
         }
 
         await db.SaveChangesAsync();
-        await audit.Log(wie, AuditActies.PresentatieGewijzigd, KlantDienst.Onderwerp(klant), $"specificatie {sleutel} {(tonen ? "wel" : "niet")} in het rapport");
+        await audit.Log(wie, AuditActies.PresentatieGewijzigd, KlantDienst.Onderwerp(klant), wat);
+        return Uitkomst.Gelukt;
+    }
+
+    /// <summary>De toelichting bij een post in het dossier van vorig jaar (zelfde klant en soort), als voorstel.</summary>
+    public async Task<string?> ToelichtingVorigJaar(Guid dossierId, string sleutel)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+        return await (from d in db.Dossiers.AsNoTracking()
+                      where d.Id == dossierId
+                      join v in db.Dossiers.AsNoTracking() on new { d.KlantId, d.SoortOpdracht, Boekjaar = d.Boekjaar - 1 } equals new { v.KlantId, v.SoortOpdracht, v.Boekjaar }
+                      join t in db.DossierToelichtingen.AsNoTracking() on v.Id equals t.DossierId
+                      where t.Sleutel == sleutel
+                      select t.Tekst).FirstOrDefaultAsync();
+    }
+
+    /// <summary>De toelichting bij een post in het rapport van dit dossier; leeg = geen toelichting.</summary>
+    public async Task<Uitkomst> ZetToelichting(Guid dossierId, string sleutel, string? tekst, Uitvoerder wie)
+    {
+        ArgumentNullException.ThrowIfNull(sleutel);
+        ArgumentNullException.ThrowIfNull(wie);
+        tekst = string.IsNullOrWhiteSpace(tekst) ? null : tekst.Trim();
+        if (sleutel.Length is 0 or > 60)
+        {
+            return Uitkomst.Mislukt("Onbekende post.");
+        }
+
+        if (tekst?.Length > MaximaleToelichting)
+        {
+            return Uitkomst.Mislukt($"Een toelichting is hoogstens {MaximaleToelichting} tekens.");
+        }
+
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var dossier = await db.Dossiers.AsNoTracking().Include(d => d.Klant).SingleOrDefaultAsync(d => d.Id == dossierId);
+        if (dossier is null)
+        {
+            return Uitkomst.Mislukt("Dossier niet gevonden.");
+        }
+
+        var toelichting = await db.DossierToelichtingen.SingleOrDefaultAsync(t => t.DossierId == dossierId && t.Sleutel == sleutel);
+        if (toelichting?.Tekst == tekst)
+        {
+            return Uitkomst.Gelukt;
+        }
+
+        if (tekst is null)
+        {
+            db.DossierToelichtingen.Remove(toelichting!);
+        }
+        else
+        {
+            if (toelichting is null)
+            {
+                toelichting = new DossierToelichting { DossierId = dossierId, Sleutel = sleutel };
+                db.DossierToelichtingen.Add(toelichting);
+            }
+
+            toelichting.Tekst = tekst;
+            toelichting.GewijzigdOp = tijd.GetUtcNow();
+            toelichting.GewijzigdDoor = wie.Naam;
+        }
+
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.ToelichtingGewijzigd, WerkprogrammaDienst.Onderwerp(dossier), tekst is null ? $"{sleutel}: toelichting verwijderd" : $"{sleutel}: {tekst}");
+        return Uitkomst.Gelukt;
+    }
+
+    /// <summary>
+    /// De uitsplitsing van een rekening in dit dossier. Is die er nog niet, dan een voorstel: de regels van vorig jaar
+    /// (met hun bedragen als vorig jaar), of één regel met de omschrijving en het saldo zoals in het rapport.
+    /// </summary>
+    public async Task<UitsplitsingInfo> Uitsplitsing(Guid dossierId, Guid rekeningId, string omschrijving, decimal saldo, decimal saldoVorig)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var bewaard = await db.UitsplitsingRegels.AsNoTracking().Where(r => r.DossierId == dossierId && r.GrootboekrekeningId == rekeningId)
+            .OrderBy(r => r.Volgorde).Select(r => new SplitsRegel(r.Omschrijving, r.Bedrag, r.BedragVorig)).ToListAsync();
+        if (bewaard.Count > 0)
+        {
+            return new UitsplitsingInfo(bewaard, true, false);
+        }
+
+        var vorigJaar = await (from d in db.Dossiers.AsNoTracking()
+                               where d.Id == dossierId
+                               join v in db.Dossiers.AsNoTracking() on new { d.KlantId, d.SoortOpdracht, Boekjaar = d.Boekjaar - 1 } equals new { v.KlantId, v.SoortOpdracht, v.Boekjaar }
+                               join r in db.UitsplitsingRegels.AsNoTracking() on v.Id equals r.DossierId
+                               where r.GrootboekrekeningId == rekeningId
+                               orderby r.Volgorde
+                               select new SplitsRegel(r.Omschrijving, 0m, r.Bedrag)).ToListAsync();
+        return vorigJaar.Count > 0
+            ? new UitsplitsingInfo(vorigJaar, false, true)
+            : new UitsplitsingInfo([new SplitsRegel(omschrijving, saldo, saldoVorig)], false, false);
+    }
+
+    /// <summary>
+    /// Bewaart de uitsplitsing van een rekening (vervangt de vorige); zonder regels vervalt de uitsplitsing. Of de
+    /// regels optellen tot het saldo, controleert het rapport: een verschil komt daar apart en als waarschuwing.
+    /// </summary>
+    public async Task<Uitkomst> BewaarUitsplitsing(Guid dossierId, Guid rekeningId, IReadOnlyList<SplitsRegel> regels, Uitvoerder wie)
+    {
+        ArgumentNullException.ThrowIfNull(regels);
+        ArgumentNullException.ThrowIfNull(wie);
+        var fouten = new List<string>();
+        if (regels.Count > MaximaleSplitsregels)
+        {
+            fouten.Add($"Hoogstens {MaximaleSplitsregels} regels.");
+        }
+
+        if (regels.Any(r => string.IsNullOrWhiteSpace(r.Omschrijving) || r.Omschrijving.Trim().Length > 200))
+        {
+            fouten.Add("Geef elke regel een omschrijving (hoogstens 200 tekens).");
+        }
+
+        if (regels.Any(r => r.Bedrag != Math.Round(r.Bedrag, 2) || (r.BedragVorig is { } v && v != Math.Round(v, 2))))
+        {
+            fouten.Add("Bedragen hebben hoogstens twee decimalen.");
+        }
+
+        if (fouten.Count > 0)
+        {
+            return new Uitkomst(fouten);
+        }
+
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var dossier = await db.Dossiers.AsNoTracking().Include(d => d.Klant).SingleOrDefaultAsync(d => d.Id == dossierId);
+        var rekening = dossier is null ? null
+            : await db.Grootboekrekeningen.AsNoTracking().SingleOrDefaultAsync(g => g.Id == rekeningId && g.KlantId == dossier.KlantId);
+        if (dossier is null || rekening is null)
+        {
+            return Uitkomst.Mislukt("Rekening niet gevonden in dit dossier.");
+        }
+
+        db.UitsplitsingRegels.RemoveRange(await db.UitsplitsingRegels.Where(r => r.DossierId == dossierId && r.GrootboekrekeningId == rekeningId).ToListAsync());
+        var nu = tijd.GetUtcNow();
+        db.UitsplitsingRegels.AddRange(regels.Select((r, i) => new UitsplitsingRegel
+        {
+            Id = Guid.NewGuid(),
+            DossierId = dossierId,
+            GrootboekrekeningId = rekeningId,
+            Volgorde = i,
+            Omschrijving = r.Omschrijving.Trim(),
+            Bedrag = r.Bedrag,
+            BedragVorig = r.BedragVorig,
+            GewijzigdOp = nu,
+            GewijzigdDoor = wie.Naam,
+        }));
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.UitsplitsingGewijzigd, WerkprogrammaDienst.Onderwerp(dossier),
+            regels.Count == 0 ? $"{rekening.Nummer} {rekening.Omschrijving}: uitsplitsing verwijderd"
+                : $"{rekening.Nummer} {rekening.Omschrijving}: {string.Join("; ", regels.Select(r => $"{r.Omschrijving.Trim()} {Domain.Bedragen.Getal(r.Bedrag)}{(r.BedragVorig is { } v ? $" (vorig jaar {Domain.Bedragen.Getal(v)})" : null)}"))}");
         return Uitkomst.Gelukt;
     }
 }

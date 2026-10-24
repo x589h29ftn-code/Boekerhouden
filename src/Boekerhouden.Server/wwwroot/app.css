@@ -868,13 +868,44 @@ tr.klikbaar {
         color: #495057;
     }
 
-.rapport-voorbeeld {
-    width: 100%;
-    height: calc(100vh - 14rem);
-    min-height: 32rem;
+.rapport-zijkant {
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+}
+
+.rapport-viewer {
+    padding: 6mm 4mm 1mm;
+    overflow-x: auto;
     border: 1px solid #e3e6e9;
     border-radius: .375rem;
     background: #e9ecef;
+}
+
+    .rapport-viewer section {
+        scroll-margin-top: 1rem;
+    }
+
+.uitsplitsing {
+    max-width: 150mm;
+    padding: 2mm 3mm;
+    border: 1px solid #dee2e6;
+    border-radius: 3px;
+    background: #fafbfc;
+    font-weight: normal;
+}
+
+.uitsplitsing-tabel td {
+    padding: .5mm 1mm !important;
+}
+
+    .uitsplitsing-tabel td.acties {
+        width: 6mm;
+    }
+
+.rapport-document .bewerk-actie.zichtbaar {
+    visibility: visible;
 }
 
 .rapport-presentatie details {

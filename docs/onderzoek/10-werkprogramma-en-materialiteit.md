@@ -81,16 +81,23 @@ Voor **elke** post, materieel of niet, is er in *Rapport* een presentatie-editor
 Aanpassingen worden **per klant onthouden** en rollen door naar het volgende jaar. Zo hoef je
 samenvoegingen en omschrijvingen maar één keer in te stellen.
 
-*Gebouwd (plakje 6):* in het dossier onder *Rapport* (`/dossiers/{id}/rapport`) staan links de inhoud
-(klik = naar die plek in het voorbeeld) en rechts het voorbeeld van het rapport, met een knop **PDF**.
-Achter de schakelaar *presentatie aanpassen* staat per hoofdpost met saldo:
-- **specificatie** aan of uit;
-- per rekening een **omschrijving** voor het rapport (leeg = die uit de administratie);
-- **in Overige**: de rekening telt mee in de regel *Overige* van zijn groep, zodat de specificatie blijft aansluiten.
+*Gebouwd (plakje 6):* in het dossier onder *Rapport* (`/dossiers/{id}/rapport`) werk je **in het rapport
+zelf**, als laatste controle vóór de PDF. Links staat de inhoud (klik = naar die plek), rechts het rapport
+zoals het wordt afgedrukt, met een knop **PDF**. Wat je in de viewer ziet, staat precies zo in de PDF; de
+bedieningselementen (driehoekjes, knoppen) worden niet afgedrukt.
 
-Rekeningen onder een eigen post staan als één regel met de naam van de eigen post. Alles geldt per klant
-en staat in het wijzigingslog. Nog niet gebouwd: regels samenvoegen of in een andere volgorde, subkoppen,
-handmatige specificatieregels, verloopoverzichten, toelichtende tekst en opmaak per post.
+| In de viewer | Hoe | Geldt voor |
+|---|---|---|
+| **In- en uitklappen** | Driehoekje voor een post. In de balans en W&V klapt een post uit naar zijn subposten (bijv. *Overige bedrijfskosten* → huisvestingskosten, autokosten, verkoopkosten); in een specificatie klapt een groep in tot één regel. Standaard: balans en specificaties uit-, W&V ingeklapt | De klant, ook volgende jaren |
+| **Namen aanpassen** | Klik op de naam van een post, eigen post of rekening; Enter bewaart, Escape annuleert, leeg = de standaardnaam. Een postnaam geldt in het hele rapport (en bij het rubriceren) | De klant, ook volgende jaren |
+| **Toelichting** | Onder elke specificatie *toelichting toevoegen* (zichtbaar bij aanwijzen), of op de tekst klikken om die aan te passen. Staat er vorig jaar een toelichting bij de post, dan is die het voorstel | Dit dossier |
+| **Uitsplitsen** | Bij een rekening *uitsplitsen*, bijv. *Nog te betalen kosten* in accountantskosten, energie en overige. Per regel een omschrijving, het bedrag en het bedrag vorig jaar, met een **controletelling** op het saldo van beide jaren. Sluit het niet aan, dan staat het verschil in het rapport als *Nog niet gespecificeerd* (de totalen blijven kloppen) en volgt een waarschuwing. Een uitsplitsing van vorig jaar is het voorstel (met die bedragen als vorig jaar) | Dit dossier |
+
+Achter de schakelaar *presentatie aanpassen* staat per hoofdpost met saldo of de **specificatie** in het
+rapport komt, en per rekening of hij **in Overige** meetelt (de regel *Overige* van zijn groep, zodat de
+specificatie blijft aansluiten). Rekeningen onder een eigen post staan als één regel met de naam van de
+eigen post. Alles staat in het wijzigingslog. Nog niet gebouwd: regels samenvoegen of in een andere
+volgorde, verloopoverzichten en opmaak per post (nieuwe pagina ervoor).
 
 ## 10.5 Het sjabloon (beheer)
 

@@ -47,6 +47,8 @@ public sealed class RapportOpbouwTests
         C("WBed", "Overige bedrijfskosten"),
         C("WBedKan", "Kantoorkosten"),
         C("WBedKanKan", "Kantoorbenodigdheden"),
+        C("WBedAut", "Autokosten"),
+        C("WBedAutBra", "Brandstof"),
         C("WBel", "Belastingen"),
         C("WBelBel", "Vennootschapsbelasting"),
         C("WBelBelVpb", "Vennootschapsbelasting"),
@@ -95,13 +97,16 @@ public sealed class RapportOpbouwTests
         IReadOnlyList<EigenPost>? eigenPosten = null,
         Dictionary<Guid, KoppelDoel>? koppelingen = null,
         Dictionary<Guid, RekeningWeergave>? weergave = null,
-        HashSet<string>? zonderSpecificatie = null)
+        HashSet<string>? zonderSpecificatie = null,
+        Dictionary<string, bool>? uitklappen = null,
+        Dictionary<string, string>? toelichtingen = null,
+        Dictionary<Guid, IReadOnlyList<SplitsRegel>>? uitsplitsingen = null)
     {
         saldi ??= Saldi;
         eigenPosten ??= [];
         var balans = PostBalans.Bereken(Schema, [.. eigenPosten], koppelingen ?? Koppelingen, [.. saldi]);
         return new RapportGegevens(soort, "Voorbeeld BV", "Ergens", 2025, true, Schema, balans, saldi, eigenPosten,
-            code => Schema.Zoek(code)?.Omschrijving ?? code, weergave ?? [], zonderSpecificatie ?? []);
+            code => Schema.Zoek(code)?.Omschrijving ?? code, weergave ?? [], zonderSpecificatie ?? [], uitklappen, toelichtingen, uitsplitsingen);
     }
 
     private static Regel Regel(Tabel tabel, string omschrijving) => tabel.Regels.Single(r => r.Omschrijving == omschrijving);
@@ -140,8 +145,8 @@ public sealed class RapportOpbouwTests
     {
         var wv = RapportOpbouw.WinstEnVerlies(Gegevens());
 
-        Assert.Equal(50_000m, Regel(wv, "Netto-omzet").Detail);
-        Assert.Equal(20_000m, Regel(wv, "Kostprijs van de omzet").Detail);
+        Assert.Equal(50_000m, Regel(wv, "Netto-omzet").Totaal);
+        Assert.Equal(20_000m, Regel(wv, "Kostprijs van de omzet").Totaal);
         Assert.Equal(30_000m, Regel(wv, "Brutomarge").Totaal);
         Assert.Equal(13_500m, Regel(wv, "Som der bedrijfslasten").Totaal);
         Assert.Equal(16_500m, Regel(wv, "Bedrijfsresultaat").Totaal);
@@ -252,5 +257,120 @@ public sealed class RapportOpbouwTests
             rapport.Hoofdstukken.Select(h => h.Titel));
         var wv = ((TabelBlok)rapport.Hoofdstukken.ElementAt(1).Blokken[0]).Tabel;
         Assert.Equal("Resultaat", wv.Regels[^1].Omschrijving);
+    }
+
+    private static readonly Guid Auto = Guid.NewGuid();
+
+    /// <summary>De saldi met een extra autokostenrekening, zodat de overige bedrijfskosten twee subposten hebben.</summary>
+    private static RapportGegevens MetAutokosten(Dictionary<string, bool>? uitklappen = null) =>
+        Gegevens(
+            saldi: [.. Saldi.Select(s => s.RekeningId == Omzet ? s with { Huidig = -51_000m } : s), new(Auto, "4200", "Brandstof bestelauto", 1_000m, 0m)],
+            koppelingen: new Dictionary<Guid, KoppelDoel>(Koppelingen) { [Auto] = new("WBedAutBra") },
+            uitklappen: uitklappen);
+
+    [Fact]
+    public void Een_post_in_de_winst_en_verliesrekening_klapt_uit_naar_zijn_subposten()
+    {
+        var ingeklapt = RapportOpbouw.WinstEnVerlies(MetAutokosten());
+        var kosten = Regel(ingeklapt, "Overige bedrijfskosten");
+        Assert.False(kosten.Uitgeklapt);
+        Assert.Equal(new Bron(Onderwerp.Post, "WBed", null, "WBed · RGS: Overige bedrijfskosten"), kosten.Bron);
+        Assert.DoesNotContain(ingeklapt.Regels, r => r.Omschrijving == "Autokosten");
+        Assert.Null(Regel(ingeklapt, "Lonen en salarissen").Uitgeklapt);
+
+        var uitgeklapt = RapportOpbouw.WinstEnVerlies(MetAutokosten(new() { ["WBed"] = true }));
+        var regels = uitgeklapt.Regels.Select(r => r.Omschrijving).ToList();
+        var index = regels.IndexOf("Overige bedrijfskosten");
+        Assert.Equal(["Kantoorkosten", "Autokosten"], regels.Skip(index + 1).Take(2));
+        Assert.Equal(3_500m, Regel(uitgeklapt, "Kantoorkosten").Detail);
+        Assert.Equal(1_000m, Regel(uitgeklapt, "Autokosten").Detail);
+        Assert.Equal(4_500m, Regel(uitgeklapt, "Overige bedrijfskosten").Totaal);
+        Assert.Equal(14_500m, Regel(uitgeklapt, "Som der bedrijfslasten").Totaal);
+    }
+
+    [Fact]
+    public void Een_balanspost_is_standaard_uitgeklapt_en_kan_dicht()
+    {
+        var open = RapportOpbouw.Balans(Gegevens())[1];
+        Assert.True(Regel(open, "Kortlopende schulden").Uitgeklapt);
+        Assert.Contains(open.Regels, r => r.Omschrijving == "Schulden aan leveranciers");
+
+        var dicht = RapportOpbouw.Balans(Gegevens(uitklappen: new() { ["BSch"] = false }))[1];
+        Assert.False(Regel(dicht, "Kortlopende schulden").Uitgeklapt);
+        Assert.DoesNotContain(dicht.Regels, r => r.Omschrijving == "Schulden aan leveranciers");
+        Assert.Equal(Regel(open, "Totaal passiva").Totaal, Regel(dicht, "Totaal passiva").Totaal);
+    }
+
+    [Fact]
+    public void Een_groep_in_de_specificatie_klapt_in_tot_een_regel()
+    {
+        var open = Specificatie(RapportOpbouw.Maak(MetAutokosten()), "Overige bedrijfskosten");
+        Assert.Equal(["Kantoorkosten", "Kantoorartikelen", "Porti", string.Empty, "Autokosten", "Brandstof bestelauto", "Totaal"], open.Regels.Select(r => r.Omschrijving));
+        Assert.True(open.Regels[0].Uitgeklapt);
+        Assert.Null(Regel(open, "Autokosten").Uitgeklapt);
+        Assert.Equal(Onderwerp.Rekening, Regel(open, "Porti").Bron!.Soort);
+        Assert.Equal(Porti, Regel(open, "Porti").Bron!.Id);
+
+        var dicht = Specificatie(RapportOpbouw.Maak(MetAutokosten(new() { ["WBedKan"] = false })), "Overige bedrijfskosten");
+        Assert.Equal(["Kantoorkosten", "Autokosten", "Brandstof bestelauto", "Totaal"], dicht.Regels.Select(r => r.Omschrijving));
+        Assert.Equal(RegelSoort.Detail, dicht.Regels[0].Soort);
+        Assert.False(dicht.Regels[0].Uitgeklapt);
+        Assert.Equal(3_500m, dicht.Regels[0].Detail);
+        Assert.Equal(4_500m, Regel(dicht, "Totaal").Detail);
+    }
+
+    [Fact]
+    public void Een_toelichting_staat_onder_de_specificatie_of_met_eigen_titel()
+    {
+        var blokken = RapportOpbouw.Maak(Gegevens(toelichtingen: new() { ["BMva"] = "In 2025 is nieuwe inventaris gekocht." })).Hoofdstukken.ElementAt(2).Blokken;
+        var index = blokken.ToList().FindIndex(b => b is TabelBlok { Tabel.Code: "BMva" });
+        var tekst = Assert.IsType<TekstBlok>(blokken[index + 1]);
+        Assert.Equal("BMva", tekst.Toelichting);
+        Assert.Null(tekst.Titel);
+
+        var zonderSpecificatie = RapportOpbouw.Maak(Gegevens(zonderSpecificatie: ["BMva"], toelichtingen: new() { ["BMva"] = "Alleen tekst." })).Hoofdstukken.ElementAt(2).Blokken;
+        var los = zonderSpecificatie.OfType<TekstBlok>().Single(b => b.Toelichting == "BMva");
+        Assert.Equal("Materiële vaste activa", los.Titel);
+        Assert.DoesNotContain(zonderSpecificatie, b => b is TabelBlok { Tabel.Code: "BMva" });
+    }
+
+    [Fact]
+    public void Een_uitgesplitste_rekening_toont_de_regels_als_ze_aansluiten()
+    {
+        var rapport = RapportOpbouw.Maak(Gegevens(uitsplitsingen: new()
+        {
+            [Crediteuren] = [new("Leveranciers grondstoffen", 2_500m, 1_500m), new("Overige leveranciers", 1_500m, 500m)],
+        }));
+
+        var schulden = Specificatie(rapport, "Kortlopende schulden");
+        Assert.Equal(["Schulden aan banken", "Bank", "Schulden aan leveranciers", "Leveranciers grondstoffen", "Overige leveranciers", string.Empty, "Totaal"],
+            schulden.Regels.Select(r => r.Omschrijving));
+        Assert.Equal(Onderwerp.Uitsplitsing, Regel(schulden, "Overige leveranciers").Bron!.Soort);
+        Assert.Equal(4_000m, Regel(schulden, "Totaal").Detail);
+        Assert.Empty(rapport.Waarschuwingen);
+    }
+
+    [Fact]
+    public void Een_uitsplitsing_die_niet_aansluit_houdt_het_verschil_apart_en_waarschuwt()
+    {
+        var rapport = RapportOpbouw.Maak(Gegevens(uitsplitsingen: new() { [Crediteuren] = [new("Leveranciers grondstoffen", 2_500m, null)] }));
+
+        var schulden = Specificatie(rapport, "Kortlopende schulden");
+        var rest = Regel(schulden, RapportOpbouw.NietGespecificeerd);
+        Assert.Equal(1_500m, rest.Detail);
+        Assert.Equal(2_000m, rest.DetailVorig);
+        Assert.Equal(4_000m, Regel(schulden, "Totaal").Detail);
+        Assert.Contains(rapport.Waarschuwingen, w => w.StartsWith("De uitsplitsing van 1600 Crediteuren sluit niet aan", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Afrondingsverschillen_van_een_uitsplitsing_gaan_naar_de_grootste_regel()
+    {
+        var (regels, verschil) = RapportOpbouw.Verdeel([1_000.50m, 2_000.50m], 3_001m);
+        Assert.Equal(3_001m, regels.Sum());
+        Assert.Equal(0m, verschil);
+
+        var (_, teWeinig) = RapportOpbouw.Verdeel([1_000m], 3_001m);
+        Assert.Equal(2_001m, teWeinig);
     }
 }

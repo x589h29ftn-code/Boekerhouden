@@ -1,0 +1,78 @@
+@* Tekst die je in de viewer aanklikt om aan te passen: Enter of wegklikken bewaart, Escape annuleert. *@
+
+@if (bewerken)
+{
+    <input @ref="invoer" class="inline-invoer" @bind="waarde" @bind:event="oninput" @onkeydown="Toets" @onblur="Bewaar"
+           maxlength="300" aria-label="@($"Nieuwe naam voor {Tekst}")" />
+}
+else if (Bewerkbaar)
+{
+    <span class="bewerkbaar" title="@($"{Titel} · klik om aan te passen")" @onclick="Start">@Tekst</span>
+}
+else
+{
+    @Tekst
+}
+
+@code {
+    private bool bewerken;
+    private bool focus;
+    private string waarde = "";
+    private ElementReference invoer;
+
+    [Parameter, EditorRequired]
+    public string Tekst { get; set; } = "";
+
+    /// <summary>De herkomst, voor de tooltip (bijv. de RGS-code of het rekeningnummer).</summary>
+    [Parameter]
+    public string? Titel { get; set; }
+
+    [Parameter]
+    public bool Bewerkbaar { get; set; }
+
+    /// <summary>Bewaart de nieuwe tekst; leeg = terug naar de standaard.</summary>
+    [Parameter]
+    public Func<string?, Task>? Opslaan { get; set; }
+
+    private void Start()
+    {
+        waarde = Tekst;
+        bewerken = true;
+        focus = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (focus)
+        {
+            focus = false;
+            await invoer.FocusAsync();
+        }
+    }
+
+    private async Task Toets(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await Bewaar();
+        }
+        else if (e.Key == "Escape")
+        {
+            bewerken = false;
+        }
+    }
+
+    private async Task Bewaar()
+    {
+        if (!bewerken)
+        {
+            return;
+        }
+
+        bewerken = false;
+        if (waarde.Trim() != Tekst && Opslaan is not null)
+        {
+            await Opslaan(waarde);
+        }
+    }
+}

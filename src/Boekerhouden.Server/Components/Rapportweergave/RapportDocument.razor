@@ -1,0 +1,195 @@
+@* Het rapport: in de viewer bewerkbaar, voor de PDF statisch gerenderd (zonder knoppen). De opmaak staat in RapportHtml.Stijl. *@
+@using Boekerhouden.Domain.Rapport
+@using Boekerhouden.Server.Export
+@inject RapportDienst RapportDienst
+@inject RubriceerDienst RubriceerDienst
+
+<CascadingValue Value="this" IsFixed="true">
+    <div class="rapport-document" style="--huisstijl: @RapportHtml.Kleur(Inhoud.Kantoor)">
+        <section class="voorblad">
+            <div class="boven">
+                @if (RapportHtml.Logo(Inhoud.Kantoor) is { } logo)
+                {
+                    <img class="logo" src="@logo" alt="" />
+                }
+            </div>
+            <div class="midden">
+                <div class="klant">@R.Klantnaam</div>
+                @if (R.Plaats is { Length: > 0 } plaats)
+                {
+                    <div class="plaats">te @plaats</div>
+                }
+                <div class="titel">@R.Titel</div>
+                @if (R.Concept)
+                {
+                    <div class="concept">Concept, @Weergave.DatumVoluit(Inhoud.Op)</div>
+                }
+            </div>
+            <div class="onder">
+                <div>@Inhoud.Kantoor.Naam</div>
+                <div>@Adres</div>
+            </div>
+        </section>
+
+        <section class="inhoud">
+            <h1>Inhoudsopgave</h1>
+            @foreach (var deel in R.Delen)
+            {
+                <div class="inhoud-deel">@deel.Titel</div>
+                <ol>
+                    @foreach (var h in deel.Hoofdstukken)
+                    {
+                        <li><span class="nr">@h.Nummer</span>@h.Titel</li>
+                    }
+                </ol>
+            }
+            @if (R.Concept && R.Waarschuwingen.Count > 0)
+            {
+                <div class="aandacht">
+                    <div>Nog niet af</div>
+                    <ul>
+                        @foreach (var waarschuwing in R.Waarschuwingen)
+                        {
+                            <li>@waarschuwing</li>
+                        }
+                    </ul>
+                </div>
+            }
+        </section>
+
+        @foreach (var deel in R.Delen)
+        {
+            <section class="tussenblad"><div class="deel">@deel.Titel</div></section>
+            @foreach (var h in deel.Hoofdstukken)
+            {
+                <section class="hoofdstuk" id="@RapportHtml.Anker(h)">
+                    <h1><span class="nr">@h.Nummer</span>@h.Titel</h1>
+                    @foreach (var (blok, toelichting, paragraaf) in Blokken(h))
+                    {
+                        if (blok is TabelBlok { Tabel: var tabel })
+                        {
+                            <div class="blok" id="@(tabel.Code is null ? null : RapportHtml.Anker(tabel.Code))">
+                                @if (tabel.Titel is not null)
+                                {
+                                    <h2>
+                                        @if (paragraaf is not null)
+                                        {
+                                            <span class="nr">@paragraaf</span>
+                                        }
+                                        <BewerkbareTekst Tekst="@tabel.Titel" Titel="@tabel.Bron?.Herkomst" Bewerkbaar="@(Bewerkbaar && tabel.Bron is not null)"
+                                                         Opslaan="naam => Hernoem(tabel.Bron!, naam)" />
+                                    </h2>
+                                }
+                                <RapportTabel Tabel="tabel" />
+                                @if (tabel.Code is not null && (toelichting is not null || Bewerkbaar))
+                                {
+                                    <ToelichtingBlok Sleutel="@tabel.Code" Tekst="@toelichting" />
+                                }
+                            </div>
+                        }
+                        else if (blok is TekstBlok { Toelichting: { } sleutel } tekst)
+                        {
+                            <div class="blok" id="@RapportHtml.Anker(sleutel)">
+                                @if (tekst.Titel is not null)
+                                {
+                                    <h2>
+                                        @if (paragraaf is not null)
+                                        {
+                                            <span class="nr">@paragraaf</span>
+                                        }
+                                        @tekst.Titel
+                                    </h2>
+                                }
+                                <ToelichtingBlok Sleutel="@sleutel" Tekst="@tekst.Tekst" />
+                            </div>
+                        }
+                        else if (blok is TekstBlok vast)
+                        {
+                            <p>@vast.Tekst</p>
+                        }
+                    }
+                </section>
+            }
+        }
+    </div>
+</CascadingValue>
+
+@code {
+    [Parameter, EditorRequired]
+    public RapportInhoud Inhoud { get; set; } = default!;
+
+    /// <summary>In de viewer: in- en uitklappen, namen en toelichtingen aanpassen, rekeningen uitsplitsen.</summary>
+    [Parameter]
+    public bool Bewerkbaar { get; set; }
+
+    /// <summary>Na elke wijziging: de uitkomst en een korte melding (null = geen melding), om het rapport opnieuw te maken.</summary>
+    [Parameter]
+    public EventCallback<(Uitkomst Uitkomst, string? Melding)> Gewijzigd { get; set; }
+
+    /// <summary>Wie de wijzigingen doet (alleen in de viewer; de PDF wordt zonder gebruiker gerenderd).</summary>
+    [Parameter]
+    public Func<Task<Uitvoerder>>? Wie { get; set; }
+
+    private Rapport R => Inhoud.Rapport;
+
+    private string Adres => string.Join(" · ", new[] { Inhoud.Kantoor.Adres, $"{Inhoud.Kantoor.Postcode} {Inhoud.Kantoor.Plaats}".Trim() }
+        .Where(t => !string.IsNullOrWhiteSpace(t)));
+
+    /// <summary>
+    /// De blokken van een hoofdstuk met hun paragraafnummer (3.1, 3.2, …). Een toelichting direct na de specificatie
+    /// van dezelfde post komt bij die tabel, zodat ze samen op een pagina blijven.
+    /// </summary>
+    private static IEnumerable<(Blok Blok, string? Toelichting, string? Paragraaf)> Blokken(Hoofdstuk h)
+    {
+        var nummer = 0;
+        for (var i = 0; i < h.Blokken.Count; i++)
+        {
+            var blok = h.Blokken[i];
+            var paragraaf = h.Paragrafen && blok is TabelBlok { Tabel.Titel: not null } or TekstBlok { Titel: not null }
+                ? $"{h.Nummer}.{++nummer}"
+                : null;
+            if (blok is TabelBlok { Tabel.Code: { } code } && i + 1 < h.Blokken.Count && h.Blokken[i + 1] is TekstBlok { Toelichting: var t } tekst && t == code)
+            {
+                yield return (blok, tekst.Tekst, paragraaf);
+                i++;
+                continue;
+            }
+
+            yield return (blok, null, paragraaf);
+        }
+    }
+
+    public Guid DossierId => Inhoud.Dossier.Id;
+
+    public Guid KlantId => Inhoud.Dossier.KlantId;
+
+    public Task<Uitkomst> Klap(string sleutel, bool uitgeklapt) => Uitvoeren(async wie => await RapportDienst.ZetUitgeklapt(KlantId, sleutel, uitgeklapt, wie), null);
+
+    /// <summary>Een andere naam voor een post, eigen post of rekening; leeg = de standaardnaam.</summary>
+    public Task<Uitkomst> Hernoem(Bron bron, string? naam) => bron.Soort switch
+    {
+        Onderwerp.Post or Onderwerp.EigenPost => Uitvoeren(wie => RubriceerDienst.Hernoem(KlantId, bron.Sleutel, naam, false, wie),
+            string.IsNullOrWhiteSpace(naam) ? "Standaardnaam teruggezet" : "Naam aangepast (voor deze klant)"),
+        Onderwerp.Rekening => Uitvoeren(wie => RapportDienst.ZetWeergave(KlantId, bron.Id!.Value, naam, false, wie),
+            string.IsNullOrWhiteSpace(naam) ? "Omschrijving uit de administratie teruggezet" : "Omschrijving aangepast (voor deze klant)"),
+        _ => Task.FromResult(Uitkomst.Mislukt("Deze regel is niet aan te passen.")),
+    };
+
+    public Task<Uitkomst> Toelichting(string sleutel, string? tekst) =>
+        Uitvoeren(wie => RapportDienst.ZetToelichting(DossierId, sleutel, tekst, wie), string.IsNullOrWhiteSpace(tekst) ? "Toelichting verwijderd" : "Toelichting opgeslagen");
+
+    public Task<Uitkomst> Uitsplitsing(Guid rekeningId, IReadOnlyList<SplitsRegel> regels) =>
+        Uitvoeren(wie => RapportDienst.BewaarUitsplitsing(DossierId, rekeningId, regels, wie), regels.Count == 0 ? "Uitsplitsing verwijderd" : "Uitsplitsing opgeslagen");
+
+    private async Task<Uitkomst> Uitvoeren(Func<Uitvoerder, Task<Uitkomst>> actie, string? melding)
+    {
+        if (Wie is null)
+        {
+            return Uitkomst.Mislukt("Alleen in de viewer aan te passen.");
+        }
+
+        var uitkomst = await actie(await Wie());
+        await Gewijzigd.InvokeAsync((uitkomst, melding));
+        return uitkomst;
+    }
+}

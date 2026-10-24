@@ -35,8 +35,9 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
 - `src/Boekerhouden.Server` – Blazor Server-app: `Diensten/` (klanten, dossiers, import met I7/I9/I10, gebruikers,
   wijzigingslog, rubriceren, correcties, werkprogramma en review, bijlagen, signalen, kantoor en huisstijl, rapport en
   presentatie per klant; `DossierSaldi` = saldi van een dossier na correcties, met vorig jaar), `Werkprogramma/` (het meegeleverde standaardwerkprogramma), `Identiteit/` (inloggen, wachtwoordbeleid), `Components/` (schermen; accountpagina's statisch,
-  de rest interactief), `Export/` (correcties naar Excel en PDF; `RapportHtml` = het rapport als HTML voor
-  voorbeeld en PDF; `PdfDienst` maakt PDF's met Edge/Chromium zonder venster, instellingen in sectie `Pdf`).
+  de rest interactief; `Rapportweergave/` = het rapport als bewerkbare viewer, dezelfde component rendert de PDF),
+  `Export/` (correcties naar Excel en PDF; `RapportHtml` = stijl en A4-document van het rapport; `PdfDienst` maakt
+  PDF's met Edge/Chromium zonder venster, instellingen in sectie `Pdf`).
 - `tests/` – xUnit-tests; `tests/Fictief/` – verzonnen testklanten (met `genereer.py`); `tests/Gedeeld/` – gedeelde
   testhulp, o.a. een klein uittreksel uit RGS 3.8 (`RgsTestWerkboek`).
 - Pakketversies centraal in `Directory.Packages.props`; build-instellingen in `Directory.Build.props`.
