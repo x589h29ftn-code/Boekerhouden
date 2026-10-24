@@ -32,7 +32,8 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
 - `src/Boekerhouden.Cli` – opdrachtregel om sjablonen te maken en bestanden te controleren.
 - `src/Boekerhouden.Data` – EF Core + PostgreSQL: entiteiten, Identity (gebruikers, rollen), migraties (`Migraties/`).
 - `src/Boekerhouden.Server` – Blazor Server-app: `Diensten/` (klanten, dossiers, import met I7/I9/I10, gebruikers,
-  wijzigingslog, rubriceren, correcties; `DossierSaldi` = saldi van een dossier na correcties, met vorig jaar), `Identiteit/` (inloggen, wachtwoordbeleid), `Components/` (schermen; accountpagina's statisch,
+  wijzigingslog, rubriceren, correcties, werkprogramma en review, bijlagen, signalen; `DossierSaldi` = saldi van een
+  dossier na correcties, met vorig jaar), `Werkprogramma/` (het meegeleverde standaardwerkprogramma), `Identiteit/` (inloggen, wachtwoordbeleid), `Components/` (schermen; accountpagina's statisch,
   de rest interactief), `Export/` (correcties naar Excel en PDF; `PdfDienst` maakt PDF's met Edge/Chromium zonder
   venster, instellingen in sectie `Pdf`).
 - `tests/` – xUnit-tests; `tests/Fictief/` – verzonnen testklanten (met `genereer.py`); `tests/Gedeeld/` – gedeelde

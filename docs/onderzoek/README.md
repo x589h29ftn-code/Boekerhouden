@@ -81,7 +81,7 @@ API-koppelingen vallen (voorlopig) buiten de scope.
    - bouwen in **10 plakjes** ([§8.4](08-roadmap-risico-s-en-beslispunten.md#84-roadmap-bouwen-in-plakjes)), elk werkend en getest, zonder deadline;
    - traditioneel zou de MVP grofweg 1.100–1.500 ontwikkeluren plus 250–400 uur inhoud kosten. Met AI-ondersteuning verschuift de eigen tijd naar beschrijven, controleren en inhoud;
    - de planning wordt na plakje 1 en 2 bijgesteld op basis van de werkelijke uren.
-10. **Stand en volgende stap:** plakje 1 (importsjabloon), plakje 2 (werkende app: inloggen, klanten, dossiers, saldibalans inlezen, wijzigingslog) en plakje 3 (rubriceren op RGS: slepen, eigen posten, hernoemen, voorstellen, kantoorsjabloon) en plakje 4 (correctieboekingen en de proefbalans per post met verschillen en doorklikken) zijn gereed. Volgende: **plakje 5, dossier en werkprogramma**.
+10. **Stand en volgende stap:** plakje 1 (importsjabloon), plakje 2 (werkende app: inloggen, klanten, dossiers, saldibalans inlezen, wijzigingslog) en plakje 3 (rubriceren op RGS: slepen, eigen posten, hernoemen, voorstellen, kantoorsjabloon) plakje 4 (correctieboekingen en de proefbalans per post met verschillen en doorklikken) en plakje 5 (werkprogramma met materiële posten, aftekenen, review en bijlagen; klantenoverzicht met signalen) zijn gereed. Volgende: **plakje 6, rapport I**.
 
 ## Over de bronnen
 

@@ -130,3 +130,27 @@ Aanvulling op [hoofdstuk 6](06-datamodel.md):
   - de gekozen materiële posten;
   - verwijderde standaardstappen met hun reden;
   - eigen toegevoegde stappen.
+
+## 10.8 Gebouwd in plakje 5
+
+**Werkprogramma in het dossier** (`/dossiers/{id}/werkprogramma`):
+- Links de onderdelen per fase (voorbereiding, uitvoering, afronding) met de voortgang (*2/5*, *gereed*, *gereviewd*) en open reviewpunten; rechts het gekozen onderdeel.
+- Bij de eerste keer openen krijgt het dossier een **kopie** van het kantoorsjabloon voor de soort opdracht; de versie staat bovenaan. Latere wijzigingen in het sjabloon veranderen het dossier niet.
+- **Planning**: per RGS-hoofdpost (niveau 2) met saldo een vinkje *materieel*, met doorklikken naar de subposten. *Overige posten: niet materieel* bevestigt de rest in één keer. Een toelichting op de keuze is optioneel.
+  - Vinkje aan: de post komt in de uitvoering, met de stappen uit het sjabloon (of zonder stappen als het sjabloon die post niet kent), de cijfers (subposten en rekeningen, huidig, vorig, verschil) en een notitie *cijferbeoordeling*.
+  - Vinkje uit: zonder invulling verdwijnt de post; met invulling (antwoord, status, notitie, bijlage of reviewpunt) kies je tussen *bewaren als niet van toepassing* en *verwijderen*.
+- **Stappen**: aftekenen met een vinkje (wie en wanneer), *niet van toepassing* met een verplichte reden, een antwoord, bijlagen. Eigen stappen toevoegen; verwijderen met reden (vraag C5: iedereen, reden verplicht), herstellen, volgorde ↑/↓. Verplichte stappen kunnen niet weg. Verwijderde stappen blijven zichtbaar via de schakelaar *verwijderde stappen*.
+- **Controles bij aftekenen**: *Alle rekeningen gerubriceerd* kan pas als alles met saldo is gekoppeld; *Keuze materiële posten* pas als elke hoofdpost met saldo een keuze heeft (§10.7).
+- **Review** (vraag C6): per stap *uitgevoerd* (aftekenen), per onderdeel *gereviewd* door een gebruiker met de rol reviewer of accountant, als alle stappen gereed of n.v.t. zijn en er geen open reviewpunten zijn. Daarna is het onderdeel vergrendeld tot de review wordt teruggezet. Een nieuw reviewpunt laat de review vervallen. Goedkeuring van het hele dossier door de accountant volgt in plakje 8.
+- **Reviewpunten** per onderdeel, eventueel bij een stap; oplossen met een reactie, heropenen.
+- **Bijlagen** bij een stap, tot 25 MB, opgeslagen in de database met SHA-256 (vraag E2). Downloaden alleen na inloggen, altijd als bestand.
+- Alles staat in het wijzigingslog.
+
+**Beheer › Werkprogramma's**: per soort opdracht de versie, onderdelen en stappen (titel, instructie, verplicht) aanpassen. In de uitvoering hoort elk onderdeel bij een RGS-hoofdpost. De planning kan niet weg.
+
+**Meegeleverde inhoud** (versie 2026.1): een eerste werkprogramma voor *Samenstellen jaarrekening* (BV) en *Winstaangifte opstellen* (eenmanszaak), in eigen woorden opgesteld langs de fasen van Standaard 4410 ([§2.1](02-vaktechnisch-kader.md#21-standaard-4410-samenstellingsopdrachten)). Er is geen tekst uit gelicentieerde werkprogramma's overgenomen. Het is een startpunt: de vaktechnisch verantwoordelijke stelt de inhoud vast.
+
+**Klantenoverzicht** (S1): per klant het laatste dossier met gekoppeld %, de voortgang van het werkprogramma (stappen klaar) en signalen: geen saldibalans, rekeningen met saldo niet gekoppeld, open reviewpunten, keuze materiële posten niet afgetekend. Met de schakelaar *alleen met signalen*. Dezelfde regel staat bovenaan het dossieroverzicht.
+
+**Nog niet gebouwd**: antwoordtypes (ja/nee, bedrag), voorwaarden per stap (rechtsvorm, grootte), verwijzing naar regelgeving, *stap voorstellen voor het sjabloon*, het review-overzicht per dossier, en de tab *Rapport* met de presentatie per post (plakje 6).
+

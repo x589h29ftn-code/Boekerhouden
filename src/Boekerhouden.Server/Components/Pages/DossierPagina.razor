@@ -2,6 +2,7 @@
 @inject DossierDienst DossierDienst
 @inject ImportDienst ImportDienst
 @inject RubriceerDienst RubriceerDienst
+@inject SignaalDienst SignaalDienst
 
 <PageTitle>@(dossier is null ? "Dossier" : $"{dossier.Naam} – {dossier.KlantNaam}") – Boekerhouden</PageTitle>
 
@@ -29,6 +30,19 @@ else
     </div>
     <p class="text-secondary mb-2">@dossier.Klantnummer @dossier.KlantNaam · @Weergave.Tekst(dossier.Rechtsvorm) · @Weergave.Tekst(dossier.Soort)</p>
     <DossierMenu DossierId="dossier.Id" />
+
+    @if (signalen is not null)
+    {
+        <div class="bericht mb-3 d-flex flex-wrap gap-3 small" id="dossierstand">
+            <span>Gekoppeld <span class="bedrag">@signalen.Percentage%</span></span>
+            <span>Werkprogramma @(signalen.StappenTotaal > 0 ? $"{signalen.StappenKlaar} van {signalen.StappenTotaal} stappen klaar" : "nog niet gestart")</span>
+            @foreach (var signaal in signalen.Signalen)
+            {
+                <span class="status let-op">@signaal</span>
+            }
+            <a class="ms-auto" href="/dossiers/@dossier.Id/werkprogramma">naar het werkprogramma</a>
+        </div>
+    }
 
     <ImportPaneel KlantId="dossier.KlantId" Klantnummer="@dossier.Klantnummer" KlantNaam="@dossier.KlantNaam"
                   Boekjaar="dossier.Boekjaar" OnGeimporteerd="Geimporteerd" />
@@ -150,6 +164,7 @@ else
     private DossierDetail? dossier;
     private Proefbalans? proefbalans;
     private RubriceerOverzicht? rubricering;
+    private DossierSignalen? signalen;
 
     [Parameter]
     public Guid Id { get; set; }
@@ -165,6 +180,7 @@ else
         dossier = await DossierDienst.Haal(Id);
         proefbalans = dossier is null ? null : await ImportDienst.Proefbalans(dossier.KlantId, dossier.Boekjaar);
         rubricering = dossier is null ? null : await RubriceerDienst.Overzicht(dossier.Id, metVoorstellen: false);
+        signalen = dossier is null ? null : (await SignaalDienst.VoorDossiers([dossier.Id])).GetValueOrDefault(dossier.Id);
     }
 
     private Task Geimporteerd() => Laad();

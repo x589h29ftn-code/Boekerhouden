@@ -64,8 +64,8 @@
 
 | # | P | Vraag | Waarom | Voorstel |
 |---|---|---|---|---|
-| C5 | P2 | **Wie mag standaardstappen verwijderen**: iedereen, of alleen reviewer of accountant? Is een **reden** verplicht? | Dossierkwaliteit en review | Iedereen, met verplichte reden. De reviewer ziet een overzicht |
-| C6 | P2 | Hoe wordt **afgetekend**: per stap en per post? Twee niveaus of drie? | Goedkeuringsflow | Per stap "uitgevoerd", per post "gereviewd", het dossier "goedgekeurd door accountant" |
+| C5 | P2 | **Wie mag standaardstappen verwijderen**: iedereen, of alleen reviewer of accountant? Is een **reden** verplicht? | Dossierkwaliteit en review | Iedereen, met verplichte reden. De reviewer ziet een overzicht. *Zo gebouwd in plakje 5* |
+| C6 | P2 | Hoe wordt **afgetekend**: per stap en per post? Twee niveaus of drie? | Goedkeuringsflow | Per stap "uitgevoerd", per post "gereviewd", het dossier "goedgekeurd door accountant". *Stap en post gebouwd in plakje 5; dossier volgt in plakje 8* |
 | C7 | P2 | Is er een **bestaand werkprogramma** (Word, Excel) waarmee we beginnen? Wie stelt het op, en hoeveel uur heeft die persoon? | De inhoud is minstens de helft van het werk ([§8.3 R1](08-roadmap-risico-s-en-beslispunten.md#83-risicos)) | Eén vaktechnisch verantwoordelijke, 1–2 dagen per week tijdens de bouw |
 | C8 | P2 | Mogen eigen toegevoegde stappen worden **voorgesteld voor het kantoorsjabloon**? | Sjabloonbeheer | Ja, de beheerder beslist |
 | C9 | P2 | **Doorklikken**: het vinkje *materieel* staat alleen per hoofdpost. Doorklikken toont de cijfers per subpost en grootboekrekening, en een stap kan optioneel bij een subpost horen. Klopt dat? | Planningsscherm en sjabloon | Zoals beschreven |
@@ -88,7 +88,7 @@
 | # | P | Vraag | Waarom | Voorstel |
 |---|---|---|---|---|
 | E1 | P2 | Waar staan **klantgegevens en Wwft-dossiers** nu? Is een eenmalige import van het klantenbestand nodig? | Klantbeheer en migratie | Eenmalige Excel-import van klanten en functionarissen |
-| E2 | P2 | Waar staan **bijlagen** nu? Slaat de app ze zelf op? | Opslag en back-up | De app slaat zelf op (mee in de back-up) |
+| E2 | P2 | Waar staan **bijlagen** nu? Slaat de app ze zelf op? | Opslag en back-up | De app slaat zelf op (mee in de back-up). *Zo gebouwd in plakje 5: in de database* |
 | E3 | P2 | **Gesloten dossiers**: nooit heropenen (alleen kopiëren), of heropenen door een accountant met een reden? | Afsluitbeleid | Heropenen door een accountant, met reden en een gelogd addendum |
 | E4 | P3 | **Bestaande dossiers**: alleen als PDF archiveren? | Migratie | PDF-archief per klant, plus saldibalansen van vorige jaren via het importsjabloon |
 

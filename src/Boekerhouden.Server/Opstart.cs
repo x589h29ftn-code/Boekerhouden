@@ -89,6 +89,7 @@ public static class Opstart
         services.AddSingleton<WerkprogrammaSjabloonDienst>();
         services.AddSingleton<ReviewDienst>();
         services.AddSingleton<BijlageDienst>();
+        services.AddSingleton<SignaalDienst>();
         services.Configure<PdfOpties>(builder.Configuration.GetSection("Pdf"));
         services.AddSingleton<PdfDienst>();
     }

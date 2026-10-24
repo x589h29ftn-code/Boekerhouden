@@ -1,11 +1,16 @@
 @page "/"
 @inject KlantDienst KlantDienst
+@inject SignaalDienst SignaalDienst
 @inject NavigationManager Navigatie
 
 <PageTitle>Klanten – Boekerhouden</PageTitle>
 
 <div class="d-flex align-items-center mb-3 gap-2">
     <h1 class="h3 mb-0 me-auto">Klanten</h1>
+    <span class="form-check form-switch mb-0 small text-nowrap">
+        <input class="form-check-input" type="checkbox" id="met-signalen" @bind="alleenMetSignalen" />
+        <label class="form-check-label" for="met-signalen">alleen met signalen</label>
+    </span>
     <input class="form-control w-auto" type="search" placeholder="Zoek op naam of nummer" aria-label="Zoeken"
            @bind="zoek" @bind:event="oninput" @bind:after="Laad" />
     <a class="btn btn-primary" href="/klanten/nieuw">Nieuwe klant</a>
@@ -40,12 +45,16 @@ else
                     <th>Rechtsvorm</th>
                     <th>Plaats</th>
                     <th>Laatste dossier</th>
+                    <th class="text-end" title="Rekeningen met saldo die aan RGS zijn gekoppeld">Gekoppeld</th>
+                    <th class="text-end" title="Stappen van het werkprogramma die gereed of niet van toepassing zijn">Werkprogramma</th>
+                    <th>Signalen</th>
                     <th>Laatste import</th>
                 </tr>
             </thead>
             <tbody>
-                @foreach (var klant in klanten)
+                @foreach (var klant in Zichtbaar)
                 {
+                    var sig = klant.LaatsteDossier is { } ld ? signalen.GetValueOrDefault(ld.Id) : null;
                     <tr class="klikbaar" @onclick="() => Navigatie.NavigateTo(KlantPad(klant.Id))">
                         <td>@klant.Klantnummer</td>
                         <td><a href="@KlantPad(klant.Id)" @onclick:stopPropagation>@klant.Naam</a></td>
@@ -62,22 +71,43 @@ else
                                 <span class="text-secondary">–</span>
                             }
                         </td>
+                        <td class="text-end">@(sig is null ? "–" : $"{sig.Percentage}%")</td>
+                        <td class="text-end">@(sig is { StappenTotaal: > 0 } ? $"{sig.StappenKlaar}/{sig.StappenTotaal}" : "–")</td>
+                        <td>
+                            @if (sig is { Signalen.Count: > 0 })
+                            {
+                                <span class="status let-op signalen" title="@string.Join(Environment.NewLine, sig.Signalen)">@sig.Signalen[0]@(sig.Signalen.Count > 1 ? $" (+{sig.Signalen.Count - 1})" : null)</span>
+                            }
+                            else if (sig is not null)
+                            {
+                                <span class="status">geen</span>
+                            }
+                        </td>
                         <td>@(klant.LaatsteImport is { } op ? Weergave.DatumTijd(op) : "–")</td>
                     </tr>
                 }
             </tbody>
         </table>
     </div>
-    <p class="text-secondary small mt-2">@klanten.Count klant(en)</p>
+    <p class="text-secondary small mt-2">@Zichtbaar.Count() van @klanten.Count klant(en)</p>
 }
 
 @code {
     private IReadOnlyList<KlantRegel>? klanten;
+    private IReadOnlyDictionary<Guid, DossierSignalen> signalen = new Dictionary<Guid, DossierSignalen>();
     private string? zoek;
+    private bool alleenMetSignalen;
 
     protected override Task OnInitializedAsync() => Laad();
 
-    private async Task Laad() => klanten = await KlantDienst.Lijst(zoek);
+    private async Task Laad()
+    {
+        klanten = await KlantDienst.Lijst(zoek);
+        signalen = await SignaalDienst.VoorDossiers([.. klanten.Select(k => k.LaatsteDossier?.Id).OfType<Guid>()]);
+    }
+
+    private IEnumerable<KlantRegel> Zichtbaar => (klanten ?? []).Where(k =>
+        !alleenMetSignalen || (k.LaatsteDossier is { } d && signalen.GetValueOrDefault(d.Id) is { Signalen.Count: > 0 }));
 
     private static string KlantPad(Guid id) => $"/klanten/{id}";
 }

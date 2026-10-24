@@ -13,14 +13,16 @@ Het draait op een eigen server-pc op kantoor, met meerdere gebruikers.
 
 ## Status
 
-Plakje 4 van 10 is gereed: een werkende webapp. Je logt in, beheert gebruikers, maakt klanten en
+Plakje 5 van 10 is gereed: een werkende webapp. Je logt in, beheert gebruikers, maakt klanten en
 dossiers aan en leest saldibalansen in (met controles, onder meer saldo nihil), met het vorige jaar
 ernaast. Daarna rubriceer je op **RGS** (Referentie GrootboekSchema): grootboekrekeningen slepen
 naar een post, eigen posten toevoegen en posten hernoemen voor de jaarrekening, met voorstellen en
 een kantoorsjabloon dat dezelfde rekeningen bij de volgende klant automatisch koppelt. In het
-dossier boek je correcties (altijd in evenwicht) en bekijk je de proefbalans per post met
-administratie, correcties, vorig jaar en verschil, tot op de boeking. Alles wordt vastgelegd in een
-wijzigingslog. Ontwerp, besluiten en roadmap: [`docs/onderzoek`](docs/onderzoek/README.md).
+dossier boek je correcties (altijd in evenwicht, te exporteren naar Excel en PDF) en bekijk je de
+proefbalans per post met administratie, correcties, vorig jaar en verschil, tot op de boeking. Het
+werkprogramma per dossier volgt het kantoorsjabloon: materiële posten kiezen, stappen aftekenen,
+reviewpunten en bijlagen; het klantenoverzicht toont per klant de voortgang en wat aandacht vraagt.
+Alles wordt vastgelegd in een wijzigingslog. Ontwerp, besluiten en roadmap: [`docs/onderzoek`](docs/onderzoek/README.md).
 
 ## Snel proberen
 
