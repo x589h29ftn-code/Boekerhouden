@@ -12,7 +12,8 @@ public sealed record DossierDetail(
     Guid KlantId,
     string Klantnummer,
     string KlantNaam,
-    Rechtsvorm Rechtsvorm);
+    Rechtsvorm Rechtsvorm,
+    Verslaggeving? Grondslag = null);
 
 public sealed class DossierDienst(IDbContextFactory<BoekerhoudenDbContext> dbFactory, AuditDienst audit, TimeProvider tijd)
 {
@@ -37,11 +38,12 @@ public sealed class DossierDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
         return await db.Dossiers.AsNoTracking()
             .Where(d => d.Id == id)
             .Select(d => new DossierDetail(d.Id, d.Naam, d.Boekjaar, d.SoortOpdracht, d.Status,
-                d.KlantId, d.Klant!.Klantnummer, d.Klant.Naam, d.Klant.Rechtsvorm))
+                d.KlantId, d.Klant!.Klantnummer, d.Klant.Naam, d.Klant.Rechtsvorm, d.Grondslag))
             .SingleOrDefaultAsync();
     }
 
-    public async Task<Uitkomst<Guid>> Maak(Guid klantId, int boekjaar, SoortOpdracht soort, Uitvoerder wie)
+    /// <param name="grondslag">Bij een jaarrekening: commerciële of fiscale grondslagen; null = die van het laatste eerdere jaar (of later kiezen).</param>
+    public async Task<Uitkomst<Guid>> Maak(Guid klantId, int boekjaar, SoortOpdracht soort, Uitvoerder wie, Verslaggeving? grondslag = null)
     {
         ArgumentNullException.ThrowIfNull(wie);
         await using var db = await dbFactory.CreateDbContextAsync();
@@ -71,13 +73,17 @@ public sealed class DossierDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
             SoortOpdracht = soort,
             Status = heeftSaldibalans ? DossierStatus.InUitvoering : DossierStatus.Nieuw,
             Naam = soort == SoortOpdracht.SamenstellenJaarrekening ? $"Jaarrekening {boekjaar}" : $"Winstaangifte {boekjaar}",
+            Grondslag = soort != SoortOpdracht.SamenstellenJaarrekening ? null
+                : grondslag ?? await db.Dossiers.Where(d => d.KlantId == klantId && d.SoortOpdracht == soort && d.Boekjaar < boekjaar && d.Grondslag != null)
+                    .OrderByDescending(d => d.Boekjaar).Select(d => d.Grondslag).FirstOrDefaultAsync(),
             AangemaaktOp = nu,
             GewijzigdOp = nu,
             GewijzigdDoor = wie.Naam,
         };
         db.Dossiers.Add(dossier);
         await db.SaveChangesAsync();
-        await audit.Log(wie, AuditActies.DossierAangemaakt, $"{KlantDienst.Onderwerp(klant)} – {dossier.Naam}");
+        await audit.Log(wie, AuditActies.DossierAangemaakt, $"{KlantDienst.Onderwerp(klant)} – {dossier.Naam}",
+            dossier.Grondslag is { } gekozen ? Weergave.Tekst(gekozen) : null);
         return Uitkomst<Guid>.Met(dossier.Id);
     }
 }

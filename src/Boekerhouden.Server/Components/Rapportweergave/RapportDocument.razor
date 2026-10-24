@@ -3,6 +3,7 @@
 @using Boekerhouden.Server.Export
 @inject RapportDienst RapportDienst
 @inject RubriceerDienst RubriceerDienst
+@inject GrondslagDienst GrondslagDienst
 
 <CascadingValue Value="this" IsFixed="true">
     <div class="rapport-document" style="--huisstijl: @RapportHtml.Kleur(Inhoud.Kantoor)">
@@ -103,6 +104,20 @@
                                 <ToelichtingBlok Sleutel="@sleutel" Tekst="@tekst.Tekst" />
                             </div>
                         }
+                        else if (blok is GroepBlok groep && (groep.HeeftOpgenomen || Bewerkbaar))
+                        {
+                            <h2 class="groep@(groep.HeeftOpgenomen ? null : " dicht")">
+                                @if (paragraaf is not null)
+                                {
+                                    <span class="nr">@paragraaf</span>
+                                }
+                                @groep.Titel
+                            </h2>
+                        }
+                        else if (blok is GrondslagBlok grondslag && (grondslag.Opgenomen || Bewerkbaar))
+                        {
+                            <GrondslagWeergave Grondslag="grondslag" />
+                        }
                         else if (blok is TekstBlok vast)
                         {
                             <p>@vast.Tekst</p>
@@ -145,7 +160,7 @@
         for (var i = 0; i < h.Blokken.Count; i++)
         {
             var blok = h.Blokken[i];
-            var paragraaf = h.Paragrafen && blok is TabelBlok { Tabel.Titel: not null } or TekstBlok { Titel: not null }
+            var paragraaf = h.Paragrafen && blok is TabelBlok { Tabel.Titel: not null } or TekstBlok { Titel: not null } or GroepBlok { HeeftOpgenomen: true }
                 ? $"{h.Nummer}.{++nummer}"
                 : null;
             if (blok is TabelBlok { Tabel.Code: { } code } && i + 1 < h.Blokken.Count && h.Blokken[i + 1] is TekstBlok { Toelichting: var t } tekst && t == code)
@@ -174,6 +189,14 @@
             string.IsNullOrWhiteSpace(naam) ? "Omschrijving uit de administratie teruggezet" : "Omschrijving aangepast (voor deze klant)"),
         _ => Task.FromResult(Uitkomst.Mislukt("Deze regel is niet aan te passen.")),
     };
+
+    /// <summary>Een grondslag in dit dossier open (in het rapport) of dicht zetten.</summary>
+    public Task<Uitkomst> KlapGrondslag(string sleutel, bool opgenomen) =>
+        Uitvoeren(wie => GrondslagDienst.ZetOpgenomen(DossierId, sleutel, opgenomen, wie), null);
+
+    /// <summary>Een eigen tekst voor een grondslag in dit dossier; null = de tekst uit de bibliotheek.</summary>
+    public Task<Uitkomst> GrondslagTekst(string sleutel, string? tekst) =>
+        Uitvoeren(wie => GrondslagDienst.ZetTekst(DossierId, sleutel, tekst, wie), tekst is null ? "Standaardtekst teruggezet" : "Grondslag aangepast");
 
     public Task<Uitkomst> Toelichting(string sleutel, string? tekst) =>
         Uitvoeren(wie => RapportDienst.ZetToelichting(DossierId, sleutel, tekst, wie), string.IsNullOrWhiteSpace(tekst) ? "Toelichting verwijderd" : "Toelichting opgeslagen");

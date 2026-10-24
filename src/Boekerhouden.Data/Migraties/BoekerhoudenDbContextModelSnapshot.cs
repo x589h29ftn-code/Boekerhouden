@@ -231,6 +231,10 @@ namespace Boekerhouden.Data.Migraties
                     b.Property<DateTimeOffset>("GewijzigdOp")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Grondslag")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<Guid>("KlantId")
                         .HasColumnType("uuid");
 
@@ -259,6 +263,35 @@ namespace Boekerhouden.Data.Migraties
                         .IsUnique();
 
                     b.ToTable("Dossiers", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.DossierGrondslag", b =>
+                {
+                    b.Property<Guid>("DossierId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Sleutel")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("GewijzigdDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("GewijzigdOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool?>("Opgenomen")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Tekst")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.HasKey("DossierId", "Sleutel");
+
+                    b.ToTable("DossierGrondslagen", (string)null);
                 });
 
             modelBuilder.Entity("Boekerhouden.Data.DossierOnderdeel", b =>
@@ -532,6 +565,59 @@ namespace Boekerhouden.Data.Migraties
                         .HasDatabaseName("UserNameIndex");
 
                     b.ToTable("AspNetUsers", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.GrondslagSjabloon", b =>
+                {
+                    b.Property<string>("Sleutel")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Codes")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
+                    b.Property<string>("GewijzigdDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("GewijzigdOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Groep")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("Jaargebonden")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Opname")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("TekstCommercieel")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("TekstFiscaal")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("Titel")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Volgorde")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Sleutel");
+
+                    b.ToTable("GrondslagSjablonen", (string)null);
                 });
 
             modelBuilder.Entity("Boekerhouden.Data.Grootboekrekening", b =>
@@ -1479,6 +1565,15 @@ namespace Boekerhouden.Data.Migraties
                         .IsRequired();
 
                     b.Navigation("Klant");
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.DossierGrondslag", b =>
+                {
+                    b.HasOne("Boekerhouden.Data.Dossier", null)
+                        .WithMany()
+                        .HasForeignKey("DossierId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Boekerhouden.Data.DossierOnderdeel", b =>

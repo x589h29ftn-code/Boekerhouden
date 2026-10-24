@@ -1,0 +1,106 @@
+@* Eén grondslag in het rapport. In de viewer: met het driehoekje open (in het rapport) of dicht, en de tekst aanklikken
+   om die voor dit dossier aan te passen. Tekst tussen [vierkante haken] moet nog worden ingevuld. *@
+@using System.Text.RegularExpressions
+@using Boekerhouden.Domain.Rapport
+
+<div class="grondslag@(Grondslag.Opgenomen ? null : " dicht")">
+    <h3>
+        @if (Document.Bewerkbaar)
+        {
+            <button type="button" class="klap" title="@(Grondslag.Opgenomen ? "Dichtklappen: niet in het rapport" : "Openklappen: in het rapport")"
+                    aria-expanded="@(Grondslag.Opgenomen ? "true" : "false")" aria-label="@($"{Grondslag.Titel} {(Grondslag.Opgenomen ? "dichtklappen" : "openklappen")}")"
+                    @onclick="() => Document.KlapGrondslag(Grondslag.Sleutel, !Grondslag.Opgenomen)">@(Grondslag.Opgenomen ? "▾" : "▸")</button>
+        }
+        @Grondslag.Titel
+        @if (Document.Bewerkbaar && !Grondslag.Opgenomen)
+        {
+            <span class="niet-opgenomen">niet in het rapport</span>
+        }
+    </h3>
+    @if (Grondslag.Opgenomen)
+    {
+        @if (bewerken)
+        {
+            <textarea @ref="invoer" class="inline-invoer" @bind="waarde" @bind:event="oninput" maxlength="@GrondslagDienst.MaximaleTekst"
+                      aria-label="@($"Tekst van de grondslag {Grondslag.Titel}")"></textarea>
+            <div class="d-flex gap-2 align-items-center mt-1" style="font-size: 8pt">
+                <button type="button" class="btn btn-primary btn-sm py-0" @onclick="Bewaar">Opslaan</button>
+                <button type="button" class="btn btn-link btn-sm py-0 text-secondary" @onclick="() => bewerken = false">Annuleren</button>
+                @if (Grondslag.EigenTekst)
+                {
+                    <button type="button" class="btn btn-link btn-sm py-0 text-secondary" @onclick="Standaard">standaardtekst terugzetten</button>
+                }
+                <span class="text-secondary">Geldt voor dit dossier en volgende jaren.</span>
+            </div>
+        }
+        else if (Document.Bewerkbaar)
+        {
+            <div class="grondslag-tekst bewerkbaar" title="@($"{(Grondslag.EigenTekst ? "Eigen tekst" : "Tekst uit de grondslagenbibliotheek")} · klik om aan te passen")" @onclick="Start">@Tekst</div>
+        }
+        else
+        {
+            <div class="grondslag-tekst">@Tekst</div>
+        }
+    }
+</div>
+
+@code {
+    private bool bewerken;
+    private bool focus;
+    private string waarde = "";
+    private ElementReference invoer;
+
+    [CascadingParameter]
+    public RapportDocument Document { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public GrondslagBlok Grondslag { get; set; } = default!;
+
+    /// <summary>De tekst, met wat nog moet worden ingevuld ([…]) apart gemarkeerd.</summary>
+    private RenderFragment Tekst => builder =>
+    {
+        var positie = 0;
+        foreach (Match m in RapportOpbouw.InTeVullen().Matches(Grondslag.Tekst))
+        {
+            builder.AddContent(0, Grondslag.Tekst[positie..m.Index]);
+            builder.OpenElement(1, "span");
+            builder.AddAttribute(2, "class", "invullen");
+            builder.AddContent(3, m.Value);
+            builder.CloseElement();
+            positie = m.Index + m.Length;
+        }
+
+        builder.AddContent(4, Grondslag.Tekst[positie..]);
+    };
+
+    private void Start()
+    {
+        waarde = Grondslag.Tekst;
+        bewerken = true;
+        focus = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (focus)
+        {
+            focus = false;
+            await invoer.FocusAsync();
+        }
+    }
+
+    private async Task Bewaar()
+    {
+        bewerken = false;
+        if (waarde.Trim() != Grondslag.Tekst)
+        {
+            await Document.GrondslagTekst(Grondslag.Sleutel, waarde);
+        }
+    }
+
+    private async Task Standaard()
+    {
+        bewerken = false;
+        await Document.GrondslagTekst(Grondslag.Sleutel, null);
+    }
+}

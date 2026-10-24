@@ -62,6 +62,9 @@ public sealed class Dossier
     /// <summary>De versie van het werkprogrammasjabloon waarmee het dossier is gestart; null = nog niet gestart.</summary>
     public string? WerkprogrammaVersie { get; set; }
 
+    /// <summary>Commerciële of fiscale grondslagen (jaarrekening van een BV); null = nog niet gekozen.</summary>
+    public Verslaggeving? Grondslag { get; set; }
+
     public DateTimeOffset AangemaaktOp { get; set; }
 
     public DateTimeOffset GewijzigdOp { get; set; }

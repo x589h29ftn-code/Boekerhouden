@@ -45,6 +45,10 @@ else
         }
     </div>
     <DossierMenu DossierId="dossier.Id" Actief="/rapport" />
+    @if (inhoud is { Rapport.Soort: RapportSoort.Jaarrekening, Dossier.Grondslag: null })
+    {
+        <GrondslagKeuze DossierId="dossier.Id" Gekozen="Laad" />
+    }
 
     @if (fout is not null)
     {

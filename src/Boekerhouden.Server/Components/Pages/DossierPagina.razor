@@ -28,7 +28,11 @@ else
         <h1 class="h3 mb-0">@dossier.Naam</h1>
         <DossierStatusLabel Status="dossier.Status" />
     </div>
-    <p class="text-secondary mb-2">@dossier.Klantnummer @dossier.KlantNaam · @Weergave.Tekst(dossier.Rechtsvorm) · @Weergave.Tekst(dossier.Soort)</p>
+    <p class="text-secondary mb-1">@dossier.Klantnummer @dossier.KlantNaam · @Weergave.Tekst(dossier.Rechtsvorm) · @Weergave.Tekst(dossier.Soort)</p>
+    @if (dossier.Soort == SoortOpdracht.SamenstellenJaarrekening)
+    {
+        <GrondslagKeuze DossierId="dossier.Id" Huidig="dossier.Grondslag" Gekozen="Laad" />
+    }
     <DossierMenu DossierId="dossier.Id" />
 
     @if (signalen is not null)

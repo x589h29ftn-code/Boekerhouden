@@ -373,4 +373,70 @@ public sealed class RapportOpbouwTests
         var (_, teWeinig) = RapportOpbouw.Verdeel([1_000m], 3_001m);
         Assert.Equal(2_001m, teWeinig);
     }
+
+    private static readonly Grondslag[] Bibliotheek =
+    [
+        new("algemeen", "Algemeen", "Algemeen", "De jaarrekening is opgesteld volgens Titel 9 Boek 2 BW.", GrondslagStandaard.Altijd, []),
+        new("foutenherstel", "Algemeen", "Foutenherstel", "Er is een fout hersteld.", GrondslagStandaard.Optioneel, []),
+        new("mva", "Waardering", "Materiële vaste activa", "Tegen verkrijgingsprijs min afschrijvingen.", GrondslagStandaard.BijPost, ["BMva"]),
+        new("voorraden", "Waardering", "Voorraden", "Tegen verkrijgingsprijs.", GrondslagStandaard.BijPost, ["BVrd"]),
+        new("latentie", "Waardering", "Latente belastingen", "Voor tijdelijke verschillen.", GrondslagStandaard.BijPost, ["BVrzVvbVlb"]),
+    ];
+
+    private static RapportGegevens MetGrondslagen(RapportSoort soort = RapportSoort.Jaarrekening, Dictionary<string, GrondslagKeuze>? keuzes = null) =>
+        Gegevens(soort) with { Grondslagen = Bibliotheek, GrondslagKeuzes = keuzes };
+
+    [Fact]
+    public void Grondslagen_staan_open_bij_posten_met_saldo_en_optionele_dicht()
+    {
+        var rapport = RapportOpbouw.Maak(MetGrondslagen());
+
+        Assert.Equal(["Balans per 31 december 2025", "Winst-en-verliesrekening over 2025", "Grondslagen", "Toelichting op de balans", "Toelichting op de winst-en-verliesrekening"],
+            rapport.Hoofdstukken.Select(h => h.Titel));
+        var blokken = rapport.Hoofdstukken.ElementAt(2).Blokken;
+        Assert.Equal(["Algemeen", "algemeen", "foutenherstel", "Waardering", "mva"],
+            blokken.Select(b => b switch { GroepBlok groep => groep.Titel, GrondslagBlok grondslag => grondslag.Sleutel, _ => "?" }));
+        Assert.True(blokken.OfType<GrondslagBlok>().Single(b => b.Sleutel == "mva").Opgenomen);
+        Assert.False(blokken.OfType<GrondslagBlok>().Single(b => b.Sleutel == "foutenherstel").Opgenomen);
+        Assert.All(blokken.OfType<GroepBlok>(), groep => Assert.True(groep.HeeftOpgenomen));
+    }
+
+    [Fact]
+    public void De_keuze_in_het_dossier_gaat_voor()
+    {
+        var rapport = RapportOpbouw.Maak(MetGrondslagen(keuzes: new()
+        {
+            ["mva"] = new(false, null),
+            ["foutenherstel"] = new(true, "In 2025 is een fout in de voorraadwaardering hersteld."),
+            ["latentie"] = new(true, null),
+        }));
+
+        var blokken = rapport.Hoofdstukken.ElementAt(2).Blokken;
+        var fout = blokken.OfType<GrondslagBlok>().Single(b => b.Sleutel == "foutenherstel");
+        Assert.True(fout.Opgenomen);
+        Assert.True(fout.EigenTekst);
+        Assert.Equal("In 2025 is een fout in de voorraadwaardering hersteld.", fout.Tekst);
+        Assert.False(blokken.OfType<GrondslagBlok>().Single(b => b.Sleutel == "mva").Opgenomen);
+
+        // Zonder saldo, maar bewust aangezet: dan staat hij er toch.
+        Assert.True(blokken.OfType<GrondslagBlok>().Single(b => b.Sleutel == "latentie").Opgenomen);
+        Assert.True(blokken.OfType<GroepBlok>().Single(b => b.Titel == "Waardering").HeeftOpgenomen);
+    }
+
+    [Fact]
+    public void Een_groep_zonder_open_grondslagen_heeft_niets_in_het_rapport()
+    {
+        var rapport = RapportOpbouw.Maak(MetGrondslagen(keuzes: new() { ["mva"] = new(false, null) }));
+
+        Assert.False(rapport.Hoofdstukken.ElementAt(2).Blokken.OfType<GroepBlok>().Single(b => b.Titel == "Waardering").HeeftOpgenomen);
+    }
+
+    [Fact]
+    public void De_aangiftebijlage_heeft_geen_grondslagen()
+    {
+        var rapport = RapportOpbouw.Maak(MetGrondslagen(RapportSoort.AangifteBijlage));
+
+        Assert.DoesNotContain(rapport.Hoofdstukken, h => h.Titel == "Grondslagen");
+        Assert.Equal(4, rapport.Hoofdstukken.Count());
+    }
 }

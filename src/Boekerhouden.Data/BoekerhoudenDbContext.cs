@@ -65,6 +65,10 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
 
     public DbSet<UitsplitsingRegel> UitsplitsingRegels => Set<UitsplitsingRegel>();
 
+    public DbSet<GrondslagSjabloon> GrondslagSjablonen => Set<GrondslagSjabloon>();
+
+    public DbSet<DossierGrondslag> DossierGrondslagen => Set<DossierGrondslag>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -96,6 +100,7 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
             e.HasOne(d => d.Klant).WithMany(k => k.Dossiers).HasForeignKey(d => d.KlantId).OnDelete(DeleteBehavior.Restrict);
             e.Property(d => d.SoortOpdracht).HasConversion<string>().HasMaxLength(40);
             e.Property(d => d.Status).HasConversion<string>().HasMaxLength(30);
+            e.Property(d => d.Grondslag).HasConversion<string>().HasMaxLength(20);
             e.Property(d => d.Naam).HasMaxLength(200);
             e.Property(d => d.GewijzigdDoor).HasMaxLength(200);
             e.Property(d => d.WerkprogrammaVersie).HasMaxLength(40);
@@ -374,6 +379,30 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
             e.Property(t => t.Sleutel).HasMaxLength(60);
             e.Property(t => t.Tekst).HasMaxLength(4000);
             e.Property(t => t.GewijzigdDoor).HasMaxLength(200);
+        });
+
+        builder.Entity<GrondslagSjabloon>(e =>
+        {
+            e.ToTable("GrondslagSjablonen");
+            e.HasKey(g => g.Sleutel);
+            e.Property(g => g.Sleutel).HasMaxLength(40);
+            e.Property(g => g.Groep).HasMaxLength(200);
+            e.Property(g => g.Titel).HasMaxLength(200);
+            e.Property(g => g.TekstCommercieel).HasMaxLength(4000);
+            e.Property(g => g.TekstFiscaal).HasMaxLength(4000);
+            e.Property(g => g.Opname).HasConversion<string>().HasMaxLength(20);
+            e.Property(g => g.Codes).HasMaxLength(400);
+            e.Property(g => g.GewijzigdDoor).HasMaxLength(200);
+        });
+
+        builder.Entity<DossierGrondslag>(e =>
+        {
+            e.ToTable("DossierGrondslagen");
+            e.HasKey(g => new { g.DossierId, g.Sleutel });
+            e.HasOne<Dossier>().WithMany().HasForeignKey(g => g.DossierId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(g => g.Sleutel).HasMaxLength(40);
+            e.Property(g => g.Tekst).HasMaxLength(4000);
+            e.Property(g => g.GewijzigdDoor).HasMaxLength(200);
         });
 
         builder.Entity<UitsplitsingRegel>(e =>

@@ -26,6 +26,13 @@ public static class Weergave
         _ => rechtsvorm.ToString(),
     };
 
+    public static string Tekst(Verslaggeving verslaggeving) => verslaggeving switch
+    {
+        Verslaggeving.Commercieel => "Commerciële grondslagen",
+        Verslaggeving.Fiscaal => "Fiscale grondslagen",
+        _ => verslaggeving.ToString(),
+    };
+
     public static string Tekst(SoortOpdracht soort) => soort switch
     {
         SoortOpdracht.SamenstellenJaarrekening => "Samenstellen jaarrekening",

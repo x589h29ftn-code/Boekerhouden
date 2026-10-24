@@ -95,6 +95,28 @@ opmaakregels hierboven zijn toegepast: hele euro's, nul als `-`, lijnen boven su
 onder eindtotalen, en de voettekst met klant, status ("Concept", bij de aangifte "Geen accountantscontrole
 toegepast" met datum) en paginanummer. Elk hoofdstuk begint op een nieuwe pagina; tabellen worden niet gesplitst.
 
+*Gebouwd: grondslagen (B22).* Bij een nieuw dossier *Samenstellen jaarrekening* voor een BV kies je of de jaarrekening
+op **commerciële** (Titel 9 Boek 2 BW, RJk) of **fiscale grondslagen** (art. 2:396 lid 6 BW, Besluit fiscale
+waarderingsgrondslagen) wordt opgesteld; het voorstel is de keuze van vorig jaar. Wijzigen kan op het dossier. De
+keuze bepaalt de teksten: fiscaal bijvoorbeeld geen latente belastingen en afschrijving op panden tot de bodemwaarde
+(100% van de WOZ-waarde); commercieel o.a. schattingen en latente belastingen.
+
+De jaarrekening krijgt een hoofdstuk *Grondslagen* tussen de W&V en de toelichting, in drie groepen: algemeen,
+waardering van activa en passiva, en bepaling van het resultaat. Elke grondslag in de bibliotheek (Beheer ›
+Grondslagen) heeft een tekst per variant en een standaard:
+
+| Standaard | Voorbeelden | In de jaarrekening |
+|---|---|---|
+| **Altijd** | Algemeen, vergelijking met het voorgaande jaar, schattingen | Open |
+| **Bij post** (RGS-codes) | MVA bij `BMva`, voorraden bij `BVrd`, latente belastingen bij `BFvaLbv`, `BVorLbv`, `BVrzVvbVlb` | Open als een van de posten een saldo heeft (dit of vorig jaar); anders niet getoond |
+| **Optioneel** | Continuïteit, stelselwijziging, schattingswijziging, foutenherstel, gebeurtenissen na balansdatum, verbonden partijen | Dicht; in de viewer open te klappen |
+
+In de viewer klap je een grondslag met het driehoekje open (in het rapport) of dicht, en klik je de tekst aan om die
+voor het dossier aan te passen. Tekst tussen [vierkante haken] moet nog worden ingevuld; die is in de viewer
+gemarkeerd en geeft een waarschuwing. Keuzes rollen door naar volgende jaren, behalve bij *jaargebonden* grondslagen
+(zoals foutenherstel), die elk jaar opnieuw dicht beginnen. De eenmanszaak (bijlage bij de aangifte) heeft geen
+grondslagen, zoals voorbeeld B. De meegeleverde teksten zijn in eigen woorden opgesteld; het kantoor stelt ze vast.
+
 ## 9.4 Gegevens die we nodig hebben, naast de proefbalans
 
 | Gegeven | Waar vastleggen | Doorrollen? |

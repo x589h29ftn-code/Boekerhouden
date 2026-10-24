@@ -937,3 +937,17 @@ tr.klikbaar {
         font-size: .8rem;
         color: #8a939b;
     }
+
+/* Beheer › Grondslagen: één regel per grondslag, details bij openklikken. */
+.grondslag-regel {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .3rem .25rem;
+    border-bottom: 1px solid #eef0f2;
+    font-size: .9rem;
+}
+
+    .grondslag-regel:hover {
+        background: #f5f7f9;
+    }

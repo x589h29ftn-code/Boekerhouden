@@ -92,6 +92,7 @@ public static class Opstart
         services.AddSingleton<SignaalDienst>();
         services.AddSingleton<KantoorDienst>();
         services.AddSingleton<RapportDienst>();
+        services.AddSingleton<GrondslagDienst>();
         services.Configure<PdfOpties>(builder.Configuration.GetSection("Pdf"));
         services.AddSingleton<PdfDienst>();
     }
@@ -163,5 +164,8 @@ public static class Opstart
         }
 
         await db.SaveChangesAsync();
+
+        // De meegeleverde grondslagen die het kantoor nog niet heeft (aanpassingen blijven staan).
+        await GrondslagDienst.VulAan(db, DateTimeOffset.UtcNow);
     }
 }

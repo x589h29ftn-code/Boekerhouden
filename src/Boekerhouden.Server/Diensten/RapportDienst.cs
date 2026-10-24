@@ -27,7 +27,7 @@ public sealed record UitsplitsingInfo(IReadOnlyList<SplitsRegel> Regels, bool Be
 /// "Overige", per post wel of geen specificatie en uit- of ingeklapt; die rolt door naar volgende jaren. En per
 /// dossier: toelichtingen bij posten en uitsplitsingen van rekeningen.
 /// </summary>
-public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFactory, RubriceerDienst rubriceren, KantoorDienst kantoor, AuditDienst audit, TimeProvider tijd)
+public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFactory, RubriceerDienst rubriceren, KantoorDienst kantoor, GrondslagDienst grondslagen, AuditDienst audit, TimeProvider tijd)
 {
     public const int MaximaleOmschrijving = 300;
     public const int MaximaleToelichting = 4000;
@@ -50,6 +50,8 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
         var dossier = overzicht.Dossier;
         await using var db = await dbFactory.CreateDbContextAsync();
         var plaats = await db.Klanten.AsNoTracking().Where(k => k.Id == dossier.KlantId).Select(k => k.Plaats).SingleAsync();
+        var jaarrekening = Soort(dossier.Soort) == RapportSoort.Jaarrekening;
+        var metGrondslagen = jaarrekening ? await grondslagen.VoorRapport(dossierId) : null;
 
         var rapport = RapportOpbouw.Maak(new RapportGegevens(
             Soort(dossier.Soort),
@@ -70,8 +72,15 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
                 .ToDictionaryAsync(t => t.Sleutel, t => t.Tekst, StringComparer.Ordinal),
             (await db.UitsplitsingRegels.AsNoTracking().Where(r => r.DossierId == dossierId).OrderBy(r => r.Volgorde).ToListAsync())
                 .GroupBy(r => r.GrootboekrekeningId)
-                .ToDictionary(g => g.Key, g => (IReadOnlyList<SplitsRegel>)[.. g.Select(r => new SplitsRegel(r.Omschrijving, r.Bedrag, r.BedragVorig))])));
-        return Uitkomst<RapportInhoud>.Met(new RapportInhoud(dossier, rapport, await kantoor.Haal(), tijd.GetUtcNow()));
+                .ToDictionary(g => g.Key, g => (IReadOnlyList<SplitsRegel>)[.. g.Select(r => new SplitsRegel(r.Omschrijving, r.Bedrag, r.BedragVorig))]),
+            metGrondslagen?.Verslaggeving is null ? null : metGrondslagen.Grondslagen,
+            metGrondslagen?.Keuzes));
+        if (jaarrekening && metGrondslagen?.Verslaggeving is null)
+        {
+            rapport = rapport with { Waarschuwingen = [.. rapport.Waarschuwingen, "Kies of de jaarrekening op commerciële of fiscale grondslagen is opgesteld; daarna staan de grondslagen in het rapport."] };
+        }
+
+        return Uitkomst<RapportInhoud>.Met(new RapportInhoud(dossier with { Grondslag = metGrondslagen?.Verslaggeving }, rapport, await kantoor.Haal(), tijd.GetUtcNow()));
     }
 
     /// <summary>De presentatie per hoofdpost met saldo, met de rekeningen die in de specificatie staan; null als het dossier niet bestaat.</summary>

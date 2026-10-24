@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using Boekerhouden.Domain.Rgs;
 using Boekerhouden.Domain.Rubricering;
 
@@ -16,6 +17,8 @@ public sealed record SplitsRegel(string Omschrijving, decimal Bedrag, decimal? B
 /// <param name="Uitklappen">Per post de stand uitgeklapt/ingeklapt; ontbreekt hij, dan de standaard.</param>
 /// <param name="Toelichtingen">Per hoofdpost een toelichtende tekst onder de specificatie.</param>
 /// <param name="Uitsplitsingen">Per rekening de regels waarin hij in de specificatie is uitgesplitst.</param>
+/// <param name="Grondslagen">De grondslagen voor de jaarrekening (bibliotheek, al met de tekst voor commercieel of fiscaal); null = geen hoofdstuk.</param>
+/// <param name="GrondslagKeuzes">Per grondslag de keuze in het dossier: opgenomen of niet, en een eigen tekst.</param>
 public sealed record RapportGegevens(
     RapportSoort Soort,
     string Klantnaam,
@@ -31,7 +34,9 @@ public sealed record RapportGegevens(
     IReadOnlySet<string> ZonderSpecificatie,
     IReadOnlyDictionary<string, bool>? Uitklappen = null,
     IReadOnlyDictionary<string, string>? Toelichtingen = null,
-    IReadOnlyDictionary<Guid, IReadOnlyList<SplitsRegel>>? Uitsplitsingen = null);
+    IReadOnlyDictionary<Guid, IReadOnlyList<SplitsRegel>>? Uitsplitsingen = null,
+    IReadOnlyList<Grondslag>? Grondslagen = null,
+    IReadOnlyDictionary<string, GrondslagKeuze>? GrondslagKeuzes = null);
 
 /// <summary>
 /// Bouwt het rapport (plakje 6, docs §9.1–9.3) uit de proefbalans per post: de balans (tweekoloms, met het resultaat
@@ -40,7 +45,7 @@ public sealed record RapportGegevens(
 /// klappen (balans standaard uit-, W&amp;V standaard ingeklapt), met per post een toelichting en per rekening een
 /// uitsplitsing die moet aansluiten op het saldo.
 /// </summary>
-public static class RapportOpbouw
+public static partial class RapportOpbouw
 {
     private const string EigenVermogen = "BEiv";
     private const string Kostprijs = "WKpr";
@@ -62,9 +67,19 @@ public static class RapportOpbouw
         {
             new(1, $"Balans per 31 december {g.Boekjaar}", [.. balans.Select(t => new TabelBlok(t))]),
             new(2, $"Winst-en-verliesrekening over {g.Boekjaar}", [new TabelBlok(WinstEnVerlies(g))]),
-            new(3, ib ? "Specificaties van de balans" : "Toelichting op de balans", Specificaties(g, balans: true, waarschuwingen), Paragrafen: true),
-            new(4, ib ? "Specificaties van de winst-en-verliesrekening" : "Toelichting op de winst-en-verliesrekening", Specificaties(g, balans: false, waarschuwingen), Paragrafen: true),
         };
+
+        // De grondslagen staan in de jaarrekening van de BV tussen de W&V en de toelichting (docs §9.1).
+        if (!ib && g.Grondslagen is not null)
+        {
+            var grondslagen = Grondslagen(g);
+            hoofdstukken.Add(new Hoofdstuk(hoofdstukken.Count + 1, "Grondslagen", grondslagen, Paragrafen: true));
+            waarschuwingen.AddRange(grondslagen.OfType<GrondslagBlok>().Where(b => b.Opgenomen && InTeVullen().IsMatch(b.Tekst))
+                .Select(b => $"In de grondslag \"{b.Titel}\" staat nog tekst tussen [ ] om in te vullen."));
+        }
+
+        hoofdstukken.Add(new Hoofdstuk(hoofdstukken.Count + 1, ib ? "Specificaties van de balans" : "Toelichting op de balans", Specificaties(g, balans: true, waarschuwingen), Paragrafen: true));
+        hoofdstukken.Add(new Hoofdstuk(hoofdstukken.Count + 1, ib ? "Specificaties van de winst-en-verliesrekening" : "Toelichting op de winst-en-verliesrekening", Specificaties(g, balans: false, waarschuwingen), Paragrafen: true));
 
         return new Rapport(
             g.Soort,
@@ -178,6 +193,42 @@ public static class RapportOpbouw
         var naam = g.Soort == RapportSoort.Jaarrekening && overig.Count > 0 ? "Resultaat na belastingen" : "Resultaat";
         regels.Add(new Regel(RegelSoort.Eindtotaal, naam, Totaal: g.Balans.ResultaatHuidig, TotaalVorig: g.Balans.ResultaatVorig));
         return new Tabel(null, true, Jaar(g.Boekjaar), Jaar(g.Boekjaar - 1), regels);
+    }
+
+    /// <summary>
+    /// De grondslagen per groep (algemeen, waardering, resultaatbepaling). Een grondslag bij een post staat er als die
+    /// post een saldo heeft; algemene grondslagen staan er altijd; optionele (bijv. foutenherstel) staan dicht. De
+    /// keuze in het dossier gaat voor: open of dicht, en een eigen tekst. Dichte grondslagen ziet alleen de viewer.
+    /// </summary>
+    public static IReadOnlyList<Blok> Grondslagen(RapportGegevens g)
+    {
+        ArgumentNullException.ThrowIfNull(g);
+        var blokken = new List<Blok>();
+        foreach (var groep in (g.Grondslagen ?? []).GroupBy(x => x.Groep))
+        {
+            var items = new List<GrondslagBlok>();
+            foreach (var grondslag in groep)
+            {
+                var keuze = g.GrondslagKeuzes?.GetValueOrDefault(grondslag.Sleutel);
+                var relevant = grondslag.Standaard != GrondslagStandaard.BijPost || grondslag.Codes.Any(c => HeeftSaldo(g, c));
+                if (!relevant && keuze?.Opgenomen != true)
+                {
+                    continue;
+                }
+
+                var standaard = grondslag.Standaard != GrondslagStandaard.Optioneel;
+                var eigen = !string.IsNullOrWhiteSpace(keuze?.Tekst);
+                items.Add(new GrondslagBlok(grondslag.Sleutel, grondslag.Titel, eigen ? keuze!.Tekst! : grondslag.Tekst, keuze?.Opgenomen ?? standaard, eigen));
+            }
+
+            if (items.Count > 0)
+            {
+                blokken.Add(new GroepBlok(groep.Key, items.Any(i => i.Opgenomen)));
+                blokken.AddRange(items);
+            }
+        }
+
+        return blokken;
     }
 
     /// <summary>
@@ -493,7 +544,14 @@ public static class RapportOpbouw
     private static int Teken(RgsCode post) => post.Kant == Saldokant.Credit ? -1 : 1;
 
     private static IEnumerable<RgsCode> MetSaldo(RapportGegevens g, IEnumerable<RgsCode> codes) =>
-        codes.Where(c => g.Balans.Totaal(c.Code) is { Aantal: > 0 } t && (t.Huidig != 0 || t.Vorig != 0));
+        codes.Where(c => HeeftSaldo(g, c.Code));
+
+    private static bool HeeftSaldo(RapportGegevens g, string code) =>
+        g.Balans.Totaal(code) is { Aantal: > 0 } t && (t.Huidig != 0 || t.Vorig != 0);
 
     private static string Jaar(int jaar) => jaar.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>Tekst tussen vierkante haken in een standaardtekst: die moet de gebruiker nog invullen.</summary>
+    [GeneratedRegex(@"\[[^\]]+\]")]
+    public static partial Regex InTeVullen();
 }

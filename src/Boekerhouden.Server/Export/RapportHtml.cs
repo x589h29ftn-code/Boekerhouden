@@ -170,6 +170,11 @@ public static partial class RapportHtml
         .rapport-document .tussenblad .deel { padding-top: 90mm; font-size: 16pt; letter-spacing: .5pt; color: var(--huisstijl); }
         .rapport-document .blok { break-inside: avoid; margin-bottom: 8mm; }
         .rapport-document .toelichting { margin-top: 3mm; white-space: pre-line; }
+        .rapport-document h1, .rapport-document h2, .rapport-document h3 { break-after: avoid; }
+        .rapport-document h2.groep { margin-top: 6mm; }
+        .rapport-document h3 { position: relative; font-size: 9pt; font-weight: 600; line-height: 1.3; margin: 0 0 1mm; }
+        .rapport-document .grondslag { break-inside: avoid; margin-bottom: 3.5mm; }
+        .rapport-document .grondslag-tekst { white-space: pre-line; }
         .rapport-document table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
         .rapport-document th { font-weight: normal; font-size: 8pt; color: #6c757d; padding: 0 1.5mm 1.5mm; text-align: left; }
         .rapport-document th.jaar { text-align: right; }
@@ -202,6 +207,10 @@ public static partial class RapportHtml
           .rapport-document textarea.inline-invoer { min-height: 22mm; white-space: pre-wrap; }
           .rapport-document tr.verschil td { color: #8a6d1f; }
           .rapport-document tr.bewerker td { padding: 2mm 0 3mm 5mm; }
+          .rapport-document h2.dicht, .rapport-document .grondslag.dicht h3 { color: #adb5bd; font-weight: normal; }
+          .rapport-document .grondslag.dicht { margin-bottom: 1mm; }
+          .rapport-document .niet-opgenomen { margin-left: 2mm; font-size: 7.5pt; font-weight: normal; color: #adb5bd; }
+          .rapport-document .invullen { color: #8a6d1f; background: #fff6d6; }
         }
         @media print {
           .rapport-document .klap, .rapport-document .bewerk-actie { display: none !important; }

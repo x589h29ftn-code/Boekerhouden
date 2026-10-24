@@ -34,7 +34,8 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
 - `src/Boekerhouden.Data` – EF Core + PostgreSQL: entiteiten, Identity (gebruikers, rollen), migraties (`Migraties/`).
 - `src/Boekerhouden.Server` – Blazor Server-app: `Diensten/` (klanten, dossiers, import met I7/I9/I10, gebruikers,
   wijzigingslog, rubriceren, correcties, werkprogramma en review, bijlagen, signalen, kantoor en huisstijl, rapport en
-  presentatie per klant; `DossierSaldi` = saldi van een dossier na correcties, met vorig jaar), `Werkprogramma/` (het meegeleverde standaardwerkprogramma), `Identiteit/` (inloggen, wachtwoordbeleid), `Components/` (schermen; accountpagina's statisch,
+  presentatie per klant, grondslagen; `DossierSaldi` = saldi van een dossier na correcties, met vorig jaar), `Werkprogramma/` (het meegeleverde standaardwerkprogramma), `Grondslagen/` (de
+  meegeleverde grondslagenbibliotheek, commercieel en fiscaal), `Identiteit/` (inloggen, wachtwoordbeleid), `Components/` (schermen; accountpagina's statisch,
   de rest interactief; `Rapportweergave/` = het rapport als bewerkbare viewer, dezelfde component rendert de PDF),
   `Export/` (correcties naar Excel en PDF; `RapportHtml` = stijl en A4-document van het rapport; `PdfDienst` maakt
   PDF's met Edge/Chromium zonder venster, instellingen in sectie `Pdf`).

@@ -2,6 +2,7 @@
 @inject KlantDienst KlantDienst
 @inject DossierDienst DossierDienst
 @inject ImportDienst ImportDienst
+@inject GrondslagDienst GrondslagDienst
 @inject NavigationManager Navigatie
 @inject TimeProvider Tijd
 
@@ -94,6 +95,19 @@ else
                                 }
                             </InputSelect>
                         </div>
+                        @if (MetGrondslagen)
+                        {
+                            <div class="col">
+                                <label for="grondslag" class="form-label small mb-1" title="Bepaalt de grondslagen en waarderingen in de jaarrekening, bijv. latente belastingen (alleen commercieel) en afschrijving op panden tot de WOZ-waarde (fiscaal)">Grondslagen</label>
+                                <InputSelect id="grondslag" @bind-Value="nieuwDossier.Grondslag" class="form-select">
+                                    <option value="">kies…</option>
+                                    @foreach (var keuze in Enum.GetValues<Verslaggeving>())
+                                    {
+                                        <option value="@keuze">@Weergave.Tekst(keuze)</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                        }
                         <div class="col-auto">
                             <button type="submit" class="btn btn-primary">Nieuw dossier</button>
                         </div>
@@ -163,6 +177,7 @@ else
             // Standaard: het afgelopen boekjaar, met de gebruikelijke opdracht bij de rechtsvorm.
             nieuwDossier.Boekjaar = Tijd.GetLocalNow().Year - 1;
             nieuwDossier.Soort = DossierDienst.StandaardSoort(klant.Rechtsvorm);
+            nieuwDossier.Grondslag = await GrondslagDienst.VorigeVerslaggeving(Id);
         }
 
         geladen = true;
@@ -199,9 +214,18 @@ else
         }
     }
 
+    /// <summary>Bij de jaarrekening van een BV kies je vooraf commerciële of fiscale grondslagen.</summary>
+    private bool MetGrondslagen => klant?.Rechtsvorm == Rechtsvorm.BV && nieuwDossier.Soort == SoortOpdracht.SamenstellenJaarrekening;
+
     private async Task DossierMaken()
     {
-        var uitkomst = await DossierDienst.Maak(Id, nieuwDossier.Boekjaar, nieuwDossier.Soort, await Wie());
+        if (MetGrondslagen && nieuwDossier.Grondslag is null)
+        {
+            dossierFouten = ["Kies of de jaarrekening op commerciële of fiscale grondslagen wordt opgesteld."];
+            return;
+        }
+
+        var uitkomst = await DossierDienst.Maak(Id, nieuwDossier.Boekjaar, nieuwDossier.Soort, await Wie(), MetGrondslagen ? nieuwDossier.Grondslag : null);
         if (uitkomst.IsGelukt)
         {
             Navigatie.NavigateTo($"/dossiers/{uitkomst.Waarde}");
@@ -219,5 +243,7 @@ else
         public int Boekjaar { get; set; }
 
         public SoortOpdracht Soort { get; set; }
+
+        public Verslaggeving? Grondslag { get; set; }
     }
 }

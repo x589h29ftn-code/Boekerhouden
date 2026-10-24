@@ -1,0 +1,178 @@
+@page "/beheer/grondslagen"
+@attribute [Authorize(Roles = Rollen.Beheerder)]
+@inject GrondslagDienst GrondslagDienst
+
+<PageTitle>Grondslagen – Boekerhouden</PageTitle>
+
+<div class="d-flex align-items-center flex-wrap gap-3 mb-2">
+    <h1 class="h3 mb-0 me-auto">Grondslagen</h1>
+    @if (melding is not null)
+    {
+        <span class="rubriceer-melding @(meldingIsFout ? "fout" : null)" role="status">
+            @melding
+            <button class="btn-close btn-sm ms-1" aria-label="Sluiten" @onclick="() => melding = null"></button>
+        </span>
+    }
+</div>
+<p class="text-secondary small">
+    De grondslagen voor de jaarrekening van een BV, met per grondslag een tekst voor commerciële en voor fiscale grondslagen.
+    <em>Bij post</em> staat open als een van de RGS-posten een saldo heeft, <em>altijd</em> staat altijd open, <em>optioneel</em> staat dicht.
+    In het rapport zet je per dossier een grondslag open of dicht en pas je de tekst aan. Tekst tussen [vierkante haken] vult de gebruiker in.
+</p>
+
+@if (lijst is not null)
+{
+    @foreach (var groep in lijst.GroupBy(g => g.Groep))
+    {
+        <h2 class="h6 mt-4 mb-1">@groep.Key</h2>
+        <div class="grondslagen-lijst">
+            @foreach (var g in groep)
+            {
+                <div class="grondslag-regel" @key="(g.Sleutel, versie)">
+                    <button type="button" class="btn btn-link p-0 text-start text-body text-decoration-none me-auto" @onclick="() => Open(g)">@g.Titel</button>
+                    <span class="status" title="@g.Codes">@Opname(g)</span>
+                    @if (Variant(g) is { } variant)
+                    {
+                        <span class="status">@variant</span>
+                    }
+                    @if (g.GewijzigdDoor != "Standaard")
+                    {
+                        <span class="status" title="@($"Gewijzigd door {g.GewijzigdDoor} op {Weergave.DatumTijd(g.GewijzigdOp)}")">aangepast</span>
+                    }
+                </div>
+                @if (open == g.Sleutel)
+                {
+                    <form class="card card-body mb-2" @onsubmit="() => Bewaar(g.Sleutel)" @onsubmit:preventDefault>
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label small" for="grondslag-titel">Titel</label>
+                                <input id="grondslag-titel" class="form-control form-control-sm" @bind="invoer.Titel" maxlength="200" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small" for="grondslag-opname">In de jaarrekening</label>
+                                <select id="grondslag-opname" class="form-select form-select-sm" @bind="invoer.Opname">
+                                    <option value="@GrondslagOpname.BijPost">bij post met saldo</option>
+                                    <option value="@GrondslagOpname.Altijd">altijd</option>
+                                    <option value="@GrondslagOpname.Optioneel">optioneel (dicht)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small" for="grondslag-codes" title="RGS-codes van elk niveau, gescheiden door komma's">RGS-codes</label>
+                                <input id="grondslag-codes" class="form-control form-control-sm" @bind="invoer.Codes" maxlength="400" placeholder="bijv. BMva" />
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label small" for="grondslag-commercieel">Commerciële grondslagen (leeg = komt niet voor)</label>
+                                <textarea id="grondslag-commercieel" class="form-control form-control-sm" rows="7" @bind="invoer.TekstCommercieel" maxlength="@GrondslagDienst.MaximaleTekst"></textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small" for="grondslag-fiscaal">Fiscale grondslagen (leeg = komt niet voor)</label>
+                                <textarea id="grondslag-fiscaal" class="form-control form-control-sm" rows="7" @bind="invoer.TekstFiscaal" maxlength="@GrondslagDienst.MaximaleTekst"></textarea>
+                            </div>
+                        </div>
+                        <div class="d-flex flex-wrap align-items-center gap-3">
+                            <span class="form-check small mb-0" title="Een keuze in een dossier rolt dan niet door naar het volgende jaar, bijv. bij foutenherstel">
+                                <input id="grondslag-jaargebonden" class="form-check-input" type="checkbox" @bind="invoer.Jaargebonden" />
+                                <label class="form-check-label" for="grondslag-jaargebonden">jaargebonden</label>
+                            </span>
+                            <button type="submit" class="btn btn-primary btn-sm">Opslaan</button>
+                            <button type="button" class="btn btn-link btn-sm text-secondary" @onclick="() => open = null">Annuleren</button>
+                            <button type="button" class="btn btn-link btn-sm text-secondary ms-auto" @onclick="() => Herstel(g.Sleutel)">meegeleverde tekst terugzetten</button>
+                        </div>
+                    </form>
+                }
+            }
+        </div>
+    }
+}
+
+@code {
+    private IReadOnlyList<GrondslagSjabloon>? lijst;
+    private string? open;
+    private Invoer invoer = new();
+    private int versie;
+    private string? melding;
+    private bool meldingIsFout;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Authenticatie { get; set; } = default!;
+
+    private sealed class Invoer
+    {
+        public string Titel { get; set; } = "";
+
+        public string? TekstCommercieel { get; set; }
+
+        public string? TekstFiscaal { get; set; }
+
+        public GrondslagOpname Opname { get; set; }
+
+        public string Codes { get; set; } = "";
+
+        public bool Jaargebonden { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync() => await Laad();
+
+    private async Task Laad()
+    {
+        lijst = await GrondslagDienst.Bibliotheek();
+        versie++;
+    }
+
+    private static string Opname(GrondslagSjabloon g) => (g.Opname switch
+    {
+        GrondslagOpname.BijPost => $"bij {g.Codes.Replace(",", ", ", StringComparison.Ordinal)}",
+        GrondslagOpname.Altijd => "altijd",
+        _ => "optioneel",
+    }) + (g.Jaargebonden ? " · jaargebonden" : null);
+
+    private static string? Variant(GrondslagSjabloon g) =>
+        g.TekstFiscaal is null ? "alleen commercieel" : g.TekstCommercieel is null ? "alleen fiscaal" : null;
+
+    private void Open(GrondslagSjabloon g)
+    {
+        open = open == g.Sleutel ? null : g.Sleutel;
+        invoer = new Invoer
+        {
+            Titel = g.Titel,
+            TekstCommercieel = g.TekstCommercieel,
+            TekstFiscaal = g.TekstFiscaal,
+            Opname = g.Opname,
+            Codes = g.Codes,
+            Jaargebonden = g.Jaargebonden,
+        };
+    }
+
+    private async Task Bewaar(string sleutel)
+    {
+        var uitkomst = await GrondslagDienst.Bewaar(sleutel,
+            new GrondslagInvoer(invoer.Titel, invoer.TekstCommercieel, invoer.TekstFiscaal, invoer.Opname, invoer.Codes, invoer.Jaargebonden), await Wie());
+        Meld(uitkomst, "Grondslag opgeslagen");
+        if (uitkomst.IsGelukt)
+        {
+            open = null;
+            await Laad();
+        }
+    }
+
+    private async Task Herstel(string sleutel)
+    {
+        var uitkomst = await GrondslagDienst.HerstelStandaard(sleutel, await Wie());
+        Meld(uitkomst, "Meegeleverde tekst teruggezet");
+        if (uitkomst.IsGelukt)
+        {
+            open = null;
+            await Laad();
+        }
+    }
+
+    private void Meld(Uitkomst uitkomst, string gelukt)
+    {
+        melding = uitkomst.IsGelukt ? gelukt : string.Join(" ", uitkomst.Fouten);
+        meldingIsFout = !uitkomst.IsGelukt;
+    }
+
+    private async Task<Uitvoerder> Wie() => (await Authenticatie).User.AlsUitvoerder();
+}

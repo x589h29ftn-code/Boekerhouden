@@ -63,7 +63,7 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
             Assert.True((await server.Dienst<ImportDienst>().Importeer(klantId, jaar, TestGegevens.Fictief("bv-voorbeeld-bakkerij", $"saldibalans-{jaar}.csv"), $"{jaar}.csv", Tester)).IsGelukt);
         }
 
-        var dossierId = (await server.Dienst<DossierDienst>().Maak(klantId, 2025, SoortOpdracht.SamenstellenJaarrekening, Tester)).Waarde;
+        var dossierId = (await server.Dienst<DossierDienst>().Maak(klantId, 2025, SoortOpdracht.SamenstellenJaarrekening, Tester, Verslaggeving.Fiscaal)).Waarde;
         var rubriceren = server.Dienst<RubriceerDienst>();
         var rekeningen = (await rubriceren.Overzicht(dossierId, metVoorstellen: false))!.Rekeningen.ToDictionary(r => r.Nummer, r => r.Id);
         foreach (var (nummer, code) in Rubricering.Where(r => alles || r.Key != "4300"))

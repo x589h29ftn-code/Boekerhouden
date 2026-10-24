@@ -82,6 +82,15 @@ public sealed record TekstBlok(string Tekst) : Blok
     public string? Titel { get; init; }
 }
 
+/// <summary>Een kop boven een groep in een hoofdstuk, bijv. "Grondslagen voor de waardering van activa en passiva".</summary>
+/// <param name="HeeftOpgenomen">Of er in de groep iets in het rapport staat; zo niet, dan komt de kop niet in de PDF.</param>
+public sealed record GroepBlok(string Titel, bool HeeftOpgenomen) : Blok;
+
+/// <summary>Eén grondslag in het hoofdstuk Grondslagen.</summary>
+/// <param name="Opgenomen">In het rapport (open) of niet (dicht; alleen in de viewer zichtbaar, om aan te zetten).</param>
+/// <param name="EigenTekst">De tekst is in dit dossier aangepast (anders de tekst uit de bibliotheek).</param>
+public sealed record GrondslagBlok(string Sleutel, string Titel, string Tekst, bool Opgenomen, bool EigenTekst) : Blok;
+
 /// <summary>Een genummerd hoofdstuk; het begint op een nieuwe pagina.</summary>
 /// <param name="Paragrafen">De titels van de tabellen zijn genummerde paragrafen (3.1, 3.2, …), zoals bij de specificaties.</param>
 public sealed record Hoofdstuk(int Nummer, string Titel, IReadOnlyList<Blok> Blokken, bool Paragrafen = false);
@@ -105,3 +114,23 @@ public sealed record Rapport(
 {
     public IEnumerable<Hoofdstuk> Hoofdstukken => Delen.SelectMany(d => d.Hoofdstukken);
 }
+
+/// <summary>Wanneer een grondslag standaard in de jaarrekening staat.</summary>
+public enum GrondslagStandaard
+{
+    /// <summary>Altijd, bijv. de algemene grondslagen.</summary>
+    Altijd,
+
+    /// <summary>Als een van de gekoppelde posten een saldo heeft (dit of vorig jaar).</summary>
+    BijPost,
+
+    /// <summary>Standaard niet (bijv. foutenherstel); de gebruiker zet hem aan.</summary>
+    Optioneel,
+}
+
+/// <summary>Een grondslag uit de bibliotheek, met de tekst voor de gekozen grondslagen (commercieel of fiscaal).</summary>
+/// <param name="Codes">De RGS-codes (elk niveau) waarbij de grondslag hoort.</param>
+public sealed record Grondslag(string Sleutel, string Groep, string Titel, string Tekst, GrondslagStandaard Standaard, IReadOnlyList<string> Codes);
+
+/// <summary>De keuze voor een grondslag in het dossier (of uit een eerder jaar): opgenomen of niet, en een eigen tekst.</summary>
+public sealed record GrondslagKeuze(bool? Opgenomen, string? Tekst);
