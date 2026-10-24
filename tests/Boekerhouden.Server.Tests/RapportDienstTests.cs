@@ -191,6 +191,13 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
         Assert.Equal("-1.235", RapportHtml.Bedrag(-1_234.5m));
     }
 
+    [Fact]
+    public void Posten_en_rekeningen_staan_gelijk_met_de_kantlijn()
+    {
+        Assert.Contains("td:first-child { padding-left: 0; }", RapportHtml.Stijl, StringComparison.Ordinal);
+        Assert.DoesNotContain("tr.detail td.omschrijving { padding-left", RapportHtml.Stijl, StringComparison.Ordinal);
+    }
+
     [PdfBrowserFact]
     public async Task Pdf_vraagt_om_inloggen_en_komt_in_het_wijzigingslog()
     {

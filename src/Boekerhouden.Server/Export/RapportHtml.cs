@@ -180,13 +180,14 @@ public static partial class RapportHtml
         .rapport-document th.jaar { text-align: right; }
         .rapport-document td { padding: .6mm 1.5mm; vertical-align: top; border: 0; }
         .rapport-document td.omschrijving { position: relative; }
+        .rapport-document th:first-child, .rapport-document td:first-child { padding-left: 0; }
+        .rapport-document th:last-child, .rapport-document td:last-child { padding-right: 0; }
         .rapport-document .tweekoloms td.bedrag { width: 21mm; }
         .rapport-document .eenkoloms td.bedrag { width: 28mm; }
         .rapport-document td.bedrag { text-align: right; white-space: nowrap; }
         .rapport-document .vorig { color: #5a6670; }
         .rapport-document th.vorig, .rapport-document td.bedrag.vorig { padding-left: 5mm; }
         .rapport-document tr.kop td { padding-top: 2.5mm; font-weight: 600; }
-        .rapport-document tr.detail td.omschrijving { padding-left: 5mm; }
         .rapport-document .tweekoloms tr.detail td { color: #495057; }
         .rapport-document tr.subtotaal td, .rapport-document tr.eindtotaal td { font-weight: 600; }
         .rapport-document tr.eindtotaal td { padding-top: 1mm; }
@@ -194,13 +195,11 @@ public static partial class RapportHtml
         .rapport-document td.dubbel { border-bottom: .7mm double #212529; }
         .rapport-document .verloop td.bedrag { width: 24mm; }
         .rapport-document .verloop th.jaar { vertical-align: bottom; }
-        .rapport-document .verloop tr.detail td.omschrijving { padding-left: 1.5mm; }
         .rapport-document .verloop tr.verschil td { color: #8a6d1f; }
         @media screen {
           .rapport-document section { background: #fff; width: 210mm; min-height: 297mm; margin: 0 auto 6mm; padding: 22mm 20mm 20mm; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
           .rapport-document .voorblad { height: 297mm; }
           .rapport-document .klap { position: absolute; left: -5mm; top: .3mm; width: 4.5mm; padding: 0; border: 0; background: none; color: #8a939b; font-size: 8pt; line-height: 1.6; cursor: pointer; }
-          .rapport-document tr.detail .klap { left: 0; }
           .rapport-document tr.kop .klap { top: 2.8mm; }
           .rapport-document .klap:hover { color: #212529; }
           .rapport-document .bewerkbaar { cursor: text; border-bottom: 1px dotted transparent; }
@@ -210,7 +209,7 @@ public static partial class RapportHtml
           .rapport-document .inline-invoer { width: 100%; font: inherit; color: inherit; padding: 0 1mm; border: 1px solid #86b7fe; border-radius: 2px; outline: none; }
           .rapport-document textarea.inline-invoer { min-height: 22mm; white-space: pre-wrap; }
           .rapport-document tr.verschil td { color: #8a6d1f; }
-          .rapport-document tr.bewerker td { padding: 2mm 0 3mm 5mm; }
+          .rapport-document tr.bewerker td { padding: 2mm 0 3mm; }
           .rapport-document h2.dicht, .rapport-document .grondslag.dicht h3 { color: #adb5bd; font-weight: normal; }
           .rapport-document .grondslag.dicht { margin-bottom: 1mm; }
           .rapport-document .invullen { color: #8a6d1f; background: #fff6d6; }
