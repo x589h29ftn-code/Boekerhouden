@@ -23,6 +23,35 @@ namespace Boekerhouden.Data.Migraties
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Boekerhouden.Data.Afschrijvingspercentage", b =>
+                {
+                    b.Property<Guid>("KlantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kolom")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<int>("VanafBoekjaar")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("GewijzigdDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("GewijzigdOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Tekst")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.HasKey("KlantId", "Kolom", "VanafBoekjaar");
+
+                    b.ToTable("Afschrijvingspercentages", (string)null);
+                });
+
             modelBuilder.Entity("Boekerhouden.Data.AuditRegel", b =>
                 {
                     b.Property<long>("Id")
@@ -998,6 +1027,9 @@ namespace Boekerhouden.Data.Migraties
                     b.Property<bool>("Verloop")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("VerloopZonderVorig")
+                        .HasColumnType("boolean");
+
                     b.HasKey("GrootboekrekeningId", "VanafBoekjaar");
 
                     b.HasIndex("KlantId");
@@ -1568,6 +1600,15 @@ namespace Boekerhouden.Data.Migraties
                     b.HasKey("UserId", "LoginProvider", "Name");
 
                     b.ToTable("AspNetUserTokens", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.Afschrijvingspercentage", b =>
+                {
+                    b.HasOne("Boekerhouden.Data.Klant", null)
+                        .WithMany()
+                        .HasForeignKey("KlantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Boekerhouden.Data.Bijlage", b =>

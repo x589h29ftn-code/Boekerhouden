@@ -19,6 +19,18 @@
                     </td>
                 </tr>
             }
+            @if (percentages is not null)
+            {
+                <tr>
+                    <td class="small text-secondary" title="Zoals in het rapport, bijv. 20,0 of 10 - 20; leeg = het voorstel. Geldt vanaf dit jaar.">Afschrijvingspercentage</td>
+                    @foreach (var kolom in Verloop.Kolomsleutels)
+                    {
+                        <td class="bedrag"><input class="inline-invoer text-end" value="@percentages.GetValueOrDefault(kolom)" @oninput="e => percentages[kolom] = e.Value?.ToString() ?? string.Empty"
+                                                  aria-label="@($"Afschrijvingspercentage {Kop(kolom)}")" maxlength="40" /></td>
+                    }
+                    <td></td>
+                </tr>
+            }
             <tr class="controle">
                 <td><button type="button" class="bewerk-actie zichtbaar ms-0" @onclick="() => regels.Add(new Invoer())">regel toevoegen</button></td>
                 @foreach (var kolom in Verloop.Kolomsleutels)
@@ -26,7 +38,11 @@
                     var totaal = Totaal(kolom);
                     var doel = Verloop.Doel.GetValueOrDefault(kolom);
                     <td class="bedrag">
-                        @if (Math.Abs(doel - totaal) < 1)
+                        @if (!Verloop.Doel.ContainsKey(kolom))
+                        {
+                            <span class="status" title="De beginstand van vorig jaar volgt uit deze mutaties (er is geen saldibalans van twee jaar terug)">beginstand volgt</span>
+                        }
+                        else if (Math.Abs(doel - totaal) < 1)
                         {
                             <span class="status" title="@($"Totaal {Bedragen.Heel(totaal)}")">sluit aan</span>
                         }
@@ -56,6 +72,7 @@
 
 @code {
     private List<Invoer> regels = [];
+    private Dictionary<string, string>? percentages;
     private string? fout;
 
     [CascadingParameter]
@@ -76,6 +93,7 @@
 
     protected override void OnInitialized()
     {
+        percentages = Verloop.Percentages?.ToDictionary(p => p.Key, p => p.Value == "-" ? "" : p.Value, StringComparer.Ordinal);
         regels = [.. Verloop.Mutaties.Select(m =>
         {
             var invoer = new Invoer { Omschrijving = m.Omschrijving };
@@ -123,6 +141,17 @@
             }
 
             mutaties.Add(new VerloopMutatie(r.Omschrijving.Trim(), bedragen));
+        }
+
+        if (percentages is not null)
+        {
+            var gewijzigd = percentages.Where(p => p.Value.Trim() != (Verloop.Percentages?.GetValueOrDefault(p.Key) is "-" or null ? "" : Verloop.Percentages[p.Key]))
+                .ToDictionary(p => p.Key, p => (string?)p.Value, StringComparer.Ordinal);
+            if (gewijzigd.Count > 0 && !(await Document.ZetAfschrijvingspercentages(gewijzigd)).IsGelukt)
+            {
+                fout = "Het afschrijvingspercentage kon niet worden opgeslagen.";
+                return;
+            }
         }
 
         var uitkomst = await Document.BewaarVerloop(Verloop.Sleutel, mutaties);

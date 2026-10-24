@@ -9,6 +9,10 @@
         @if (Document.Bewerkbaar && !bewerken)
         {
             <button type="button" class="bewerk-actie" @onclick="() => bewerken = true">mutaties aanpassen</button>
+            @if (Verloop.Sleutel.StartsWith(RapportOpbouw.RekeningVoorvoegsel, StringComparison.Ordinal))
+            {
+                <button type="button" class="bewerk-actie" @onclick="() => Document.ZetVerloopVergelijkend(Verloop.Sleutel, !Verloop.Vergelijkend)">@(Verloop.Vergelijkend ? "zonder vorig jaar" : "met vorig jaar")</button>
+            }
             <button type="button" class="bewerk-actie" title="Vanaf dit jaar geen verloopoverzicht" @onclick="() => Document.ZetVerloop(Verloop.Sleutel, false)">weghalen</button>
         }
     </h3>
@@ -31,6 +35,16 @@
                 if (regel.Soort == VerloopRegelSoort.Kop)
                 {
                     <tr class="kop"><td colspan="@(Verloop.Kolommen.Count + 1)">@regel.Omschrijving</td></tr>
+                }
+                else if (regel.Teksten is { } teksten)
+                {
+                    <tr class="detail tekst">
+                        <td class="omschrijving">@regel.Omschrijving</td>
+                        @foreach (var tekst in teksten)
+                        {
+                            <td class="bedrag">@tekst</td>
+                        }
+                    </tr>
                 }
                 else
                 {

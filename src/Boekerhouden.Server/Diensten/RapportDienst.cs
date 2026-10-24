@@ -88,9 +88,18 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
             metGrondslagen?.Keuzes,
             klant.KvkNummer,
             await Verlopen(db, dossier.KlantId, dossier.Boekjaar),
-            (await db.VerloopMutatieRegels.AsNoTracking().Where(r => r.DossierId == dossierId).ToListAsync())
-                .GroupBy(r => r.Sleutel, StringComparer.Ordinal)
-                .ToDictionary(g => g.Key, g => Mutaties(g), StringComparer.Ordinal)));
+            await VerloopMutaties(db, dossierId),
+            (await DossierSaldi.Haal(db, dossier.KlantId, dossier.Boekjaar - 1, dossier.Soort))
+                .Where(s => s.Value.Vorig is not null).ToDictionary(s => s.Key, s => s.Value.Vorig!.Value),
+            await db.Dossiers.AsNoTracking()
+                .Where(d => d.KlantId == dossier.KlantId && d.SoortOpdracht == dossier.Soort && d.Boekjaar == dossier.Boekjaar - 1)
+                .Select(d => (Guid?)d.Id).SingleOrDefaultAsync() is { } vorigDossier ? await VerloopMutaties(db, vorigDossier) : null,
+            Jaarversies.Geldend(
+                    await db.Afschrijvingspercentages.AsNoTracking().Where(p => p.KlantId == dossier.KlantId && p.VanafBoekjaar <= dossier.Boekjaar).ToListAsync(),
+                    p => p.Kolom, dossier.Boekjaar, StringComparer.Ordinal)
+                .Where(p => p.Value.Tekst is not null).ToDictionary(p => p.Key, p => p.Value.Tekst!, StringComparer.Ordinal),
+            (await RekeningPresentaties(db, dossier.KlantId, dossier.Boekjaar)).Values.Where(r => r.VerloopZonderVorig)
+                .Select(r => RapportOpbouw.RekeningSleutel(r.GrootboekrekeningId)).ToHashSet(StringComparer.Ordinal)));
         if (jaarrekening && metGrondslagen?.Verslaggeving is null)
         {
             rapport = rapport with { Waarschuwingen = [.. rapport.Waarschuwingen, "Grondslagen nog niet gekozen."] };
@@ -193,6 +202,86 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
         return verlopen;
     }
 
+    private static async Task<Dictionary<string, IReadOnlyList<VerloopMutatie>>> VerloopMutaties(BoekerhoudenDbContext db, Guid dossierId) =>
+        (await db.VerloopMutatieRegels.AsNoTracking().Where(r => r.DossierId == dossierId).ToListAsync())
+            .GroupBy(r => r.Sleutel, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => Mutaties(g), StringComparer.Ordinal);
+
+    /// <summary>Bij het verloop van een rekening: wel of geen vorig jaar ernaast, vanaf het boekjaar van het dossier.</summary>
+    public async Task<Uitkomst> ZetVerloopVergelijkend(Guid dossierId, string sleutel, bool vergelijkend, Uitvoerder wie)
+    {
+        ArgumentNullException.ThrowIfNull(sleutel);
+        ArgumentNullException.ThrowIfNull(wie);
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var dossier = await db.Dossiers.AsNoTracking().Include(d => d.Klant).SingleOrDefaultAsync(d => d.Id == dossierId);
+        var rekening = dossier is null || !sleutel.StartsWith(RapportOpbouw.RekeningVoorvoegsel, StringComparison.Ordinal)
+            || !Guid.TryParseExact(sleutel[RapportOpbouw.RekeningVoorvoegsel.Length..], "N", out var id) ? null
+            : await db.Grootboekrekeningen.AsNoTracking().SingleOrDefaultAsync(g => g.Id == id && g.KlantId == dossier.KlantId);
+        if (dossier?.Klant is null || rekening is null)
+        {
+            return Uitkomst.Mislukt("Rekening niet gevonden.");
+        }
+
+        var versies = await db.RekeningPresentaties.Where(p => p.GrootboekrekeningId == rekening.Id).ToListAsync();
+        var nu = tijd.GetUtcNow();
+        if (!Jaarversies.Zet(db.RekeningPresentaties, versies, dossier.Boekjaar,
+            v => new RekeningPresentatie { GrootboekrekeningId = rekening.Id, KlantId = dossier.KlantId, Omschrijving = v?.Omschrijving, Verbergen = v?.Verbergen ?? false, Verloop = v?.Verloop ?? false, VerloopZonderVorig = v?.VerloopZonderVorig ?? false },
+            p => (p.VerloopZonderVorig, p.GewijzigdOp, p.GewijzigdDoor) = (!vergelijkend, nu, wie.Naam),
+            p => (p.Omschrijving, p.Verbergen, p.Verloop, p.VerloopZonderVorig)))
+        {
+            return Uitkomst.Gelukt;
+        }
+
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.PresentatieGewijzigd, KlantDienst.Onderwerp(dossier.Klant),
+            $"{rekening.Nummer} {rekening.Omschrijving}: verloopoverzicht {(vergelijkend ? "met" : "zonder")} vorig jaar vanaf {dossier.Boekjaar}");
+        return Uitkomst.Gelukt;
+    }
+
+    /// <summary>
+    /// De afschrijvingspercentages in het verloop van de vaste activa (per subpost, als tekst zoals in het rapport),
+    /// vanaf het boekjaar van het dossier; leeg = weer het voorstel.
+    /// </summary>
+    public async Task<Uitkomst> ZetAfschrijvingspercentages(Guid dossierId, IReadOnlyDictionary<string, string?> percentages, Uitvoerder wie)
+    {
+        ArgumentNullException.ThrowIfNull(percentages);
+        ArgumentNullException.ThrowIfNull(wie);
+        if (percentages.Any(p => p.Key.Length is 0 or > 60 || p.Value?.Trim().Length > 40))
+        {
+            return Uitkomst.Mislukt("Een afschrijvingspercentage is hoogstens 40 tekens.");
+        }
+
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var dossier = await db.Dossiers.AsNoTracking().Include(d => d.Klant).SingleOrDefaultAsync(d => d.Id == dossierId);
+        if (dossier?.Klant is null)
+        {
+            return Uitkomst.Mislukt("Dossier niet gevonden.");
+        }
+
+        var nu = tijd.GetUtcNow();
+        var gewijzigd = new List<string>();
+        foreach (var (kolom, waarde) in percentages)
+        {
+            var tekst = string.IsNullOrWhiteSpace(waarde) ? null : waarde.Trim();
+            var versies = await db.Afschrijvingspercentages.Where(p => p.KlantId == dossier.KlantId && p.Kolom == kolom).ToListAsync();
+            if (Jaarversies.Zet(db.Afschrijvingspercentages, versies, dossier.Boekjaar,
+                v => new Afschrijvingspercentage { KlantId = dossier.KlantId, Kolom = kolom, Tekst = v?.Tekst },
+                p => (p.Tekst, p.GewijzigdOp, p.GewijzigdDoor) = (tekst, nu, wie.Naam),
+                p => p.Tekst ?? string.Empty))
+            {
+                gewijzigd.Add($"{kolom} {tekst ?? "voorstel"}");
+            }
+        }
+
+        if (gewijzigd.Count > 0)
+        {
+            await db.SaveChangesAsync();
+            await audit.Log(wie, AuditActies.VerloopGewijzigd, WerkprogrammaDienst.Onderwerp(dossier), $"afschrijvingspercentage {string.Join("; ", gewijzigd)} vanaf {dossier.Boekjaar}");
+        }
+
+        return Uitkomst.Gelukt;
+    }
+
     private static IReadOnlyList<VerloopMutatie> Mutaties(IEnumerable<VerloopMutatieRegel> regels) =>
         [.. regels.GroupBy(r => r.Volgorde).OrderBy(g => g.Key)
             .Select(g => new VerloopMutatie(g.First().Omschrijving, g.ToDictionary(r => r.Kolom, r => r.Bedrag, StringComparer.Ordinal)))];
@@ -223,9 +312,9 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
         var versies = await db.RekeningPresentaties.Where(p => p.GrootboekrekeningId == rekening.Id).ToListAsync();
         var nu = tijd.GetUtcNow();
         if (!Jaarversies.Zet(db.RekeningPresentaties, versies, dossier.Boekjaar,
-            v => new RekeningPresentatie { GrootboekrekeningId = rekening.Id, KlantId = dossier.KlantId, Omschrijving = v?.Omschrijving, Verbergen = v?.Verbergen ?? false, Verloop = v?.Verloop ?? false },
+            v => new RekeningPresentatie { GrootboekrekeningId = rekening.Id, KlantId = dossier.KlantId, Omschrijving = v?.Omschrijving, Verbergen = v?.Verbergen ?? false, Verloop = v?.Verloop ?? false, VerloopZonderVorig = v?.VerloopZonderVorig ?? false },
             p => (p.Verloop, p.GewijzigdOp, p.GewijzigdDoor) = (tonen, nu, wie.Naam),
-            p => (p.Omschrijving, p.Verbergen, p.Verloop)))
+            p => (p.Omschrijving, p.Verbergen, p.Verloop, p.VerloopZonderVorig)))
         {
             return Uitkomst.Gelukt;
         }
@@ -334,9 +423,9 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
         var versies = await db.RekeningPresentaties.Where(p => p.GrootboekrekeningId == rekeningId).ToListAsync();
         var nu = tijd.GetUtcNow();
         if (!Jaarversies.Zet(db.RekeningPresentaties, versies, dossier.Boekjaar,
-            v => new RekeningPresentatie { GrootboekrekeningId = rekeningId, KlantId = dossier.KlantId, Omschrijving = v?.Omschrijving, Verbergen = v?.Verbergen ?? false, Verloop = v?.Verloop ?? false },
+            v => new RekeningPresentatie { GrootboekrekeningId = rekeningId, KlantId = dossier.KlantId, Omschrijving = v?.Omschrijving, Verbergen = v?.Verbergen ?? false, Verloop = v?.Verloop ?? false, VerloopZonderVorig = v?.VerloopZonderVorig ?? false },
             p => (p.Omschrijving, p.Verbergen, p.GewijzigdOp, p.GewijzigdDoor) = (omschrijving, verbergen, nu, wie.Naam),
-            p => (p.Omschrijving, p.Verbergen, p.Verloop)))
+            p => (p.Omschrijving, p.Verbergen, p.Verloop, p.VerloopZonderVorig)))
         {
             return Uitkomst.Gelukt;
         }

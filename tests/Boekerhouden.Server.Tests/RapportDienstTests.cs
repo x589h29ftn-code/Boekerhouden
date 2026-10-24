@@ -380,7 +380,9 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
         var rapport = (await Rapporten.Maak(dossierId))!.Waarde!.Rapport;
         var mva = Verlopen(rapport).Single(v => v.Sleutel == "BMva");
         Assert.True(mva.Standaard);
-        Assert.Equal(mva.Regels[^1].Bedragen[^1], Tabel(rapport, "Activa").Regels.Single(r => r.Bron?.Sleutel == "BMva").Totaal);
+        Assert.Equal(mva.Regels.Single(r => r.Soort == VerloopRegelSoort.Eindstand).Bedragen[^1], Tabel(rapport, "Activa").Regels.Single(r => r.Bron?.Sleutel == "BMva").Totaal);
+        var ev = Verlopen(rapport).Single(v => v.Sleutel == "BEiv");
+        Assert.Equal(ev.Regels[^1].Bedragen[^1], Tabel(rapport, "Passiva").Regels.Single(r => r.Bron?.Sleutel == "BEiv").Totaal);
         Assert.DoesNotContain(rapport.Waarschuwingen, w => w.Contains("Verloop", StringComparison.Ordinal));
 
         // Een verloop bij de debiteuren, vanaf 2025: 2024 heeft het niet.
@@ -388,10 +390,21 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
         Assert.True((await Rapporten.ZetVerloop(dossierId, sleutel, true, Tester)).IsGelukt);
         var debiteuren = Verlopen((await Rapporten.Maak(dossierId))!.Waarde!.Rapport).Single(v => v.Sleutel == sleutel);
         Assert.Equal("Verloop Debiteuren", debiteuren.Titel);
+        Assert.True(debiteuren.Vergelijkend);
+        Assert.Equal(["2025", "2024"], debiteuren.Kolommen);
+        Assert.True((await Rapporten.ZetVerloopVergelijkend(dossierId, sleutel, false, Tester)).IsGelukt);
+        Assert.False(Verlopen((await Rapporten.Maak(dossierId))!.Waarde!.Rapport).Single(v => v.Sleutel == sleutel).Vergelijkend);
+        Assert.True((await Rapporten.ZetVerloopVergelijkend(dossierId, sleutel, true, Tester)).IsGelukt);
+
+        // Een eigen afschrijvingspercentage, vanaf 2025.
+        var kolom = mva.Kolomsleutels[0];
+        Assert.True((await Rapporten.ZetAfschrijvingspercentages(dossierId, new Dictionary<string, string?> { [kolom] = "10 - 20" }, Tester)).IsGelukt);
+        Assert.Equal("10 - 20", Verlopen((await Rapporten.Maak(dossierId))!.Waarde!.Rapport).Single(v => v.Sleutel == "BMva").Percentages![kolom]);
+        Assert.NotEqual("10 - 20", Verlopen((await Rapporten.Maak(vorigDossier))!.Waarde!.Rapport).Single(v => v.Sleutel == "BMva").Percentages![kolom]);
         Assert.DoesNotContain(Verlopen((await Rapporten.Maak(vorigDossier))!.Waarde!.Rapport), v => v.Sleutel == sleutel);
 
         // Eigen mutaties die niet aansluiten: een regel en een waarschuwing; leeg = weer het voorstel.
-        Assert.True((await Rapporten.BewaarVerloop(dossierId, sleutel, [new("Gefactureerd", new Dictionary<string, decimal> { [""] = 1_000m })], Tester)).IsGelukt);
+        Assert.True((await Rapporten.BewaarVerloop(dossierId, sleutel, [new("Gefactureerd", new Dictionary<string, decimal> { [""] = 1_000m, [RapportOpbouw.KolomVorig] = 0m })], Tester)).IsGelukt);
         rapport = (await Rapporten.Maak(dossierId))!.Waarde!.Rapport;
         debiteuren = Verlopen(rapport).Single(v => v.Sleutel == sleutel);
         Assert.True(debiteuren.Aangepast);
@@ -408,6 +421,7 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
 
         Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.VerloopGewijzigd),
             a => a.Onderwerp!.StartsWith(klantnummer, StringComparison.Ordinal) && a.Details == $"{sleutel}: Gefactureerd 1.000,00");
+        Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.VerloopGewijzigd), a => a.Details == $"afschrijvingspercentage {kolom} 10 - 20 vanaf 2025");
     }
 
     [Fact]

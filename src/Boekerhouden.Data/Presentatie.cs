@@ -31,6 +31,9 @@ public sealed class RekeningPresentatie : IJaarversie
     /// <summary>Een verloopoverzicht van de rekening onder de specificatie (bijv. de rekening-courant met de directeur).</summary>
     public bool Verloop { get; set; }
 
+    /// <summary>Het verloopoverzicht zonder vorig jaar ernaast (standaard staat vorig jaar er wel naast).</summary>
+    public bool VerloopZonderVorig { get; set; }
+
     public DateTimeOffset GewijzigdOp { get; set; }
 
     public string GewijzigdDoor { get; set; } = string.Empty;
@@ -129,6 +132,28 @@ public sealed class VerloopMutatieRegel
     public string Omschrijving { get; set; } = string.Empty;
 
     public decimal Bedrag { get; set; }
+
+    public DateTimeOffset GewijzigdOp { get; set; }
+
+    public string GewijzigdDoor { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Het afschrijvingspercentage van een subpost van de vaste activa in het verloopoverzicht (per klant, vanaf een
+/// boekjaar), als tekst zoals in het rapport, bijv. "20,0" of "10 - 20".
+/// </summary>
+public sealed class Afschrijvingspercentage : IJaarversie
+{
+    public Guid KlantId { get; set; }
+
+    /// <summary>De subpost (RGS-code), bijv. "BMvaBei".</summary>
+    public string Kolom { get; set; } = string.Empty;
+
+    /// <inheritdoc />
+    public int VanafBoekjaar { get; set; }
+
+    /// <summary>Null = vanaf dit jaar weer het voorstel.</summary>
+    public string? Tekst { get; set; }
 
     public DateTimeOffset GewijzigdOp { get; set; }
 

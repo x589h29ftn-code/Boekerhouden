@@ -86,7 +86,7 @@
                                 {
                                     <ToelichtingBlok Sleutel="@tabel.Code" Tekst="@toelichting?.Tekst" Sjabloon="@toelichting?.Sjabloon" />
                                 }
-                                @if (Bewerkbaar && tabel.Code is { } post && post.StartsWith('B') && post != "BEiv" && !h.Blokken.OfType<VerloopBlok>().Any(v => v.Verloop.Sleutel == post))
+                                @if (Bewerkbaar && tabel.Code is { } post && post.StartsWith('B') && !h.Blokken.OfType<VerloopBlok>().Any(v => v.Verloop.Sleutel == post))
                                 {
                                     <button type="button" class="bewerk-actie" title="Een verloopoverzicht per subpost, vanaf dit jaar" @onclick="() => ZetVerloop(post, true)">verloop toevoegen</button>
                                 }
@@ -212,6 +212,12 @@
     /// <summary>Een verloopoverzicht bij een post of rekening ("rek:&lt;id&gt;") aan- of uitzetten, vanaf dit jaar.</summary>
     public Task<Uitkomst> ZetVerloop(string sleutel, bool tonen) =>
         Uitvoeren(wie => RapportDienst.ZetVerloop(DossierId, sleutel, tonen, wie), tonen ? $"Verloopoverzicht toegevoegd vanaf {Inhoud.Dossier.Boekjaar}" : $"Verloopoverzicht weggehaald vanaf {Inhoud.Dossier.Boekjaar}");
+
+    public Task<Uitkomst> ZetVerloopVergelijkend(string sleutel, bool vergelijkend) =>
+        Uitvoeren(wie => RapportDienst.ZetVerloopVergelijkend(DossierId, sleutel, vergelijkend, wie), vergelijkend ? "Verloop met vorig jaar" : "Verloop zonder vorig jaar");
+
+    public Task<Uitkomst> ZetAfschrijvingspercentages(IReadOnlyDictionary<string, string?> percentages) =>
+        Uitvoeren(wie => RapportDienst.ZetAfschrijvingspercentages(DossierId, percentages, wie), null);
 
     public Task<Uitkomst> BewaarVerloop(string sleutel, IReadOnlyList<VerloopMutatie> mutaties) =>
         Uitvoeren(wie => RapportDienst.BewaarVerloop(DossierId, sleutel, mutaties, wie), mutaties.Count == 0 ? "Voorstel uit de saldi teruggezet" : "Verloopoverzicht opgeslagen");

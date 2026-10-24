@@ -22,6 +22,10 @@ public sealed record SplitsRegel(string Omschrijving, decimal Bedrag, decimal? B
 /// <param name="Kvk">Het KvK-nummer van de klant, voor de variabele {kvk}.</param>
 /// <param name="Verlopen">Per post (RGS-code) of rekening ("rek:&lt;id&gt;") of er een verloopoverzicht komt; ontbreekt hij, dan de standaard.</param>
 /// <param name="VerloopMutaties">Per verloopoverzicht de aangepaste mutaties; ontbreekt hij, dan het voorstel uit de saldi.</param>
+/// <param name="SaldiTweeJaarTerug">Per rekening het saldo aan het eind van het jaar vóór vorig jaar (beginstand van vorig jaar in een vergelijkend verloop).</param>
+/// <param name="VorigeVerloopMutaties">De mutaties uit het dossier van vorig jaar, als voorstel voor de kolom vorig jaar.</param>
+/// <param name="Afschrijvingspercentages">Per subpost van de vaste activa een eigen afschrijvingspercentage (tekst).</param>
+/// <param name="VerloopZonderVorigJaar">Verloopoverzichten van rekeningen zonder vorig jaar ernaast.</param>
 public sealed record RapportGegevens(
     RapportSoort Soort,
     string Klantnaam,
@@ -42,7 +46,11 @@ public sealed record RapportGegevens(
     IReadOnlyDictionary<string, GrondslagKeuze>? GrondslagKeuzes = null,
     string? Kvk = null,
     IReadOnlyDictionary<string, bool>? Verlopen = null,
-    IReadOnlyDictionary<string, IReadOnlyList<VerloopMutatie>>? VerloopMutaties = null);
+    IReadOnlyDictionary<string, IReadOnlyList<VerloopMutatie>>? VerloopMutaties = null,
+    IReadOnlyDictionary<Guid, decimal>? SaldiTweeJaarTerug = null,
+    IReadOnlyDictionary<string, IReadOnlyList<VerloopMutatie>>? VorigeVerloopMutaties = null,
+    IReadOnlyDictionary<string, string>? Afschrijvingspercentages = null,
+    IReadOnlySet<string>? VerloopZonderVorigJaar = null);
 
 /// <summary>
 /// Bouwt het rapport (plakje 6, docs §9.1–9.3) uit de proefbalans per post: de balans (tweekoloms, met het resultaat

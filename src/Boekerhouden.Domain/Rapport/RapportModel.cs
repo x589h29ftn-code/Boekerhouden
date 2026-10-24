@@ -117,10 +117,17 @@ public enum VerloopRegelSoort
 
     /// <summary>De eindstand met een dubbele lijn eronder.</summary>
     Eindstand,
+
+    /// <summary>Een regel met tekst per kolom, bijv. het afschrijvingspercentage.</summary>
+    Tekst,
 }
 
 /// <summary>Eén regel van een verloopoverzicht: per kolom een bedrag (de laatste kolom kan het totaal zijn).</summary>
-public sealed record VerloopRegel(VerloopRegelSoort Soort, string Omschrijving, IReadOnlyList<decimal?> Bedragen);
+public sealed record VerloopRegel(VerloopRegelSoort Soort, string Omschrijving, IReadOnlyList<decimal?> Bedragen)
+{
+    /// <summary>Bij een tekstregel per kolom de tekst (in plaats van bedragen).</summary>
+    public IReadOnlyList<string>? Teksten { get; init; }
+}
 
 /// <summary>Een mutatie in een verloopoverzicht, met per kolom (subpost, of "" bij een rekening) het bedrag.</summary>
 public sealed record VerloopMutatie(string Omschrijving, IReadOnlyDictionary<string, decimal> Bedragen);
@@ -145,7 +152,14 @@ public sealed record Verloop(
     IReadOnlyList<VerloopMutatie> Mutaties,
     IReadOnlyDictionary<string, decimal> Doel,
     bool Aangepast,
-    bool Standaard);
+    bool Standaard)
+{
+    /// <summary>Met vorig jaar ernaast (bij een rekening): de kolommen zijn dit jaar ("") en vorig jaar ("vorig").</summary>
+    public bool Vergelijkend { get; init; }
+
+    /// <summary>Bij vaste activa per kolom het afschrijvingspercentage zoals in het overzicht (aan te passen).</summary>
+    public IReadOnlyDictionary<string, string>? Percentages { get; init; }
+}
 
 public sealed record VerloopBlok(Verloop Verloop) : Blok;
 

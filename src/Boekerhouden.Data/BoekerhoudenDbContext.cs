@@ -71,6 +71,8 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
 
     public DbSet<VerloopMutatieRegel> VerloopMutatieRegels => Set<VerloopMutatieRegel>();
 
+    public DbSet<Afschrijvingspercentage> Afschrijvingspercentages => Set<Afschrijvingspercentage>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -406,6 +408,16 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
             e.Property(g => g.Sleutel).HasMaxLength(40);
             e.Property(g => g.Tekst).HasMaxLength(4000);
             e.Property(g => g.GewijzigdDoor).HasMaxLength(200);
+        });
+
+        builder.Entity<Afschrijvingspercentage>(e =>
+        {
+            e.ToTable("Afschrijvingspercentages");
+            e.HasKey(p => new { p.KlantId, p.Kolom, p.VanafBoekjaar });
+            e.HasOne<Klant>().WithMany().HasForeignKey(p => p.KlantId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(p => p.Kolom).HasMaxLength(60);
+            e.Property(p => p.Tekst).HasMaxLength(40);
+            e.Property(p => p.GewijzigdDoor).HasMaxLength(200);
         });
 
         builder.Entity<VerloopMutatieRegel>(e =>

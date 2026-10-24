@@ -99,21 +99,23 @@ specificatie blijft aansluiten). Rekeningen onder een eigen post staan als één
 eigen post. Alles staat in het wijzigingslog. Nog niet gebouwd: regels samenvoegen of in een andere
 volgorde en opmaak per post (nieuwe pagina ervoor).
 
-**Verloopoverzichten.** Onder de specificatie van de immateriële, materiële en financiële vaste activa staat
-standaard een verloopoverzicht, met een kolom per subpost en een totaal, zoals in de voorbeeldrapporten:
+**Verloopoverzichten.** Standaard staat er een verloopoverzicht onder de specificatie van de immateriële,
+materiële en financiële vaste activa en het eigen vermogen, met een kolom per subpost en een totaal, zoals in de
+voorbeeldrapporten:
 
-| Vaste activa met afschrijvingen (IVA, MVA) | Financiële vaste activa, andere posten en rekeningen |
-|---|---|
-| *Boekwaarde 1 januari*: verkrijgingsprijs en cumulatieve afschrijvingen (de rekeningen met een RGS-code aan de creditkant, bijv. `BMvaBeiCae`) · *Mutaties*: investeringen, desinvesteringen, afschrijvingen · *Boekwaarde 31 december* | *Stand 1 januari* · mutaties · *Stand 31 december* |
+| Soort | Opzet | Voorstel voor de mutaties |
+|---|---|---|
+| Vaste activa met afschrijvingen (IVA, MVA) | *Boekwaarde 1 januari*: verkrijgingsprijs en cumulatieve afschrijvingen (rekeningen met een RGS-code aan de creditkant, bijv. `BMvaBeiCae`) · *Mutaties* · *Boekwaarde 31 december* · *Afschrijvingspercentage* | Afschrijvingen uit de W&V per subpost (`BMvaBei` ↔ `WAfsAmvBei`; anders de toename van de cumulatieve afschrijvingen), een hogere verkrijgingsprijs als investering, de rest als desinvestering. Percentage: afschrijving / verkrijgingsprijs, afgerond op 5% (zelf aan te passen, rolt door) |
+| Financiële vaste activa, andere posten | *Stand 1 januari* · mutaties · *Stand 31 december* | Toename en afname |
+| Eigen vermogen | Kolommen per subpost en *Resultaat boekjaar* | *Resultaat {jaar}*, *Bestemming resultaat {vorig jaar}* (naar de overige reserves) en de rest als *Overige mutaties* (bijv. dividend, privé) |
+| Rekening (bijv. rekening-courant DGA) | Standaard **twee jaar naast elkaar** (uit te zetten met *zonder vorig jaar*) | Dit jaar: toename/afname. Vorig jaar: de mutaties uit het dossier van vorig jaar; anders uit de saldibalans van twee jaar terug; ontbreekt die, dan volgt de beginstand van vorig jaar uit de ingevulde mutaties |
 
-De mutaties zijn een voorstel uit de saldi: de afschrijvingen uit de W&V (per subpost via de RGS-code, bijv.
-`BMvaBei` ↔ `WAfsAmvBei`; anders de toename van de cumulatieve afschrijvingen), een toename van de verkrijgingsprijs als
-investering en de rest als desinvestering. In de viewer pas je ze aan met *mutaties aanpassen* (per regel een
-omschrijving en per kolom een bedrag, met de controle *sluit aan* of het verschil); sluit het niet aan, dan staat
-het verschil als *Nog niet verklaard* in het overzicht en volgt een waarschuwing. Bij een andere balanspost zet je
-er een bij met *verloop toevoegen* onder de specificatie, en bij een rekening met *verloop* op de regel (bijv. de
-rekening-courant met de directeur: opgenomen gelden, bijgeschreven rente). *Weghalen* en toevoegen gelden vanaf dit
-jaar; de mutaties zijn per dossier. Vlottende activa hebben standaard geen verloop; het eigen vermogen (nog) niet.
+In de viewer pas je de mutaties aan met *mutaties aanpassen* (per regel een omschrijving en per kolom een bedrag,
+met de controle *sluit aan* of het verschil; bij de vaste activa ook het afschrijvingspercentage). Sluit het niet
+aan, dan staat het verschil als *Nog niet verklaard* in het overzicht en volgt een waarschuwing. Bij een andere
+balanspost zet je er een bij met *verloop toevoegen* onder de specificatie, en bij een rekening met *verloop* op de
+regel. *Weghalen*, toevoegen, met of zonder vorig jaar en het afschrijvingspercentage gelden vanaf dit jaar; de
+mutaties zijn per dossier. Vlottende activa hebben standaard geen verloop.
 
 **Per boekjaar, nooit met terugwerkende kracht.** Elke aanpassing in het rapport geldt vanaf het boekjaar van
 het dossier waarin je hem maakt: namen van posten en rekeningen (ook kantoorbreed), rekeningen in *Overige*,

@@ -27,9 +27,10 @@ bewerk je in een viewer in de app: posten in- en uitklappen, namen en toelichtin
 uitsplitsen met een controletelling. Bij een BV kies je commerciële of fiscale grondslagen; de algemene toelichting
 en de passende grondslagen staan dan standaard bij de posten met saldo. Teksten kunnen variabelen bevatten
 (`{boekjaar}`, `{nettoresultaat}`, `{post:BMva}` …) en elke aanpassing geldt vanaf het boekjaar van het dossier,
-zodat eerdere jaren nooit met terugwerkende kracht veranderen. Bij de vaste activa staat standaard een
-verloopoverzicht (verkrijgingsprijs, afschrijvingen, investeringen); bij elke andere balanspost of rekening, zoals de
-rekening-courant met de directeur, voeg je er een toe. Een eigen post zoals de omzetbelasting kan
+zodat eerdere jaren nooit met terugwerkende kracht veranderen. Bij de vaste activa en het eigen vermogen staat
+standaard een verloopoverzicht (verkrijgingsprijs, afschrijvingen, investeringen, afschrijvingspercentage; resultaat
+en bestemming); bij elke andere balanspost of rekening, zoals de rekening-courant met de directeur (met vorig jaar
+ernaast), voeg je er een toe. Een eigen post zoals de omzetbelasting kan
 per jaar worden gesaldeerd, zodat een te vorderen saldo vanzelf onder de vorderingen staat. De concept-PDF in de
 huisstijl van het kantoor is precies wat je daar ziet.
 Alles wordt vastgelegd in een wijzigingslog. Ontwerp, besluiten en roadmap: [`docs/onderzoek`](docs/onderzoek/README.md).

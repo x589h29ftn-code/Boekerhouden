@@ -79,7 +79,9 @@ sleutel de versie met het hoogste `VanafBoekjaar` tot en met dat jaar (`Jaarvers
 dossier maakt of past de versie van dat jaar aan. `DossierToelichtingen` en `DossierGrondslagen` zijn per dossier en
 rollen door naar latere jaren; een lege toelichting betekent "vanaf dit jaar geen". Of er een verloopoverzicht
 staat, is `Verloop` in `PostPresentaties` (null = standaard: wel bij de vaste activa) en `RekeningPresentaties`; de
-mutaties staan per dossier in `VerloopMutatieRegels` (sleutel, volgorde, kolom = subpost, omschrijving, bedrag).
+mutaties staan per dossier in `VerloopMutatieRegels` (sleutel, volgorde, kolom = subpost, of "" en "vorig" bij een
+rekening, omschrijving, bedrag). `RekeningPresentaties.VerloopZonderVorig` zet vorig jaar uit; `Afschrijvingspercentages`
+(per klant en subpost, vanaf een boekjaar) bewaart een eigen percentage als tekst.
 
 **RgsCodeInstelling** (kantoor, los van RGS): Referentiecode, SpecificatieVerplicht, VerloopoverzichtType (`Geen`/`VasteActiva`/`EigenVermogen`/`Voorziening`/`LanglopendeSchuld`/`RekeningCourant`), afwijkend RapportLabel per rapportvariant.
 
