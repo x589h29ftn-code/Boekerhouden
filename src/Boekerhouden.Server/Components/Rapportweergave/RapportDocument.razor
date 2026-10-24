@@ -122,9 +122,9 @@
     [Parameter]
     public Func<Bron?, string?>? Sleepdoel { get; set; }
 
-    /// <summary>Een rekening is neergezet op een regel; het argument is het doel (RGS-code of eigen post).</summary>
+    /// <summary>Een rekening is neergezet op een regel; het argument is de bron van die regel (post, eigen post of rekening).</summary>
     [Parameter]
-    public EventCallback<string> Neergezet { get; set; }
+    public EventCallback<Bron> Neergezet { get; set; }
 
     /// <summary>Alleen de blokken van deze hoofdpost tonen (in het werkprogramma); null = het hele rapport.</summary>
     [Parameter]
@@ -330,6 +330,25 @@
     /// <summary>Een verloopoverzicht bij een post of rekening ("rek:&lt;id&gt;") aan- of uitzetten, vanaf dit jaar.</summary>
     public Task<Uitkomst> ZetVerloop(string sleutel, bool tonen) =>
         Uitvoeren(wie => RapportDienst.ZetVerloop(DossierId, sleutel, tonen, wie), tonen ? $"Verloopoverzicht toegevoegd vanaf {Inhoud.Dossier.Boekjaar}" : $"Verloopoverzicht weggehaald vanaf {Inhoud.Dossier.Boekjaar}");
+
+    /// <summary>De volgorde van de regels in de specificatie van een hoofdpost, vanaf dit jaar.</summary>
+    public Task<Uitkomst> Sorteer(string post, Sortering sortering) =>
+        Uitvoeren(wie => RapportDienst.ZetSortering(DossierId, post, sortering, wie), $"Specificatie {Weergave.Tekst(sortering)} vanaf {Inhoud.Dossier.Boekjaar}");
+
+    /// <summary>Rekeningen die samen op een regel staan, weer elk op een eigen regel.</summary>
+    public Task<Uitkomst> Losmaken(IReadOnlyList<Guid> rekeningen) =>
+        Uitvoeren(async wie =>
+        {
+            foreach (var id in rekeningen)
+            {
+                if (await RapportDienst.ZetSamenMet(DossierId, id, null, wie) is { IsGelukt: false } fout)
+                {
+                    return fout;
+                }
+            }
+
+            return Uitkomst.Gelukt;
+        }, $"Weer elk op een eigen regel vanaf {Inhoud.Dossier.Boekjaar}");
 
     public Task<Uitkomst> ZetVerloopVergelijkend(string sleutel, bool vergelijkend) =>
         Uitvoeren(wie => RapportDienst.ZetVerloopVergelijkend(DossierId, sleutel, vergelijkend, wie), vergelijkend ? "Verloop met vorig jaar" : "Verloop zonder vorig jaar");

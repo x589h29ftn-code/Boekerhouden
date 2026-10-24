@@ -223,9 +223,19 @@ public static partial class RapportHtml
           .rapport-document h2.dicht, .rapport-document .grondslag.dicht h3 { color: #adb5bd; font-weight: normal; }
           .rapport-document .grondslag.dicht { margin-bottom: 1mm; }
           .rapport-document .invullen { color: #8a6d1f; background: #fff6d6; }
+          .rapport-document .regelmenu { display: inline-block; position: relative; margin-left: 1.5mm; }
+          .rapport-document .regelmenu summary { visibility: hidden; list-style: none; padding: 0 1.2mm; border-radius: 2px; color: #6c757d; font-weight: 600; cursor: pointer; }
+          .rapport-document .regelmenu summary::-webkit-details-marker { display: none; }
+          .rapport-document tr:hover .regelmenu summary, .rapport-document .regelmenu[open] summary, .rapport-document .regelmenu summary:focus { visibility: visible; }
+          .rapport-document .regelmenu summary:hover, .rapport-document .regelmenu[open] summary { background: #eef2f5; color: #212529; }
+          .rapport-document .regelmenu .menu { position: absolute; left: 0; top: 100%; z-index: 20; min-width: 46mm; padding: 1mm 0; background: #fff; border: 1px solid #e3e7eb; border-radius: 1.5mm; box-shadow: 0 1mm 3mm rgba(0, 0, 0, .08); font-size: 8pt; font-weight: normal; text-transform: none; letter-spacing: normal; }
+          .rapport-document .regelmenu .menu button { display: block; width: 100%; padding: .8mm 3mm; border: 0; background: none; color: #212529; text-align: left; cursor: pointer; }
+          .rapport-document .regelmenu .menu button:hover { background: #f4f6f8; }
+          .rapport-document .regelmenu .menu button.gekozen::before { content: "✓ "; }
+          .rapport-document .regelmenu .menu .kop { padding: 1.2mm 3mm .4mm; margin-top: .8mm; border-top: 1px solid #eef0f2; color: #8a939b; font-size: 7pt; }
         }
         @media print {
-          .rapport-document .klap, .rapport-document .bewerk-actie { display: none !important; }
+          .rapport-document .klap, .rapport-document .bewerk-actie, .rapport-document .regelmenu { display: none !important; }
         }
         """;
 

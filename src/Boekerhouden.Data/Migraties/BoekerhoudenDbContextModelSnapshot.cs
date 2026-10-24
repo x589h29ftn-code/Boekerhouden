@@ -1200,6 +1200,10 @@ namespace Boekerhouden.Data.Migraties
                     b.Property<DateTimeOffset>("GewijzigdOp")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Sortering")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
                     b.Property<bool>("ToonSpecificatie")
                         .HasColumnType("boolean");
 
@@ -1237,6 +1241,9 @@ namespace Boekerhouden.Data.Migraties
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
+                    b.Property<Guid?>("SamenMetId")
+                        .HasColumnType("uuid");
+
                     b.Property<bool>("Verbergen")
                         .HasColumnType("boolean");
 
@@ -1249,6 +1256,8 @@ namespace Boekerhouden.Data.Migraties
                     b.HasKey("GrootboekrekeningId", "VanafBoekjaar");
 
                     b.HasIndex("KlantId");
+
+                    b.HasIndex("SamenMetId");
 
                     b.ToTable("RekeningPresentaties", (string)null);
                 });
@@ -2057,6 +2066,11 @@ namespace Boekerhouden.Data.Migraties
                         .HasForeignKey("KlantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("Boekerhouden.Data.Grootboekrekening", null)
+                        .WithMany()
+                        .HasForeignKey("SamenMetId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("Boekerhouden.Data.Reviewpunt", b =>

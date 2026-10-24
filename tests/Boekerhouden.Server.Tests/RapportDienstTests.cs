@@ -515,4 +515,38 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
             a => a.Onderwerp!.StartsWith(klantnummer, StringComparison.Ordinal) && a.Details!.StartsWith("'Omzetbelasting': salderen", StringComparison.Ordinal));
         Assert.True((await rubriceren.ZetSaldering(klantId, btw, null, Tester)).IsGelukt);
     }
+
+    [Fact]
+    public async Task Een_rekening_op_een_andere_rekening_neerzetten_saldeert_ze_op_een_regel()
+    {
+        var (klantId, dossierId, _, rekeningen) = await Bakkerij();
+        await server.Dienst<RubriceerDienst>().Koppel(klantId, [rekeningen["0700"]], "BSchCreHac", false, Tester);
+        Assert.True((await Rapporten.ZetSamenMet(dossierId, rekeningen["0700"], rekeningen["1500"], Tester)).IsGelukt);
+
+        var schulden = Tabel((await Rapporten.Maak(dossierId))!.Waarde!.Rapport, "Kortlopende schulden");
+        Assert.DoesNotContain(schulden.Regels, r => r.Omschrijving == "Lening ING");
+        var crediteuren = schulden.Regels.Single(r => r.Omschrijving == "Crediteuren");
+        Assert.Equal(70_309m, crediteuren.Detail);
+        Assert.Equal([rekeningen["0700"]], crediteuren.Samen);
+        Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.PresentatieGewijzigd), a => a.Details == "0700 Lening ING: samen met 1500 Crediteuren vanaf 2025");
+
+        Assert.False((await Rapporten.ZetSamenMet(dossierId, rekeningen["1500"], rekeningen["1500"], Tester)).IsGelukt);
+        Assert.True((await Rapporten.ZetSamenMet(dossierId, rekeningen["0700"], null, Tester)).IsGelukt);
+        schulden = Tabel((await Rapporten.Maak(dossierId))!.Waarde!.Rapport, "Kortlopende schulden");
+        Assert.Equal((20_000m, 50_309m), (schulden.Regels.Single(r => r.Omschrijving == "Lening ING").Detail!.Value, schulden.Regels.Single(r => r.Omschrijving == "Crediteuren").Detail!.Value));
+    }
+
+    [Fact]
+    public async Task Specificatie_sorteren_geldt_vanaf_het_jaar_van_het_dossier()
+    {
+        var (_, dossierId, _, _) = await Bakkerij();
+
+        Assert.True((await Rapporten.ZetSortering(dossierId, "BSch", Sortering.HoogNaarLaag, Tester)).IsGelukt);
+
+        var schulden = Tabel((await Rapporten.Maak(dossierId))!.Waarde!.Rapport, "Kortlopende schulden");
+        Assert.Equal(Sortering.HoogNaarLaag, schulden.Sortering);
+        Assert.Equal(Sortering.Standaard, Tabel((await Rapporten.Maak(dossierId))!.Waarde!.Rapport, "Vorderingen").Sortering);
+        Assert.True((await Rapporten.ZetSortering(dossierId, "BSch", Sortering.Standaard, Tester)).IsGelukt);
+        Assert.Equal(Sortering.Standaard, Tabel((await Rapporten.Maak(dossierId))!.Waarde!.Rapport, "Kortlopende schulden").Sortering);
+    }
 }

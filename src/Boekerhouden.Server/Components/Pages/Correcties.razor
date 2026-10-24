@@ -40,7 +40,7 @@ else
             <button class="btn btn-primary" @onclick="Nieuw">Nieuwe correctie</button>
         }
     </div>
-    <DossierMenu DossierId="o.Dossier.Id" Actief="/correcties" />
+    <DossierMenu DossierId="o.Dossier.Id" Actief="/correcties">
 
     @if (o.TerugkerendOverTeNemen > 0)
     {
@@ -240,6 +240,7 @@ else
             }
         </div>
     </div>
+    </DossierMenu>
 }
 
 @code {

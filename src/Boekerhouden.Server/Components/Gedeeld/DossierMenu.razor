@@ -1,21 +1,26 @@
-@* Navigatie binnen een dossier; rustig, de huidige pagina in donkere tekst. Met een post (bijv. vanuit het
+@* Navigatie binnen een dossier: verticaal links naast de pagina; rustig, de huidige pagina in donkere tekst. Met een post (bijv. vanuit het
    werkprogramma) openen Werkprogramma, Proefbalans en Rapport op die post; vanuit het rapport neemt navigatie.js de
    post mee die je op dat moment bekijkt. *@
 @using Boekerhouden.Server.Export
 
-<nav class="dossiermenu @(VolgRapport ? "plakkend" : null)" aria-label="Dossier">
-    @foreach (var (pad, tekst) in Onderdelen)
-    {
-        <a href="@Link(pad)" class="@(pad == Actief ? "actief" : null)" aria-current="@(pad == Actief ? "page" : null)"
-           data-volg-post="@(VolgRapport ? Parameter(pad) : null)">@tekst</a>
-    }
-</nav>
+<div class="dossier-indeling">
+    <nav class="dossiernav" aria-label="Dossier">
+        @foreach (var (pad, tekst) in Onderdelen)
+        {
+            <a href="@Link(pad)" class="@(pad == Actief ? "actief" : null)" aria-current="@(pad == Actief ? "page" : null)"
+               data-volg-post="@(VolgRapport ? Parameter(pad) : null)">@tekst</a>
+        }
+    </nav>
+    <div class="dossier-inhoud">
+        @ChildContent
+    </div>
+</div>
 
 @code {
     private static readonly (string Pad, string Tekst)[] Onderdelen =
     [
-        ("", "Overzicht"),
-        ("/rubriceren", "Rubriceren"),
+        ("", "Inlezen administratie"),
+        ("/rubriceren", "Koppelen grootboekrekeningen"),
         ("/correcties", "Correcties"),
         ("/proefbalans", "Proefbalans"),
         ("/werkprogramma", "Werkprogramma"),
@@ -25,6 +30,10 @@
     [Parameter, EditorRequired]
     public Guid DossierId { get; set; }
 
+    /// <summary>De pagina zelf, rechts naast het menu.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
     /// <summary>Het pad van de huidige pagina, bijv. "" (overzicht) of "/rubriceren".</summary>
     [Parameter]
     public string Actief { get; set; } = "";
@@ -33,7 +42,7 @@
     [Parameter]
     public string? Post { get; set; }
 
-    /// <summary>Op de rapportpagina: de post volgen die in beeld is.</summary>
+    /// <summary>Op de rapportpagina: de post volgen die in beeld is (het menu blijft staan bij scrollen).</summary>
     [Parameter]
     public bool VolgRapport { get; set; }
 

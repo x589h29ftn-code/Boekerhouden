@@ -433,11 +433,13 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
             e.HasOne<Klant>().WithMany().HasForeignKey(r => r.KlantId).OnDelete(DeleteBehavior.Restrict);
             e.Property(r => r.Omschrijving).HasMaxLength(300);
             e.Property(r => r.GewijzigdDoor).HasMaxLength(200);
+            e.HasOne<Grootboekrekening>().WithMany().HasForeignKey(r => r.SamenMetId).OnDelete(DeleteBehavior.SetNull);
         });
 
         builder.Entity<PostPresentatie>(e =>
         {
             e.ToTable("PostPresentaties");
+            e.Property(p => p.Sortering).HasMaxLength(30);
             e.HasKey(p => new { p.KlantId, p.Sleutel, p.VanafBoekjaar });
             e.HasOne<Klant>().WithMany().HasForeignKey(p => p.KlantId).OnDelete(DeleteBehavior.Cascade);
             e.Property(p => p.Sleutel).HasMaxLength(60);

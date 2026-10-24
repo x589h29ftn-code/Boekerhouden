@@ -48,6 +48,14 @@ public static class Weergave
         _ => rechtsvorm.ToString(),
     };
 
+    public static string Tekst(Boekerhouden.Domain.Rapport.Sortering sortering) => sortering switch
+    {
+        Boekerhouden.Domain.Rapport.Sortering.HoogNaarLaag => "hoog naar laag",
+        Boekerhouden.Domain.Rapport.Sortering.LaagNaarHoog => "laag naar hoog",
+        Boekerhouden.Domain.Rapport.Sortering.Alfabetisch => "alfabetisch",
+        _ => "op rekeningnummer",
+    };
+
     public static string Tekst(Erkenningswijze wijze) => wijze switch
     {
         Erkenningswijze.Bevestigingsbrief => "bevestigingsbrief",

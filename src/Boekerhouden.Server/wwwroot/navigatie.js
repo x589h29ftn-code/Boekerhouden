@@ -36,16 +36,18 @@ window.boekerhouden.naarAnker = () => {
     }
 };
 
-// Het gebruikersmenu sluit bij een klik ernaast of met Escape.
+// Uitklapmenu's (gebruikersmenu, het menu bij een regel in het rapport) sluiten bij een klik ernaast, na een keuze
+// in het menu, of met Escape.
 document.addEventListener('click', e => {
-    for (const menu of document.querySelectorAll('details.gebruikersmenu[open]')) {
-        if (!menu.contains(e.target)) {
+    const keuze = e.target instanceof Element ? e.target.closest('details.uitklapmenu .menu button, details.uitklapmenu .menu a') : null;
+    for (const menu of document.querySelectorAll('details.uitklapmenu[open]')) {
+        if (!menu.contains(e.target) || (keuze && menu.contains(keuze))) {
             menu.open = false;
         }
     }
 });
 document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
-        document.querySelectorAll('details.gebruikersmenu[open]').forEach(menu => menu.open = false);
+        document.querySelectorAll('details.uitklapmenu[open]').forEach(menu => menu.open = false);
     }
 });

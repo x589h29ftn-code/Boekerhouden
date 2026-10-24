@@ -47,7 +47,7 @@ else
             <a class="btn btn-sm btn-outline-secondary" href="@($"/dossiers/{Id}/rapport.pdf")" download>PDF</a>
         }
     </div>
-    <DossierMenu DossierId="dossier.Id" Actief="/rapport" VolgRapport="true" />
+    <DossierMenu DossierId="dossier.Id" Actief="/rapport" VolgRapport="true">
     @if (inhoud is { Rapport.Soort: RapportSoort.Jaarrekening, Dossier.Grondslag: null })
     {
         <GrondslagKeuze DossierId="dossier.Id" Gekozen="Laad" />
@@ -176,6 +176,7 @@ else
             }
         </div>
     }
+    </DossierMenu>
 }
 
 @code {
@@ -262,17 +263,22 @@ else
     /// <summary>Alleen als het paneel open is, kan er iets naartoe gesleept worden.</summary>
     private string? Sleepdoel(Bron? bron) => paneel is not null && rubricering is not null ? RekeningenInRapport.Doel(rubricering, bron) : null;
 
-    private async Task Neerzetten(string doel)
+    /// <summary>
+    /// Een rekening neergezet op een regel: op een post gaat hij onder die post (als eigen regel); op een rekening gaat
+    /// hij onder dezelfde post en staat hij samen met die rekening op één regel (gesaldeerd).
+    /// </summary>
+    private async Task Neerzetten(Bron bron)
     {
         if (gesleept is { } id && paneel?.Rekeningen.FirstOrDefault(r => r.Id == id) is { } rek)
         {
-            await Verplaats(rek, doel);
+            var samenMet = bron is { Soort: Onderwerp.Rekening or Onderwerp.Uitsplitsing, Id: { } doelRekening } && doelRekening != rek.Id ? doelRekening : (Guid?)null;
+            await Verplaats(rek, Sleepdoel(bron), samenMet, bron.Herkomst);
         }
 
         gesleept = null;
     }
 
-    private async Task Verplaats(RekeningInPost rek, string? doel)
+    private async Task Verplaats(RekeningInPost rek, string? doel, Guid? samenMet = null, string? doelNaam = null)
     {
         kiesVoor = null;
         if (string.IsNullOrEmpty(doel) || rubricering is null || dossier is null)
@@ -280,15 +286,18 @@ else
             return;
         }
 
-        if (rubricering.Rekeningen.FirstOrDefault(r => r.Id == rek.Id)?.Koppeling?.Sleutel == doel)
+        var wie = await Wie();
+        var verplaatsen = rubricering.Rekeningen.FirstOrDefault(r => r.Id == rek.Id)?.Koppeling?.Sleutel != doel;
+        var uitkomst = verplaatsen ? await RubriceerDienst.Koppel(dossier.KlantId, [rek.Id], doel, onthouden: false, wie) : Uitkomst.Gelukt;
+        if (uitkomst.IsGelukt)
         {
-            melding = $"{rek.Nummer} {rek.Omschrijving} staat al onder {rubricering.Naam(doel)}";
-            meldingIsFout = false;
-            return;
+            uitkomst = await RapportDienst.ZetSamenMet(dossier.Id, rek.Id, samenMet, wie);
         }
 
-        await Na(await RubriceerDienst.Koppel(dossier.KlantId, [rek.Id], doel, onthouden: false, await Wie()),
-            $"{rek.Nummer} {rek.Omschrijving} staat nu onder {rubricering.Naam(doel)}");
+        await Na(uitkomst, samenMet is not null
+            ? $"{rek.Nummer} {rek.Omschrijving} staat nu samen met {doelNaam?.Replace("Rekening ", "", StringComparison.Ordinal)} op één regel"
+            : verplaatsen ? $"{rek.Nummer} {rek.Omschrijving} staat nu onder {rubricering.Naam(doel)}"
+            : $"{rek.Nummer} {rek.Omschrijving} staat al onder {rubricering.Naam(doel)}");
     }
 
     private async Task LaadPresentatie()

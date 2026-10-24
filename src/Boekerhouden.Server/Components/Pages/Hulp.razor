@@ -5,7 +5,7 @@
 <div class="hulp">
     <h1 class="h3 mb-3">Documentatie</h1>
     <p class="text-secondary">
-        <a href="#klanten">Klanten</a> · <a href="#dossier">Dossier</a> · <a href="#rubriceren">Rubriceren</a> ·
+        <a href="#klanten">Klanten</a> · <a href="#dossier">Inlezen administratie</a> · <a href="#rubriceren">Koppelen grootboekrekeningen</a> ·
         <a href="#correcties">Correcties</a> · <a href="#proefbalans">Proefbalans</a> · <a href="#werkprogramma">Werkprogramma</a> ·
         <a href="#rapport">Rapport</a> · <a href="#beheer">Beheer</a>
     </p>
@@ -13,15 +13,15 @@
     <h2 id="klanten">Klanten</h2>
     <p>Per klant het laatste dossier met de voortgang en de signalen (geen saldibalans, rekeningen niet gekoppeld, open reviewpunten). Met <em>alleen met signalen</em> zie je wat aandacht vraagt. Op de klantenkaart staan adres, contact en registratie; die gegevens gebruikt het rapport, bijvoorbeeld in de vestigingsalinea.</p>
 
-    <h2 id="dossier">Dossier en saldibalans inlezen</h2>
+    <h2 id="dossier">Inlezen administratie</h2>
     <p>Een dossier is één opdracht voor één boekjaar: <em>samenstellen jaarrekening</em> (BV) of <em>winstaangifte opstellen</em> (eenmanszaak, aangifte-plus).</p>
     <p>Lees de saldibalans in met het <em>importsjabloon</em> (Excel of CSV) of met een export met de kolommen grootboeknummer, omschrijving en bedrag. Bedragen: debet positief, credit negatief. Er wordt alleen ingelezen als het saldo nihil is. Lees ook het vorige jaar in voor de vergelijkende cijfers.</p>
 
-    <h2 id="rubriceren">Rubriceren</h2>
+    <h2 id="rubriceren">Koppelen grootboekrekeningen</h2>
     <p>Koppel elke grootboekrekening aan een RGS-code: sleep een rekening naar een post, of selecteer er meer en sleep ze samen (of klik bij een post op <em>hierheen</em>). Voorstellen komen uit het koppelsjabloon van het kantoor en uit eerdere jaren. Een eigen post onder een RGS-code geeft een eigen regel in het rapport; met saldering komt het saldo per jaar aan de debet- of creditkant (bijv. omzetbelasting).</p>
 
     <h2 id="correcties">Correcties</h2>
-    <p>Correcties veranderen de cijfers in het dossier, niet de administratie van de klant. Een <em>herrubricering</em> is alleen een andere indeling; de klant hoeft niets te boeken. Een nieuwe rekening maak je voor een post die nog niet in de administratie staat; koppel hem daarna bij Rubriceren.</p>
+    <p>Correcties veranderen de cijfers in het dossier, niet de administratie van de klant. Een <em>herrubricering</em> is alleen een andere indeling; de klant hoeft niets te boeken. Een nieuwe rekening maak je voor een post die nog niet in de administratie staat; koppel hem daarna bij Koppelen grootboekrekeningen.</p>
     <p>Zijn correcties van vorig jaar niet door de klant geboekt, dan wijkt het eigen vermogen af van vorig jaar. Boek ze dan opnieuw, met het resultaatdeel op de reserves, of laat de klant ze alsnog verwerken. Correcties zijn te downloaden als Excel of PDF.</p>
 
     <h2 id="proefbalans">Proefbalans</h2>
@@ -57,7 +57,7 @@
     <p>Review is niet verplicht. Een reviewer of accountant tekent een onderdeel af als <em>gereviewd</em> als alle stappen klaar zijn en er geen reviewpunten open staan; daarna is het onderdeel vergrendeld tot de review wordt teruggezet.</p>
 
     <h2 id="rapport">Rapport</h2>
-    <p>Het rapport is een bewerkbare weergave; dezelfde opmaak gaat naar de PDF. Klik op een regel om de rekeningen eronder te zien; sleep een rekening naar een andere regel om hem daar te verantwoorden (de koppeling geldt voor de klant, ook voor de vergelijkende cijfers). Verder: posten in- en uitklappen, toelichtingen en verloopoverzichten, rekeningen uitsplitsen, grondslagen aan of uit en teksten aanpassen. Variabelen zoals <code>{naam}</code> en <code>{boekjaar}</code> vult het rapport in; tekst tussen [vierkante haken] vul je zelf in.</p>
+    <p>Het rapport is een bewerkbare weergave; dezelfde opmaak gaat naar de PDF. Klik op een bedrag om de rekeningen eronder te zien; sleep een rekening naar een andere regel om hem daar te verantwoorden (de koppeling geldt voor de klant, ook voor de vergelijkende cijfers). Zet je hem op een post, dan wordt het een eigen regel; zet je hem op een rekening, dan staan ze samen op één regel (gesaldeerd). Achter elke regel staat bij aanwijzen ⋮: rekeningen tonen, uitsplitsen, verloopoverzicht, rekeningen weer los en de specificatie sorteren (op rekeningnummer, hoog naar laag, laag naar hoog of alfabetisch). Verder: posten in- en uitklappen, toelichtingen en verloopoverzichten, rekeningen uitsplitsen, grondslagen aan of uit en teksten aanpassen. Variabelen zoals <code>{naam}</code> en <code>{boekjaar}</code> vult het rapport in; tekst tussen [vierkante haken] vul je zelf in.</p>
 
     <h2 id="beheer">Beheer</h2>
     <p>Alleen voor beheerders: <em>Beheer</em> in de balk bovenaan, met links het menu in twee groepen: het kantoor (kantoor en huisstijl, gebruikers, wijzigingslog) en de vaktechniek (RGS, koppelsjabloon, werkprogramma's, grondslagen). Wachtwoord wijzigen en uitloggen staan onder je initialen rechtsboven.</p>

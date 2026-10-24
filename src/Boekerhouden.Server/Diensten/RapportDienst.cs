@@ -105,7 +105,10 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
             new Klantkaart(Server.Weergave.Straat(klant), klant.Postcode, klant.Rsin, klant.SbiCode, klant.StatutaireNaam, klant.StatutaireZetel, klant.Oprichtingsdatum),
             jaarrekening && metVerklaring
                 ? await VerklaringDienst.Gegevens(db, dossierId, kantoorinstellingen.Naam, kantoorinstellingen.Plaats, metGrondslagen?.Verslaggeving == Verslaggeving.Fiscaal)
-                : null));
+                : null,
+            (await PostPresentaties(db, dossier.KlantId, dossier.Boekjaar)).Values
+                .Where(p => Enum.TryParse<Sortering>(p.Sortering, out var x) && x != Sortering.Standaard)
+                .ToDictionary(p => p.Sleutel, p => Enum.Parse<Sortering>(p.Sortering!), StringComparer.Ordinal)));
         if (jaarrekening && metGrondslagen?.Verslaggeving is null)
         {
             rapport = rapport with { Waarschuwingen = [.. rapport.Waarschuwingen, "Grondslagen nog niet gekozen."] };
@@ -178,8 +181,8 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
     {
         await using var db = await dbFactory.CreateDbContextAsync();
         return (await RekeningPresentaties(db, klantId, boekjaar))
-            .Where(p => p.Value.Omschrijving is not null || p.Value.Verbergen)
-            .ToDictionary(p => p.Key, p => new RekeningWeergave(p.Value.Omschrijving, p.Value.Verbergen));
+            .Where(p => p.Value.Omschrijving is not null || p.Value.Verbergen || p.Value.SamenMetId is not null)
+            .ToDictionary(p => p.Key, p => new RekeningWeergave(p.Value.Omschrijving, p.Value.Verbergen, p.Value.SamenMetId));
     }
 
     /// <summary>De posten (sleutels) van een klant waarvan de specificatie in een boekjaar niet in het rapport komt.</summary>
@@ -231,9 +234,9 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
         var versies = await db.RekeningPresentaties.Where(p => p.GrootboekrekeningId == rekening.Id).ToListAsync();
         var nu = tijd.GetUtcNow();
         if (!Jaarversies.Zet(db.RekeningPresentaties, versies, dossier.Boekjaar,
-            v => new RekeningPresentatie { GrootboekrekeningId = rekening.Id, KlantId = dossier.KlantId, Omschrijving = v?.Omschrijving, Verbergen = v?.Verbergen ?? false, Verloop = v?.Verloop ?? false, VerloopZonderVorig = v?.VerloopZonderVorig ?? false },
+            v => new RekeningPresentatie { GrootboekrekeningId = rekening.Id, KlantId = dossier.KlantId, Omschrijving = v?.Omschrijving, Verbergen = v?.Verbergen ?? false, Verloop = v?.Verloop ?? false, VerloopZonderVorig = v?.VerloopZonderVorig ?? false, SamenMetId = v?.SamenMetId },
             p => (p.VerloopZonderVorig, p.GewijzigdOp, p.GewijzigdDoor) = (!vergelijkend, nu, wie.Naam),
-            p => (p.Omschrijving, p.Verbergen, p.Verloop, p.VerloopZonderVorig)))
+            p => (p.Omschrijving, p.Verbergen, p.Verloop, p.VerloopZonderVorig, p.SamenMetId)))
         {
             return Uitkomst.Gelukt;
         }
@@ -318,9 +321,9 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
         var versies = await db.RekeningPresentaties.Where(p => p.GrootboekrekeningId == rekening.Id).ToListAsync();
         var nu = tijd.GetUtcNow();
         if (!Jaarversies.Zet(db.RekeningPresentaties, versies, dossier.Boekjaar,
-            v => new RekeningPresentatie { GrootboekrekeningId = rekening.Id, KlantId = dossier.KlantId, Omschrijving = v?.Omschrijving, Verbergen = v?.Verbergen ?? false, Verloop = v?.Verloop ?? false, VerloopZonderVorig = v?.VerloopZonderVorig ?? false },
+            v => new RekeningPresentatie { GrootboekrekeningId = rekening.Id, KlantId = dossier.KlantId, Omschrijving = v?.Omschrijving, Verbergen = v?.Verbergen ?? false, Verloop = v?.Verloop ?? false, VerloopZonderVorig = v?.VerloopZonderVorig ?? false, SamenMetId = v?.SamenMetId },
             p => (p.Verloop, p.GewijzigdOp, p.GewijzigdDoor) = (tonen, nu, wie.Naam),
-            p => (p.Omschrijving, p.Verbergen, p.Verloop, p.VerloopZonderVorig)))
+            p => (p.Omschrijving, p.Verbergen, p.Verloop, p.VerloopZonderVorig, p.SamenMetId)))
         {
             return Uitkomst.Gelukt;
         }
@@ -429,9 +432,9 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
         var versies = await db.RekeningPresentaties.Where(p => p.GrootboekrekeningId == rekeningId).ToListAsync();
         var nu = tijd.GetUtcNow();
         if (!Jaarversies.Zet(db.RekeningPresentaties, versies, dossier.Boekjaar,
-            v => new RekeningPresentatie { GrootboekrekeningId = rekeningId, KlantId = dossier.KlantId, Omschrijving = v?.Omschrijving, Verbergen = v?.Verbergen ?? false, Verloop = v?.Verloop ?? false, VerloopZonderVorig = v?.VerloopZonderVorig ?? false },
+            v => new RekeningPresentatie { GrootboekrekeningId = rekeningId, KlantId = dossier.KlantId, Omschrijving = v?.Omschrijving, Verbergen = v?.Verbergen ?? false, Verloop = v?.Verloop ?? false, VerloopZonderVorig = v?.VerloopZonderVorig ?? false, SamenMetId = v?.SamenMetId },
             p => (p.Omschrijving, p.Verbergen, p.GewijzigdOp, p.GewijzigdDoor) = (omschrijving, verbergen, nu, wie.Naam),
-            p => (p.Omschrijving, p.Verbergen, p.Verloop, p.VerloopZonderVorig)))
+            p => (p.Omschrijving, p.Verbergen, p.Verloop, p.VerloopZonderVorig, p.SamenMetId)))
         {
             return Uitkomst.Gelukt;
         }
@@ -449,6 +452,67 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
     /// <summary>Of een post in het rapport is uitgeklapt (subposten of rekeningen zichtbaar); null = de standaard.</summary>
     public Task<Uitkomst> ZetUitgeklapt(Guid dossierId, string sleutel, bool? uitgeklapt, Uitvoerder wie) =>
         ZetPost(dossierId, sleutel, p => p.Uitgeklapt = uitgeklapt, $"{sleutel} {(uitgeklapt switch { true => "uitgeklapt", false => "ingeklapt", null => "standaard" })} in het rapport", wie);
+
+    /// <summary>De volgorde van de regels in de specificatie van een hoofdpost, vanaf het boekjaar van het dossier.</summary>
+    public Task<Uitkomst> ZetSortering(Guid dossierId, string sleutel, Sortering sortering, Uitvoerder wie) =>
+        ZetPost(dossierId, sleutel, p => p.Sortering = sortering == Sortering.Standaard ? null : sortering.ToString(),
+            $"specificatie {sleutel} gesorteerd: {Server.Weergave.Tekst(sortering)}", wie);
+
+    /// <summary>
+    /// Een rekening samen met een andere rekening op één regel in de specificatie (gesaldeerd), vanaf het boekjaar van
+    /// het dossier; null = weer een eigen regel. Dat werkt als beide in dezelfde subpost staan.
+    /// </summary>
+    public async Task<Uitkomst> ZetSamenMet(Guid dossierId, Guid rekeningId, Guid? samenMet, Uitvoerder wie)
+    {
+        ArgumentNullException.ThrowIfNull(wie);
+        if (samenMet == rekeningId)
+        {
+            return Uitkomst.Mislukt("Een rekening kan niet met zichzelf samen.");
+        }
+
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var dossier = await db.Dossiers.AsNoTracking().Include(d => d.Klant).SingleOrDefaultAsync(d => d.Id == dossierId);
+        var rekeningen = dossier is null ? []
+            : await db.Grootboekrekeningen.AsNoTracking().Where(g => g.KlantId == dossier.KlantId && (g.Id == rekeningId || g.Id == samenMet)).ToListAsync();
+        var rekening = rekeningen.FirstOrDefault(r => r.Id == rekeningId);
+        var doel = rekeningen.FirstOrDefault(r => r.Id == samenMet);
+        if (dossier?.Klant is null || rekening is null || (samenMet is not null && doel is null))
+        {
+            return Uitkomst.Mislukt("Rekening niet gevonden.");
+        }
+
+        // Staat de andere rekening zelf samen met een derde, dan gaat deze daar ook bij (één niveau).
+        if (samenMet is not null && (await RekeningPresentaties(db, dossier.KlantId, dossier.Boekjaar)).GetValueOrDefault(samenMet.Value)?.SamenMetId is { } verder && verder != rekeningId)
+        {
+            samenMet = verder;
+            doel = await db.Grootboekrekeningen.AsNoTracking().SingleAsync(g => g.Id == verder);
+        }
+
+        var versies = await db.RekeningPresentaties.Where(p => p.GrootboekrekeningId == rekeningId).ToListAsync();
+        var nu = tijd.GetUtcNow();
+        if (!Jaarversies.Zet(db.RekeningPresentaties, versies, dossier.Boekjaar,
+            v => new RekeningPresentatie { GrootboekrekeningId = rekeningId, KlantId = dossier.KlantId, Omschrijving = v?.Omschrijving, Verbergen = v?.Verbergen ?? false, Verloop = v?.Verloop ?? false, VerloopZonderVorig = v?.VerloopZonderVorig ?? false, SamenMetId = v?.SamenMetId },
+            p => (p.SamenMetId, p.GewijzigdOp, p.GewijzigdDoor) = (samenMet, nu, wie.Naam),
+            p => (p.Omschrijving, p.Verbergen, p.Verloop, p.VerloopZonderVorig, p.SamenMetId)))
+        {
+            return Uitkomst.Gelukt;
+        }
+
+        // Rekeningen die samen met deze stonden, gaan mee naar de nieuwe regel (of worden weer een eigen regel).
+        foreach (var (id, _) in (await RekeningPresentaties(db, dossier.KlantId, dossier.Boekjaar)).Where(p => p.Value.SamenMetId == rekeningId && p.Key != samenMet))
+        {
+            var andere = await db.RekeningPresentaties.Where(p => p.GrootboekrekeningId == id).ToListAsync();
+            Jaarversies.Zet(db.RekeningPresentaties, andere, dossier.Boekjaar,
+                v => new RekeningPresentatie { GrootboekrekeningId = id, KlantId = dossier.KlantId, Omschrijving = v?.Omschrijving, Verbergen = v?.Verbergen ?? false, Verloop = v?.Verloop ?? false, VerloopZonderVorig = v?.VerloopZonderVorig ?? false, SamenMetId = v?.SamenMetId },
+                p => (p.SamenMetId, p.GewijzigdOp, p.GewijzigdDoor) = (samenMet, nu, wie.Naam),
+                p => (p.Omschrijving, p.Verbergen, p.Verloop, p.VerloopZonderVorig, p.SamenMetId));
+        }
+
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.PresentatieGewijzigd, KlantDienst.Onderwerp(dossier.Klant),
+            $"{rekening.Nummer} {rekening.Omschrijving}: {(doel is null ? "eigen regel" : $"samen met {doel.Nummer} {doel.Omschrijving}")} vanaf {dossier.Boekjaar}");
+        return Uitkomst.Gelukt;
+    }
 
     private async Task<Uitkomst> ZetPost(Guid dossierId, string sleutel, Action<PostPresentatie> wijzig, string wat, Uitvoerder wie)
     {
@@ -469,13 +533,13 @@ public sealed class RapportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
         var versies = await db.PostPresentaties.Where(p => p.KlantId == dossier.KlantId && p.Sleutel == sleutel).ToListAsync();
         var nu = tijd.GetUtcNow();
         if (!Jaarversies.Zet(db.PostPresentaties, versies, dossier.Boekjaar,
-            v => new PostPresentatie { KlantId = dossier.KlantId, Sleutel = sleutel, ToonSpecificatie = v?.ToonSpecificatie ?? true, Uitgeklapt = v?.Uitgeklapt, Verloop = v?.Verloop },
+            v => new PostPresentatie { KlantId = dossier.KlantId, Sleutel = sleutel, ToonSpecificatie = v?.ToonSpecificatie ?? true, Uitgeklapt = v?.Uitgeklapt, Verloop = v?.Verloop, Sortering = v?.Sortering },
             p =>
             {
                 wijzig(p);
                 (p.GewijzigdOp, p.GewijzigdDoor) = (nu, wie.Naam);
             },
-            p => (p.ToonSpecificatie, p.Uitgeklapt, p.Verloop)))
+            p => (p.ToonSpecificatie, p.Uitgeklapt, p.Verloop, p.Sortering)))
         {
             return Uitkomst.Gelukt;
         }

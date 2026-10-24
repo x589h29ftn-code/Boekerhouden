@@ -287,14 +287,6 @@ tr.klikbaar {
     border-bottom: 1px solid #e3e6e9;
 }
 
-    /* Op de rapportpagina blijft het menu staan, zodat je vanaf elke post naar het werkprogramma kunt. */
-    .dossiermenu.plakkend {
-        position: sticky;
-        top: 0;
-        z-index: 5;
-        background: #f4f6f8;
-    }
-
     .dossiermenu a {
         padding: .35rem 0;
         margin-bottom: -1px;
@@ -311,6 +303,65 @@ tr.klikbaar {
             color: #212529;
             border-bottom-color: #6c8fb3;
         }
+
+/* Dossier: verticaal menu links naast de pagina; het blijft staan bij scrollen. */
+.dossier-indeling {
+    display: grid;
+    grid-template-columns: 15.5rem minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.dossiernav {
+    position: sticky;
+    top: 1rem;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    font-size: .92rem;
+}
+
+    .dossiernav a {
+        padding: .35rem .7rem;
+        white-space: nowrap;
+        border-left: 2px solid transparent;
+        color: #5a6670;
+        text-decoration: none;
+    }
+
+        .dossiernav a:hover {
+            background: #eef2f5;
+            color: #212529;
+        }
+
+        .dossiernav a.actief {
+            border-left-color: var(--bh-accent);
+            background: #eef2f5;
+            color: #212529;
+        }
+
+@media (max-width: 991.98px) {
+    .dossier-indeling {
+        grid-template-columns: minmax(0, 1fr);
+        gap: .75rem;
+    }
+
+    .dossiernav {
+        position: static;
+        flex-flow: row wrap;
+        border-bottom: 1px solid #e3e6e9;
+    }
+
+        .dossiernav a {
+            border-left: 0;
+            border-bottom: 2px solid transparent;
+        }
+
+            .dossiernav a.actief {
+                border-bottom-color: var(--bh-accent);
+                background: none;
+            }
+}
 
 /* Rubriceren: rustig, één regel per rekening of post; details in de tooltip. */
 .rubriceer-voortgang {
@@ -1132,14 +1183,14 @@ tr.klikbaar {
 
 .rapport-zijkant {
     position: sticky;
-    top: 3rem;
+    top: 1rem;
     max-height: calc(100vh - 4rem);
     overflow-y: auto;
 }
 
 .rapport-paneel {
     position: sticky;
-    top: 3rem;
+    top: 1rem;
     max-height: calc(100vh - 4rem);
     overflow-y: auto;
     padding: .75rem;
@@ -1202,7 +1253,7 @@ tr.klikbaar {
 }
 
     .rapport-viewer section, .rapport-viewer .blok {
-        scroll-margin-top: 3rem;
+        scroll-margin-top: 1rem;
     }
 
 .uitsplitsing {
@@ -1399,3 +1450,11 @@ tr.klikbaar {
     .hulp p, .hulp li, .hulp td {
         font-size: .9rem;
     }
+
+/* De inhoud: breder dan een standaardcontainer, want in een dossier staat links het menu. */
+.hoofdinhoud {
+    max-width: 1640px;
+    margin: 0 auto;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+}

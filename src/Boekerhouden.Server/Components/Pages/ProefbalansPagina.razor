@@ -28,7 +28,7 @@ else
         <h1 class="h3 mb-0 me-auto">Proefbalans</h1>
         <span class="small text-secondary">@(MetCorrecties ? $"na {AantalCorrecties} correctie(s)" : "zonder correcties") · vergelijkende cijfers @(o.Dossier.Boekjaar - 1)</span>
     </div>
-    <DossierMenu DossierId="o.Dossier.Id" Actief="/proefbalans" />
+    <DossierMenu DossierId="o.Dossier.Id" Actief="/proefbalans">
 
     @if (o.Schema is null || o.Balans is null)
     {
@@ -117,6 +117,7 @@ else
             </div>
         </div>
     }
+    </DossierMenu>
 }
 
 @code {

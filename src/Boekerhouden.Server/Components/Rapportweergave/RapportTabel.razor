@@ -1,5 +1,5 @@
 @* Een tabel uit het rapport. Een lijn staat onder het laatste bedrag vóór een (sub)totaal, een eindtotaal krijgt een
-   dubbele lijn. In de viewer: driehoekjes om in en uit te klappen, namen aanklikken, rekeningen uitsplitsen. *@
+   dubbele lijn. In de viewer: driehoekjes om in en uit te klappen, namen aanklikken en per regel een menu (⋮). *@
 @using Boekerhouden.Domain.Rapport
 @using Boekerhouden.Server.Export
 
@@ -24,7 +24,7 @@
                     <td class="omschrijving" colspan="@Kolommen">
                         @Klap(regel)
                         @Omschrijving(regel)
-                        @Rekeningen(regel)
+                        @Menu(regel)
                     </td>
                 </tr>
             }
@@ -34,16 +34,7 @@
                     <td class="omschrijving">
                         @Klap(regel)
                         @Omschrijving(regel)
-                        @Rekeningen(regel)
-                        @if (Document.Bewerkbaar && regel.Bron is { Soort: Onderwerp.Rekening, Id: { } id } && openSplitsing != id)
-                        {
-                            <button type="button" class="bewerk-actie" @onclick="() => openSplitsing = id">uitsplitsen</button>
-                            @if (Tabel.Code?.StartsWith('B') == true && !HeeftVerloop(id))
-                            {
-                                <button type="button" class="bewerk-actie" title="Een verloopoverzicht van deze rekening onder de specificatie, vanaf dit jaar"
-                                        @onclick="() => Document.ZetVerloop(RapportOpbouw.RekeningSleutel(id), true)">verloop</button>
-                            }
-                        }
+                        @Menu(regel)
                     </td>
                     @if (Tabel.Tweekoloms)
                     {
@@ -137,11 +128,58 @@
 
     private static bool HeeftRekeningen(Regel regel) => regel.Bron?.Soort is Onderwerp.Post or Onderwerp.EigenPost or Onderwerp.Rekening or Onderwerp.Uitsplitsing;
 
-    /// <summary>"rekeningen" bij aanwijzen: rechts de grootboekrekeningen van de post, om ze naar een andere post te slepen.</summary>
-    private RenderFragment? Rekeningen(Regel regel) => Document.KanRekeningenTonen && HeeftRekeningen(regel)
-        ? @<button type="button" class="bewerk-actie" title="De grootboekrekeningen van deze post; sleep er een naar een andere regel om hem daar te verantwoorden"
-                   @onclick="() => Toon(regel)">rekeningen</button>
-        : null;
+    private static readonly Sortering[] Sorteringen = Enum.GetValues<Sortering>();
+
+    /// <summary>
+    /// Het menu bij een regel (⋮, zichtbaar bij aanwijzen): de rekeningen tonen, uitsplitsen, een verloopoverzicht,
+    /// samengevoegde rekeningen losmaken en de specificatie sorteren.
+    /// </summary>
+    private RenderFragment? Menu(Regel regel)
+    {
+        if (!Document.Bewerkbaar || regel.Soort is RegelSoort.Subtotaal or RegelSoort.Eindtotaal)
+        {
+            return null;
+        }
+
+        var rekeningen = Document.KanRekeningenTonen && HeeftRekeningen(regel);
+        var rekening = regel.Bron is { Soort: Onderwerp.Rekening, Id: { } id } ? id : (Guid?)null;
+        var verloop = rekening is { } r && Tabel.Code?.StartsWith('B') == true && !HeeftVerloop(r);
+        var sorteren = Tabel.Code is not null && regel.Bron is not null;
+        if (!rekeningen && rekening is null && !sorteren)
+        {
+            return null;
+        }
+
+        return @<details class="uitklapmenu regelmenu">
+            <summary title="Acties" aria-label="@($"Acties bij {regel.Omschrijving}")">⋮</summary>
+            <div class="menu">
+                @if (rekeningen)
+                {
+                    <button type="button" @onclick="() => Toon(regel)">Rekeningen tonen</button>
+                }
+                @if (rekening is { } uit && openSplitsing != uit)
+                {
+                    <button type="button" @onclick="() => openSplitsing = uit">Uitsplitsen</button>
+                }
+                @if (verloop)
+                {
+                    <button type="button" @onclick="() => Document.ZetVerloop(RapportOpbouw.RekeningSleutel(rekening!.Value), true)">Verloopoverzicht</button>
+                }
+                @if (regel.Samen.Count > 0)
+                {
+                    <button type="button" @onclick="() => Document.Losmaken(regel.Samen)">Rekeningen weer los</button>
+                }
+                @if (sorteren)
+                {
+                    <div class="kop">Sorteren</div>
+                    @foreach (var s in Sorteringen)
+                    {
+                        <button type="button" class="@(Tabel.Sortering == s ? "gekozen" : null)" @onclick="() => Document.Sorteer(Tabel.Code!, s)">@Weergave.Tekst(s)</button>
+                    }
+                }
+            </div>
+        </details>;
+    }
 
     private Task Toon(Regel regel) =>
         Document.KanRekeningenTonen && HeeftRekeningen(regel) ? Document.RekeningenTonen.InvokeAsync(regel.Bron!) : Task.CompletedTask;
@@ -152,7 +190,7 @@
         : HeeftRekeningen(regel) ? "dropdoel toonbaar" : "dropdoel";
 
     private Task Neerzetten(Regel regel) =>
-        Document.DoelVan(regel.Bron) is { } doel ? Document.Neergezet.InvokeAsync(doel) : Task.CompletedTask;
+        Document.DoelVan(regel.Bron) is not null ? Document.Neergezet.InvokeAsync(regel.Bron!) : Task.CompletedTask;
 
     private string SplitsOmschrijving(Guid rekeningId) => RegelsVan(rekeningId).FirstOrDefault()?.Omschrijving ?? "";
 }

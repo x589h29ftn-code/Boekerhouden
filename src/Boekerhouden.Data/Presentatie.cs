@@ -34,6 +34,9 @@ public sealed class RekeningPresentatie : IJaarversie
     /// <summary>Het verloopoverzicht zonder vorig jaar ernaast (standaard staat vorig jaar er wel naast).</summary>
     public bool VerloopZonderVorig { get; set; }
 
+    /// <summary>Samen met deze rekening op één regel in de specificatie (gesaldeerd); null = een eigen regel.</summary>
+    public Guid? SamenMetId { get; set; }
+
     public DateTimeOffset GewijzigdOp { get; set; }
 
     public string GewijzigdDoor { get; set; } = string.Empty;
@@ -61,6 +64,9 @@ public sealed class PostPresentatie : IJaarversie
 
     /// <summary>Een verloopoverzicht onder de specificatie; null = de standaard (wel bij de vaste activa).</summary>
     public bool? Verloop { get; set; }
+
+    /// <summary>De volgorde van de regels in de specificatie (bijv. "HoogNaarLaag"); null = op rekeningnummer.</summary>
+    public string? Sortering { get; set; }
 
     public DateTimeOffset GewijzigdOp { get; set; }
 

@@ -41,7 +41,7 @@ else
         }
         <span class="small text-secondary">@Weergave.Tekst(w.Dossier.Soort) · versie @w.Versie</span>
     </div>
-    <DossierMenu DossierId="w.Dossier.Id" Actief="/werkprogramma" Post="@HuidigePost" />
+    <DossierMenu DossierId="w.Dossier.Id" Actief="/werkprogramma" Post="@HuidigePost">
     <HeadContent>
         <style>@((MarkupString)RapportHtml.Stijl)</style>
     </HeadContent>
@@ -412,6 +412,7 @@ else
             }
         </div>
     </div>
+    </DossierMenu>
 }
 
 @code {

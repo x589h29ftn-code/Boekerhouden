@@ -58,6 +58,9 @@ public sealed record Regel(RegelSoort Soort, string Omschrijving, decimal? Detai
 
     /// <summary>Null: niet in of uit te klappen. Anders de stand; de sleutel is die van <see cref="Bron"/>.</summary>
     public bool? Uitgeklapt { get; init; }
+
+    /// <summary>Bij een rekening: de andere rekeningen die samen met deze op de regel staan (gesaldeerd).</summary>
+    public IReadOnlyList<Guid> Samen { get; init; } = [];
 }
 
 /// <param name="Tweekoloms">Per jaar een detail- en een totaalkolom (balans en W&amp;V); anders één kolom per jaar.</param>
@@ -67,6 +70,9 @@ public sealed record Tabel(string? Titel, bool Tweekoloms, string KopHuidig, str
 {
     /// <summary>De bron van de titel (de post), om de naam aan te passen.</summary>
     public Bron? Bron { get; init; }
+
+    /// <summary>Bij een specificatie: de volgorde van de regels.</summary>
+    public Sortering Sortering { get; init; }
 }
 
 public abstract record Blok;

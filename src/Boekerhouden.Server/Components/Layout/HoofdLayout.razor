@@ -14,7 +14,7 @@
         </AuthorizeView>
     </nav>
     <AuthorizeView>
-        <details class="gebruikersmenu">
+        <details class="uitklapmenu gebruikersmenu">
             <summary title="@context.User.WeergaveNaam()" aria-label="Gebruikersmenu"><span class="initialen">@context.User.WeergaveInitialen()</span></summary>
             <div class="menu">
                 <div class="naam">@context.User.WeergaveNaam()</div>
@@ -28,7 +28,7 @@
     </AuthorizeView>
 </header>
 
-<main class="container-xl py-4">
+<main class="hoofdinhoud py-4">
     <ErrorBoundary @ref="foutgrens">
         <ChildContent>
             @Body

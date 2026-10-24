@@ -208,6 +208,38 @@ public sealed class RapportOpbouwTests
     }
 
     [Fact]
+    public void Een_rekening_samen_met_een_andere_staat_op_een_regel_gesaldeerd()
+    {
+        var rapport = RapportOpbouw.Maak(Gegevens(weergave: new() { [Porti] = new RekeningWeergave(null, false, SamenMet: Kantoor) }));
+
+        var kosten = Specificatie(rapport, "Overige bedrijfskosten");
+        Assert.Equal(["Kantoorartikelen", "Totaal"], kosten.Regels.Select(r => r.Omschrijving));
+        var regel = Regel(kosten, "Kantoorartikelen");
+        Assert.Equal((3_500m, 2_000m), (regel.Detail!.Value, regel.DetailVorig!.Value));
+        Assert.Equal([Porti], regel.Samen);
+        Assert.Equal("Rekening 4300 Kantoorartikelen + 4310 Porti", regel.Bron!.Herkomst);
+
+        // Staat de andere rekening niet in dezelfde subpost, dan blijft de rekening een eigen regel.
+        var elders = RapportOpbouw.Maak(Gegevens(weergave: new() { [Porti] = new RekeningWeergave(null, false, SamenMet: Crediteuren) }));
+        Assert.Equal(["Kantoorartikelen", "Porti", "Totaal"], Specificatie(elders, "Overige bedrijfskosten").Regels.Select(r => r.Omschrijving));
+    }
+
+    [Theory]
+    [InlineData(Sortering.Standaard, new[] { "Zegels", "Porti" })]
+    [InlineData(Sortering.HoogNaarLaag, new[] { "Zegels", "Porti" })]
+    [InlineData(Sortering.LaagNaarHoog, new[] { "Porti", "Zegels" })]
+    [InlineData(Sortering.Alfabetisch, new[] { "Porti", "Zegels" })]
+    public void Specificatie_sorteren(Sortering sortering, string[] volgorde)
+    {
+        var g = Gegevens(weergave: new() { [Kantoor] = new RekeningWeergave("Zegels", false) }) with
+        {
+            Sorteringen = new Dictionary<string, Sortering> { ["WBed"] = sortering },
+        };
+
+        Assert.Equal(volgorde, Specificatie(RapportOpbouw.Maak(g), "Overige bedrijfskosten").Regels.Select(r => r.Omschrijving).SkipLast(1));
+    }
+
+    [Fact]
     public void Een_eigen_post_is_een_regel_in_de_specificatie()
     {
         var eigen = new EigenPost(Guid.NewGuid(), "BVorDeb", "Debiteuren binnenland");

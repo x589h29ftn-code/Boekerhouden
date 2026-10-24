@@ -33,7 +33,7 @@ else
     {
         <GrondslagKeuze DossierId="dossier.Id" Huidig="dossier.Grondslag" Gekozen="Laad" />
     }
-    <DossierMenu DossierId="dossier.Id" />
+    <DossierMenu DossierId="dossier.Id">
 
     @if (signalen is not null)
     {
@@ -60,7 +60,7 @@ else
                 {
                     <span class="small text-secondary">@rubricering.Gekoppeld van @rubricering.Relevant rekeningen gekoppeld (@rubricering.Percentage%)</span>
                 }
-                <a class="btn btn-sm btn-outline-secondary" href="/dossiers/@dossier.Id/rubriceren">Rubriceren</a>
+                <a class="btn btn-sm btn-outline-secondary" href="/dossiers/@dossier.Id/rubriceren">Koppelen</a>
             </div>
             @if (rubricering is { Schema: not null, Balans: { } balans } && rubricering.Gekoppeld > 0)
             {
@@ -160,6 +160,7 @@ else
             </div>
         }
     </div>
+    </DossierMenu>
 }
 
 @code {

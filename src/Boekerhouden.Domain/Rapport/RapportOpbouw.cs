@@ -6,7 +6,18 @@ using Boekerhouden.Domain.Rubricering;
 namespace Boekerhouden.Domain.Rapport;
 
 /// <summary>Hoe een grootboekrekening in de specificaties staat: een eigen omschrijving, of verborgen (telt mee in "Overige").</summary>
-public sealed record RekeningWeergave(string? Omschrijving, bool Verbergen);
+/// <param name="SamenMet">Samen met deze rekening op één regel (gesaldeerd), als die in dezelfde subpost staat.</param>
+public sealed record RekeningWeergave(string? Omschrijving, bool Verbergen, Guid? SamenMet = null);
+
+/// <summary>De volgorde van de regels in een specificatie (per subpost).</summary>
+public enum Sortering
+{
+    /// <summary>Op rekeningnummer.</summary>
+    Standaard,
+    HoogNaarLaag,
+    LaagNaarHoog,
+    Alfabetisch,
+}
 
 /// <summary>Eén regel van de uitsplitsing van een rekening; bedragen zoals in het rapport (positief aan de normale kant).</summary>
 public sealed record SplitsRegel(string Omschrijving, decimal Bedrag, decimal? BedragVorig);
@@ -53,7 +64,8 @@ public sealed record RapportGegevens(
     IReadOnlyDictionary<string, string>? Afschrijvingspercentages = null,
     IReadOnlySet<string>? VerloopZonderVorigJaar = null,
     Klantkaart? Kaart = null,
-    VerklaringGegevens? Verklaring = null);
+    VerklaringGegevens? Verklaring = null,
+    IReadOnlyDictionary<string, Sortering>? Sorteringen = null);
 
 /// <summary>Gegevens van de klantenkaart voor teksten in het rapport ({adres}, {rsin}, {statutaire_zetel} e.d.).</summary>
 /// <param name="Adres">Straat, huisnummer en toevoeging.</param>
@@ -320,7 +332,7 @@ public static partial class RapportOpbouw
             var subposten = MetSaldo(g, g.Schema.Kinderen(post.Code).Where(c => c.Niveau == 3)).ToList();
             foreach (var sub in subposten)
             {
-                var rijen = Rijen(g, sub, perSubpost.GetValueOrDefault(sub.Code) ?? [], teken, waarschuwingen);
+                var rijen = Rijen(g, sub, perSubpost.GetValueOrDefault(sub.Code) ?? [], teken, waarschuwingen, g.Sorteringen?.GetValueOrDefault(post.Code) ?? Sortering.Standaard);
                 if (subposten.Count == 1)
                 {
                     regels.AddRange(rijen);
@@ -359,7 +371,11 @@ public static partial class RapportOpbouw
             }
 
             regels.Add(new Regel(RegelSoort.Eindtotaal, "Totaal", huidig, null, vorig));
-            blokken.Add(new TabelBlok(new Tabel(g.Naam(post.Code), false, kopHuidig, kopVorig, regels, post.Code) { Bron = PostBron(g, post.Code) }));
+            blokken.Add(new TabelBlok(new Tabel(g.Naam(post.Code), false, kopHuidig, kopVorig, regels, post.Code)
+            {
+                Bron = PostBron(g, post.Code),
+                Sortering = g.Sorteringen?.GetValueOrDefault(post.Code) ?? Sortering.Standaard,
+            }));
             if (!string.IsNullOrWhiteSpace(toelichting))
             {
                 blokken.Add(new TekstBlok(toelichting) { Toelichting = post.Code });
@@ -383,41 +399,52 @@ public static partial class RapportOpbouw
     /// De specificatieregels van één subpost: rekeningen (of hun uitsplitsing), eigen posten (als één regel) en
     /// "Overige" voor verborgen rekeningen.
     /// </summary>
-    private static List<Regel> Rijen(RapportGegevens g, RgsCode subpost, List<Bedrag> bedragen, int teken, ICollection<string>? waarschuwingen)
+    private static List<Regel> Rijen(RapportGegevens g, RgsCode subpost, List<Bedrag> bedragen, int teken, ICollection<string>? waarschuwingen, Sortering sortering = Sortering.Standaard)
     {
         bool Verborgen(Bedrag b) => g.Weergave.GetValueOrDefault(b.Rekening.RekeningId) is { Verbergen: true };
 
-        var rijen = new List<Regel>();
-        foreach (var rekening in bedragen.Where(b => b.EigenPostId is null && !Verborgen(b)).GroupBy(b => b.Rekening).OrderBy(r => r.Key.Nummer, StringComparer.Ordinal))
+        // Rekeningen die samen met een andere rekening van deze subpost op één regel staan, tellen bij die regel.
+        var zichtbaar = bedragen.Where(b => b.EigenPostId is null && !Verborgen(b)).ToList();
+        var hier = zichtbaar.Select(b => b.Rekening).DistinctBy(r => r.RekeningId).ToDictionary(r => r.RekeningId);
+        RekeningSaldo Lijn(RekeningSaldo r) =>
+            g.Weergave.GetValueOrDefault(r.RekeningId)?.SamenMet is { } doel && doel != r.RekeningId && hier.TryGetValue(doel, out var samen)
+            && g.Weergave.GetValueOrDefault(doel)?.SamenMet is null ? samen : r;
+
+        var groepen = new List<List<Regel>>();
+        foreach (var rekening in zichtbaar.GroupBy(b => Lijn(b.Rekening)).OrderBy(r => r.Key.Nummer, StringComparer.Ordinal))
         {
             var r = rekening.Key;
             var omschrijving = g.Weergave.GetValueOrDefault(r.RekeningId)?.Omschrijving ?? r.Omschrijving;
             var huidig = teken * rekening.Sum(b => b.Huidig);
             var vorig = teken * rekening.Sum(b => b.Vorig);
+            var samen = rekening.Select(b => b.Rekening).Where(x => x.RekeningId != r.RekeningId).DistinctBy(x => x.RekeningId).OrderBy(x => x.Nummer, StringComparer.Ordinal).ToList();
 
             // Een uitsplitsing hoort bij de plek waar de rekening dit jaar staat (bij omslag kan vorig jaar elders staan).
             if (g.Uitsplitsingen?.GetValueOrDefault(r.RekeningId) is { Count: > 0 } splitsing && (huidig != 0 || (r.Huidig ?? 0) == 0))
             {
-                rijen.AddRange(Uitsplitsing(r, omschrijving, splitsing, huidig, vorig, waarschuwingen));
+                groepen.Add([.. Uitsplitsing(r, omschrijving, splitsing, huidig, vorig, waarschuwingen)]);
                 continue;
             }
 
-            rijen.Add(new Regel(RegelSoort.Detail, omschrijving, huidig, null, vorig)
+            groepen.Add([new Regel(RegelSoort.Detail, omschrijving, huidig, null, vorig)
             {
-                Bron = new Bron(Onderwerp.Rekening, r.Nummer, r.RekeningId, $"Rekening {r.Nummer} {r.Omschrijving}"),
-            });
+                Bron = new Bron(Onderwerp.Rekening, r.Nummer, r.RekeningId,
+                    $"Rekening {r.Nummer} {r.Omschrijving}{string.Concat(samen.Select(x => $" + {x.Nummer} {x.Omschrijving}"))}"),
+                Samen = samen.Count == 0 ? [] : [.. samen.Select(x => x.RekeningId)],
+            }]);
         }
 
         foreach (var eigen in bedragen.Where(b => b.EigenPostId is not null).GroupBy(b => b.EigenPostId!.Value))
         {
             var post = g.EigenPosten.FirstOrDefault(e => e.Id == eigen.Key);
-            rijen.Add(new Regel(RegelSoort.Detail, post?.Naam ?? subpost.Omschrijving, teken * eigen.Sum(b => b.Huidig), null, teken * eigen.Sum(b => b.Vorig))
+            groepen.Add([new Regel(RegelSoort.Detail, post?.Naam ?? subpost.Omschrijving, teken * eigen.Sum(b => b.Huidig), null, teken * eigen.Sum(b => b.Vorig))
             {
                 Bron = new Bron(Onderwerp.EigenPost, PostBalans.EigenSleutel(eigen.Key), eigen.Key,
                     $"Eigen post onder {post?.OuderCode} · rekening(en) {string.Join(", ", eigen.Select(b => b.Rekening.Nummer).Distinct())}"),
-            });
+            }]);
         }
 
+        var rijen = Sorteer(groepen, sortering).SelectMany(r => r).ToList();
         var verborgen = bedragen.Where(b => b.EigenPostId is null && Verborgen(b)).ToList();
         if (verborgen.Count > 0)
         {
@@ -426,6 +453,15 @@ public static partial class RapportOpbouw
 
         return [.. rijen.Where(r => r.Detail != 0 || r.DetailVorig != 0 || r.Bron?.Soort == Onderwerp.Uitsplitsing)];
     }
+
+    /// <summary>De regels (een rekening met zijn uitsplitsing blijft bij elkaar) in de gekozen volgorde; "Overige" komt altijd onderaan.</summary>
+    private static IEnumerable<List<Regel>> Sorteer(List<List<Regel>> groepen, Sortering sortering) => sortering switch
+    {
+        Sortering.HoogNaarLaag => groepen.OrderByDescending(r => r.Sum(x => x.Detail ?? 0)),
+        Sortering.LaagNaarHoog => groepen.OrderBy(r => r.Sum(x => x.Detail ?? 0)),
+        Sortering.Alfabetisch => groepen.OrderBy(r => r[0].Omschrijving, StringComparer.Create(System.Globalization.CultureInfo.GetCultureInfo("nl-NL"), true)),
+        _ => groepen,
+    };
 
     /// <summary>
     /// De regels waarin een rekening is uitgesplitst, afgerond op hele euro's zodat ze optellen tot het saldo. Sluit
