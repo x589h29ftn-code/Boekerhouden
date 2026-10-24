@@ -153,6 +153,22 @@
     [Parameter]
     public Func<Task<Uitvoerder>>? Wie { get; set; }
 
+    /// <summary>In de viewer: de rekeningen onder de post van een regel tonen (rechts naast het rapport).</summary>
+    [Parameter]
+    public EventCallback<Bron> RekeningenTonen { get; set; }
+
+    /// <summary>Waar een gesleepte rekening heen gaat als hij op een regel met deze bron valt; null = daar kan niets heen.</summary>
+    [Parameter]
+    public Func<Bron?, string?>? Sleepdoel { get; set; }
+
+    /// <summary>Een rekening is neergezet op een regel; het argument is het doel (RGS-code of eigen post).</summary>
+    [Parameter]
+    public EventCallback<string> Neergezet { get; set; }
+
+    public bool KanRekeningenTonen => Bewerkbaar && RekeningenTonen.HasDelegate;
+
+    public string? DoelVan(Bron? bron) => Bewerkbaar ? Sleepdoel?.Invoke(bron) : null;
+
     private Rapport R => Inhoud.Rapport;
 
     private string Adres => string.Join(" · ", new[] { Inhoud.Kantoor.Adres, $"{Inhoud.Kantoor.Postcode} {Inhoud.Kantoor.Plaats}".Trim() }

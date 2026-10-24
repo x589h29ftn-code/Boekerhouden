@@ -1,5 +1,6 @@
 using System.Text;
 using Boekerhouden.Data;
+using Boekerhouden.Domain.Rapport;
 using Boekerhouden.Domain.Rubricering;
 using Boekerhouden.Server.Diensten;
 using Boekerhouden.Tests.Gedeeld;
@@ -176,6 +177,40 @@ public sealed class RubriceerDienstTests(ServerFixture server) : IClassFixture<S
         Assert.Equal(0, await Rubriceer.AutomatischKoppelen(klant, Tester));
         o = (await Rubriceer.Overzicht(dossier))!;
         Assert.Equal(new KoppelInfo("BLimKas", null, KoppelBron.Handmatig), o.Rekeningen.Single(r => r.Nummer == "1000").Koppeling);
+    }
+
+    [Fact]
+    public async Task Vanuit_het_rapport_de_rekeningen_van_een_regel_tonen_en_naar_een_andere_regel_verplaatsen()
+    {
+        var (klantId, dossierId) = await NieuweBakkerij();
+        await Rubriceer.AccepteerVoorstellen(dossierId, null, onthouden: false, Tester);
+        var o = (await Rubriceer.Overzicht(dossierId, metVoorstellen: false))!;
+        var schema = o.Schema!;
+        string Subpost(RubriceerRekening x) => schema.Zoek(x.Koppeling!.Code) is { Niveau: 4, Ouder: { } ouder } ? ouder : x.Koppeling.Code;
+        var opZijnPlek = o.Rekeningen
+            .Where(x => x.HeeftSaldo && x.Koppeling is { EigenPostId: null } k && k.Code.StartsWith('B') && o.Balans!.Plaatsing.GetValueOrDefault(x.Id) == k.Code)
+            .ToList();
+        var a = opZijnPlek[0];
+        var b = opZijnPlek.First(x => Subpost(x) != Subpost(a));
+        var hoofdpost = schema.Voorouders(a.Koppeling!.Code).Single(c => c.Niveau == 2).Code;
+
+        var vanRekening = RekeningenInRapport.Van(o, new Bron(Onderwerp.Rekening, a.Nummer, a.Id, ""))!;
+        var vanHoofdpost = RekeningenInRapport.Van(o, new Bron(Onderwerp.Post, hoofdpost, null, ""))!;
+
+        Assert.Equal(Subpost(a), vanRekening.Sleutel);
+        Assert.Contains(vanRekening.Rekeningen, x => x.Id == a.Id);
+        Assert.DoesNotContain(vanRekening.Rekeningen, x => x.Id == b.Id);
+        Assert.Contains(vanHoofdpost.Rekeningen, x => x.Id == a.Id);
+        Assert.Null(RekeningenInRapport.Doel(o, new Bron(Onderwerp.Post, hoofdpost, null, "")));
+        Assert.Equal(Subpost(b), RekeningenInRapport.Doel(o, new Bron(Onderwerp.Post, Subpost(b), null, "")));
+        var doel = RekeningenInRapport.Doel(o, new Bron(Onderwerp.Rekening, b.Nummer, b.Id, ""));
+        Assert.Equal(b.Koppeling!.Sleutel, doel);
+
+        Assert.True((await Rubriceer.Koppel(klantId, [a.Id], doel!, onthouden: false, Tester)).IsGelukt);
+        o = (await Rubriceer.Overzicht(dossierId, metVoorstellen: false))!;
+
+        Assert.Contains(RekeningenInRapport.Van(o, new Bron(Onderwerp.Rekening, b.Nummer, b.Id, ""))!.Rekeningen, x => x.Id == a.Id);
+        Assert.DoesNotContain(RekeningenInRapport.Van(o, new Bron(Onderwerp.Post, Subpost(a), null, ""))?.Rekeningen ?? [], x => x.Id == a.Id);
     }
 
     [Fact]

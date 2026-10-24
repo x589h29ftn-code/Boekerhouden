@@ -20,19 +20,21 @@
             var dubbel = regel.Soort == RegelSoort.Eindtotaal;
             if (regel.Soort == RegelSoort.Kop)
             {
-                <tr class="kop">
+                <tr class="kop @Sleepklasse(regel)" @ondrop="() => Neerzetten(regel)">
                     <td class="omschrijving" colspan="@Kolommen">
                         @Klap(regel)
                         @Omschrijving(regel)
+                        @Rekeningen(regel)
                     </td>
                 </tr>
             }
             else
             {
-                <tr class="@Klasse(regel)">
+                <tr class="@Klasse(regel) @Sleepklasse(regel)" @ondrop="() => Neerzetten(regel)">
                     <td class="omschrijving">
                         @Klap(regel)
                         @Omschrijving(regel)
+                        @Rekeningen(regel)
                         @if (Document.Bewerkbaar && regel.Bron is { Soort: Onderwerp.Rekening, Id: { } id } && openSplitsing != id)
                         {
                             <button type="button" class="bewerk-actie" @onclick="() => openSplitsing = id">uitsplitsen</button>
@@ -45,15 +47,15 @@
                     </td>
                     @if (Tabel.Tweekoloms)
                     {
-                        <td class="bedrag">@RapportHtml.Bedrag(regel.Detail)</td>
-                        <td class="@Cel(lijn, dubbel && regel.Totaal is not null)">@RapportHtml.Bedrag(regel.Totaal)</td>
-                        <td class="bedrag vorig">@RapportHtml.Bedrag(regel.DetailVorig)</td>
-                        <td class="@Cel(lijn, dubbel && regel.TotaalVorig is not null, vorig: true)">@RapportHtml.Bedrag(regel.TotaalVorig)</td>
+                        <td class="bedrag" @onclick="() => Toon(regel)">@RapportHtml.Bedrag(regel.Detail)</td>
+                        <td class="@Cel(lijn, dubbel && regel.Totaal is not null)" @onclick="() => Toon(regel)">@RapportHtml.Bedrag(regel.Totaal)</td>
+                        <td class="bedrag vorig" @onclick="() => Toon(regel)">@RapportHtml.Bedrag(regel.DetailVorig)</td>
+                        <td class="@Cel(lijn, dubbel && regel.TotaalVorig is not null, vorig: true)" @onclick="() => Toon(regel)">@RapportHtml.Bedrag(regel.TotaalVorig)</td>
                     }
                     else
                     {
-                        <td class="@Cel(lijn, dubbel)">@RapportHtml.Bedrag(regel.Detail ?? regel.Totaal)</td>
-                        <td class="@Cel(lijn, dubbel, vorig: true)">@RapportHtml.Bedrag(regel.DetailVorig ?? regel.TotaalVorig)</td>
+                        <td class="@Cel(lijn, dubbel)" @onclick="() => Toon(regel)">@RapportHtml.Bedrag(regel.Detail ?? regel.Totaal)</td>
+                        <td class="@Cel(lijn, dubbel, vorig: true)" @onclick="() => Toon(regel)">@RapportHtml.Bedrag(regel.DetailVorig ?? regel.TotaalVorig)</td>
                     }
                 </tr>
             }
@@ -132,6 +134,25 @@
 
     /// <summary>Het saldo van de rekening zoals in het rapport: de som van zijn regels (bij een uitsplitsing inclusief het verschil).</summary>
     private decimal Som(Guid rekeningId, bool vorig) => RegelsVan(rekeningId).Sum(r => (vorig ? r.DetailVorig : r.Detail) ?? 0);
+
+    private static bool HeeftRekeningen(Regel regel) => regel.Bron?.Soort is Onderwerp.Post or Onderwerp.EigenPost or Onderwerp.Rekening or Onderwerp.Uitsplitsing;
+
+    /// <summary>"rekeningen" bij aanwijzen: rechts de grootboekrekeningen van de post, om ze naar een andere post te slepen.</summary>
+    private RenderFragment? Rekeningen(Regel regel) => Document.KanRekeningenTonen && HeeftRekeningen(regel)
+        ? @<button type="button" class="bewerk-actie" title="De grootboekrekeningen van deze post; sleep er een naar een andere regel om hem daar te verantwoorden"
+                   @onclick="() => Toon(regel)">rekeningen</button>
+        : null;
+
+    private Task Toon(Regel regel) =>
+        Document.KanRekeningenTonen && HeeftRekeningen(regel) ? Document.RekeningenTonen.InvokeAsync(regel.Bron!) : Task.CompletedTask;
+
+    /// <summary>Een regel waar een rekening op kan vallen; de markering tijdens het slepen doet slepen.js.</summary>
+    private string? Sleepklasse(Regel regel) =>
+        Document.DoelVan(regel.Bron) is null ? (Document.KanRekeningenTonen && HeeftRekeningen(regel) ? "toonbaar" : null)
+        : HeeftRekeningen(regel) ? "dropdoel toonbaar" : "dropdoel";
+
+    private Task Neerzetten(Regel regel) =>
+        Document.DoelVan(regel.Bron) is { } doel ? Document.Neergezet.InvokeAsync(doel) : Task.CompletedTask;
 
     private string SplitsOmschrijving(Guid rekeningId) => RegelsVan(rekeningId).FirstOrDefault()?.Omschrijving ?? "";
 }
