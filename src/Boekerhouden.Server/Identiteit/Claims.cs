@@ -9,12 +9,26 @@ namespace Boekerhouden.Server.Identiteit;
 public static class BoekerhoudenClaims
 {
     public const string Naam = "naam";
+    public const string Initialen = "initialen";
     public const string MoetWachtwoordWijzigen = "moet_wachtwoord_wijzigen";
 
     public static string WeergaveNaam(this ClaimsPrincipal gebruiker)
     {
         ArgumentNullException.ThrowIfNull(gebruiker);
         return gebruiker.FindFirstValue(Naam) ?? gebruiker.Identity?.Name ?? "Onbekend";
+    }
+
+    /// <summary>De initialen voor het gebruikersmenu; zonder claim (ouder cookie) de eerste letters van de naam.</summary>
+    public static string WeergaveInitialen(this ClaimsPrincipal gebruiker)
+    {
+        ArgumentNullException.ThrowIfNull(gebruiker);
+        if (gebruiker.FindFirstValue(Initialen) is { Length: > 0 } initialen)
+        {
+            return initialen;
+        }
+
+        var woorden = gebruiker.WeergaveNaam().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return string.Concat(woorden.Length > 1 ? [woorden[0][0], woorden[^1][0]] : woorden.Select(w => w[0]).Take(1)).ToUpperInvariant();
     }
 
     /// <summary>De ingelogde gebruiker als uitvoerder van een handeling (voor het wijzigingslog).</summary>
@@ -38,6 +52,7 @@ public sealed class GebruikerClaimsFactory(
         ArgumentNullException.ThrowIfNull(user);
         var identiteit = await base.GenerateClaimsAsync(user);
         identiteit.AddClaim(new Claim(BoekerhoudenClaims.Naam, user.Naam));
+        identiteit.AddClaim(new Claim(BoekerhoudenClaims.Initialen, user.Initialen));
         if (user.MoetWachtwoordWijzigen)
         {
             identiteit.AddClaim(new Claim(BoekerhoudenClaims.MoetWachtwoordWijzigen, "true"));

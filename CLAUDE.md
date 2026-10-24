@@ -37,7 +37,7 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   wijzigingslog, rubriceren, correcties, werkprogramma en review, doorlezen en bespreekpunten, bijlagen, signalen, kantoor en huisstijl, rapport en
   presentatie per klant, grondslagen; `DossierSaldi` = saldi van een dossier na correcties, met vorig jaar;
   `Jaarversies` = instellingen die gelden vanaf een boekjaar, nooit met terugwerkende kracht), `Werkprogramma/` (het meegeleverde standaardwerkprogramma), `Grondslagen/` (de
-  meegeleverde bibliotheek: algemene toelichting en grondslagen, commercieel en fiscaal, met `{naam}` e.d.), `Identiteit/` (inloggen, wachtwoordbeleid), `Components/` (schermen; accountpagina's statisch,
+  meegeleverde bibliotheek: algemene toelichting en grondslagen, commercieel en fiscaal, met `{naam}` e.d.), `Identiteit/` (inloggen, wachtwoordbeleid), `Components/` (schermen; `Layout/HoofdLayout` = kopbalk met Klanten, Beheer en het gebruikersmenu, `BeheerLayout` = menu links bij beheer; accountpagina's statisch,
   de rest interactief; `Rapportweergave/` = het rapport als bewerkbare viewer, dezelfde component rendert de PDF),
   `wwwroot/navigatie.js` (werkprogramma en rapport openen op dezelfde post),
   `Demo/` (`--demo`: vult account, RGS-werkboek en klanten uit `tests/Fictief/` en `testdata/demo/`),

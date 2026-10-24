@@ -1,5 +1,7 @@
+using System.Security.Claims;
 using Boekerhouden.Server.Components.Layout;
 using Boekerhouden.Server.Components.Pages;
+using Boekerhouden.Server.Identiteit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,5 +42,21 @@ public sealed class HulpTests(ServerFixture server) : IClassFixture<ServerFixtur
         await using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
         var html = await renderer.Dispatcher.InvokeAsync(async () => (await renderer.RenderComponentAsync<Hulp>(ParameterView.Empty)).ToHtmlString());
         Assert.Contains($"id=\"{sectie}\"", html, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("BB", "Bea Beheer", "BB")]
+    [InlineData(null, "Bea van den Berg", "BB")]
+    [InlineData(null, "Demo", "D")]
+    [InlineData(null, "demo gebruiker", "DG")]
+    public void Initialen_in_het_gebruikersmenu(string? claim, string naam, string verwacht)
+    {
+        var claims = new List<Claim> { new(BoekerhoudenClaims.Naam, naam) };
+        if (claim is not null)
+        {
+            claims.Add(new(BoekerhoudenClaims.Initialen, claim));
+        }
+
+        Assert.Equal(verwacht, new ClaimsPrincipal(new ClaimsIdentity(claims, "test")).WeergaveInitialen());
     }
 }

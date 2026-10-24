@@ -35,3 +35,17 @@ window.boekerhouden.naarAnker = () => {
         doel.scrollIntoView({ behavior: 'instant', block: 'start' });
     }
 };
+
+// Het gebruikersmenu sluit bij een klik ernaast of met Escape.
+document.addEventListener('click', e => {
+    for (const menu of document.querySelectorAll('details.gebruikersmenu[open]')) {
+        if (!menu.contains(e.target)) {
+            menu.open = false;
+        }
+    }
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('details.gebruikersmenu[open]').forEach(menu => menu.open = false);
+    }
+});

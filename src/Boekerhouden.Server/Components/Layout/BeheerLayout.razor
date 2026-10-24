@@ -1,0 +1,20 @@
+@* Beheer: links een vast menu, gegroepeerd naar het kantoor en de vaktechnische inhoud. *@
+@inherits LayoutComponentBase
+@layout HoofdLayout
+
+<div class="beheer">
+    <nav class="beheermenu" aria-label="Beheer">
+        <div class="groep">Kantoor</div>
+        <NavLink href="/beheer/kantoor">Kantoor en huisstijl</NavLink>
+        <NavLink href="/beheer/gebruikers">Gebruikers</NavLink>
+        <NavLink href="/beheer/wijzigingslog">Wijzigingslog</NavLink>
+        <div class="groep">Vaktechniek</div>
+        <NavLink href="/beheer/rgs">RGS</NavLink>
+        <NavLink href="/beheer/koppelsjabloon">Koppelsjabloon</NavLink>
+        <NavLink href="/beheer/werkprogramma">Werkprogramma's</NavLink>
+        <NavLink href="/beheer/grondslagen">Grondslagen</NavLink>
+    </nav>
+    <div class="beheer-inhoud">
+        @Body
+    </div>
+</div>

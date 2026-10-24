@@ -1,32 +1,30 @@
 @inherits LayoutComponentBase
+@implements IDisposable
 @inject NavigationManager Navigatie
 
-<header class="navbar navbar-expand bg-white border-bottom shadow-sm px-3">
-    <a class="navbar-brand fw-semibold" href="/">
-        <img src="favicon.svg" alt="" width="24" height="24" class="me-1 align-text-bottom" />
+<header class="kopbalk">
+    <a class="merk" href="/">
+        <img src="favicon.svg" alt="" width="22" height="22" />
         Boekerhouden
     </a>
-    <nav class="navbar-nav me-auto">
-        <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">Klanten</NavLink>
+    <nav class="hoofdmenu" aria-label="Hoofdmenu">
+        <a href="/" class="@(Onderdeel == "werk" ? "actief" : null)">Klanten</a>
         <AuthorizeView Roles="@Rollen.Beheerder">
-            <NavLink class="nav-link" href="/beheer/gebruikers">Gebruikers</NavLink>
-            <NavLink class="nav-link" href="/beheer/rgs">RGS</NavLink>
-            <NavLink class="nav-link" href="/beheer/koppelsjabloon">Koppelsjabloon</NavLink>
-            <NavLink class="nav-link" href="/beheer/werkprogramma">Werkprogramma's</NavLink>
-            <NavLink class="nav-link" href="/beheer/grondslagen">Grondslagen</NavLink>
-            <NavLink class="nav-link" href="/beheer/kantoor">Kantoor</NavLink>
-            <NavLink class="nav-link" href="/beheer/wijzigingslog">Wijzigingslog</NavLink>
+            <a href="/beheer/kantoor" class="@(Onderdeel == "beheer" ? "actief" : null)">Beheer</a>
         </AuthorizeView>
     </nav>
     <AuthorizeView>
-        <div class="d-flex align-items-center gap-2">
-            <span class="text-secondary small" title="Ingelogd als">@context.User.WeergaveNaam()</span>
-            <a class="btn btn-sm btn-outline-secondary" href="/wachtwoord-wijzigen" data-enhance-nav="false">Wachtwoord wijzigen</a>
-            <form action="/account/uitloggen" method="post" class="m-0">
-                <AntiforgeryToken />
-                <button type="submit" class="btn btn-sm btn-outline-secondary">Uitloggen</button>
-            </form>
-        </div>
+        <details class="gebruikersmenu">
+            <summary title="@context.User.WeergaveNaam()" aria-label="Gebruikersmenu"><span class="initialen">@context.User.WeergaveInitialen()</span></summary>
+            <div class="menu">
+                <div class="naam">@context.User.WeergaveNaam()</div>
+                <a href="/wachtwoord-wijzigen" data-enhance-nav="false">Wachtwoord wijzigen</a>
+                <form action="/account/uitloggen" method="post">
+                    <AntiforgeryToken />
+                    <button type="submit">Uitloggen</button>
+                </form>
+            </div>
+        </details>
     </AuthorizeView>
 </header>
 
@@ -51,8 +49,22 @@
 @code {
     private ErrorBoundary? foutgrens;
 
+    // Op interactieve pagina's blijft de layout staan bij navigatie; dan het menu en het vraagteken bijwerken.
+    protected override void OnInitialized() => Navigatie.LocationChanged += Verplaatst;
+
+    private void Verplaatst(object? afzender, LocationChangedEventArgs e) => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Navigatie.LocationChanged -= Verplaatst;
+
+    private string Pad => Navigatie.ToBaseRelativePath(Navigatie.Uri);
+
+    /// <summary>Welk deel van het hoofdmenu actief is: het werk (klanten en dossiers) of beheer.</summary>
+    private string? Onderdeel => Pad.StartsWith("beheer", StringComparison.Ordinal) ? "beheer"
+        : Pad.StartsWith("hulp", StringComparison.Ordinal) ? null
+        : "werk";
+
     /// <summary>Het deel van de documentatie dat bij de huidige pagina hoort.</summary>
-    private string Hulpsectie => Sectie(Navigatie.ToBaseRelativePath(Navigatie.Uri));
+    private string Hulpsectie => Sectie(Pad);
 
     internal static string Sectie(string pad)
     {

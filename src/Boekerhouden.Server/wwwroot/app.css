@@ -24,9 +24,185 @@ h1:focus {
     outline: none;
 }
 
-.navbar .nav-link.active {
-    color: var(--bh-accent);
-    font-weight: 600;
+/* Kopbalk: merk, het hoofdmenu (Klanten, Beheer) en rechts het gebruikersmenu. */
+.kopbalk {
+    position: relative;
+    z-index: 1020;
+    display: flex;
+    align-items: stretch;
+    gap: 1.5rem;
+    height: 3rem;
+    padding: 0 1.25rem;
+    background: #fff;
+    border-bottom: 1px solid #e3e7eb;
+}
+
+    .kopbalk .merk {
+        display: flex;
+        align-items: center;
+        gap: .45rem;
+        color: var(--bs-body-color);
+        font-weight: 600;
+        text-decoration: none;
+    }
+
+.hoofdmenu {
+    display: flex;
+    align-items: stretch;
+    gap: 1.25rem;
+    margin-right: auto;
+}
+
+    .hoofdmenu a {
+        display: flex;
+        align-items: center;
+        border-top: 2px solid transparent;
+        border-bottom: 2px solid transparent;
+        color: #5a6670;
+        font-size: .95rem;
+        text-decoration: none;
+    }
+
+        .hoofdmenu a:hover {
+            color: var(--bs-body-color);
+        }
+
+        .hoofdmenu a.actief {
+            border-bottom-color: var(--bh-accent);
+            color: var(--bs-body-color);
+        }
+
+.gebruikersmenu {
+    position: relative;
+    align-self: center;
+}
+
+    .gebruikersmenu summary {
+        list-style: none;
+        cursor: pointer;
+    }
+
+        .gebruikersmenu summary::-webkit-details-marker {
+            display: none;
+        }
+
+    .gebruikersmenu .initialen {
+        display: inline-block;
+        width: 2rem;
+        height: 2rem;
+        line-height: 2rem;
+        border-radius: 50%;
+        background: #eef2f5;
+        color: #3d4852;
+        font-size: .8rem;
+        font-weight: 600;
+        text-align: center;
+    }
+
+    .gebruikersmenu[open] .initialen, .gebruikersmenu summary:hover .initialen {
+        background: #e1e8ee;
+    }
+
+    .gebruikersmenu .menu {
+        position: absolute;
+        right: 0;
+        top: calc(100% + .4rem);
+        min-width: 13rem;
+        padding: .4rem 0;
+        background: #fff;
+        border: 1px solid #e3e7eb;
+        border-radius: .4rem;
+        box-shadow: 0 .4rem 1rem rgba(0, 0, 0, .06);
+        font-size: .9rem;
+    }
+
+        .gebruikersmenu .menu .naam {
+            padding: .3rem .9rem .5rem;
+            border-bottom: 1px solid #eef0f2;
+            margin-bottom: .3rem;
+            color: var(--kleur-zacht, #8a939b);
+            font-size: .85rem;
+        }
+
+        .gebruikersmenu .menu a, .gebruikersmenu .menu button {
+            display: block;
+            width: 100%;
+            padding: .3rem .9rem;
+            border: 0;
+            background: none;
+            color: var(--bs-body-color);
+            text-align: left;
+            text-decoration: none;
+        }
+
+            .gebruikersmenu .menu a:hover, .gebruikersmenu .menu button:hover {
+                background: #f4f6f8;
+            }
+
+        .gebruikersmenu .menu form {
+            margin: 0;
+        }
+
+/* Beheer: links een vast menu per groep. */
+.beheer {
+    display: grid;
+    grid-template-columns: 12rem minmax(0, 1fr);
+    gap: 2rem;
+    align-items: start;
+}
+
+.beheermenu {
+    position: sticky;
+    top: 1rem;
+    display: flex;
+    flex-direction: column;
+    font-size: .9rem;
+}
+
+    .beheermenu .groep {
+        margin: 1rem 0 .3rem;
+        color: var(--kleur-zacht, #8a939b);
+        font-size: .72rem;
+        font-weight: 600;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+    }
+
+        .beheermenu .groep:first-child {
+            margin-top: 0;
+        }
+
+    .beheermenu a {
+        padding: .25rem .6rem;
+        border-left: 2px solid transparent;
+        color: #3d4852;
+        text-decoration: none;
+    }
+
+        .beheermenu a:hover {
+            background: #eef2f5;
+        }
+
+        .beheermenu a.active {
+            border-left-color: var(--bh-accent);
+            background: #eef2f5;
+            color: var(--bs-body-color);
+        }
+
+@media (max-width: 991.98px) {
+    .beheer {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .beheermenu {
+        position: static;
+        flex-flow: row wrap;
+        gap: .25rem;
+    }
+
+        .beheermenu .groep {
+            display: none;
+        }
 }
 
 tr.klikbaar {
