@@ -77,7 +77,9 @@ Het filter per rechtsvorm staat (nog) in code (`RgsSelectie`).
 `GrondslagSjablonen` hebben een kolom `VanafBoekjaar` in de sleutel (0 = alle jaren). In een boekjaar geldt per
 sleutel de versie met het hoogste `VanafBoekjaar` tot en met dat jaar (`Jaarversies`); een wijziging vanuit een
 dossier maakt of past de versie van dat jaar aan. `DossierToelichtingen` en `DossierGrondslagen` zijn per dossier en
-rollen door naar latere jaren; een lege toelichting betekent "vanaf dit jaar geen".
+rollen door naar latere jaren; een lege toelichting betekent "vanaf dit jaar geen". Of er een verloopoverzicht
+staat, is `Verloop` in `PostPresentaties` (null = standaard: wel bij de vaste activa) en `RekeningPresentaties`; de
+mutaties staan per dossier in `VerloopMutatieRegels` (sleutel, volgorde, kolom = subpost, omschrijving, bedrag).
 
 **RgsCodeInstelling** (kantoor, los van RGS): Referentiecode, SpecificatieVerplicht, VerloopoverzichtType (`Geen`/`VasteActiva`/`EigenVermogen`/`Voorziening`/`LanglopendeSchuld`/`RekeningCourant`), afwijkend RapportLabel per rapportvariant.
 

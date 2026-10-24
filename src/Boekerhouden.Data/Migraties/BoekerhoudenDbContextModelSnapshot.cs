@@ -961,6 +961,9 @@ namespace Boekerhouden.Data.Migraties
                     b.Property<bool?>("Uitgeklapt")
                         .HasColumnType("boolean");
 
+                    b.Property<bool?>("Verloop")
+                        .HasColumnType("boolean");
+
                     b.HasKey("KlantId", "Sleutel", "VanafBoekjaar");
 
                     b.ToTable("PostPresentaties", (string)null);
@@ -990,6 +993,9 @@ namespace Boekerhouden.Data.Migraties
                         .HasColumnType("character varying(300)");
 
                     b.Property<bool>("Verbergen")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("Verloop")
                         .HasColumnType("boolean");
 
                     b.HasKey("GrootboekrekeningId", "VanafBoekjaar");
@@ -1349,6 +1355,52 @@ namespace Boekerhouden.Data.Migraties
                     b.HasIndex("DossierId", "GrootboekrekeningId", "Volgorde");
 
                     b.ToTable("UitsplitsingRegels", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.VerloopMutatieRegel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Bedrag")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("DossierId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("GewijzigdDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("GewijzigdOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Kolom")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("Omschrijving")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Sleutel")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<int>("Volgorde")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DossierId", "Sleutel", "Volgorde");
+
+                    b.ToTable("VerloopMutatieRegels", (string)null);
                 });
 
             modelBuilder.Entity("Boekerhouden.Data.WerkprogrammaSjabloon", b =>
@@ -1784,6 +1836,15 @@ namespace Boekerhouden.Data.Migraties
                     b.HasOne("Boekerhouden.Data.Grootboekrekening", null)
                         .WithMany()
                         .HasForeignKey("GrootboekrekeningId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Boekerhouden.Data.VerloopMutatieRegel", b =>
+                {
+                    b.HasOne("Boekerhouden.Data.Dossier", null)
+                        .WithMany()
+                        .HasForeignKey("DossierId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

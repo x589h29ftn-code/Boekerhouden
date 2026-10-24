@@ -368,6 +368,48 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
         Assert.Null(Toelichting((await Rapporten.Maak(dossierId))!.Waarde!.Rapport, "BEiv"));
     }
 
+    private static List<Verloop> Verlopen(Rapport rapport) =>
+        [.. rapport.Hoofdstukken.SelectMany(h => h.Blokken).OfType<VerloopBlok>().Select(b => b.Verloop)];
+
+    [Fact]
+    public async Task Verloopoverzichten_bij_vaste_activa_en_op_verzoek_bij_een_rekening()
+    {
+        var (klantId, dossierId, klantnummer, rekeningen) = await Bakkerij();
+        var vorigDossier = (await server.Dienst<DossierDienst>().Maak(klantId, 2024, SoortOpdracht.SamenstellenJaarrekening, Tester, Verslaggeving.Fiscaal)).Waarde;
+
+        var rapport = (await Rapporten.Maak(dossierId))!.Waarde!.Rapport;
+        var mva = Verlopen(rapport).Single(v => v.Sleutel == "BMva");
+        Assert.True(mva.Standaard);
+        Assert.Equal(mva.Regels[^1].Bedragen[^1], Tabel(rapport, "Activa").Regels.Single(r => r.Bron?.Sleutel == "BMva").Totaal);
+        Assert.DoesNotContain(rapport.Waarschuwingen, w => w.Contains("Verloop", StringComparison.Ordinal));
+
+        // Een verloop bij de debiteuren, vanaf 2025: 2024 heeft het niet.
+        var sleutel = RapportOpbouw.RekeningSleutel(rekeningen["1300"]);
+        Assert.True((await Rapporten.ZetVerloop(dossierId, sleutel, true, Tester)).IsGelukt);
+        var debiteuren = Verlopen((await Rapporten.Maak(dossierId))!.Waarde!.Rapport).Single(v => v.Sleutel == sleutel);
+        Assert.Equal("Verloop Debiteuren", debiteuren.Titel);
+        Assert.DoesNotContain(Verlopen((await Rapporten.Maak(vorigDossier))!.Waarde!.Rapport), v => v.Sleutel == sleutel);
+
+        // Eigen mutaties die niet aansluiten: een regel en een waarschuwing; leeg = weer het voorstel.
+        Assert.True((await Rapporten.BewaarVerloop(dossierId, sleutel, [new("Gefactureerd", new Dictionary<string, decimal> { [""] = 1_000m })], Tester)).IsGelukt);
+        rapport = (await Rapporten.Maak(dossierId))!.Waarde!.Rapport;
+        debiteuren = Verlopen(rapport).Single(v => v.Sleutel == sleutel);
+        Assert.True(debiteuren.Aangepast);
+        Assert.Contains(debiteuren.Regels, r => r.Omschrijving == RapportOpbouw.NietVerklaard);
+        Assert.Contains(rapport.Waarschuwingen, w => w.StartsWith("Verloop Debiteuren sluit niet aan", StringComparison.Ordinal));
+        Assert.True((await Rapporten.BewaarVerloop(dossierId, sleutel, [], Tester)).IsGelukt);
+        Assert.False(Verlopen((await Rapporten.Maak(dossierId))!.Waarde!.Rapport).Single(v => v.Sleutel == sleutel).Aangepast);
+
+        // Het standaardverloop weghalen vanaf 2025.
+        Assert.True((await Rapporten.ZetVerloop(dossierId, "BMva", false, Tester)).IsGelukt);
+        Assert.DoesNotContain(Verlopen((await Rapporten.Maak(dossierId))!.Waarde!.Rapport), v => v.Sleutel == "BMva");
+        Assert.Contains(Verlopen((await Rapporten.Maak(vorigDossier))!.Waarde!.Rapport), v => v.Sleutel == "BMva");
+        Assert.False((await Rapporten.ZetVerloop(dossierId, RapportOpbouw.RekeningSleutel(Guid.NewGuid()), true, Tester)).IsGelukt);
+
+        Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.VerloopGewijzigd),
+            a => a.Onderwerp!.StartsWith(klantnummer, StringComparison.Ordinal) && a.Details == $"{sleutel}: Gefactureerd 1.000,00");
+    }
+
     [Fact]
     public async Task Een_uitsplitsing_van_vorig_jaar_is_een_voorstel()
     {

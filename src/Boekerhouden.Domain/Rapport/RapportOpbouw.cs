@@ -20,6 +20,8 @@ public sealed record SplitsRegel(string Omschrijving, decimal Bedrag, decimal? B
 /// <param name="Grondslagen">De grondslagen voor de jaarrekening (bibliotheek, al met de tekst voor commercieel of fiscaal); null = geen hoofdstuk.</param>
 /// <param name="GrondslagKeuzes">Per grondslag de keuze in het dossier: opgenomen of niet, en een eigen tekst.</param>
 /// <param name="Kvk">Het KvK-nummer van de klant, voor de variabele {kvk}.</param>
+/// <param name="Verlopen">Per post (RGS-code) of rekening ("rek:&lt;id&gt;") of er een verloopoverzicht komt; ontbreekt hij, dan de standaard.</param>
+/// <param name="VerloopMutaties">Per verloopoverzicht de aangepaste mutaties; ontbreekt hij, dan het voorstel uit de saldi.</param>
 public sealed record RapportGegevens(
     RapportSoort Soort,
     string Klantnaam,
@@ -38,7 +40,9 @@ public sealed record RapportGegevens(
     IReadOnlyDictionary<Guid, IReadOnlyList<SplitsRegel>>? Uitsplitsingen = null,
     IReadOnlyList<Grondslag>? Grondslagen = null,
     IReadOnlyDictionary<string, GrondslagKeuze>? GrondslagKeuzes = null,
-    string? Kvk = null);
+    string? Kvk = null,
+    IReadOnlyDictionary<string, bool>? Verlopen = null,
+    IReadOnlyDictionary<string, IReadOnlyList<VerloopMutatie>>? VerloopMutaties = null);
 
 /// <summary>
 /// Bouwt het rapport (plakje 6, docs §9.1–9.3) uit de proefbalans per post: de balans (tweekoloms, met het resultaat
@@ -327,6 +331,11 @@ public static partial class RapportOpbouw
             {
                 blokken.Add(new TekstBlok(toelichting) { Toelichting = post.Code });
             }
+
+            if (balans)
+            {
+                blokken.AddRange(Verlopen(g, post, perSubpost, waarschuwingen).Select(v => new VerloopBlok(v)));
+            }
         }
 
         if (blokken.Count == 0)
@@ -433,7 +442,8 @@ public static partial class RapportOpbouw
         return (regels, rest);
     }
 
-    private sealed record Bedrag(RekeningSaldo Rekening, Guid? EigenPostId, decimal Huidig, decimal Vorig);
+    /// <param name="Code">De RGS-code waar het bedrag staat (bij een eigen post die van de post erboven).</param>
+    private sealed record Bedrag(RekeningSaldo Rekening, Guid? EigenPostId, string Code, decimal Huidig, decimal Vorig);
 
     /// <summary>Per subpost (niveau 3) de bedragen van de rekeningen die er staan.</summary>
     private static Dictionary<string, List<Bedrag>> BedragenPerSubpost(RapportGegevens g)
@@ -469,7 +479,7 @@ public static partial class RapportOpbouw
                 resultaat[subpost] = lijst;
             }
 
-            lijst.Add(new Bedrag(rekening, eigenId, vorig ? 0 : bedrag, vorig ? bedrag : 0));
+            lijst.Add(new Bedrag(rekening, eigenId, code, vorig ? 0 : bedrag, vorig ? bedrag : 0));
         }
 
         // Het boekjaar en het vorige jaar apart: door omslag of saldering kan een rekening per jaar elders staan.

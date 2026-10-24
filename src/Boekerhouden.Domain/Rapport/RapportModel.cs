@@ -98,6 +98,57 @@ public sealed record GrondslagBlok(string Sleutel, string Titel, string Tekst, b
     public string? Sjabloon { get; init; }
 }
 
+public enum VerloopRegelSoort
+{
+    /// <summary>Een kop zonder bedragen, bijv. "Mutaties 2025".</summary>
+    Kop,
+
+    /// <summary>Een stand uit de saldi, bijv. de verkrijgingsprijs per 1 januari.</summary>
+    Stand,
+
+    /// <summary>Een mutatie (aan te passen), bijv. investeringen.</summary>
+    Mutatie,
+
+    /// <summary>Het deel van de mutaties dat nog niet is verklaard (een aangepast verloop sluit niet aan).</summary>
+    Verschil,
+
+    /// <summary>Een subtotaal met een lijn erboven.</summary>
+    Subtotaal,
+
+    /// <summary>De eindstand met een dubbele lijn eronder.</summary>
+    Eindstand,
+}
+
+/// <summary>Eén regel van een verloopoverzicht: per kolom een bedrag (de laatste kolom kan het totaal zijn).</summary>
+public sealed record VerloopRegel(VerloopRegelSoort Soort, string Omschrijving, IReadOnlyList<decimal?> Bedragen);
+
+/// <summary>Een mutatie in een verloopoverzicht, met per kolom (subpost, of "" bij een rekening) het bedrag.</summary>
+public sealed record VerloopMutatie(string Omschrijving, IReadOnlyDictionary<string, decimal> Bedragen);
+
+/// <summary>
+/// Een verloopoverzicht onder een specificatie: van de stand op 1 januari via de mutaties naar de stand op 31
+/// december, met per subpost een kolom (en een totaal) of één kolom voor een rekening. Bedragen zoals in het rapport.
+/// </summary>
+/// <param name="Sleutel">De post (RGS-code) of rekening ("rek:&lt;id&gt;").</param>
+/// <param name="Kolomsleutels">De kolommen die mutaties hebben (subposten, of "" bij een rekening).</param>
+/// <param name="Kolommen">De kolomkoppen, met "Totaal" erbij als er meer kolommen zijn.</param>
+/// <param name="Mutaties">De mutaties zoals ze nu in het overzicht staan (aangepast of voorstel), voor de bewerker.</param>
+/// <param name="Doel">Per kolom het verschil tussen eind- en beginstand, waar de mutaties op moeten aansluiten.</param>
+/// <param name="Aangepast">De mutaties zijn in dit dossier aangepast (anders een voorstel uit de saldi).</param>
+/// <param name="Standaard">Het overzicht staat er standaard (vaste activa); anders heeft de gebruiker het toegevoegd.</param>
+public sealed record Verloop(
+    string Sleutel,
+    string Titel,
+    IReadOnlyList<string> Kolomsleutels,
+    IReadOnlyList<string> Kolommen,
+    IReadOnlyList<VerloopRegel> Regels,
+    IReadOnlyList<VerloopMutatie> Mutaties,
+    IReadOnlyDictionary<string, decimal> Doel,
+    bool Aangepast,
+    bool Standaard);
+
+public sealed record VerloopBlok(Verloop Verloop) : Blok;
+
 /// <summary>Een genummerd hoofdstuk; het begint op een nieuwe pagina.</summary>
 /// <param name="Paragrafen">De titels van de tabellen zijn genummerde paragrafen (3.1, 3.2, …), zoals bij de specificaties.</param>
 public sealed record Hoofdstuk(int Nummer, string Titel, IReadOnlyList<Blok> Blokken, bool Paragrafen = false);

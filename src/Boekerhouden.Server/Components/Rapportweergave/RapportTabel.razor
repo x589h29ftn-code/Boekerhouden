@@ -36,6 +36,11 @@
                         @if (Document.Bewerkbaar && regel.Bron is { Soort: Onderwerp.Rekening, Id: { } id } && openSplitsing != id)
                         {
                             <button type="button" class="bewerk-actie" @onclick="() => openSplitsing = id">uitsplitsen</button>
+                            @if (Tabel.Code?.StartsWith('B') == true && !HeeftVerloop(id))
+                            {
+                                <button type="button" class="bewerk-actie" title="Een verloopoverzicht van deze rekening onder de specificatie, vanaf dit jaar"
+                                        @onclick="() => Document.ZetVerloop(RapportOpbouw.RekeningSleutel(id), true)">verloop</button>
+                            }
                         }
                     </td>
                     @if (Tabel.Tweekoloms)
@@ -76,6 +81,9 @@
     public Tabel Tabel { get; set; } = default!;
 
     private int Kolommen => Tabel.Tweekoloms ? 5 : 3;
+
+    private bool HeeftVerloop(Guid rekeningId) =>
+        Document.Inhoud.Rapport.Hoofdstukken.SelectMany(h => h.Blokken).OfType<VerloopBlok>().Any(v => v.Verloop.Sleutel == RapportOpbouw.RekeningSleutel(rekeningId));
 
     private int Span => Tabel.Tweekoloms ? 2 : 1;
 

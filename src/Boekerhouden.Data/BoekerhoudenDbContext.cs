@@ -69,6 +69,8 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
 
     public DbSet<DossierGrondslag> DossierGrondslagen => Set<DossierGrondslag>();
 
+    public DbSet<VerloopMutatieRegel> VerloopMutatieRegels => Set<VerloopMutatieRegel>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -404,6 +406,18 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
             e.Property(g => g.Sleutel).HasMaxLength(40);
             e.Property(g => g.Tekst).HasMaxLength(4000);
             e.Property(g => g.GewijzigdDoor).HasMaxLength(200);
+        });
+
+        builder.Entity<VerloopMutatieRegel>(e =>
+        {
+            e.ToTable("VerloopMutatieRegels");
+            e.HasIndex(r => new { r.DossierId, r.Sleutel, r.Volgorde });
+            e.HasOne<Dossier>().WithMany().HasForeignKey(r => r.DossierId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(r => r.Sleutel).HasMaxLength(60);
+            e.Property(r => r.Kolom).HasMaxLength(60);
+            e.Property(r => r.Omschrijving).HasMaxLength(200);
+            e.Property(r => r.Bedrag).HasPrecision(18, 2);
+            e.Property(r => r.GewijzigdDoor).HasMaxLength(200);
         });
 
         builder.Entity<UitsplitsingRegel>(e =>

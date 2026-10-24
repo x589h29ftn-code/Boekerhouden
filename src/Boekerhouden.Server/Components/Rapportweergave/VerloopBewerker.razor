@@ -1,0 +1,143 @@
+@* De mutaties van een verloopoverzicht aanpassen: per regel een omschrijving en per kolom een bedrag, met een
+   controle op het verschil tussen begin- en eindstand. *@
+@using Boekerhouden.Domain.Rapport
+
+<div class="uitsplitsing" title="Bedragen zoals in het rapport; de mutaties moeten per kolom optellen tot het verschil tussen begin- en eindstand.">
+    <table class="uitsplitsing-tabel">
+        <tbody>
+            @foreach (var regel in regels)
+            {
+                <tr @key="regel">
+                    <td><input class="inline-invoer" @bind="regel.Omschrijving" maxlength="200" aria-label="Omschrijving" placeholder="Omschrijving, bijv. Investeringen" /></td>
+                    @foreach (var kolom in Verloop.Kolomsleutels)
+                    {
+                        <td class="bedrag"><input class="inline-invoer text-end" value="@regel.Bedragen.GetValueOrDefault(kolom)" @oninput="e => regel.Bedragen[kolom] = e.Value?.ToString() ?? string.Empty"
+                                                  aria-label="@($"Bedrag {Kop(kolom)}")" inputmode="decimal" /></td>
+                    }
+                    <td class="acties">
+                        <button type="button" class="bewerk-actie zichtbaar" title="Regel verwijderen" @onclick="() => regels.Remove(regel)">×</button>
+                    </td>
+                </tr>
+            }
+            <tr class="controle">
+                <td><button type="button" class="bewerk-actie zichtbaar ms-0" @onclick="() => regels.Add(new Invoer())">regel toevoegen</button></td>
+                @foreach (var kolom in Verloop.Kolomsleutels)
+                {
+                    var totaal = Totaal(kolom);
+                    var doel = Verloop.Doel.GetValueOrDefault(kolom);
+                    <td class="bedrag">
+                        @if (Math.Abs(doel - totaal) < 1)
+                        {
+                            <span class="status" title="@($"Totaal {Bedragen.Heel(totaal)}")">sluit aan</span>
+                        }
+                        else
+                        {
+                            <span class="status let-op" title="@($"Totaal {Bedragen.Heel(totaal)}, mutatie volgens de saldi {Bedragen.Heel(doel)}")">verschil @Bedragen.Heel(doel - totaal)</span>
+                        }
+                    </td>
+                }
+                <td></td>
+            </tr>
+        </tbody>
+    </table>
+    @if (fout is not null)
+    {
+        <div class="status fout">@fout</div>
+    }
+    <div class="d-flex gap-2 align-items-center mt-1" style="font-size: 8pt">
+        <button type="button" class="btn btn-primary btn-sm py-0" @onclick="Bewaar">Opslaan</button>
+        <button type="button" class="btn btn-link btn-sm py-0 text-secondary" @onclick="Sluiten">Annuleren</button>
+        @if (Verloop.Aangepast)
+        {
+            <button type="button" class="btn btn-link btn-sm py-0 text-secondary" @onclick="Voorstel">voorstel uit de saldi</button>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Invoer> regels = [];
+    private string? fout;
+
+    [CascadingParameter]
+    public RapportDocument Document { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public Verloop Verloop { get; set; } = default!;
+
+    [Parameter]
+    public EventCallback Sluiten { get; set; }
+
+    private sealed class Invoer
+    {
+        public string Omschrijving { get; set; } = "";
+
+        public Dictionary<string, string> Bedragen { get; } = new(StringComparer.Ordinal);
+    }
+
+    protected override void OnInitialized()
+    {
+        regels = [.. Verloop.Mutaties.Select(m =>
+        {
+            var invoer = new Invoer { Omschrijving = m.Omschrijving };
+            foreach (var (kolom, bedrag) in m.Bedragen)
+            {
+                invoer.Bedragen[kolom] = bedrag == 0 ? "" : Bedragen.Getal(bedrag);
+            }
+
+            return invoer;
+        })];
+    }
+
+    private string Kop(string kolom) => Verloop.Kolommen.ElementAtOrDefault(Verloop.Kolomsleutels.ToList().IndexOf(kolom)) ?? kolom;
+
+    private decimal Totaal(string kolom) =>
+        regels.Sum(r => BedragParser.TryParse(r.Bedragen.GetValueOrDefault(kolom) ?? "", out var b) ? b : 0m);
+
+    private async Task Bewaar()
+    {
+        var mutaties = new List<VerloopMutatie>();
+        foreach (var r in regels.Where(r => r.Omschrijving.Trim().Length > 0 || r.Bedragen.Values.Any(b => b.Trim().Length > 0)))
+        {
+            if (r.Omschrijving.Trim().Length == 0)
+            {
+                fout = "Geef elke regel een omschrijving.";
+                return;
+            }
+
+            var bedragen = new Dictionary<string, decimal>(StringComparer.Ordinal);
+            foreach (var kolom in Verloop.Kolomsleutels)
+            {
+                var tekst = r.Bedragen.GetValueOrDefault(kolom)?.Trim() ?? "";
+                if (tekst.Length == 0)
+                {
+                    continue;
+                }
+
+                if (!BedragParser.TryParse(tekst, out var bedrag))
+                {
+                    fout = $"Geen geldig bedrag bij '{r.Omschrijving}'.";
+                    return;
+                }
+
+                bedragen[kolom] = bedrag;
+            }
+
+            mutaties.Add(new VerloopMutatie(r.Omschrijving.Trim(), bedragen));
+        }
+
+        var uitkomst = await Document.BewaarVerloop(Verloop.Sleutel, mutaties);
+        fout = uitkomst.IsGelukt ? null : string.Join(" ", uitkomst.Fouten);
+        if (uitkomst.IsGelukt)
+        {
+            await Sluiten.InvokeAsync();
+        }
+    }
+
+    private async Task Voorstel()
+    {
+        if ((await Document.BewaarVerloop(Verloop.Sleutel, [])).IsGelukt)
+        {
+            await Sluiten.InvokeAsync();
+        }
+    }
+}

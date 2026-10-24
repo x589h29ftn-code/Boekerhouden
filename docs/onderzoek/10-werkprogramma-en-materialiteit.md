@@ -97,7 +97,23 @@ Achter de schakelaar *presentatie aanpassen* staat per hoofdpost met saldo of de
 rapport komt, en per rekening of hij **in Overige** meetelt (de regel *Overige* van zijn groep, zodat de
 specificatie blijft aansluiten). Rekeningen onder een eigen post staan als één regel met de naam van de
 eigen post. Alles staat in het wijzigingslog. Nog niet gebouwd: regels samenvoegen of in een andere
-volgorde, verloopoverzichten en opmaak per post (nieuwe pagina ervoor).
+volgorde en opmaak per post (nieuwe pagina ervoor).
+
+**Verloopoverzichten.** Onder de specificatie van de immateriële, materiële en financiële vaste activa staat
+standaard een verloopoverzicht, met een kolom per subpost en een totaal, zoals in de voorbeeldrapporten:
+
+| Vaste activa met afschrijvingen (IVA, MVA) | Financiële vaste activa, andere posten en rekeningen |
+|---|---|
+| *Boekwaarde 1 januari*: verkrijgingsprijs en cumulatieve afschrijvingen (de rekeningen met een RGS-code aan de creditkant, bijv. `BMvaBeiCae`) · *Mutaties*: investeringen, desinvesteringen, afschrijvingen · *Boekwaarde 31 december* | *Stand 1 januari* · mutaties · *Stand 31 december* |
+
+De mutaties zijn een voorstel uit de saldi: de afschrijvingen uit de W&V (per subpost via de RGS-code, bijv.
+`BMvaBei` ↔ `WAfsAmvBei`; anders de toename van de cumulatieve afschrijvingen), een toename van de verkrijgingsprijs als
+investering en de rest als desinvestering. In de viewer pas je ze aan met *mutaties aanpassen* (per regel een
+omschrijving en per kolom een bedrag, met de controle *sluit aan* of het verschil); sluit het niet aan, dan staat
+het verschil als *Nog niet verklaard* in het overzicht en volgt een waarschuwing. Bij een andere balanspost zet je
+er een bij met *verloop toevoegen* onder de specificatie, en bij een rekening met *verloop* op de regel (bijv. de
+rekening-courant met de directeur: opgenomen gelden, bijgeschreven rente). *Weghalen* en toevoegen gelden vanaf dit
+jaar; de mutaties zijn per dossier. Vlottende activa hebben standaard geen verloop; het eigen vermogen (nog) niet.
 
 **Per boekjaar, nooit met terugwerkende kracht.** Elke aanpassing in het rapport geldt vanaf het boekjaar van
 het dossier waarin je hem maakt: namen van posten en rekeningen (ook kantoorbreed), rekeningen in *Overige*,

@@ -1,0 +1,73 @@
+@* Een verloopoverzicht onder een specificatie: van 1 januari via de mutaties naar 31 december. In de viewer zijn de
+   mutaties aan te passen (met controle op het verschil tussen begin- en eindstand) en is het overzicht weg te halen. *@
+@using Boekerhouden.Domain.Rapport
+@using Boekerhouden.Server.Export
+
+<div class="blok verloop" id="@RapportHtml.Anker("verloop-" + Verloop.Sleutel)">
+    <h3>
+        @Verloop.Titel
+        @if (Document.Bewerkbaar && !bewerken)
+        {
+            <button type="button" class="bewerk-actie" @onclick="() => bewerken = true">mutaties aanpassen</button>
+            <button type="button" class="bewerk-actie" title="Vanaf dit jaar geen verloopoverzicht" @onclick="() => Document.ZetVerloop(Verloop.Sleutel, false)">weghalen</button>
+        }
+    </h3>
+    <table>
+        <thead>
+            <tr>
+                <th></th>
+                @foreach (var kop in Verloop.Kolommen)
+                {
+                    <th class="jaar">@kop<br />€</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @for (var i = 0; i < Verloop.Regels.Count; i++)
+            {
+                var regel = Verloop.Regels[i];
+                var volgende = i + 1 < Verloop.Regels.Count ? Verloop.Regels[i + 1].Soort : (VerloopRegelSoort?)null;
+                var lijn = volgende is VerloopRegelSoort.Subtotaal or VerloopRegelSoort.Eindstand;
+                if (regel.Soort == VerloopRegelSoort.Kop)
+                {
+                    <tr class="kop"><td colspan="@(Verloop.Kolommen.Count + 1)">@regel.Omschrijving</td></tr>
+                }
+                else
+                {
+                    <tr class="@Klasse(regel.Soort)">
+                        <td class="omschrijving">@regel.Omschrijving</td>
+                        @foreach (var bedrag in regel.Bedragen)
+                        {
+                            <td class="@Cel(lijn, regel.Soort)">@RapportHtml.Bedrag(bedrag)</td>
+                        }
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+    @if (bewerken)
+    {
+        <VerloopBewerker Verloop="Verloop" Sluiten="() => bewerken = false" />
+    }
+</div>
+
+@code {
+    private bool bewerken;
+
+    [CascadingParameter]
+    public RapportDocument Document { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public Verloop Verloop { get; set; } = default!;
+
+    private static string Cel(bool lijn, VerloopRegelSoort soort) =>
+        "bedrag" + (lijn ? " lijn" : null) + (soort == VerloopRegelSoort.Eindstand ? " dubbel" : null);
+
+    private static string Klasse(VerloopRegelSoort soort) => soort switch
+    {
+        VerloopRegelSoort.Verschil => "detail verschil",
+        VerloopRegelSoort.Subtotaal => "subtotaal",
+        VerloopRegelSoort.Eindstand => "eindtotaal",
+        _ => "detail",
+    };
+}

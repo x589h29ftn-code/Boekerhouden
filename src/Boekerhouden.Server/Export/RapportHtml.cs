@@ -192,6 +192,10 @@ public static partial class RapportHtml
         .rapport-document tr.eindtotaal td { padding-top: 1mm; }
         .rapport-document td.lijn { border-bottom: .25mm solid #212529; }
         .rapport-document td.dubbel { border-bottom: .7mm double #212529; }
+        .rapport-document .verloop td.bedrag { width: 24mm; }
+        .rapport-document .verloop th.jaar { vertical-align: bottom; }
+        .rapport-document .verloop tr.detail td.omschrijving { padding-left: 1.5mm; }
+        .rapport-document .verloop tr.verschil td { color: #8a6d1f; }
         @media screen {
           .rapport-document section { background: #fff; width: 210mm; min-height: 297mm; margin: 0 auto 6mm; padding: 22mm 20mm 20mm; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
           .rapport-document .voorblad { height: 297mm; }
@@ -202,7 +206,7 @@ public static partial class RapportHtml
           .rapport-document .bewerkbaar { cursor: text; border-bottom: 1px dotted transparent; }
           .rapport-document .bewerkbaar:hover { border-bottom-color: #adb5bd; }
           .rapport-document .bewerk-actie { visibility: hidden; margin-left: 2mm; padding: 0; border: 0; background: none; font-size: 7.5pt; color: #6c757d; text-decoration: underline; cursor: pointer; }
-          .rapport-document tr:hover .bewerk-actie, .rapport-document .blok:hover > .bewerk-actie, .rapport-document .bewerk-actie:focus { visibility: visible; }
+          .rapport-document tr:hover .bewerk-actie, .rapport-document .blok:hover > .bewerk-actie, .rapport-document .blok:hover > h3 > .bewerk-actie, .rapport-document .bewerk-actie:focus { visibility: visible; }
           .rapport-document .inline-invoer { width: 100%; font: inherit; color: inherit; padding: 0 1mm; border: 1px solid #86b7fe; border-radius: 2px; outline: none; }
           .rapport-document textarea.inline-invoer { min-height: 22mm; white-space: pre-wrap; }
           .rapport-document tr.verschil td { color: #8a6d1f; }

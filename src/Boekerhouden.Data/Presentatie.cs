@@ -28,6 +28,9 @@ public sealed class RekeningPresentatie : IJaarversie
 
     public bool Verbergen { get; set; }
 
+    /// <summary>Een verloopoverzicht van de rekening onder de specificatie (bijv. de rekening-courant met de directeur).</summary>
+    public bool Verloop { get; set; }
+
     public DateTimeOffset GewijzigdOp { get; set; }
 
     public string GewijzigdDoor { get; set; } = string.Empty;
@@ -52,6 +55,9 @@ public sealed class PostPresentatie : IJaarversie
 
     /// <summary>Uitgeklapt of ingeklapt; null = de standaard (balans en specificaties uit-, W&amp;V ingeklapt).</summary>
     public bool? Uitgeklapt { get; set; }
+
+    /// <summary>Een verloopoverzicht onder de specificatie; null = de standaard (wel bij de vaste activa).</summary>
+    public bool? Verloop { get; set; }
 
     public DateTimeOffset GewijzigdOp { get; set; }
 
@@ -96,6 +102,33 @@ public sealed class UitsplitsingRegel
 
     /// <summary>Het bedrag van het vorige jaar; null = niet uitgesplitst.</summary>
     public decimal? BedragVorig { get; set; }
+
+    public DateTimeOffset GewijzigdOp { get; set; }
+
+    public string GewijzigdDoor { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Eén mutatie in een verloopoverzicht van een dossier, per kolom: bijv. "Investeringen" bij de inventaris. Zonder
+/// regels geldt het voorstel uit de saldi. Bedragen zoals in het rapport (positief aan de normale kant van de post).
+/// </summary>
+public sealed class VerloopMutatieRegel
+{
+    public Guid Id { get; set; }
+
+    public Guid DossierId { get; set; }
+
+    /// <summary>De post (RGS-code) of rekening ("rek:&lt;id&gt;").</summary>
+    public string Sleutel { get; set; } = string.Empty;
+
+    public int Volgorde { get; set; }
+
+    /// <summary>De kolom: de subpost (RGS-code), of leeg bij een rekening.</summary>
+    public string Kolom { get; set; } = string.Empty;
+
+    public string Omschrijving { get; set; } = string.Empty;
+
+    public decimal Bedrag { get; set; }
 
     public DateTimeOffset GewijzigdOp { get; set; }
 
