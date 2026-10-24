@@ -20,10 +20,10 @@ else
             <input id="bespreking-datum" type="date" class="form-control form-control-sm bs-datum" value="@Iso(datum)" disabled="@b.Vergrendeld"
                    @onchange="async e => { datum = Datum(e.Value); await BewaarBespreking(); }" />
             <label for="bespreking-aanwezig">Aanwezig</label>
-            <input id="bespreking-aanwezig" class="form-control form-control-sm" value="@aanwezigen" disabled="@b.Vergrendeld" placeholder="bijv. de bestuurder en de samensteller"
+            <input id="bespreking-aanwezig" class="form-control form-control-sm" value="@aanwezigen" disabled="@b.Vergrendeld" 
                    @onchange="async e => { aanwezigen = (string?)e.Value; await BewaarBespreking(); }" />
             <label for="bespreking-notitie">Notitie</label>
-            <textarea id="bespreking-notitie" class="form-control form-control-sm" rows="2" value="@notitie" disabled="@b.Vergrendeld" placeholder="Algemeen beeld van de bespreking (optioneel)"
+            <textarea id="bespreking-notitie" class="form-control form-control-sm" rows="2" value="@notitie" disabled="@b.Vergrendeld" placeholder="optioneel"
                       @onchange="async e => { notitie = (string?)e.Value; await BewaarBespreking(); }"></textarea>
         </div>
     </div>
@@ -81,7 +81,6 @@ else
             <span class="me-auto">Erkenning</span>
             <span class="status">@(b.IsErkend ? "vastgelegd" : "nog niet vastgelegd")</span>
         </div>
-        <p class="small text-secondary mx-3 mb-2">@BespreekverslagHtml.Erkenningstekst(Soort)</p>
         <div class="bs-raster">
             <label for="erkend-door">Erkend door</label>
             <input id="erkend-door" class="form-control form-control-sm" value="@erkendDoor" disabled="@b.Vergrendeld" placeholder="naam en functie"

@@ -29,7 +29,7 @@
             </div>
             <label for="verklaring-toelichting">Toelichting</label>
             <textarea id="verklaring-toelichting" class="form-control form-control-sm" rows="2" value="@toelichting" disabled="@Vergrendeld"
-                      placeholder="Een eigen toelichtende alinea (optioneel); de alinea over de continuïteit komt er vanzelf bij als die in de toelichting staat."
+                      placeholder="eigen alinea (optioneel)"
                       @onchange="async e => { toelichting = (string?)e.Value; await Bewaar(); }"></textarea>
         </div>
         @if (v.Accountants.Count == 0)

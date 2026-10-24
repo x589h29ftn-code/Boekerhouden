@@ -153,10 +153,9 @@ else
                 </table>
             </div>
             <div class="card-footer bg-white small text-secondary">
-                Debet positief, credit negatief.
                 @if (proefbalans.ImportVorigJaar is null)
                 {
-                    <span>Lees ook @(dossier.Boekjaar - 1) in voor de vergelijkende cijfers (kies het jaar hierboven).</span>
+                    <span>@(dossier.Boekjaar - 1) nog niet ingelezen</span>
                 }
             </div>
         }

@@ -63,10 +63,6 @@ else
                     <li>@b.Nummer. @b.Omschrijving (@Bedragen.Heel(b.Totaal))</li>
                 }
             </ul>
-            <div class="small text-secondary mt-1">
-                Heeft de klant ze niet geboekt, dan wijkt het eigen vermogen af van vorig jaar. Boek ze dan opnieuw, met het
-                resultaatdeel op de reserves, of laat de klant ze alsnog verwerken.
-            </div>
         </details>
     }
 
@@ -145,7 +141,6 @@ else
                         <input class="form-control form-control-sm" style="width:20rem" placeholder="Omschrijving" @bind="nieuweRekening.Omschrijving" aria-label="Omschrijving nieuwe rekening" />
                         <button type="submit" class="btn btn-sm btn-outline-secondary">Aanmaken</button>
                         <button type="button" class="btn btn-sm btn-link text-secondary" @onclick="() => nieuweRekening = null">Annuleren</button>
-                        <span class="small text-secondary">Voor een post die nog niet in de administratie staat. Koppel hem daarna bij Rubriceren.</span>
                     </form>
                 }
 
@@ -212,7 +207,7 @@ else
         }
         @if (o.Boekingen.Count == 0)
         {
-            <p class="text-center text-secondary my-4">Nog geen correcties in dit dossier. Correcties veranderen de cijfers in het dossier, niet de administratie van de klant.</p>
+            <p class="text-center text-secondary my-4">Nog geen correcties.</p>
         }
         <div class="card-footer bg-white small text-secondary d-flex flex-wrap gap-3">
             @if (o.Boekingen.Count > 0)

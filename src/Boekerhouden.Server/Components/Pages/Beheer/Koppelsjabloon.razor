@@ -9,11 +9,6 @@
     <input class="form-control w-auto" type="search" placeholder="Zoek nummer, omschrijving of code" aria-label="Zoeken"
            @bind="zoek" @bind:event="oninput" @bind:after="Laad" />
 </div>
-<p class="text-secondary">
-    Rekeningnummers die bij het kantoor altijd aan dezelfde rubriek horen. Bij het inlezen van een saldibalans worden rekeningen met
-    hetzelfde nummer en een vergelijkbare omschrijving automatisch gekoppeld; bij een andere omschrijving wordt het een voorstel.
-    Regels komen erbij door bij het rubriceren <em>koppelingen onthouden in kantoorsjabloon</em> aan te laten staan.
-</p>
 
 @if (regels is not null)
 {
@@ -42,7 +37,7 @@
                 </tbody>
             </table>
         </div>
-        <p class="small text-secondary mt-2">@regels.Count regel(s). Verwijderen verandert bestaande koppelingen niet.</p>
+        <p class="small text-secondary mt-2">@regels.Count regel(s).</p>
     }
 }
 

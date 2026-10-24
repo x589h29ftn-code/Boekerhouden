@@ -1181,3 +1181,45 @@ tr.klikbaar {
 .bs-wijze {
     max-width: 12rem;
 }
+
+/* De documentatie: een klein vraagteken rechtsonder. */
+.hulp-knop {
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    width: 1.75rem;
+    height: 1.75rem;
+    line-height: 1.7rem;
+    border: 1px solid var(--kleur-lijn);
+    border-radius: 50%;
+    background: #fff;
+    color: var(--kleur-zacht);
+    font-size: .85rem;
+    text-align: center;
+    text-decoration: none;
+    z-index: 1030;
+}
+
+    .hulp-knop:hover {
+        color: var(--bs-body-color);
+    }
+
+.hulp {
+    max-width: 48rem;
+}
+
+    .hulp h2 {
+        font-size: 1.1rem;
+        margin-top: 2rem;
+        scroll-margin-top: 1rem;
+    }
+
+    .hulp h3 {
+        font-size: .95rem;
+        margin-top: 1.25rem;
+        scroll-margin-top: 1rem;
+    }
+
+    .hulp p, .hulp li, .hulp td {
+        font-size: .9rem;
+    }

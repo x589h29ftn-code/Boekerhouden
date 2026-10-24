@@ -141,9 +141,6 @@ else
                             <span class="fw-semibold me-auto" title="@paneel.Sleutel">@paneel.Titel</span>
                             <button class="btn-close btn-sm" aria-label="Sluiten" @onclick="() => paneel = null"></button>
                         </div>
-                        <div class="status mb-2" title="De koppeling geldt voor de klant: ook de vergelijkende cijfers en de proefbalans volgen.">
-                            Sleep een rekening naar een andere regel in het rapport.
-                        </div>
                         @if (paneel.Rekeningen.Count > 0)
                         {
                             <div class="paneel-rekening kop">

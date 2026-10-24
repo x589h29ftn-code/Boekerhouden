@@ -60,7 +60,8 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   zodat totalen blijven sluiten.
 - **Rustige uitstraling** (docs §5.2): één regel per item, details (codes, bron, pad) in de tooltip, geen gekleurde
   badges of rode bedragen; status als `.status` (grijs; `.fout`/`.let-op` alleen als het nodig is), bevestigingen
-  klein of in `.bericht`; actieknoppen op regels pas bij aanwijzen; zelden gebruikte opties achter een schakelaar.
+  klein of in `.bericht`; actieknoppen op regels pas bij aanwijzen; zelden gebruikte opties achter een schakelaar. Geen uitlegteksten op de schermen: uitleg hoort in de documentatie
+  (`Components/Pages/Hulp.razor`, `/hulp`), bereikbaar via het vraagteken rechtsonder dat naar het deel van de pagina wijst.
 - **Taal**: domeinnamen, meldingen en documentatie in het Nederlands (bijv. `Saldibalans`, `Grootboeknummer`).
 - **Wijzigingslog**: elke handeling die gegevens wijzigt, logt via `AuditDienst` (wie, wat, onderwerp).
 - **Elke wijziging met tests**; bestaande tests blijven groen. Werk in kleine plakjes (zie `docs/onderzoek` §8.4).

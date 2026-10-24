@@ -2,12 +2,11 @@
 @inject ImportDienst ImportDienst
 
 <div class="card">
-    <div class="card-header fw-semibold">Saldibalans inlezen</div>
+    <div class="card-header d-flex align-items-center">
+        <span class="fw-semibold me-auto">Saldibalans inlezen</span>
+        <a class="small" href="@SjabloonLink" download>importsjabloon</a>
+    </div>
     <div class="card-body">
-        <p class="small text-secondary mb-3">
-            Gebruik het <a href="@SjabloonLink" download>importsjabloon</a> (Excel of CSV) of een export met de kolommen
-            grootboeknummer, omschrijving en bedrag (debet +, credit −). Er wordt alleen ingelezen als het saldo nihil is.
-        </p>
         <div class="row g-2 align-items-end">
             <div class="col-auto">
                 <label for="importjaar" class="form-label small mb-1">Boekjaar</label>

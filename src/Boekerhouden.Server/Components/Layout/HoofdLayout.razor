@@ -1,4 +1,5 @@
 @inherits LayoutComponentBase
+@inject NavigationManager Navigatie
 
 <header class="navbar navbar-expand bg-white border-bottom shadow-sm px-3">
     <a class="navbar-brand fw-semibold" href="/">
@@ -43,6 +44,26 @@
     </ErrorBoundary>
 </main>
 
+<AuthorizeView>
+    <a class="hulp-knop" href="/hulp#@Hulpsectie" target="_blank" title="Documentatie" aria-label="Documentatie">?</a>
+</AuthorizeView>
+
 @code {
     private ErrorBoundary? foutgrens;
+
+    /// <summary>Het deel van de documentatie dat bij de huidige pagina hoort.</summary>
+    private string Hulpsectie => Sectie(Navigatie.ToBaseRelativePath(Navigatie.Uri));
+
+    internal static string Sectie(string pad)
+    {
+        var delen = pad.Split('?', '#')[0].Split('/', StringSplitOptions.RemoveEmptyEntries);
+        return delen switch
+        {
+            ["dossiers", _, var tab, ..] => tab,
+            ["dossiers", ..] => "dossier",
+            ["klanten", ..] => "klanten",
+            ["beheer", var onderdeel, ..] => "beheer-" + onderdeel,
+            _ => "klanten",
+        };
+    }
 }
