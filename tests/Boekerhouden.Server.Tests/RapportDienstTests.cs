@@ -126,12 +126,12 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
     {
         var (klantId, dossierId, klantnummer, rekeningen) = await Bakkerij();
 
-        Assert.True((await Rapporten.ZetWeergave(klantId, rekeningen["4200"], "Kosten van de bestelauto", false, Tester)).IsGelukt);
-        Assert.True((await Rapporten.ZetWeergave(klantId, rekeningen["4500"], null, true, Tester)).IsGelukt);
-        Assert.True((await Rapporten.ZetSpecificatie(klantId, "BVrd", false, Tester)).IsGelukt);
-        Assert.False((await Rapporten.ZetWeergave(klantId, rekeningen["4300"], new string('x', 301), false, Tester)).IsGelukt);
+        Assert.True((await Rapporten.ZetWeergave(dossierId, rekeningen["4200"], "Kosten van de bestelauto", false, Tester)).IsGelukt);
+        Assert.True((await Rapporten.ZetWeergave(dossierId, rekeningen["4500"], null, true, Tester)).IsGelukt);
+        Assert.True((await Rapporten.ZetSpecificatie(dossierId, "BVrd", false, Tester)).IsGelukt);
+        Assert.False((await Rapporten.ZetWeergave(dossierId, rekeningen["4300"], new string('x', 301), false, Tester)).IsGelukt);
         Assert.False((await Rapporten.ZetWeergave(Guid.NewGuid(), rekeningen["4300"], "Andere klant", false, Tester)).IsGelukt);
-        Assert.False((await Rapporten.ZetSpecificatie(klantId, new string('B', 61), false, Tester)).IsGelukt);
+        Assert.False((await Rapporten.ZetSpecificatie(dossierId, new string('B', 61), false, Tester)).IsGelukt);
 
         var rapport = (await Rapporten.Maak(dossierId))!.Waarde!.Rapport;
         var kosten = Tabel(rapport, "Overige bedrijfskosten");
@@ -147,15 +147,15 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
         Assert.False(presentatie.Posten.Single(p => p.Code == "BVrd").ToonSpecificatie);
 
         // Terug naar de administratie: dan is er niets meer opgeslagen.
-        Assert.True((await Rapporten.ZetWeergave(klantId, rekeningen["4200"], "  ", false, Tester)).IsGelukt);
-        Assert.True((await Rapporten.ZetSpecificatie(klantId, "BVrd", true, Tester)).IsGelukt);
-        Assert.DoesNotContain(rekeningen["4200"], (await Rapporten.Weergave(klantId)).Keys);
-        Assert.Empty(await Rapporten.ZonderSpecificatie(klantId));
+        Assert.True((await Rapporten.ZetWeergave(dossierId, rekeningen["4200"], "  ", false, Tester)).IsGelukt);
+        Assert.True((await Rapporten.ZetSpecificatie(dossierId, "BVrd", true, Tester)).IsGelukt);
+        Assert.DoesNotContain(rekeningen["4200"], (await Rapporten.Weergave(klantId, 2025)).Keys);
+        Assert.Empty(await Rapporten.ZonderSpecificatie(klantId, 2025));
 
         var log = await server.Dienst<AuditDienst>().Recent(AuditActies.PresentatieGewijzigd);
-        Assert.Contains(log, a => a.Onderwerp!.StartsWith(klantnummer, StringComparison.Ordinal) && a.Details == "4200 Autokosten: in het rapport als 'Kosten van de bestelauto'");
-        Assert.Contains(log, a => a.Onderwerp!.StartsWith(klantnummer, StringComparison.Ordinal) && a.Details == "4500 Accountantskosten: in Overige");
-        Assert.Contains(log, a => a.Onderwerp!.StartsWith(klantnummer, StringComparison.Ordinal) && a.Details == "specificatie BVrd niet in het rapport");
+        Assert.Contains(log, a => a.Onderwerp!.StartsWith(klantnummer, StringComparison.Ordinal) && a.Details == "4200 Autokosten: in het rapport als 'Kosten van de bestelauto' vanaf 2025");
+        Assert.Contains(log, a => a.Onderwerp!.StartsWith(klantnummer, StringComparison.Ordinal) && a.Details == "4500 Accountantskosten: in Overige vanaf 2025");
+        Assert.Contains(log, a => a.Onderwerp!.StartsWith(klantnummer, StringComparison.Ordinal) && a.Details == "specificatie BVrd niet in het rapport vanaf 2025");
     }
 
     [Fact]
@@ -218,7 +218,7 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
     {
         var (klantId, dossierId, klantnummer, rekeningen) = await Bakkerij();
 
-        Assert.True((await Rapporten.ZetUitgeklapt(klantId, "WBed", true, Tester)).IsGelukt);
+        Assert.True((await Rapporten.ZetUitgeklapt(dossierId, "WBed", true, Tester)).IsGelukt);
         Assert.True((await Rapporten.ZetToelichting(dossierId, "BMva", "In 2025 is een nieuwe oven gekocht.", Tester)).IsGelukt);
         var voorstel = await Rapporten.Uitsplitsing(dossierId, rekeningen["1800"], "Nog te betalen kosten", 7_890m, 8_433m);
         Assert.False(voorstel.Bewaard);
@@ -248,7 +248,7 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
         var log = await server.Dienst<AuditDienst>().Recent(AuditActies.UitsplitsingGewijzigd);
         Assert.Contains(log, a => a.Onderwerp!.StartsWith(klantnummer, StringComparison.Ordinal) && a.Details!.StartsWith("1800 Nog te betalen kosten: Accountantskosten 3.000,00 (vorig jaar 2.800,00)", StringComparison.Ordinal));
         Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.ToelichtingGewijzigd), a => a.Details == "BMva: In 2025 is een nieuwe oven gekocht.");
-        Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.PresentatieGewijzigd), a => a.Details == "WBed uitgeklapt in het rapport");
+        Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.PresentatieGewijzigd), a => a.Details == "WBed uitgeklapt in het rapport vanaf 2025");
     }
 
     [Fact]
@@ -273,24 +273,86 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
         Assert.Empty(rapport.Waarschuwingen);
     }
 
+    private static string? Toelichting(Rapport rapport, string sleutel) =>
+        rapport.Hoofdstukken.SelectMany(h => h.Blokken).OfType<TekstBlok>().SingleOrDefault(b => b.Toelichting == sleutel)?.Tekst;
+
     [Fact]
-    public async Task Toelichting_en_uitsplitsing_van_vorig_jaar_zijn_een_voorstel()
+    public async Task Een_toelichting_rolt_door_maar_een_aanpassing_werkt_niet_terug()
+    {
+        var (klantId, dossierId, _, _) = await Bakkerij();
+        var vorigDossier = (await server.Dienst<DossierDienst>().Maak(klantId, 2024, SoortOpdracht.SamenstellenJaarrekening, Tester, Verslaggeving.Fiscaal)).Waarde;
+        Assert.True((await Rapporten.ZetToelichting(vorigDossier, "BMva", "Tekst van vorig jaar.", Tester)).IsGelukt);
+        Assert.Equal("Tekst van vorig jaar.", Toelichting((await Rapporten.Maak(dossierId))!.Waarde!.Rapport, "BMva"));
+
+        Assert.True((await Rapporten.ZetToelichting(dossierId, "BMva", "In 2025 is een nieuwe oven gekocht.", Tester)).IsGelukt);
+        Assert.Equal("In 2025 is een nieuwe oven gekocht.", Toelichting((await Rapporten.Maak(dossierId))!.Waarde!.Rapport, "BMva"));
+        Assert.Equal("Tekst van vorig jaar.", Toelichting((await Rapporten.Maak(vorigDossier))!.Waarde!.Rapport, "BMva"));
+
+        // Leeg maken in 2025 haalt hem alleen uit 2025.
+        Assert.True((await Rapporten.ZetToelichting(dossierId, "BMva", " ", Tester)).IsGelukt);
+        Assert.Null(Toelichting((await Rapporten.Maak(dossierId))!.Waarde!.Rapport, "BMva"));
+        Assert.Equal("Tekst van vorig jaar.", Toelichting((await Rapporten.Maak(vorigDossier))!.Waarde!.Rapport, "BMva"));
+
+        // Een aanpassing in 2024 gaat mee naar 2025 zolang 2025 niets eigens heeft.
+        Assert.True((await Rapporten.ZetToelichting(dossierId, "BMva", "Tekst van vorig jaar.", Tester)).IsGelukt);
+        Assert.True((await Rapporten.ZetToelichting(vorigDossier, "BMva", "Verbeterde tekst.", Tester)).IsGelukt);
+        Assert.Equal("Verbeterde tekst.", Toelichting((await Rapporten.Maak(dossierId))!.Waarde!.Rapport, "BMva"));
+    }
+
+    [Fact]
+    public async Task Namen_en_presentatie_gelden_vanaf_het_jaar_van_het_dossier()
+    {
+        var (klantId, dossierId, klantnummer, rekeningen) = await Bakkerij();
+        var vorigDossier = (await server.Dienst<DossierDienst>().Maak(klantId, 2024, SoortOpdracht.SamenstellenJaarrekening, Tester, Verslaggeving.Fiscaal)).Waarde;
+        var rubriceren = server.Dienst<RubriceerDienst>();
+
+        Assert.True((await rubriceren.Hernoem(dossierId, "BVrd", "Voorraad grondstoffen", false, Tester)).IsGelukt);
+        Assert.True((await Rapporten.ZetSpecificatie(dossierId, "BMva", false, Tester)).IsGelukt);
+        Assert.True((await Rapporten.ZetWeergave(vorigDossier, rekeningen["4200"], "Kosten van de bestelauto", false, Tester)).IsGelukt);
+
+        var dit = (await Rapporten.Maak(dossierId))!.Waarde!.Rapport;
+        var vorig = (await Rapporten.Maak(vorigDossier))!.Waarde!.Rapport;
+        Assert.Contains(Tabel(dit, "Activa").Regels, r => r.Omschrijving == "Voorraad grondstoffen");
+        Assert.Contains(Tabel(vorig, "Activa").Regels, r => r.Omschrijving == "Voorraden");
+        Assert.DoesNotContain(dit.Hoofdstukken.SelectMany(h => h.Blokken).OfType<TabelBlok>(), b => b.Tabel.Titel == "Materiële vaste activa");
+        Assert.Contains(vorig.Hoofdstukken.SelectMany(h => h.Blokken).OfType<TabelBlok>(), b => b.Tabel.Titel == "Materiële vaste activa");
+        Assert.Contains(Tabel(dit, "Overige bedrijfskosten").Regels, r => r.Omschrijving == "Kosten van de bestelauto");
+        Assert.Contains(Tabel(vorig, "Overige bedrijfskosten").Regels, r => r.Omschrijving == "Kosten van de bestelauto");
+
+        // Een naam in 2024 laat de eigen naam van 2025 staan; terug naar standaard in 2025 laat 2024 staan.
+        Assert.True((await rubriceren.Hernoem(vorigDossier, "BVrd", "Voorraden bakkerij", false, Tester)).IsGelukt);
+        Assert.True((await Rapporten.ZetWeergave(dossierId, rekeningen["4200"], null, false, Tester)).IsGelukt);
+        dit = (await Rapporten.Maak(dossierId))!.Waarde!.Rapport;
+        vorig = (await Rapporten.Maak(vorigDossier))!.Waarde!.Rapport;
+        Assert.Contains(Tabel(dit, "Activa").Regels, r => r.Omschrijving == "Voorraad grondstoffen");
+        Assert.Contains(Tabel(vorig, "Activa").Regels, r => r.Omschrijving == "Voorraden bakkerij");
+        Assert.Contains(Tabel(dit, "Overige bedrijfskosten").Regels, r => r.Omschrijving == "Autokosten");
+        Assert.Contains(Tabel(vorig, "Overige bedrijfskosten").Regels, r => r.Omschrijving == "Kosten van de bestelauto");
+        Assert.Equal("Kosten van de bestelauto", (await Rapporten.Weergave(klantId, 2024))[rekeningen["4200"]].Omschrijving);
+        Assert.DoesNotContain(rekeningen["4200"], (await Rapporten.Weergave(klantId, 2025)).Keys);
+
+        // Een eigen post kan vanaf een jaar anders heten.
+        var postId = (await rubriceren.VoegEigenPostToe(klantId, "BVorOvr", "Overige vorderingen 1", Tester)).Waarde;
+        var sleutel = Domain.Rubricering.PostBalans.EigenSleutel(postId);
+        Assert.True((await rubriceren.Hernoem(dossierId, sleutel, "Vordering op de huurder", false, Tester)).IsGelukt);
+        Assert.Equal("Vordering op de huurder", (await rubriceren.Overzicht(dossierId))!.Naam(sleutel));
+        Assert.Equal("Overige vorderingen 1", (await rubriceren.Overzicht(vorigDossier))!.Naam(sleutel));
+
+        Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.PostHernoemd),
+            a => a.Onderwerp!.StartsWith(klantnummer, StringComparison.Ordinal) && a.Details == "BVrd: 'Voorraden' → 'Voorraad grondstoffen' vanaf 2025");
+    }
+
+    [Fact]
+    public async Task Een_uitsplitsing_van_vorig_jaar_is_een_voorstel()
     {
         var (klantId, dossierId, _, rekeningen) = await Bakkerij();
         var vorigDossier = (await server.Dienst<DossierDienst>().Maak(klantId, 2024, SoortOpdracht.SamenstellenJaarrekening, Tester)).Waarde;
-        await Rapporten.ZetToelichting(vorigDossier, "BMva", "Tekst van vorig jaar.", Tester);
         await Rapporten.BewaarUitsplitsing(vorigDossier, rekeningen["1800"], [new("Accountantskosten", 2_800m, null), new("Overige", 5_633m, null)], Tester);
 
-        Assert.Equal("Tekst van vorig jaar.", await Rapporten.ToelichtingVorigJaar(dossierId, "BMva"));
-        Assert.Null(await Rapporten.ToelichtingVorigJaar(dossierId, "BVor"));
         var voorstel = await Rapporten.Uitsplitsing(dossierId, rekeningen["1800"], "Nog te betalen kosten", 7_890m, 8_433m);
         Assert.True(voorstel.UitVorigJaar);
         Assert.False(voorstel.Bewaard);
         Assert.Equal([new SplitsRegel("Accountantskosten", 0m, 2_800m), new SplitsRegel("Overige", 0m, 5_633m)], voorstel.Regels);
-
-        // Het rapport van dit jaar verandert pas als de toelichting of uitsplitsing hier wordt bewaard.
-        var rapport = (await Rapporten.Maak(dossierId))!.Waarde!.Rapport;
-        Assert.DoesNotContain(rapport.Hoofdstukken.SelectMany(h => h.Blokken).OfType<TekstBlok>(), b => b.Toelichting is not null);
     }
 
     [Fact]

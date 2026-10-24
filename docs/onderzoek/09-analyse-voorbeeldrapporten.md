@@ -129,7 +129,13 @@ eenmanszaak (bijlage bij de aangifte) heeft geen grondslagen, zoals voorbeeld B.
 De meegeleverde teksten zijn in eigen woorden opgesteld aan de hand van modeljaarrekeningen 2024 (commercieel en
 fiscaal), zonder de aanwijzingen en verwijzingen uit die modellen; het kantoor stelt ze vast. Bij een nieuwe versie
 van de app krijgen onderdelen die het kantoor niet heeft aangepast de nieuwe standaardtekst; aangepaste teksten
-blijven staan (*standaard terugzetten* laat een onderdeel weer meegaan).
+blijven staan.
+
+**Per boekjaar.** Grondslagen kunnen jaarlijks veranderen. In Beheer › Grondslagen kies je het boekjaar; een
+aanpassing (of *meegeleverde tekst terugzetten*) geldt vanaf dat jaar. Eerdere jaren houden hun tekst, latere
+jaren volgen tenzij ze een eigen versie hebben. Zo gaat de bibliotheek bij de jaarwisseling vanzelf mee, en raakt
+een nieuwe tekst voor 2026 de jaarrekening 2025 niet. Ook de keuzes in een dossier (open of dicht, eigen tekst)
+gelden vanaf dat jaar en rollen door.
 
 ## 9.4 Gegevens die we nodig hebben, naast de proefbalans
 

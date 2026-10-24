@@ -1,11 +1,22 @@
 @page "/beheer/grondslagen"
 @attribute [Authorize(Roles = Rollen.Beheerder)]
 @inject GrondslagDienst GrondslagDienst
+@inject TimeProvider Tijd
 
 <PageTitle>Grondslagen – Boekerhouden</PageTitle>
 
 <div class="d-flex align-items-center flex-wrap gap-3 mb-2">
-    <h1 class="h3 mb-0 me-auto">Grondslagen</h1>
+    <h1 class="h3 mb-0">Grondslagen</h1>
+    <span class="small text-secondary me-auto d-flex align-items-center gap-1"
+          title="De bibliotheek zoals die geldt in dit boekjaar. Een aanpassing geldt vanaf dit jaar; eerdere jaren houden hun tekst, latere jaren volgen tenzij ze een eigen versie hebben.">
+        <label for="grondslag-jaar">boekjaar</label>
+        <select id="grondslag-jaar" class="form-select form-select-sm w-auto" value="@boekjaar" @onchange="KiesJaar">
+            @foreach (var jaar in Jaren)
+            {
+                <option value="@jaar">@jaar</option>
+            }
+        </select>
+    </span>
     @if (melding is not null)
     {
         <span class="rubriceer-melding @(meldingIsFout ? "fout" : null)" role="status">
@@ -14,7 +25,7 @@
         </span>
     }
 </div>
-<p class="text-secondary small" title="Bij post: open als een van de RGS-posten een saldo heeft. Altijd: altijd open. Optioneel: dicht, of open als een van de RGS-posten een saldo heeft. In het rapport zet je per dossier een onderdeel open of dicht en pas je de tekst aan. {naam}, {plaats}, {kvk} en {boekjaar} worden per klant ingevuld; tekst tussen [vierkante haken] vult de gebruiker in.">
+<p class="text-secondary small" title="Bij post: open als een van de RGS-posten een saldo heeft. Altijd: altijd open. Optioneel: dicht, of open als een van de RGS-posten een saldo heeft. In het rapport zet je per dossier een onderdeel open of dicht en pas je de tekst aan. {naam}, {plaats}, {kvk} en {boekjaar} worden per klant ingevuld; tekst tussen [vierkante haken] vult de gebruiker in. Aanpassingen gelden vanaf het gekozen boekjaar.">
     De algemene toelichting en de grondslagen voor de jaarrekening van een BV, met een tekst voor commerciële en voor fiscale grondslagen.
 </p>
 
@@ -35,7 +46,11 @@
                     }
                     @if (g.GewijzigdDoor != Boekerhouden.Server.Grondslagen.StandaardGrondslagen.Door)
                     {
-                        <span class="status" title="@($"Gewijzigd door {g.GewijzigdDoor} op {Weergave.DatumTijd(g.GewijzigdOp)}")">aangepast</span>
+                        <span class="status" title="@($"Gewijzigd door {g.GewijzigdDoor} op {Weergave.DatumTijd(g.GewijzigdOp)}{VersieTekst(g.Sleutel)}")">@(g.VanafBoekjaar > 0 ? $"aangepast vanaf {g.VanafBoekjaar}" : "aangepast")</span>
+                    }
+                    else if (g.VanafBoekjaar > 0)
+                    {
+                        <span class="status" title="@($"Meegeleverde tekst{VersieTekst(g.Sleutel)}")">standaard vanaf @g.VanafBoekjaar</span>
                     }
                 </div>
                 @if (open == g.Sleutel)
@@ -74,7 +89,7 @@
                                 <input id="grondslag-jaargebonden" class="form-check-input" type="checkbox" @bind="invoer.Jaargebonden" />
                                 <label class="form-check-label" for="grondslag-jaargebonden">jaargebonden</label>
                             </span>
-                            <button type="submit" class="btn btn-primary btn-sm">Opslaan</button>
+                            <button type="submit" class="btn btn-primary btn-sm">Opslaan vanaf @boekjaar</button>
                             <button type="button" class="btn btn-link btn-sm text-secondary" @onclick="() => open = null">Annuleren</button>
                             <button type="button" class="btn btn-link btn-sm text-secondary ms-auto" @onclick="() => Herstel(g.Sleutel)">meegeleverde tekst terugzetten</button>
                         </div>
@@ -87,6 +102,8 @@
 
 @code {
     private IReadOnlyList<GrondslagSjabloon>? lijst;
+    private IReadOnlyDictionary<string, IReadOnlyList<int>> versies = new Dictionary<string, IReadOnlyList<int>>();
+    private int boekjaar;
     private string? open;
     private Invoer invoer = new();
     private int versie;
@@ -111,13 +128,36 @@
         public bool Jaargebonden { get; set; }
     }
 
-    protected override async Task OnInitializedAsync() => await Laad();
+    /// <summary>Standaard het jaar waarvan nu de jaarrekeningen worden gemaakt: het vorige kalenderjaar.</summary>
+    protected override async Task OnInitializedAsync()
+    {
+        boekjaar = Tijd.GetLocalNow().Year - 1;
+        await Laad();
+    }
+
+    private IEnumerable<int> Jaren => Enumerable.Range(Tijd.GetLocalNow().Year - 5, 7).Reverse();
+
+    private async Task KiesJaar(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var jaar))
+        {
+            boekjaar = jaar;
+            open = null;
+            await Laad();
+        }
+    }
 
     private async Task Laad()
     {
-        lijst = await GrondslagDienst.Bibliotheek();
+        lijst = await GrondslagDienst.Bibliotheek(boekjaar);
+        versies = await GrondslagDienst.Versies();
         versie++;
     }
+
+    private string VersieTekst(string sleutel) =>
+        versies.GetValueOrDefault(sleutel) is { Count: > 1 } jaren
+            ? " · versies: " + string.Join(", ", jaren.Select(j => j == 0 ? "alle jaren" : $"vanaf {j}"))
+            : string.Empty;
 
     private static string Opname(GrondslagSjabloon g) => (g.Opname switch
     {
@@ -146,9 +186,9 @@
 
     private async Task Bewaar(string sleutel)
     {
-        var uitkomst = await GrondslagDienst.Bewaar(sleutel,
+        var uitkomst = await GrondslagDienst.Bewaar(sleutel, boekjaar,
             new GrondslagInvoer(invoer.Titel, invoer.TekstCommercieel, invoer.TekstFiscaal, invoer.Opname, invoer.Codes, invoer.Jaargebonden), await Wie());
-        Meld(uitkomst, "Grondslag opgeslagen");
+        Meld(uitkomst, $"Opgeslagen vanaf {boekjaar}");
         if (uitkomst.IsGelukt)
         {
             open = null;
@@ -158,8 +198,8 @@
 
     private async Task Herstel(string sleutel)
     {
-        var uitkomst = await GrondslagDienst.HerstelStandaard(sleutel, await Wie());
-        Meld(uitkomst, "Meegeleverde tekst teruggezet");
+        var uitkomst = await GrondslagDienst.HerstelStandaard(sleutel, boekjaar, await Wie());
+        Meld(uitkomst, $"Meegeleverde tekst vanaf {boekjaar}");
         if (uitkomst.IsGelukt)
         {
             open = null;

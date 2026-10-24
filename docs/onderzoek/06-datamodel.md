@@ -68,10 +68,16 @@ erDiagram
 - `RgsVersies` en `RgsCodes`: het ingelezen werkboek;
 - `Koppelingen`: rekening → code (+ eigen post, versie, bron `Handmatig`/`Voorstel`/`Sjabloon`/`Bestand`);
 - `EigenPosten` (per klant, onder een RGS-code van niveau 3 of 4; met `OmslagCode` wordt de post per jaar gesaldeerd en staat hij bij een saldo aan de andere kant onder die code);
-- `KlantPostNamen` en `KantoorPostNamen` (eigen namen voor de jaarrekening);
+- `KlantPostNamen` en `KantoorPostNamen` (eigen namen voor de jaarrekening, vanaf een boekjaar; zie hieronder);
 - `SjabloonRegels` (kantoorsjabloon: rekeningnummer + omschrijving → code).
 
 Het filter per rechtsvorm staat (nog) in code (`RgsSelectie`).
+
+*Per boekjaar (na plakje 6):* `KlantPostNamen`, `KantoorPostNamen`, `PostPresentaties`, `RekeningPresentaties` en
+`GrondslagSjablonen` hebben een kolom `VanafBoekjaar` in de sleutel (0 = alle jaren). In een boekjaar geldt per
+sleutel de versie met het hoogste `VanafBoekjaar` tot en met dat jaar (`Jaarversies`); een wijziging vanuit een
+dossier maakt of past de versie van dat jaar aan. `DossierToelichtingen` en `DossierGrondslagen` zijn per dossier en
+rollen door naar latere jaren; een lege toelichting betekent "vanaf dit jaar geen".
 
 **RgsCodeInstelling** (kantoor, los van RGS): Referentiecode, SpecificatieVerplicht, VerloopoverzichtType (`Geen`/`VasteActiva`/`EigenVermogen`/`Voorziening`/`LanglopendeSchuld`/`RekeningCourant`), afwijkend RapportLabel per rapportvariant.
 

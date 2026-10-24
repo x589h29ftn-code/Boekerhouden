@@ -1,12 +1,25 @@
 namespace Boekerhouden.Data;
 
 /// <summary>
-/// Hoe een grootboekrekening in de specificaties van het rapport staat (per klant, rolt door naar volgende jaren).
+/// Een instelling die geldt vanaf een boekjaar: per sleutel geldt in een jaar de versie met het hoogste
+/// <see cref="VanafBoekjaar"/> tot en met dat jaar. Een wijziging in een dossier geldt vanaf het jaar van dat dossier;
+/// eerdere jaren blijven zoals ze waren, latere volgen tenzij ze een eigen versie hebben. 0 = alle jaren.
+/// </summary>
+public interface IJaarversie
+{
+    int VanafBoekjaar { get; set; }
+}
+
+/// <summary>
+/// Hoe een grootboekrekening in de specificaties van het rapport staat (per klant, vanaf een boekjaar).
 /// Een verborgen rekening telt mee in "Overige" van zijn post, zodat de specificatie blijft aansluiten.
 /// </summary>
-public sealed class RekeningPresentatie
+public sealed class RekeningPresentatie : IJaarversie
 {
     public Guid GrootboekrekeningId { get; set; }
+
+    /// <inheritdoc />
+    public int VanafBoekjaar { get; set; }
 
     public Guid KlantId { get; set; }
 
@@ -21,16 +34,19 @@ public sealed class RekeningPresentatie
 }
 
 /// <summary>
-/// Per post (RGS-code) hoe hij in het rapport staat (per klant): of de specificatie erin komt, en of de post is
-/// uitgeklapt. Bij een hoofdpost gaat uitklappen over de subposten in de balans of W&amp;V, bij een subpost over de
-/// rekeningen in de specificatie.
+/// Per post (RGS-code) hoe hij in het rapport staat (per klant, vanaf een boekjaar): of de specificatie erin komt, en
+/// of de post is uitgeklapt. Bij een hoofdpost gaat uitklappen over de subposten in de balans of W&amp;V, bij een
+/// subpost over de rekeningen in de specificatie.
 /// </summary>
-public sealed class PostPresentatie
+public sealed class PostPresentatie : IJaarversie
 {
     public Guid KlantId { get; set; }
 
     /// <summary>De sleutel van de post: RGS-code of "eigen:&lt;id&gt;".</summary>
     public string Sleutel { get; set; } = string.Empty;
+
+    /// <inheritdoc />
+    public int VanafBoekjaar { get; set; }
 
     public bool ToonSpecificatie { get; set; } = true;
 
@@ -42,7 +58,10 @@ public sealed class PostPresentatie
     public string GewijzigdDoor { get; set; } = string.Empty;
 }
 
-/// <summary>Een toelichtende tekst bij een post in het rapport, per dossier (dus per jaar).</summary>
+/// <summary>
+/// Een toelichtende tekst bij een post in het rapport, per dossier. Hij rolt door naar volgende jaren tot een later
+/// dossier een eigen tekst heeft; een lege tekst betekent: vanaf dit jaar geen toelichting.
+/// </summary>
 public sealed class DossierToelichting
 {
     public Guid DossierId { get; set; }

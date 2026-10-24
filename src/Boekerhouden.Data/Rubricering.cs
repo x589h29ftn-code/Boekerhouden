@@ -125,22 +125,33 @@ public sealed class KlantEigenPost
     public string AangemaaktDoor { get; set; } = string.Empty;
 }
 
-/// <summary>Een eigen naam voor een RGS-post bij één klant (voor de jaarrekening). Gaat voor de kantoornaam.</summary>
-public sealed class KlantPostNaam
+/// <summary>
+/// Een eigen naam voor een post bij één klant (voor de jaarrekening), vanaf een boekjaar: een RGS-post (gaat voor de
+/// kantoornaam) of een eigen post ("eigen:&lt;id&gt;", gaat voor de naam waarmee hij is aangemaakt).
+/// </summary>
+public sealed class KlantPostNaam : IJaarversie
 {
     public Guid KlantId { get; set; }
 
     public string Code { get; set; } = string.Empty;
 
-    public string Naam { get; set; } = string.Empty;
+    /// <inheritdoc />
+    public int VanafBoekjaar { get; set; }
+
+    /// <summary>Null = vanaf dit jaar geen eigen naam meer (dan de kantoornaam of de RGS-omschrijving).</summary>
+    public string? Naam { get; set; }
 }
 
-/// <summary>De standaardnaam van het kantoor voor een RGS-post, voor alle klanten.</summary>
-public sealed class KantoorPostNaam
+/// <summary>De standaardnaam van het kantoor voor een RGS-post, voor alle klanten, vanaf een boekjaar.</summary>
+public sealed class KantoorPostNaam : IJaarversie
 {
     public string Code { get; set; } = string.Empty;
 
-    public string Naam { get; set; } = string.Empty;
+    /// <inheritdoc />
+    public int VanafBoekjaar { get; set; }
+
+    /// <summary>Null = vanaf dit jaar de RGS-omschrijving.</summary>
+    public string? Naam { get; set; }
 }
 
 /// <summary>Kantoorsjabloon: een rekeningnummer dat bij het kantoor altijd aan dezelfde RGS-code hoort.</summary>

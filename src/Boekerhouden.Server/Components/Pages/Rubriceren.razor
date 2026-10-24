@@ -184,7 +184,8 @@ else
                                         else if (hernoemSleutel == k.Sleutel)
                                         {
                                             <form class="d-flex gap-1 align-items-center bewerk" @onsubmit="Hernoem" @onsubmit:preventDefault>
-                                                <input class="form-control form-control-sm" @bind="hernoemNaam" aria-label="Nieuwe naam" autofocus />
+                                                <input class="form-control form-control-sm" @bind="hernoemNaam" aria-label="Nieuwe naam" autofocus
+                                                       title="@($"Geldt vanaf {o.Dossier.Boekjaar}; eerdere jaren houden hun naam")" />
                                                 @if (isBeheerder && k.EigenId is null)
                                                 {
                                                     <label class="small text-nowrap"><input type="checkbox" class="form-check-input" @bind="hernoemKantoorbreed" /> alle klanten</label>
@@ -641,18 +642,18 @@ else
 
     private async Task Hernoem()
     {
-        var uitkomst = await RubriceerDienst.Hernoem(o!.Dossier.KlantId, hernoemSleutel!, hernoemNaam, hernoemKantoorbreed, await Wie());
-        Meld(uitkomst.IsGelukt ? $"Hernoemd naar '{hernoemNaam.Trim()}'{(hernoemKantoorbreed ? " voor alle klanten" : string.Empty)}" : string.Join(" ", uitkomst.Fouten), !uitkomst.IsGelukt);
+        var uitkomst = await RubriceerDienst.Hernoem(o!.Dossier.Id, hernoemSleutel!, hernoemNaam, hernoemKantoorbreed, await Wie());
+        Meld(uitkomst.IsGelukt ? $"Hernoemd naar '{hernoemNaam.Trim()}'{(hernoemKantoorbreed ? " voor alle klanten" : string.Empty)} vanaf {o.Dossier.Boekjaar}" : string.Join(" ", uitkomst.Fouten), !uitkomst.IsGelukt);
         hernoemSleutel = null;
         await Laad();
     }
 
     private async Task HernoemTerug(Knoop k)
     {
-        await RubriceerDienst.Hernoem(o!.Dossier.KlantId, k.Sleutel, null, kantoorbreed: false, await Wie());
+        await RubriceerDienst.Hernoem(o!.Dossier.Id, k.Sleutel, null, kantoorbreed: false, await Wie());
         if (isBeheerder && hernoemKantoorbreed && o.KantoorNamen.ContainsKey(k.Code))
         {
-            await RubriceerDienst.Hernoem(o.Dossier.KlantId, k.Sleutel, null, kantoorbreed: true, await Wie());
+            await RubriceerDienst.Hernoem(o.Dossier.Id, k.Sleutel, null, kantoorbreed: true, await Wie());
         }
 
         hernoemSleutel = null;

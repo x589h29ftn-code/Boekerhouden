@@ -191,7 +191,7 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
         builder.Entity<KlantPostNaam>(e =>
         {
             e.ToTable("KlantPostNamen");
-            e.HasKey(n => new { n.KlantId, n.Code });
+            e.HasKey(n => new { n.KlantId, n.Code, n.VanafBoekjaar });
             e.HasOne<Klant>().WithMany().HasForeignKey(n => n.KlantId).OnDelete(DeleteBehavior.Cascade);
             e.Property(n => n.Code).HasMaxLength(60);
             e.Property(n => n.Naam).HasMaxLength(300);
@@ -200,7 +200,7 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
         builder.Entity<KantoorPostNaam>(e =>
         {
             e.ToTable("KantoorPostNamen");
-            e.HasKey(n => n.Code);
+            e.HasKey(n => new { n.Code, n.VanafBoekjaar });
             e.Property(n => n.Code).HasMaxLength(20);
             e.Property(n => n.Naam).HasMaxLength(300);
         });
@@ -355,9 +355,9 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
         builder.Entity<RekeningPresentatie>(e =>
         {
             e.ToTable("RekeningPresentaties");
-            e.HasKey(r => r.GrootboekrekeningId);
+            e.HasKey(r => new { r.GrootboekrekeningId, r.VanafBoekjaar });
             e.HasIndex(r => r.KlantId);
-            e.HasOne<Grootboekrekening>().WithOne().HasForeignKey<RekeningPresentatie>(r => r.GrootboekrekeningId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Grootboekrekening>().WithMany().HasForeignKey(r => r.GrootboekrekeningId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<Klant>().WithMany().HasForeignKey(r => r.KlantId).OnDelete(DeleteBehavior.Restrict);
             e.Property(r => r.Omschrijving).HasMaxLength(300);
             e.Property(r => r.GewijzigdDoor).HasMaxLength(200);
@@ -366,7 +366,7 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
         builder.Entity<PostPresentatie>(e =>
         {
             e.ToTable("PostPresentaties");
-            e.HasKey(p => new { p.KlantId, p.Sleutel });
+            e.HasKey(p => new { p.KlantId, p.Sleutel, p.VanafBoekjaar });
             e.HasOne<Klant>().WithMany().HasForeignKey(p => p.KlantId).OnDelete(DeleteBehavior.Cascade);
             e.Property(p => p.Sleutel).HasMaxLength(60);
             e.Property(p => p.GewijzigdDoor).HasMaxLength(200);
@@ -385,7 +385,7 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
         builder.Entity<GrondslagSjabloon>(e =>
         {
             e.ToTable("GrondslagSjablonen");
-            e.HasKey(g => g.Sleutel);
+            e.HasKey(g => new { g.Sleutel, g.VanafBoekjaar });
             e.Property(g => g.Sleutel).HasMaxLength(40);
             e.Property(g => g.Groep).HasMaxLength(200);
             e.Property(g => g.Titel).HasMaxLength(200);

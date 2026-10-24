@@ -1,10 +1,10 @@
-@* Een toelichtende tekst bij een post (per dossier). In de viewer aan te klikken; zonder tekst een knop om er een toe te voegen. *@
+@* Een toelichtende tekst bij een post (rolt door naar volgende jaren). In de viewer aan te klikken; zonder tekst een knop om er een toe te voegen. *@
 
 @if (bewerken)
 {
     <div class="toelichting">
         <textarea @ref="invoer" class="inline-invoer" @bind="waarde" @bind:event="oninput" maxlength="@RapportDienst.MaximaleToelichting"
-                  aria-label="Toelichting" title="@(vorigJaar ? "Tekst van vorig jaar" : null)"></textarea>
+                  aria-label="Toelichting"></textarea>
         <div class="d-flex gap-2 align-items-center mt-1" style="font-size: 8pt">
             <button type="button" class="btn btn-primary btn-sm py-0" @onclick="Bewaar">Opslaan</button>
             <button type="button" class="btn btn-link btn-sm py-0 text-secondary" @onclick="() => bewerken = false">Annuleren</button>
@@ -15,7 +15,7 @@ else if (Tekst is not null)
 {
     @if (Document.Bewerkbaar)
     {
-        <div class="toelichting bewerkbaar" title="Toelichting · klik om aan te passen" @onclick="Start">@Tekst</div>
+        <div class="toelichting bewerkbaar" title="Toelichting · klik om aan te passen (geldt vanaf dit jaar)" @onclick="Start">@Tekst</div>
     }
     else
     {
@@ -30,7 +30,6 @@ else if (Document.Bewerkbaar)
 @code {
     private bool bewerken;
     private bool focus;
-    private bool vorigJaar;
     private string waarde = "";
     private ElementReference invoer;
 
@@ -43,19 +42,9 @@ else if (Document.Bewerkbaar)
     [Parameter]
     public string? Tekst { get; set; }
 
-    [Inject]
-    private RapportDienst RapportDienst { get; set; } = default!;
-
-    private async Task Start()
+    private void Start()
     {
         waarde = Tekst ?? "";
-        vorigJaar = false;
-        if (Tekst is null && await RapportDienst.ToelichtingVorigJaar(Document.DossierId, Sleutel) is { } vorige)
-        {
-            waarde = vorige;
-            vorigJaar = true;
-        }
-
         bewerken = true;
         focus = true;
     }

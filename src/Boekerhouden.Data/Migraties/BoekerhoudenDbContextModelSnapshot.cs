@@ -573,6 +573,9 @@ namespace Boekerhouden.Data.Migraties
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
 
+                    b.Property<int>("VanafBoekjaar")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Codes")
                         .IsRequired()
                         .HasMaxLength(400)
@@ -615,7 +618,7 @@ namespace Boekerhouden.Data.Migraties
                     b.Property<int>("Volgorde")
                         .HasColumnType("integer");
 
-                    b.HasKey("Sleutel");
+                    b.HasKey("Sleutel", "VanafBoekjaar");
 
                     b.ToTable("GrondslagSjablonen", (string)null);
                 });
@@ -713,12 +716,14 @@ namespace Boekerhouden.Data.Migraties
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<int>("VanafBoekjaar")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Naam")
-                        .IsRequired()
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
-                    b.HasKey("Code");
+                    b.HasKey("Code", "VanafBoekjaar");
 
                     b.ToTable("KantoorPostNamen", (string)null);
                 });
@@ -868,12 +873,14 @@ namespace Boekerhouden.Data.Migraties
                         .HasMaxLength(60)
                         .HasColumnType("character varying(60)");
 
+                    b.Property<int>("VanafBoekjaar")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Naam")
-                        .IsRequired()
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
-                    b.HasKey("KlantId", "Code");
+                    b.HasKey("KlantId", "Code", "VanafBoekjaar");
 
                     b.ToTable("KlantPostNamen", (string)null);
                 });
@@ -937,6 +944,9 @@ namespace Boekerhouden.Data.Migraties
                         .HasMaxLength(60)
                         .HasColumnType("character varying(60)");
 
+                    b.Property<int>("VanafBoekjaar")
+                        .HasColumnType("integer");
+
                     b.Property<string>("GewijzigdDoor")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -951,7 +961,7 @@ namespace Boekerhouden.Data.Migraties
                     b.Property<bool?>("Uitgeklapt")
                         .HasColumnType("boolean");
 
-                    b.HasKey("KlantId", "Sleutel");
+                    b.HasKey("KlantId", "Sleutel", "VanafBoekjaar");
 
                     b.ToTable("PostPresentaties", (string)null);
                 });
@@ -960,6 +970,9 @@ namespace Boekerhouden.Data.Migraties
                 {
                     b.Property<Guid>("GrootboekrekeningId")
                         .HasColumnType("uuid");
+
+                    b.Property<int>("VanafBoekjaar")
+                        .HasColumnType("integer");
 
                     b.Property<string>("GewijzigdDoor")
                         .IsRequired()
@@ -979,7 +992,7 @@ namespace Boekerhouden.Data.Migraties
                     b.Property<bool>("Verbergen")
                         .HasColumnType("boolean");
 
-                    b.HasKey("GrootboekrekeningId");
+                    b.HasKey("GrootboekrekeningId", "VanafBoekjaar");
 
                     b.HasIndex("KlantId");
 
@@ -1684,8 +1697,8 @@ namespace Boekerhouden.Data.Migraties
             modelBuilder.Entity("Boekerhouden.Data.RekeningPresentatie", b =>
                 {
                     b.HasOne("Boekerhouden.Data.Grootboekrekening", null)
-                        .WithOne()
-                        .HasForeignKey("Boekerhouden.Data.RekeningPresentatie", "GrootboekrekeningId")
+                        .WithMany()
+                        .HasForeignKey("GrootboekrekeningId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

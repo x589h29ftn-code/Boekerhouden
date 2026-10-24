@@ -92,14 +92,24 @@ public sealed class RubriceerDienst(IDbContextFactory<BoekerhoudenDbContext> dbF
         rekeningen = [.. rekeningen.Where(r => saldi.ContainsKey(r.Id))];
         var koppelingen = await db.Koppelingen.AsNoTracking().Where(k => k.KlantId == dossier.KlantId)
             .ToDictionaryAsync(k => k.GrootboekrekeningId);
-        var eigenPosten = await db.EigenPosten.AsNoTracking().Where(p => p.KlantId == dossier.KlantId)
-            .OrderBy(p => p.OuderCode).ThenBy(p => p.Volgorde)
-            .Select(p => new EigenPost(p.Id, p.OuderCode, p.Naam, p.OmslagCode))
-            .ToListAsync();
-        var klantNamen = await db.KlantPostNamen.AsNoTracking().Where(n => n.KlantId == dossier.KlantId)
-            .ToDictionaryAsync(n => n.Code, n => n.Naam, StringComparer.Ordinal);
-        var kantoorNamen = await db.KantoorPostNamen.AsNoTracking()
-            .ToDictionaryAsync(n => n.Code, n => n.Naam, StringComparer.Ordinal);
+        // Namen zoals ze gelden in het boekjaar van het dossier; een eigen post kan vanaf een jaar anders heten.
+        var klantNamen = Jaarversies.Geldend(
+                await db.KlantPostNamen.AsNoTracking().Where(n => n.KlantId == dossier.KlantId && n.VanafBoekjaar <= dossier.Boekjaar).ToListAsync(),
+                n => n.Code, dossier.Boekjaar, StringComparer.Ordinal)
+            .Where(n => n.Value.Naam is not null).ToDictionary(n => n.Key, n => n.Value.Naam!, StringComparer.Ordinal);
+        var kantoorNamen = Jaarversies.Geldend(
+                await db.KantoorPostNamen.AsNoTracking().Where(n => n.VanafBoekjaar <= dossier.Boekjaar).ToListAsync(),
+                n => n.Code, dossier.Boekjaar, StringComparer.Ordinal)
+            .Where(n => n.Value.Naam is not null).ToDictionary(n => n.Key, n => n.Value.Naam!, StringComparer.Ordinal);
+        var eigenPosten = (await db.EigenPosten.AsNoTracking().Where(p => p.KlantId == dossier.KlantId)
+                .OrderBy(p => p.OuderCode).ThenBy(p => p.Volgorde)
+                .ToListAsync())
+            .Select(p => new EigenPost(p.Id, p.OuderCode, klantNamen.GetValueOrDefault(PostBalans.EigenSleutel(p.Id)) ?? p.Naam, p.OmslagCode))
+            .ToList();
+        foreach (var eigen in klantNamen.Keys.Where(k => k.StartsWith(PostBalans.EigenVoorvoegsel, StringComparison.Ordinal)).ToList())
+        {
+            klantNamen.Remove(eigen);
+        }
 
         var codes = new HashSet<string>(StringComparer.Ordinal);
         PostBalans? balans = null;
@@ -425,6 +435,8 @@ public sealed class RubriceerDienst(IDbContextFactory<BoekerhoudenDbContext> dbF
 
         await db.Koppelingen.Where(k => k.EigenPostId == postId)
             .ExecuteUpdateAsync(s => s.SetProperty(k => k.EigenPostId, (Guid?)null));
+        var sleutel = PostBalans.EigenSleutel(postId);
+        await db.KlantPostNamen.Where(n => n.KlantId == klantId && n.Code == sleutel).ExecuteDeleteAsync();
         db.EigenPosten.Remove(post);
         await db.SaveChangesAsync();
         var klant = await db.Klanten.AsNoTracking().SingleAsync(k => k.Id == klantId);
@@ -433,22 +445,34 @@ public sealed class RubriceerDienst(IDbContextFactory<BoekerhoudenDbContext> dbF
     }
 
     /// <summary>
-    /// Geeft een post een eigen naam voor de jaarrekening: een eigen post, of een RGS-post voor deze klant of (met
-    /// <paramref name="kantoorbreed"/>) voor alle klanten. Een lege naam zet de standaardnaam terug.
+    /// Geeft een post een eigen naam voor de jaarrekening, vanaf het boekjaar van het dossier: een eigen post, of een
+    /// RGS-post voor deze klant of (met <paramref name="kantoorbreed"/>) voor alle klanten. Een lege naam zet de
+    /// standaardnaam terug. Eerdere jaren houden hun naam; latere jaren volgen, tenzij ze zelf een naam hebben.
     /// </summary>
-    public async Task<Uitkomst> Hernoem(Guid klantId, string sleutel, string? naam, bool kantoorbreed, Uitvoerder wie)
+    public async Task<Uitkomst> Hernoem(Guid dossierId, string sleutel, string? naam, bool kantoorbreed, Uitvoerder wie)
     {
         ArgumentNullException.ThrowIfNull(sleutel);
         ArgumentNullException.ThrowIfNull(wie);
         naam = string.IsNullOrWhiteSpace(naam) ? null : naam.Trim();
-        await using var db = await dbFactory.CreateDbContextAsync();
-        var klant = await db.Klanten.AsNoTracking().SingleAsync(k => k.Id == klantId);
-        string oud;
+        if (naam?.Length > 300)
+        {
+            return Uitkomst.Mislukt("Een naam is hoogstens 300 tekens.");
+        }
 
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var dossier = await db.Dossiers.AsNoTracking().Include(d => d.Klant).SingleOrDefaultAsync(d => d.Id == dossierId);
+        if (dossier?.Klant is not { } klant)
+        {
+            return Uitkomst.Mislukt("Dossier niet gevonden.");
+        }
+
+        var jaar = dossier.Boekjaar;
+        string oud;
+        bool gewijzigd;
         if (sleutel.StartsWith(PostBalans.EigenVoorvoegsel, StringComparison.Ordinal))
         {
             var post = Guid.TryParseExact(sleutel[PostBalans.EigenVoorvoegsel.Length..], "N", out var id)
-                ? await db.EigenPosten.SingleOrDefaultAsync(p => p.Id == id && p.KlantId == klantId)
+                ? await db.EigenPosten.AsNoTracking().SingleOrDefaultAsync(p => p.Id == id && p.KlantId == klant.Id)
                 : null;
             if (post is null)
             {
@@ -460,8 +484,12 @@ public sealed class RubriceerDienst(IDbContextFactory<BoekerhoudenDbContext> dbF
                 return Uitkomst.Mislukt("Een eigen post moet een naam hebben.");
             }
 
-            oud = post.Naam;
-            post.Naam = naam;
+            var versies = await db.KlantPostNamen.Where(n => n.KlantId == klant.Id && n.Code == sleutel).ToListAsync();
+            oud = Jaarversies.Geldend(versies, n => n.Code, jaar).GetValueOrDefault(sleutel)?.Naam ?? post.Naam;
+            gewijzigd = Jaarversies.Zet(db.KlantPostNamen, versies, jaar,
+                v => new KlantPostNaam { KlantId = klant.Id, Code = sleutel, Naam = v?.Naam ?? post.Naam },
+                n => n.Naam = naam,
+                n => n.Naam ?? post.Naam);
         }
         else
         {
@@ -474,35 +502,30 @@ public sealed class RubriceerDienst(IDbContextFactory<BoekerhoudenDbContext> dbF
             oud = code.Omschrijving;
             if (kantoorbreed)
             {
-                var bestaand = await db.KantoorPostNamen.SingleOrDefaultAsync(n => n.Code == sleutel);
-                if (bestaand is not null)
-                {
-                    db.KantoorPostNamen.Remove(bestaand);
-                }
-
-                if (naam is not null)
-                {
-                    db.KantoorPostNamen.Add(new KantoorPostNaam { Code = sleutel, Naam = naam });
-                }
+                var versies = await db.KantoorPostNamen.Where(n => n.Code == sleutel).ToListAsync();
+                gewijzigd = Jaarversies.Zet(db.KantoorPostNamen, versies, jaar,
+                    v => new KantoorPostNaam { Code = sleutel, Naam = v?.Naam },
+                    n => n.Naam = naam,
+                    n => n.Naam ?? string.Empty);
             }
             else
             {
-                var bestaand = await db.KlantPostNamen.SingleOrDefaultAsync(n => n.KlantId == klantId && n.Code == sleutel);
-                if (bestaand is not null)
-                {
-                    db.KlantPostNamen.Remove(bestaand);
-                }
-
-                if (naam is not null)
-                {
-                    db.KlantPostNamen.Add(new KlantPostNaam { KlantId = klantId, Code = sleutel, Naam = naam });
-                }
+                var versies = await db.KlantPostNamen.Where(n => n.KlantId == klant.Id && n.Code == sleutel).ToListAsync();
+                gewijzigd = Jaarversies.Zet(db.KlantPostNamen, versies, jaar,
+                    v => new KlantPostNaam { KlantId = klant.Id, Code = sleutel, Naam = v?.Naam },
+                    n => n.Naam = naam,
+                    n => n.Naam ?? string.Empty);
             }
+        }
+
+        if (!gewijzigd)
+        {
+            return Uitkomst.Gelukt;
         }
 
         await db.SaveChangesAsync();
         await audit.Log(wie, AuditActies.PostHernoemd, kantoorbreed ? "Kantoorstandaard" : KlantDienst.Onderwerp(klant),
-            $"{sleutel}: '{oud}' → '{naam ?? "(standaardnaam)"}'");
+            $"{sleutel}: '{oud}' → '{naam ?? "(standaardnaam)"}' vanaf {jaar}");
         return Uitkomst.Gelukt;
     }
 

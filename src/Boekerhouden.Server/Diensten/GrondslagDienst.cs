@@ -21,15 +21,17 @@ public sealed partial class GrondslagDienst(IDbContextFactory<BoekerhoudenDbCont
     public const int MaximaleTekst = 4000;
 
     /// <summary>
-    /// Brengt de bibliotheek bij met de meegeleverde grondslagen: nieuwe komen erbij, en wat het kantoor niet heeft
-    /// aangepast krijgt de nieuwe standaardtekst (vervallen standaardgrondslagen gaan eruit). Aanpassingen van het
-    /// kantoor blijven; de indeling (groep en volgorde) volgt altijd de standaard.
+    /// Brengt de bibliotheek bij met de meegeleverde grondslagen (de versie voor alle jaren): nieuwe komen erbij, en
+    /// wat het kantoor niet heeft aangepast krijgt de nieuwe standaardtekst (vervallen standaardgrondslagen gaan eruit).
+    /// Aanpassingen van het kantoor, ook die vanaf een boekjaar, blijven; de indeling (groep en volgorde) volgt altijd
+    /// de standaard.
     /// </summary>
     public static async Task VulAan(BoekerhoudenDbContext db, DateTimeOffset nu)
     {
         ArgumentNullException.ThrowIfNull(db);
         var standaard = StandaardGrondslagen.Maak(nu);
-        var bestaand = await db.GrondslagSjablonen.ToDictionaryAsync(g => g.Sleutel, StringComparer.Ordinal);
+        var alle = await db.GrondslagSjablonen.ToListAsync();
+        var bestaand = alle.Where(g => g.VanafBoekjaar == 0).ToDictionary(g => g.Sleutel, StringComparer.Ordinal);
         foreach (var nieuw in standaard)
         {
             if (!bestaand.Remove(nieuw.Sleutel, out var oud))
@@ -38,8 +40,12 @@ public sealed partial class GrondslagDienst(IDbContextFactory<BoekerhoudenDbCont
                 continue;
             }
 
-            oud.Groep = nieuw.Groep;
-            oud.Volgorde = nieuw.Volgorde;
+            foreach (var versie in alle.Where(g => g.Sleutel == nieuw.Sleutel))
+            {
+                versie.Groep = nieuw.Groep;
+                versie.Volgorde = nieuw.Volgorde;
+            }
+
             if (oud.GewijzigdDoor == StandaardGrondslagen.Door
                 && (oud.Titel, oud.TekstCommercieel, oud.TekstFiscaal, oud.Opname, oud.Codes, oud.Jaargebonden)
                 != (nieuw.Titel, nieuw.TekstCommercieel, nieuw.TekstFiscaal, nieuw.Opname, nieuw.Codes, nieuw.Jaargebonden))
@@ -49,20 +55,39 @@ public sealed partial class GrondslagDienst(IDbContextFactory<BoekerhoudenDbCont
             }
         }
 
-        db.GrondslagSjablonen.RemoveRange(bestaand.Values.Where(g => g.GewijzigdDoor == StandaardGrondslagen.Door));
+        var vervallen = bestaand.Values.Where(g => g.GewijzigdDoor == StandaardGrondslagen.Door).Select(g => g.Sleutel).ToHashSet(StringComparer.Ordinal);
+        db.GrondslagSjablonen.RemoveRange(alle.Where(g => vervallen.Contains(g.Sleutel)));
         await db.SaveChangesAsync();
     }
 
-    public async Task<IReadOnlyList<GrondslagSjabloon>> Bibliotheek()
+    /// <summary>De bibliotheek zoals die geldt in een boekjaar (per grondslag de laatste versie tot en met dat jaar).</summary>
+    public async Task<IReadOnlyList<GrondslagSjabloon>> Bibliotheek(int boekjaar = int.MaxValue)
     {
         await using var db = await dbFactory.CreateDbContextAsync();
-        return await db.GrondslagSjablonen.AsNoTracking().OrderBy(g => g.Volgorde).ToListAsync();
+        return await Bibliotheek(db, boekjaar);
     }
 
-    public Task<Uitkomst> Bewaar(string sleutel, GrondslagInvoer invoer, Uitvoerder wie) => Bewaar(sleutel, invoer, wie, wie?.Naam ?? string.Empty);
+    private static async Task<List<GrondslagSjabloon>> Bibliotheek(BoekerhoudenDbContext db, int boekjaar) =>
+        [.. Jaarversies.Geldend(await db.GrondslagSjablonen.AsNoTracking().Where(g => g.VanafBoekjaar <= boekjaar).ToListAsync(), g => g.Sleutel, boekjaar, StringComparer.Ordinal)
+            .Values.OrderBy(g => g.Volgorde)];
+
+    /// <summary>De boekjaren waarin de bibliotheek een eigen versie van een grondslag heeft (0 = de versie voor alle jaren).</summary>
+    public async Task<IReadOnlyDictionary<string, IReadOnlyList<int>>> Versies()
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+        return (await db.GrondslagSjablonen.AsNoTracking().Select(g => new { g.Sleutel, g.VanafBoekjaar }).ToListAsync())
+            .GroupBy(g => g.Sleutel, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<int>)[.. g.Select(v => v.VanafBoekjaar).Order()], StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// Past een grondslag aan vanaf een boekjaar: eerdere jaren houden hun tekst, latere jaren volgen tenzij de
+    /// bibliotheek voor hen een eigen versie heeft.
+    /// </summary>
+    public Task<Uitkomst> Bewaar(string sleutel, int vanafBoekjaar, GrondslagInvoer invoer, Uitvoerder wie) => Bewaar(sleutel, vanafBoekjaar, invoer, wie, wie?.Naam ?? string.Empty);
 
     /// <param name="door">Wie de grondslag heeft gewijzigd; <see cref="StandaardGrondslagen.Door"/> als het de standaard is.</param>
-    private async Task<Uitkomst> Bewaar(string sleutel, GrondslagInvoer invoer, Uitvoerder wie, string door)
+    private async Task<Uitkomst> Bewaar(string sleutel, int vanafBoekjaar, GrondslagInvoer invoer, Uitvoerder wie, string door)
     {
         ArgumentNullException.ThrowIfNull(invoer);
         ArgumentNullException.ThrowIfNull(wie);
@@ -96,33 +121,56 @@ public sealed partial class GrondslagDienst(IDbContextFactory<BoekerhoudenDbCont
             fouten.Add("Een grondslag 'bij post' heeft ten minste één RGS-code nodig.");
         }
 
+        if (vanafBoekjaar is < 1900 or > 2200)
+        {
+            fouten.Add("Kies het boekjaar vanaf wanneer de aanpassing geldt.");
+        }
+
         if (fouten.Count > 0)
         {
             return new Uitkomst(fouten);
         }
 
         await using var db = await dbFactory.CreateDbContextAsync();
-        var grondslag = await db.GrondslagSjablonen.SingleOrDefaultAsync(g => g.Sleutel == sleutel);
-        if (grondslag is null)
+        var versies = await db.GrondslagSjablonen.Where(g => g.Sleutel == sleutel).ToListAsync();
+        if (versies.Count == 0)
         {
             return Uitkomst.Mislukt("Deze grondslag bestaat niet (meer).");
         }
 
-        grondslag.Titel = titel;
-        grondslag.TekstCommercieel = commercieel;
-        grondslag.TekstFiscaal = fiscaal;
-        grondslag.Opname = invoer.Opname;
-        grondslag.Codes = codes;
-        grondslag.Jaargebonden = invoer.Jaargebonden;
-        grondslag.GewijzigdOp = tijd.GetUtcNow();
-        grondslag.GewijzigdDoor = door;
+        var nu = tijd.GetUtcNow();
+        var eerste = versies.MinBy(v => v.VanafBoekjaar)!;
+        if (!Jaarversies.Zet(db.GrondslagSjablonen, versies, vanafBoekjaar,
+            v => Kopie(v ?? eerste),
+            g => (g.Titel, g.TekstCommercieel, g.TekstFiscaal, g.Opname, g.Codes, g.Jaargebonden, g.GewijzigdOp, g.GewijzigdDoor) =
+                (titel, commercieel, fiscaal, invoer.Opname, codes, invoer.Jaargebonden, nu, door),
+            g => (g.Titel, g.TekstCommercieel, g.TekstFiscaal, g.Opname, g.Codes, g.Jaargebonden)))
+        {
+            return Uitkomst.Gelukt;
+        }
+
         await db.SaveChangesAsync();
-        await audit.Log(wie, AuditActies.GrondslagenbibliotheekGewijzigd, titel, $"{sleutel}: {invoer.Opname}{(codes.Length > 0 ? $" ({codes})" : null)}");
+        await audit.Log(wie, AuditActies.GrondslagenbibliotheekGewijzigd, titel, $"{sleutel} vanaf {vanafBoekjaar}: {invoer.Opname}{(codes.Length > 0 ? $" ({codes})" : null)}");
         return Uitkomst.Gelukt;
     }
 
-    /// <summary>Zet een grondslag terug naar de meegeleverde tekst en instellingen; daarna gaat hij weer mee met nieuwe standaardteksten.</summary>
-    public async Task<Uitkomst> HerstelStandaard(string sleutel, Uitvoerder wie)
+    private static GrondslagSjabloon Kopie(GrondslagSjabloon g) => new()
+    {
+        Sleutel = g.Sleutel,
+        Groep = g.Groep,
+        Titel = g.Titel,
+        TekstCommercieel = g.TekstCommercieel,
+        TekstFiscaal = g.TekstFiscaal,
+        Opname = g.Opname,
+        Codes = g.Codes,
+        Jaargebonden = g.Jaargebonden,
+        Volgorde = g.Volgorde,
+        GewijzigdOp = g.GewijzigdOp,
+        GewijzigdDoor = g.GewijzigdDoor,
+    };
+
+    /// <summary>Zet een grondslag vanaf een boekjaar terug naar de meegeleverde tekst en instellingen.</summary>
+    public async Task<Uitkomst> HerstelStandaard(string sleutel, int vanafBoekjaar, Uitvoerder wie)
     {
         ArgumentNullException.ThrowIfNull(wie);
         var standaard = StandaardGrondslagen.Maak(tijd.GetUtcNow()).SingleOrDefault(g => g.Sleutel == sleutel);
@@ -131,7 +179,7 @@ public sealed partial class GrondslagDienst(IDbContextFactory<BoekerhoudenDbCont
             return Uitkomst.Mislukt("Voor deze grondslag is geen standaardtekst meegeleverd.");
         }
 
-        return await Bewaar(sleutel, new GrondslagInvoer(standaard.Titel, standaard.TekstCommercieel, standaard.TekstFiscaal, standaard.Opname, standaard.Codes, standaard.Jaargebonden),
+        return await Bewaar(sleutel, vanafBoekjaar, new GrondslagInvoer(standaard.Titel, standaard.TekstCommercieel, standaard.TekstFiscaal, standaard.Opname, standaard.Codes, standaard.Jaargebonden),
             wie, StandaardGrondslagen.Door);
     }
 
@@ -175,7 +223,8 @@ public sealed partial class GrondslagDienst(IDbContextFactory<BoekerhoudenDbCont
     }
 
     /// <summary>
-    /// De grondslagen voor het rapport van een dossier: de bibliotheek met de tekst voor de gekozen variant, en per
+    /// De grondslagen voor het rapport van een dossier: de bibliotheek zoals die in het boekjaar geldt, met de tekst
+    /// voor de gekozen variant, en per
     /// grondslag de keuze uit dit dossier of, als die er niet is, uit het laatste eerdere jaar (niet bij jaargebonden).
     /// Naam, plaats, KvK-nummer en boekjaar zijn ingevuld.
     /// </summary>
@@ -190,7 +239,7 @@ public sealed partial class GrondslagDienst(IDbContextFactory<BoekerhoudenDbCont
 
         string Vul(string tekst) => StandaardGrondslagen.Vul(tekst, klant.Naam, klant.Plaats, klant.KvkNummer, dossier.Boekjaar);
 
-        var bibliotheek = await db.GrondslagSjablonen.AsNoTracking().OrderBy(g => g.Volgorde).ToListAsync();
+        var bibliotheek = await Bibliotheek(db, dossier.Boekjaar);
         var grondslagen = dossier.Grondslag is not { } variant ? [] : bibliotheek
             .Select(g => (g, Tekst: variant == Verslaggeving.Commercieel ? g.TekstCommercieel : g.TekstFiscaal))
             .Where(x => !string.IsNullOrWhiteSpace(x.Tekst))
@@ -206,8 +255,7 @@ public sealed partial class GrondslagDienst(IDbContextFactory<BoekerhoudenDbCont
     /// <summary>Per grondslag de keuze uit dit dossier of, als die er niet is, uit het laatste eerdere jaar (niet bij jaargebonden).</summary>
     private static async Task<Dictionary<string, GrondslagKeuze>> GeldendeKeuzes(BoekerhoudenDbContext db, Dossier dossier)
     {
-        var jaargebonden = (await db.GrondslagSjablonen.AsNoTracking().Where(g => g.Jaargebonden).Select(g => g.Sleutel).ToListAsync())
-            .ToHashSet(StringComparer.Ordinal);
+        var jaargebonden = (await Bibliotheek(db, dossier.Boekjaar)).Where(g => g.Jaargebonden).Select(g => g.Sleutel).ToHashSet(StringComparer.Ordinal);
         var eerdere = await (from k in db.DossierGrondslagen.AsNoTracking()
                              join d in db.Dossiers.AsNoTracking() on k.DossierId equals d.Id
                              where d.KlantId == dossier.KlantId && d.SoortOpdracht == dossier.SoortOpdracht && d.Boekjaar <= dossier.Boekjaar
@@ -243,7 +291,7 @@ public sealed partial class GrondslagDienst(IDbContextFactory<BoekerhoudenDbCont
         ArgumentNullException.ThrowIfNull(wie);
         await using var db = await dbFactory.CreateDbContextAsync();
         var dossier = await db.Dossiers.AsNoTracking().Include(d => d.Klant).SingleOrDefaultAsync(d => d.Id == dossierId);
-        var grondslag = await db.GrondslagSjablonen.AsNoTracking().SingleOrDefaultAsync(g => g.Sleutel == sleutel);
+        var grondslag = dossier is null ? null : (await Bibliotheek(db, dossier.Boekjaar)).SingleOrDefault(g => g.Sleutel == sleutel);
         if (dossier is null || grondslag is null)
         {
             return Uitkomst.Mislukt("Grondslag of dossier niet gevonden.");

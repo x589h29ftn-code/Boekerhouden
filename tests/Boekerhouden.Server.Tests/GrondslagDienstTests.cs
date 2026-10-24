@@ -212,28 +212,50 @@ public sealed class GrondslagDienstTests(ServerFixture server) : IClassFixture<S
         Assert.DoesNotContain(bibliotheek, g => g.Sleutel == "vervallen");
         Assert.Contains(bibliotheek, g => g.Sleutel == "eigen");
 
-        Assert.True((await Grondslagen.HerstelStandaard("kosten", Tester)).IsGelukt);
+        Assert.True((await Grondslagen.HerstelStandaard("kosten", 2025, Tester)).IsGelukt);
         Assert.Equal(StandaardGrondslagen.Door, (await Grondslagen.Bibliotheek()).Single(g => g.Sleutel == "kosten").GewijzigdDoor);
 
         await using var opruimen = await server.Dienst<IDbContextFactory<BoekerhoudenDbContext>>().CreateDbContextAsync();
-        await opruimen.GrondslagSjablonen.Where(g => g.Sleutel == "eigen").ExecuteDeleteAsync();
+        await opruimen.GrondslagSjablonen.Where(g => g.Sleutel == "eigen" || g.Sleutel == "kosten").ExecuteDeleteAsync();
+        await GrondslagDienst.VulAan(opruimen, nu);
+    }
+
+    [Fact]
+    public async Task Een_aanpassing_in_de_bibliotheek_geldt_vanaf_een_boekjaar()
+    {
+        var (_, vorig, huidig, _) = await Bakkerij();
+        var standaard = (await Grondslagen.Bibliotheek()).Single(g => g.Sleutel == "omzet");
+
+        Assert.True((await Grondslagen.Bewaar("omzet", 2025,
+            new GrondslagInvoer("Netto-omzet", standaard.TekstCommercieel, "De omzet bestaat uit de verkoop van brood en banket.", GrondslagOpname.BijPost, "WOmz", false), Tester)).IsGelukt);
+
+        Assert.Equal("De omzet bestaat uit de verkoop van brood en banket.", Blokken(await Rapport(huidig)).Single(b => b.Sleutel == "omzet").Tekst);
+        Assert.Equal(standaard.TekstFiscaal, Blokken(await Rapport(vorig)).Single(b => b.Sleutel == "omzet").Tekst);
+        Assert.Equal(standaard.TekstFiscaal, (await Grondslagen.Bibliotheek(2024)).Single(g => g.Sleutel == "omzet").TekstFiscaal);
+        Assert.Equal([0, 2025], (await Grondslagen.Versies())["omzet"]);
+        Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.GrondslagenbibliotheekGewijzigd), a => a.Details == "omzet vanaf 2025: BijPost (WOmz)");
+
+        // Terugzetten vanaf 2025: de versie is dan gelijk aan wat ervoor gold en vervalt.
+        Assert.True((await Grondslagen.HerstelStandaard("omzet", 2025, Tester)).IsGelukt);
+        Assert.Equal([0], (await Grondslagen.Versies())["omzet"]);
+        Assert.False((await Grondslagen.Bewaar("omzet", 0, new GrondslagInvoer("Netto-omzet", "x", "x", GrondslagOpname.BijPost, "WOmz", false), Tester)).IsGelukt);
     }
 
     [Fact]
     public async Task De_bibliotheek_is_aan_te_passen_en_terug_te_zetten()
     {
         await server.MetRgs();
-        Assert.False((await Grondslagen.Bewaar("mva", new GrondslagInvoer("", "x", null, GrondslagOpname.BijPost, "BMva", false), Tester)).IsGelukt);
-        Assert.False((await Grondslagen.Bewaar("mva", new GrondslagInvoer("MVA", "x", null, GrondslagOpname.BijPost, "", false), Tester)).IsGelukt);
-        Assert.False((await Grondslagen.Bewaar("mva", new GrondslagInvoer("MVA", "x", null, GrondslagOpname.BijPost, "1234", false), Tester)).IsGelukt);
-        Assert.False((await Grondslagen.Bewaar("mva", new GrondslagInvoer("MVA", null, " ", GrondslagOpname.Altijd, "", false), Tester)).IsGelukt);
+        Assert.False((await Grondslagen.Bewaar("mva", 2025, new GrondslagInvoer("", "x", null, GrondslagOpname.BijPost, "BMva", false), Tester)).IsGelukt);
+        Assert.False((await Grondslagen.Bewaar("mva", 2025, new GrondslagInvoer("MVA", "x", null, GrondslagOpname.BijPost, "", false), Tester)).IsGelukt);
+        Assert.False((await Grondslagen.Bewaar("mva", 2025, new GrondslagInvoer("MVA", "x", null, GrondslagOpname.BijPost, "1234", false), Tester)).IsGelukt);
+        Assert.False((await Grondslagen.Bewaar("mva", 2025, new GrondslagInvoer("MVA", null, " ", GrondslagOpname.Altijd, "", false), Tester)).IsGelukt);
 
-        Assert.True((await Grondslagen.Bewaar("verbonden", new GrondslagInvoer("Verbonden partijen", "Eigen tekst.", "Eigen fiscale tekst.", GrondslagOpname.Optioneel, "BFva, BVor", false), Tester)).IsGelukt);
+        Assert.True((await Grondslagen.Bewaar("verbonden", 2025, new GrondslagInvoer("Verbonden partijen", "Eigen tekst.", "Eigen fiscale tekst.", GrondslagOpname.Optioneel, "BFva, BVor", false), Tester)).IsGelukt);
         var aangepast = (await Grondslagen.Bibliotheek()).Single(g => g.Sleutel == "verbonden");
         Assert.Equal("BFva,BVor", aangepast.Codes);
         Assert.Equal("Test Gebruiker", aangepast.GewijzigdDoor);
 
-        Assert.True((await Grondslagen.HerstelStandaard("verbonden", Tester)).IsGelukt);
+        Assert.True((await Grondslagen.HerstelStandaard("verbonden", 2025, Tester)).IsGelukt);
         Assert.Equal("Transacties met verbonden partijen", (await Grondslagen.Bibliotheek()).Single(g => g.Sleutel == "verbonden").Titel);
     }
 }

@@ -113,7 +113,7 @@ public sealed class RubriceerDienstTests(ServerFixture server) : IClassFixture<S
         var postId = (await Rubriceer.VoegEigenPostToe(klantId, "BVorOvr", "Overige vorderingen 1", Tester)).Waarde;
         var sleutel = PostBalans.EigenSleutel(postId);
         Assert.True((await Rubriceer.Koppel(klantId, [Rekening(o, "1400")], sleutel, false, Tester)).IsGelukt);
-        Assert.True((await Rubriceer.Hernoem(klantId, sleutel, "Vordering op de huurder", false, Tester)).IsGelukt);
+        Assert.True((await Rubriceer.Hernoem(dossierId, sleutel, "Vordering op de huurder", false, Tester)).IsGelukt);
 
         o = (await Rubriceer.Overzicht(dossierId))!;
         var saldo = o.Rekeningen.Single(r => r.Nummer == "1400").Saldo!.Value;
@@ -145,16 +145,16 @@ public sealed class RubriceerDienstTests(ServerFixture server) : IClassFixture<S
     {
         var (klantId, dossierId) = await NieuweBakkerij();
 
-        await Rubriceer.Hernoem(klantId, "BMvaTev", "Vervoermiddelen", kantoorbreed: true, Tester);
+        await Rubriceer.Hernoem(dossierId, "BMvaTev", "Vervoermiddelen", kantoorbreed: true, Tester);
         var o = (await Rubriceer.Overzicht(dossierId))!;
         Assert.Equal("Vervoermiddelen", o.Naam("BMvaTev"));
 
-        await Rubriceer.Hernoem(klantId, "BMvaTev", "Bestelbussen", kantoorbreed: false, Tester);
+        await Rubriceer.Hernoem(dossierId, "BMvaTev", "Bestelbussen", kantoorbreed: false, Tester);
         o = (await Rubriceer.Overzicht(dossierId))!;
         Assert.Equal("Bestelbussen", o.Naam("BMvaTev"));
 
-        await Rubriceer.Hernoem(klantId, "BMvaTev", null, kantoorbreed: false, Tester);
-        await Rubriceer.Hernoem(klantId, "BMvaTev", "", kantoorbreed: true, Tester);
+        await Rubriceer.Hernoem(dossierId, "BMvaTev", null, kantoorbreed: false, Tester);
+        await Rubriceer.Hernoem(dossierId, "BMvaTev", "", kantoorbreed: true, Tester);
         o = (await Rubriceer.Overzicht(dossierId))!;
         Assert.Equal("Automobielen en overige transportmiddelen", o.Naam("BMvaTev"));
     }

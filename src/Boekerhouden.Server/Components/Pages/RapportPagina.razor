@@ -179,7 +179,7 @@ else
     private async Task ZetSpecificatie(PostPresentatieInfo post, ChangeEventArgs e)
     {
         var tonen = e.Value is true;
-        await Na(await RapportDienst.ZetSpecificatie(dossier!.KlantId, post.Code, tonen, await Wie()),
+        await Na(await RapportDienst.ZetSpecificatie(dossier!.Id, post.Code, tonen, await Wie()),
             $"Specificatie {post.Naam} {(tonen ? "wel" : "niet")} in het rapport");
     }
 
@@ -187,7 +187,7 @@ else
     {
         var verbergen = e.Value is true;
         openPost = post.Code;
-        await Na(await RapportDienst.ZetWeergave(dossier!.KlantId, r.Id, r.RapportOmschrijving, verbergen, await Wie()),
+        await Na(await RapportDienst.ZetWeergave(dossier!.Id, r.Id, r.RapportOmschrijving, verbergen, await Wie()),
             verbergen ? $"{r.Nummer} telt mee in Overige" : $"{r.Nummer} staat weer apart");
     }
 

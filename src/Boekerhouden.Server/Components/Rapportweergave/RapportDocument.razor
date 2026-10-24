@@ -178,15 +178,15 @@
 
     public Guid KlantId => Inhoud.Dossier.KlantId;
 
-    public Task<Uitkomst> Klap(string sleutel, bool uitgeklapt) => Uitvoeren(async wie => await RapportDienst.ZetUitgeklapt(KlantId, sleutel, uitgeklapt, wie), null);
+    public Task<Uitkomst> Klap(string sleutel, bool uitgeklapt) => Uitvoeren(async wie => await RapportDienst.ZetUitgeklapt(DossierId, sleutel, uitgeklapt, wie), null);
 
     /// <summary>Een andere naam voor een post, eigen post of rekening; leeg = de standaardnaam.</summary>
     public Task<Uitkomst> Hernoem(Bron bron, string? naam) => bron.Soort switch
     {
-        Onderwerp.Post or Onderwerp.EigenPost => Uitvoeren(wie => RubriceerDienst.Hernoem(KlantId, bron.Sleutel, naam, false, wie),
-            string.IsNullOrWhiteSpace(naam) ? "Standaardnaam teruggezet" : "Naam aangepast (voor deze klant)"),
-        Onderwerp.Rekening => Uitvoeren(wie => RapportDienst.ZetWeergave(KlantId, bron.Id!.Value, naam, false, wie),
-            string.IsNullOrWhiteSpace(naam) ? "Omschrijving uit de administratie teruggezet" : "Omschrijving aangepast (voor deze klant)"),
+        Onderwerp.Post or Onderwerp.EigenPost => Uitvoeren(wie => RubriceerDienst.Hernoem(DossierId, bron.Sleutel, naam, false, wie),
+            string.IsNullOrWhiteSpace(naam) ? $"Standaardnaam vanaf {Inhoud.Dossier.Boekjaar}" : $"Naam aangepast vanaf {Inhoud.Dossier.Boekjaar}"),
+        Onderwerp.Rekening => Uitvoeren(wie => RapportDienst.ZetWeergave(DossierId, bron.Id!.Value, naam, false, wie),
+            string.IsNullOrWhiteSpace(naam) ? $"Omschrijving uit de administratie vanaf {Inhoud.Dossier.Boekjaar}" : $"Omschrijving aangepast vanaf {Inhoud.Dossier.Boekjaar}"),
         _ => Task.FromResult(Uitkomst.Mislukt("Deze regel is niet aan te passen.")),
     };
 

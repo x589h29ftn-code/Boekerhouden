@@ -29,11 +29,15 @@ public enum GrondslagOpname
 /// <summary>
 /// Een grondslag in de kantoorbibliotheek (Beheer › Grondslagen): een tekst voor commerciële en een voor fiscale
 /// grondslagen. Een lege tekst betekent dat de grondslag bij die variant niet voorkomt (bijv. latente belastingen
-/// bij fiscale grondslagen).
+/// bij fiscale grondslagen). Per sleutel kunnen er versies zijn vanaf een boekjaar: een aanpassing geldt vanaf dat jaar,
+/// eerdere jaren houden hun tekst.
 /// </summary>
-public sealed class GrondslagSjabloon
+public sealed class GrondslagSjabloon : IJaarversie
 {
     public string Sleutel { get; set; } = string.Empty;
+
+    /// <inheritdoc />
+    public int VanafBoekjaar { get; set; }
 
     /// <summary>De paragraaf, bijv. "Grondslagen voor de waardering van activa en passiva".</summary>
     public string Groep { get; set; } = string.Empty;

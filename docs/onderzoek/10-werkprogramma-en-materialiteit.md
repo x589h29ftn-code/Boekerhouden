@@ -88,9 +88,9 @@ bedieningselementen (driehoekjes, knoppen) worden niet afgedrukt.
 
 | In de viewer | Hoe | Geldt voor |
 |---|---|---|
-| **In- en uitklappen** | Driehoekje voor een post. In de balans en W&V klapt een post uit naar zijn subposten (bijv. *Overige bedrijfskosten* → huisvestingskosten, autokosten, verkoopkosten); in een specificatie klapt een groep in tot één regel. Standaard: balans en specificaties uit-, W&V ingeklapt | De klant, ook volgende jaren |
-| **Namen aanpassen** | Klik op de naam van een post, eigen post of rekening; Enter bewaart, Escape annuleert, leeg = de standaardnaam. Een postnaam geldt in het hele rapport (en bij het rubriceren) | De klant, ook volgende jaren |
-| **Toelichting** | Onder elke specificatie *toelichting toevoegen* (zichtbaar bij aanwijzen), of op de tekst klikken om die aan te passen. Staat er vorig jaar een toelichting bij de post, dan is die het voorstel | Dit dossier |
+| **In- en uitklappen** | Driehoekje voor een post. In de balans en W&V klapt een post uit naar zijn subposten (bijv. *Overige bedrijfskosten* → huisvestingskosten, autokosten, verkoopkosten); in een specificatie klapt een groep in tot één regel. Standaard: balans en specificaties uit-, W&V ingeklapt | De klant, vanaf dit jaar |
+| **Namen aanpassen** | Klik op de naam van een post, eigen post of rekening; Enter bewaart, Escape annuleert, leeg = de standaardnaam. Een postnaam geldt in het hele rapport (en bij het rubriceren) | De klant, vanaf dit jaar |
+| **Toelichting** | Onder elke specificatie *toelichting toevoegen* (zichtbaar bij aanwijzen), of op de tekst klikken om die aan te passen. Een toelichting rolt door naar volgende jaren; leegmaken haalt hem vanaf dit jaar weg | Dit dossier en volgende jaren |
 | **Uitsplitsen** | Bij een rekening *uitsplitsen*, bijv. *Nog te betalen kosten* in accountantskosten, energie en overige. Per regel een omschrijving, het bedrag en het bedrag vorig jaar, met een **controletelling** op het saldo van beide jaren. Sluit het niet aan, dan staat het verschil in het rapport als *Nog niet gespecificeerd* (de totalen blijven kloppen) en volgt een waarschuwing. Een uitsplitsing van vorig jaar is het voorstel (met die bedragen als vorig jaar) | Dit dossier |
 
 Achter de schakelaar *presentatie aanpassen* staat per hoofdpost met saldo of de **specificatie** in het
@@ -98,6 +98,17 @@ rapport komt, en per rekening of hij **in Overige** meetelt (de regel *Overige* 
 specificatie blijft aansluiten). Rekeningen onder een eigen post staan als één regel met de naam van de
 eigen post. Alles staat in het wijzigingslog. Nog niet gebouwd: regels samenvoegen of in een andere
 volgorde, verloopoverzichten en opmaak per post (nieuwe pagina ervoor).
+
+**Per boekjaar, nooit met terugwerkende kracht.** Elke aanpassing in het rapport geldt vanaf het boekjaar van
+het dossier waarin je hem maakt: namen van posten en rekeningen (ook kantoorbreed), rekeningen in *Overige*,
+specificatie aan of uit, in- en uitklappen, toelichtingen en grondslagen (open of dicht, eigen tekst). Eerdere
+jaren blijven zoals ze waren. Volgende jaren nemen de aanpassing over, tenzij ze zelf iets anders hebben; zo gaat
+het rapport van vorig jaar bij de jaarwisseling vanzelf mee. Technisch: per instelling versies met
+`VanafBoekjaar` (in een jaar geldt de versie met het hoogste jaar tot en met dat jaar); een versie die gelijk is
+aan wat ervoor gold, vervalt vanzelf. De grondslagenbibliotheek van het kantoor werkt hetzelfde: in Beheer ›
+Grondslagen kies je het boekjaar, en een aanpassing geldt vanaf dat jaar (zie [§9.3](09-analyse-voorbeeldrapporten.md#93-catalogus-van-rapportbouwstenen)).
+De rubricering (koppelingen en eigen posten) geldt per klant voor alle jaren: de vergelijkende cijfers volgen
+zo de indeling van dit jaar. Een uitgebracht rapport wordt bevroren bij het afronden van het dossier (plakje 8).
 
 ## 10.5 Het sjabloon (beheer)
 
