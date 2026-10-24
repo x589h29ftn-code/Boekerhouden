@@ -80,7 +80,7 @@ public sealed class SignaalDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
             if (d.WerkprogrammaVersie is not null
                 && dossierStappen.Any(s => s.Controle == StapControle.MaterielePostenGekozen && s.Status == StapStatus.Open))
             {
-                signalen.Add("Keuze materiële posten nog niet afgetekend");
+                signalen.Add("Beoordeling posten nog niet afgetekend");
             }
 
             resultaat[d.Id] = new DossierSignalen(d.Id, relevant.Count, aantalGekoppeld, klaar, dossierStappen.Count, open, signalen);

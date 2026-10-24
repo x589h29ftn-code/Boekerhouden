@@ -19,6 +19,17 @@ public enum OnderdeelSoort
     Post,
 }
 
+/// <summary>
+/// De beoordeling van een hoofdpost bij de planning (risicogericht samenstellen): standaard niet van toepassing; een
+/// materiële post of een risicopost krijgt het postprogramma in de uitvoering.
+/// </summary>
+public enum PostBeoordeling
+{
+    NietVanToepassing,
+    Materieel,
+    Risicopost,
+}
+
 public enum StapStatus
 {
     Open,
@@ -31,7 +42,7 @@ public enum StapControle
 {
     Geen,
 
-    /// <summary>Elke hoofdpost met saldo heeft een keuze materieel / niet materieel.</summary>
+    /// <summary>De beoordeling van de posten (niet van toepassing, materieel of risicopost); standaard n.v.t., dus altijd in orde.</summary>
     MaterielePostenGekozen,
 
     /// <summary>Alle grootboekrekeningen met saldo zijn aan RGS gekoppeld.</summary>
@@ -170,16 +181,22 @@ public sealed class DossierStap
     public DateTimeOffset AangemaaktOp { get; set; }
 
     public string AangemaaktDoor { get; set; } = string.Empty;
+
+    /// <summary>Het boekjaar waaruit het antwoord is overgenomen (doorrollen); null = in dit dossier ingevuld.</summary>
+    public int? OvergenomenVan { get; set; }
 }
 
-/// <summary>De keuze per hoofdpost: materieel of (bewust) niet materieel. Geen rij = nog niet gekozen.</summary>
+/// <summary>De beoordeling per hoofdpost. Geen rij = niet van toepassing (de standaard).</summary>
 public sealed class DossierPostKeuze
 {
     public Guid DossierId { get; set; }
 
     public string HoofdpostCode { get; set; } = string.Empty;
 
-    public bool Materieel { get; set; }
+    public PostBeoordeling Beoordeling { get; set; }
+
+    /// <summary>Bij een risicopost: wat er mis kan gaan, bijv. "onjuiste waardering voorraad".</summary>
+    public string? Risico { get; set; }
 
     public DateTimeOffset GewijzigdOp { get; set; }
 

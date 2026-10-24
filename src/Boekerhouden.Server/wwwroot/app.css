@@ -706,6 +706,23 @@ tr.klikbaar {
             margin-bottom: 3mm;
         }
 
+.wp-risico {
+    display: flex;
+    gap: .75rem;
+    align-items: center;
+    padding: .3rem .75rem .4rem 2rem;
+    font-size: .875rem;
+    color: var(--kleur-zacht);
+}
+
+    .wp-risico input {
+        max-width: 36rem;
+    }
+
+.card-header .beoordeling .form-check-label {
+    color: #495057;
+}
+
 .wp-volgende {
     display: flex;
     gap: .5rem;
@@ -760,7 +777,7 @@ tr.klikbaar {
 
 .mp-raster {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 6.5rem 6.5rem 5.5rem;
+    grid-template-columns: minmax(0, 1fr) 6.5rem 6.5rem 4.25rem 4.25rem 4.25rem;
     column-gap: .6rem;
     align-items: center;
     padding: 0 .75rem;

@@ -73,6 +73,8 @@ public static class AuditActies
     public const string WerkprogrammaGestart = "Werkprogramma gestart";
     public const string PostMaterieel = "Post materieel";
     public const string PostNietMaterieel = "Post niet materieel";
+    public const string PostRisicopost = "Post risicopost";
+    public const string RisicoVastgelegd = "Risico vastgelegd";
     public const string StapBeantwoord = "Stap beantwoord";
     public const string StapAfgetekend = "Stap afgetekend";
     public const string StapToegevoegd = "Stap toegevoegd";

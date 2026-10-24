@@ -1,5 +1,7 @@
+using System.Text;
 using Boekerhouden.Data;
 using Boekerhouden.Server.Diensten;
+using StandaardWerkprogramma = Boekerhouden.Server.Werkprogramma.StandaardWerkprogramma;
 
 namespace Boekerhouden.Server.Tests;
 
@@ -37,13 +39,13 @@ public sealed class WerkprogrammaDienstTests(ServerFixture server) : IClassFixtu
         var o = await Overzicht(dossierId);
         var nogmaals = await Overzicht(dossierId);
 
-        Assert.Equal("2026.1", o.Versie);
+        Assert.Equal(StandaardWerkprogramma.Versie, o.Versie);
         Assert.Equal(nogmaals.Onderdelen.Select(x => x.Id), o.Onderdelen.Select(x => x.Id));
         Assert.DoesNotContain(o.Onderdelen, x => x.Fase == Fase.Uitvoering);
         Assert.Equal(["Opdracht en acceptatie", "Kennis van de cliënt", "Planning"], o.Onderdelen.Where(x => x.Fase == Fase.Voorbereiding).Select(x => x.Titel));
         Assert.Contains(o.Onderdelen, x => x.Titel == "Bevestiging klant" && x.Verplicht);
         Assert.All(o.Onderdelen.SelectMany(x => x.Stappen), s => Assert.False(s.Eigen));
-        Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.WerkprogrammaGestart), a => a.Details == "Samenstellen jaarrekening 2026.1");
+        Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.WerkprogrammaGestart), a => a.Details == $"Samenstellen jaarrekening {StandaardWerkprogramma.Versie}");
     }
 
     [Fact]
@@ -56,7 +58,7 @@ public sealed class WerkprogrammaDienstTests(ServerFixture server) : IClassFixtu
         var post = (await Overzicht(dossierId)).Post("BMva")!;
         Assert.Equal(Fase.Uitvoering, post.Fase);
         Assert.Equal(["Verloopoverzicht", "Investeringen", "Afschrijvingen", "Desinvesteringen"], post.Stappen.Select(s => s.Titel));
-        Assert.True((await Overzicht(dossierId)).Keuzes["BMva"]);
+        Assert.Equal(PostBeoordeling.Materieel, (await Overzicht(dossierId)).Keuzes["BMva"].Beoordeling);
 
         // Niets ingevuld: de post verdwijnt gewoon.
         Assert.True((await Werkprogramma.KiesMaterieel(dossierId, "BMva", false, null, Tester)).IsGelukt);
@@ -73,11 +75,58 @@ public sealed class WerkprogrammaDienstTests(ServerFixture server) : IClassFixtu
         var bewaard = (await Overzicht(dossierId)).Post("BMva")!;
         Assert.All(bewaard.Stappen, s => Assert.Equal(StapStatus.NietVanToepassing, s.Status));
         Assert.Equal("Verloop aangesloten op het grootboek.", bewaard.Stappen[0].Antwoord);
-        Assert.False((await Overzicht(dossierId)).Keuzes["BMva"]);
+        Assert.False((await Overzicht(dossierId)).Keuzes["BMva"].MetWerk);
 
         // Weer materieel: de stappen gaan weer open.
         await Werkprogramma.KiesMaterieel(dossierId, "BMva", true, null, Tester);
         Assert.All((await Overzicht(dossierId)).Post("BMva")!.Stappen, s => Assert.Equal(StapStatus.Open, s.Status));
+    }
+
+    [Fact]
+    public async Task Risicopost_krijgt_het_postprogramma_en_een_risico()
+    {
+        var (_, dossierId) = await Bakkerij();
+        await Overzicht(dossierId);
+
+        Assert.False((await Werkprogramma.ZetRisico(dossierId, "BMva", "Te hoge waardering", Tester)).IsGelukt);
+        Assert.True((await Werkprogramma.Beoordeel(dossierId, "BMva", PostBeoordeling.Risicopost, null, Tester)).IsGelukt);
+        Assert.True((await Werkprogramma.ZetRisico(dossierId, "BMva", " Te hoge waardering van de oven ", Tester)).IsGelukt);
+
+        var o = await Overzicht(dossierId);
+        Assert.Equal(new PostKeuzeInfo(PostBeoordeling.Risicopost, "Te hoge waardering van de oven"), o.Keuzes["BMva"]);
+        Assert.NotNull(o.Post("BMva"));
+        Assert.False(o.Keuzes.ContainsKey("BLim"));
+        Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.PostRisicopost), a => a.Details == "BMva");
+        Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.RisicoVastgelegd), a => a.Details == "BMva: Te hoge waardering van de oven");
+
+        // Van risicopost naar materieel: het programma blijft, het risico ook.
+        Assert.True((await Werkprogramma.Beoordeel(dossierId, "BMva", PostBeoordeling.Materieel, null, Tester)).IsGelukt);
+        Assert.Equal(PostBeoordeling.Materieel, (await Overzicht(dossierId)).Keuzes["BMva"].Beoordeling);
+        Assert.NotNull((await Overzicht(dossierId)).Post("BMva"));
+    }
+
+    [Fact]
+    public async Task Bedrijfsverkenning_en_beoordeling_rollen_door_naar_volgend_jaar()
+    {
+        var (klantId, dossierId) = await Bakkerij();
+        var o = await Overzicht(dossierId);
+        await Werkprogramma.BewaarAntwoord(Stap(o, "Kennis van de cliënt", "Activiteiten en afhankelijkheden").Id, "Bakkerij met drie winkels; geen grote afnemers.", Tester);
+        await Werkprogramma.Beoordeel(dossierId, "BMva", PostBeoordeling.Risicopost, null, Tester);
+        await Werkprogramma.ZetRisico(dossierId, "BMva", "Ovens te hoog gewaardeerd", Tester);
+        var bestand = Encoding.UTF8.GetString(TestGegevens.Fictief("bv-voorbeeld-bakkerij", "saldibalans-2025.csv")).Replace("Boekjaar;2025", "Boekjaar;2026", StringComparison.Ordinal);
+        Assert.True((await server.Dienst<ImportDienst>().Importeer(klantId, 2026, Encoding.UTF8.GetBytes(bestand), "2026.csv", Tester)).IsGelukt);
+        var volgend = (await server.Dienst<DossierDienst>().Maak(klantId, 2026, SoortOpdracht.SamenstellenJaarrekening, Tester)).Waarde;
+
+        var n = await Overzicht(volgend);
+
+        var stap = Stap(n, "Kennis van de cliënt", "Activiteiten en afhankelijkheden");
+        Assert.Equal(("Bakkerij met drie winkels; geen grote afnemers.", 2025, StapStatus.Open), (stap.Antwoord, stap.OvergenomenVan, stap.Status));
+        Assert.Equal(new PostKeuzeInfo(PostBeoordeling.Risicopost, "Ovens te hoog gewaardeerd"), n.Keuzes["BMva"]);
+        Assert.NotNull(n.Post("BMva"));
+
+        // Bijwerken: dan is het antwoord van dit jaar.
+        await Werkprogramma.BewaarAntwoord(stap.Id, "Bakkerij met vier winkels.", Tester);
+        Assert.Null(Stap(await Overzicht(volgend), "Kennis van de cliënt", "Activiteiten en afhankelijkheden").OvergenomenVan);
     }
 
     [Fact]
@@ -86,7 +135,7 @@ public sealed class WerkprogrammaDienstTests(ServerFixture server) : IClassFixtu
         var (_, dossierId) = await Bakkerij();
         var o = await Overzicht(dossierId);
         var opdracht = Stap(o, "Opdracht en acceptatie", "Opdrachtbevestiging");
-        var keuze = Stap(o, "Planning", "Keuze materiële posten");
+        var keuze = Stap(o, "Planning", "Beoordeling posten");
         var gekoppeld = Stap(o, "Planning", "Alle rekeningen gerubriceerd");
 
         Assert.True((await Werkprogramma.ZetStatus(opdracht.Id, StapStatus.Gereed, null, Tester)).IsGelukt);
@@ -98,18 +147,12 @@ public sealed class WerkprogrammaDienstTests(ServerFixture server) : IClassFixtu
         Assert.True((await Werkprogramma.ZetStatus(opdracht.Id, StapStatus.Open, null, Tester)).IsGelukt);
         Assert.Null(Stap(await Overzicht(dossierId), "Opdracht en acceptatie", "Opdrachtbevestiging").UitgevoerdDoor);
 
-        // Keuze materiële posten: pas gereed als elke hoofdpost met saldo een keuze heeft.
-        var nogNiet = await Werkprogramma.ZetStatus(keuze.Id, StapStatus.Gereed, null, Tester);
-        Assert.Contains("Materiële vaste activa", Assert.Single(nogNiet.Fouten), StringComparison.Ordinal);
-        await Werkprogramma.KiesMaterieel(dossierId, "BMva", true, null, Tester);
-        var hoofdposten = (await Werkprogramma.HoofdpostenMetSaldo(dossierId)).Select(p => p.Code).ToList();
-        Assert.Equal(["BMva", "BLim", "WOmz"], hoofdposten);
-        Assert.Equal(2, (await Werkprogramma.BevestigNietMaterieel(dossierId, hoofdposten, Tester)).Waarde);
+        // Beoordeling posten: standaard is alles n.v.t., dus aftekenen kan meteen.
         Assert.True((await Werkprogramma.ZetStatus(keuze.Id, StapStatus.Gereed, null, Tester)).IsGelukt);
 
         // Alles gerubriceerd: lukt niet zolang er rekeningen met saldo ongekoppeld zijn.
         Assert.Contains("Rubriceer", Assert.Single((await Werkprogramma.ZetStatus(gekoppeld.Id, StapStatus.Gereed, null, Tester)).Fouten), StringComparison.Ordinal);
-        Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.StapAfgetekend), a => a.Details!.Contains("Keuze materiële posten: gereed", StringComparison.Ordinal));
+        Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.StapAfgetekend), a => a.Details!.Contains("Beoordeling posten: gereed", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -133,7 +176,7 @@ public sealed class WerkprogrammaDienstTests(ServerFixture server) : IClassFixtu
         var verwijderd = Stap(await Overzicht(dossierId), "Kennis van de cliënt", "Bijzonderheden in het boekjaar");
         Assert.True(verwijderd.Verwijderd);
         Assert.Equal("Geen bijzonderheden bij deze klant", verwijderd.Reden);
-        Assert.Equal(2, (await Overzicht(dossierId)).Onderdelen.Single(x => x.Titel == "Kennis van de cliënt").Aantal);
+        Assert.Equal(9, (await Overzicht(dossierId)).Onderdelen.Single(x => x.Titel == "Kennis van de cliënt").Aantal);
         Assert.True((await Werkprogramma.HerstelStap(standaard.Id, Tester)).IsGelukt);
         Assert.False(Stap(await Overzicht(dossierId), "Kennis van de cliënt", "Bijzonderheden in het boekjaar").Verwijderd);
 
@@ -141,9 +184,11 @@ public sealed class WerkprogrammaDienstTests(ServerFixture server) : IClassFixtu
         var verplicht = Stap(o, "Opdracht en acceptatie", "Opdrachtbevestiging");
         Assert.Contains("verplichte", Assert.Single((await Werkprogramma.VerwijderStap(verplicht.Id, "reden", Tester)).Fouten), StringComparison.Ordinal);
 
-        // Verplaatsen: de tweede stap gaat naar boven.
+        // Verplaatsen: de stap gaat één plaats omhoog.
+        var voor = (await Overzicht(dossierId)).Onderdelen.Single(x => x.Titel == "Kennis van de cliënt").Stappen.Select(x => x.Titel).ToList();
         await Werkprogramma.Verplaats(standaard.Id, -1, Tester);
-        Assert.Equal("Bijzonderheden in het boekjaar", (await Overzicht(dossierId)).Onderdelen.Single(x => x.Titel == "Kennis van de cliënt").Stappen[0].Titel);
+        var na = (await Overzicht(dossierId)).Onderdelen.Single(x => x.Titel == "Kennis van de cliënt").Stappen.Select(x => x.Titel).ToList();
+        Assert.Equal(voor.IndexOf("Bijzonderheden in het boekjaar") - 1, na.IndexOf("Bijzonderheden in het boekjaar"));
         Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.StapVerwijderd), a => a.Details!.Contains("Geen bijzonderheden", StringComparison.Ordinal));
     }
 

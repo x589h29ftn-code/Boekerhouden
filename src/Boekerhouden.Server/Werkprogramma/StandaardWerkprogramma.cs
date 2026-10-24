@@ -9,7 +9,10 @@ namespace Boekerhouden.Server.Werkprogramma;
 /// </summary>
 public static class StandaardWerkprogramma
 {
-    public const string Versie = "2026.1";
+    public const string Versie = "2026.2";
+
+    /// <summary>Wie het meegeleverde sjabloon "gewijzigd" heeft; zolang dat zo is, gaat het mee met een nieuwe standaardversie.</summary>
+    public const string Door = "Standaard";
 
     public static WerkprogrammaSjabloon Maak(SoortOpdracht soort, DateTimeOffset nu)
     {
@@ -24,18 +27,36 @@ public static class StandaardWerkprogramma
                     : "Zijn er aanwijzingen dat de ondernemer niet integer handelt?"),
                 Stap("Cliëntenonderzoek (Wwft)", "Is het cliëntenonderzoek actueel: identificatie, uiteindelijk belanghebbenden en risicoprofiel? Is het risicoprofiel ongewijzigd? Zo nee: is verscherpt onderzoek nodig?", verplicht: true),
                 Stap("Besluit aanvaarding of voortzetting", "Leg het besluit vast om de opdracht te aanvaarden of voort te zetten, met de afwegingen.", verplicht: true)),
-            Onderdeel(Fase.Voorbereiding, bv ? "Kennis van de cliënt" : "Kennis van de ondernemer", verplicht: false,
-                Stap("Bedrijfsbeschrijving", "Beschrijf kort de activiteiten, de organisatie en de administratie."),
-                Stap("Bijzonderheden in het boekjaar", bv
-                    ? "Noteer belangrijke gebeurtenissen: investeringen, financiering, personeel, geschillen, wijzigingen in de groep."
-                    : "Noteer belangrijke gebeurtenissen: investeringen, financiering, personeel, en wijzigingen in de privésituatie die de onderneming raken."),
-                Stap("Stelsel en grondslagen", bv
-                    ? "Welk stelsel is van toepassing (Titel 9 Boek 2 BW of fiscale grondslagen)? Zijn de grondslagen gewijzigd ten opzichte van vorig jaar?"
-                    : "Zijn de grondslagen voor de winstbepaling gewijzigd ten opzichte van vorig jaar?")),
+            // Bedrijfsverkenning: onderwerpen naar NBA-handreiking 1136 §5.2 en het SRA-handboek §4.2, in eigen woorden.
+            // De antwoorden rollen door naar volgend jaar; dan is het bijwerken of bevestigen.
+            bv
+                ? Onderdeel(Fase.Voorbereiding, "Kennis van de cliënt", verplicht: true,
+                    Stap("Onderneming en organisatie", "Aandeelhouders en bestuur, eventuele toezichthouders, groepsverhoudingen (enkelvoudig of geconsolideerd) en de grootte (micro of klein). Wat is er veranderd?", verplicht: true),
+                    Stap("Activiteiten en afhankelijkheden", "Wat doet de onderneming en hoe verdient zij haar geld? Omvang, seizoenspatroon en concurrentie. Is zij afhankelijk van een paar grote afnemers of leveranciers? Welke posten zijn kenmerkend voor de branche (bijv. onderhanden projecten, voorraden, garanties)?", verplicht: true),
+                    Stap("Administratie en IT", "Wie voert de administratie en met welk pakket; hoe ervaren is die? Hoe komen de belangrijke posten tot stand (bijv. omzet via kassa of webshop, voorraad, onderhanden werk)? Wie mag gegevens wijzigen en is er een back-up?", verplicht: true),
+                    Stap("Stelsel en grondslagen", "Welk stelsel geldt (Titel 9 Boek 2 BW, commercieel of fiscaal) en welke keuzes in de grondslagen (bijv. actuele waarde)? Bij welke schattingen heeft de cliënt ondersteuning nodig? Zijn de grondslagen gewijzigd?", verplicht: true),
+                    Stap("Contracten, regelgeving en geschillen", "Belangrijke contracten (huur, lease, borgstellingen), specifieke wet- en regelgeving of vergunningen, claims en geschillen."),
+                    Stap("Financiering en investeringen", "Hoe wordt de onderneming gefinancierd (bank, aandeelhouder, rekening-courant), met welke zekerheden of convenanten? Welke investeringen zijn gedaan of gepland (uitbreiding, vervanging, verduurzaming)?"),
+                    Stap("Fiscaliteit", "Fiscale eenheid, recente boekenonderzoeken, afspraken met de Belastingdienst, bijzondere fiscale posities."),
+                    Stap("Duurzaamheid", "Speelt verduurzaming een rol, bijv. door eisen van afnemers of de branche? Heeft dat gevolgen voor de waardering van activa of de continuïteit?"),
+                    Stap("Bijzonderheden in het boekjaar", "Belangrijke gebeurtenissen: investeringen, financiering, personeel, geschillen, wijzigingen in de groep."),
+                    Stap("Doorlopende aandachtspunten", "Punten die elk jaar terugkomen, zoals significante aangelegenheden en afspraken uit eerdere jaren."))
+                : Onderdeel(Fase.Voorbereiding, "Kennis van de ondernemer", verplicht: true,
+                    Stap("Onderneming en ondernemer", "Wie is de ondernemer, werkt de partner mee, zijn er medewerkers? Wat is er veranderd?", verplicht: true),
+                    Stap("Activiteiten en afhankelijkheden", "Wat doet de onderneming en hoe verdient zij haar geld? Is zij afhankelijk van een paar grote opdrachtgevers of leveranciers?", verplicht: true),
+                    Stap("Administratie", "Wie voert de administratie en met welk pakket? Hoe komen omzet en kosten tot stand (kassa, facturen, bank)?", verplicht: true),
+                    Stap("Grondslagen winstbepaling", "Zijn de grondslagen voor de winstbepaling gewijzigd? Bij welke posten is ondersteuning nodig (bijv. onderhanden werk, voorraad)?"),
+                    Stap("Financiering en investeringen", "Hoe wordt de onderneming gefinancierd? Welke investeringen zijn gedaan of gepland?"),
+                    Stap("Fiscaliteit en privé", "Urencriterium, fiscale partner, privégebruik van auto en woning, eerdere controles door de Belastingdienst."),
+                    Stap("Bijzonderheden in het boekjaar", "Belangrijke gebeurtenissen: investeringen, financiering, personeel, en wijzigingen in de privésituatie die de onderneming raken."),
+                    Stap("Doorlopende aandachtspunten", "Punten die elk jaar terugkomen, zoals afspraken uit eerdere jaren.")),
             Onderdeel(Fase.Voorbereiding, "Planning", verplicht: true, soort: OnderdeelSoort.MaterielePosten, stappen:
             [
                 Stap("Alle rekeningen gerubriceerd", "Koppel alle grootboekrekeningen met saldo aan RGS (Rubriceren).", verplicht: true, controle: StapControle.AllesGekoppeld),
-                Stap("Keuze materiële posten", "Kies per hoofdpost of die materieel is. Alleen materiële posten krijgen werk in de uitvoering.", verplicht: true, controle: StapControle.MaterielePostenGekozen),
+                Stap("Materialiteit", bv
+                    ? "Wie gebruiken de jaarrekening (aandeelhouders, bank, Belastingdienst, KvK)? Welke kwalitatieve aspecten bepalen wat van belang is: kwaliteit van de administratie, wisselingen in het bestuur, bijzondere omstandigheden? Leg eventueel een richtbedrag vast voor correcties."
+                    : "Wie gebruiken de cijfers (Belastingdienst, bank)? Welke aspecten bepalen wat van belang is? Leg eventueel een richtbedrag vast voor correcties.", verplicht: true),
+                Stap("Beoordeling posten", "Beoordeel per hoofdpost: n.v.t. (standaard), materieel (van belang voor het beeld) of risicopost (kans op een onjuiste weergave, bijv. waardering, volledigheid of een schatting). Leg bij een risicopost het risico vast. Materiële posten en risicoposten krijgen het postprogramma in de uitvoering.", verplicht: true, controle: StapControle.MaterielePostenGekozen),
                 Stap("Cijferanalyse", "Vergelijk de cijfers met vorig jaar (Proefbalans) en verklaar opvallende verschillen."),
                 Stap("Afspraken", "Leg de afspraken vast over het aanleveren van stukken en de planning."),
             ]),
@@ -137,7 +158,7 @@ public static class StandaardWerkprogramma
             Naam = bv ? "Samenstellen jaarrekening" : "Winstaangifte opstellen",
             Versie = Versie,
             GewijzigdOp = nu,
-            GewijzigdDoor = "Standaard",
+            GewijzigdDoor = Door,
         };
         foreach (var (onderdeel, i) in onderdelen.Select((o, i) => (o, i)))
         {

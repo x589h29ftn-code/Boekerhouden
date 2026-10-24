@@ -46,6 +46,13 @@ public static class Weergave
         _ => rechtsvorm.ToString(),
     };
 
+    public static string Tekst(PostBeoordeling beoordeling) => beoordeling switch
+    {
+        PostBeoordeling.Materieel => "materieel",
+        PostBeoordeling.Risicopost => "risicopost",
+        _ => "n.v.t.",
+    };
+
     public static string Tekst(Verslaggeving verslaggeving) => verslaggeving switch
     {
         Verslaggeving.Commercieel => "Commerciële grondslagen",

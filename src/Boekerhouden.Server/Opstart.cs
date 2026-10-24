@@ -157,7 +157,16 @@ public static class Opstart
         // Een eerste werkprogramma per soort opdracht, als het kantoor er nog geen heeft.
         foreach (var soort in Enum.GetValues<SoortOpdracht>())
         {
-            if (!await db.WerkprogrammaSjablonen.AnyAsync(w => w.SoortOpdracht == soort))
+            // Een meegeleverd sjabloon dat het kantoor niet heeft aangepast, gaat mee naar de nieuwe standaardversie.
+            // Lopende dossiers houden hun eigen kopie.
+            var bestaand = await db.WerkprogrammaSjablonen.SingleOrDefaultAsync(w => w.SoortOpdracht == soort);
+            if (bestaand is { GewijzigdDoor: StandaardWerkprogramma.Door } && bestaand.Versie != StandaardWerkprogramma.Versie)
+            {
+                db.WerkprogrammaSjablonen.Remove(bestaand);
+                bestaand = null;
+            }
+
+            if (bestaand is null)
             {
                 db.WerkprogrammaSjablonen.Add(StandaardWerkprogramma.Maak(soort, DateTimeOffset.UtcNow));
             }

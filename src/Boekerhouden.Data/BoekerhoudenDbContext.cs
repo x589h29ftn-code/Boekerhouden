@@ -317,6 +317,8 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
             e.HasKey(k => new { k.DossierId, k.HoofdpostCode });
             e.HasOne<Dossier>().WithMany().HasForeignKey(k => k.DossierId).OnDelete(DeleteBehavior.Cascade);
             e.Property(k => k.HoofdpostCode).HasMaxLength(20);
+            e.Property(k => k.Beoordeling).HasConversion<string>().HasMaxLength(30);
+            e.Property(k => k.Risico).HasMaxLength(1000);
             e.Property(k => k.GewijzigdDoor).HasMaxLength(200);
         });
 

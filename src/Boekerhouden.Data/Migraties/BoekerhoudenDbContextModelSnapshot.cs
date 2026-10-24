@@ -391,6 +391,11 @@ namespace Boekerhouden.Data.Migraties
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<string>("Beoordeling")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
                     b.Property<string>("GewijzigdDoor")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -399,8 +404,9 @@ namespace Boekerhouden.Data.Migraties
                     b.Property<DateTimeOffset>("GewijzigdOp")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<bool>("Materieel")
-                        .HasColumnType("boolean");
+                    b.Property<string>("Risico")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
 
                     b.HasKey("DossierId", "HoofdpostCode");
 
@@ -439,6 +445,9 @@ namespace Boekerhouden.Data.Migraties
 
                     b.Property<Guid>("OnderdeelId")
                         .HasColumnType("uuid");
+
+                    b.Property<int?>("OvergenomenVan")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Reden")
                         .HasMaxLength(1000)

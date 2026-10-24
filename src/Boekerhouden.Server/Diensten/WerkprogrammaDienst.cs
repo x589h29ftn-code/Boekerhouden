@@ -19,7 +19,18 @@ public sealed record StapInfo(
     bool Verwijderd,
     string? VerwijderdDoor,
     DateTimeOffset? VerwijderdOp,
-    IReadOnlyList<BijlageInfo> Bijlagen);
+    IReadOnlyList<BijlageInfo> Bijlagen)
+{
+    /// <summary>Het boekjaar waaruit het antwoord is overgenomen; null = in dit dossier ingevuld.</summary>
+    public int? OvergenomenVan { get; init; }
+}
+
+/// <summary>De beoordeling van een hoofdpost bij de planning, met bij een risicopost het risico.</summary>
+public sealed record PostKeuzeInfo(PostBeoordeling Beoordeling, string? Risico)
+{
+    /// <summary>Materieel of risicopost: de post krijgt het postprogramma.</summary>
+    public bool MetWerk => Beoordeling != PostBeoordeling.NietVanToepassing;
+}
 
 public sealed record BijlageInfo(Guid Id, string Bestandsnaam, long Grootte, string Door, DateTimeOffset Op);
 
@@ -68,12 +79,12 @@ public sealed record OnderdeelInfo(
         : null;
 }
 
-/// <param name="Keuzes">Per hoofdpost (RGS niveau 2): materieel of bewust niet materieel; ontbreekt = nog niet gekozen.</param>
+/// <param name="Keuzes">Per hoofdpost (RGS niveau 2) de beoordeling; ontbreekt = niet van toepassing.</param>
 public sealed record WerkprogrammaOverzicht(
     DossierDetail Dossier,
     string Versie,
     IReadOnlyList<OnderdeelInfo> Onderdelen,
-    IReadOnlyDictionary<string, bool> Keuzes)
+    IReadOnlyDictionary<string, PostKeuzeInfo> Keuzes)
 {
     public OnderdeelInfo? Post(string code) => Onderdelen.FirstOrDefault(o => o.HoofdpostCode == code);
 }
@@ -106,7 +117,7 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
             .Where(o => o.DossierId == dossierId)
             .ToListAsync();
         var keuzes = await db.PostKeuzes.AsNoTracking().Where(k => k.DossierId == dossierId)
-            .ToDictionaryAsync(k => k.HoofdpostCode, k => k.Materieel, StringComparer.Ordinal);
+            .ToDictionaryAsync(k => k.HoofdpostCode, k => new PostKeuzeInfo(k.Beoordeling, k.Risico), StringComparer.Ordinal);
         var punten = (await db.Reviewpunten.AsNoTracking().Where(r => r.DossierId == dossierId).OrderBy(r => r.Op).ToListAsync())
             .ToLookup(r => r.OnderdeelId);
         var bijlagen = (await db.Bijlagen.AsNoTracking().Where(b => b.DossierId == dossierId).OrderBy(b => b.Op)
@@ -122,13 +133,19 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
             keuzes);
     }
 
+    /// <summary>Materieel of niet van toepassing; zie <see cref="Beoordeel"/>.</summary>
+    public Task<Uitkomst> KiesMaterieel(Guid dossierId, string hoofdpostCode, bool materieel, bool? ingevuldBewaren, Uitvoerder wie) =>
+        Beoordeel(dossierId, hoofdpostCode, materieel ? PostBeoordeling.Materieel : PostBeoordeling.NietVanToepassing, ingevuldBewaren, wie);
+
     /// <summary>
-    /// Een hoofdpost materieel maken (het postprogramma uit het sjabloon komt in de uitvoering) of niet materieel.
-    /// Staan er bij een post die niet meer materieel is al ingevulde stappen, dan moet <paramref name="ingevuldBewaren"/>
-    /// zeggen of die blijven (als "niet van toepassing") of weg mogen: ingevulde documentatie verdwijnt nooit ongemerkt.
+    /// De beoordeling van een hoofdpost: materieel of risicopost (het postprogramma uit het sjabloon komt in de
+    /// uitvoering) of niet van toepassing. Staan er bij een post die geen werk meer krijgt al ingevulde stappen, dan
+    /// moet <paramref name="ingevuldBewaren"/> zeggen of die blijven (als "niet van toepassing") of weg mogen:
+    /// ingevulde documentatie verdwijnt nooit ongemerkt.
     /// </summary>
-    public async Task<Uitkomst> KiesMaterieel(Guid dossierId, string hoofdpostCode, bool materieel, bool? ingevuldBewaren, Uitvoerder wie)
+    public async Task<Uitkomst> Beoordeel(Guid dossierId, string hoofdpostCode, PostBeoordeling beoordeling, bool? ingevuldBewaren, Uitvoerder wie)
     {
+        var materieel = beoordeling != PostBeoordeling.NietVanToepassing;
         ArgumentNullException.ThrowIfNull(hoofdpostCode);
         ArgumentNullException.ThrowIfNull(wie);
         await using var db = await dbFactory.CreateDbContextAsync();
@@ -154,7 +171,7 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
             else
             {
                 // Eerder bewaard als niet van toepassing: de stappen gaan weer open.
-                foreach (var stap in post.Stappen.Where(s => s.Status == StapStatus.NietVanToepassing && s.Reden == NietMeerMaterieel))
+                foreach (var stap in post.Stappen.Where(s => s.Status == StapStatus.NietVanToepassing && s.Reden is NietMeerMaterieel or ZonderWerk))
                 {
                     stap.Status = StapStatus.Open;
                     stap.Reden = null;
@@ -182,7 +199,7 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
                 foreach (var stap in post.Stappen.Where(s => s.Status == StapStatus.Open && !s.Verwijderd))
                 {
                     stap.Status = StapStatus.NietVanToepassing;
-                    stap.Reden = NietMeerMaterieel;
+                    stap.Reden = ZonderWerk;
                 }
             }
             else
@@ -198,37 +215,49 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
             db.PostKeuzes.Add(keuze);
         }
 
-        keuze.Materieel = materieel;
+        keuze.Beoordeling = beoordeling;
         keuze.GewijzigdOp = nu;
         keuze.GewijzigdDoor = wie.Naam;
         await db.SaveChangesAsync();
-        await audit.Log(wie, materieel ? AuditActies.PostMaterieel : AuditActies.PostNietMaterieel, Onderwerp(dossier), hoofdpostCode);
+        await audit.Log(wie, beoordeling switch
+        {
+            PostBeoordeling.Materieel => AuditActies.PostMaterieel,
+            PostBeoordeling.Risicopost => AuditActies.PostRisicopost,
+            _ => AuditActies.PostNietMaterieel,
+        }, Onderwerp(dossier), hoofdpostCode);
         return Uitkomst.Gelukt;
     }
 
-    /// <summary>Bevestigt voor de gegeven hoofdposten zonder keuze dat ze niet materieel zijn.</summary>
-    public async Task<Uitkomst<int>> BevestigNietMaterieel(Guid dossierId, IReadOnlyCollection<string> hoofdpostCodes, Uitvoerder wie)
+    /// <summary>Bij een risicopost: wat er mis kan gaan (bijv. "onjuiste waardering voorraad"); leeg = geen omschrijving.</summary>
+    public async Task<Uitkomst> ZetRisico(Guid dossierId, string hoofdpostCode, string? risico, Uitvoerder wie)
     {
-        ArgumentNullException.ThrowIfNull(hoofdpostCodes);
+        ArgumentNullException.ThrowIfNull(hoofdpostCode);
         ArgumentNullException.ThrowIfNull(wie);
+        if (risico?.Length > 1000)
+        {
+            return Uitkomst.Mislukt("Een risico is hoogstens 1000 tekens.");
+        }
+
         await using var db = await dbFactory.CreateDbContextAsync();
-        var dossier = await db.Dossiers.Include(d => d.Klant).SingleOrDefaultAsync(d => d.Id == dossierId);
-        if (dossier is null)
+        var keuze = await db.PostKeuzes.SingleOrDefaultAsync(k => k.DossierId == dossierId && k.HoofdpostCode == hoofdpostCode);
+        if (keuze is not { Beoordeling: PostBeoordeling.Risicopost })
         {
-            return Uitkomst<int>.Mislukt("Dit dossier bestaat niet (meer).");
+            return Uitkomst.Mislukt("Maak de post eerst een risicopost.");
         }
 
-        var gekozen = await db.PostKeuzes.Where(k => k.DossierId == dossierId).Select(k => k.HoofdpostCode).ToListAsync();
-        var nieuw = hoofdpostCodes.Except(gekozen, StringComparer.Ordinal).ToList();
-        var nu = tijd.GetUtcNow();
-        db.PostKeuzes.AddRange(nieuw.Select(code => new DossierPostKeuze { DossierId = dossierId, HoofdpostCode = code, Materieel = false, GewijzigdOp = nu, GewijzigdDoor = wie.Naam }));
+        var nieuw = string.IsNullOrWhiteSpace(risico) ? null : risico.Trim();
+        if (nieuw == keuze.Risico)
+        {
+            return Uitkomst.Gelukt;
+        }
+
+        keuze.Risico = nieuw;
+        keuze.GewijzigdOp = tijd.GetUtcNow();
+        keuze.GewijzigdDoor = wie.Naam;
         await db.SaveChangesAsync();
-        if (nieuw.Count > 0)
-        {
-            await audit.Log(wie, AuditActies.PostNietMaterieel, Onderwerp(dossier), string.Join(", ", nieuw));
-        }
-
-        return Uitkomst<int>.Met(nieuw.Count);
+        var dossier = await db.Dossiers.Include(d => d.Klant).SingleAsync(d => d.Id == dossierId);
+        await audit.Log(wie, AuditActies.RisicoVastgelegd, Onderwerp(dossier), $"{hoofdpostCode}: {nieuw ?? "(leeg)"}");
+        return Uitkomst.Gelukt;
     }
 
     public async Task<Uitkomst> BewaarAntwoord(Guid stapId, string? antwoord, Uitvoerder wie)
@@ -258,6 +287,7 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
         }
 
         stap.Antwoord = nieuw;
+        stap.OvergenomenVan = null;
         await db.SaveChangesAsync();
         await audit.Log(wie, AuditActies.StapBeantwoord, Onderwerp(dossier), $"{onderdeel.Titel} – {stap.Titel}");
         return Uitkomst.Gelukt;
@@ -503,7 +533,10 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
 
     public const string BewarenOfVerwijderen = "Bij deze post zijn al stappen ingevuld. Kies of die bewaard blijven (als niet van toepassing) of verwijderd worden.";
 
+    /// <summary>De reden van vóór de risicoposten; zulke stappen gaan ook weer open.</summary>
     private const string NietMeerMaterieel = "De post is niet meer materieel.";
+
+    private const string ZonderWerk = "De post is niet meer materieel of risicopost.";
 
     private async Task<string?> ControleFout(StapControle controle, Guid dossierId, BoekerhoudenDbContext db)
     {
@@ -515,11 +548,8 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
                     ? $"Nog niet alle rekeningen met saldo zijn gekoppeld ({o?.Gekoppeld} van {o?.Relevant}). Rubriceer ze eerst."
                     : null;
             case StapControle.MaterielePostenGekozen:
-                var gekozen = await db.PostKeuzes.Where(k => k.DossierId == dossierId).Select(k => k.HoofdpostCode).ToListAsync();
-                var open = (await HoofdpostenMetSaldo(dossierId)).Where(p => !gekozen.Contains(p.Code)).Select(p => p.Naam).ToList();
-                return open.Count > 0
-                    ? $"Kies eerst voor elke hoofdpost of die materieel is. Nog open: {string.Join(", ", open)}."
-                    : null;
+                // Standaard is elke post niet van toepassing; de gebruiker tekent af als de beoordeling klaar is.
+                return null;
             default:
                 return null;
         }
@@ -537,7 +567,59 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
 
         dossier.WerkprogrammaVersie = sjabloon.Versie;
         await db.SaveChangesAsync();
+        await RolDoor(db, dossier, wie, nu);
         await audit.Log(wie, AuditActies.WerkprogrammaGestart, Onderwerp(dossier), $"{sjabloon.Naam} {sjabloon.Versie}");
+    }
+
+    /// <summary>
+    /// Neemt uit het dossier van vorig jaar over wat doorloopt: de antwoorden in de voorbereiding (bedrijfsverkenning,
+    /// acceptatie, planning) als voorstel, te bevestigen of bij te werken, en de beoordeling van de posten met hun risico's.
+    /// </summary>
+    private async Task RolDoor(BoekerhoudenDbContext db, Dossier dossier, Uitvoerder wie, DateTimeOffset nu)
+    {
+        var vorig = await db.Dossiers.AsNoTracking()
+            .Where(d => d.KlantId == dossier.KlantId && d.SoortOpdracht == dossier.SoortOpdracht && d.Boekjaar < dossier.Boekjaar && d.WerkprogrammaVersie != null)
+            .OrderByDescending(d => d.Boekjaar).FirstOrDefaultAsync();
+        if (vorig is null)
+        {
+            return;
+        }
+
+        var antwoorden = (await db.DossierOnderdelen.AsNoTracking().Include(o => o.Stappen)
+                .Where(o => o.DossierId == vorig.Id && o.Fase == Fase.Voorbereiding).ToListAsync())
+            .SelectMany(o => o.Stappen.Where(s => !s.Verwijderd && !string.IsNullOrWhiteSpace(s.Antwoord)).Select(s => (o.Titel, s.Titel, s.Antwoord)))
+            .DistinctBy(a => (a.Item1, a.Item2))
+            .ToDictionary(a => (a.Item1, a.Item2), a => a.Antwoord!);
+        var nieuw = await db.DossierOnderdelen.Include(o => o.Stappen).Where(o => o.DossierId == dossier.Id && o.Fase == Fase.Voorbereiding).ToListAsync();
+        foreach (var onderdeel in nieuw)
+        {
+            foreach (var stap in onderdeel.Stappen.Where(s => string.IsNullOrEmpty(s.Antwoord)))
+            {
+                if (antwoorden.TryGetValue((onderdeel.Titel, stap.Titel), out var antwoord))
+                {
+                    stap.Antwoord = antwoord;
+                    stap.OvergenomenVan = vorig.Boekjaar;
+                }
+            }
+        }
+
+        var metSaldo = (await HoofdpostenMetSaldo(dossier.Id)).Select(p => p.Code).ToHashSet(StringComparer.Ordinal);
+        foreach (var keuze in (await db.PostKeuzes.AsNoTracking().Where(k => k.DossierId == vorig.Id && k.Beoordeling != PostBeoordeling.NietVanToepassing).ToListAsync())
+                     .Where(k => metSaldo.Contains(k.HoofdpostCode)))
+        {
+            db.PostKeuzes.Add(new DossierPostKeuze
+            {
+                DossierId = dossier.Id,
+                HoofdpostCode = keuze.HoofdpostCode,
+                Beoordeling = keuze.Beoordeling,
+                Risico = keuze.Risico,
+                GewijzigdOp = nu,
+                GewijzigdDoor = wie.Naam,
+            });
+            await VoegPostToe(db, dossier, keuze.HoofdpostCode, wie, nu);
+        }
+
+        await db.SaveChangesAsync();
     }
 
     private async Task VoegPostToe(BoekerhoudenDbContext db, Dossier dossier, string code, Uitvoerder wie, DateTimeOffset nu)
@@ -627,7 +709,10 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
         o.GereviewdOp,
         [.. o.Stappen.OrderBy(s => s.Volgorde).Select(s => new StapInfo(
             s.Id, s.Titel, s.Instructie, s.Verplicht, s.BronStapId is null, s.Controle, s.Status, s.Antwoord, s.Reden,
-            s.UitgevoerdDoor, s.UitgevoerdOp, s.Verwijderd, s.VerwijderdDoor, s.VerwijderdOp, [.. bijlagen[s.Id]]))],
+            s.UitgevoerdDoor, s.UitgevoerdOp, s.Verwijderd, s.VerwijderdDoor, s.VerwijderdOp, [.. bijlagen[s.Id]])
+        {
+            OvergenomenVan = s.OvergenomenVan,
+        })],
         [.. punten.Select(p => new ReviewpuntInfo(p.Id, p.StapId, p.Tekst, p.Door, p.Op, p.Opgelost, p.Reactie, p.OpgelostDoor, p.OpgelostOp))]);
 
     internal static string Onderwerp(Dossier dossier) => $"{KlantDienst.Onderwerp(dossier.Klant!)} – {dossier.Naam}";

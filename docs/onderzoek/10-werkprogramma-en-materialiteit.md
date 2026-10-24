@@ -6,6 +6,8 @@
 > 3. Materieel aanvinken gebeurt **per hoofdpost**. Binnen de hoofdpost kun je **doorklikken naar de subposts** (en verder naar de grootboekrekeningen).
 > 4. Een **materiële post** krijgt zijn werkprogramma in het uitvoeringsdeel. Stappen zijn per dossier **toe te voegen en te verwijderen**.
 > 5. Een **niet-materiële post** heeft **geen vragen en geen werk**. Hij is alleen zichtbaar in het **rapport**, waar je de presentatie en opmaak kunt aanpassen.
+>
+> **Aanvulling (24-10-2026): risicogericht samenstellen.** Per hoofdpost kies je met drie bolletjes **n.v.t.**, **materieel** of **risicopost**. Standaard staat alles op n.v.t. Een materiële post is van belang voor het beeld van de jaarrekening; een risicopost is een post waar het mis kan gaan (waardering, volledigheid, schattingen), met een korte omschrijving van het risico. Beide krijgen het postprogramma ([§10.9](#109-risicogericht-nvt-materieel-of-risicopost-plakje-7a)).
 
 ## 10.1 Begrippen
 
@@ -187,14 +189,14 @@ Aanvulling op [hoofdstuk 6](06-datamodel.md):
 
 - **SjabloonPost**: Id, SjabloonId, Titel, Rubrieken (selectie, bepaalt de subposts), Volgorde.
 - **SjabloonStap**: Id, SjabloonPostId/OnderdeelId, Titel, Instructie, AntwoordType, Standaardantwoord, Verplicht, SubpostRubriekId (optioneel), Conditie, Volgorde.
-- **DossierPost**: DossierId, SjabloonPostId, **IsMaterieel**, GewijzigdDoor/Op.
+- **DossierPostKeuze**: DossierId, RGS-code hoofdpost, **Beoordeling** (n.v.t., materieel, risicopost), **Risico** (tekst bij een risicopost), GewijzigdDoor/Op.
 - **DossierPlanning**: DossierId, ToelichtingKeuzeMaterielePosten (optioneel).
 - **DossierStap**: Id, DossierPostId/OnderdeelId, BronSjabloonStapId (*null* = eigen stap), SubpostRubriekId, Titel, Instructie, Verplicht, Volgorde, Status (`Open`/`Gereed`/`NVT`), Antwoord, UitgevoerdDoor/Op, **Verwijderd**, VerwijderdDoor/Op, **VerwijderReden**.
 - **PresentatieInstelling** (per klant, doorrollend): KlantId, RubriekId, Specificatie-instellingen (omschrijvingen, samenvoegingen, verborgen regels, volgorde, subkoppen), ToonInRapport, VerloopoverzichtAan, Tekstblokken, NieuwePagina.
 
 ## 10.7 Controles
 
-- **Planning afronden** kan pas als voor elke hoofdpost met saldo bewust is gekozen: het vinkje staat aan, of de keuze "niet materieel" is bevestigd met een tweede klik op "keuze bevestigd". Zo wordt geen post per ongeluk overgeslagen.
+- **Planning afronden**: sinds plakje 7a staat elke post standaard op *n.v.t.*; een aparte bevestiging van de niet-materiële posten is vervallen. *Beoordeling posten* is een verplichte stap die je aftekent als de keuze klaar is.
 - **Goedkeuren** van een materiële post kan pas als alle niet-verwijderde stappen *Gereed* of *NVT* zijn en er geen open reviewpunten zijn.
 - **Review-overzicht** per dossier toont:
   - de gekozen materiële posten;
@@ -224,3 +226,26 @@ Aanvulling op [hoofdstuk 6](06-datamodel.md):
 
 **Nog niet gebouwd**: antwoordtypes (ja/nee, bedrag), voorwaarden per stap (rechtsvorm, grootte), verwijzing naar regelgeving, *stap voorstellen voor het sjabloon* en het review-overzicht per dossier. De tab *Rapport* met de presentatie per post is gebouwd in plakje 6 ([§10.4](#104-rapport-presentatie-en-opmaak-per-post)).
 
+## 10.9 Risicogericht: n.v.t., materieel of risicopost (plakje 7a)
+
+**Planning › Beoordeling posten**: per RGS-hoofdpost met saldo drie bolletjes.
+
+| Keuze | Betekenis | Gevolg |
+|---|---|---|
+| **n.v.t.** (standaard) | Geen bijzonder werk nodig | De post staat wel in *Uitvoering* met cijfers en rapportfragment, zonder stappen |
+| **materieel** | Van belang voor het beeld van de jaarrekening | Postprogramma: stappen, cijferbeoordeling, bijlagen, reviewpunten |
+| **risicopost** | Hier kan het misgaan (waardering, volledigheid, schatting) | Postprogramma, plus een regel *Risico* met wat er mis kan gaan |
+
+- Dezelfde bolletjes staan in de kop van elke post in *Uitvoering*, zodat je ook tijdens het uitwerken kunt bijstellen. In de boom staat bij een risicopost *risico* voor de voortgang.
+- Terug naar n.v.t. met ingevulde stappen: dezelfde vraag als bij het uitzetten van materieel (bewaren als niet van toepassing, of verwijderen).
+- Alles staat in het wijzigingslog (*Post materieel*, *Post risicopost*, *Risico vastgelegd*).
+
+**Kennis van de cliënt** (bedrijfsverkenning) is uitgebreid tot tien vragen: onderneming en organisatie, activiteiten en afhankelijkheden, administratie en IT, stelsel en grondslagen (deze vier verplicht), contracten en geschillen, financiering en investeringen, fiscaliteit, duurzaamheid, bijzonderheden in het boekjaar en doorlopende aandachtspunten. Bij de eenmanszaak (*Kennis van de ondernemer*, aangifte-plus) zijn het er acht. Planning heeft nu *Alle rekeningen gerubriceerd*, *Materialiteit*, *Beoordeling posten*, *Cijferanalyse* en *Afspraken*.
+
+**Doorrollen naar het volgende jaar**: een nieuw dossier neemt van het laatste eerdere dossier van dezelfde klant en soort over:
+- de antwoorden in de voorbereiding (gekoppeld op onderdeel en stap), met de status *open* en de aanduiding *overgenomen uit {jaar}*, die vervalt zodra je het antwoord bijwerkt;
+- de keuzes materieel en risicopost (met het risico) voor hoofdposten die dit jaar saldo hebben.
+
+**Meegeleverde inhoud** (versie 2026.2): een ongewijzigd standaardsjabloon gaat bij het starten van de server mee naar de nieuwe versie; een door het kantoor aangepast sjabloon blijft zoals het is. Lopende dossiers houden hun kopie.
+
+**Volgt**: doorlezen met automatische signalen uit de cijfers (7b), bespreekpunten, bespreekverslag en erkenning door de klant (7c), en de samenstellingsverklaring in het rapport van de BV (7d). De winstaangifte van de eenmanszaak is een aangifte-plusopdracht: zonder samenstellingsverklaring.

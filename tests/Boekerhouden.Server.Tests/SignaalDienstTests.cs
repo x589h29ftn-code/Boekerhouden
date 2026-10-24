@@ -35,7 +35,7 @@ public sealed class SignaalDienstTests(ServerFixture server) : IClassFixture<Ser
         Assert.Equal(1, stand.OpenPunten);
         Assert.Equal(werkprogramma.Onderdelen.Sum(o => o.Aantal), stand.StappenTotaal);
         Assert.Equal(
-            [$"{overzicht.Relevant - 1} rekening(en) met saldo niet gekoppeld", "1 open reviewpunt(en)", "Keuze materiële posten nog niet afgetekend"],
+            [$"{overzicht.Relevant - 1} rekening(en) met saldo niet gekoppeld", "1 open reviewpunt(en)", "Beoordeling posten nog niet afgetekend"],
             stand.Signalen);
         Assert.Empty(await signalen.VoorDossiers([]));
     }

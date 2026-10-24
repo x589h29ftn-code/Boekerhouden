@@ -1,5 +1,8 @@
 using Boekerhouden.Data;
 using Boekerhouden.Server.Diensten;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using StandaardWerkprogramma = Boekerhouden.Server.Werkprogramma.StandaardWerkprogramma;
 
 namespace Boekerhouden.Server.Tests;
 
@@ -14,6 +17,29 @@ public sealed class WerkprogrammaSjabloonTests(ServerFixture server) : IClassFix
     {
         var klantId = (await server.Dienst<KlantDienst>().Maak(new KlantInvoer(TestGegevens.Klantnummer(), naam, Rechtsvorm.BV, null, null), Beheer)).Waarde;
         return (await server.Dienst<DossierDienst>().Maak(klantId, 2025, SoortOpdracht.SamenstellenJaarrekening, Beheer)).Waarde;
+    }
+
+    [Fact]
+    public async Task Een_ongewijzigd_standaardsjabloon_gaat_mee_met_een_nieuwe_versie_een_aangepast_niet()
+    {
+        async Task ZetSjabloon(string versie, string door)
+        {
+            await using var db = await server.Services.GetRequiredService<IDbContextFactory<BoekerhoudenDbContext>>().CreateDbContextAsync();
+            var ez = await db.WerkprogrammaSjablonen.SingleAsync(w => w.SoortOpdracht == SoortOpdracht.WinstaangifteOpstellen);
+            ez.Versie = versie;
+            ez.GewijzigdDoor = door;
+            await db.SaveChangesAsync();
+        }
+
+        async Task<string> Versie() => (await Sjablonen.Lijst()).Single(s => s.Soort == SoortOpdracht.WinstaangifteOpstellen).Versie;
+
+        await ZetSjabloon("2025.9", StandaardWerkprogramma.Door);
+        await Opstart.InitialiseerDatabase(server.Services);
+        Assert.Equal(StandaardWerkprogramma.Versie, await Versie());
+
+        await ZetSjabloon("2025.9", "Bea Beheer");
+        await Opstart.InitialiseerDatabase(server.Services);
+        Assert.Equal("2025.9", await Versie());
     }
 
     [Fact]
@@ -34,9 +60,9 @@ public sealed class WerkprogrammaSjabloonTests(ServerFixture server) : IClassFix
 
         Assert.Equal("2027.1", nieuwProgramma.Versie);
         Assert.Contains(nieuwProgramma.Onderdelen.Single(o => o.Titel == "Opdracht en acceptatie").Stappen, s => s.Titel == "Onafhankelijkheid medewerkers" && s.Verplicht);
-        Assert.Equal("2026.1", lopendProgramma.Versie);
+        Assert.Equal(StandaardWerkprogramma.Versie, lopendProgramma.Versie);
         Assert.DoesNotContain(lopendProgramma.Onderdelen.SelectMany(o => o.Stappen), s => s.Titel == "Onafhankelijkheid medewerkers");
-        Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.SjabloonGewijzigd), a => a.Details == "versie 2026.1 → 2027.1");
+        Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.SjabloonGewijzigd), a => a.Details == $"versie {StandaardWerkprogramma.Versie} → 2027.1");
     }
 
     [Fact]

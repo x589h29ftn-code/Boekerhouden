@@ -66,7 +66,7 @@ else
                                     {
                                         <span class="status let-op" title="Open reviewpunten">@Aantal(od.OpenPunten, "punt", "punten")</span>
                                     }
-                                    <span class="status" title="@(od is null ? null : "Materiële post: stappen gereed")">@(od is null ? null : OnderdeelStatus(od) is { Length: > 0 } st ? st : "materieel")</span>
+                                    <span class="status" title="@(od is null ? null : $"{Weergave.Tekst(w.Keuzes.GetValueOrDefault(hoofdpost)?.Beoordeling ?? PostBeoordeling.Materieel)}: stappen gereed")">@(od is null ? null : (w.Keuzes.GetValueOrDefault(hoofdpost) is { Beoordeling: PostBeoordeling.Risicopost } ? "risico " : null) + (OnderdeelStatus(od) is { Length: > 0 } st ? st : "materieel"))</span>
                                 </button>
                             }
                         }
@@ -91,16 +91,21 @@ else
         </div>
 
         <div class="col-lg-9">
+            @if (afmelden is not null)
+            {
+                <div class="bericht mb-2 d-flex flex-wrap align-items-center gap-2" id="afmelden">
+                    <span class="me-auto">Bij @Naam(afmelden) zijn al stappen ingevuld. Wat moet er mee gebeuren?</span>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => Beoordeel(afmelden, PostBeoordeling.NietVanToepassing, true)">Bewaren als niet van toepassing</button>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => Beoordeel(afmelden, PostBeoordeling.NietVanToepassing, false)">Verwijderen</button>
+                    <button class="btn btn-sm btn-link text-secondary" @onclick="() => afmelden = null">Annuleren</button>
+                </div>
+            }
             @if (gekozenPost is { } postZonderWerk && UitvoeringVan(postZonderWerk) is null)
             {
                 <div class="card wp-inhoud" id="post-uitwerking">
                     <div class="card-header d-flex align-items-center gap-3">
                         <span class="fw-semibold me-auto" title="RGS @postZonderWerk">@Naam(postZonderWerk)</span>
-                        <span class="form-check form-switch mb-0 small" title="Een materiële post krijgt de stappen uit het werkprogramma; je tekent ze af en voegt bijlagen toe.">
-                            <input class="form-check-input" type="checkbox" id="materieel" checked="@(w.Keuzes.GetValueOrDefault(postZonderWerk))" @key="(postZonderWerk, versie)"
-                                   @onchange="e => Kies(postZonderWerk, (bool)e.Value!, null)" />
-                            <label class="form-check-label" for="materieel">materieel</label>
-                        </span>
+                        @Beoordeling(postZonderWerk)
                     </div>
                     @Cijfers(postZonderWerk)
                     @InRapport(postZonderWerk)
@@ -113,6 +118,10 @@ else
                 <div class="card wp-inhoud">
                     <div class="card-header d-flex align-items-center gap-3">
                         <span class="fw-semibold me-auto">@o.Titel</span>
+                        @if (o.Soort == OnderdeelSoort.Post && o.HoofdpostCode is { } beoordeeldePost)
+                        {
+                            @Beoordeling(beoordeeldePost)
+                        }
                         @if (o.IsGereviewd)
                         {
                             <span class="small text-secondary" id="gereviewd">gereviewd door @o.GereviewdDoor, @Weergave.DatumTijd(o.GereviewdOp!.Value)</span>
@@ -137,45 +146,44 @@ else
                             </span>
                         }
                     </div>
+                    @if (o.Soort == OnderdeelSoort.Post && o.HoofdpostCode is { } risicopost && w.Keuzes.GetValueOrDefault(risicopost) is { Beoordeling: PostBeoordeling.Risicopost } risicokeuze)
+                    {
+                        @Risico(risicopost, risicokeuze.Risico)
+                    }
 
                     @if (o.Soort == OnderdeelSoort.MaterielePosten)
                     {
                         <div class="wp-sectie" id="materiele-posten">
                             <div class="wp-sectie-kop">
-                                <span class="me-auto">Materiële posten</span>
-                                <span class="small text-secondary">Kies per hoofdpost; alleen materiële posten krijgen werk.</span>
+                                <span class="me-auto">Beoordeling posten</span>
+                                <span class="small text-secondary" title="Risicogericht samenstellen: een materiële post is van belang voor het beeld van de jaarrekening, een risicopost is een post waar het mis kan gaan (bijv. waardering, volledigheid, schattingen). Beide krijgen het postprogramma.">Standaard n.v.t.; materiële posten en risicoposten krijgen werk.</span>
                             </div>
-                            @if (afmelden is not null)
-                            {
-                                <div class="bericht m-2 d-flex flex-wrap align-items-center gap-2" id="afmelden">
-                                    <span class="me-auto">Bij @Naam(afmelden) zijn al stappen ingevuld. Wat moet er mee gebeuren?</span>
-                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => Kies(afmelden, false, true)">Bewaren als niet van toepassing</button>
-                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => Kies(afmelden, false, false)">Verwijderen</button>
-                                    <button class="btn btn-sm btn-link text-secondary" @onclick="() => afmelden = null">Annuleren</button>
-                                </div>
-                            }
                             <div class="kolomkop mp-raster">
-                                <span>Hoofdpost</span><span class="text-end">@w.Dossier.Boekjaar</span><span class="text-end">@(w.Dossier.Boekjaar - 1)</span><span class="text-center">Materieel</span>
+                                <span>Hoofdpost</span><span class="text-end">@w.Dossier.Boekjaar</span><span class="text-end">@(w.Dossier.Boekjaar - 1)</span>
+                                <span class="text-center">n.v.t.</span><span class="text-center">materieel</span><span class="text-center">risicopost</span>
                             </div>
                             @foreach (var (hp, naam) in Hoofdposten)
                             {
                                 var totaal = r!.Balans!.Totaal(hp);
-                                var keuze = w.Keuzes.TryGetValue(hp, out var k) ? k : (bool?)null;
+                                var keuze = w.Keuzes.GetValueOrDefault(hp);
                                 <div class="mp-raster mp-regel" data-post="@hp" @key="(hp, versie)">
                                     <span class="naam" @onclick="() => Wissel(hp)" title="RGS @hp">
                                         <span class="pijl" aria-hidden="true">@(open.Contains(hp) ? "▾" : "▸")</span>@naam
-                                        @if (keuze is null)
-                                        {
-                                            <span class="status let-op ms-2">nog kiezen</span>
-                                        }
                                     </span>
                                     <span class="bedrag text-end">@Bedragen.Heel(totaal.Huidig)</span>
                                     <span class="bedrag text-end vorig">@Bedragen.Heel(totaal.Vorig)</span>
-                                    <span class="text-center">
-                                        <input type="checkbox" class="form-check-input" checked="@(keuze == true)" aria-label="@naam materieel"
-                                               @onchange="e => Kies(hp, (bool)e.Value!, null)" />
-                                    </span>
+                                    @foreach (var b in Enum.GetValues<PostBeoordeling>())
+                                    {
+                                        <span class="text-center">
+                                            <input type="radio" class="form-check-input" name="@($"beoordeling-{hp}")" checked="@((keuze?.Beoordeling ?? PostBeoordeling.NietVanToepassing) == b)"
+                                                   aria-label="@($"{naam} {Weergave.Tekst(b)}")" @onchange="() => Beoordeel(hp, b, null)" />
+                                        </span>
+                                    }
                                 </div>
+                                @if (keuze is { Beoordeling: PostBeoordeling.Risicopost })
+                                {
+                                    @Risico(hp, keuze.Risico)
+                                }
                                 @if (open.Contains(hp))
                                 {
                                     @foreach (var sub in Subposten(hp))
@@ -185,7 +193,7 @@ else
                                             <span class="naam" title="RGS @sub.Code">@r.Naam(sub.Code)</span>
                                             <span class="bedrag text-end">@Bedragen.Heel(t.Huidig)</span>
                                             <span class="bedrag text-end vorig">@Bedragen.Heel(t.Vorig)</span>
-                                            <span></span>
+                                            <span></span><span></span><span></span>
                                         </div>
                                     }
                                 }
@@ -194,15 +202,8 @@ else
                             {
                                 <p class="text-secondary small m-3">Nog geen hoofdposten met saldo. Lees een saldibalans in en rubriceer de rekeningen.</p>
                             }
-                            @if (Hoofdposten.Any(p => !w.Keuzes.ContainsKey(p.Code)))
-                            {
-                                <div class="p-2 small">
-                                    <button class="btn btn-sm btn-outline-secondary" @onclick="BevestigOverige">Overige posten: niet materieel</button>
-                                    <span class="text-secondary ms-2">Zo staat voor elke post vast dat er bewust is gekozen.</span>
-                                </div>
-                            }
                         </div>
-                        <Notitie Label="Toelichting op de keuze (optioneel)" Tekst="@o.Notitie" OnBewaar="t => BewaarNotitie(o, t)" />
+                        <Notitie Label="Toelichting op de beoordeling (optioneel)" Tekst="@o.Notitie" OnBewaar="t => BewaarNotitie(o, t)" />
                     }
 
                     @if (o.Soort == OnderdeelSoort.Post && o.HoofdpostCode is { } postCode && r?.Balans is not null)
@@ -523,9 +524,9 @@ else
         <div class="wp-sectie" id="cijfers">
             <div class="wp-sectie-kop">
                 <span class="me-auto">Cijfers</span>
-                @if (UitvoeringVan(postCode) is not null && w.Keuzes.TryGetValue(postCode, out var mat) && !mat)
+                @if (UitvoeringVan(postCode) is not null && w.Keuzes.GetValueOrDefault(postCode) is not { MetWerk: true })
                 {
-                    <span class="status let-op">niet meer materieel; stappen bewaard</span>
+                    <span class="status let-op">niet meer materieel of risicopost; stappen bewaard</span>
                 }
                 <a class="small" href="/dossiers/@Id/proefbalans?open=@postCode">naar de proefbalans</a>
             </div>
@@ -579,6 +580,7 @@ else
         { Verwijderd: true } => $"verwijderd door {s.VerwijderdDoor}: {s.Reden}",
         { Status: StapStatus.Gereed } => $"{s.UitgevoerdDoor} · {(s.UitgevoerdOp is { } op ? Weergave.Datum(op) : null)}",
         { Status: StapStatus.NietVanToepassing } => $"n.v.t.: {s.Reden}",
+        { OvergenomenVan: { } jaar } => $"overgenomen uit {jaar}, nog bijwerken",
         _ => string.IsNullOrEmpty(s.Antwoord) ? "" : "ingevuld",
     };
 
@@ -716,9 +718,9 @@ else
         }
     }
 
-    private async Task Kies(string code, bool materieel, bool? bewaren)
+    private async Task Beoordeel(string code, PostBeoordeling beoordeling, bool? bewaren)
     {
-        var uitkomst = await WerkprogrammaDienst.KiesMaterieel(Id, code, materieel, bewaren, await Wie());
+        var uitkomst = await WerkprogrammaDienst.Beoordeel(Id, code, beoordeling, bewaren, await Wie());
         if (!uitkomst.IsGelukt && uitkomst.Fouten[0] == WerkprogrammaDienst.BewarenOfVerwijderen)
         {
             afmelden = code;
@@ -727,16 +729,49 @@ else
         }
 
         afmelden = null;
-        Meld(uitkomst, materieel ? $"{Naam(code)} is materieel; het werkprogramma staat bij Uitvoering" : $"{Naam(code)} is niet materieel");
+        Meld(uitkomst, beoordeling == PostBeoordeling.NietVanToepassing
+            ? $"{Naam(code)}: n.v.t."
+            : $"{Naam(code)} is {Weergave.Tekst(beoordeling)}; het werkprogramma staat bij Uitvoering");
         await Laad();
     }
 
-    private async Task BevestigOverige()
+    private async Task BewaarRisico(string code, string? risico)
     {
-        var uitkomst = await WerkprogrammaDienst.BevestigNietMaterieel(Id, [.. Hoofdposten.Select(p => p.Code)], await Wie());
-        Meld(uitkomst, $"{uitkomst.Waarde} post(en) bevestigd als niet materieel");
+        var uitkomst = await WerkprogrammaDienst.ZetRisico(Id, code, risico, await Wie());
+        if (!uitkomst.IsGelukt)
+        {
+            Meld(uitkomst, string.Empty);
+        }
+
         await Laad();
     }
+
+    /// <summary>De drie bolletjes n.v.t. / materieel / risicopost bij een post (in de kop van de post).</summary>
+    private RenderFragment Beoordeling(string code) => __builder =>
+    {
+        var huidig = w!.Keuzes.GetValueOrDefault(code)?.Beoordeling ?? PostBeoordeling.NietVanToepassing;
+        <span class="beoordeling small" role="radiogroup" aria-label="Beoordeling" title="Materiële posten en risicoposten krijgen het postprogramma: stappen, bijlagen en reviewpunten.">
+            @foreach (var b in Enum.GetValues<PostBeoordeling>())
+            {
+                var id = $"beoordeling-{code}-{b}";
+                <span class="form-check form-check-inline mb-0 me-2">
+                    <input class="form-check-input" type="radio" id="@id" name="@($"beoordeling-kop-{code}")" checked="@(huidig == b)" @key="(code, b, versie)"
+                           @onchange="() => Beoordeel(code, b, null)" />
+                    <label class="form-check-label" for="@id">@Weergave.Tekst(b)</label>
+                </span>
+            }
+        </span>
+    };
+
+    /// <summary>Bij een risicopost: wat er mis kan gaan, op één regel.</summary>
+    private RenderFragment Risico(string code, string? risico) => __builder =>
+    {
+        <div class="wp-risico" @key="(code, versie, 3)">
+            <label for="@($"risico-{code}")">Risico</label>
+            <input id="@($"risico-{code}")" class="form-control form-control-sm" value="@risico" placeholder="bijv. onjuiste waardering, onvolledige opname, schatting"
+                   aria-label="@($"Risico {Naam(code)}")" @onchange="e => BewaarRisico(code, (string?)e.Value)" />
+        </div>
+    };
 
     private async Task ZetStatus(StapInfo s, StapStatus status, string? reden)
     {
