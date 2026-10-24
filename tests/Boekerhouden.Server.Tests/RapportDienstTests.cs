@@ -1,6 +1,7 @@
 using System.Net;
 using Boekerhouden.Data;
 using Boekerhouden.Domain.Rapport;
+using Boekerhouden.Domain.Rubricering;
 using Boekerhouden.Server.Diensten;
 using Boekerhouden.Server.Export;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -289,5 +290,33 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
         // Het rapport van dit jaar verandert pas als de toelichting of uitsplitsing hier wordt bewaard.
         var rapport = (await Rapporten.Maak(dossierId))!.Waarde!.Rapport;
         Assert.DoesNotContain(rapport.Hoofdstukken.SelectMany(h => h.Blokken).OfType<TekstBlok>(), b => b.Toelichting is not null);
+    }
+
+    [Fact]
+    public async Task Een_gesaldeerde_eigen_post_staat_bij_een_debetsaldo_onder_de_vorderingen()
+    {
+        var (klantId, dossierId, klantnummer, rekeningen) = await Bakkerij();
+        var rubriceren = server.Dienst<RubriceerDienst>();
+        var btw = (await rubriceren.VoegEigenPostToe(klantId, "BSchBep", "Omzetbelasting", Tester)).Waarde;
+        Assert.True((await rubriceren.Koppel(klantId, [rekeningen["1600"]], PostBalans.EigenSleutel(btw), false, Tester)).IsGelukt);
+
+        Assert.False((await rubriceren.ZetSaldering(klantId, btw, "BSchCreHac", Tester)).IsGelukt);
+        Assert.False((await rubriceren.ZetSaldering(klantId, btw, "WBedKanKan", Tester)).IsGelukt);
+        Assert.True((await rubriceren.ZetSaldering(klantId, btw, "BVorVbkTvo", Tester)).IsGelukt);
+
+        // Een correctie maakt de omzetbelasting dit jaar per saldo te vorderen (vorig jaar te betalen).
+        Assert.True((await server.Dienst<CorrectieDienst>().Bewaar(dossierId, null, new CorrectieInvoer("Teruggaaf omzetbelasting", CorrectieSoort.Correctie, false, false,
+            [new(rekeningen["1600"], 60_000m), new(rekeningen["1100"], -60_000m)]), Tester)).IsGelukt);
+
+        var rapport = (await Rapporten.Maak(dossierId))!.Waarde!.Rapport;
+        var vorderingen = Tabel(rapport, "Vorderingen");
+        Assert.Contains(vorderingen.Regels, r => r.Omschrijving == "Omzetbelasting" && r.Detail == 8_937m && r.DetailVorig == 0m);
+        var schulden = Tabel(rapport, "Kortlopende schulden");
+        Assert.Contains(schulden.Regels, r => r.Omschrijving == "Omzetbelasting" && r.Detail == 0m && r.DetailVorig == 48_060m);
+        Assert.Equal(Tabel(rapport, "Activa").Regels[^1].Totaal, Tabel(rapport, "Passiva").Regels[^1].Totaal);
+
+        Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.EigenPostGesaldeerd),
+            a => a.Onderwerp!.StartsWith(klantnummer, StringComparison.Ordinal) && a.Details!.StartsWith("'Omzetbelasting': salderen", StringComparison.Ordinal));
+        Assert.True((await rubriceren.ZetSaldering(klantId, btw, null, Tester)).IsGelukt);
     }
 }

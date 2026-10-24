@@ -840,6 +840,10 @@ namespace Boekerhouden.Data.Migraties
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
+                    b.Property<string>("OmslagCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<string>("OuderCode")
                         .IsRequired()
                         .HasMaxLength(20)

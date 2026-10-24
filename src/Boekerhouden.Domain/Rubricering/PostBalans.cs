@@ -3,7 +3,12 @@ using Boekerhouden.Domain.Rgs;
 namespace Boekerhouden.Domain.Rubricering;
 
 /// <summary>Een eigen post die het kantoor onder een RGS-code heeft toegevoegd (bijv. "Overige vorderingen 1").</summary>
-public sealed record EigenPost(Guid Id, string OuderCode, string Naam);
+/// <param name="OmslagCode">
+/// Salderen: de rekeningen onder de post tellen samen, en staat dat saldo aan de andere kant dan de RGS-post erboven,
+/// dan staat de hele post (per jaar) onder deze code. Bijv. omzetbelasting: credit bij de schulden, debet als
+/// terug te vorderen omzetbelasting bij de vorderingen.
+/// </param>
+public sealed record EigenPost(Guid Id, string OuderCode, string Naam, string? OmslagCode = null);
 
 /// <summary>Waar een grootboekrekening aan gekoppeld is: een RGS-code, eventueel via een eigen post onder die code.</summary>
 public sealed record KoppelDoel(string Code, Guid? EigenPostId = null);
@@ -51,6 +56,7 @@ public sealed class PostBalans
     private readonly Dictionary<string, Teller> totalen = new(StringComparer.Ordinal);
     private readonly Dictionary<Guid, string> plaatsing = [];
     private readonly Dictionary<Guid, string> plaatsingVorig = [];
+    private readonly Dictionary<(Guid Id, bool Huidig), string> eigenOuder = [];
     private readonly List<Signaal> signalen = [];
 
     private PostBalans()
@@ -85,6 +91,16 @@ public sealed class PostBalans
 
     public static string EigenSleutel(Guid id) => EigenVoorvoegsel + id.ToString("N");
 
+    /// <summary>
+    /// De RGS-post waaronder een eigen post in een jaar staat: de ouder, of bij een gesaldeerde post met een saldo
+    /// aan de andere kant de omslagcode.
+    /// </summary>
+    public string EigenOuder(EigenPost post, bool vorig)
+    {
+        ArgumentNullException.ThrowIfNull(post);
+        return eigenOuder.GetValueOrDefault((post.Id, !vorig)) ?? post.OuderCode;
+    }
+
     public PostTotaal Totaal(string sleutel) =>
         totalen.TryGetValue(sleutel, out var t) ? new PostTotaal(t.Huidig, t.Vorig, t.Rekeningen.Count, t.Correcties) : default;
 
@@ -102,6 +118,7 @@ public sealed class PostBalans
         var balans = new PostBalans();
         var posten = eigenPosten.ToDictionary(e => e.Id);
         var ongekoppeld = new Teller();
+        balans.BepaalSaldering(schema, posten, koppelingen, saldi);
 
         foreach (var saldo in saldi)
         {
@@ -125,7 +142,7 @@ public sealed class PostBalans
                 balans.signalen.Add(new Signaal(SignaalSoort.OnbekendeCode, saldo.RekeningId,
                     $"{saldo.Nummer} {saldo.Omschrijving} is gekoppeld aan {doel.Code}, die niet (meer) actief is in RGS {schema.Versie}."));
             }
-            else if (code is { IsBalans: true, Omslagcode: null, Niveau: 4 } && !code.IsNormaleKant(huidig))
+            else if (code is { IsBalans: true, Omslagcode: null, Niveau: 4 } && !code.IsNormaleKant(huidig) && !Gesaldeerd(posten, doel))
             {
                 balans.signalen.Add(new Signaal(SignaalSoort.VerkeerdeKant, saldo.RekeningId,
                     $"{saldo.Nummer} {saldo.Omschrijving} staat {(huidig > 0 ? "debet" : "credit")}; {code.Omschrijving} ({code.Code}) is normaal {(code.Kant == Saldokant.Debet ? "debet" : "credit")}."));
@@ -139,8 +156,42 @@ public sealed class PostBalans
         return balans;
     }
 
+    private static bool Gesaldeerd(Dictionary<Guid, EigenPost> posten, KoppelDoel doel) =>
+        doel.EigenPostId is { } id && posten.TryGetValue(id, out var post) && post.OmslagCode is not null;
+
+    /// <summary>
+    /// Per gesaldeerde eigen post en per jaar: het saldo van alle rekeningen eronder bepaalt de plek. Aan de normale
+    /// kant van de RGS-post erboven blijft hij daar; aan de andere kant gaat de hele post naar de omslagcode.
+    /// </summary>
+    private void BepaalSaldering(RgsSchema schema, Dictionary<Guid, EigenPost> posten, IReadOnlyDictionary<Guid, KoppelDoel> koppelingen, IReadOnlyCollection<RekeningSaldo> saldi)
+    {
+        var perPost = saldi
+            .Where(s => koppelingen.TryGetValue(s.RekeningId, out var doel) && Gesaldeerd(posten, doel))
+            .GroupBy(s => koppelingen[s.RekeningId].EigenPostId!.Value);
+        foreach (var groep in perPost)
+        {
+            var post = posten[groep.Key];
+            if (schema.Zoek(post.OuderCode) is not { } ouder || schema.Zoek(post.OmslagCode) is null)
+            {
+                continue;
+            }
+
+            eigenOuder[(post.Id, true)] = ouder.IsNormaleKant(groep.Sum(s => s.Huidig ?? 0)) ? post.OuderCode : post.OmslagCode!;
+            eigenOuder[(post.Id, false)] = ouder.IsNormaleKant(groep.Sum(s => s.Vorig ?? 0)) ? post.OuderCode : post.OmslagCode!;
+        }
+    }
+
     private string Plaats(RgsSchema schema, Dictionary<Guid, EigenPost> posten, KoppelDoel doel, RgsCode? code, Guid rekening, decimal bedrag, bool huidig, decimal correcties = 0)
     {
+        // Een gesaldeerde eigen post staat als geheel op één plek; de omslag per rekening geldt dan niet.
+        if (Gesaldeerd(posten, doel))
+        {
+            var gesaldeerd = posten[doel.EigenPostId!.Value];
+            Tel(EigenSleutel(gesaldeerd.Id), rekening, bedrag, huidig, correcties);
+            TelMetVoorouders(schema, eigenOuder.GetValueOrDefault((gesaldeerd.Id, huidig)) ?? gesaldeerd.OuderCode, rekening, bedrag, huidig, correcties);
+            return EigenSleutel(gesaldeerd.Id);
+        }
+
         if (code?.Omslagcode is { } omslag && !code.IsNormaleKant(bedrag) && schema.Zoek(omslag) is not null)
         {
             TelMetVoorouders(schema, omslag, rekening, bedrag, huidig, correcties);

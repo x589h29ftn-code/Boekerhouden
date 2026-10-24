@@ -67,7 +67,7 @@ erDiagram
 *Gebouwd in plakje 3 (tabellen):*
 - `RgsVersies` en `RgsCodes`: het ingelezen werkboek;
 - `Koppelingen`: rekening → code (+ eigen post, versie, bron `Handmatig`/`Voorstel`/`Sjabloon`/`Bestand`);
-- `EigenPosten` (per klant, onder een RGS-code van niveau 3 of 4);
+- `EigenPosten` (per klant, onder een RGS-code van niveau 3 of 4; met `OmslagCode` wordt de post per jaar gesaldeerd en staat hij bij een saldo aan de andere kant onder die code);
 - `KlantPostNamen` en `KantoorPostNamen` (eigen namen voor de jaarrekening);
 - `SjabloonRegels` (kantoorsjabloon: rekeningnummer + omschrijving → code).
 

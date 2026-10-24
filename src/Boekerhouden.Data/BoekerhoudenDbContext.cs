@@ -169,6 +169,7 @@ public sealed class BoekerhoudenDbContext(DbContextOptions<BoekerhoudenDbContext
             e.HasIndex(p => new { p.KlantId, p.OuderCode });
             e.HasOne<Klant>().WithMany().HasForeignKey(p => p.KlantId).OnDelete(DeleteBehavior.Restrict);
             e.Property(p => p.OuderCode).HasMaxLength(20);
+            e.Property(p => p.OmslagCode).HasMaxLength(20);
             e.Property(p => p.Naam).HasMaxLength(300);
             e.Property(p => p.AangemaaktDoor).HasMaxLength(200);
         });

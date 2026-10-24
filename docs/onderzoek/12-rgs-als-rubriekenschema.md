@@ -259,6 +259,7 @@ De `Recap` van het werkboek beschrijft de werkwijze: kies een basisset en filter
   - met ＋ voeg je onder een subpost een eigen post toe, bijv. *Overige vorderingen 1, 2, 3* onder *Overige vorderingen*;
   - zo'n post geldt per klant en verschijnt in de jaarrekening. Voor aangifte en SBR telt hij als de RGS-post erboven;
   - verwijder je de post, dan blijven de rekeningen gekoppeld aan de post erboven.
+  - **Salderen** (⇄): de rekeningen onder de eigen post worden per jaar samengenomen. Staat het saldo aan de andere kant, dan staat de hele post dat jaar onder de RGS-omslagcode. Voorbeeld: *Omzetbelasting* onder *Belastingen en premies sociale verzekeringen* (`BSchBep`) met de rekeningen af te dragen, voorbelasting en afdracht. Is het saldo debet, dan staat de post dat jaar onder *Te vorderen omzetbelasting* (`BVorVbkTvo`). Zo klopt de presentatie in beide jaren zonder correctie. De omslagcode komt uit RGS (of wordt gevraagd) en moet aan de andere kant van de balans liggen. Voor een eenmalige verschuiving in één jaar is er de correctie *herrubricering* (een presentatieboeking: alleen de saldi van het dossier, niet de administratie van de klant).
 - **Hernoemen:**
   - met ✎ geef je elke post een eigen naam voor de jaarrekening;
   - dat kan voor deze klant, of (beheerder) **voor alle klanten** als kantoorstandaard, bijv. *Automobielen en overige transportmiddelen* → *Vervoermiddelen*;

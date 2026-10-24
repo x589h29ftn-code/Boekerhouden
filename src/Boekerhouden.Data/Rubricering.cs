@@ -114,6 +114,12 @@ public sealed class KlantEigenPost
 
     public int Volgorde { get; set; }
 
+    /// <summary>
+    /// Salderen: de rekeningen onder de post tellen samen; staat het saldo aan de andere kant, dan staat de post onder
+    /// deze RGS-code (bijv. omzetbelasting: te betalen of terug te vorderen). Null = niet salderen.
+    /// </summary>
+    public string? OmslagCode { get; set; }
+
     public DateTimeOffset AangemaaktOp { get; set; }
 
     public string AangemaaktDoor { get; set; } = string.Empty;

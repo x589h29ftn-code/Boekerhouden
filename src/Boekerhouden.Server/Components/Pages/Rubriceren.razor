@@ -172,7 +172,16 @@ else
                                     <div class="knoop boom-raster niveau-@k.Niveau @(KanKoppelen(k) ? "dropdoel" : null) @(k.EigenId is not null ? "eigen" : null)"
                                          style="--diepte:@kr.Diepte" data-sleutel="@k.Sleutel"
                                          @ondrop="() => Neerzetten(k)" @ondragenter="() => OpenBijSlepen(k)">
-                                        @if (hernoemSleutel == k.Sleutel)
+                                        @if (k.EigenId is { } salderenId && salderenPost == salderenId)
+                                        {
+                                            <form class="d-flex gap-1 align-items-center bewerk" @onsubmit="() => ZetSaldering(salderenId, salderenCode)" @onsubmit:preventDefault>
+                                                <input class="form-control form-control-sm" @bind="salderenCode" aria-label="RGS-code voor een saldo aan de andere kant"
+                                                       placeholder="RGS-code aan de andere kant, bijv. BVorVbkTvo" autofocus />
+                                                <button type="submit" class="btn btn-sm btn-primary">Salderen</button>
+                                                <button type="button" class="btn btn-sm btn-link" @onclick="() => salderenPost = null">Annuleren</button>
+                                            </form>
+                                        }
+                                        else if (hernoemSleutel == k.Sleutel)
                                         {
                                             <form class="d-flex gap-1 align-items-center bewerk" @onsubmit="Hernoem" @onsubmit:preventDefault>
                                                 <input class="form-control form-control-sm" @bind="hernoemNaam" aria-label="Nieuwe naam" autofocus />
@@ -200,6 +209,10 @@ else
                                                 @if (k.EigenId is not null)
                                                 {
                                                     <span class="eigen-label">eigen</span>
+                                                    @if (Saldering(k) is { } omslag)
+                                                    {
+                                                        <span class="eigen-label" title="@($"De rekeningen tellen samen; staat het saldo aan de andere kant, dan staat de post onder {omslag} {o.Schema?.Zoek(omslag)?.Omschrijving}")">gesaldeerd</span>
+                                                    }
                                                 }
                                             </span>
                                             <span class="acties">
@@ -214,6 +227,8 @@ else
                                                 }
                                                 @if (k.EigenId is { } eigenId)
                                                 {
+                                                    <button class="btn btn-sm btn-link py-0" title="@(Saldering(k) is null ? "Salderen: de rekeningen samen tellen, bijv. omzetbelasting die het ene jaar te betalen en het andere jaar te vorderen is" : "Niet meer salderen")"
+                                                            @onclick="() => WisselSaldering(k, eigenId)">⇄</button>
                                                     <button class="btn btn-sm btn-link py-0" title="Eigen post verwijderen" @onclick="() => VerwijderEigen(eigenId)">✕</button>
                                                 }
                                             </span>
@@ -303,6 +318,8 @@ else
     private bool hernoemKantoorbreed;
     private string? nieuwOnder;
     private string nieuweNaam = "";
+    private Guid? salderenPost;
+    private string salderenCode = "";
     private bool isBeheerder;
 
     [Parameter]
@@ -661,6 +678,39 @@ else
         else
         {
             Meld(string.Join(" ", uitkomst.Fouten), fout: true);
+        }
+    }
+
+    private string? Saldering(Knoop k) => o?.EigenPosten.FirstOrDefault(p => p.Id == k.EigenId)?.OmslagCode;
+
+    /// <summary>Salderen aan (met het voorstel uit RGS, of anders een code invullen) of uit.</summary>
+    private async Task WisselSaldering(Knoop k, Guid id)
+    {
+        if (Saldering(k) is not null)
+        {
+            await ZetSaldering(id, null);
+            return;
+        }
+
+        var post = o!.EigenPosten.First(p => p.Id == id);
+        if (o.Schema is not null && RubriceerDienst.VoorstelOmslag(o.Schema, post.OuderCode) is { } voorstel)
+        {
+            await ZetSaldering(id, voorstel);
+            return;
+        }
+
+        salderenPost = id;
+        salderenCode = "";
+    }
+
+    private async Task ZetSaldering(Guid id, string? code)
+    {
+        var uitkomst = await RubriceerDienst.ZetSaldering(o!.Dossier.KlantId, id, code, await Wie());
+        Meld(uitkomst.IsGelukt ? (code is null ? "Niet meer gesaldeerd" : $"Gesaldeerd; aan de andere kant naar {code}") : string.Join(" ", uitkomst.Fouten), !uitkomst.IsGelukt);
+        if (uitkomst.IsGelukt)
+        {
+            salderenPost = null;
+            await Laad();
         }
     }
 

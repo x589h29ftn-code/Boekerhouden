@@ -414,18 +414,15 @@ public static partial class RapportOpbouw
 
     private sealed record Bedrag(RekeningSaldo Rekening, Guid? EigenPostId, decimal Huidig, decimal Vorig);
 
-    /// <summary>
-    /// Per subpost (niveau 3) de bedragen van de rekeningen die er staan. Het boekjaar en het vorige jaar apart,
-    /// want door omslag kan een rekening per jaar bij een andere post staan.
-    /// </summary>
+    /// <summary>Per subpost (niveau 3) de bedragen van de rekeningen die er staan.</summary>
     private static Dictionary<string, List<Bedrag>> BedragenPerSubpost(RapportGegevens g)
     {
         var eigen = g.EigenPosten.ToDictionary(e => PostBalans.EigenSleutel(e.Id));
         var resultaat = new Dictionary<string, List<Bedrag>>(StringComparer.Ordinal);
 
-        void Voeg(RekeningSaldo rekening, string? sleutel, decimal huidig, decimal vorig)
+        void Voeg(RekeningSaldo rekening, string? sleutel, decimal bedrag, bool vorig)
         {
-            if (sleutel is null || (huidig == 0 && vorig == 0))
+            if (sleutel is null || bedrag == 0)
             {
                 return;
             }
@@ -434,8 +431,9 @@ public static partial class RapportOpbouw
             var code = sleutel;
             if (eigen.TryGetValue(sleutel, out var post))
             {
+                // Een gesaldeerde eigen post kan per jaar onder een andere RGS-post staan.
                 eigenId = post.Id;
-                code = post.OuderCode;
+                code = g.Balans.EigenOuder(post, vorig);
             }
 
             var subpost = g.Schema.Zoek(code) is { Niveau: 3 } ? code : g.Schema.Voorouders(code).FirstOrDefault(c => c.Niveau == 3)?.Code;
@@ -450,22 +448,14 @@ public static partial class RapportOpbouw
                 resultaat[subpost] = lijst;
             }
 
-            lijst.Add(new Bedrag(rekening, eigenId, huidig, vorig));
+            lijst.Add(new Bedrag(rekening, eigenId, vorig ? 0 : bedrag, vorig ? bedrag : 0));
         }
 
+        // Het boekjaar en het vorige jaar apart: door omslag of saldering kan een rekening per jaar elders staan.
         foreach (var rekening in g.Rekeningen)
         {
-            var huidig = g.Balans.Plaatsing.GetValueOrDefault(rekening.RekeningId);
-            var vorig = g.Balans.PlaatsingVorig.GetValueOrDefault(rekening.RekeningId);
-            if (huidig == vorig)
-            {
-                Voeg(rekening, huidig, rekening.Huidig ?? 0, rekening.Vorig ?? 0);
-            }
-            else
-            {
-                Voeg(rekening, huidig, rekening.Huidig ?? 0, 0);
-                Voeg(rekening, vorig, 0, rekening.Vorig ?? 0);
-            }
+            Voeg(rekening, g.Balans.Plaatsing.GetValueOrDefault(rekening.RekeningId), rekening.Huidig ?? 0, vorig: false);
+            Voeg(rekening, g.Balans.PlaatsingVorig.GetValueOrDefault(rekening.RekeningId), rekening.Vorig ?? 0, vorig: true);
         }
 
         return resultaat;

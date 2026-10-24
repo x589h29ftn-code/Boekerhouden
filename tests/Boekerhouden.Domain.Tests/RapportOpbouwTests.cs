@@ -21,6 +21,8 @@ public sealed class RapportOpbouwTests
         C("BVor", "Vorderingen"),
         C("BVorDeb", "Handelsdebiteuren"),
         C("BVorDebHad", "Handelsdebiteuren nominaal"),
+        C("BVorVbk", "Vooruitbetaalde en te vorderen belastingen"),
+        C("BVorVbkTvo", "Terug te vorderen omzetbelasting", omslag: "BSchBepBtw"),
         C("BLim", "Liquide middelen"),
         C("BLimBan", "Tegoeden bij banken"),
         C("BLimBanRba", "Rekening-courant bank", omslag: "BSchSakRba"),
@@ -34,6 +36,10 @@ public sealed class RapportOpbouwTests
         C("BSchSakRba", "Rekening-courant bij kredietinstellingen", Saldokant.Credit, omslag: "BLimBanRba"),
         C("BSchCre", "Schulden aan leveranciers", Saldokant.Credit),
         C("BSchCreHac", "Handelscrediteuren", Saldokant.Credit),
+        C("BSchBep", "Belastingen en premies sociale verzekeringen", Saldokant.Credit),
+        C("BSchBepBla", "Omzetbelasting algemeen tarief", Saldokant.Credit),
+        C("BSchBepBoo", "Voorbelasting", Saldokant.Credit),
+        C("BSchBepBtw", "Te betalen omzetbelasting", Saldokant.Credit, omslag: "BVorVbkTvo"),
         C("W", "W&V", null),
         C("WOmz", "Netto-omzet", Saldokant.Credit),
         C("WOmzNop", "Netto-omzet producten", Saldokant.Credit),
@@ -438,5 +444,49 @@ public sealed class RapportOpbouwTests
 
         Assert.DoesNotContain(rapport.Hoofdstukken, h => h.Titel == "Grondslagen");
         Assert.Equal(4, rapport.Hoofdstukken.Count());
+    }
+
+    private static readonly Guid BtwHoog = Guid.NewGuid(), Voorbelasting = Guid.NewGuid();
+
+    /// <summary>Omzetbelasting op twee rekeningen in een gesaldeerde eigen post: dit jaar per saldo te vorderen, vorig jaar te betalen.</summary>
+    private static RapportGegevens MetOmzetbelasting(string? omslag = "BVorVbkTvo")
+    {
+        var btw = new EigenPost(Guid.NewGuid(), "BSchBep", "Omzetbelasting", omslag);
+        return Gegevens(
+            saldi: [.. Saldi, new(BtwHoog, "1500", "Omzetbelasting 21%", -5_000m, -5_000m), new(Voorbelasting, "1510", "Voorbelasting", 7_000m, 3_000m)],
+            eigenPosten: [btw],
+            koppelingen: new Dictionary<Guid, KoppelDoel>(Koppelingen) { [BtwHoog] = new("BSchBep", btw.Id), [Voorbelasting] = new("BSchBep", btw.Id) });
+    }
+
+    [Fact]
+    public void Een_gesaldeerde_post_staat_per_jaar_aan_de_kant_van_zijn_saldo()
+    {
+        var g = MetOmzetbelasting();
+        var btw = g.EigenPosten.Single();
+
+        Assert.Equal("BVorVbkTvo", g.Balans.EigenOuder(btw, vorig: false));
+        Assert.Equal("BSchBep", g.Balans.EigenOuder(btw, vorig: true));
+        Assert.Equal(2_000m, g.Balans.Totaal("BVorVbk").Huidig);
+        Assert.Equal(0m, g.Balans.Totaal("BVorVbk").Vorig);
+        Assert.Equal(0m, g.Balans.Totaal("BSchBep").Huidig);
+        Assert.Equal(-2_000m, g.Balans.Totaal("BSchBep").Vorig);
+        Assert.DoesNotContain(g.Balans.Signalen, s => s.Soort == SignaalSoort.VerkeerdeKant);
+
+        var rapport = RapportOpbouw.Maak(g);
+        var vorderingen = Specificatie(rapport, "Vorderingen");
+        Assert.Equal(2_000m, Regel(vorderingen, "Omzetbelasting").Detail);
+        Assert.Equal(0m, Regel(vorderingen, "Omzetbelasting").DetailVorig);
+        var schulden = Specificatie(rapport, "Kortlopende schulden");
+        Assert.Equal(0m, Regel(schulden, "Omzetbelasting").Detail);
+        Assert.Equal(2_000m, Regel(schulden, "Omzetbelasting").DetailVorig);
+    }
+
+    [Fact]
+    public void Zonder_saldering_telt_elke_rekening_apart_in_de_schulden()
+    {
+        var g = MetOmzetbelasting(omslag: null);
+
+        Assert.Equal(2_000m, g.Balans.Totaal("BSchBep").Huidig);
+        Assert.Equal(0m, g.Balans.Totaal("BVorVbk").Huidig);
     }
 }

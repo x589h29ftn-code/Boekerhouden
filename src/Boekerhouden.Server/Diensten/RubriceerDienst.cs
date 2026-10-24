@@ -94,7 +94,7 @@ public sealed class RubriceerDienst(IDbContextFactory<BoekerhoudenDbContext> dbF
             .ToDictionaryAsync(k => k.GrootboekrekeningId);
         var eigenPosten = await db.EigenPosten.AsNoTracking().Where(p => p.KlantId == dossier.KlantId)
             .OrderBy(p => p.OuderCode).ThenBy(p => p.Volgorde)
-            .Select(p => new EigenPost(p.Id, p.OuderCode, p.Naam))
+            .Select(p => new EigenPost(p.Id, p.OuderCode, p.Naam, p.OmslagCode))
             .ToListAsync();
         var klantNamen = await db.KlantPostNamen.AsNoTracking().Where(n => n.KlantId == dossier.KlantId)
             .ToDictionaryAsync(n => n.Code, n => n.Naam, StringComparer.Ordinal);
@@ -360,6 +360,56 @@ public sealed class RubriceerDienst(IDbContextFactory<BoekerhoudenDbContext> dbF
         var klant = await db.Klanten.AsNoTracking().SingleAsync(k => k.Id == klantId);
         await audit.Log(wie, AuditActies.EigenPostToegevoegd, KlantDienst.Onderwerp(klant), $"'{naam}' onder {ouder.Code} {ouder.Omschrijving}");
         return Uitkomst<Guid>.Met(post.Id);
+    }
+
+    /// <summary>
+    /// Het voorstel voor salderen onder een RGS-post: de omslagcode van de post zelf, of anders die van een
+    /// grootboekcode eronder (bijv. onder belastingen en premies: terug te vorderen omzetbelasting).
+    /// </summary>
+    public static string? VoorstelOmslag(RgsSchema schema, string ouderCode)
+    {
+        ArgumentNullException.ThrowIfNull(schema);
+        return schema.Zoek(ouderCode)?.Omslagcode
+            ?? schema.Kinderen(ouderCode).Select(c => c.Omslagcode).FirstOrDefault(c => c is not null && schema.Zoek(c) is not null);
+    }
+
+    /// <summary>
+    /// Salderen voor een eigen post aan of uit: met een omslagcode tellen de rekeningen onder de post samen, en staat
+    /// het saldo aan de andere kant dan de RGS-post erboven, dan staat de hele post (per jaar) onder de omslagcode.
+    /// </summary>
+    public async Task<Uitkomst> ZetSaldering(Guid klantId, Guid postId, string? omslagCode, Uitvoerder wie)
+    {
+        ArgumentNullException.ThrowIfNull(wie);
+        omslagCode = string.IsNullOrWhiteSpace(omslagCode) ? null : omslagCode.Trim();
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var post = await db.EigenPosten.SingleOrDefaultAsync(p => p.Id == postId && p.KlantId == klantId);
+        if (post is null)
+        {
+            return Uitkomst.Mislukt("Deze post bestaat niet (meer).");
+        }
+
+        var schema = await rgs.ActiefSchema();
+        if (omslagCode is not null)
+        {
+            if (schema?.Zoek(post.OuderCode) is not { Kant: { } kant } ouder
+                || schema.Zoek(omslagCode) is not { Niveau: 3 or 4 } omslag
+                || omslag.Kant == kant || omslag.Code[0] != ouder.Code[0])
+            {
+                return Uitkomst.Mislukt("Kies voor salderen een RGS-post (niveau 3 of 4) aan de andere kant van de balans, bijv. een vordering bij een schuld.");
+            }
+        }
+
+        if (post.OmslagCode == omslagCode)
+        {
+            return Uitkomst.Gelukt;
+        }
+
+        post.OmslagCode = omslagCode;
+        await db.SaveChangesAsync();
+        var klant = await db.Klanten.AsNoTracking().SingleAsync(k => k.Id == klantId);
+        await audit.Log(wie, AuditActies.EigenPostGesaldeerd, KlantDienst.Onderwerp(klant),
+            omslagCode is null ? $"'{post.Naam}': niet meer salderen" : $"'{post.Naam}': salderen, aan de andere kant naar {omslagCode} {schema?.Zoek(omslagCode)?.Omschrijving}");
+        return Uitkomst.Gelukt;
     }
 
     /// <summary>Verwijdert een eigen post; gekoppelde rekeningen blijven gekoppeld aan de RGS-post erboven.</summary>

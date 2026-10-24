@@ -95,5 +95,6 @@ public static class AuditActies
     public const string GrondslagGewijzigd = "Grondslag aangepast";
     public const string GrondslagenbibliotheekGewijzigd = "Grondslagenbibliotheek gewijzigd";
     public const string VerslaggevingGekozen = "Grondslagen gekozen";
+    public const string EigenPostGesaldeerd = "Eigen post salderen";
     public const string RekeningAangemaakt = "Grootboekrekening aangemaakt";
 }
