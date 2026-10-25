@@ -51,3 +51,85 @@ document.addEventListener('keydown', e => {
         document.querySelectorAll('details.uitklapmenu[open]').forEach(menu => menu.open = false);
     }
 });
+
+// Zijkolommen (dossiermenu, onderdelen van het werkprogramma, inhoud van het rapport): inklappen met ‹ › en de
+// breedte slepen aan de rand. De stand onthoudt de browser per soort kolom; ook na navigeren of opnieuw tekenen.
+(() => {
+    const sleutel = el => 'kolom:' + el.dataset.kolommen;
+    const lees = el => {
+        try {
+            return JSON.parse(localStorage.getItem(sleutel(el)) || '{}');
+        } catch {
+            return {};
+        }
+    };
+    const bewaar = (el, stand) => {
+        try {
+            localStorage.setItem(sleutel(el), JSON.stringify(stand));
+        } catch {
+            // Zonder opslag werkt het alleen voor deze pagina.
+        }
+    };
+    const pasToe = el => {
+        const stand = lees(el);
+        if (stand.breedte) {
+            el.style.setProperty('--zijbreedte', stand.breedte + 'px');
+        }
+        el.toggleAttribute('data-ingeklapt', !!stand.ingeklapt);
+        el.dataset.kolomKlaar = '1';
+    };
+    const nieuwe = () => document.querySelectorAll('[data-kolommen]:not([data-kolom-klaar])').forEach(pasToe);
+    new MutationObserver(nieuwe).observe(document.documentElement, { childList: true, subtree: true });
+    document.addEventListener('DOMContentLoaded', nieuwe);
+    nieuwe();
+
+    document.addEventListener('click', e => {
+        const knop = e.target instanceof Element ? e.target.closest('.kolom-knop') : null;
+        const el = knop?.closest('[data-kolommen]');
+        if (!el) {
+            return;
+        }
+        const stand = lees(el);
+        stand.ingeklapt = !stand.ingeklapt;
+        bewaar(el, stand);
+        pasToe(el);
+    });
+
+    document.addEventListener('pointerdown', e => {
+        const greep = e.target instanceof Element ? e.target.closest('.kolom-greep') : null;
+        const el = greep?.closest('[data-kolommen]');
+        const kolom = greep?.closest('.zijkolom');
+        if (!el || !kolom) {
+            return;
+        }
+        e.preventDefault();
+        const start = e.clientX;
+        const breedte = kolom.getBoundingClientRect().width;
+        let nieuw = breedte;
+        greep.classList.add('actief');
+        document.body.classList.add('kolom-slepen');
+        const beweeg = m => {
+            nieuw = Math.round(Math.min(Math.max(breedte + m.clientX - start, 140), Math.min(560, window.innerWidth * .5)));
+            el.style.setProperty('--zijbreedte', nieuw + 'px');
+        };
+        const los = () => {
+            window.removeEventListener('pointermove', beweeg);
+            window.removeEventListener('pointerup', los);
+            greep.classList.remove('actief');
+            document.body.classList.remove('kolom-slepen');
+            bewaar(el, { ...lees(el), breedte: nieuw, ingeklapt: false });
+        };
+        window.addEventListener('pointermove', beweeg);
+        window.addEventListener('pointerup', los);
+    });
+
+    // Dubbelklik op de rand: terug naar de standaardbreedte.
+    document.addEventListener('dblclick', e => {
+        const greep = e.target instanceof Element ? e.target.closest('.kolom-greep') : null;
+        const el = greep?.closest('[data-kolommen]');
+        if (el) {
+            el.style.removeProperty('--zijbreedte');
+            bewaar(el, { ...lees(el), breedte: null });
+        }
+    });
+})();

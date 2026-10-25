@@ -305,12 +305,100 @@ tr.klikbaar {
         }
 
 /* Dossier: verticaal menu links naast de pagina; het blijft staan bij scrollen. */
-.dossier-indeling {
+/* Kolommen: links een zijkolom die je inklapt (‹ ›) en breder of smaller sleept; de stand onthoudt de browser. */
+.kolommen {
     display: grid;
-    grid-template-columns: 15.5rem minmax(0, 1fr);
-    gap: 1.5rem;
-    align-items: start;
+    grid-template-columns: var(--zijbreedte, var(--zij-standaard, 15rem)) minmax(0, 1fr);
+    column-gap: 1.5rem;
 }
+
+    .kolommen[data-ingeklapt]:not(.met-paneel) {
+        grid-template-columns: 1.4rem minmax(0, 1fr);
+    }
+
+.zijkolom {
+    position: relative;
+    min-width: 0;
+}
+
+    .kolommen[data-ingeklapt] > .zijkolom > :not(.kolom-knop) {
+        display: none;
+    }
+
+.kolom-knop {
+    position: sticky;
+    top: 1rem;
+    float: right;
+    z-index: 6;
+    width: 1.3rem;
+    height: 1.3rem;
+    margin-right: -1.45rem;
+    padding: 0;
+    border: 1px solid #d5dce2;
+    border-radius: 50%;
+    background: #fff;
+    color: #5a6670;
+    font-size: .8rem;
+    line-height: 1.1rem;
+    opacity: .55;
+}
+
+    .kolom-knop::before {
+        content: "‹";
+    }
+
+    .kolommen[data-ingeklapt] > .zijkolom > .kolom-knop {
+        float: none;
+        margin-right: 0;
+        opacity: 1;
+    }
+
+        .kolommen[data-ingeklapt] > .zijkolom > .kolom-knop::before {
+            content: "›";
+        }
+
+    .zijkolom:hover > .kolom-knop, .kolom-knop:focus {
+        opacity: 1;
+    }
+
+.kolom-greep {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: -1rem;
+    width: .5rem;
+    cursor: col-resize;
+    border-radius: .25rem;
+}
+
+    .kolom-greep:hover, .kolom-greep.actief {
+        background: rgba(31, 95, 139, .14);
+    }
+
+body.kolom-slepen {
+    cursor: col-resize;
+    user-select: none;
+}
+
+.dossier-indeling {
+    --zij-standaard: 15.5rem;
+}
+
+.wp-indeling {
+    --zij-standaard: 17rem;
+}
+
+.rapport-indeling {
+    --zij-standaard: 19rem;
+}
+
+    .rapport-indeling.aanpassen {
+        --zij-standaard: 25rem;
+    }
+
+    .rapport-indeling.met-paneel {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 27rem);
+    }
 
 .dossiernav {
     position: sticky;
@@ -341,9 +429,17 @@ tr.klikbaar {
         }
 
 @media (max-width: 991.98px) {
-    .dossier-indeling {
+    .kolommen, .kolommen[data-ingeklapt]:not(.met-paneel), .rapport-indeling.met-paneel {
         grid-template-columns: minmax(0, 1fr);
-        gap: .75rem;
+        row-gap: .75rem;
+    }
+
+        .kolommen[data-ingeklapt] > .zijkolom > :not(.kolom-knop) {
+            display: revert;
+        }
+
+    .kolom-knop, .kolom-greep {
+        display: none;
     }
 
     .dossiernav {

@@ -3,14 +3,18 @@
    post mee die je op dat moment bekijkt. *@
 @using Boekerhouden.Server.Export
 
-<div class="dossier-indeling">
-    <nav class="dossiernav" aria-label="Dossier">
-        @foreach (var (pad, tekst) in Onderdelen)
-        {
-            <a href="@Link(pad)" class="@(pad == Actief ? "actief" : null)" aria-current="@(pad == Actief ? "page" : null)"
-               data-volg-post="@(VolgRapport ? Parameter(pad) : null)">@tekst</a>
-        }
-    </nav>
+<div class="kolommen dossier-indeling" data-kolommen="dossier">
+    <div class="zijkolom">
+        <button type="button" class="kolom-knop" title="In- of uitklappen" aria-label="Kolom in- of uitklappen"></button>
+        <nav class="dossiernav" aria-label="Dossier">
+            @foreach (var (pad, tekst) in Onderdelen)
+            {
+                <a href="@Link(pad)" class="@(pad == Actief ? "actief" : null)" aria-current="@(pad == Actief ? "page" : null)"
+                   data-volg-post="@(VolgRapport ? Parameter(pad) : null)">@tekst</a>
+            }
+        </nav>
+        <div class="kolom-greep" title="Sleep om de breedte aan te passen"></div>
+    </div>
     <div class="dossier-inhoud">
         @ChildContent
     </div>

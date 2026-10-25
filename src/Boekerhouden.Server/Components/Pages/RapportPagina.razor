@@ -70,10 +70,11 @@ else
             }
         </div>
 
-        <div class="row g-3">
+        <div class="kolommen rapport-indeling @(paneel is not null ? "met-paneel" : null) @(aanpassen ? "aanpassen" : null)" data-kolommen="rapport">
             @if (paneel is null)
             {
-                <div class="@(aanpassen ? "col-xl-4" : "col-xl-3")">
+                <div class="zijkolom">
+                    <button type="button" class="kolom-knop" title="In- of uitklappen" aria-label="Kolom in- of uitklappen"></button>
                     <div class="rapport-zijkant">
                         @if (!aanpassen)
                         {
@@ -125,9 +126,10 @@ else
                             </div>
                         }
                     </div>
+                    <div class="kolom-greep" title="Sleep om de breedte aan te passen"></div>
                 </div>
             }
-            <div class="@(paneel is not null || aanpassen ? "col-xl-8" : "col-xl-9")">
+            <div class="rapport-hoofd">
                 <div class="rapport-viewer">
                     <RapportDocument Inhoud="inhoud" Bewerkbaar="true" Gewijzigd="NaWijziging" Wie="Wie"
                                      RekeningenTonen="ToonRekeningen" Sleepdoel="Sleepdoel" Neergezet="Neerzetten" />
@@ -135,7 +137,7 @@ else
             </div>
             @if (paneel is not null)
             {
-                <div class="col-xl-4">
+                <div>
                     <div class="rapport-paneel" id="rekeningenpaneel">
                         <div class="d-flex align-items-baseline gap-2">
                             <span class="fw-semibold me-auto" title="@paneel.Sleutel">@paneel.Titel</span>

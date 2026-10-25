@@ -48,8 +48,9 @@ else
         <style>@((MarkupString)RapportHtml.Stijl)</style>
     </HeadContent>
 
-    <div class="row g-3 werkprogramma">
-        <div class="col-lg-3">
+    <div class="kolommen wp-indeling werkprogramma" data-kolommen="werkprogramma">
+        <div class="zijkolom">
+            <button type="button" class="kolom-knop" title="In- of uitklappen" aria-label="Kolom in- of uitklappen"></button>
             <nav class="wp-boom" aria-label="Onderdelen">
                 @foreach (var fase in Enum.GetValues<Fase>())
                 {
@@ -104,9 +105,10 @@ else
                     }
                 }
             </nav>
+            <div class="kolom-greep" title="Sleep om de breedte aan te passen"></div>
         </div>
 
-        <div class="col-lg-9">
+        <div class="wp-hoofd">
             @if (afmelden is not null)
             {
                 <div class="bericht mb-2 d-flex flex-wrap align-items-center gap-2" id="afmelden">
