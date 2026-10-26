@@ -50,12 +50,18 @@ public sealed class PdfFactuurHerkenner(EigenGegevens eigen) : IFactuurHerkenner
 }
 
 /// <summary>Het resultaat van de herkenning: de factuur, of waarom er niets herkend is.</summary>
-public sealed record Herkenningsresultaat(HerkendeFactuur? Factuur, string? Melding);
+/// <param name="Geweigerd">De virusscan heeft iets gevonden: het bestand gaat in quarantaine en wordt niet verwerkt.</param>
+public sealed record Herkenningsresultaat(HerkendeFactuur? Factuur, string? Melding, bool Geweigerd = false);
 
-/// <summary>Probeert de motoren op volgorde; de eerste die iets herkent, wint.</summary>
-public sealed class Factuurherkenning(IEnumerable<IFactuurHerkenner> motoren)
+/// <summary>
+/// Scant het bestand eerst op virussen (als er een scanner is) en probeert dan de motoren op volgorde; de eerste die
+/// iets herkent, wint. Is de scanner niet bereikbaar, dan wordt het bestand niet geopend: liever later verwerken dan
+/// een ongescand bestand lezen.
+/// </summary>
+public sealed class Factuurherkenning(IEnumerable<IFactuurHerkenner> motoren, IVirusscanner? virusscanner = null)
 {
-    public static Factuurherkenning Standaard(EigenGegevens eigen) => new([new UblHerkenner(), new PdfFactuurHerkenner(eigen)]);
+    public static Factuurherkenning Standaard(EigenGegevens eigen, IVirusscanner? virusscanner = null) =>
+        new([new UblHerkenner(), new PdfFactuurHerkenner(eigen)], virusscanner);
 
     public async Task<Herkenningsresultaat> HerkenAsync(Stream inhoud, string bestandsnaam, string? inhoudstype = null, CancellationToken annulering = default)
     {
@@ -68,6 +74,19 @@ public sealed class Factuurherkenning(IEnumerable<IFactuurHerkenner> motoren)
 
         using var kopie = new MemoryStream();
         await inhoud.CopyToAsync(kopie, annulering).ConfigureAwait(false);
+        if (virusscanner is not null)
+        {
+            kopie.Position = 0;
+            var scan = await virusscanner.ScanAsync(kopie, annulering).ConfigureAwait(false);
+            switch (scan.Uitslag)
+            {
+                case Scanuitslag.Besmet:
+                    return new(null, $"Het bestand bevat kwaadaardige inhoud ({scan.Toelichting}) en wordt niet verwerkt.", Geweigerd: true);
+                case Scanuitslag.NietGescand:
+                    return new(null, $"{scan.Toelichting} Het bestand wordt pas verwerkt na een geslaagde scan.");
+            }
+        }
+
         foreach (var motor in geschikt)
         {
             kopie.Position = 0;

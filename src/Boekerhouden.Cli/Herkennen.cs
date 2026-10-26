@@ -25,6 +25,7 @@ internal static class Herkennen
         var btwNummers = new List<string>();
         var namen = new List<string>();
         var tekst = false;
+        IVirusscanner? scanner = null;
         Keuze? leer = null;
         for (var i = 0; i < opties.Length; i++)
         {
@@ -38,6 +39,9 @@ internal static class Herkennen
                     break;
                 case "--eigen-naam" when i + 1 < opties.Length:
                     namen.Add(opties[++i]);
+                    break;
+                case "--clamav" when i + 1 < opties.Length:
+                    scanner = ClamAvScanner.Van(opties[++i]);
                     break;
                 case "--tekst":
                     tekst = true;
@@ -67,10 +71,10 @@ internal static class Herkennen
         }
 
         await using var stream = File.OpenRead(pad);
-        var resultaat = await Factuurherkenning.Standaard(eigen).HerkenAsync(stream, Path.GetFileName(pad));
+        var resultaat = await Factuurherkenning.Standaard(eigen, scanner).HerkenAsync(stream, Path.GetFileName(pad));
         if (resultaat.Factuur is not { } herkend)
         {
-            Console.WriteLine($"Niet herkend: {resultaat.Melding}");
+            Console.WriteLine($"{(resultaat.Geweigerd ? "Geweigerd" : "Niet herkend")}: {resultaat.Melding}");
             return 1;
         }
 

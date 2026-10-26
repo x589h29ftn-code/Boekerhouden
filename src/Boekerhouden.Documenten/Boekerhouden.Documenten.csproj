@@ -8,4 +8,8 @@
     <PackageReference Include="PdfPig" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Boekerhouden.Documenten.Tests" />
+  </ItemGroup>
+
 </Project>

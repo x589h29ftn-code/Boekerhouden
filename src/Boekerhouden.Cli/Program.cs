@@ -119,10 +119,11 @@ static int Gebruik()
           boekerhouden rgs <RGS-werkboek.xlsx>
               Leest het officiële RGS-werkboek in en toont versie, aantallen en de selectie per rechtsvorm.
           boekerhouden herken <factuur.pdf|factuur.xml> [--eigen-naam "Naam"] [--eigen-iban NL..] [--eigen-btw NL..B01] [--tekst]
-                              [--leer <rekening> <btw-code>]
+                              [--clamav host:poort] [--leer <rekening> <btw-code>]
               Herkent een inkoopfactuur zoals het administratiepakket dat doet en toont het boekingsvoorstel.
               --tekst toont ook de tekst uit de PDF; --leer speelt drie keer dezelfde leverancier af (kiezen,
-              voorstel, automatisch) met de gekozen rekening en btw-code (bijv. I21).
+              voorstel, automatisch) met de gekozen rekening en btw-code (bijv. I21); --clamav scant het
+              bestand eerst met ClamAV (clamd, standaard poort 3310).
         """);
     return 2;
 }
