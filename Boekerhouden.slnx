@@ -3,12 +3,14 @@
     <Project Path="src/Boekerhouden.Boekhouding/Boekerhouden.Boekhouding.csproj" />
     <Project Path="src/Boekerhouden.Cli/Boekerhouden.Cli.csproj" />
     <Project Path="src/Boekerhouden.Data/Boekerhouden.Data.csproj" />
+    <Project Path="src/Boekerhouden.Documenten/Boekerhouden.Documenten.csproj" />
     <Project Path="src/Boekerhouden.Domain/Boekerhouden.Domain.csproj" />
     <Project Path="src/Boekerhouden.Import/Boekerhouden.Import.csproj" />
     <Project Path="src/Boekerhouden.Server/Boekerhouden.Server.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Boekerhouden.Boekhouding.Tests/Boekerhouden.Boekhouding.Tests.csproj" />
+    <Project Path="tests/Boekerhouden.Documenten.Tests/Boekerhouden.Documenten.Tests.csproj" />
     <Project Path="tests/Boekerhouden.Domain.Tests/Boekerhouden.Domain.Tests.csproj" />
     <Project Path="tests/Boekerhouden.Import.Tests/Boekerhouden.Import.Tests.csproj" />
     <Project Path="tests/Boekerhouden.Server.Tests/Boekerhouden.Server.Tests.csproj" />

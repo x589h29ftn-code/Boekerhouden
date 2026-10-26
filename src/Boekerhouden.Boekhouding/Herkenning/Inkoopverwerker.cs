@@ -41,7 +41,8 @@ public static class Inkoopverwerker
         IReadOnlyList<BtwCode> btwCodes,
         IEnumerable<BestaandeFactuur> bestaand,
         int betalingstermijn = 30,
-        Func<DateOnly, bool>? periodeOpen = null)
+        Func<DateOnly, bool>? periodeOpen = null,
+        decimal? limietAutomatisch = null)
     {
         ArgumentNullException.ThrowIfNull(herkend);
         ArgumentNullException.ThrowIfNull(bestaand);
@@ -63,6 +64,22 @@ public static class Inkoopverwerker
         if (leverancier is not null && Dubbel(herkend, leverancier.Relatie.Code, bestaand) is { } dubbel)
         {
             belemmeringen.Add($"Lijkt al geboekt: factuur {dubbel.Factuurnummer} van {dubbel.Datum:dd-MM-yyyy}.");
+        }
+
+        // Factuurfraude: een bekende leverancier met ineens een ander rekeningnummer.
+        if (leverancier is { Op: not "IBAN" } && herkend.Iban is { } iban && leverancier.Relatie.Ibans.Count > 0 && !leverancier.Relatie.HeeftIban(iban))
+        {
+            belemmeringen.Add($"Het IBAN op de factuur ({Relaties.Iban.Toon(iban)}) is niet het bekende IBAN van {leverancier.Relatie.Naam}. Controleer dit bij de leverancier via een bekend telefoonnummer.");
+        }
+
+        if (advies.Automatisch && limietAutomatisch is { } limiet && herkend.TotaalInclusief is { } bedrag && Math.Abs(bedrag) > limiet)
+        {
+            belemmeringen.Add($"Het bedrag is hoger dan de limiet voor automatisch verwerken ({Domain.Bedragen.Euro(limiet)}).");
+        }
+
+        if (herkend.OpEigenNaam is false)
+        {
+            belemmeringen.Add("De factuur staat niet op naam van de onderneming; zonder dat is de btw niet aftrekbaar.");
         }
 
         if (herkend.Factuurdatum is { } datum && periodeOpen is not null && !periodeOpen(datum))

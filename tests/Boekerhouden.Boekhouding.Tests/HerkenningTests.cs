@@ -26,6 +26,17 @@ public sealed class FactuurtekstTests
         Assert.Equal("1234567890123458", factuur.Betalingskenmerk);
         Assert.Empty(factuur.Controleer());
         Assert.Null(factuur.EnigTarief);
+        Assert.Equal("Printpapier A4 80 gr e.a.", factuur.Omschrijving);
+        Assert.Null(factuur.OpEigenNaam);
+    }
+
+    [Fact]
+    public void Op_naam_van_de_onderneming_of_niet()
+    {
+        var tekst = Lees("jansen-2026-114.txt");
+
+        Assert.True(Factuurtekst.Analyseer(tekst, eigenNamen: ["Bakkerij Voorbeeld B.V."]).OpEigenNaam);
+        Assert.False(Factuurtekst.Analyseer(tekst, eigenNamen: ["Schildersbedrijf Voorbeeld"]).OpEigenNaam);
     }
 
     [Fact]
@@ -229,6 +240,38 @@ public sealed class InkoopverwerkerTests
         Assert.Equal((20.65m, 4.34m), (regel.Bedrag, regel.Btw));
         Assert.Equal(new DateOnly(2026, 5, 31), voorstel.Factuur.Vervaldatum);
         Assert.True(voorstel.Automatisch);
+    }
+
+    [Fact]
+    public void Bekende_leverancier_met_een_ander_iban_wordt_niet_automatisch_verwerkt()
+    {
+        var herkend = Ubl() with { Iban = "NL44RABO0123456789" };
+
+        var voorstel = Inkoopverwerker.Verwerk(herkend, Relaties, [Telefoon], new Leergeheugen(), Testadministratie.Btw, []);
+
+        Assert.Equal("btw-nummer", voorstel.Leverancier?.Op);
+        Assert.False(voorstel.Automatisch);
+        Assert.Contains(voorstel.Belemmeringen, b => b.StartsWith("Het IBAN op de factuur (NL44 RABO 0123 4567 89) is niet het bekende IBAN van Belnet B.V.", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Factuur_niet_op_naam_van_de_onderneming_wordt_niet_automatisch_verwerkt()
+    {
+        var voorstel = Inkoopverwerker.Verwerk(Ubl() with { OpEigenNaam = false }, Relaties, [Telefoon], new Leergeheugen(), Testadministratie.Btw, []);
+
+        Assert.False(voorstel.Automatisch);
+        Assert.Contains("De factuur staat niet op naam van de onderneming; zonder dat is de btw niet aftrekbaar.", voorstel.Belemmeringen);
+    }
+
+    [Fact]
+    public void Boven_de_limiet_wordt_niet_automatisch_verwerkt()
+    {
+        var onder = Inkoopverwerker.Verwerk(Ubl(), Relaties, [Telefoon], new Leergeheugen(), Testadministratie.Btw, [], limietAutomatisch: 24.99m);
+        var boven = Inkoopverwerker.Verwerk(Ubl(), Relaties, [Telefoon], new Leergeheugen(), Testadministratie.Btw, [], limietAutomatisch: 20m);
+
+        Assert.True(onder.Automatisch);
+        Assert.False(boven.Automatisch);
+        Assert.Contains("Het bedrag is hoger dan de limiet voor automatisch verwerken (€ 20,00).", boven.Belemmeringen);
     }
 
     private static HerkendeFactuur Ubl()

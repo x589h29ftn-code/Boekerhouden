@@ -15,7 +15,12 @@ public static partial class Factuurtekst
 {
     private static readonly string[] Rechtsvormen = ["B.V.", "BV", "V.O.F.", "VOF", "N.V.", "C.V.", "Holding", "GmbH", "Ltd"];
 
-    public static HerkendeFactuur Analyseer(string tekst, Herkenningsbron bron = Herkenningsbron.Tekst, IEnumerable<string>? eigenIbans = null, IEnumerable<string>? eigenBtwNummers = null)
+    public static HerkendeFactuur Analyseer(
+        string tekst,
+        Herkenningsbron bron = Herkenningsbron.Tekst,
+        IEnumerable<string>? eigenIbans = null,
+        IEnumerable<string>? eigenBtwNummers = null,
+        IEnumerable<string>? eigenNamen = null)
     {
         ArgumentNullException.ThrowIfNull(tekst);
         var regels = tekst.Replace("\r", string.Empty, StringComparison.Ordinal).Split('\n').Select(r => r.Trim()).Where(r => r.Length > 0).ToList();
@@ -55,7 +60,42 @@ public static partial class Factuurtekst
             TotaalExclusief: exclusief,
             TotaalInclusief: inclusief,
             Btw: btw,
-            Betalingskenmerk: Kenmerk().Match(tekst) is { Success: true } kenmerk ? string.Concat(kenmerk.Groups[1].Value.Where(char.IsAsciiDigit)) : null);
+            Betalingskenmerk: Kenmerk().Match(tekst) is { Success: true } kenmerk ? string.Concat(kenmerk.Groups[1].Value.Where(char.IsAsciiDigit)) : null,
+            Omschrijving: Omschrijving(regels),
+            OpEigenNaam: eigenNamen?.ToList() is { Count: > 0 } namen ? regels.Any(r => namen.Any(n => Namen.LijktOp(n, r))) : null);
+    }
+
+    /// <summary>
+    /// De omschrijving van de eerste factuurregel: onder de kopregel met "Omschrijving" (of "Artikel", "Description")
+    /// de eerste regel met een bedrag, zonder de bedragen en aantallen erachter. Bij meer regels met een bedrag komt
+    /// er "e.a." achter.
+    /// </summary>
+    private static string? Omschrijving(List<string> regels)
+    {
+        var kop = regels.FindIndex(r => KopregelOmschrijving().IsMatch(r));
+        if (kop < 0)
+        {
+            return null;
+        }
+
+        var factuurregels = regels.Skip(kop + 1)
+            .TakeWhile(r => !ExclusiefLabel().IsMatch(r) && !InclusiefLabel().IsMatch(r) && !BtwRegel().IsMatch(r))
+            .Where(r => BedragPatroon().IsMatch(r))
+            .ToList();
+        if (factuurregels.Count == 0)
+        {
+            return null;
+        }
+
+        var eerste = factuurregels[0];
+        var tekst = eerste[..BedragPatroon().Match(eerste).Index];
+        tekst = AantalAchteraan().Replace(tekst, string.Empty).Trim();
+        if (tekst.Count(char.IsLetter) < 2)
+        {
+            return null;
+        }
+
+        return factuurregels.Count > 1 ? $"{tekst} e.a." : tekst;
     }
 
     /// <summary>Alle bedragen met twee decimalen in een regel, in volgorde (geen percentages).</summary>
@@ -270,6 +310,12 @@ public static partial class Factuurtekst
 
     [GeneratedRegex(@"(?<![0-9])([0-9]{1,2})[-/.]([0-9]{1,2})[-/.]([0-9]{4}|[0-9]{2})(?![0-9])")]
     private static partial Regex NumeriekeDatum();
+
+    [GeneratedRegex(@"^\s*(?:omschrijving|artikel|product|description|item)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex KopregelOmschrijving();
+
+    [GeneratedRegex(@"(?:\s+(?:€|eur)|\s{2,}[0-9]+(?:[.,][0-9]+)?\s*(?:x|st\.?|stuks?)?)+\s*$", RegexOptions.IgnoreCase)]
+    private static partial Regex AantalAchteraan();
 
     [GeneratedRegex(@"(?<![0-9])([0-9]{4})-([0-9]{2})-([0-9]{2})(?![0-9])")]
     private static partial Regex IsoDatum();

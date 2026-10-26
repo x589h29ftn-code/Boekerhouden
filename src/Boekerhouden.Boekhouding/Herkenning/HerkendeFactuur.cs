@@ -24,6 +24,9 @@ public sealed record HerkendeRegel(string Omschrijving, decimal Bedrag, decimal?
 /// Wat er van een inkoopfactuur is herkend. Alles is optioneel: bij een slechte scan kan veel ontbreken. Bedragen
 /// zijn zoals op de factuur (positief), bij een creditfactuur negatief.
 /// </summary>
+/// <param name="OpEigenNaam">
+/// Staat de naam van de onderneming op de factuur? Nodig voor de aftrek van btw. Leeg als dat niet is nagegaan.
+/// </param>
 public sealed record HerkendeFactuur(
     Herkenningsbron Bron,
     string? Naam = null,
@@ -38,7 +41,8 @@ public sealed record HerkendeFactuur(
     IReadOnlyList<Btwregel>? Btw = null,
     IReadOnlyList<HerkendeRegel>? Regels = null,
     string? Betalingskenmerk = null,
-    string? Omschrijving = null)
+    string? Omschrijving = null,
+    bool? OpEigenNaam = null)
 {
     public IReadOnlyList<Btwregel> Btwregels => Btw ?? [];
 

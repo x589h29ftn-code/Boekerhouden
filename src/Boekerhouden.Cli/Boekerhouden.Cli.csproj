@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Boekerhouden.Documenten\Boekerhouden.Documenten.csproj" />
     <ProjectReference Include="..\Boekerhouden.Import\Boekerhouden.Import.csproj" />
   </ItemGroup>
 

@@ -103,6 +103,7 @@ De opdrachtregel werkt zonder database:
 dotnet run --project src/Boekerhouden.Cli -- sjabloon importsjabloon.xlsx --boekjaar 2025
 dotnet run --project src/Boekerhouden.Cli -- controleer tests/Fictief/bv-voorbeeld-bakkerij/saldibalans-2025.csv
 dotnet run --project src/Boekerhouden.Cli -- rgs "RGS 3.8-def.xlsx"      # controleert een RGS-werkboek
+dotnet run --project src/Boekerhouden.Cli -- herken factuur.pdf --leer 4500 I21   # herkent een inkoopfactuur (administratiepakket)
 ```
 
 ## Administratiepakket (in opbouw)
@@ -111,6 +112,7 @@ Naast de samenstel-app komt een eigen administratiepakket: inkoopfacturen inleze
 later scans), voorstellen die leren van eerdere keuzes, verwerkingsregels, verkoopfacturen, bankafschriften (MT940,
 CAMT.053) met slim afletteren, en grootboekkaarten, balans en W&V. De saldibalans gaat met RGS-codes naar het
 samenstelpakket. De boekhoudkern staat in `src/Boekerhouden.Boekhouding` (plakjes A1–A5); de webapp volgt.
-Ontwerp en roadmap: [`docs/administratie`](docs/administratie/README.md).
+Ontwerp en roadmap: [`docs/administratie`](docs/administratie/README.md); beveiliging:
+[`docs/administratie/beveiliging.md`](docs/administratie/beveiliging.md).
 
 Werkafspraken voor ontwikkeling (ook voor AI-sessies): [`CLAUDE.md`](CLAUDE.md).

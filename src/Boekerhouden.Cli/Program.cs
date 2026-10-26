@@ -13,6 +13,7 @@ return args switch
     ["controleer", var pad, "--boekjaar", var jaar] when int.TryParse(jaar, NumberStyles.None, CultureInfo.InvariantCulture, out var boekjaar)
         => Controleer(pad, boekjaar),
     ["rgs", var pad] => ControleerRgs(pad),
+    ["herken", var pad, .. var opties] => await Herkennen.Voer(pad, opties),
     _ => Gebruik(),
 };
 
@@ -117,6 +118,11 @@ static int Gebruik()
               in en toont de uitkomst van de controles. --boekjaar is nodig als het bestand geen boekjaar bevat.
           boekerhouden rgs <RGS-werkboek.xlsx>
               Leest het officiële RGS-werkboek in en toont versie, aantallen en de selectie per rechtsvorm.
+          boekerhouden herken <factuur.pdf|factuur.xml> [--eigen-naam "Naam"] [--eigen-iban NL..] [--eigen-btw NL..B01] [--tekst]
+                              [--leer <rekening> <btw-code>]
+              Herkent een inkoopfactuur zoals het administratiepakket dat doet en toont het boekingsvoorstel.
+              --tekst toont ook de tekst uit de PDF; --leer speelt drie keer dezelfde leverancier af (kiezen,
+              voorstel, automatisch) met de gekozen rekening en btw-code (bijv. I21).
         """);
     return 2;
 }

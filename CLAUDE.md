@@ -13,6 +13,7 @@ dotnet format Boekerhouden.slnx --verify-no-changes   # opmaak/stijl
 dotnet run --project src/Boekerhouden.Server           # webapp op http://localhost:5080
 dotnet run --project src/Boekerhouden.Server -- --demo   # idem, gevuld met demo-account, RGS en klanten (README)
 dotnet run --project src/Boekerhouden.Cli -- controleer tests/Fictief/bv-voorbeeld-bakkerij/saldibalans-2025.csv
+dotnet run --project src/Boekerhouden.Cli -- herken testdata/factuur.pdf --leer 4500 I21   # inkoopfactuur herkennen
 dotnet ef migrations add <Naam> --project src/Boekerhouden.Data --output-dir Migraties   # na een modelwijziging
 ```
 
@@ -34,6 +35,8 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   `Btw/` (btw-codes met aangifterubriek), `Relaties/` (IBAN, btw-nummer, namen vergelijken), `Facturen/` (facturen boeken,
   openstaande posten), `Bank/` (MT940, CAMT.053, bankboekingen), `Afletteren/`, `Regels/` (verwerkingsregels, leergeheugen,
   advies) en `Herkenning/` (factuurtekst, UBL, leverancier herkennen, inkoopvoorstel).
+- `src/Boekerhouden.Documenten` – documenten van buiten lezen voor de herkenning: tekst uit PDF (PdfPig), UBL als los
+  bestand of als bijlage; begrensd (grootte, pagina's), XML altijd zonder DTD. Beveiliging: `docs/administratie/beveiliging.md`.
 - `src/Boekerhouden.Import` – importsjabloon (.xlsx/.csv) inlezen en controleren (I1–I6, I11), sjabloon genereren,
   het officiële RGS-werkboek lezen (`RgsWerkboekLezer`).
 - `src/Boekerhouden.Cli` – opdrachtregel om sjablonen te maken en bestanden te controleren.

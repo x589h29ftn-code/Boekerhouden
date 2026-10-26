@@ -19,6 +19,7 @@ samenstelpakket.
 | AD4 | Rekeningschema | **RGS** ([§12 onderzoek](../onderzoek/12-rgs-als-rubriekenschema.md)): elke grootboekrekening heeft een RGS-code. Dan is de saldibalans meteen gerubriceerd voor de jaarrekening |
 | AD5 | Bank | **Eerst bestanden**: MT940 en CAMT.053 (alle Nederlandse banken leveren beide). Een directe bankkoppeling (PSD2) kan alleen via een vergunninghouder en kost geld. Die komt later, achter dezelfde interface als de bestanden |
 | AD6 | Leren | **Eerste keer kiest de gebruiker, tweede keer een voorstel, derde keer automatisch** (bij dezelfde keuze als de vorige twee keer). Een vaste regel van de gebruiker gaat altijd voor |
+| AD7 | Beveiliging | Uitgewerkt in [beveiliging.md](beveiliging.md): wat er op het spel staat, wat gebruikelijk is, maatregelen per fase (kantoor / online) en beslispunten |
 
 ## 2. Werkstroom
 
@@ -235,7 +236,7 @@ gedaan.
 | A12 | **Saldibalans naar het samenstelpakket** | Jaarrekening zonder export |
 | later | Online voor ondernemers (AD2), facturen per e-mail, directe bankkoppeling (PSD2), herinneringen, terugkerende facturen, kas, AI-herkenning als extra motor, e-facturen verzenden (Peppol) | |
 
-### Stand na A1–A5
+### Stand na A1–A5 (en het begin van A7)
 
 De boekhoudkern staat in `src/Boekerhouden.Boekhouding`, met tests in `tests/Boekerhouden.Boekhouding.Tests` en
 verzonnen voorbeeldbestanden in `tests/Fictief/administratie`:
@@ -249,8 +250,18 @@ verzonnen voorbeeldbestanden in `tests/Fictief/administratie`:
 | Afletteren | `Afletteraar` (kandidaten met zekerheid en reden), `Factuurnummers` |
 | Regels | `Verwerkingsregel`, `Leergeheugen`, `Verwerkingsadviseur` |
 | Herkenning | `Factuurtekst` (tekstanalyse), `UblFactuurLezer`, `Leverancierherkenning`, `Inkoopverwerker` (herkende factuur → voorstel met belemmeringen), `IFactuurHerkenner` |
+| Documenten (`src/Boekerhouden.Documenten`) | `PdfTekst` (tekst uit een PDF met PdfPig, regels op hun plek, begrensd), `PdfFactuurHerkenner` (UBL-bijlage of tekst), `UblHerkenner`, `Factuurherkenning` (motoren op volgorde) |
 
-Nog niet gebouwd: opslag (database), schermen, PDF-tekst (PdfPig), OCR, verkoopfacturen als document, btw-aangifte en
+Proberen op een eigen factuur (die blijft buiten git, bijv. in `testdata/`):
+
+```bash
+dotnet run --project src/Boekerhouden.Cli -- herken testdata/factuur.pdf --eigen-naam "Mijn Bedrijf B.V." --leer 4500 I21
+```
+
+Dat toont wat het pakket herkent, het inkoopvoorstel in een lege administratie, en daarna drie facturen van dezelfde
+leverancier: kiezen, voorstel, automatisch, met de journaalpost.
+
+Nog niet gebouwd: opslag (database), schermen, OCR, verkoopfacturen als document, btw-aangifte en
 periodes. Dat volgt vanaf plakje A6.
 
 ## 6. Open vragen
