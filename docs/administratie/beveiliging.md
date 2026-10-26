@@ -1,6 +1,6 @@
 # Beveiliging van het administratiepakket
 
-*Stand van zaken: 26 oktober 2026*
+*Stand van zaken: 26 oktober 2026; besluiten B1–B5 in §7.*
 
 Een administratiepakket bevat de hele financiële huishouding van een onderneming:
 
@@ -54,8 +54,9 @@ Gangbare online boekhoudpakketten in Nederland doen in het algemeen het volgende
    termijn opnieuw gegeven moet worden.
 8. **Rechten per gebruiker en per administratie**, en signalen bij afwijkende IBAN's en dubbele facturen.
 
-Voor een klein kantoor is een certificaat (punt 3) in het begin niet nodig. Wel volgen we dezelfde soort
-maatregelen en leggen we ze vast, zodat later een certificaat of rapport kan.
+Voor een klein kantoor is een certificaat (punt 3) in het begin niet nodig. Omdat het er op termijn mogelijk wel
+komt (B4), volgen we nu al dezelfde maatregelen en leggen we ze vast met bewijs (§4.13). Dan is een certificaat of
+rapport later vooral een kwestie van laten toetsen.
 
 ## 3. Wettelijk kader
 
@@ -80,7 +81,7 @@ Legenda:
 | Maatregel | Fase |
 |---|---|
 | Wachtwoorden van minstens 12 tekens, met een lijst van verboden wachtwoorden, gehasht met PBKDF2 (Identity), en lockout na 5 pogingen. Zoals in de samenstel-app | ✅ (samenstel-app), F1 |
-| **Tweestapsverificatie verplicht** voor iedereen online. Op kantoor alleen voor de beheerder. Met een authenticator-app (TOTP), daarna ook passkeys (WebAuthn). Herstelcodes eenmalig tonen | beheerder F1, iedereen F2 |
+| **Tweestapsverificatie** (B1) met een authenticator-app (TOTP) **én passkeys** (WebAuthn: vingerafdruk, gezichtsherkenning of een beveiligingssleutel; bestand tegen phishing). De gebruiker kiest. Herstelcodes worden eenmalig getoond. Verplicht voor iedereen die online inlogt; op kantoor verplicht voor de beheerder en aan te zetten voor de anderen | beheerder F1, iedereen F2 |
 | **Rate limiting** op inloggen en wachtwoord vergeten, per IP en per account (ASP.NET Core `RateLimiter`), tegen credential stuffing | F2 |
 | Controle tegen **gelekte wachtwoorden**: een offline lijst, of de *k-anonymity*-dienst van een externe bron (dan gaan alleen de eerste 5 tekens van de hash naar buiten) | F2 |
 | **Uitnodigen met een eenmalige link** die na 48 uur verloopt, in plaats van een tijdelijk wachtwoord (online) | F2 |
@@ -138,7 +139,7 @@ Bij gangbare pakketten zijn dit de signalen die het meeste schade voorkomen:
 | **Dubbele factuur**: zelfde leverancier en factuurnummer (ongeacht leestekens), of zelfde datum en bedrag | ✅ |
 | **Onbekende leverancier**: wordt nooit automatisch verwerkt. De gebruiker bevestigt eerst de nieuwe relatie | ✅ |
 | **Niet op naam van de onderneming**: wordt niet automatisch verwerkt, met de melding dat de btw dan niet aftrekbaar is | ✅ |
-| **Bedraglimiet voor automatisch verwerken**: boven de limiet (instelbaar per administratie) altijd door een mens laten bevestigen | ✅ (domein), F1 instelling |
+| **Bedraglimiet voor automatisch verwerken** (B2): standaard **geen** limiet. Per administratie is er een limiet in te stellen; daarboven bevestigt altijd een mens | ✅ (domein), F1 instelling |
 | **IBAN van een relatie wijzigen**: alleen met opnieuw bevestigen, met een vermelding in het log en een melding aan de andere gebruikers van de administratie. Online met vier ogen | F1 / F2 |
 | Afwijkend bedrag: veel hoger dan gebruikelijk bij deze leverancier, als signaal in Te verwerken | F1 (A7) |
 | **Het pakket betaalt niet zelf.** Betaalbestanden (SEPA) worden in de bank ondertekend, met de bankpas of app van de ondernemer | uitgangspunt |
@@ -155,7 +156,7 @@ Documenten van buiten zijn de grootste technische aanvalsroute.
 | **Type op inhoud, niet op extensie**: PDF aan `%PDF-`, XML aan de root, en afbeeldingen aan hun *magic bytes*. Al het andere wordt geweigerd | ✅ PDF/XML, F1 afbeeldingen |
 | **Herkennen in een apart proces** met een tijd- en geheugenlimiet (bijv. 30 seconden en 512 MB), zodat een kwaadaardige PDF de app niet kan raken. Online in een aparte container zonder netwerk | F2 |
 | Uploads buiten de webmap, met de SHA-256 als bestandsnaam. Downloaden altijd met `Content-Disposition: attachment` en `X-Content-Type-Options: nosniff`. Nooit HTML of SVG van een gebruiker in de app tonen | F1 |
-| **Virusscan** met ClamAV (open source) vóór verwerking. Online ook een quarantaine | F2 (optioneel F1) |
+| **Virusscan** (B3) met ClamAV (open source) op de server, **vóórdat** het pakket een bestand opent. Een besmet bestand gaat in quarantaine en wordt niet verwerkt. Is de scanner niet bereikbaar, dan wacht het bestand tot een geslaagde scan (*fail closed*). De koppeling (`ClamAvScanner`, via clamd) is gebouwd | ✅ koppeling, F1 installatie |
 | **Facturen per e-mail**: alleen bijlagen van toegestane typen, controle op SPF, DKIM en DMARC, en een lijst met bekende afzenders per administratie. De rest gaat naar quarantaine | F2 |
 
 ### 4.6 Herkenning, AI en bankkoppeling
@@ -217,8 +218,15 @@ Documenten van buiten zijn de grootste technische aanvalsroute.
 
 ### 4.11 Online gaan (fase 2): de server
 
-- **Hosting**: een VPS of beheerde server in Nederland of de EU, bij een partij met een verwerkersovereenkomst en
-  ISO 27001.
+- **Hosting in Nederland** (B5). De partij is nog niet gekozen. Keuzecriteria om de partijen in kaart te brengen:
+
+  | Criterium | Eis |
+  |---|---|
+  | Locatie | Datacenter én back-up in Nederland (twee locaties) |
+  | Zeggenschap | Bij voorkeur een Nederlands of Europees bedrijf zonder moederbedrijf buiten de EU (geen toegang van buitenlandse overheden via hun wetgeving) |
+  | Zekerheid | ISO 27001 (en liefst ISAE 3402 of SOC 2), verwerkersovereenkomst onder Nederlands recht |
+  | Techniek | VPS of beheerde server met snapshots, privénetwerk, basisbescherming tegen DDoS en IPv6. Bij voorkeur beheerde PostgreSQL met herstel tot op het moment (PITR) |
+  | Beheer | Nederlandstalige support, een duidelijke exit (data mee kunnen nemen), een voorspelbare prijs |
 - **Netwerk**:
   - alleen poort 443 open, voor een reverse proxy (bijv. Caddy, met automatische certificaten);
   - de app en de database zijn alleen intern bereikbaar;
@@ -245,18 +253,41 @@ Documenten van buiten zijn de grootste technische aanvalsroute.
 - **Bewustwording**: phishing en factuurfraude kort uitleggen aan medewerkers en ondernemers. Het pakket helpt
   met de signalen uit §4.4.
 
+### 4.13 Voorbereiden op certificering (B4)
+
+ISO 27001 of een ISAE 3402-rapport toetst of maatregelen **bestaan, werken en worden bijgehouden**. Daarom
+houden we vanaf nu bij:
+
+- een **register van maatregelen**: per maatregel uit dit hoofdstuk het thema uit ISO 27001:2022 bijlage A
+  (organisatorisch, mensen, fysiek, technologisch), de eigenaar, de status en waar het bewijs staat;
+- een **risicoanalyse** (§1), die elk jaar en bij grote wijzigingen (zoals online gaan) wordt herzien;
+- **bewijs uit het werk zelf**:
+  - pull requests met review en tests (wijzigingsbeheer);
+  - het wijzigingslog (toegang en handelingen);
+  - de verslagen van de hersteltests (back-up);
+  - de toegangsreviews (elk kwartaal);
+  - het pentestrapport en de opvolging ervan;
+- **leveranciersbeheer**: de hoster, de bankkoppeling en eventuele AI-diensten, elk met een verwerkersovereenkomst
+  en hun eigen certificaten;
+- een **jaarlijkse managementreview** van één pagina: incidenten, risico's, wat er verbeterd is.
+
+Een ISAE 3402 type II toetst over een periode (meestal een jaar) of de maatregelen werkten. Begin daarom ruim vóór
+het moment waarop een klant of accountant erom vraagt.
+
 ## 5. Wat er nu al gebouwd is
 
 1. **XML veilig lezen** (UBL, CAMT.053): geen DTD, geen externe verwijzingen.
 2. **Begrensd inlezen** van PDF's (grootte, pagina's, bijlagen), met een nette fout bij een beschadigd of
    beveiligd bestand.
 3. **Type op inhoud** voor PDF en XML.
-4. **Signalen in het inkoopvoorstel**:
+4. **Virusscan vóór het openen** met ClamAV (clamd), fail closed; te proberen met
+   `boekerhouden herken factuur.pdf --clamav 127.0.0.1:3310`.
+5. **Signalen in het inkoopvoorstel**:
    - afwijkend IBAN bij een bekende leverancier;
    - dubbele factuur;
    - onbekende leverancier;
    - factuur niet op naam van de onderneming;
-   - bedrag boven de limiet;
+   - bedrag boven de limiet (als die is ingesteld);
    - gesloten periode.
 
    Elk signaal houdt automatisch verwerken tegen.
@@ -265,20 +296,18 @@ Documenten van buiten zijn de grootste technische aanvalsroute.
 
 | Plakje | Beveiliging die erbij hoort |
 |---|---|
-| A6 webapp | Administraties met rechten, global query filters, negatieve tests, beveiligingsheaders, Data Protection-sleutels, tweestapsverificatie voor de beheerder, geboekt = onwijzigbaar, hash-keten, log alleen toevoegen |
-| A7 inkoop | Uploads op type en grootte, opslag op hash, bedraglimiet instelbaar, afwijkend bedrag, IBAN wijzigen met bevestiging |
+| A6 webapp | Administraties met rechten, global query filters, negatieve tests, beveiligingsheaders, Data Protection-sleutels, tweestapsverificatie met TOTP en passkeys (verplicht voor de beheerder), geboekt = onwijzigbaar, hash-keten, log alleen toevoegen, register van maatregelen |
+| A7 inkoop | ClamAV op de server-pc en de scan vóór elke upload, quarantaine, uploads op type en grootte, opslag op hash, bedraglimiet als optie per administratie, afwijkend bedrag, IBAN wijzigen met bevestiging |
 | A8 bank | Dubbele mutaties weigeren (sleutel per mutatie ✅ in het domein), bankregels alleen door het kantoor |
 | A10 periodes | Afgesloten periodes, heropenen met een reden |
-| vóór online (F2) | Tweestapsverificatie voor iedereen, Row Level Security, rate limiting, herkennen in een apart proces, virusscan, hosting volgens §4.11, pentest, verwerkersovereenkomsten |
+| vóór online (F2) | Tweestapsverificatie voor iedereen, Row Level Security, rate limiting, herkennen in een apart proces, hoster kiezen met de criteria uit §4.11, pentest, verwerkersovereenkomsten |
 
-## 7. Beslispunten
+## 7. Besluiten (26 oktober 2026)
 
-1. **Tweede factor**: alleen een authenticator-app (TOTP), of meteen ook passkeys? *Voorstel:* TOTP in F1, en
-   passkeys erbij in F2.
-2. **Bedraglimiet voor automatisch verwerken**: *voorstel* standaard € 2.500 per factuur, per administratie
-   instelbaar.
-3. **Virusscan** al op kantoor (ClamAV op de server-pc), of pas online? *Voorstel:* pas online. Op kantoor
-   worden documenten niet geopend, alleen gelezen door de herkenning.
-4. **Certificering**: wel of geen ISO 27001 of ISAE 3402 op termijn? Dat hangt af van het aantal ondernemers dat
-   online gaat en wat zij vragen.
-5. **Hosting**: welke partij in NL/EU? Te kiezen vóór fase 2.
+| # | Onderwerp | Besluit |
+|---|---|---|
+| B1 | Tweede factor | **TOTP én passkeys**. De gebruiker kiest; verplicht voor de beheerder en voor iedereen online |
+| B2 | Bedraglimiet automatisch verwerken | **Standaard geen limiet**, maar per administratie in te stellen als optie |
+| B3 | Virusscan | **Al op kantoor**: ClamAV op de server-pc. Elk bestand wordt gescand voordat het pakket het opent |
+| B4 | Certificering | **Mogelijk op termijn** (ISO 27001 of ISAE 3402). Daarom nu al het register van maatregelen en bewijs bijhouden (§4.13) |
+| B5 | Hosting | **In Nederland**. De partijen zijn nog niet in kaart gebracht; de criteria staan in §4.11 |

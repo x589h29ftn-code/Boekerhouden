@@ -36,7 +36,8 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   openstaande posten), `Bank/` (MT940, CAMT.053, bankboekingen), `Afletteren/`, `Regels/` (verwerkingsregels, leergeheugen,
   advies) en `Herkenning/` (factuurtekst, UBL, leverancier herkennen, inkoopvoorstel).
 - `src/Boekerhouden.Documenten` – documenten van buiten lezen voor de herkenning: tekst uit PDF (PdfPig), UBL als los
-  bestand of als bijlage; begrensd (grootte, pagina's), XML altijd zonder DTD. Beveiliging: `docs/administratie/beveiliging.md`.
+  bestand of als bijlage; begrensd (grootte, pagina's), XML altijd zonder DTD; vooraf een virusscan met ClamAV (clamd),
+  *fail closed*. Beveiliging en besluiten B1–B5: `docs/administratie/beveiliging.md`.
 - `src/Boekerhouden.Import` – importsjabloon (.xlsx/.csv) inlezen en controleren (I1–I6, I11), sjabloon genereren,
   het officiële RGS-werkboek lezen (`RgsWerkboekLezer`).
 - `src/Boekerhouden.Cli` – opdrachtregel om sjablonen te maken en bestanden te controleren.

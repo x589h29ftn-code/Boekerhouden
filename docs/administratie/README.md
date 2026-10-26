@@ -19,7 +19,7 @@ samenstelpakket.
 | AD4 | Rekeningschema | **RGS** ([§12 onderzoek](../onderzoek/12-rgs-als-rubriekenschema.md)): elke grootboekrekening heeft een RGS-code. Dan is de saldibalans meteen gerubriceerd voor de jaarrekening |
 | AD5 | Bank | **Eerst bestanden**: MT940 en CAMT.053 (alle Nederlandse banken leveren beide). Een directe bankkoppeling (PSD2) kan alleen via een vergunninghouder en kost geld. Die komt later, achter dezelfde interface als de bestanden |
 | AD6 | Leren | **Eerste keer kiest de gebruiker, tweede keer een voorstel, derde keer automatisch** (bij dezelfde keuze als de vorige twee keer). Een vaste regel van de gebruiker gaat altijd voor |
-| AD7 | Beveiliging | Uitgewerkt in [beveiliging.md](beveiliging.md): wat er op het spel staat, wat gebruikelijk is, maatregelen per fase (kantoor / online) en beslispunten |
+| AD7 | Beveiliging | Uitgewerkt in [beveiliging.md](beveiliging.md): wat er op het spel staat, wat gebruikelijk is en maatregelen per fase (kantoor / online). Besloten: TOTP én passkeys, standaard geen bedraglimiet (wel instelbaar), virusscan met ClamAV al op kantoor, voorbereiden op een mogelijke certificering, hosting in Nederland (partij nog te kiezen) |
 
 ## 2. Werkstroom
 
@@ -250,7 +250,7 @@ verzonnen voorbeeldbestanden in `tests/Fictief/administratie`:
 | Afletteren | `Afletteraar` (kandidaten met zekerheid en reden), `Factuurnummers` |
 | Regels | `Verwerkingsregel`, `Leergeheugen`, `Verwerkingsadviseur` |
 | Herkenning | `Factuurtekst` (tekstanalyse), `UblFactuurLezer`, `Leverancierherkenning`, `Inkoopverwerker` (herkende factuur → voorstel met belemmeringen), `IFactuurHerkenner` |
-| Documenten (`src/Boekerhouden.Documenten`) | `PdfTekst` (tekst uit een PDF met PdfPig, regels op hun plek, begrensd), `PdfFactuurHerkenner` (UBL-bijlage of tekst), `UblHerkenner`, `Factuurherkenning` (motoren op volgorde) |
+| Documenten (`src/Boekerhouden.Documenten`) | `PdfTekst` (tekst uit een PDF met PdfPig, regels op hun plek, begrensd), `PdfFactuurHerkenner` (UBL-bijlage of tekst), `UblHerkenner`, `Factuurherkenning` (eerst de virusscan, dan de motoren op volgorde), `ClamAvScanner` |
 
 Proberen op een eigen factuur (die blijft buiten git, bijv. in `testdata/`):
 
