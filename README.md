@@ -105,4 +105,12 @@ dotnet run --project src/Boekerhouden.Cli -- controleer tests/Fictief/bv-voorbee
 dotnet run --project src/Boekerhouden.Cli -- rgs "RGS 3.8-def.xlsx"      # controleert een RGS-werkboek
 ```
 
+## Administratiepakket (in opbouw)
+
+Naast de samenstel-app komt een eigen administratiepakket: inkoopfacturen inlezen en herkennen (e-factuur, PDF,
+later scans), voorstellen die leren van eerdere keuzes, verwerkingsregels, verkoopfacturen, bankafschriften (MT940,
+CAMT.053) met slim afletteren, en grootboekkaarten, balans en W&V. De saldibalans gaat met RGS-codes naar het
+samenstelpakket. De boekhoudkern staat in `src/Boekerhouden.Boekhouding` (plakjes A1–A5); de webapp volgt.
+Ontwerp en roadmap: [`docs/administratie`](docs/administratie/README.md).
+
 Werkafspraken voor ontwikkeling (ook voor AI-sessies): [`CLAUDE.md`](CLAUDE.md).

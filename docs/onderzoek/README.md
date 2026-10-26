@@ -28,6 +28,9 @@ API-koppelingen vallen (voorlopig) buiten de scope.
 | Rapportnorm | De aangeleverde voorbeeldrapporten (BV klein jaarrekening; eenmanszaak bijlage aangifte IB) |
 | Deponeren | **Voorlopig negeren** |
 
+> **Administratiepakket:** het ontwerp van de eigen boekhoudapp (inkoop met herkenning, verkoop, bank met afletteren)
+> staat apart in [`docs/administratie`](../administratie/README.md).
+
 ## Inhoud
 
 | # | Hoofdstuk | Kern |

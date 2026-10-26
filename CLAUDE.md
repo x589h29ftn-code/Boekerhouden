@@ -29,6 +29,11 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   rechtsvorm; `Rubricering/`: proefbalans per post met omslag en saldering per eigen post, voorstellen; `Correcties/`: boekingscontrole (C08),
   effect op resultaat en eigen vermogen, gecorrigeerde saldi; `Doorlezen/`: signalen bij het doorlezen; `Rapport/`: rapportmodel en `RapportOpbouw` voor balans, W&V
   en specificaties, `RapportVariabelen` voor `{boekjaar}` e.d. in teksten, `Samenstellingsverklaring` voor de BV); geen I/O.
+- `src/Boekerhouden.Boekhouding` – domein van het **administratiepakket** (ontwerp: `docs/administratie/README.md`), geen I/O:
+  `Grootboek/` (rekeningschema met RGS-code en functie, dagboeken, journaal, grootboekkaart, proefbalans, balans en W&V),
+  `Btw/` (btw-codes met aangifterubriek), `Relaties/` (IBAN, btw-nummer, namen vergelijken), `Facturen/` (facturen boeken,
+  openstaande posten), `Bank/` (MT940, CAMT.053, bankboekingen), `Afletteren/`, `Regels/` (verwerkingsregels, leergeheugen,
+  advies) en `Herkenning/` (factuurtekst, UBL, leverancier herkennen, inkoopvoorstel).
 - `src/Boekerhouden.Import` – importsjabloon (.xlsx/.csv) inlezen en controleren (I1–I6, I11), sjabloon genereren,
   het officiële RGS-werkboek lezen (`RgsWerkboekLezer`).
 - `src/Boekerhouden.Cli` – opdrachtregel om sjablonen te maken en bestanden te controleren.
