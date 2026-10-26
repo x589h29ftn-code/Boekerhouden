@@ -1,0 +1,28 @@
+Kantoorhandel Jansen B.V.
+Industrieweg 12
+8000 AA Zwolle
+KvK 87654321   Btw NL800000006B01
+IBAN: NL36 INGB 0007 6543 21
+
+Bakkerij Voorbeeld
+Dorpsstraat 1
+1234 AB Ergens
+Uw btw-nummer: NL123456782B01
+
+FACTUUR
+Factuurnummer: 2026-114
+Factuurdatum: 3 maart 2026
+Vervaldatum: 17-03-2026
+
+Omschrijving                 Aantal   Prijs      Bedrag
+Printpapier A4 80 gr          10      4,95       49,50
+Toner zwart                    2     62,50      125,00
+Koffie (bonen 1 kg)            1     14,22       14,22
+
+Subtotaal                                       € 188,72
+Btw 21% over € 174,50                           €  36,65
+Btw 9% over € 14,22                             €   1,28
+Totaal te betalen                               € 226,65
+
+Betalingskenmerk 1234 5678 9012 3458
+Betalingstermijn 14 dagen.
