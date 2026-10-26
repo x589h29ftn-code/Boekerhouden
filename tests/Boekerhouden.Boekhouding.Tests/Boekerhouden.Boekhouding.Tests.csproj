@@ -19,4 +19,8 @@
     <ProjectReference Include="..\..\src\Boekerhouden.Boekhouding\Boekerhouden.Boekhouding.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\Fictief\administratie\**" LinkBase="Fictief\administratie" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
