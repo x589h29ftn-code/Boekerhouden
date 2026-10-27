@@ -1,0 +1,44 @@
+@page "/a/{Id:guid}"
+@inject GrootboekDienst Grootboek
+
+<AdministratieKader Id="Id" Titel="Balans en W&V" BijOpenen="Open">
+    <Acties>
+        <JaarKeuze Jaren="jaren" @bind-Jaar="jaar" @bind-Jaar:after="Laad" />
+    </Acties>
+    <ChildContent>
+        @if (overzicht is not null)
+        {
+            <div class="row g-3">
+                <div class="col-lg-6">
+                    <OverzichtTabel Titel="@($"Activa per 31-12-{jaar}")" Posten="overzicht.Activa" Totaal="overzicht.TotaalActiva" Id="Id" Jaar="jaar" />
+                </div>
+                <div class="col-lg-6">
+                    <OverzichtTabel Titel="@($"Passiva per 31-12-{jaar}")" Posten="overzicht.Passiva" Omkeren="true" Resultaat="overzicht.Resultaat" Totaal="overzicht.TotaalPassiva" Id="Id" Jaar="jaar" />
+                </div>
+                <div class="col-lg-6">
+                    <OverzichtTabel Titel="@($"Winst-en-verliesrekening {jaar}")" Posten="overzicht.Resultaatposten" Omkeren="true" Totaal="overzicht.Resultaat" Totaalnaam="Resultaat" Id="Id" Jaar="jaar" />
+                </div>
+            </div>
+        }
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private IReadOnlyList<int> jaren = [];
+    private int jaar;
+    private Boekhouding.Grootboek.Jaaroverzicht? overzicht;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        jaren = await Grootboek.Boekjaren(g.Wie, Id);
+        jaar = jaren[0];
+        await Laad();
+    }
+
+    private async Task Laad() => overzicht = await Grootboek.Jaaroverzicht(geopend!.Wie, Id, jaar);
+}

@@ -1,0 +1,69 @@
+@page "/administraties/nieuw"
+@attribute [Authorize(Roles = Rollen.Kantoor)]
+@inject AdministratieDienst AdministratieDienst
+@inject NavigationManager Navigatie
+
+<PageTitle>Nieuwe administratie – Administratie</PageTitle>
+
+<nav aria-label="kruimelpad">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Administraties</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Nieuw</li>
+    </ol>
+</nav>
+<h1 class="h3 mb-3">Nieuwe administratie</h1>
+<Foutmeldingen Fouten="fouten" />
+<div class="card card-body" style="max-width: 36rem">
+    <div class="mb-2">
+        <label class="form-label" for="naam">Naam</label>
+        <input id="naam" class="form-control" @bind="naam" autofocus />
+    </div>
+    <div class="mb-2">
+        <label class="form-label" for="vorm">Rechtsvorm</label>
+        <select id="vorm" class="form-select" @bind="vorm">
+            <option value="@Ondernemingsvorm.BV">BV</option>
+            <option value="@Ondernemingsvorm.Eenmanszaak">Eenmanszaak</option>
+        </select>
+    </div>
+    <div class="row g-2 mb-3">
+        <div class="col">
+            <label class="form-label" for="kvk">KvK-nummer</label>
+            <input id="kvk" class="form-control" @bind="kvk" />
+        </div>
+        <div class="col">
+            <label class="form-label" for="btw">Btw-nummer</label>
+            <input id="btw" class="form-control" @bind="btw" />
+        </div>
+    </div>
+    <div>
+        <button class="btn btn-primary" @onclick="Maak" disabled="@bezig">Aanmaken</button>
+        <a class="btn btn-link" href="/">Annuleren</a>
+    </div>
+</div>
+
+@code {
+    private string naam = "";
+    private Ondernemingsvorm vorm = Ondernemingsvorm.BV;
+    private string? kvk;
+    private string? btw;
+    private bool bezig;
+    private IReadOnlyList<string>? fouten;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Authenticatie { get; set; } = default!;
+
+    private async Task Maak()
+    {
+        bezig = true;
+        var uitkomst = await AdministratieDienst.Maak(new AdministratieInvoer(naam, vorm, kvk, btw), (await Authenticatie).User.AlsUitvoerder());
+        bezig = false;
+        if (uitkomst.IsGelukt)
+        {
+            Navigatie.NavigateTo($"/a/{uitkomst.Waarde}");
+        }
+        else
+        {
+            fouten = uitkomst.Fouten;
+        }
+    }
+}

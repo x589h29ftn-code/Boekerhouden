@@ -1,0 +1,20 @@
+<select class="form-select w-auto" aria-label="Boekjaar" value="@Jaar" @onchange="Kies">
+    @foreach (var j in Jaren)
+    {
+        <option value="@j">@j</option>
+    }
+</select>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<int> Jaren { get; set; } = [];
+
+    [Parameter]
+    public int Jaar { get; set; }
+
+    [Parameter]
+    public EventCallback<int> JaarChanged { get; set; }
+
+    private Task Kies(ChangeEventArgs e) =>
+        int.TryParse(e.Value?.ToString(), System.Globalization.CultureInfo.InvariantCulture, out var j) ? JaarChanged.InvokeAsync(j) : Task.CompletedTask;
+}

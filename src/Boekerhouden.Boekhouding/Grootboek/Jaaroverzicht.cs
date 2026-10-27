@@ -71,7 +71,8 @@ public sealed record Jaaroverzicht(
 
     private static RgsCode? Hoofdpost(string? rgsCode, RgsSchema? rgs)
     {
-        var code = rgs?.Zoek(rgsCode);
+        // Zonder de code zelf in het schema (alleen de hoofdposten bekend): de hoofdpost is het begin van de code.
+        var code = rgs?.Zoek(rgsCode) ?? (rgsCode is { Length: >= 4 } ? rgs?.Zoek(rgsCode[..4]) : null);
         if (code is null)
         {
             return null;

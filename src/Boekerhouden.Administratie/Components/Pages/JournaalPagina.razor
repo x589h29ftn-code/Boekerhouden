@@ -1,0 +1,88 @@
+@page "/a/{Id:guid}/journaal"
+@inject GrootboekDienst Grootboek
+
+<AdministratieKader Id="Id" Titel="Journaal" Actief="/journaal" BijOpenen="Open">
+    <Acties>
+        <button class="btn btn-outline-secondary btn-sm" @onclick="Controleer" title="Is er buiten de app iets gewijzigd?">Keten controleren</button>
+    </Acties>
+    <ChildContent>
+        @if (keten is not null)
+        {
+            <div class="bericht mb-3">
+                @if (keten.Count == 0)
+                {
+                    <span>✓ De keten is heel.</span>
+                }
+                else
+                {
+                    <span class="status fout">De keten breekt bij volgnummer @string.Join(", ", keten).</span>
+                }
+            </div>
+        }
+        @if (posten is { Count: 0 })
+        {
+            <div class="card card-body text-center text-secondary py-5">Er is nog niets geboekt.</div>
+        }
+        else if (posten is not null)
+        {
+            <div class="card">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr><th>#</th><th>Datum</th><th>Dagboek</th><th>Boekstuk</th><th>Omschrijving</th><th class="text-end">Bedrag</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in posten)
+                        {
+                            <tr class="klikbaar" @onclick="() => Wissel(p.Volgnummer)">
+                                <td class="text-secondary" title="Geboekt door @p.GeboektDoor op @Weergave.DatumTijd(p.GeboektOp)">@p.Volgnummer</td>
+                                <td>@Weergave.Datum(p.Post.Datum)</td>
+                                <td>@p.Post.Dagboek</td>
+                                <td>@p.Post.Boekstuk</td>
+                                <td>@p.Post.Omschrijving</td>
+                                <td class="bedrag text-end">@Bedragen.Getal(p.Post.TotaalDebet)</td>
+                            </tr>
+                            @if (open.Contains(p.Volgnummer))
+                            {
+                                @foreach (var r in p.Post.Regels)
+                                {
+                                    <tr class="small">
+                                        <td></td>
+                                        <td colspan="3" class="text-secondary">@r.Rekeningnummer</td>
+                                        <td class="text-secondary">@r.Omschrijving @r.BtwCode</td>
+                                        <td class="bedrag text-end">@Bedragen.Getal(r.Bedrag)</td>
+                                    </tr>
+                                }
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private IReadOnlyList<GeboektePost>? posten;
+    private IReadOnlyList<long>? keten;
+    private readonly HashSet<long> open = [];
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        posten = await Grootboek.Posten(g.Wie, Id);
+    }
+
+    private async Task Controleer() => keten = await Grootboek.ControleerKeten(geopend!.Wie, Id);
+
+    private void Wissel(long volgnummer)
+    {
+        if (!open.Remove(volgnummer))
+        {
+            open.Add(volgnummer);
+        }
+    }
+}

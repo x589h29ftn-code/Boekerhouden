@@ -1,0 +1,17 @@
+<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NietGevonden)">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(HoofdLayout)">
+            <NotAuthorized>
+                @if (context.User.Identity?.IsAuthenticated == true)
+                {
+                    <div class="alert alert-warning">Je hebt geen toegang tot deze pagina. Vraag de beheerder om de juiste rol.</div>
+                }
+                else
+                {
+                    <NaarInloggen />
+                }
+            </NotAuthorized>
+        </AuthorizeRouteView>
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+</Router>

@@ -1,0 +1,78 @@
+@* Eén kant van de balans of de W&V: per RGS-hoofdpost het saldo, uit te klappen naar de rekeningen. Bij passiva en
+   W&V worden creditsaldi positief getoond (Omkeren). *@
+<div class="card overzicht">
+    <div class="card-header fw-semibold">@Titel</div>
+    <table class="table table-sm align-middle mb-0">
+        <tbody>
+            @foreach (var post in Posten)
+            {
+                var sleutel = post.Code ?? post.Naam;
+                <tr class="klikbaar post" @onclick="() => Wissel(sleutel)">
+                    <td title="@post.Code"><span class="pijl" aria-hidden="true">@(open.Contains(sleutel) ? "▾" : "▸")</span> @post.Naam</td>
+                    <td class="bedrag text-end"><Euro Waarde="Teken * post.Saldo" /></td>
+                </tr>
+                @if (open.Contains(sleutel))
+                {
+                    @foreach (var r in post.Rekeningen)
+                    {
+                        <tr class="rekening">
+                            <td title="@r.Rekening.RgsCode"><a href="/a/@Id/grootboek?rekening=@r.Rekening.Nummer&jaar=@Jaar"><span class="nr">@r.Rekening.Nummer</span> @r.Rekening.Naam</a></td>
+                            <td class="bedrag text-end"><Euro Waarde="Teken * r.Saldo" /></td>
+                        </tr>
+                    }
+                }
+            }
+            @if (Resultaat is { } resultaat)
+            {
+                <tr class="post">
+                    <td>Resultaat boekjaar</td>
+                    <td class="bedrag text-end"><Euro Waarde="resultaat" /></td>
+                </tr>
+            }
+        </tbody>
+        <tfoot>
+            <tr class="fw-semibold">
+                <td>@Totaalnaam</td>
+                <td class="bedrag text-end"><Euro Waarde="Totaal" /></td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+@code {
+    private readonly HashSet<string> open = new(StringComparer.Ordinal);
+
+    [Parameter, EditorRequired]
+    public string Titel { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<Overzichtpost> Posten { get; set; } = [];
+
+    [Parameter]
+    public bool Omkeren { get; set; }
+
+    [Parameter]
+    public decimal? Resultaat { get; set; }
+
+    [Parameter]
+    public decimal Totaal { get; set; }
+
+    [Parameter]
+    public string Totaalnaam { get; set; } = "Totaal";
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [Parameter]
+    public int Jaar { get; set; }
+
+    private int Teken => Omkeren ? -1 : 1;
+
+    private void Wissel(string sleutel)
+    {
+        if (!open.Remove(sleutel))
+        {
+            open.Add(sleutel);
+        }
+    }
+}

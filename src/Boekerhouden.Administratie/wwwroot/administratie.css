@@ -1,0 +1,30 @@
+/* Aanvullingen op app.css (gedeeld met de samenstel-app) voor het administratiepakket. */
+
+.administratiemenu .nav-link {
+    color: #495057;
+}
+
+.administratiemenu .nav-link.active {
+    color: #212529;
+}
+
+.overzicht tr.rekening td:first-child {
+    padding-left: 1.6rem;
+    font-size: .875rem;
+}
+
+.overzicht .pijl {
+    display: inline-block;
+    width: 1rem;
+    color: #8a939b;
+}
+
+.nr {
+    color: #6c757d;
+    font-variant-numeric: tabular-nums;
+    margin-right: .25rem;
+}
+
+.memoriaal-regels input.text-end {
+    font-variant-numeric: tabular-nums;
+}

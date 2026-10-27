@@ -1,0 +1,92 @@
+@* Kop, menu en toegangscontrole van een pagina binnen een administratie. Pas na de controle laadt de pagina haar
+   gegevens (BijOpenen); zonder lidmaatschap dezelfde melding als bij een administratie die niet bestaat. *@
+@inject AdministratieDienst AdministratieDienst
+
+@if (!geladen)
+{
+    <p class="text-secondary">Laden…</p>
+}
+else if (kop is null)
+{
+    <div class="alert alert-warning">Deze administratie bestaat niet of je hebt er geen toegang toe. <a href="/">Naar de administraties</a></div>
+}
+else
+{
+    <PageTitle>@Titel – @kop.Naam</PageTitle>
+    <nav aria-label="kruimelpad">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Administraties</a></li>
+            <li class="breadcrumb-item"><a href="/a/@kop.Id">@kop.Naam</a></li>
+            <li class="breadcrumb-item active" aria-current="page">@Titel</li>
+        </ol>
+    </nav>
+    <div class="d-flex align-items-center flex-wrap gap-3 mb-3">
+        <h1 class="h3 mb-0 me-auto">@Titel</h1>
+        @Acties
+    </div>
+    <nav class="nav nav-underline administratiemenu mb-3" aria-label="Administratie">
+        @foreach (var (pad, naam, recht) in Menu)
+        {
+            @if (kop.Mag(recht))
+            {
+                <a class="nav-link @(pad == Actief ? "active" : null)" href="@($"/a/{kop.Id}{pad}")">@naam</a>
+            }
+        }
+    </nav>
+    @ChildContent(kop)
+}
+
+@code {
+    private static readonly (string Pad, string Naam, Recht Recht)[] Menu =
+    [
+        ("", "Balans en W&V", Recht.Lezen),
+        ("/proefbalans", "Proefbalans", Recht.Lezen),
+        ("/grootboek", "Grootboekkaart", Recht.Lezen),
+        ("/journaal", "Journaal", Recht.Lezen),
+        ("/memoriaal", "Memoriaal", Recht.Boekhouden),
+        ("/rekeningschema", "Rekeningschema", Recht.Lezen),
+    ];
+
+    private bool geladen;
+    private AdministratieKop? kop;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Authenticatie { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public Guid Id { get; set; }
+
+    [Parameter, EditorRequired]
+    public string Titel { get; set; } = "";
+
+    /// <summary>Het pad van de pagina in het menu, bijv. "/grootboek"; leeg voor balans en W&amp;V.</summary>
+    [Parameter]
+    public string Actief { get; set; } = "";
+
+    [Parameter]
+    public RenderFragment? Acties { get; set; }
+
+    [Parameter, EditorRequired]
+    public RenderFragment<AdministratieKop> ChildContent { get; set; } = default!;
+
+    /// <summary>Na de toegangscontrole: de administratie en de ingelogde gebruiker, om de gegevens te laden.</summary>
+    [Parameter]
+    public EventCallback<Geopend> BijOpenen { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (geladen && kop?.Id == Id)
+        {
+            return;
+        }
+
+        var wie = (await Authenticatie).User.AlsUitvoerder();
+        kop = await AdministratieDienst.Open(wie, Id);
+        if (kop is not null)
+        {
+            await BijOpenen.InvokeAsync(new Geopend(kop, wie));
+        }
+
+        geladen = true;
+    }
+}

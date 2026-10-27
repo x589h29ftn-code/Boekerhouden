@@ -11,6 +11,7 @@
     <!-- Tekst uit PDF's halen voor de factuurherkenning (Apache-2.0, zonder afhankelijkheden). -->
     <PackageVersion Include="PdfPig" Version="0.1.16" />
     <!-- Database en inloggen (MIT; Npgsql: PostgreSQL-licentie). Versies gelijk aan de .NET-runtime. -->
+    <PackageVersion Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.13" />
     <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.13" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.13" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />

@@ -1,0 +1,70 @@
+@page "/"
+@inject AdministratieDienst AdministratieDienst
+
+<PageTitle>Administraties – Administratie</PageTitle>
+
+<div class="d-flex align-items-center mb-3 gap-2">
+    <h1 class="h3 mb-0 me-auto">Administraties</h1>
+    <input class="form-control w-auto" type="search" placeholder="Zoek op naam" aria-label="Zoeken"
+           @bind="zoek" @bind:event="oninput" @bind:after="Laad" />
+    <AuthorizeView Roles="@Rollen.Kantoor">
+        <a class="btn btn-primary" href="/administraties/nieuw">Nieuwe administratie</a>
+    </AuthorizeView>
+</div>
+
+@if (lijst is null)
+{
+    <p class="text-secondary">Laden…</p>
+}
+else if (lijst.Count == 0)
+{
+    <div class="card card-body text-center text-secondary py-5">
+        @if (string.IsNullOrWhiteSpace(zoek))
+        {
+            <p class="mb-0">Je hebt nog geen toegang tot een administratie.</p>
+        }
+        else
+        {
+            <p class="mb-0">Geen administraties gevonden voor ‘@zoek’.</p>
+        }
+    </div>
+}
+else
+{
+    <div class="card">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr><th>Naam</th><th>Rechtsvorm</th><th>KvK</th><th>Btw-nummer</th><th>Jouw rol</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var a in lijst)
+                {
+                    <tr>
+                        <td><a href="/a/@a.Id">@a.Naam</a></td>
+                        <td>@Weergave.Tekst(a.Ondernemingsvorm)</td>
+                        <td>@a.KvkNummer</td>
+                        <td>@a.BtwNummer</td>
+                        <td><span class="status">@Weergave.Tekst(a.Rol)</span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<AdministratieKop>? lijst;
+    private string? zoek;
+    private Uitvoerder wie = Uitvoerder.Systeem;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Authenticatie { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        wie = (await Authenticatie).User.AlsUitvoerder();
+        await Laad();
+    }
+
+    private async Task Laad() => lijst = await AdministratieDienst.Lijst(wie, zoek);
+}

@@ -65,6 +65,18 @@ public sealed class Journaal
 
     public Rekeningschema Schema { get; }
 
+    /// <summary>
+    /// Het journaal zoals het al geboekt is (uit de database): de posten worden niet opnieuw gecontroleerd, want dat
+    /// is bij het boeken gebeurd.
+    /// </summary>
+    public static Journaal Herstel(Rekeningschema schema, IEnumerable<Dagboek> dagboeken, IEnumerable<Journaalpost> geboekt)
+    {
+        ArgumentNullException.ThrowIfNull(geboekt);
+        var journaal = new Journaal(schema, dagboeken);
+        journaal.posten.AddRange(geboekt);
+        return journaal;
+    }
+
     public IReadOnlyList<Dagboek> Dagboeken => dagboeken;
 
     public IReadOnlyList<Journaalpost> Posten => posten;

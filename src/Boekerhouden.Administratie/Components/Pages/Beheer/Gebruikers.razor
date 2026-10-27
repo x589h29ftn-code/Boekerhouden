@@ -1,0 +1,169 @@
+@page "/beheer/gebruikers"
+@layout BeheerLayout
+@attribute [Authorize(Roles = Rollen.Beheerder)]
+@inject GebruikerDienst GebruikerDienst
+@inject AdministratieDienst AdministratieDienst
+
+<PageTitle>Gebruikers en leden – Administratie</PageTitle>
+
+<h1 class="h3 mb-3">Gebruikers en leden</h1>
+<Foutmeldingen Fouten="fouten" />
+@if (tijdelijk is not null)
+{
+    <div class="bericht mb-3">Tijdelijk wachtwoord voor @tijdelijk.Value.Email: <code class="fs-6">@tijdelijk.Value.Wachtwoord</code>. Dit wordt maar één keer getoond.</div>
+}
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header fw-semibold">Gebruikers</div>
+            <table class="table table-sm align-middle mb-0">
+                <tbody>
+                    @foreach (var g in gebruikers)
+                    {
+                        <tr>
+                            <td title="@g.Email">@g.Naam</td>
+                            <td class="small text-secondary">@string.Join(", ", g.Rollen)</td>
+                            <td class="text-end">
+                                @if (g.MoetWachtwoordWijzigen)
+                                {
+                                    <span class="status">tijdelijk wachtwoord</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <div class="card-body border-top">
+                <div class="row g-2">
+                    <div class="col-6"><input class="form-control form-control-sm" placeholder="Naam" @bind="naam" aria-label="Naam" /></div>
+                    <div class="col-2"><input class="form-control form-control-sm" placeholder="Initialen" @bind="initialen" aria-label="Initialen" /></div>
+                    <div class="col-4"><input class="form-control form-control-sm" placeholder="E-mailadres" @bind="email" aria-label="E-mailadres" /></div>
+                </div>
+                <div class="d-flex align-items-center gap-3 mt-2">
+                    <span class="form-check mb-0 small">
+                        <input class="form-check-input" type="checkbox" id="rol-kantoor" @bind="kantoor" />
+                        <label class="form-check-label" for="rol-kantoor">kantoor</label>
+                    </span>
+                    <span class="form-check mb-0 small">
+                        <input class="form-check-input" type="checkbox" id="rol-beheer" @bind="beheerder" />
+                        <label class="form-check-label" for="rol-beheer">beheerder</label>
+                    </span>
+                    <button class="btn btn-sm btn-outline-primary ms-auto" @onclick="MaakGebruiker">Gebruiker toevoegen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header fw-semibold">Leden per administratie</div>
+            <table class="table table-sm align-middle mb-0">
+                <tbody>
+                    @foreach (var a in administraties)
+                    {
+                        <tr>
+                            <td>@a.Naam</td>
+                            <td class="small text-secondary">@string.Join(", ", a.Leden.Select(l => $"{l.Naam} ({Weergave.Tekst(l.Rol)})"))</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <div class="card-body border-top">
+                <div class="row g-2">
+                    <div class="col-5">
+                        <select class="form-select form-select-sm" @bind="lidGebruiker" aria-label="Gebruiker">
+                            <option value="">Gebruiker…</option>
+                            @foreach (var g in gebruikers)
+                            {
+                                <option value="@g.Id">@g.Naam</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-4">
+                        <select class="form-select form-select-sm" @bind="lidAdministratie" aria-label="Administratie">
+                            <option value="">Administratie…</option>
+                            @foreach (var a in administraties)
+                            {
+                                <option value="@a.Id">@a.Naam</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-3">
+                        <select class="form-select form-select-sm" @bind="lidRol" aria-label="Rol">
+                            @foreach (var rol in Enum.GetValues<Lidmaatschapsrol>())
+                            {
+                                <option value="@rol">@Weergave.Tekst(rol)</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="text-end mt-2">
+                    <button class="btn btn-sm btn-outline-primary" @onclick="ZetLid">Lid maken</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private IReadOnlyList<GebruikerRegel> gebruikers = [];
+    private IReadOnlyList<AdministratieMetLeden> administraties = [];
+    private IReadOnlyList<string>? fouten;
+    private (string Email, string Wachtwoord)? tijdelijk;
+    private string naam = "";
+    private string initialen = "";
+    private string email = "";
+    private bool kantoor;
+    private bool beheerder;
+    private Guid? lidGebruiker;
+    private Guid? lidAdministratie;
+    private Lidmaatschapsrol lidRol = Lidmaatschapsrol.Ondernemer;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Authenticatie { get; set; } = default!;
+
+    protected override Task OnInitializedAsync() => Laad();
+
+    private async Task Laad()
+    {
+        gebruikers = await GebruikerDienst.Lijst();
+        administraties = await AdministratieDienst.AlleMetLeden();
+    }
+
+    private async Task MaakGebruiker()
+    {
+        var rollen = new List<string>();
+        if (kantoor)
+        {
+            rollen.Add(Rollen.Kantoor);
+        }
+
+        if (beheerder)
+        {
+            rollen.Add(Rollen.Beheerder);
+        }
+
+        var uitkomst = await GebruikerDienst.Maak(new GebruikerInvoer(email, naam, initialen, rollen), (await Authenticatie).User.AlsUitvoerder());
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            tijdelijk = (email.Trim(), uitkomst.Waarde!);
+            naam = initialen = email = "";
+            kantoor = beheerder = false;
+            await Laad();
+        }
+    }
+
+    private async Task ZetLid()
+    {
+        if (lidGebruiker is not { } g || lidAdministratie is not { } a)
+        {
+            fouten = ["Kies een gebruiker en een administratie."];
+            return;
+        }
+
+        var uitkomst = await AdministratieDienst.ZetLid(a, g, lidRol, (await Authenticatie).User.AlsUitvoerder());
+        fouten = uitkomst.Fouten;
+        await Laad();
+    }
+}

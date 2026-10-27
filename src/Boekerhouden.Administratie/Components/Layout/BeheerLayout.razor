@@ -1,0 +1,13 @@
+@inherits LayoutComponentBase
+@layout HoofdLayout
+
+<div class="beheer">
+    <nav class="beheermenu" aria-label="Beheer">
+        <div class="groep">Beheer</div>
+        <NavLink href="/beheer/gebruikers">Gebruikers en leden</NavLink>
+        <NavLink href="/beheer/wijzigingslog">Wijzigingslog</NavLink>
+    </nav>
+    <div class="beheer-inhoud">
+        @Body
+    </div>
+</div>

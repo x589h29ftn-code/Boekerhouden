@@ -1,0 +1,182 @@
+@page "/a/{Id:guid}/memoriaal"
+@inject GrootboekDienst Grootboek
+@inject TimeProvider Tijd
+
+<AdministratieKader Id="Id" Titel="Memoriaal" Actief="/memoriaal" BijOpenen="Open">
+    @if (!context.Mag(Recht.Boekhouden))
+    {
+        <div class="alert alert-warning">Het memoriaal is voor het kantoor.</div>
+    }
+    else
+    {
+        <Foutmeldingen Fouten="fouten" />
+        @if (bericht is not null)
+        {
+            <div class="bericht mb-2">@bericht</div>
+        }
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row g-2 mb-3">
+                    <div class="col-sm-3">
+                        <label class="form-label" for="datum">Datum</label>
+                        <input id="datum" type="date" class="form-control" @bind="datum" />
+                    </div>
+                    <div class="col-sm-3">
+                        <label class="form-label" for="boekstuk">Boekstuk</label>
+                        <input id="boekstuk" class="form-control" @bind="boekstuk" />
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label" for="omschrijving">Omschrijving</label>
+                        <input id="omschrijving" class="form-control" @bind="omschrijving" />
+                    </div>
+                </div>
+                <datalist id="rekeningen">
+                    @foreach (var r in rekeningen)
+                    {
+                        <option value="@r.Nummer">@r.Naam</option>
+                    }
+                </datalist>
+                <table class="table table-sm align-middle memoriaal-regels">
+                    <thead>
+                        <tr><th style="width:9rem">Rekening</th><th></th><th>Omschrijving</th><th class="text-end" style="width:9rem">Debet</th><th class="text-end" style="width:9rem">Credit</th><th style="width:2rem"></th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var regel in regels)
+                        {
+                            <tr>
+                                <td><input class="form-control form-control-sm" list="rekeningen" @bind="regel.Rekening" @bind:event="oninput" aria-label="Rekening" /></td>
+                                <td class="small text-secondary text-nowrap">@rekeningen.FirstOrDefault(r => r.Nummer == regel.Rekening)?.Naam</td>
+                                <td><input class="form-control form-control-sm" @bind="regel.Omschrijving" aria-label="Omschrijving" /></td>
+                                <td><input class="form-control form-control-sm text-end" @bind="regel.Debet" @bind:event="oninput" aria-label="Debet" /></td>
+                                <td><input class="form-control form-control-sm text-end" @bind="regel.Credit" @bind:event="oninput" aria-label="Credit" /></td>
+                                <td><button class="btn btn-sm btn-link text-secondary p-0" title="Regel verwijderen" @onclick="() => regels.Remove(regel)" disabled="@(regels.Count <= 2)">×</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3"><button class="btn btn-sm btn-outline-secondary" @onclick="() => regels.Add(new())">Regel toevoegen</button></td>
+                            <td class="bedrag text-end fw-semibold">@Bedragen.Getal(TotaalDebet)</td>
+                            <td class="bedrag text-end fw-semibold">@Bedragen.Getal(TotaalCredit)</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+                <div class="d-flex align-items-center gap-3">
+                    <button class="btn btn-primary" @onclick="Boek" disabled="@bezig">Boeken</button>
+                    @if (TotaalDebet != TotaalCredit)
+                    {
+                        <span class="status let-op">verschil @Bedragen.Getal(TotaalDebet - TotaalCredit)</span>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @if (eerder is { Count: > 0 })
+        {
+            <h2 class="h6 text-secondary">Geboekt in het memoriaal</h2>
+            <div class="card">
+                <table class="table table-sm mb-0">
+                    <tbody>
+                        @foreach (var p in eerder)
+                        {
+                            <tr>
+                                <td style="width:7rem">@Weergave.Datum(p.Post.Datum)</td>
+                                <td style="width:8rem">@p.Post.Boekstuk</td>
+                                <td>@p.Post.Omschrijving</td>
+                                <td class="bedrag text-end">@Bedragen.Getal(p.Post.TotaalDebet)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+</AdministratieKader>
+
+@code {
+    private const string Dagboek = "MEM";
+
+    private Geopend? geopend;
+    private IReadOnlyList<Boekhouding.Grootboek.Rekening> rekeningen = [];
+    private IReadOnlyList<GeboektePost>? eerder;
+    private List<Invoerregel> regels = [new(), new()];
+    private DateOnly datum;
+    private string boekstuk = "";
+    private string omschrijving = "";
+    private bool bezig;
+    private IReadOnlyList<string>? fouten;
+    private string? bericht;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private decimal TotaalDebet => regels.Sum(r => Bedrag(r.Debet) ?? 0);
+
+    private decimal TotaalCredit => regels.Sum(r => Bedrag(r.Credit) ?? 0);
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        if (!g.Kop.Mag(Recht.Boekhouden))
+        {
+            return;
+        }
+
+        rekeningen = [.. (await Grootboek.Schema(g.Wie, Id)).Alle];
+        datum = DateOnly.FromDateTime(Tijd.GetLocalNow().Date);
+        await Ververs();
+    }
+
+    private async Task Ververs()
+    {
+        boekstuk = await Grootboek.VolgendBoekstuk(geopend!.Wie, Id, Dagboek, datum.Year);
+        eerder = await Grootboek.Posten(geopend.Wie, Id, Dagboek);
+    }
+
+    private async Task Boek()
+    {
+        bericht = null;
+        var ongeldig = regels.Select((r, i) => (r, i))
+            .Where(x => (x.r.Debet is { Length: > 0 } && Bedrag(x.r.Debet) is null) || (x.r.Credit is { Length: > 0 } && Bedrag(x.r.Credit) is null))
+            .Select(x => $"Regel {x.i + 1}: het bedrag is niet te lezen.").ToList();
+        if (ongeldig.Count > 0)
+        {
+            fouten = ongeldig;
+            return;
+        }
+
+        var journaalregels = regels
+            .Where(r => !string.IsNullOrWhiteSpace(r.Rekening) || Bedrag(r.Debet) is not null || Bedrag(r.Credit) is not null)
+            .Select(r => new Journaalregel(r.Rekening.Trim(), (Bedrag(r.Debet) ?? 0) - (Bedrag(r.Credit) ?? 0), string.IsNullOrWhiteSpace(r.Omschrijving) ? null : r.Omschrijving))
+            .ToList();
+        bezig = true;
+        var uitkomst = await Grootboek.Boek(geopend!.Wie, Id, new Journaalpost(Dagboek, boekstuk, datum, omschrijving, journaalregels));
+        bezig = false;
+        if (!uitkomst.IsGelukt)
+        {
+            fouten = uitkomst.Fouten;
+            return;
+        }
+
+        fouten = null;
+        bericht = $"Boekstuk {boekstuk} is geboekt.";
+        regels = [new(), new()];
+        omschrijving = "";
+        await Ververs();
+    }
+
+    private static decimal? Bedrag(string? tekst) =>
+        string.IsNullOrWhiteSpace(tekst) ? null : BedragParser.TryParse(tekst, out var b) ? b : null;
+
+    private sealed class Invoerregel
+    {
+        public string Rekening { get; set; } = "";
+
+        public string? Omschrijving { get; set; }
+
+        public string? Debet { get; set; }
+
+        public string? Credit { get; set; }
+    }
+}

@@ -1,0 +1,56 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject NavigationManager Navigatie
+
+<header class="kopbalk">
+    <a class="merk" href="/">
+        <img src="_content/Boekerhouden.Huisstijl/favicon.svg" alt="" width="22" height="22" />
+        Administratie
+    </a>
+    <nav class="hoofdmenu" aria-label="Hoofdmenu">
+        <a href="/" class="@(Onderdeel == "werk" ? "actief" : null)">Administraties</a>
+        <AuthorizeView Roles="@Rollen.Beheerder">
+            <a href="/beheer/gebruikers" class="@(Onderdeel == "beheer" ? "actief" : null)">Beheer</a>
+        </AuthorizeView>
+    </nav>
+    <AuthorizeView>
+        <details class="uitklapmenu gebruikersmenu">
+            <summary title="@context.User.WeergaveNaam()" aria-label="Gebruikersmenu"><span class="initialen">@context.User.WeergaveInitialen()</span></summary>
+            <div class="menu">
+                <div class="naam">@context.User.WeergaveNaam()</div>
+                <a href="/wachtwoord-wijzigen" data-enhance-nav="false">Wachtwoord wijzigen</a>
+                <form action="/account/uitloggen" method="post">
+                    <AntiforgeryToken />
+                    <button type="submit">Uitloggen</button>
+                </form>
+            </div>
+        </details>
+    </AuthorizeView>
+</header>
+
+<main class="hoofdinhoud py-4">
+    <ErrorBoundary @ref="foutgrens">
+        <ChildContent>
+            @Body
+        </ChildContent>
+        <ErrorContent>
+            <div class="alert alert-danger">
+                Er ging iets mis. Probeer het opnieuw; blijft het misgaan, meld dan wat je deed bij de beheerder.
+                <button class="btn btn-sm btn-outline-danger ms-2" @onclick="() => foutgrens?.Recover()">Verder</button>
+            </div>
+        </ErrorContent>
+    </ErrorBoundary>
+</main>
+
+@code {
+    private ErrorBoundary? foutgrens;
+
+    // Op interactieve pagina's blijft de layout staan bij navigatie; dan het menu bijwerken.
+    protected override void OnInitialized() => Navigatie.LocationChanged += Verplaatst;
+
+    private void Verplaatst(object? afzender, LocationChangedEventArgs e) => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Navigatie.LocationChanged -= Verplaatst;
+
+    private string Onderdeel => Navigatie.ToBaseRelativePath(Navigatie.Uri).StartsWith("beheer", StringComparison.Ordinal) ? "beheer" : "werk";
+}

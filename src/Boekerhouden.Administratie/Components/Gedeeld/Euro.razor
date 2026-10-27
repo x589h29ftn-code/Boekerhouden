@@ -1,0 +1,13 @@
+@if (Waarde is { } bedrag && (bedrag != 0 || !LeegBijNul))
+{
+    @Bedragen.Getal(bedrag)
+}
+
+@code {
+    /// <summary>Bedrag in euro's en centen (de administratie is exact); negatief met een minteken, zonder kleur.</summary>
+    [Parameter]
+    public decimal? Waarde { get; set; }
+
+    [Parameter]
+    public bool LeegBijNul { get; set; }
+}

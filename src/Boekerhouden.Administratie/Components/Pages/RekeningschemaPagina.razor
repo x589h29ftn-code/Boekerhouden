@@ -1,0 +1,88 @@
+@page "/a/{Id:guid}/rekeningschema"
+@inject GrootboekDienst Grootboek
+
+<AdministratieKader Id="Id" Titel="Rekeningschema" Actief="/rekeningschema" BijOpenen="Open">
+    @if (context.Mag(Recht.Boekhouden))
+    {
+        <Foutmeldingen Fouten="fouten" />
+        <div class="card card-body mb-3">
+            <div class="row g-2 align-items-end">
+                <div class="col-sm-2">
+                    <label class="form-label" for="nummer">Nummer</label>
+                    <input id="nummer" class="form-control" @bind="nummer" />
+                </div>
+                <div class="col-sm-4">
+                    <label class="form-label" for="naam">Naam</label>
+                    <input id="naam" class="form-control" @bind="naam" />
+                </div>
+                <div class="col-sm-2">
+                    <label class="form-label" for="soort">Soort</label>
+                    <select id="soort" class="form-select" @bind="soort">
+                        <option value="@Rekeningsoort.Balans">balans</option>
+                        <option value="@Rekeningsoort.Resultaat">resultaat</option>
+                    </select>
+                </div>
+                <div class="col-sm-2">
+                    <label class="form-label" for="rgs">RGS-code</label>
+                    <input id="rgs" class="form-control" @bind="rgs" placeholder="WBedKanTef" />
+                </div>
+                <div class="col-sm-2">
+                    <button class="btn btn-outline-primary w-100" @onclick="VoegToe">Toevoegen</button>
+                </div>
+            </div>
+        </div>
+    }
+    @if (schema is not null)
+    {
+        <div class="card">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr><th>Nummer</th><th>Naam</th><th>Soort</th><th>RGS</th><th>Functie</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in schema.Alle)
+                    {
+                        <tr>
+                            <td><a href="/a/@Id/grootboek?rekening=@r.Nummer">@r.Nummer</a></td>
+                            <td>@r.Naam</td>
+                            <td class="text-secondary">@(r.IsBalans ? "balans" : "resultaat")</td>
+                            <td class="small">@r.RgsCode</td>
+                            <td class="small text-secondary">@Weergave.Tekst(r.Functie)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private Boekhouding.Grootboek.Rekeningschema? schema;
+    private string nummer = "";
+    private string naam = "";
+    private Rekeningsoort soort = Rekeningsoort.Resultaat;
+    private string? rgs;
+    private IReadOnlyList<string>? fouten;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        schema = await Grootboek.Schema(g.Wie, Id);
+    }
+
+    private async Task VoegToe()
+    {
+        var uitkomst = await Grootboek.VoegRekeningToe(geopend!.Wie, Id, new RekeningInvoer(nummer, naam, soort, rgs));
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            nummer = naam = "";
+            rgs = null;
+            schema = await Grootboek.Schema(geopend.Wie, Id);
+        }
+    }
+}

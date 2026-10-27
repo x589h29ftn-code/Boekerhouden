@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!-- De gedeelde huisstijl van de samenstel-app en het administratiepakket: Bootstrap, app.css en het logo.
+       Geserveerd onder _content/Boekerhouden.Huisstijl/. -->
+
+</Project>

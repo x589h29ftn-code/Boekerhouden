@@ -1,0 +1,96 @@
+@page "/a/{Id:guid}/grootboek"
+@inject GrootboekDienst Grootboek
+@inject NavigationManager Navigatie
+
+<AdministratieKader Id="Id" Titel="Grootboekkaart" Actief="/grootboek" BijOpenen="Open">
+    <Acties>
+        <select class="form-select w-auto" aria-label="Rekening" value="@Rekening" @onchange="KiesRekening">
+            @foreach (var r in rekeningen)
+            {
+                <option value="@r.Nummer">@r.Nummer @r.Naam</option>
+            }
+        </select>
+        <JaarKeuze Jaren="jaren" Jaar="jaar" JaarChanged="KiesJaar" />
+    </Acties>
+    <ChildContent>
+        @if (kaart is not null)
+        {
+            <div class="card">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr><th>Datum</th><th>Dagboek</th><th>Boekstuk</th><th>Omschrijving</th><th class="text-end">Debet</th><th class="text-end">Credit</th><th class="text-end">Saldo</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr class="text-secondary">
+                            <td>@Weergave.Datum(kaart.Van)</td><td colspan="3">Beginsaldo</td><td></td><td></td>
+                            <td class="bedrag text-end">@Bedragen.Getal(kaart.Beginsaldo)</td>
+                        </tr>
+                        @foreach (var m in kaart.Mutaties)
+                        {
+                            <tr>
+                                <td>@Weergave.Datum(m.Datum)</td>
+                                <td>@m.Dagboek</td>
+                                <td>@m.Boekstuk</td>
+                                <td title="@(m.Relatie is null ? null : $"{m.Relatie} {m.Factuurnummer}")">@m.Omschrijving</td>
+                                <td class="bedrag text-end">@(m.Bedrag > 0 ? Bedragen.Getal(m.Bedrag) : null)</td>
+                                <td class="bedrag text-end">@(m.Bedrag < 0 ? Bedragen.Getal(-m.Bedrag) : null)</td>
+                                <td class="bedrag text-end">@Bedragen.Getal(m.Saldo)</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr class="fw-semibold">
+                            <td colspan="4">Totaal en eindsaldo</td>
+                            <td class="bedrag text-end">@Bedragen.Getal(kaart.TotaalDebet)</td>
+                            <td class="bedrag text-end">@Bedragen.Getal(kaart.TotaalCredit)</td>
+                            <td class="bedrag text-end">@Bedragen.Getal(kaart.Eindsaldo)</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        }
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private IReadOnlyList<int> jaren = [];
+    private int jaar;
+    private IReadOnlyList<Boekhouding.Grootboek.Rekening> rekeningen = [];
+    private Boekhouding.Grootboek.Grootboekkaart? kaart;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "rekening")]
+    public string? Rekening { get; set; }
+
+    [SupplyParameterFromQuery(Name = "jaar")]
+    public int? Jaar { get; set; }
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        jaren = await Grootboek.Boekjaren(g.Wie, Id);
+        rekeningen = [.. (await Grootboek.Schema(g.Wie, Id)).Alle];
+        jaar = Jaar is { } j && jaren.Contains(j) ? j : jaren[0];
+        Rekening = rekeningen.Any(r => r.Nummer == Rekening) ? Rekening : rekeningen.FirstOrDefault(r => r.Functie == Rekeningfunctie.Bank)?.Nummer ?? rekeningen.FirstOrDefault()?.Nummer;
+        await Laad();
+    }
+
+    private async Task Laad() =>
+        kaart = Rekening is null ? null : await Grootboek.Kaart(geopend!.Wie, Id, Rekening, new DateOnly(jaar, 1, 1), new DateOnly(jaar, 12, 31));
+
+    private async Task KiesRekening(ChangeEventArgs e)
+    {
+        Rekening = e.Value?.ToString();
+        Navigatie.NavigateTo($"/a/{Id}/grootboek?rekening={Uri.EscapeDataString(Rekening ?? "")}&jaar={jaar}", replace: true);
+        await Laad();
+    }
+
+    private async Task KiesJaar(int j)
+    {
+        jaar = j;
+        await Laad();
+    }
+}
