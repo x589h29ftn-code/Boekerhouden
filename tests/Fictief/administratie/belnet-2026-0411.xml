@@ -20,11 +20,23 @@
         <cbc:RegistrationName>Belnet B.V.</cbc:RegistrationName>
         <cbc:CompanyID schemeID="0106">12345678</cbc:CompanyID>
       </cac:PartyLegalEntity>
+      <cac:PostalAddress>
+        <cbc:StreetName>Verbindingsweg 1</cbc:StreetName>
+        <cbc:CityName>Ergens</cbc:CityName>
+        <cbc:PostalZone>1234 AB</cbc:PostalZone>
+        <cac:Country><cbc:IdentificationCode>NL</cbc:IdentificationCode></cac:Country>
+      </cac:PostalAddress>
     </cac:Party>
   </cac:AccountingSupplierParty>
   <cac:AccountingCustomerParty>
     <cac:Party>
       <cac:PartyName><cbc:Name>Bakkerij Voorbeeld</cbc:Name></cac:PartyName>
+      <cac:PostalAddress>
+        <cbc:StreetName>Bakkersstraat 7</cbc:StreetName>
+        <cbc:CityName>Nergens</cbc:CityName>
+        <cbc:PostalZone>5678CD</cbc:PostalZone>
+        <cac:Country><cbc:IdentificationCode>NL</cbc:IdentificationCode></cac:Country>
+      </cac:PostalAddress>
     </cac:Party>
   </cac:AccountingCustomerParty>
   <cac:PaymentMeans>

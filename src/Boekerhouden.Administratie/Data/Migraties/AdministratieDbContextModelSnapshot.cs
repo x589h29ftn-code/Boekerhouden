@@ -44,6 +44,9 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<int>("DrempelAutomatisch")
+                        .HasColumnType("integer");
+
                     b.PrimitiveCollection<List<string>>("Ibans")
                         .IsRequired()
                         .HasColumnType("text[]");
@@ -145,6 +148,10 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasColumnType("character varying(200)");
 
                     b.Property<string>("NaamBevat")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Omschrijving")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
@@ -592,9 +599,24 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.Property<Guid>("AdministratieId")
                         .HasColumnType("uuid");
 
+                    b.Property<decimal?>("Bedrag")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
                     b.Property<string>("BtwCode")
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
+
+                    b.Property<string>("Iban")
+                        .HasMaxLength(34)
+                        .HasColumnType("character varying(34)");
+
+                    b.Property<string>("Omschrijving")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.PrimitiveCollection<List<string>>("Postcodes")
+                        .HasColumnType("text[]");
 
                     b.Property<string>("Rekeningnummer")
                         .IsRequired()

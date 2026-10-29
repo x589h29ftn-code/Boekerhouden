@@ -29,20 +29,8 @@ public static class PdfTekst
     public static PdfInhoud Lees(Stream stream)
     {
         ArgumentNullException.ThrowIfNull(stream);
-        var bytes = LeesBegrensd(stream);
-        if (bytes.AsSpan(0, Math.Min(bytes.Length, 1024)).IndexOf("%PDF-"u8) < 0)
+        return Open(LeesBegrensd(stream), document =>
         {
-            throw new DocumentException("Het bestand is geen PDF.");
-        }
-
-        try
-        {
-            using var document = PdfDocument.Open(bytes, new ParsingOptions { UseLenientParsing = true, SkipMissingFonts = true });
-            if (document.NumberOfPages > MaximumPaginas)
-            {
-                throw new DocumentException($"De PDF heeft {document.NumberOfPages} pagina's; een factuur mag er hoogstens {MaximumPaginas} hebben.");
-            }
-
             var regels = new List<string>();
             foreach (var pagina in document.GetPages())
             {
@@ -58,6 +46,61 @@ public static class PdfTekst
             }
 
             return new PdfInhoud(document.NumberOfPages, regels, bijlagen);
+        });
+    }
+
+    /// <summary>
+    /// De tekst in een gebied van een pagina, als regels van boven naar beneden; zo neemt de gebruiker een omschrijving,
+    /// bedrag of nummer over door het op de factuur aan te wijzen. Het gebied is in PDF-punten (oorsprong linksonder,
+    /// zoals pdf.js het doorgeeft). Een woord telt mee als zijn midden in het gebied ligt; een klik (een heel klein
+    /// gebied) pakt het woord waarop geklikt is.
+    /// </summary>
+    public static IReadOnlyList<string> InGebied(byte[] pdf, int pagina, double x0, double y0, double x1, double y1)
+    {
+        ArgumentNullException.ThrowIfNull(pdf);
+        if (pdf.Length > MaximumBytes)
+        {
+            throw new DocumentException($"Het bestand is groter dan {MaximumBytes / 1024 / 1024} MB.");
+        }
+
+        var (links, rechts, onder, boven) = (Math.Min(x0, x1), Math.Max(x0, x1), Math.Min(y0, y1), Math.Max(y0, y1));
+        var klik = rechts - links < 4 && boven - onder < 4;
+        var (mx, my) = ((links + rechts) / 2, (onder + boven) / 2);
+        return Open(pdf, document =>
+        {
+            if (pagina < 1 || pagina > document.NumberOfPages)
+            {
+                throw new DocumentException($"Pagina {pagina} bestaat niet.");
+            }
+
+            var woorden = document.GetPage(pagina).GetWords().Where(w =>
+            {
+                var b = w.BoundingBox;
+                var (cx, cy) = ((b.Left + b.Right) / 2, (b.Bottom + b.Top) / 2);
+                return klik
+                    ? mx >= b.Left - 1 && mx <= b.Right + 1 && my >= b.Bottom - 1 && my <= b.Top + 1
+                    : cx >= links && cx <= rechts && cy >= onder && cy <= boven;
+            });
+            return (IReadOnlyList<string>)[.. Regels(woorden)];
+        });
+    }
+
+    private static T Open<T>(byte[] bytes, Func<PdfDocument, T> lees)
+    {
+        if (bytes.AsSpan(0, Math.Min(bytes.Length, 1024)).IndexOf("%PDF-"u8) < 0)
+        {
+            throw new DocumentException("Het bestand is geen PDF.");
+        }
+
+        try
+        {
+            using var document = PdfDocument.Open(bytes, new ParsingOptions { UseLenientParsing = true, SkipMissingFonts = true });
+            if (document.NumberOfPages > MaximumPaginas)
+            {
+                throw new DocumentException($"De PDF heeft {document.NumberOfPages} pagina's; een factuur mag er hoogstens {MaximumPaginas} hebben.");
+            }
+
+            return lees(document);
         }
         catch (DocumentException)
         {
@@ -71,9 +114,11 @@ public static class PdfTekst
     }
 
     /// <summary>De woorden van een pagina, gegroepeerd tot regels van boven naar beneden.</summary>
-    internal static IEnumerable<string> Regels(Page pagina)
+    internal static IEnumerable<string> Regels(Page pagina) => Regels(pagina.GetWords());
+
+    private static IEnumerable<string> Regels(IEnumerable<Word> alleWoorden)
     {
-        var woorden = pagina.GetWords()
+        var woorden = alleWoorden
             .Where(w => !string.IsNullOrWhiteSpace(w.Text) && w.TextOrientation == TextOrientation.Horizontal)
             .OrderByDescending(w => w.BoundingBox.Bottom)
             .ToList();

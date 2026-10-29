@@ -305,6 +305,13 @@ het moment waarop een klant of accountant erom vraagt.
     toegangscontrole en met een CSP-sandbox, het signaal *afwijkend bedrag*, de bedraglimiet per administratie, en
     het IBAN van een relatie alleen wijzigen na het wachtwoord, met oud en nieuw in het log. Regels en instellingen
     alleen door het kantoor.
+11. **Factuurviewer** (A7): pdf.js staat lokaal in de app (geen CDN), zodat de CSP alleen eigen scripts blijft
+    toestaan; `isEvalSupported` staat uit. De tekst uit een aangewezen gebied haalt de server zelf uit de PDF,
+    via `Toegang` (een buitenstaander krijgt niets). Het externe venster praat alleen met vensters van dezelfde
+    site (`BroadcastChannel`) en haalt de PDF via hetzelfde beveiligde adres.
+12. **Leren met herbevestiging**: een geleerde leverancier met een hoger bedrag (boven 1,25 keer het hoogste
+    bevestigde), een ander IBAN of een nieuwe postcode komt ter controle naar boven, en daarna moet het patroon
+    opnieuw worden bevestigd voordat het pakket weer zelf boekt.
 
 Bekende beperking: de databaserol van de app is eigenaar van de tabellen en kan de triggers dus uitschakelen. De
 hash-keten maakt zo'n wijziging zichtbaar; aparte databaserollen (app zonder eigenaarschap) volgen vóór F2.

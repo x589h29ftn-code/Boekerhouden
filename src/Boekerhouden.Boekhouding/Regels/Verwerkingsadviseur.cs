@@ -12,7 +12,16 @@ public enum Adviesbron
 }
 
 /// <summary>Het voorstel voor een factuur of bankmutatie: rekening, btw-code, en of het pakket het zelf mag boeken.</summary>
-public sealed record Verwerkingsadvies(string? Rekeningnummer, string? BtwCode, Adviesbron Bron, bool Automatisch, string Reden)
+/// <param name="Afwijkingen">Waarom een geleerde keuze nu niet automatisch gaat (ander bedrag, IBAN of adres).</param>
+/// <param name="Omschrijving">Het sjabloon voor de omschrijving van de boeking, met variabelen zoals <c>#factuurnummer</c>.</param>
+public sealed record Verwerkingsadvies(
+    string? Rekeningnummer,
+    string? BtwCode,
+    Adviesbron Bron,
+    bool Automatisch,
+    string Reden,
+    IReadOnlyList<Afwijking>? Afwijkingen = null,
+    string? Omschrijving = null)
 {
     public static Verwerkingsadvies Geen { get; } = new(null, null, Adviesbron.Geen, false, "Eerste keer: kies de rekening");
 }
@@ -34,13 +43,19 @@ public static class Verwerkingsadviseur
 
         if (regels.FirstOrDefault(r => r.Past(gegevens)) is { } regel)
         {
-            return Tarief(new Verwerkingsadvies(regel.Rekeningnummer, regel.BtwCode, Adviesbron.Regel, regel.Automatisch, $"Regel: {regel.Naam}"), gegevens, btwCodes);
+            return Tarief(new Verwerkingsadvies(regel.Rekeningnummer, regel.BtwCode, Adviesbron.Regel, regel.Automatisch, $"Regel: {regel.Naam}", Omschrijving: regel.Omschrijving), gegevens, btwCodes);
         }
 
         if (geheugen.Voorstel(gegevens) is { } geleerd)
         {
-            var reden = geleerd.Automatisch ? $"Geleerd: {geleerd.OpRij} keer op rij dezelfde keuze" : "Geleerd: vorige keuze";
-            return Tarief(new Verwerkingsadvies(geleerd.Keuze.Rekeningnummer, geleerd.Keuze.BtwCode, Adviesbron.Geleerd, geleerd.Automatisch, reden), gegevens, btwCodes);
+            var reden = geleerd switch
+            {
+                { Automatisch: true } => $"Geleerd: {geleerd.OpRij} keer op rij dezelfde keuze",
+                { Afwijkingen.Count: > 0 } when geleerd.OpRij >= geheugen.Drempel => $"Geleerd: {geleerd.OpRij} keer dezelfde keuze, nu ter controle",
+                _ => $"Geleerd: vorige keuze ({geleerd.OpRij} van {geheugen.Drempel} voor automatisch)",
+            };
+            return Tarief(new Verwerkingsadvies(geleerd.Keuze.Rekeningnummer, geleerd.Keuze.BtwCode, Adviesbron.Geleerd, geleerd.Automatisch, reden,
+                geleerd.Afwijkingen, geleerd.Omschrijving), gegevens, btwCodes);
         }
 
         if (relatie?.Tegenrekening is { } tegenrekening)

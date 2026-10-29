@@ -66,7 +66,15 @@ public static class Inkoopverwerker
             belemmeringen.Add($"Lijkt al geboekt: factuur {dubbel.Factuurnummer} van {dubbel.Datum:dd-MM-yyyy}.");
         }
 
-        if (leverancier is not null && herkend.TotaalInclusief is { } nu && Afwijkend(nu, leverancier.Relatie.Code, bestaand) is { } hoogste)
+        // Geleerd, maar deze factuur past niet in het patroon. Het IBAN controleert de relatie al (hieronder) als die er een kent.
+        var afwijkingen = advies.Afwijkingen ?? [];
+        foreach (var afwijking in afwijkingen.Where(a => a.Soort != Afwijkingssoort.Iban || leverancier?.Relatie.Ibans.Count is null or 0))
+        {
+            belemmeringen.Add(afwijking.Melding);
+        }
+
+        if (leverancier is not null && herkend.TotaalInclusief is { } nu && afwijkingen.All(a => a.Soort != Afwijkingssoort.Bedrag)
+            && Afwijkend(nu, leverancier.Relatie.Code, bestaand) is { } hoogste)
         {
             belemmeringen.Add($"Het bedrag is veel hoger dan gebruikelijk bij {leverancier.Relatie.Naam} (tot nu toe hoogstens {Domain.Bedragen.Euro(hoogste)}).");
         }
@@ -108,7 +116,7 @@ public static class Inkoopverwerker
                     herkend.Factuurnummer ?? string.Empty,
                     factuurdatum,
                     herkend.Vervaldatum is { } verval && verval >= factuurdatum ? verval : factuurdatum.AddDays(betalingstermijn),
-                    Omschrijving(herkend, leverancier.Relatie),
+                    Omschrijving(herkend, leverancier.Relatie, advies.Omschrijving, betalingstermijn),
                     factuurregels,
                     herkend.Betalingskenmerk);
                 if (factuur.Totaal(btwCodes) != totaal)
@@ -146,7 +154,7 @@ public static class Inkoopverwerker
     {
         ArgumentNullException.ThrowIfNull(herkend);
         return new Verwerkingsgegevens(Verwerkingssoort.Inkoopfactuur, relatie?.Code, relatie?.Naam ?? herkend.Naam,
-            herkend.TotaalInclusief ?? 0m, herkend.Omschrijving, herkend.Iban, herkend.EnigTarief);
+            herkend.TotaalInclusief ?? 0m, herkend.Omschrijving, herkend.Iban, herkend.EnigTarief, herkend.Postcodes);
     }
 
     private static List<Factuurregel>? Factuurregels(HerkendeFactuur herkend, string rekening, string? adviesCode, IReadOnlyList<BtwCode> btwCodes, decimal totaal)
@@ -201,9 +209,19 @@ public static class Inkoopverwerker
                                      && ((herkend.Factuurnummer is { } nummer && Factuurnummers.Normaliseer(nummer) == Factuurnummers.Normaliseer(b.Factuurnummer))
                                          || (herkend.Factuurdatum == b.Datum && herkend.TotaalInclusief == b.Totaal)));
 
-    private static string Omschrijving(HerkendeFactuur herkend, Relatie relatie)
+    private static string Omschrijving(HerkendeFactuur herkend, Relatie relatie, string? sjabloon, int betalingstermijn)
     {
-        var tekst = herkend.Omschrijving is { Length: > 0 } o ? o : $"{relatie.Naam} {herkend.Factuurnummer}".Trim();
+        var tekst = sjabloon is { Length: > 0 }
+            ? Omschrijvingssjabloon.Vul(sjabloon, Variabelen(herkend, relatie.Naam, betalingstermijn))
+            : herkend.Omschrijving is { Length: > 0 } o ? o : $"{relatie.Naam} {herkend.Factuurnummer}".Trim();
         return tekst.Length > 200 ? tekst[..200] : tekst;
+    }
+
+    /// <summary>De gegevens van de herkende factuur voor de variabelen in een omschrijving.</summary>
+    public static Factuurvariabelen Variabelen(HerkendeFactuur herkend, string? leverancier, int betalingstermijn = 30)
+    {
+        ArgumentNullException.ThrowIfNull(herkend);
+        return new Factuurvariabelen(herkend.Factuurnummer, herkend.Omschrijving, leverancier ?? herkend.Naam, herkend.Factuurdatum,
+            herkend.Vervaldatum ?? herkend.Factuurdatum?.AddDays(betalingstermijn), herkend.Betalingskenmerk);
     }
 }

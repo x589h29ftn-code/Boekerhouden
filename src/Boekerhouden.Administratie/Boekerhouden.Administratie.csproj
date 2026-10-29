@@ -19,6 +19,11 @@
     </PackageReference>
   </ItemGroup>
 
+  <!-- De standaardlettertypen van pdf.js (wwwroot/lib/pdfjs) kent de pijplijn voor statische bestanden niet. -->
+  <ItemGroup>
+    <StaticWebAssetContentTypeMapping Include="application/x-font-type1" Cache="$(StaticWebAssetEndpointDefaultMediaCacheControlHeader)" Pattern="*.pfb" Priority="1" />
+  </ItemGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="Boekerhouden.Administratie.Tests" />
   </ItemGroup>

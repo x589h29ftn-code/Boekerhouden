@@ -192,6 +192,9 @@ public sealed class AdministratieDbContext(DbContextOptions<AdministratieDbConte
             e.Property(k => k.Sleutel).HasMaxLength(400);
             e.Property(k => k.Rekeningnummer).HasMaxLength(20);
             e.Property(k => k.BtwCode).HasMaxLength(10);
+            e.Property(k => k.Bedrag).HasPrecision(18, 2);
+            e.Property(k => k.Iban).HasMaxLength(34);
+            e.Property(k => k.Omschrijving).HasMaxLength(200);
         });
 
         builder.Entity<Automatiseringsregel>(e =>
@@ -205,6 +208,7 @@ public sealed class AdministratieDbContext(DbContextOptions<AdministratieDbConte
             e.Property(r => r.NaamBevat).HasMaxLength(200);
             e.Property(r => r.BedragVan).HasPrecision(18, 2);
             e.Property(r => r.BedragTot).HasPrecision(18, 2);
+            e.Property(r => r.Omschrijving).HasMaxLength(200);
             e.Property(r => r.OmschrijvingBevat).HasMaxLength(200);
             e.Property(r => r.TegenIban).HasMaxLength(34);
             e.Property(r => r.Richting).HasConversion<string>().HasMaxLength(20);

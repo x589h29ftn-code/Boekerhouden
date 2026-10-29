@@ -147,7 +147,8 @@ public sealed class InkoopDienst(
         var voorstel = Voorstel(herkend, context);
         if (voorstel.Automatisch)
         {
-            var uitkomst = await BoekFactuur(db, administratie, document, voorstel.Factuur!, herkend, voorstel.Leverancier!.Relatie, nieuw: null, wie, automatisch: true);
+            var uitkomst = await BoekFactuur(db, administratie, document, voorstel.Factuur!, herkend, voorstel.Leverancier!.Relatie, nieuw: null, wie,
+                automatisch: true, voorstel.Advies.Omschrijving);
             if (uitkomst.IsGelukt)
             {
                 return new(document.Id, Documentstatus.Geboekt, $"{naam} is automatisch geboekt ({voorstel.Advies.Reden}).");
@@ -220,10 +221,16 @@ public sealed class InkoopDienst(
         }
 
         var code = relatie?.Code ?? NieuweCode(invoer.Nieuw!.Naam, context.Relaties);
-        var factuur = new Factuur(Factuursoort.Inkoop, code, invoer.Factuurnummer.Trim(), invoer.Datum, invoer.Vervaldatum,
-            string.IsNullOrWhiteSpace(invoer.Omschrijving) ? $"{relatie?.Naam ?? invoer.Nieuw!.Naam} {invoer.Factuurnummer}".Trim() : invoer.Omschrijving.Trim(),
-            invoer.Regels, string.IsNullOrWhiteSpace(invoer.Betalingskenmerk) ? null : invoer.Betalingskenmerk.Trim());
-        return await BoekFactuur(db, administratie, d, factuur, Herkend(d), relatie, invoer.Nieuw, wie, automatisch: false);
+        var herkend = Herkend(d);
+        var naam = relatie?.Naam ?? invoer.Nieuw!.Naam.Trim();
+        var kenmerk = string.IsNullOrWhiteSpace(invoer.Betalingskenmerk) ? null : invoer.Betalingskenmerk.Trim();
+        var variabelen = new Factuurvariabelen(invoer.Factuurnummer.Trim(), herkend?.Omschrijving, naam, invoer.Datum, invoer.Vervaldatum, kenmerk);
+        var sjabloon = Omschrijvingssjabloon.IsSjabloon(invoer.Omschrijving) ? invoer.Omschrijving.Trim() : null;
+        var omschrijving = string.IsNullOrWhiteSpace(invoer.Omschrijving) ? $"{naam} {invoer.Factuurnummer}".Trim() : Omschrijvingssjabloon.Vul(invoer.Omschrijving, variabelen);
+        var factuur = new Factuur(Factuursoort.Inkoop, code, invoer.Factuurnummer.Trim(), invoer.Datum, invoer.Vervaldatum, Kort(omschrijving),
+            [.. invoer.Regels.Select(r => r with { Omschrijving = Kort(string.IsNullOrWhiteSpace(r.Omschrijving) ? omschrijving : Omschrijvingssjabloon.Vul(r.Omschrijving, variabelen)) })],
+            kenmerk);
+        return await BoekFactuur(db, administratie, d, factuur, herkend, relatie, invoer.Nieuw, wie, automatisch: false, sjabloon);
     }
 
     /// <summary>De inhoud van een document, om te bekijken of te downloaden.</summary>
@@ -235,9 +242,32 @@ public sealed class InkoopDienst(
         return d is null || inhoud is null ? null : (inhoud.Inhoud, d.Inhoudstype, d.Bestandsnaam);
     }
 
+    /// <summary>
+    /// De tekst in een aangewezen gebied van een PDF (in PDF-punten), om een omschrijving, bedrag of nummer over te
+    /// nemen. Leeg als het document geen PDF is of er in dat gebied niets staat.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> TekstInGebied(Uitvoerder wie, Guid administratie, Guid document, int pagina, double x0, double y0, double x1, double y1)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
+        var inhoud = await db.DocumentInhouden.AsNoTracking().Where(x => x.DocumentId == document).Select(x => x.Inhoud).FirstOrDefaultAsync();
+        if (inhoud is null)
+        {
+            return [];
+        }
+
+        try
+        {
+            return PdfTekst.InGebied(inhoud, pagina, x0, y0, x1, y1);
+        }
+        catch (DocumentException)
+        {
+            return [];
+        }
+    }
+
     private async Task<Uitkomst> BoekFactuur(
         AdministratieDbContext db, Guid administratie, Document document, Factuur factuur, HerkendeFactuur? herkend,
-        Relatie? relatie, NieuweRelatie? nieuw, Uitvoerder wie, bool automatisch)
+        Relatie? relatie, NieuweRelatie? nieuw, Uitvoerder wie, bool automatisch, string? sjabloon)
     {
         var (schema, dagboeken) = await GrootboekDienst.Inrichting(db);
         var dagboek = dagboeken.FirstOrDefault(x => x.Soort == Dagboeksoort.Inkoop);
@@ -317,18 +347,25 @@ public sealed class InkoopDienst(
         document.BoekingId = boeking.Id;
         document.Melding = automatisch ? "Automatisch geboekt." : null;
 
-        // Leren: de keuze van de gebruiker (of het automatisch gevolgde advies) onder de sleutel van de leverancier.
-        var gegevens = herkend is null
-            ? new Verwerkingsgegevens(Verwerkingssoort.Inkoopfactuur, factuur.Relatie, relatie?.Naam ?? nieuw?.Naam, factuur.Totaal(BtwCodes))
-            : Inkoopverwerker.Gegevens(herkend, relatie ?? new Relatie(factuur.Relatie, nieuw!.Naam, []));
-        if (Leergeheugen.Sleutel(gegevens with { Relatie = factuur.Relatie }) is { } sleutel)
+        // Leren: de keuze van de gebruiker (of het automatisch gevolgde advies) onder de sleutel van de leverancier, met
+        // het bedrag, het IBAN en de postcodes van deze factuur; daaraan herkent het pakket later een afwijking.
+        var gegevens = (herkend is null
+            ? new Verwerkingsgegevens(Verwerkingssoort.Inkoopfactuur, factuur.Relatie, relatie?.Naam ?? nieuw?.Naam, 0m)
+            : Inkoopverwerker.Gegevens(herkend, relatie ?? new Relatie(factuur.Relatie, nieuw!.Naam, []))) with
+        { Relatie = factuur.Relatie, Bedrag = factuur.Totaal(BtwCodes) };
+        if (Leergeheugen.Sleutel(gegevens) is { } sleutel)
         {
+            var bevestiging = Leergeheugen.Bij(gegevens, new Keuze(factuur.Regels[0].Rekeningnummer, factuur.Regels[0].BtwCode), sjabloon);
             db.Leerkeuzes.Add(new Leerkeuze
             {
                 AdministratieId = administratie,
                 Sleutel = sleutel,
-                Rekeningnummer = factuur.Regels[0].Rekeningnummer,
-                BtwCode = factuur.Regels[0].BtwCode,
+                Rekeningnummer = bevestiging.Keuze.Rekeningnummer,
+                BtwCode = bevestiging.Keuze.BtwCode,
+                Bedrag = bevestiging.Bedrag,
+                Iban = bevestiging.Iban,
+                Postcodes = bevestiging.Postcodes is { Count: > 0 } p ? [.. p] : null,
+                Omschrijving = bevestiging.Omschrijving,
                 Tijdstip = tijd.GetUtcNow(),
             });
         }
@@ -352,10 +389,10 @@ public sealed class InkoopDienst(
         var gegevens = await db.Administraties.AsNoTracking().SingleAsync(a => a.Id == administratie);
         var relaties = (await db.Relaties.AsNoTracking().OrderBy(r => r.Naam).ToListAsync()).Select(r => r.NaarDomein()).ToList();
         var regels = (await db.Regels.AsNoTracking().OrderBy(r => r.Volgorde).ToListAsync()).Select(r => r.NaarDomein()).ToList();
-        var geheugen = new Leergeheugen();
+        var geheugen = new Leergeheugen(gegevens.DrempelAutomatisch);
         foreach (var keuze in await db.Leerkeuzes.AsNoTracking().OrderBy(k => k.Id).ToListAsync())
         {
-            geheugen.Onthoud(keuze.Sleutel, new Keuze(keuze.Rekeningnummer, keuze.BtwCode));
+            geheugen.Onthoud(keuze.Sleutel, keuze.NaarDomein());
         }
 
         var bestaand = await db.OpenstaandePosten.AsNoTracking().Where(p => p.Soort == Factuursoort.Inkoop)
@@ -366,6 +403,8 @@ public sealed class InkoopDienst(
     private static Inkoopvoorstel Voorstel(HerkendeFactuur herkend, Inkoopcontext context) =>
         Inkoopverwerker.Verwerk(herkend, context.Relaties, context.Regels, context.Geheugen, BtwCodes, context.Bestaand,
             context.Administratie.Betalingstermijn, periodeOpen: null, context.Administratie.LimietAutomatisch);
+
+    private static string Kort(string tekst) => tekst.Length > 200 ? tekst[..200] : tekst;
 
     private static string Melding(Inkoopvoorstel voorstel) =>
         voorstel.Belemmeringen.Count > 0 ? string.Join(" ", voorstel.Belemmeringen) : voorstel.Advies.Reden;

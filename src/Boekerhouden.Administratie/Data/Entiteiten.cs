@@ -62,6 +62,9 @@ public sealed class Administratie
     /// <summary>Boven dit bedrag (inclusief btw) wordt nooit automatisch geboekt; leeg = geen limiet (besluit B2).</summary>
     public decimal? LimietAutomatisch { get; set; }
 
+    /// <summary>Na hoeveel gelijke bevestigingen op rij een leverancier automatisch wordt verwerkt.</summary>
+    public int DrempelAutomatisch { get; set; } = 2;
+
     public DateTimeOffset AangemaaktOp { get; set; }
 
     public string AangemaaktDoor { get; set; } = string.Empty;
@@ -322,7 +325,20 @@ public sealed class Leerkeuze : IVanAdministratie
 
     public string? BtwCode { get; set; }
 
+    /// <summary>Het totaal van de bevestigde factuur, voor de bandbreedte van automatisch verwerken.</summary>
+    public decimal? Bedrag { get; set; }
+
+    public string? Iban { get; set; }
+
+    public List<string>? Postcodes { get; set; }
+
+    /// <summary>Het sjabloon voor de omschrijving (met variabelen), als de gebruiker dat gebruikte.</summary>
+    public string? Omschrijving { get; set; }
+
     public DateTimeOffset Tijdstip { get; set; }
+
+    public Boekhouding.Regels.Bevestiging NaarDomein() =>
+        new(new(Rekeningnummer, BtwCode), Bedrag, Iban, Postcodes, Omschrijving);
 }
 
 /// <summary>Een regel van de gebruiker voor automatisch verwerken (zie <c>Verwerkingsregel</c> in het domein).</summary>
@@ -358,6 +374,9 @@ public sealed class Automatiseringsregel : IVanAdministratie
 
     public Boekhouding.Regels.Regelrichting Richting { get; set; }
 
+    /// <summary>Het sjabloon voor de omschrijving van de boeking, met variabelen zoals <c>#factuurnummer</c>.</summary>
+    public string? Omschrijving { get; set; }
+
     public Boekhouding.Regels.Verwerkingsregel NaarDomein() =>
-        new(Naam, Rekeningnummer, BtwCode, Automatisch, Soort, Relatie, NaamBevat, BedragVan, BedragTot, OmschrijvingBevat, TegenIban, Richting);
+        new(Naam, Rekeningnummer, BtwCode, Automatisch, Soort, Relatie, NaamBevat, BedragVan, BedragTot, OmschrijvingBevat, TegenIban, Richting, Omschrijving);
 }

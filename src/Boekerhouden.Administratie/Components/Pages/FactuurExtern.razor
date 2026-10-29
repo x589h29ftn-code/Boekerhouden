@@ -1,0 +1,43 @@
+@page "/a/{Id:guid}/inkoop/{DocumentId:guid}/document"
+@attribute [ExcludeFromInteractiveRouting]
+@layout LegeLayout
+@inject InkoopDienst Inkoop
+
+<PageTitle>@titel</PageTitle>
+@if (bestaat)
+{
+    <div id="factuurviewer" class="extern-venster" data-url="/a/@Id/documenten/@DocumentId" data-document="@DocumentId"></div>
+    <script type="module" src="@Assets["factuurviewer-extern.js"]"></script>
+}
+else
+{
+    <div class="alert alert-warning m-3">Dit document bestaat niet of je hebt er geen toegang toe.</div>
+}
+
+@code {
+    private bool bestaat;
+    private string titel = "Factuur";
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [Parameter]
+    public Guid DocumentId { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var verwerking = await Inkoop.Verwerking(HttpContext.User.AlsUitvoerder(), Id, DocumentId);
+            bestaat = verwerking is not null;
+            titel = verwerking?.Document.Bestandsnaam ?? titel;
+        }
+        catch (GeenToegangException)
+        {
+            bestaat = false;
+        }
+    }
+}

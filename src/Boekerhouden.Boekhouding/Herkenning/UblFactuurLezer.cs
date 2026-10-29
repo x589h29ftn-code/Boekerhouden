@@ -91,7 +91,11 @@ public static class UblFactuurLezer
             Btw: btw,
             Regels: regels,
             Betalingskenmerk: Tekst(Kind(betaling, "PaymentID")),
-            Omschrijving: regels.Count > 0 ? regels[0].Omschrijving : Tekst(Kind(wortel, "Note")));
+            Omschrijving: regels.Count > 0 ? regels[0].Omschrijving : Tekst(Kind(wortel, "Note")),
+            Postcodes: [.. new[] { Pad(partij, "PostalAddress"), Pad(wortel, "AccountingCustomerParty", "Party", "PostalAddress"), Pad(wortel, "Delivery", "DeliveryLocation", "Address") }
+                .Select(a => Tekst(Kind(a, "PostalZone")))
+                .SelectMany(p => p is null ? [] : Postcode.Zoek(p.ToUpperInvariant()))
+                .Distinct(StringComparer.Ordinal)]);
     }
 
     private static XmlReaderSettings Instellingen(bool sluiten) =>

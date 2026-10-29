@@ -55,6 +55,20 @@ public sealed class PdfHerkenningTests
     }
 
     [Fact]
+    public void Tekst_uit_een_aangewezen_gebied()
+    {
+        var pdf = Webwinkelfactuur();
+
+        Assert.Equal(["Smartphone X 128GB Blauw"], PdfTekst.InGebied(pdf, 1, 35, 640, 290, 656));
+        Assert.Equal(["Smartphone X 128GB Blauw", "Hoesje Smartphone X"], PdfTekst.InGebied(pdf, 1, 290, 628, 35, 656));
+        Assert.Equal(["EUR 629,20"], PdfTekst.InGebied(pdf, 1, 465, 615, 560, 625));
+        Assert.Equal(["TW-2026-0042"], PdfTekst.InGebied(pdf, 1, 170, 704, 171, 705));
+        Assert.Empty(PdfTekst.InGebied(pdf, 1, 0, 0, 30, 30));
+        Assert.Throws<DocumentException>(() => PdfTekst.InGebied(pdf, 2, 0, 0, 10, 10));
+        Assert.Throws<DocumentException>(() => PdfTekst.InGebied("geen pdf"u8.ToArray(), 1, 0, 0, 10, 10));
+    }
+
+    [Fact]
     public async Task Pdf_factuur_wordt_door_het_pakket_herkend()
     {
         var herkenning = Factuurherkenning.Standaard(new EigenGegevens([], [], ["Bakkerij Voorbeeld"]));

@@ -47,7 +47,8 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   gebruikers, tweestapsverificatie en passkeys, wijzigingslog; `InkoopDienst` = inlezen met virusscan, voorstel en
   (automatisch) boeken; `InrichtingDienst` = relaties, regels en instellingen), `Identiteit/` (inloggen, beveiligingsheaders,
   tweestap verplicht voor de beheerder), `Components/` (schermen; accountpagina's statisch, de rest interactief).
-  Negatieve toegangstests horen bij elke dienst. Geen inline scripts (CSP): JavaScript als los bestand in `wwwroot/`.
+  Negatieve toegangstests horen bij elke dienst. Geen inline scripts (CSP): JavaScript als los bestand in `wwwroot/`
+  (`factuurviewer.js` = de PDF-viewer met gebied aanwijzen; pdf.js staat in `wwwroot/lib/pdfjs`, Apache-2.0).
 - `src/Boekerhouden.Huisstijl` – gedeelde huisstijl van beide apps (Bootstrap, `app.css`, logo) onder
   `_content/Boekerhouden.Huisstijl/`.
 - `src/Boekerhouden.Import` – importsjabloon (.xlsx/.csv) inlezen en controleren (I1–I6, I11), sjabloon genereren,

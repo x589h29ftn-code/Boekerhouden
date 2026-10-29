@@ -91,6 +91,56 @@ public sealed class LeergeheugenTests
     }
 
     [Fact]
+    public void Zolang_het_pakket_leert_telt_elk_bedrag_mee_daarna_alleen_binnen_de_bandbreedte()
+    {
+        var geheugen = new Leergeheugen();
+        geheugen.Onthoud(Factuur with { Bedrag = 30m }, Kantoor);
+        geheugen.Onthoud(Factuur with { Bedrag = 45m }, Kantoor);
+
+        var binnen = geheugen.Voorstel(Factuur with { Bedrag = 56.25m })!;
+        var boven = geheugen.Voorstel(Factuur with { Bedrag = 56.26m })!;
+
+        Assert.True(binnen.Automatisch);
+        Assert.Equal(56.25m, binnen.Bovengrens);
+        Assert.False(boven.Automatisch);
+        Assert.Equal(Afwijkingssoort.Bedrag, Assert.Single(boven.Afwijkingen).Soort);
+    }
+
+    [Fact]
+    public void Na_een_afwijking_opnieuw_leren_tot_de_drempel()
+    {
+        var geheugen = new Leergeheugen();
+        var oud = Factuur with { TegenIban = "NL91ABNA0417164300", Postcodes = ["1234AB"] };
+        var nieuwIban = oud with { TegenIban = "NL20INGB0001234567" };
+        geheugen.Onthoud(oud, Kantoor);
+        geheugen.Onthoud(oud, Kantoor);
+        Assert.True(geheugen.Voorstel(oud)!.Automatisch);
+
+        var gewijzigd = geheugen.Voorstel(nieuwIban)!;
+        Assert.False(gewijzigd.Automatisch);
+        Assert.Equal("Ander IBAN dan bij de eerdere facturen (NL20 INGB 0001 2345 67 in plaats van NL91 ABNA 0417 1643 00).", Assert.Single(gewijzigd.Afwijkingen).Melding);
+
+        geheugen.Onthoud(nieuwIban, Kantoor);
+        Assert.Equal((1, false), (geheugen.Voorstel(nieuwIban)!.OpRij, geheugen.Voorstel(nieuwIban)!.Automatisch));
+        geheugen.Onthoud(nieuwIban, Kantoor);
+        Assert.True(geheugen.Voorstel(nieuwIban)!.Automatisch);
+
+        var verhuisd = geheugen.Voorstel(nieuwIban with { Postcodes = ["1234AB", "9999ZZ"] })!;
+        Assert.Equal("Ander adres dan bij de eerdere facturen (postcode 9999 ZZ).", Assert.Single(verhuisd.Afwijkingen).Melding);
+        Assert.True(geheugen.Voorstel(nieuwIban with { Postcodes = [] })!.Automatisch);
+    }
+
+    [Fact]
+    public void Het_laatste_sjabloon_voor_de_omschrijving_wordt_onthouden()
+    {
+        var geheugen = new Leergeheugen();
+        geheugen.Onthoud(Factuur, Kantoor, "Kantoorartikelen #maand");
+        geheugen.Onthoud(Factuur, Kantoor);
+
+        Assert.Equal("Kantoorartikelen #maand", geheugen.Voorstel(Factuur)!.Omschrijving);
+    }
+
+    [Fact]
     public void Drempel_is_instelbaar()
     {
         var geheugen = new Leergeheugen(drempel: 3);

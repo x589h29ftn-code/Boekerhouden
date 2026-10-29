@@ -3,6 +3,7 @@ using Boekerhouden.Administratie.Data;
 using Boekerhouden.Administratie.Diensten;
 using Boekerhouden.Boekhouding.Facturen;
 using Boekerhouden.Boekhouding.Grootboek;
+using Boekerhouden.Boekhouding.Herkenning;
 using Boekerhouden.Boekhouding.Regels;
 using Boekerhouden.Documenten;
 using Microsoft.EntityFrameworkCore;
@@ -14,10 +15,24 @@ namespace Boekerhouden.Administratie.Tests;
 public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<AdministratieFixture>
 {
     /// <summary>De e-factuur, met een ander factuurnummer en een andere datum per maand.</summary>
-    internal static byte[] Belnet(string nummer = "BN-2026-0411", string datum = "2026-04-01") =>
-        Encoding.UTF8.GetBytes(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fictief", "administratie", "belnet-2026-0411.xml"))
+    /// <summary>De verzonnen e-factuur van Belnet; met <paramref name="hoog"/> vier keer zo duur, met <paramref name="postcode"/> een ander adres.</summary>
+    internal static byte[] Belnet(string nummer = "BN-2026-0411", string datum = "2026-04-01", bool hoog = false, string? postcode = null)
+    {
+        var xml = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fictief", "administratie", "belnet-2026-0411.xml"))
             .Replace("<cbc:ID>BN-2026-0411</cbc:ID>", $"<cbc:ID>{nummer}</cbc:ID>", StringComparison.Ordinal)
-            .Replace("<cbc:IssueDate>2026-04-01</cbc:IssueDate>", $"<cbc:IssueDate>{datum}</cbc:IssueDate>", StringComparison.Ordinal));
+            .Replace("<cbc:IssueDate>2026-04-01</cbc:IssueDate>", $"<cbc:IssueDate>{datum}</cbc:IssueDate>", StringComparison.Ordinal);
+        if (hoog)
+        {
+            xml = xml.Replace(">20.65<", ">82.60<", StringComparison.Ordinal).Replace(">4.34<", ">17.35<", StringComparison.Ordinal).Replace(">24.99<", ">99.95<", StringComparison.Ordinal);
+        }
+
+        if (postcode is not null)
+        {
+            xml = xml.Replace("<cbc:PostalZone>1234 AB</cbc:PostalZone>", $"<cbc:PostalZone>{postcode}</cbc:PostalZone>", StringComparison.Ordinal);
+        }
+
+        return Encoding.UTF8.GetBytes(xml);
+    }
 
     private static Factuurinvoer Invoer(string? relatie, NieuweRelatie? nieuw, string nummer, string rekening = "4310") =>
         new(relatie, nieuw, nummer, new DateOnly(2026, 4, 1), new DateOnly(2026, 4, 15), "Abonnement",
@@ -68,7 +83,7 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
         var tweede = await inkoop.Lees(wie, id, new MemoryStream(Belnet("BN-2", "2026-05-01")), "2.xml", null);
         var voorstel = (await inkoop.Verwerking(wie, id, tweede.DocumentId!.Value))!.Voorstel!;
         Assert.Equal(Documentstatus.TeVerwerken, tweede.Status);
-        Assert.Equal(("BELNET", "4310", "Geleerd: vorige keuze"), (voorstel.Leverancier?.Relatie.Code, voorstel.Advies.Rekeningnummer, voorstel.Advies.Reden));
+        Assert.Equal(("BELNET", "4310", "Geleerd: vorige keuze (1 van 2 voor automatisch)"), (voorstel.Leverancier?.Relatie.Code, voorstel.Advies.Rekeningnummer, voorstel.Advies.Reden));
         var f = voorstel.Factuur!;
         Assert.True((await inkoop.Boek(wie, id, tweede.DocumentId.Value, new Factuurinvoer("BELNET", null, f.Factuurnummer, f.Datum, f.Vervaldatum, f.Omschrijving, f.Regels))).IsGelukt);
 
@@ -77,6 +92,53 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
         Assert.True(derde.IsGeboekt, derde.Melding);
         Assert.Contains("automatisch geboekt", derde.Melding, StringComparison.Ordinal);
         Assert.Equal(3, (await app.Dienst<GrootboekDienst>().Posten(wie, id, "INK")).Count);
+    }
+
+    [Fact]
+    public async Task Hoger_bedrag_of_ander_adres_komt_ter_controle_en_daarna_leert_het_pakket_opnieuw()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var inkoop = app.Dienst<InkoopDienst>();
+        var grootboek = app.Dienst<GrootboekDienst>();
+
+        async Task<Inleesuitkomst> Lees(string nummer, int maand, bool hoog = false, string? postcode = null) =>
+            await inkoop.Lees(wie, id, new MemoryStream(Belnet(nummer, $"2026-{maand:00}-01", hoog, postcode)), $"{nummer}.xml", null);
+
+        async Task<Inkoopvoorstel> Bevestig(Inleesuitkomst gelezen)
+        {
+            Assert.Equal(Documentstatus.TeVerwerken, gelezen.Status);
+            var voorstel = (await inkoop.Verwerking(wie, id, gelezen.DocumentId!.Value))!.Voorstel!;
+            var f = voorstel.Factuur!;
+            var uitkomst = await inkoop.Boek(wie, id, gelezen.DocumentId.Value, new Factuurinvoer("BELNET", null, f.Factuurnummer, f.Datum, f.Vervaldatum, f.Omschrijving, f.Regels));
+            Assert.True(uitkomst.IsGelukt, string.Join("; ", uitkomst.Fouten));
+            return voorstel;
+        }
+
+        // 1e keer kiezen, met een omschrijving met variabelen; 2e keer een voorstel; 3e keer automatisch.
+        var eerste = await Lees("BN-1", 4);
+        var herkend = (await inkoop.Verwerking(wie, id, eerste.DocumentId!.Value))!.Herkend!;
+        Assert.Equal(["1234AB", "5678CD"], herkend.Postcodes);
+        await inkoop.Boek(wie, id, eerste.DocumentId.Value, new Factuurinvoer(null, new("Belnet B.V.", herkend.Iban, herkend.BtwNummer, null), "BN-1",
+            new(2026, 4, 1), new(2026, 4, 15), "Telefoon #maand #jaar (#factuurnummer)", [new Factuurregel("", "4310", "I21", 20.65m, 4.34m)]));
+        Assert.Equal("Telefoon mei 2026 (BN-2)", (await Bevestig(await Lees("BN-2", 5))).Factuur!.Omschrijving);
+        Assert.True((await Lees("BN-3", 6)).IsGeboekt);
+
+        // Een veel hoger bedrag: ter controle. Na de bevestiging begint de telling opnieuw.
+        var hoog = await Lees("BN-4", 7, hoog: true);
+        Assert.Contains("Het bedrag is hoger dan bij de eerdere facturen (automatisch tot € 31,24).", hoog.Melding, StringComparison.Ordinal);
+        await Bevestig(hoog);
+        var nogmaals = await Bevestig(await Lees("BN-5", 8, hoog: true));
+        Assert.Equal("Geleerd: vorige keuze (1 van 2 voor automatisch)", nogmaals.Advies.Reden);
+        Assert.True((await Lees("BN-6", 9, hoog: true)).IsGeboekt);
+
+        // Ineens een ander adres: ter controle.
+        var verhuisd = await Lees("BN-7", 10, hoog: true, postcode: "9999 ZZ");
+        Assert.Contains("Ander adres dan bij de eerdere facturen (postcode 9999 ZZ).", verhuisd.Melding, StringComparison.Ordinal);
+
+        var posten = await grootboek.Posten(wie, id, "INK");
+        Assert.Equal(6, posten.Count);
+        Assert.Contains(posten, p => p.Post.Omschrijving == "Telefoon juni 2026 (BN-3)");
     }
 
     [Fact]
@@ -233,5 +295,52 @@ public sealed class DocumentEndpointTests(AdministratieFixture app) : IClassFixt
         var geweigerd = await vreemd.GetAsync(pad);
 
         Assert.Equal(System.Net.HttpStatusCode.NotFound, geweigerd.StatusCode);
+    }
+
+    [Fact]
+    public async Task Viewer_in_een_apart_venster_en_tekst_uit_een_gebied_alleen_voor_leden()
+    {
+        var beheerder = await app.Beheerder();
+        var id = await app.Administratie();
+        var inkoop = app.Dienst<InkoopDienst>();
+        var gelezen = await inkoop.Lees(beheerder, id, new MemoryStream(Pdf()), "abonnement.pdf", "application/pdf");
+        var document = gelezen.DocumentId!.Value;
+
+        Assert.Equal(["Zakelijk abonnement oktober"], await inkoop.TekstInGebied(beheerder, id, document, 1, 35, 690, 300, 705));
+        Assert.Empty(await inkoop.TekstInGebied(beheerder, id, document, 7, 0, 0, 10, 10));
+        var buiten = await app.Gebruiker("Bram Buiten");
+        await Assert.ThrowsAsync<GeenToegangException>(() => inkoop.TekstInGebied(buiten, id, document, 1, 35, 690, 300, 705));
+
+        var opties = new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true };
+        var pad = new Uri($"/a/{id}/inkoop/{document}/document", UriKind.Relative);
+        using var lid = app.CreateClient(opties);
+        await Aanmelden.LogInMetCode(lid, "beheer@kantoor.test", AdministratieFixture.Wachtwoord, await app.Tweestap(beheerder), "/");
+        var venster = await lid.GetStringAsync(pad);
+        Assert.Contains($"data-url=\"/a/{id}/documenten/{document}\"", venster, StringComparison.Ordinal);
+        Assert.Contains("factuurviewer-extern", venster, StringComparison.Ordinal);
+        Assert.DoesNotContain("kopbalk", venster, StringComparison.Ordinal);
+
+        using var vreemd = app.CreateClient(opties);
+        await Aanmelden.LogIn(vreemd, await app.Email(buiten), AdministratieFixture.Wachtwoord, "/");
+        var geweigerd = await vreemd.GetStringAsync(pad);
+        Assert.Contains("geen toegang", geweigerd, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-url", geweigerd, StringComparison.Ordinal);
+
+        // pdf.js en zijn lettertypen zijn gewone statische bestanden, ook in de juiste soort.
+        using var anoniem = app.CreateClient(opties);
+        Assert.Equal("text/javascript", (await anoniem.GetAsync(new Uri("/lib/pdfjs/pdf.worker.min.mjs", UriKind.Relative))).Content.Headers.ContentType?.MediaType);
+        Assert.Equal("application/x-font-type1", (await anoniem.GetAsync(new Uri("/lib/pdfjs/standard_fonts/FoxitSerif.pfb", UriKind.Relative))).Content.Headers.ContentType?.MediaType);
+    }
+
+    private static byte[] Pdf()
+    {
+        var builder = new UglyToad.PdfPig.Writer.PdfDocumentBuilder();
+        var pagina = builder.AddPage(UglyToad.PdfPig.Content.PageSize.A4);
+        var font = builder.AddStandard14Font(UglyToad.PdfPig.Fonts.Standard14Fonts.Standard14Font.Helvetica);
+        pagina.AddText("Belnet B.V.", 10, new UglyToad.PdfPig.Core.PdfPoint(40, 800), font);
+        pagina.AddText("Factuurnummer: BN-77", 10, new UglyToad.PdfPig.Core.PdfPoint(40, 750), font);
+        pagina.AddText("Zakelijk abonnement oktober", 10, new UglyToad.PdfPig.Core.PdfPoint(40, 695), font);
+        pagina.AddText("Totaal EUR 24,99", 10, new UglyToad.PdfPig.Core.PdfPoint(40, 650), font);
+        return builder.Build();
     }
 }

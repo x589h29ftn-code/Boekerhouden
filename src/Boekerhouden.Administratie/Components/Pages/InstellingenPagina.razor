@@ -21,6 +21,7 @@
                 <div class="col-12"><label class="form-label" for="ibans">Eigen bankrekeningen (IBAN's, gescheiden door komma's)</label><input id="ibans" class="form-control" @bind="invoer.Ibans" /></div>
                 <div class="col-md-6"><label class="form-label" for="termijn">Betalingstermijn (dagen)</label><input id="termijn" type="number" min="0" max="365" class="form-control" @bind="invoer.Betalingstermijn" /></div>
                 <div class="col-md-6"><label class="form-label" for="limiet">Limiet automatisch boeken</label><input id="limiet" class="form-control" @bind="invoer.Limiet" placeholder="geen limiet" /></div>
+                <div class="col-md-6"><label class="form-label" for="drempel">Automatisch boeken na … gelijke keuzes</label><input id="drempel" type="number" min="1" max="10" class="form-control" @bind="invoer.Drempel" /></div>
             </div>
             <div><button class="btn btn-primary" @onclick="Bewaar">Opslaan</button></div>
         </div>
@@ -53,6 +54,7 @@
             Ibans = string.Join(", ", i.Ibans),
             Betalingstermijn = i.Betalingstermijn,
             Limiet = i.LimietAutomatisch is { } l ? Bedragen.Getal(l) : null,
+            Drempel = i.DrempelAutomatisch,
         };
     }
 
@@ -71,7 +73,7 @@
         }
 
         var uitkomst = await Inrichting.WijzigInstellingen(geopend!.Wie, Id, new Instellingen(invoer.Naam, invoer.KvkNummer, invoer.BtwNummer,
-            [.. invoer.Ibans.Split(',', ';')], invoer.Betalingstermijn, limiet));
+            [.. invoer.Ibans.Split(',', ';')], invoer.Betalingstermijn, limiet, invoer.Drempel));
         fouten = uitkomst.Fouten;
         bericht = uitkomst.IsGelukt ? "Opgeslagen." : null;
     }
@@ -89,5 +91,7 @@
         public int Betalingstermijn { get; set; }
 
         public string? Limiet { get; set; }
+
+        public int Drempel { get; set; } = 2;
     }
 }

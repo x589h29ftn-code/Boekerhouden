@@ -1,5 +1,6 @@
 using Boekerhouden.Administratie.Data;
 using Boekerhouden.Boekhouding.Btw;
+using Boekerhouden.Boekhouding.Facturen;
 using Boekerhouden.Boekhouding.Regels;
 using Boekerhouden.Boekhouding.Relaties;
 using Microsoft.AspNetCore.Identity;
@@ -13,7 +14,15 @@ public sealed record RelatieRegel(Guid Id, string Code, string Naam, IReadOnlyLi
 
 public sealed record RegelRegel(Guid Id, int Volgorde, Verwerkingsregel Regel);
 
-public sealed record Instellingen(string Naam, string? KvkNummer, string? BtwNummer, IReadOnlyList<string> Ibans, int Betalingstermijn, decimal? LimietAutomatisch);
+/// <param name="DrempelAutomatisch">Na hoeveel gelijke bevestigingen op rij een leverancier automatisch wordt verwerkt.</param>
+public sealed record Instellingen(
+    string Naam,
+    string? KvkNummer,
+    string? BtwNummer,
+    IReadOnlyList<string> Ibans,
+    int Betalingstermijn,
+    decimal? LimietAutomatisch,
+    int DrempelAutomatisch = 2);
 
 /// <summary>
 /// De inrichting van een administratie: relaties (leveranciers en klanten), regels voor automatisch verwerken en de
@@ -156,6 +165,11 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
             fouten.Add("Het IBAN van de tegenrekening is niet geldig.");
         }
 
+        if (Omschrijvingssjabloon.Onbekend(regel.Omschrijving) is { Count: > 0 } onbekend)
+        {
+            fouten.Add($"Onbekende variabele in de omschrijving: {string.Join(", ", onbekend.Select(o => "#" + o))}.");
+        }
+
         if (fouten.Count > 0)
         {
             return Uitkomst.Mislukt([.. fouten]);
@@ -179,6 +193,7 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
             OmschrijvingBevat = Leeg(regel.OmschrijvingBevat),
             TegenIban = regel.TegenIban is null ? null : Iban.Normaliseer(regel.TegenIban),
             Richting = regel.Richting,
+            Omschrijving = Leeg(regel.Omschrijving),
         });
         await db.SaveChangesAsync();
         await audit.Log(wie, AuditActies.RegelToegevoegd, regel.Naam, $"→ {regel.Rekeningnummer} {regel.BtwCode}{(regel.Automatisch ? ", automatisch" : null)}", administratie);
@@ -221,7 +236,7 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
         var a = await db.Administraties.AsNoTracking().SingleAsync(x => x.Id == administratie);
-        return new Instellingen(a.Naam, a.KvkNummer, a.BtwNummer, a.Ibans, a.Betalingstermijn, a.LimietAutomatisch);
+        return new Instellingen(a.Naam, a.KvkNummer, a.BtwNummer, a.Ibans, a.Betalingstermijn, a.LimietAutomatisch, a.DrempelAutomatisch);
     }
 
     public async Task<Uitkomst> WijzigInstellingen(Uitvoerder wie, Guid administratie, Instellingen invoer)
@@ -256,6 +271,11 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
             fouten.Add("De limiet kan niet negatief zijn.");
         }
 
+        if (invoer.DrempelAutomatisch is < 1 or > 10)
+        {
+            fouten.Add("Automatisch verwerken na 1 tot 10 gelijke keuzes.");
+        }
+
         if (fouten.Count > 0)
         {
             return Uitkomst.Mislukt([.. fouten]);
@@ -263,13 +283,14 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
 
         var a = await db.Administraties.SingleAsync(x => x.Id == administratie);
         var details = $"limiet {a.LimietAutomatisch?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) ?? "geen"} → {invoer.LimietAutomatisch?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) ?? "geen"}; " +
-                      $"IBAN's [{string.Join(", ", a.Ibans)}] → [{string.Join(", ", ibans)}]";
+                      $"IBAN's [{string.Join(", ", a.Ibans)}] → [{string.Join(", ", ibans)}]; drempel {a.DrempelAutomatisch} → {invoer.DrempelAutomatisch}";
         a.Naam = invoer.Naam.Trim();
         a.KvkNummer = Leeg(invoer.KvkNummer);
         a.BtwNummer = string.IsNullOrWhiteSpace(invoer.BtwNummer) ? null : BtwNummer.Normaliseer(invoer.BtwNummer);
         a.Ibans = ibans;
         a.Betalingstermijn = invoer.Betalingstermijn;
         a.LimietAutomatisch = invoer.LimietAutomatisch;
+        a.DrempelAutomatisch = invoer.DrempelAutomatisch;
         await db.SaveChangesAsync();
         await audit.Log(wie, AuditActies.InstellingenGewijzigd, a.Naam, details, administratie);
         return Uitkomst.Gelukt;

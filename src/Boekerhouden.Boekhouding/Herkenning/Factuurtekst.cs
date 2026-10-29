@@ -62,7 +62,8 @@ public static partial class Factuurtekst
             Btw: btw,
             Betalingskenmerk: Kenmerk().Match(tekst) is { Success: true } kenmerk ? string.Concat(kenmerk.Groups[1].Value.Where(char.IsAsciiDigit)) : null,
             Omschrijving: Omschrijving(regels),
-            OpEigenNaam: eigenNamen?.ToList() is { Count: > 0 } namen ? regels.Any(r => namen.Any(n => Namen.LijktOp(n, r))) : null);
+            OpEigenNaam: eigenNamen?.ToList() is { Count: > 0 } namen ? regels.Any(r => namen.Any(n => Namen.LijktOp(n, r))) : null,
+            Postcodes: Postcode.Zoek(tekst));
     }
 
     /// <summary>

@@ -106,10 +106,19 @@ samenstelpakket.
    1. **Regels van de gebruiker** (§3.6), bijvoorbeeld: *KPN, totaal tussen € 10 en € 30 → telefoonkosten, 21%,
       automatisch*;
    2. **Geleerd** (AD6): de eerste keer kiest de gebruiker. De tweede keer volgt een voorstel. Is de
-      keuze twee keer achter elkaar hetzelfde geweest, dan verwerkt het pakket de derde factuur zelf.
-      Wijkt de gebruiker af, dan begint de telling opnieuw. Staat er op de factuur een ander btw-tarief dan
-      bij de geleerde keuze (9% in plaats van 21%), dan past het voorstel de btw-code aan en verwerkt het
-      pakket de factuur niet zelf;
+      keuze twee keer achter elkaar bevestigd (de drempel, per administratie in te stellen van 1 tot 10), dan
+      verwerkt het pakket de derde factuur zelf. Bij elke bevestiging onthoudt het pakket ook het bedrag, het IBAN
+      en de postcodes op de factuur. Zelf verwerken gebeurt alleen als de nieuwe factuur in dat patroon past:
+      - een bedrag tot **1,25 keer** het hoogste bevestigde bedrag (bevestigd 30 en 45 → automatisch tot 56,25);
+      - **hetzelfde IBAN**;
+      - **geen nieuwe postcode** (een ander adres van de leverancier).
+
+      Past de factuur niet, dan komt die ter controle in Te verwerken, met de reden. Na de bevestiging begint de
+      telling opnieuw: pas na weer twee bevestigingen verwerkt het pakket zelf (bij het derde exemplaar). Zolang
+      de drempel nog niet is gehaald, telt elk bedrag mee. Wijkt de gebruiker af in rekening of btw-code, dan
+      begint de telling ook opnieuw. Staat er op de factuur een ander btw-tarief dan bij de geleerde keuze (9% in
+      plaats van 21%), dan past het voorstel de btw-code aan en verwerkt het pakket de factuur niet zelf. Het
+      pakket onthoudt ook de vorm van de omschrijving als die variabelen bevat (zie hieronder);
    3. **Niets**: de gebruiker kiest.
 5. **Automatisch verwerken** gebeurt alleen als ook alles klopt: leverancier herkend,
    factuurnummer en datum gevonden, totalen sluitend, niet eerder geboekt (zelfde leverancier en
@@ -117,6 +126,14 @@ samenstelpakket.
    de reden erbij.
 6. **Boeken**: kosten (excl.) debet, voorbelasting debet en crediteuren credit, plus een openstaande post. Het
    document hoort bij de journaalpost en blijft altijd op te vragen.
+7. **Omschrijving met variabelen** (`Omschrijvingssjabloon`): `#factuurnummer`, `#omschrijving`, `#leverancier`,
+   `#datum`, `#vervaldatum`, `#maand`, `#kwartaal`, `#jaar` en `#kenmerk`. *Telefoon #maand #jaar
+   (#factuurnummer)* wordt bij het boeken *Telefoon oktober 2026 (2026-0412)*. Een regel kan zo'n omschrijving
+   hebben, en het leergeheugen onthoudt de laatst gebruikte.
+8. **Bedragen controleren** (`Bedragcontrole`, naast de controle van de factuur zelf): de btw per regel bij het
+   tarief (100,00 en 21% is 21,00; een cent per factuurregel mag door afronden), en de boeking samen tegen het
+   totaal en de btw van de factuur (100,00 + 21,00 = 121,00). Bij een verschil toont het scherm de reden en heet
+   de knop *Toch boeken*; zelf verwerken doet het pakket dan nooit.
 
 ### 3.5 Verkoopfacturen
 
@@ -290,10 +307,11 @@ overzichten.
 |---|---|
 | Inlezen | `/a/{id}/inkoop`: PDF's en UBL-bestanden slepen of kiezen. Eerst de virusscan (ClamAV via `Virusscan:Adres`; zonder scanner buiten Development *fail closed*), dan herkennen; een besmet bestand gaat in quarantaine. Het bestand wordt op SHA-256 bewaard; hetzelfde bestand nog eens inlezen geeft een melding |
 | Voorstel | `InkoopDienst` maakt het voorstel met `Inkoopverwerker`: regel > geleerd > relatie, met de signalen (afwijkend IBAN, afwijkend bedrag, dubbel, onbekende leverancier, niet op eigen naam, boven de limiet). Zonder signaal en met een automatisch advies boekt het pakket zelf (`AutomatischGeboekt` in het log) |
-| Te verwerken | `/a/{id}/inkoop/{document}`: factuur naast de gegevens, rekening en btw-code per regel kiezen, nieuwe leverancier bevestigen; elke keuze gaat in het leergeheugen |
+| Te verwerken | `/a/{id}/inkoop/{document}`: de factuur in de viewer naast de gegevens, rekening en btw-code per regel kiezen, nieuwe leverancier bevestigen, live bedragcontrole; elke keuze gaat in het leergeheugen |
+| Viewer | pdf.js (lokaal in `wwwroot/lib/pdfjs`, Apache-2.0) tekent de PDF; `wwwroot/factuurviewer.js`. Klik een veld aan en sleep een gebied op de factuur (of klik op een woord): de server haalt de tekst uit dat gebied met PdfPig (`PdfTekst.InGebied`, `InkoopDienst.TekstInGebied`) en zet die in het veld; een bedrag of datum wordt eruit gelezen. *Extern* opent de viewer in een eigen venster (`/a/{id}/inkoop/{document}/document`) voor een tweede beeldscherm; dat venster stuurt het gebied via een `BroadcastChannel` naar het verwerkscherm |
 | Relaties | `/a/{id}/relaties`: toevoegen en de standaardrekening; het IBAN wijzigen vraagt het wachtwoord en logt oud en nieuw (`InrichtingDienst.ZetIbans`) |
 | Regels | `/a/{id}/regels`: automatiseringsregels toevoegen, volgorde en verwijderen; alleen het kantoor (recht Boekhouden) |
-| Instellingen | `/a/{id}/instellingen` (kantoor): naam, KvK, btw-nummer, eigen IBAN's, betalingstermijn en de limiet voor automatisch boeken (leeg = geen limiet, B2) |
+| Instellingen | `/a/{id}/instellingen` (kantoor): naam, KvK, btw-nummer, eigen IBAN's, betalingstermijn, de limiet voor automatisch boeken (leeg = geen limiet, B2) en de drempel (na hoeveel gelijke keuzes) |
 
 Nog niet gebouwd: bank en verkoop in de app (A8–A9), OCR, btw-aangifte en periodes, het RGS-werkboek in de
 administratie (nu de RGS-code als tekst bij een nieuwe rekening), en de hulppagina.
@@ -302,8 +320,9 @@ administratie (nu de RGS-code als tekst bij een nieuwe rekening), en de hulppagi
 
 1. **Btw-tarieven en -rubrieken** zijn opgenomen zoals in 2026 (21%, 9%, 0%). Controleer de rubrieken van het
    aangifteformulier bij plakje A10.
-2. **Drempel voor automatisch verwerken**: nu twee gelijke keuzes op rij. Per administratie instelbaar maken?
-   (De bedraglimiet is besloten: standaard geen, wel instelbaar, B2.)
+2. **Drempel voor automatisch verwerken**: standaard twee bevestigingen (de derde factuur gaat vanzelf), per
+   administratie in te stellen. Is drie bevestigingen (de vierde gaat vanzelf) een betere standaard? Ook de
+   bandbreedte (1,25 keer het hoogste bedrag) kan per administratie instelbaar worden.
 3. **Directe bankkoppeling**: welke aanbieder (kosten per rekening per maand), en wanneer?
 4. **Hosting voor ondernemers** (AD2): VPS in Nederland, tweestapsverificatie verplicht, back-up buiten de
    server. Een besluit is nodig vóór "later".

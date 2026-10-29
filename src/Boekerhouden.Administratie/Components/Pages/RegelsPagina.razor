@@ -23,7 +23,7 @@
                         <tr class="regel-met-acties">
                             <td>@r.Regel.Naam</td>
                             <td class="small text-secondary">@Voorwaarden(r.Regel)</td>
-                            <td class="small">@r.Regel.Rekeningnummer @r.Regel.BtwCode @(r.Regel.Automatisch ? "· automatisch" : null)</td>
+                            <td class="small" title="@r.Regel.Omschrijving">@r.Regel.Rekeningnummer @r.Regel.BtwCode @(r.Regel.Automatisch ? "· automatisch" : null)</td>
                             <td class="text-end text-nowrap">
                                 @if (context.Mag(Recht.Boekhouden))
                                 {
@@ -72,6 +72,9 @@
                         </select>
                     </div>
                 </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-md-8"><label class="form-label" for="boekomschr">Omschrijving boeking</label><input id="boekomschr" class="form-control" @bind="invoer.Omschrijving" placeholder="bijv. Telefoon #maand #jaar" /></div>
+                </div>
                 <datalist id="rekeningen">
                     @foreach (var r in rekeningen)
                     {
@@ -116,7 +119,7 @@
         }
 
         var regel = new Verwerkingsregel(invoer.Naam, invoer.Rekening.Trim(), string.IsNullOrEmpty(invoer.BtwCode) ? null : invoer.BtwCode, invoer.Automatisch,
-            invoer.Soort, null, Leeg(invoer.NaamBevat), van, tot, Leeg(invoer.OmschrijvingBevat), Leeg(invoer.Iban));
+            invoer.Soort, null, Leeg(invoer.NaamBevat), van, tot, Leeg(invoer.OmschrijvingBevat), Leeg(invoer.Iban), Omschrijving: Leeg(invoer.Omschrijving));
         var uitkomst = await Inrichting.VoegRegelToe(geopend!.Wie, Id, regel);
         fouten = uitkomst.Fouten;
         if (uitkomst.IsGelukt)
@@ -209,5 +212,7 @@
         public string? BtwCode { get; set; } = "I21";
 
         public bool Automatisch { get; set; }
+
+        public string? Omschrijving { get; set; }
     }
 }

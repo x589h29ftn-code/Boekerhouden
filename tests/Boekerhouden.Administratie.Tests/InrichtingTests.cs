@@ -109,6 +109,28 @@ public sealed class InrichtingTests(AdministratieFixture app) : IClassFixture<Ad
     }
 
     [Fact]
+    public async Task Drempel_instellen_en_regel_met_omschrijving_vol_variabelen()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var dienst = app.Dienst<InrichtingDienst>();
+        var huidig = await dienst.Instellingen(wie, id);
+        Assert.Equal(2, huidig.DrempelAutomatisch);
+
+        Assert.Equal(["Automatisch verwerken na 1 tot 10 gelijke keuzes."], (await dienst.WijzigInstellingen(wie, id, huidig with { DrempelAutomatisch = 0 })).Fouten);
+        Assert.True((await dienst.WijzigInstellingen(wie, id, huidig with { DrempelAutomatisch = 3 })).IsGelukt);
+        Assert.Equal(3, (await dienst.Instellingen(wie, id)).DrempelAutomatisch);
+
+        Assert.Equal(["Onbekende variabele in de omschrijving: #maandd."], (await dienst.VoegRegelToe(wie, id, Telefoon with { Omschrijving = "Telefoon #maandd" })).Fouten);
+        await dienst.VoegRelatieToe(wie, id, new("Belnet B.V.", "NL123456782B01", null, "4310"), "NL63TRIO0212345678");
+        await dienst.VoegRegelToe(wie, id, Telefoon with { Omschrijving = "Telefoon #maand #jaar (#factuurnummer)" });
+        var gelezen = await app.Dienst<InkoopDienst>().Lees(wie, id, new MemoryStream(InkoopTests.Belnet()), "belnet.xml", null);
+
+        Assert.True(gelezen.IsGeboekt, gelezen.Melding);
+        Assert.Equal("Telefoon april 2026 (BN-2026-0411)", (await app.Dienst<GrootboekDienst>().Posten(wie, id, "INK")).Single().Post.Omschrijving);
+    }
+
+    [Fact]
     public async Task Buitenstaander_ziet_en_wijzigt_niets()
     {
         await app.Beheerder();

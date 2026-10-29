@@ -1,0 +1,2 @@
+pdf.js 5.4.624 (pdfjs-dist, Mozilla), Apache-2.0: zie LICENSE.
+Alleen build/pdf.min.mjs, build/pdf.worker.min.mjs en standard_fonts/ uit het npm-pakket.
