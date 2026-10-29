@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Boekerhouden.Boekhouding\Boekerhouden.Boekhouding.csproj" />
+    <ProjectReference Include="..\Boekerhouden.Documenten\Boekerhouden.Documenten.csproj" />
     <ProjectReference Include="..\Boekerhouden.Huisstijl\Boekerhouden.Huisstijl.csproj" />
   </ItemGroup>
 

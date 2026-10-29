@@ -3,6 +3,7 @@ using Boekerhouden.Administratie.Diensten;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
@@ -13,7 +14,7 @@ namespace Boekerhouden.Administratie.Tests;
 /// Start het administratiepakket tegen een eigen, lege PostgreSQL-database die na afloop wordt verwijderd.
 /// De server staat in de omgevingsvariabele BOEKERHOUDEN_TEST_DB (standaard: de lokale ontwikkeldatabase-rol).
 /// </summary>
-public sealed class AdministratieFixture : WebApplicationFactory<Program>, IAsyncLifetime
+public class AdministratieFixture : WebApplicationFactory<Program>, IAsyncLifetime
 {
     public const string Wachtwoord = "Groene-Appel-Boom-42";
     private const string StandaardServer = "Host=localhost;Username=boekerhouden;Password=boekerhouden-dev";
@@ -52,6 +53,12 @@ public sealed class AdministratieFixture : WebApplicationFactory<Program>, IAsyn
         ArgumentNullException.ThrowIfNull(builder);
         builder.UseEnvironment("Development");
         builder.UseSetting($"ConnectionStrings:{Opstart.Verbindingsnaam}", Verbinding);
+        builder.ConfigureTestServices(Diensten);
+    }
+
+    /// <summary>Extra of andere diensten voor een afgeleide fixture (bijv. een nagebootste virusscanner).</summary>
+    protected virtual void Diensten(IServiceCollection diensten)
+    {
     }
 
     /// <summary>Maakt (eenmalig) de eerste beheerder aan (ook kantoor) en geeft die als uitvoerder terug.</summary>

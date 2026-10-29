@@ -54,12 +54,17 @@ public sealed class Leergeheugen
 
     public void Onthoud(Verwerkingsgegevens gegevens, Keuze keuze)
     {
-        ArgumentNullException.ThrowIfNull(keuze);
-        if (Sleutel(gegevens) is not { } sleutel)
+        if (Sleutel(gegevens) is { } sleutel)
         {
-            return;
+            Onthoud(sleutel, keuze);
         }
+    }
 
+    /// <summary>Een keuze onder een bekende sleutel, bijv. bij het inlezen van eerdere keuzes uit de database.</summary>
+    public void Onthoud(string sleutel, Keuze keuze)
+    {
+        ArgumentNullException.ThrowIfNull(sleutel);
+        ArgumentNullException.ThrowIfNull(keuze);
         if (!keuzes.TryGetValue(sleutel, out var lijst))
         {
             keuzes[sleutel] = lijst = [];

@@ -2,6 +2,7 @@ using Boekerhouden.Administratie.Components;
 using Boekerhouden.Administratie.Data;
 using Boekerhouden.Administratie.Diensten;
 using Boekerhouden.Administratie.Identiteit;
+using Boekerhouden.Documenten;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -96,6 +97,18 @@ public static class Opstart
         services.AddSingleton<AdministratieDienst>();
         services.AddSingleton<GrootboekDienst>();
         services.AddSingleton<BeveiligingDienst>();
+        services.AddSingleton<InkoopDienst>();
+
+        // Virusscan vóór het openen van elk document (besluit B3). Zonder instelling: op de server fail closed, in
+        // ontwikkeling (zonder ClamAV) zonder scan.
+        if (builder.Configuration["Virusscan:Adres"] is { Length: > 0 } adres)
+        {
+            services.AddSingleton<IVirusscanner>(ClamAvScanner.Van(adres));
+        }
+        else if (!builder.Environment.IsDevelopment())
+        {
+            services.AddSingleton<IVirusscanner, OntbrekendeVirusscanner>();
+        }
     }
 
     public static void ConfigureerPijplijn(WebApplication app)
@@ -127,6 +140,32 @@ public static class Opstart
 
             await signIn.SignOutAsync();
             return TypedResults.LocalRedirect("~/inloggen");
+        });
+
+        // Een ingelezen document bekijken: alleen voor leden, een PDF in de pdf-viewer van de browser (in een sandbox,
+        // zonder scripts), al het andere als download (beveiliging §4.5).
+        app.MapGet("/a/{administratie:guid}/documenten/{document:guid}", async (Guid administratie, Guid document, HttpContext context, InkoopDienst inkoop) =>
+        {
+            (byte[] Inhoud, string Inhoudstype, string Bestandsnaam)? bestand;
+            try
+            {
+                bestand = await inkoop.Inhoud(context.User.AlsUitvoerder(), administratie, document);
+            }
+            catch (GeenToegangException)
+            {
+                bestand = null;
+            }
+
+            if (bestand is not { } b)
+            {
+                return Results.NotFound("Dit document bestaat niet of je hebt er geen toegang toe.");
+            }
+
+            var pdf = b.Inhoud.AsSpan(0, Math.Min(b.Inhoud.Length, 1024)).IndexOf("%PDF-"u8) >= 0;
+            context.Response.Headers.ContentSecurityPolicy = "sandbox; default-src 'none'; object-src 'self'; style-src 'unsafe-inline'";
+            return pdf
+                ? Results.File(b.Inhoud, "application/pdf", enableRangeProcessing: true)
+                : Results.File(b.Inhoud, "application/octet-stream", b.Bestandsnaam);
         });
 
         // Passkeys: de opties voor de browser (navigator.credentials.create/get). De uitdaging staat in een cookie;

@@ -17,6 +17,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="..\Fictief\administratie\**" LinkBase="Fictief\administratie" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Boekerhouden.Administratie\Boekerhouden.Administratie.csproj" />
   </ItemGroup>
 

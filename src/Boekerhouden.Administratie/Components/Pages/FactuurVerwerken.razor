@@ -1,0 +1,260 @@
+@page "/a/{Id:guid}/inkoop/{DocumentId:guid}"
+@using Boekerhouden.Boekhouding.Btw
+@using Boekerhouden.Boekhouding.Facturen
+@using Boekerhouden.Boekhouding.Herkenning
+@inject InkoopDienst Inkoop
+@inject NavigationManager Navigatie
+
+<AdministratieKader Id="Id" Titel="Factuur verwerken" Actief="/inkoop" BijOpenen="Open">
+    <Acties>
+        <a class="btn btn-sm btn-outline-secondary" href="/a/@Id/documenten/@DocumentId" target="_blank" rel="noopener">Document bekijken</a>
+    </Acties>
+    <ChildContent>
+        @if (verwerking is null)
+        {
+            <div class="alert alert-warning">Dit document bestaat niet (meer). <a href="/a/@Id/inkoop">Naar inkoop</a></div>
+        }
+        else if (verwerking.Document.Status != Documentstatus.TeVerwerken)
+        {
+            <div class="bericht">Dit document is @(verwerking.Document.Status == Documentstatus.Geboekt ? "geboekt" : "in quarantaine"). <a href="/a/@Id/inkoop">Naar inkoop</a></div>
+        }
+        else
+        {
+            <Foutmeldingen Fouten="fouten" />
+            @if (verwerking.Voorstel is { } v)
+            {
+                <div class="mb-3 small">
+                    <span class="text-secondary">@v.Advies.Reden</span>
+                    @foreach (var b in v.Belemmeringen)
+                    {
+                        <div class="status let-op mt-1">@b</div>
+                    }
+                </div>
+            }
+            else if (verwerking.Document.Melding is { } melding)
+            {
+                <div class="status let-op mb-3">@melding</div>
+            }
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="leverancier">Leverancier</label>
+                            <select id="leverancier" class="form-select" @bind="leverancier">
+                                <option value="@Nieuw">Nieuwe leverancier…</option>
+                                @foreach (var r in verwerking.Relaties)
+                                {
+                                    <option value="@r.Code">@r.Naam</option>
+                                }
+                            </select>
+                        </div>
+                        @if (leverancier == Nieuw)
+                        {
+                            <div class="col-md-6">
+                                <label class="form-label" for="naam">Naam</label>
+                                <input id="naam" class="form-control" @bind="nieuw.Naam" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="iban">IBAN</label>
+                                <input id="iban" class="form-control" @bind="nieuw.Iban" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="btwnr">Btw-nummer</label>
+                                <input id="btwnr" class="form-control" @bind="nieuw.BtwNummer" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="kvk">KvK-nummer</label>
+                                <input id="kvk" class="form-control" @bind="nieuw.KvkNummer" />
+                            </div>
+                        }
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-3">
+                            <label class="form-label" for="nummer">Factuurnummer</label>
+                            <input id="nummer" class="form-control" @bind="factuurnummer" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="datum">Factuurdatum</label>
+                            <input id="datum" type="date" class="form-control" @bind="datum" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="verval">Vervaldatum</label>
+                            <input id="verval" type="date" class="form-control" @bind="vervaldatum" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="kenmerk">Betalingskenmerk</label>
+                            <input id="kenmerk" class="form-control" @bind="kenmerk" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="omschrijving">Omschrijving</label>
+                            <input id="omschrijving" class="form-control" @bind="omschrijving" />
+                        </div>
+                    </div>
+
+                    <datalist id="rekeningen">
+                        @foreach (var r in verwerking.Schema.Alle)
+                        {
+                            <option value="@r.Nummer">@r.Naam</option>
+                        }
+                    </datalist>
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr><th style="width:9rem">Rekening</th><th></th><th style="width:12rem">Btw</th><th class="text-end" style="width:9rem">Excl. btw</th><th class="text-end" style="width:8rem">Btw</th><th style="width:2rem"></th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var regel in regels)
+                            {
+                                <tr>
+                                    <td><input class="form-control form-control-sm" list="rekeningen" @bind="regel.Rekening" @bind:event="oninput" aria-label="Rekening" /></td>
+                                    <td class="small text-secondary text-nowrap">@verwerking.Schema.Zoek(regel.Rekening)?.Naam</td>
+                                    <td>
+                                        <select class="form-select form-select-sm" @bind="regel.BtwCode" aria-label="Btw-code">
+                                            @foreach (var c in verwerking.BtwCodes.Where(c => c.Richting == BtwRichting.Inkoop))
+                                            {
+                                                <option value="@c.Code">@c.Omschrijving</option>
+                                            }
+                                        </select>
+                                    </td>
+                                    <td><input class="form-control form-control-sm text-end" @bind="regel.Bedrag" @bind:event="oninput" aria-label="Bedrag exclusief btw" /></td>
+                                    <td><input class="form-control form-control-sm text-end" @bind="regel.Btw" @bind:event="oninput" placeholder="@BerekendeBtw(regel)" aria-label="Btw" /></td>
+                                    <td><button class="btn btn-sm btn-link text-secondary p-0" title="Regel verwijderen" @onclick="() => regels.Remove(regel)" disabled="@(regels.Count <= 1)">×</button></td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="3"><button class="btn btn-sm btn-outline-secondary" @onclick="() => regels.Add(new() { BtwCode = regels[^1].BtwCode })">Regel toevoegen</button></td>
+                                <td colspan="2" class="text-end small">
+                                    Totaal <span class="bedrag fw-semibold">@(Totaal is { } t ? Bedragen.Getal(t) : "–")</span>
+                                    @if (verwerking.Herkend?.TotaalInclusief is { } herkend && Totaal is { } totaal && totaal != herkend)
+                                    {
+                                        <span class="status let-op ms-2">factuur: @Bedragen.Getal(herkend)</span>
+                                    }
+                                </td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    <button class="btn btn-primary" @onclick="Boek" disabled="@bezig">Boeken</button>
+                </div>
+            </div>
+        }
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private const string Nieuw = "";
+
+    private Geopend? geopend;
+    private Verwerking? verwerking;
+    private string leverancier = Nieuw;
+    private NieuweLeverancier nieuw = new();
+    private string factuurnummer = "";
+    private DateOnly datum;
+    private DateOnly vervaldatum;
+    private string omschrijving = "";
+    private string? kenmerk;
+    private List<Invoerregel> regels = [];
+    private bool bezig;
+    private IReadOnlyList<string>? fouten;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [Parameter]
+    public Guid DocumentId { get; set; }
+
+    private decimal? Totaal => regels.All(r => Getal(r.Bedrag) is not null)
+        ? regels.Sum(r => Getal(r.Bedrag)!.Value + BtwOpFactuur(r))
+        : null;
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        verwerking = await Inkoop.Verwerking(g.Wie, Id, DocumentId);
+        if (verwerking is null)
+        {
+            return;
+        }
+
+        var herkend = verwerking.Herkend;
+        var voorstel = verwerking.Voorstel;
+        leverancier = voorstel?.Leverancier?.Relatie.Code ?? Nieuw;
+        nieuw = new NieuweLeverancier { Naam = herkend?.Naam ?? "", Iban = herkend?.Iban, BtwNummer = herkend?.BtwNummer, KvkNummer = herkend?.KvkNummer };
+        factuurnummer = herkend?.Factuurnummer ?? "";
+        datum = herkend?.Factuurdatum ?? DateOnly.FromDateTime(DateTime.Today);
+        vervaldatum = voorstel?.Factuur?.Vervaldatum ?? herkend?.Vervaldatum ?? datum.AddDays(30);
+        omschrijving = herkend?.Omschrijving ?? "";
+        kenmerk = herkend?.Betalingskenmerk;
+        var rekening = voorstel?.Advies.Rekeningnummer ?? "";
+        regels = voorstel?.Factuur is { } f
+            ? [.. f.Regels.Select(r => new Invoerregel { Rekening = r.Rekeningnummer, BtwCode = r.BtwCode, Bedrag = Bedragen.Getal(r.Bedrag), Btw = r.Btw is { } b ? Bedragen.Getal(b) : null })]
+            : herkend?.Btwregels is { Count: > 0 } btw
+                ? [.. btw.Select(b => new Invoerregel { Rekening = rekening, BtwCode = BtwCodes.Bij(verwerking.BtwCodes, BtwRichting.Inkoop, b.Percentage)?.Code ?? "I21", Bedrag = b.Grondslag is { } g2 ? Bedragen.Getal(g2) : null, Btw = Bedragen.Getal(b.Btw) })]
+                : [new Invoerregel { Rekening = rekening, BtwCode = voorstel?.Advies.BtwCode ?? "I21", Bedrag = herkend?.TotaalExclusief is { } e ? Bedragen.Getal(e) : null }];
+    }
+
+    private async Task Boek()
+    {
+        var ongeldig = regels.Select((r, i) => (r, i)).Where(x => Getal(x.r.Bedrag) is null || (x.r.Btw is { Length: > 0 } && Getal(x.r.Btw) is null)).Select(x => $"Regel {x.i + 1}: het bedrag is niet te lezen.").ToList();
+        if (ongeldig.Count > 0)
+        {
+            fouten = ongeldig;
+            return;
+        }
+
+        var invoer = new Factuurinvoer(
+            leverancier == Nieuw ? null : leverancier,
+            leverancier == Nieuw ? new NieuweRelatie(nieuw.Naam, nieuw.Iban, nieuw.BtwNummer, nieuw.KvkNummer) : null,
+            factuurnummer, datum, vervaldatum, omschrijving,
+            [.. regels.Select(r => new Factuurregel(omschrijving, r.Rekening.Trim(), r.BtwCode, Getal(r.Bedrag)!.Value, Getal(r.Btw)))],
+            kenmerk);
+        bezig = true;
+        var uitkomst = await Inkoop.Boek(geopend!.Wie, Id, DocumentId, invoer);
+        bezig = false;
+        if (!uitkomst.IsGelukt)
+        {
+            fouten = uitkomst.Fouten;
+            return;
+        }
+
+        // Door naar het volgende document in Te verwerken, of terug naar de lijst.
+        var volgende = (await Inkoop.Lijst(geopend.Wie, Id, Documentstatus.TeVerwerken)).FirstOrDefault();
+        Navigatie.NavigateTo(volgende is null ? $"/a/{Id}/inkoop" : $"/a/{Id}/inkoop/{volgende.Id}");
+    }
+
+    private decimal BtwOpFactuur(Invoerregel regel)
+    {
+        var code = BtwCodes.Zoek(verwerking!.BtwCodes, regel.BtwCode);
+        return code is null || !code.BtwOpFactuur ? 0 : Getal(regel.Btw) ?? code.Bereken(Getal(regel.Bedrag) ?? 0);
+    }
+
+    private string? BerekendeBtw(Invoerregel regel) =>
+        BtwCodes.Zoek(verwerking!.BtwCodes, regel.BtwCode) is { } code && Getal(regel.Bedrag) is { } bedrag ? Bedragen.Getal(code.Bereken(bedrag)) : null;
+
+    private static decimal? Getal(string? tekst) =>
+        string.IsNullOrWhiteSpace(tekst) ? null : BedragParser.TryParse(tekst, out var b) ? b : null;
+
+    private sealed class NieuweLeverancier
+    {
+        public string Naam { get; set; } = "";
+
+        public string? Iban { get; set; }
+
+        public string? BtwNummer { get; set; }
+
+        public string? KvkNummer { get; set; }
+    }
+
+    private sealed class Invoerregel
+    {
+        public string Rekening { get; set; } = "";
+
+        public string BtwCode { get; set; } = "I21";
+
+        public string? Bedrag { get; set; }
+
+        public string? Btw { get; set; }
+    }
+}

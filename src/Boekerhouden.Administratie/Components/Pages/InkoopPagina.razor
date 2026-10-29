@@ -1,0 +1,125 @@
+@page "/a/{Id:guid}/inkoop"
+@using Boekerhouden.Documenten
+@inject InkoopDienst Inkoop
+
+<AdministratieKader Id="Id" Titel="Inkoop" Actief="/inkoop" BijOpenen="Open">
+    @if (context.Mag(Recht.Invoeren))
+    {
+        <div class="card card-body mb-3 inlezen">
+            <label class="form-label fw-semibold mb-1" for="bestanden">Facturen inlezen</label>
+            <InputFile id="bestanden" class="form-control" multiple accept=".pdf,.xml,application/pdf,application/xml,text/xml" OnChange="LeesIn" disabled="@bezig" />
+            @if (bezig)
+            {
+                <div class="status mt-2">bezig met inlezen…</div>
+            }
+            @foreach (var u in uitkomsten)
+            {
+                <div class="small mt-1 @(u.Status == Documentstatus.Quarantaine || u.DocumentId is null ? "status let-op" : null)">@u.Melding</div>
+            }
+        </div>
+    }
+
+    <h2 class="h6 text-secondary">Te verwerken</h2>
+    @if (teVerwerken is { Count: 0 })
+    {
+        <div class="card card-body text-center text-secondary py-4 mb-4">Niets te verwerken.</div>
+    }
+    else if (teVerwerken is not null)
+    {
+        <div class="card mb-4">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr><th>Leverancier</th><th>Factuur</th><th class="text-end">Totaal</th><th>Waarom</th><th>Ingelezen</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in teVerwerken)
+                    {
+                        <tr>
+                            <td><a href="/a/@Id/inkoop/@d.Id">@(d.Leverancier ?? d.Bestandsnaam)</a></td>
+                            <td>@d.Factuurnummer</td>
+                            <td class="bedrag text-end"><Euro Waarde="d.Totaal" /></td>
+                            <td class="small text-secondary">@d.Melding</td>
+                            <td class="small text-secondary text-nowrap" title="@d.IngelezenDoor">@Weergave.DatumTijd(d.IngelezenOp)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    @if (overig is { Count: > 0 })
+    {
+        <h2 class="h6 text-secondary">Geboekt en quarantaine</h2>
+        <div class="card">
+            <table class="table table-sm align-middle mb-0">
+                <tbody>
+                    @foreach (var d in overig)
+                    {
+                        <tr>
+                            <td>@(d.Leverancier ?? d.Bestandsnaam)</td>
+                            <td>@d.Factuurnummer</td>
+                            <td class="bedrag text-end"><Euro Waarde="d.Totaal" /></td>
+                            <td><span class="status @(d.Status == Documentstatus.Quarantaine ? "let-op" : null)" title="@d.Melding">@(d.Status == Documentstatus.Geboekt ? "geboekt" : "quarantaine")</span></td>
+                            <td class="small text-secondary text-nowrap">@Weergave.DatumTijd(d.IngelezenOp)</td>
+                            <td class="text-end">
+                                @if (d.Status == Documentstatus.Geboekt)
+                                {
+                                    <a class="small" href="/a/@Id/documenten/@d.Id" target="_blank" rel="noopener">document</a>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</AdministratieKader>
+
+@code {
+    private const int MaximumBestanden = 20;
+
+    private Geopend? geopend;
+    private IReadOnlyList<DocumentRegel>? teVerwerken;
+    private IReadOnlyList<DocumentRegel>? overig;
+    private List<Inleesuitkomst> uitkomsten = [];
+    private bool bezig;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        await Laad();
+    }
+
+    private async Task Laad()
+    {
+        var alle = await Inkoop.Lijst(geopend!.Wie, Id);
+        teVerwerken = [.. alle.Where(d => d.Status == Documentstatus.TeVerwerken)];
+        overig = [.. alle.Where(d => d.Status != Documentstatus.TeVerwerken).Take(50)];
+    }
+
+    private async Task LeesIn(InputFileChangeEventArgs e)
+    {
+        bezig = true;
+        uitkomsten = [];
+        foreach (var bestand in e.GetMultipleFiles(MaximumBestanden))
+        {
+            try
+            {
+                await using var stream = bestand.OpenReadStream(PdfTekst.MaximumBytes);
+                uitkomsten.Add(await Inkoop.Lees(geopend!.Wie, Id, stream, bestand.Name, bestand.ContentType));
+            }
+            catch (IOException)
+            {
+                uitkomsten.Add(new Inleesuitkomst(null, null, $"{bestand.Name} is groter dan {PdfTekst.MaximumBytes / 1024 / 1024} MB en is niet ingelezen."));
+            }
+
+            StateHasChanged();
+        }
+
+        bezig = false;
+        await Laad();
+    }
+}

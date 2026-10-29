@@ -53,6 +53,9 @@ public static class AuditActies
     public const string LidToegevoegd = "Lid toegevoegd";
     public const string RekeningToegevoegd = "Grootboekrekening toegevoegd";
     public const string Geboekt = "Geboekt";
+    public const string AutomatischGeboekt = "Automatisch geboekt";
+    public const string DocumentIngelezen = "Document ingelezen";
+    public const string DocumentQuarantaine = "Document in quarantaine";
     public const string TweestapAan = "Tweestapsverificatie aangezet";
     public const string TweestapUit = "Tweestapsverificatie uitgezet";
     public const string HerstelcodesVernieuwd = "Herstelcodes vernieuwd";

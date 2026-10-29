@@ -104,3 +104,13 @@ public sealed class ClamAvScanner(string host = "127.0.0.1", int poort = 3310, T
         return Encoding.UTF8.GetString(antwoord.ToArray());
     }
 }
+
+/// <summary>
+/// Er is geen virusscanner ingesteld: niets wordt als gescand beschouwd, dus ook niets geopend (fail closed). Zo kan
+/// een vergeten instelling op de server nooit betekenen dat bestanden ongezien worden verwerkt.
+/// </summary>
+public sealed class OntbrekendeVirusscanner : IVirusscanner
+{
+    public Task<Scanresultaat> ScanAsync(Stream inhoud, CancellationToken annulering = default) =>
+        Task.FromResult(new Scanresultaat(Scanuitslag.NietGescand, "Er is geen virusscanner ingesteld."));
+}

@@ -53,6 +53,15 @@ public sealed class Administratie
 
     public string? BtwNummer { get; set; }
 
+    /// <summary>De eigen bankrekening(en); staan ook op facturen, maar zijn niet van de leverancier.</summary>
+    public List<string> Ibans { get; set; } = [];
+
+    /// <summary>Betalingstermijn in dagen als de factuur geen vervaldatum noemt.</summary>
+    public int Betalingstermijn { get; set; } = 30;
+
+    /// <summary>Boven dit bedrag (inclusief btw) wordt nooit automatisch geboekt; leeg = geen limiet (besluit B2).</summary>
+    public decimal? LimietAutomatisch { get; set; }
+
     public DateTimeOffset AangemaaktOp { get; set; }
 
     public string AangemaaktDoor { get; set; } = string.Empty;
@@ -187,4 +196,168 @@ public sealed class AuditRegel
     public string? Onderwerp { get; set; }
 
     public string? Details { get; set; }
+}
+
+/// <summary>Een leverancier of klant van de administratie.</summary>
+public sealed class Handelsrelatie : IVanAdministratie
+{
+    public Guid Id { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    public string Code { get; set; } = string.Empty;
+
+    public string Naam { get; set; } = string.Empty;
+
+    public List<string> Ibans { get; set; } = [];
+
+    public string? BtwNummer { get; set; }
+
+    public string? KvkNummer { get; set; }
+
+    /// <summary>De standaard grootboekrekening (bijv. telefoonkosten).</summary>
+    public string? Tegenrekening { get; set; }
+
+    public DateTimeOffset AangemaaktOp { get; set; }
+
+    public Boekhouding.Relaties.Relatie NaarDomein() => new(Code, Naam, [.. Ibans], BtwNummer, KvkNummer, Tegenrekening);
+}
+
+public enum Documentstatus
+{
+    /// <summary>Ingelezen; wacht op de gebruiker (zie de melding waarom).</summary>
+    TeVerwerken,
+
+    Geboekt,
+
+    /// <summary>De virusscan vond iets: niet geopend, niet verwerkt, inhoud niet bewaard.</summary>
+    Quarantaine,
+}
+
+/// <summary>Een ingelezen document (inkoopfactuur, later ook bon of afschrift). De inhoud staat apart.</summary>
+public sealed class Document : IVanAdministratie
+{
+    public Guid Id { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    public string Bestandsnaam { get; set; } = string.Empty;
+
+    public string Inhoudstype { get; set; } = string.Empty;
+
+    public long Grootte { get; set; }
+
+    /// <summary>SHA-256 van de inhoud: hetzelfde bestand twee keer inlezen wordt herkend.</summary>
+    public string Sha256 { get; set; } = string.Empty;
+
+    public Documentstatus Status { get; set; }
+
+    /// <summary>Wat er herkend is, als JSON (<c>HerkendeFactuur</c>); leeg als er niets herkend is.</summary>
+    public string? Herkend { get; set; }
+
+    /// <summary>Waarom het document in Te verwerken staat, of wat de virusscan vond.</summary>
+    public string? Melding { get; set; }
+
+    public DateTimeOffset IngelezenOp { get; set; }
+
+    public string IngelezenDoor { get; set; } = string.Empty;
+
+    public Guid? BoekingId { get; set; }
+}
+
+public sealed class DocumentInhoud : IVanAdministratie
+{
+    public Guid DocumentId { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    public byte[] Inhoud { get; set; } = [];
+}
+
+/// <summary>
+/// Een factuur die (nog) niet (helemaal) betaald is. Bedragen volgen het grootboek: debiteur positief, crediteur
+/// negatief. Het openstaande bedrag verandert bij afletteren; de boeking zelf nooit.
+/// </summary>
+public sealed class OpenstaandePost : IVanAdministratie
+{
+    public Guid Id { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    public Boekhouding.Facturen.Factuursoort Soort { get; set; }
+
+    public string Relatie { get; set; } = string.Empty;
+
+    public string Factuurnummer { get; set; } = string.Empty;
+
+    public DateOnly Datum { get; set; }
+
+    public DateOnly Vervaldatum { get; set; }
+
+    public decimal Bedrag { get; set; }
+
+    public decimal Openstaand { get; set; }
+
+    public string? Betalingskenmerk { get; set; }
+
+    public Guid BoekingId { get; set; }
+
+    public Guid? DocumentId { get; set; }
+
+    public Boekhouding.Facturen.OpenPost NaarDomein() =>
+        new(Id, Soort, Relatie, Factuurnummer, Datum, Vervaldatum, Bedrag, Openstaand, Betalingskenmerk);
+}
+
+/// <summary>Een keuze van de gebruiker (rekening en btw-code) waar het leergeheugen van leert.</summary>
+public sealed class Leerkeuze : IVanAdministratie
+{
+    public long Id { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    /// <summary>De sleutel van het leergeheugen, bijv. <c>F|relatie|BELNET</c>.</summary>
+    public string Sleutel { get; set; } = string.Empty;
+
+    public string Rekeningnummer { get; set; } = string.Empty;
+
+    public string? BtwCode { get; set; }
+
+    public DateTimeOffset Tijdstip { get; set; }
+}
+
+/// <summary>Een regel van de gebruiker voor automatisch verwerken (zie <c>Verwerkingsregel</c> in het domein).</summary>
+public sealed class Automatiseringsregel : IVanAdministratie
+{
+    public Guid Id { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    public int Volgorde { get; set; }
+
+    public string Naam { get; set; } = string.Empty;
+
+    public string Rekeningnummer { get; set; } = string.Empty;
+
+    public string? BtwCode { get; set; }
+
+    public bool Automatisch { get; set; }
+
+    public Boekhouding.Regels.Verwerkingssoort? Soort { get; set; }
+
+    public string? Relatie { get; set; }
+
+    public string? NaamBevat { get; set; }
+
+    public decimal? BedragVan { get; set; }
+
+    public decimal? BedragTot { get; set; }
+
+    public string? OmschrijvingBevat { get; set; }
+
+    public string? TegenIban { get; set; }
+
+    public Boekhouding.Regels.Regelrichting Richting { get; set; }
+
+    public Boekhouding.Regels.Verwerkingsregel NaarDomein() =>
+        new(Naam, Rekeningnummer, BtwCode, Automatisch, Soort, Relatie, NaamBevat, BedragVan, BedragTot, OmschrijvingBevat, TegenIban, Richting);
 }

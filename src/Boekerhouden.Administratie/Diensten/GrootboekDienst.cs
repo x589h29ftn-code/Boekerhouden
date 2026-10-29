@@ -71,10 +71,7 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
     public async Task<string> VolgendBoekstuk(Uitvoerder wie, Guid administratie, string dagboek, int jaar)
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
-        var voorvoegsel = $"{jaar}-";
-        var boekstukken = await db.Boekingen.Where(b => b.Dagboek == dagboek && b.Boekstuk.StartsWith(voorvoegsel)).Select(b => b.Boekstuk).ToListAsync();
-        var hoogste = boekstukken.Select(b => int.TryParse(b.AsSpan(voorvoegsel.Length), out var n) ? n : 0).DefaultIfEmpty(0).Max();
-        return $"{voorvoegsel}{hoogste + 1:0000}";
+        return await VolgendBoekstuk(db, dagboek, jaar);
     }
 
     /// <summary>
@@ -105,8 +102,21 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
             return Uitkomst<long>.Mislukt([.. fouten]);
         }
 
-        // Eén boeking tegelijk per administratie: de keten heeft een vaste volgorde.
         await using var transactie = await db.Database.BeginTransactionAsync();
+        var boeking = await VoegToeAanKeten(db, administratie, post, wie);
+        await db.SaveChangesAsync();
+        await transactie.CommitAsync();
+        await audit.Log(wie, AuditActies.Geboekt, $"{post.Dagboek} {boeking.Boekstuk}", $"{boeking.Omschrijving}; {post.TotaalDebet:0.00}", administratie);
+        return Uitkomst<long>.Met(boeking.Volgnummer);
+    }
+
+    /// <summary>
+    /// Zet een (gecontroleerde) journaalpost achteraan in de keten: volgnummer en hash na de laatste boeking. Alleen
+    /// binnen een transactie aanroepen; de rij-lock op de administratie zorgt dat er één boeking tegelijk is. Slaat
+    /// niet op: dat doet de aanroeper, samen met wat er verder bij hoort (bijv. de openstaande post).
+    /// </summary>
+    internal async Task<Boeking> VoegToeAanKeten(AdministratieDbContext db, Guid administratie, Journaalpost post, Uitvoerder wie)
+    {
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"Administraties\" WHERE \"Id\" = {administratie} FOR UPDATE");
         var vorige = await db.Boekingen.OrderByDescending(b => b.Volgnummer).Select(b => new { b.Volgnummer, b.Hash }).FirstOrDefaultAsync();
         var volgnummer = (vorige?.Volgnummer ?? 0) + 1;
@@ -141,10 +151,20 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
         };
         boeking.Hash = Journaalketen.Hash(boeking.NaarDomein(), volgnummer, vorigeHash);
         db.Boekingen.Add(boeking);
-        await db.SaveChangesAsync();
-        await transactie.CommitAsync();
-        await audit.Log(wie, AuditActies.Geboekt, $"{post.Dagboek} {boeking.Boekstuk}", $"{boeking.Omschrijving}; {post.TotaalDebet:0.00}", administratie);
-        return Uitkomst<long>.Met(volgnummer);
+        return boeking;
+    }
+
+    /// <summary>Het rekeningschema en de dagboeken van een geopende administratie (voor andere diensten).</summary>
+    internal static async Task<(Rekeningschema Schema, IReadOnlyList<Dagboek> Dagboeken)> Inrichting(AdministratieDbContext db) =>
+        (await LaadSchema(db), await LaadDagboeken(db));
+
+    /// <summary>Het volgende boekstuknummer in een dagboek binnen een geopende administratie.</summary>
+    internal static async Task<string> VolgendBoekstuk(AdministratieDbContext db, string dagboek, int jaar)
+    {
+        var voorvoegsel = $"{jaar}-";
+        var boekstukken = await db.Boekingen.Where(b => b.Dagboek == dagboek && b.Boekstuk.StartsWith(voorvoegsel)).Select(b => b.Boekstuk).ToListAsync();
+        var hoogste = boekstukken.Select(b => int.TryParse(b.AsSpan(voorvoegsel.Length), out var n) ? n : 0).DefaultIfEmpty(0).Max();
+        return $"{voorvoegsel}{hoogste + 1:0000}";
     }
 
     /// <summary>De jaren met boekingen, plus het jaar van vandaag; nieuwste eerst.</summary>

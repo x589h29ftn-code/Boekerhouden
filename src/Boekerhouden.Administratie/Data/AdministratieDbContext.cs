@@ -30,6 +30,18 @@ public sealed class AdministratieDbContext(DbContextOptions<AdministratieDbConte
 
     public DbSet<AuditRegel> AuditRegels => Set<AuditRegel>();
 
+    public DbSet<Handelsrelatie> Relaties => Set<Handelsrelatie>();
+
+    public DbSet<Document> Documenten => Set<Document>();
+
+    public DbSet<DocumentInhoud> DocumentInhouden => Set<DocumentInhoud>();
+
+    public DbSet<OpenstaandePost> OpenstaandePosten => Set<OpenstaandePost>();
+
+    public DbSet<Leerkeuze> Leerkeuzes => Set<Leerkeuze>();
+
+    public DbSet<Automatiseringsregel> Regels => Set<Automatiseringsregel>();
+
     /// <summary>De sleutels van ASP.NET Core Data Protection (cookies, tokens).</summary>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
@@ -52,6 +64,7 @@ public sealed class AdministratieDbContext(DbContextOptions<AdministratieDbConte
             e.Property(a => a.KvkNummer).HasMaxLength(20);
             e.Property(a => a.BtwNummer).HasMaxLength(20);
             e.Property(a => a.AangemaaktDoor).HasMaxLength(200);
+            e.Property(a => a.LimietAutomatisch).HasPrecision(18, 2);
         });
 
         builder.Entity<Lidmaatschap>(e =>
@@ -125,11 +138,90 @@ public sealed class AdministratieDbContext(DbContextOptions<AdministratieDbConte
             e.Property(a => a.Details).HasMaxLength(4000);
         });
 
+        builder.Entity<Handelsrelatie>(e =>
+        {
+            e.ToTable("Relaties");
+            e.HasIndex(r => new { r.AdministratieId, r.Code }).IsUnique();
+            e.Property(r => r.Code).HasMaxLength(50);
+            e.Property(r => r.Naam).HasMaxLength(300);
+            e.Property(r => r.BtwNummer).HasMaxLength(20);
+            e.Property(r => r.KvkNummer).HasMaxLength(20);
+            e.Property(r => r.Tegenrekening).HasMaxLength(20);
+            e.HasOne<Administratie>().WithMany().HasForeignKey(r => r.AdministratieId);
+        });
+
+        builder.Entity<Document>(e =>
+        {
+            e.ToTable("Documenten");
+            e.HasIndex(d => new { d.AdministratieId, d.Status });
+            e.HasIndex(d => new { d.AdministratieId, d.Sha256 });
+            e.Property(d => d.Bestandsnaam).HasMaxLength(260);
+            e.Property(d => d.Inhoudstype).HasMaxLength(100);
+            e.Property(d => d.Sha256).HasMaxLength(64).IsFixedLength();
+            e.Property(d => d.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(d => d.Herkend).HasColumnType("jsonb");
+            e.Property(d => d.Melding).HasMaxLength(2000);
+            e.Property(d => d.IngelezenDoor).HasMaxLength(200);
+            e.HasOne<Administratie>().WithMany().HasForeignKey(d => d.AdministratieId);
+        });
+
+        builder.Entity<DocumentInhoud>(e =>
+        {
+            e.ToTable("DocumentInhouden");
+            e.HasKey(d => d.DocumentId);
+            e.HasOne<Document>().WithOne().HasForeignKey<DocumentInhoud>(d => d.DocumentId);
+        });
+
+        builder.Entity<OpenstaandePost>(e =>
+        {
+            e.ToTable("OpenstaandePosten");
+            e.HasIndex(p => new { p.AdministratieId, p.Relatie, p.Factuurnummer });
+            e.Property(p => p.Soort).HasConversion<string>().HasMaxLength(20);
+            e.Property(p => p.Relatie).HasMaxLength(50);
+            e.Property(p => p.Factuurnummer).HasMaxLength(50);
+            e.Property(p => p.Bedrag).HasPrecision(18, 2);
+            e.Property(p => p.Openstaand).HasPrecision(18, 2);
+            e.Property(p => p.Betalingskenmerk).HasMaxLength(50);
+            e.HasOne<Boeking>().WithMany().HasForeignKey(p => p.BoekingId);
+        });
+
+        builder.Entity<Leerkeuze>(e =>
+        {
+            e.ToTable("Leerkeuzes");
+            e.HasIndex(k => new { k.AdministratieId, k.Sleutel, k.Id });
+            e.Property(k => k.Sleutel).HasMaxLength(400);
+            e.Property(k => k.Rekeningnummer).HasMaxLength(20);
+            e.Property(k => k.BtwCode).HasMaxLength(10);
+        });
+
+        builder.Entity<Automatiseringsregel>(e =>
+        {
+            e.ToTable("Regels");
+            e.Property(r => r.Naam).HasMaxLength(200);
+            e.Property(r => r.Rekeningnummer).HasMaxLength(20);
+            e.Property(r => r.BtwCode).HasMaxLength(10);
+            e.Property(r => r.Soort).HasConversion<string>().HasMaxLength(20);
+            e.Property(r => r.Relatie).HasMaxLength(50);
+            e.Property(r => r.NaamBevat).HasMaxLength(200);
+            e.Property(r => r.BedragVan).HasPrecision(18, 2);
+            e.Property(r => r.BedragTot).HasPrecision(18, 2);
+            e.Property(r => r.OmschrijvingBevat).HasMaxLength(200);
+            e.Property(r => r.TegenIban).HasMaxLength(34);
+            e.Property(r => r.Richting).HasConversion<string>().HasMaxLength(20);
+            e.HasOne<Administratie>().WithMany().HasForeignKey(r => r.AdministratieId);
+        });
+
         // Alleen de gegevens van de geopende administratie; zonder geopende administratie niets.
         builder.Entity<Grootboekrekening>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Dagboekdefinitie>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Boeking>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Boekingsregel>().HasQueryFilter(e => e.AdministratieId == Geopend);
+        builder.Entity<Handelsrelatie>().HasQueryFilter(e => e.AdministratieId == Geopend);
+        builder.Entity<Document>().HasQueryFilter(e => e.AdministratieId == Geopend);
+        builder.Entity<DocumentInhoud>().HasQueryFilter(e => e.AdministratieId == Geopend);
+        builder.Entity<OpenstaandePost>().HasQueryFilter(e => e.AdministratieId == Geopend);
+        builder.Entity<Leerkeuze>().HasQueryFilter(e => e.AdministratieId == Geopend);
+        builder.Entity<Automatiseringsregel>().HasQueryFilter(e => e.AdministratieId == Geopend);
     }
 
     /// <summary>
