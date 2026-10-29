@@ -248,3 +248,19 @@ public sealed class RekeningzoekerTests
     public void De_enige_passende_rekening(string tekst, string? verwacht) =>
         Assert.Equal(verwacht, Rekeningzoeker.Enige(tekst, Rekeningen)?.Nummer);
 }
+
+public sealed class TegenboekingTests
+{
+    [Fact]
+    public void Tegenboeking_keert_elke_regel_om_en_heft_de_boeking_op()
+    {
+        var post = new Journaalpost("INK", "2026-0001", new(2026, 3, 1), "Belnet", [new("4310", 20.65m, "Abonnement", "I21", "BELNET", "BN-1"), new("1500", 4.34m), new("1600", -24.99m)]);
+
+        var tegen = post.Tegenboeking("2026-0002", new(2026, 3, 1), "Terugdraaien INK 2026-0001");
+
+        Assert.Equal(("INK", "2026-0002"), (tegen.Dagboek, tegen.Boekstuk));
+        Assert.Equal([-20.65m, -4.34m, 24.99m], tegen.Regels.Select(r => r.Bedrag));
+        Assert.Equal(("I21", "BELNET", "BN-1"), (tegen.Regels[0].BtwCode, tegen.Regels[0].Relatie, tegen.Regels[0].Factuurnummer));
+        Assert.All(post.Regels.Zip(tegen.Regels), p => Assert.Equal(0m, p.First.Bedrag + p.Second.Bedrag));
+    }
+}

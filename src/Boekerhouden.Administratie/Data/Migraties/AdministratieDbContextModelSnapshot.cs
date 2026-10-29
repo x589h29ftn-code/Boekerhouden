@@ -550,6 +550,11 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasColumnType("character(64)")
                         .IsFixedLength();
 
+                    b.Property<string>("Soort")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)

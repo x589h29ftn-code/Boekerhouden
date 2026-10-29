@@ -540,6 +540,11 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasColumnType("TEXT")
                         .IsFixedLength();
 
+                    b.Property<string>("Soort")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)

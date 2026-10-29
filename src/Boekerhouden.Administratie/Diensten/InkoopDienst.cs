@@ -18,6 +18,7 @@ public sealed record DocumentRegel(
     Guid Id,
     string Bestandsnaam,
     Documentstatus Status,
+    Documentsoort Soort,
     string? Leverancier,
     string? Factuurnummer,
     decimal? Totaal,
@@ -28,7 +29,9 @@ public sealed record DocumentRegel(
 /// <summary>Een eerder geboekte factuur van een leverancier: hoe die toen geboekt is.</summary>
 /// <param name="Totaal">Het totaal inclusief btw.</param>
 /// <param name="Rekening">De kostenrekening (bij meerdere regels die met het grootste bedrag).</param>
-public sealed record EerdereFactuur(DateOnly Datum, string Factuurnummer, decimal Totaal, string Rekening, string? BtwCode, bool Betaald);
+/// <param name="Post">De openstaande post (om een creditnota mee te verrekenen).</param>
+/// <param name="Openstaand">Wat er nog openstaat, zoals in het grootboek (te betalen negatief).</param>
+public sealed record EerdereFactuur(DateOnly Datum, string Factuurnummer, decimal Totaal, string Rekening, string? BtwCode, bool Betaald, Guid Post, decimal Openstaand);
 
 /// <summary>Wat er met een ingelezen bestand gebeurd is.</summary>
 public sealed record Inleesuitkomst(Guid? DocumentId, Documentstatus? Status, string Melding)
@@ -39,7 +42,11 @@ public sealed record Inleesuitkomst(Guid? DocumentId, Documentstatus? Status, st
 /// <summary>Een nieuwe leverancier, aangemaakt bij het verwerken van zijn eerste factuur.</summary>
 public sealed record NieuweRelatie(string Naam, string? Iban, string? BtwNummer, string? KvkNummer);
 
-/// <summary>De factuur zoals de gebruiker hem boekt: een bestaande relatie (code) of een nieuwe.</summary>
+/// <summary>
+/// De factuur zoals de gebruiker hem boekt: een bestaande relatie (code) of een nieuwe. Bij een creditnota staan de
+/// bedragen positief (zoals op het papier) en boekt het pakket ze omgekeerd; <c>VerrekenMet</c> is de openstaande
+/// factuur van dezelfde leverancier waarmee de creditnota wordt verrekend.
+/// </summary>
 public sealed record Factuurinvoer(
     string? Relatie,
     NieuweRelatie? Nieuw,
@@ -49,7 +56,9 @@ public sealed record Factuurinvoer(
     string Omschrijving,
     IReadOnlyList<Factuurregel> Regels,
     string? Betalingskenmerk = null,
-    IReadOnlyList<Zoekgebied>? Aanwijzingen = null);
+    IReadOnlyList<Zoekgebied>? Aanwijzingen = null,
+    bool Creditnota = false,
+    Guid? VerrekenMet = null);
 
 /// <summary>Alles wat het scherm nodig heeft om een document te verwerken.</summary>
 public sealed record Verwerking(
@@ -210,6 +219,85 @@ public sealed class InkoopDienst(
         return new Verwerking(Regel(d), herkend, voorstel, context.Relaties, schema, BtwCodes, uitTemplate);
     }
 
+    /// <summary>Bewaart een document zonder boeking: privé, of geen boeking nodig. Het blijft in te zien en is terug te zetten.</summary>
+    public async Task<Uitkomst> Archiveer(Uitvoerder wie, Guid administratie, Guid document, Documentsoort soort, string? notitie)
+    {
+        if (soort is not (Documentsoort.Prive or Documentsoort.Overig))
+        {
+            return Uitkomst.Mislukt("Alleen een privé-document of een document zonder boeking wordt zonder boeking bewaard.");
+        }
+
+        await using var db = await toegang.Open(wie, administratie, Recht.Invoeren);
+        if (await db.Documenten.FirstOrDefaultAsync(d => d.Id == document) is not { Status: Documentstatus.TeVerwerken } d)
+        {
+            return Uitkomst.Mislukt("Dit document staat niet (meer) in Te verwerken.");
+        }
+
+        d.Status = Documentstatus.Gearchiveerd;
+        d.Soort = soort;
+        d.Melding = string.IsNullOrWhiteSpace(notitie) ? null : Kort(notitie.Trim());
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.DocumentGearchiveerd, d.Bestandsnaam, $"{(soort == Documentsoort.Prive ? "privé" : "geen boeking")}{(d.Melding is null ? null : $": {d.Melding}")}", administratie);
+        return Uitkomst.Gelukt;
+    }
+
+    /// <summary>Zet een bewaard document (privé of geen boeking) terug in Te verwerken.</summary>
+    public async Task<Uitkomst> Terugzetten(Uitvoerder wie, Guid administratie, Guid document)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Invoeren);
+        if (await db.Documenten.FirstOrDefaultAsync(d => d.Id == document) is not { Status: Documentstatus.Gearchiveerd } d)
+        {
+            return Uitkomst.Mislukt("Dit document is niet bewaard zonder boeking.");
+        }
+
+        d.Status = Documentstatus.TeVerwerken;
+        d.Soort = Documentsoort.Factuur;
+        d.Melding = null;
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.DocumentTeruggezet, d.Bestandsnaam, null, administratie);
+        return Uitkomst.Gelukt;
+    }
+
+    /// <summary>
+    /// Draait de boeking van een document terug: een tegenboeking in hetzelfde dagboek (de boeking zelf blijft staan, de
+    /// keten ook), de openstaande post vervalt, en het document staat weer in Te verwerken. Niet als de factuur al
+    /// (deels) betaald of verrekend is: dan eerst die betaling of verrekening terugdraaien.
+    /// </summary>
+    public async Task<Uitkomst> Terugdraaien(Uitvoerder wie, Guid administratie, Guid document)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Invoeren);
+        if (await db.Documenten.FirstOrDefaultAsync(d => d.Id == document) is not { Status: Documentstatus.Geboekt, BoekingId: { } boekingId } d)
+        {
+            return Uitkomst.Mislukt("Dit document is niet geboekt.");
+        }
+
+        await using var transactie = await db.Database.BeginTransactionAsync();
+        await db.Vergrendel(administratie);
+        var post = await db.OpenstaandePosten.FirstOrDefaultAsync(p => p.BoekingId == boekingId);
+        if (post is not null && post.Openstaand != post.Bedrag)
+        {
+            return Uitkomst.Mislukt($"Factuur {post.Factuurnummer} is al (deels) betaald of verrekend; draai eerst die betaling of verrekening terug.");
+        }
+
+        var boeking = await db.Boekingen.AsNoTracking().Include(b => b.Regels).SingleAsync(b => b.Id == boekingId);
+        var boekstuk = await GrootboekDienst.VolgendBoekstuk(db, boeking.Dagboek, boeking.Datum.Year);
+        var tegen = boeking.NaarDomein().Tegenboeking(boekstuk, boeking.Datum, Kort($"Terugdraaien {boeking.Dagboek} {boeking.Boekstuk}: {boeking.Omschrijving}"));
+        await grootboek.VoegToeAanKeten(db, administratie, tegen, wie);
+        if (post is not null)
+        {
+            db.OpenstaandePosten.Remove(post);
+        }
+
+        d.Status = Documentstatus.TeVerwerken;
+        d.Soort = Documentsoort.Factuur;
+        d.BoekingId = null;
+        d.Melding = $"Boeking {boeking.Dagboek} {boeking.Boekstuk} is teruggedraaid.";
+        await db.SaveChangesAsync();
+        await transactie.CommitAsync();
+        await audit.Log(wie, AuditActies.BoekingTeruggedraaid, $"{boeking.Dagboek} {boeking.Boekstuk}", $"tegenboeking {boeking.Dagboek} {boekstuk}; {d.Bestandsnaam}", administratie);
+        return Uitkomst.Gelukt;
+    }
+
     /// <summary>De laatste facturen van een leverancier, de nieuwste eerst, met de rekening en btw-code van toen.</summary>
     public async Task<IReadOnlyList<EerdereFactuur>> Historie(Uitvoerder wie, Guid administratie, string relatie, int aantal = 5)
     {
@@ -224,7 +312,7 @@ public sealed class InkoopDienst(
         [
             .. posten.Select(p => (Post: p, Regel: regels.Where(r => r.BoekingId == p.BoekingId && IsKosten(r)).MaxBy(r => Math.Abs(r.Bedrag))))
                 .Where(x => x.Regel is not null)
-                .Select(x => new EerdereFactuur(x.Post.Datum, x.Post.Factuurnummer, -x.Post.Bedrag, x.Regel!.Rekeningnummer, x.Regel.BtwCode, x.Post.Openstaand == 0)),
+                .Select(x => new EerdereFactuur(x.Post.Datum, x.Post.Factuurnummer, -x.Post.Bedrag, x.Regel!.Rekeningnummer, x.Regel.BtwCode, x.Post.Openstaand == 0, x.Post.Id, x.Post.Openstaand)),
         ];
     }
 
@@ -265,10 +353,17 @@ public sealed class InkoopDienst(
         var variabelen = new Factuurvariabelen(invoer.Factuurnummer.Trim(), herkend?.Omschrijving, naam, invoer.Datum, invoer.Vervaldatum, kenmerk);
         var sjabloon = Omschrijvingssjabloon.IsSjabloon(invoer.Omschrijving) ? invoer.Omschrijving.Trim() : null;
         var omschrijving = string.IsNullOrWhiteSpace(invoer.Omschrijving) ? $"{naam} {invoer.Factuurnummer}".Trim() : Omschrijvingssjabloon.Vul(invoer.Omschrijving, variabelen);
+        var teken = invoer.Creditnota ? -1 : 1;
         var factuur = new Factuur(Factuursoort.Inkoop, code, invoer.Factuurnummer.Trim(), invoer.Datum, invoer.Vervaldatum, Kort(omschrijving),
-            [.. invoer.Regels.Select(r => r with { Omschrijving = Kort(string.IsNullOrWhiteSpace(r.Omschrijving) ? omschrijving : Omschrijvingssjabloon.Vul(r.Omschrijving, variabelen)) })],
+            [.. invoer.Regels.Select(r => r with
+            {
+                Omschrijving = Kort(string.IsNullOrWhiteSpace(r.Omschrijving) ? omschrijving : Omschrijvingssjabloon.Vul(r.Omschrijving, variabelen)),
+                Bedrag = teken * Math.Abs(r.Bedrag),
+                Btw = r.Btw is { } btw ? teken * Math.Abs(btw) : null,
+            })],
             kenmerk);
-        var uitkomst = await BoekFactuur(db, administratie, d, factuur, herkend, relatie, invoer.Nieuw, wie, automatisch: false, sjabloon);
+        d.Soort = invoer.Creditnota ? Documentsoort.Creditnota : Documentsoort.Factuur;
+        var uitkomst = await BoekFactuur(db, administratie, d, factuur, herkend, relatie, invoer.Nieuw, wie, automatisch: false, sjabloon, invoer.VerrekenMet);
         if (uitkomst.IsGelukt && invoer.Aanwijzingen is { Count: > 0 } aanwijzingen)
         {
             await BewaarZoektemplate(db, administratie, code, aanwijzingen, herkend, wie);
@@ -402,7 +497,7 @@ public sealed class InkoopDienst(
 
     private async Task<Uitkomst> BoekFactuur(
         AdministratieDbContext db, Guid administratie, Document document, Factuur factuur, HerkendeFactuur? herkend,
-        Relatie? relatie, NieuweRelatie? nieuw, Uitvoerder wie, bool automatisch, string? sjabloon)
+        Relatie? relatie, NieuweRelatie? nieuw, Uitvoerder wie, bool automatisch, string? sjabloon, Guid? verrekenMet = null)
     {
         var (schema, dagboeken) = await GrootboekDienst.Inrichting(db);
         var dagboek = dagboeken.FirstOrDefault(x => x.Soort == Dagboeksoort.Inkoop);
@@ -463,6 +558,23 @@ public sealed class InkoopDienst(
         }
 
         var boeking = await grootboek.VoegToeAanKeten(db, administratie, post, wie);
+        var credit = open.Openstaand > 0;
+        string? verrekend = null;
+        if (verrekenMet is { } metId)
+        {
+            // Een creditnota verrekenen met een openstaande factuur van dezelfde leverancier: beide posten gaan omlaag.
+            var met = await db.OpenstaandePosten.FirstOrDefaultAsync(p => p.Id == metId);
+            if (!credit || met is null || met.Soort != Factuursoort.Inkoop || met.Relatie != factuur.Relatie || met.Openstaand >= 0)
+            {
+                return Uitkomst.Mislukt("Een creditnota is alleen te verrekenen met een openstaande factuur van dezelfde leverancier.");
+            }
+
+            var deel = Math.Min(open.Openstaand, -met.Openstaand);
+            met.Openstaand += deel;
+            open = open with { Openstaand = open.Openstaand - deel };
+            verrekend = $"{met.Factuurnummer} ({deel:0.00})";
+        }
+
         db.OpenstaandePosten.Add(new OpenstaandePost
         {
             Id = open.Id,
@@ -483,12 +595,13 @@ public sealed class InkoopDienst(
         document.Melding = automatisch ? "Automatisch geboekt." : null;
 
         // Leren: de keuze van de gebruiker (of het automatisch gevolgde advies) onder de sleutel van de leverancier, met
-        // het bedrag, het IBAN en de postcodes van deze factuur; daaraan herkent het pakket later een afwijking.
+        // het bedrag, het IBAN en de postcodes van deze factuur; daaraan herkent het pakket later een afwijking. Een
+        // creditnota leert niets: die zegt niets over de volgende factuur.
         var gegevens = (herkend is null
             ? new Verwerkingsgegevens(Verwerkingssoort.Inkoopfactuur, factuur.Relatie, relatie?.Naam ?? nieuw?.Naam, 0m)
             : Inkoopverwerker.Gegevens(herkend, relatie ?? new Relatie(factuur.Relatie, nieuw!.Naam, []))) with
         { Relatie = factuur.Relatie, Bedrag = factuur.Totaal(BtwCodes) };
-        if (Leergeheugen.Sleutel(gegevens) is { } sleutel)
+        if (!credit && Leergeheugen.Sleutel(gegevens) is { } sleutel)
         {
             var bevestiging = Leergeheugen.Bij(gegevens, new Keuze(factuur.Regels[0].Rekeningnummer, factuur.Regels[0].BtwCode), sjabloon);
             db.Leerkeuzes.Add(new Leerkeuze
@@ -508,7 +621,11 @@ public sealed class InkoopDienst(
         await db.SaveChangesAsync();
         await transactie.CommitAsync();
         await audit.Log(wie, automatisch ? AuditActies.AutomatischGeboekt : AuditActies.Geboekt,
-            $"{dagboek.Code} {boekstuk}", $"{factuur.Relatie} {factuur.Factuurnummer}; {factuur.Totaal(BtwCodes):0.00}", administratie);
+            $"{dagboek.Code} {boekstuk}", $"{(credit ? "creditnota " : null)}{factuur.Relatie} {factuur.Factuurnummer}; {factuur.Totaal(BtwCodes):0.00}", administratie);
+        if (verrekend is not null)
+        {
+            await audit.Log(wie, AuditActies.CreditnotaVerrekend, $"{factuur.Relatie} {factuur.Factuurnummer}", $"met {verrekend}", administratie);
+        }
         await ZetInDocumentmap(db, administratie, document, factuur, relatie?.Naam ?? nieuw?.Naam, wie);
         return Uitkomst.Gelukt;
     }
@@ -611,7 +728,7 @@ public sealed class InkoopDienst(
     private static DocumentRegel Regel(Document d)
     {
         var herkend = Herkend(d);
-        return new DocumentRegel(d.Id, d.Bestandsnaam, d.Status, herkend?.Naam, herkend?.Factuurnummer, herkend?.TotaalInclusief, d.Melding, d.IngelezenOp, d.IngelezenDoor);
+        return new DocumentRegel(d.Id, d.Bestandsnaam, d.Status, d.Soort, herkend?.Naam, herkend?.Factuurnummer, herkend?.TotaalInclusief, d.Melding, d.IngelezenOp, d.IngelezenDoor);
     }
 
     /// <summary>Een code voor een nieuwe relatie: de eerste letters van de naam, uniek gemaakt met een volgnummer.</summary>

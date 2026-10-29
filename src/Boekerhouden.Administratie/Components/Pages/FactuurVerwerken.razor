@@ -42,7 +42,38 @@
         }
         else if (verwerking.Document.Status != Documentstatus.TeVerwerken)
         {
-            <div class="bericht">Dit document is @(verwerking.Document.Status == Documentstatus.Geboekt ? "geboekt" : "in quarantaine"). <a href="/a/@Id/inkoop">Naar inkoop</a></div>
+            <Foutmeldingen Fouten="fouten" />
+            <div class="bericht d-flex align-items-center gap-3">
+                <span>
+                    @(verwerking.Document.Status switch
+                    {
+                        Documentstatus.Geboekt => verwerking.Document.Soort == Documentsoort.Creditnota ? "Deze creditnota is geboekt." : "Dit document is geboekt.",
+                        Documentstatus.Gearchiveerd => verwerking.Document.Soort == Documentsoort.Prive ? "Dit document is privé en niet geboekt." : "Dit document is bewaard zonder boeking.",
+                        _ => "Dit document staat in quarantaine.",
+                    })
+                    @if (verwerking.Document.Status == Documentstatus.Gearchiveerd && verwerking.Document.Melding is { } notitie)
+                    {
+                        <span class="text-secondary">@notitie</span>
+                    }
+                    <a href="/a/@Id/inkoop">Naar inkoop</a>
+                </span>
+                @if (context.Mag(Recht.Invoeren) && verwerking.Document.Status == Documentstatus.Geboekt)
+                {
+                    @if (bevestigTerugdraaien)
+                    {
+                        <button class="btn btn-sm btn-outline-danger ms-auto" @onclick="Terugdraaien" disabled="@bezig">Ja, terugdraaien</button>
+                        <button class="btn btn-sm btn-link text-secondary" @onclick="() => bevestigTerugdraaien = false">annuleren</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-sm btn-outline-secondary ms-auto" title="Met een tegenboeking; het document komt terug in Te verwerken" @onclick="() => bevestigTerugdraaien = true">Terugdraaien</button>
+                    }
+                }
+                @if (context.Mag(Recht.Invoeren) && verwerking.Document.Status == Documentstatus.Gearchiveerd)
+                {
+                    <button class="btn btn-sm btn-outline-secondary ms-auto" @onclick="Terugzetten">Terug naar Te verwerken</button>
+                }
+            </div>
         }
         else
         {
@@ -86,6 +117,27 @@
 
                     <div class="card mb-3">
                         <div class="card-body">
+                            <div class="d-flex align-items-center gap-2 mb-3">
+                                <label class="form-label mb-0 small text-secondary" for="soort">Soort</label>
+                                <select id="soort" class="form-select form-select-sm w-auto" @bind="soort">
+                                    <option value="@Documentsoort.Factuur">Factuur</option>
+                                    <option value="@Documentsoort.Creditnota">Creditnota</option>
+                                    <option value="@Documentsoort.Prive">Privé, niet boeken</option>
+                                    <option value="@Documentsoort.Overig">Geen boeking, alleen bewaren</option>
+                                </select>
+                            </div>
+                            @if (soort is Documentsoort.Prive or Documentsoort.Overig)
+                            {
+                                <div class="d-flex gap-2 align-items-end">
+                                    <div class="flex-grow-1">
+                                        <label class="form-label" for="notitie">Notitie</label>
+                                        <input id="notitie" class="form-control" @bind="notitie" />
+                                    </div>
+                                    <button class="btn btn-primary" @onclick="Archiveer" disabled="@bezig">Bewaren</button>
+                                </div>
+                            }
+                            else
+                            {
                             <div class="row g-2 mb-3">
                                 <div class="col-md-6">
                                     <label class="form-label" for="leverancier">Leverancier</label>
@@ -130,6 +182,19 @@
                                             <span class="text-secondary">@h.BtwCode</span>
                                         </button>
                                     }
+                                </div>
+                            }
+                            @if (soort == Documentsoort.Creditnota && leverancier != Nieuw && historie?.Where(h => h.Openstaand < 0).ToList() is { Count: > 0 } openFacturen)
+                            {
+                                <div class="mb-3">
+                                    <label class="form-label" for="verreken">Verrekenen met</label>
+                                    <select id="verreken" class="form-select" @bind="verrekenMet">
+                                        <option value="">niet verrekenen</option>
+                                        @foreach (var f in openFacturen)
+                                        {
+                                            <option value="@f.Post">@f.Factuurnummer · @Weergave.Datum(f.Datum) · open @Bedragen.Getal(-f.Openstaand)</option>
+                                        }
+                                    </select>
                                 </div>
                             }
                             <div class="row g-2 mb-3">
@@ -238,7 +303,7 @@
                                         <td colspan="3"><button class="btn btn-sm btn-outline-secondary" @onclick="RegelToevoegen">Regel toevoegen</button></td>
                                         <td colspan="@(Toon("btwbedrag") ? 2 : 1)" class="text-end small">
                                             <div>Totaal incl. btw <span class="bedrag fw-semibold">@(Totaal is { } t ? Bedragen.Getal(t) : "–")</span></div>
-                                            @if (verwerking.Herkend?.TotaalInclusief is { } factuurtotaal)
+                                            @if (Factuurtotaal is { } factuurtotaal)
                                             {
                                                 <div class="text-secondary">Factuur <span class="bedrag">@Bedragen.Getal(factuurtotaal)</span></div>
                                                 @if (Verschil is { } verschil && verschil != 0)
@@ -262,6 +327,7 @@
                                     <span class="small text-secondary text-truncate">@overgenomen</span>
                                 }
                             </div>
+                            }
                         </div>
                     </div>
                 </div>
@@ -289,6 +355,12 @@
     private List<Invoerregel> regels = [];
     private bool bezig;
     private IReadOnlyList<string>? fouten;
+
+    // Soort document: factuur, creditnota (omgekeerd boeken, eventueel verrekenen) of bewaren zonder boeking.
+    private Documentsoort soort;
+    private Guid? verrekenMet;
+    private string? notitie;
+    private bool bevestigTerugdraaien;
 
     // De werkvoorraad: de documenten in Te verwerken, om zonder de lijst van factuur naar factuur te gaan.
     private IReadOnlyList<DocumentRegel>? werkvoorraad;
@@ -352,7 +424,10 @@
         : null;
 
     /// <summary>Totaal van de regels min het totaal van de factuur; leeg als een van beide onbekend is.</summary>
-    private decimal? Verschil => Totaal is { } t && verwerking?.Herkend?.TotaalInclusief is { } f ? t - f : null;
+    private decimal? Verschil => Totaal is { } t && Factuurtotaal is { } f ? t - f : null;
+
+    /// <summary>Het totaal op de factuur; bij een creditnota zonder minteken, zoals de bedragen in het formulier.</summary>
+    private decimal? Factuurtotaal => verwerking?.Herkend?.TotaalInclusief is { } f ? (soort == Documentsoort.Creditnota ? Math.Abs(f) : f) : null;
 
     private bool Toon(string sleutel) => weergave.Contains(sleutel);
 
@@ -415,6 +490,18 @@
                     Btw = Bedragen.Getal(b.Btw),
                 })]
                 : [new Invoerregel { Rekening = rekening, BtwCode = voorstel?.Advies.BtwCode ?? "I21", Bedrag = Exclusief(herkend, voorstel?.Advies.BtwCode ?? "I21") is { } e ? Bedragen.Getal(e) : null }];
+
+        // Een creditnota (negatief totaal) staat in het formulier zonder minteken; het pakket boekt hem omgekeerd.
+        soort = herkend?.TotaalInclusief < 0 ? Documentsoort.Creditnota : Documentsoort.Factuur;
+        (verrekenMet, notitie, bevestigTerugdraaien) = (null, null, false);
+        if (soort == Documentsoort.Creditnota)
+        {
+            foreach (var r in regels)
+            {
+                r.Bedrag = Getal(r.Bedrag) is { } b ? Bedragen.Getal(Math.Abs(b)) : r.Bedrag;
+                r.Btw = Getal(r.Btw) is { } regelbtw ? Bedragen.Getal(Math.Abs(regelbtw)) : r.Btw;
+            }
+        }
 
         await LaadHistorie();
         await ControleerHerkenning();
@@ -805,7 +892,9 @@
             factuurnummer, datum, vervaldatum, omschrijving,
             [.. regels.Select(r => new Factuurregel(string.IsNullOrWhiteSpace(r.Omschrijving) ? omschrijving : r.Omschrijving.Trim(), r.Rekening.Trim(), r.BtwCode, Getal(r.Bedrag)!.Value, Getal(BtwTekst(r))))],
             kenmerk,
-            [.. aanwijzingen.Values]);
+            [.. aanwijzingen.Values],
+            soort == Documentsoort.Creditnota,
+            soort == Documentsoort.Creditnota ? verrekenMet : null);
         bezig = true;
         var positie = Positie ?? 0;
         var uitkomst = await Inkoop.Boek(geopend!.Wie, Id, DocumentId, invoer);
@@ -817,16 +906,8 @@
         }
 
         // Door naar het document dat nu op deze plaats in Te verwerken staat (het volgende), of terug naar de lijst.
-        vorigeGeboekt = $"{Variabelen.Leverancier} {factuurnummer} is geboekt.".Trim();
-        naBoeken = true;
-        var rest = await Inkoop.Lijst(geopend.Wie, Id, Documentstatus.TeVerwerken);
-        if (rest.Count == 0)
-        {
-            Navigatie.NavigateTo($"/a/{Id}/inkoop");
-            return;
-        }
-
-        Navigatie.NavigateTo($"/a/{Id}/inkoop/{rest[Math.Min(positie, rest.Count - 1)].Id}");
+        vorigeGeboekt = $"{(soort == Documentsoort.Creditnota ? "Creditnota " : null)}{Variabelen.Leverancier} {factuurnummer} is geboekt.".Trim();
+        await NaarVolgende(positie);
     }
 
     private async Task LaadHistorie()
@@ -846,6 +927,52 @@
                 regel.BtwCode = code;
             }
         }
+    }
+
+    /// <summary>Bewaren zonder boeking (privé of geen boeking), en door naar de volgende factuur.</summary>
+    private async Task Archiveer()
+    {
+        var positie = Positie ?? 0;
+        bezig = true;
+        var uitkomst = await Inkoop.Archiveer(geopend!.Wie, Id, DocumentId, soort, notitie);
+        bezig = false;
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            vorigeGeboekt = soort == Documentsoort.Prive ? "Privé: niet geboekt, wel bewaard." : "Bewaard zonder boeking.";
+            await NaarVolgende(positie);
+        }
+    }
+
+    private async Task Terugdraaien()
+    {
+        bezig = true;
+        var uitkomst = await Inkoop.Terugdraaien(geopend!.Wie, Id, DocumentId);
+        bezig = false;
+        fouten = uitkomst.Fouten;
+        bevestigTerugdraaien = false;
+        if (uitkomst.IsGelukt)
+        {
+            await Open(geopend);
+        }
+    }
+
+    private async Task Terugzetten()
+    {
+        var uitkomst = await Inkoop.Terugzetten(geopend!.Wie, Id, DocumentId);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            await Open(geopend);
+        }
+    }
+
+    /// <summary>Naar het document dat nu op deze plaats in Te verwerken staat, of terug naar de lijst.</summary>
+    private async Task NaarVolgende(int positie)
+    {
+        naBoeken = true;
+        var rest = await Inkoop.Lijst(geopend!.Wie, Id, Documentstatus.TeVerwerken);
+        Navigatie.NavigateTo(rest.Count == 0 ? $"/a/{Id}/inkoop" : $"/a/{Id}/inkoop/{rest[Math.Min(positie, rest.Count - 1)].Id}");
     }
 
     /// <summary>Naar de vorige of volgende factuur in de werkvoorraad, zonder te boeken.</summary>

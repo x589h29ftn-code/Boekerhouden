@@ -89,5 +89,9 @@ public static class AuditActies
     public const string BankdagboekGekoppeld = "Bankdagboek gekoppeld aan rekening";
     public const string Afgeletterd = "Afgeletterd";
     public const string IbanGeleerd = "IBAN geleerd bij relatie";
+    public const string DocumentGearchiveerd = "Document bewaard zonder boeking";
+    public const string DocumentTeruggezet = "Document terug naar Te verwerken";
+    public const string BoekingTeruggedraaid = "Boeking teruggedraaid";
+    public const string CreditnotaVerrekend = "Creditnota verrekend";
     public const string KetenGecontroleerd = "Journaal gecontroleerd";
 }

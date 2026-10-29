@@ -21,4 +21,9 @@ public sealed record Journaalpost(
     IReadOnlyList<Journaalregel> Regels)
 {
     public decimal TotaalDebet => Regels.Where(r => r.Bedrag > 0).Sum(r => r.Bedrag);
+
+    /// <summary>De tegenboeking: dezelfde regels met het omgekeerde teken, in hetzelfde dagboek. Zo wordt een boeking
+    /// teruggedraaid zonder hem te wijzigen of te verwijderen.</summary>
+    public Journaalpost Tegenboeking(string boekstuk, DateOnly datum, string omschrijving) =>
+        new(Dagboek, boekstuk, datum, omschrijving, [.. Regels.Select(r => r with { Bedrag = -r.Bedrag })]);
 }

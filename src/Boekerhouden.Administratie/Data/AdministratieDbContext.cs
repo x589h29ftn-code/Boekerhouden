@@ -201,6 +201,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(d => d.Inhoudstype).HasMaxLength(100);
             e.Property(d => d.Sha256).HasMaxLength(64).IsFixedLength();
             e.Property(d => d.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(d => d.Soort).HasConversion<string>().HasMaxLength(20);
             if (Database.IsNpgsql())
             {
                 e.Property(d => d.Herkend).HasColumnType("jsonb");

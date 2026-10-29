@@ -49,20 +49,29 @@
 
     @if (overig is { Count: > 0 })
     {
-        <h2 class="h6 text-secondary">Geboekt en quarantaine</h2>
+        <h2 class="h6 text-secondary">Verwerkt</h2>
         <div class="card">
             <table class="table table-sm align-middle mb-0">
                 <tbody>
                     @foreach (var d in overig)
                     {
                         <tr>
-                            <td>@(d.Leverancier ?? d.Bestandsnaam)</td>
+                            <td>
+                                @if (d.Status == Documentstatus.Quarantaine)
+                                {
+                                    @(d.Leverancier ?? d.Bestandsnaam)
+                                }
+                                else
+                                {
+                                    <a href="/a/@Id/inkoop/@d.Id">@(d.Leverancier ?? d.Bestandsnaam)</a>
+                                }
+                            </td>
                             <td>@d.Factuurnummer</td>
                             <td class="bedrag text-end"><Euro Waarde="d.Totaal" /></td>
-                            <td><span class="status @(d.Status == Documentstatus.Quarantaine ? "let-op" : null)" title="@d.Melding">@(d.Status == Documentstatus.Geboekt ? "geboekt" : "quarantaine")</span></td>
+                            <td><span class="status @(d.Status == Documentstatus.Quarantaine ? "let-op" : null)" title="@d.Melding">@Status(d)</span></td>
                             <td class="small text-secondary text-nowrap">@Weergave.DatumTijd(d.IngelezenOp)</td>
                             <td class="text-end">
-                                @if (d.Status == Documentstatus.Geboekt)
+                                @if (d.Status is Documentstatus.Geboekt or Documentstatus.Gearchiveerd)
                                 {
                                     <DocumentOpenen Wie="geopend!.Wie" Administratie="Id" Document="d.Id" Klasse="btn btn-link btn-sm p-0" />
                                 }
@@ -99,6 +108,15 @@
         teVerwerken = [.. alle.Where(d => d.Status == Documentstatus.TeVerwerken)];
         overig = [.. alle.Where(d => d.Status != Documentstatus.TeVerwerken).Take(50)];
     }
+
+    private static string Status(DocumentRegel d) => (d.Status, d.Soort) switch
+    {
+        (Documentstatus.Geboekt, Documentsoort.Creditnota) => "creditnota",
+        (Documentstatus.Geboekt, _) => "geboekt",
+        (Documentstatus.Gearchiveerd, Documentsoort.Prive) => "privé",
+        (Documentstatus.Gearchiveerd, _) => "geen boeking",
+        _ => "quarantaine",
+    };
 
     private async Task LeesIn(InputFileChangeEventArgs e)
     {

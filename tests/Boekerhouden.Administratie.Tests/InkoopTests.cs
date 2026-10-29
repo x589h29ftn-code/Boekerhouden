@@ -252,6 +252,102 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
         await Assert.ThrowsAsync<GeenToegangException>(() => inkoop.Vindplaatsen(buiten, id, pdf.DocumentId.Value, velden));
     }
 
+    [Fact]
+    public async Task Creditnota_wordt_omgekeerd_geboekt_en_verrekend_met_de_factuur()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var inkoop = app.Dienst<InkoopDienst>();
+        var factuur = await inkoop.Lees(wie, id, new MemoryStream(Belnet("C-1")), "c1.xml", null);
+        Assert.True((await inkoop.Boek(wie, id, factuur.DocumentId!.Value, Invoer(null, new NieuweRelatie("Belnet B.V.", null, null, null), "C-1"))).IsGelukt);
+        var open = (await inkoop.Historie(wie, id, "BELNET")).Single();
+        var credit = await inkoop.Lees(wie, id, new MemoryStream(Belnet("CN-1")), "cn1.xml", null);
+
+        var uitkomst = await inkoop.Boek(wie, id, credit.DocumentId!.Value, Invoer("BELNET", null, "CN-1") with { Creditnota = true, VerrekenMet = open.Post });
+
+        Assert.True(uitkomst.IsGelukt, string.Join("; ", uitkomst.Fouten));
+        var proef = await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026);
+        Assert.Equal((0m, 0m, 0m), (Saldo(proef, "1600"), Saldo(proef, "4310"), Saldo(proef, "1500")));
+        await using var db = await app.Dienst<Toegang>().Open(wie, id, Recht.Lezen);
+        Assert.All(await db.OpenstaandePosten.ToListAsync(), p => Assert.Equal(0m, p.Openstaand));
+        Assert.Equal(Documentsoort.Creditnota, (await db.Documenten.SingleAsync(d => d.Id == credit.DocumentId)).Soort);
+        Assert.Single(await db.Leerkeuzes.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Prive_bewaren_zonder_boeking_en_terugzetten()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var inkoop = app.Dienst<InkoopDienst>();
+        var gelezen = await inkoop.Lees(wie, id, new MemoryStream(Belnet("P-1")), "p1.xml", null);
+
+        Assert.False((await inkoop.Archiveer(wie, id, gelezen.DocumentId!.Value, Documentsoort.Creditnota, null)).IsGelukt);
+        Assert.True((await inkoop.Archiveer(wie, id, gelezen.DocumentId.Value, Documentsoort.Prive, "Telefoon thuis")).IsGelukt);
+
+        var regel = (await inkoop.Lijst(wie, id)).Single();
+        Assert.Equal((Documentstatus.Gearchiveerd, Documentsoort.Prive, "Telefoon thuis"), (regel.Status, regel.Soort, regel.Melding));
+        Assert.Empty(await inkoop.Lijst(wie, id, Documentstatus.TeVerwerken));
+        Assert.Empty(await app.Dienst<GrootboekDienst>().Posten(wie, id));
+
+        Assert.True((await inkoop.Terugzetten(wie, id, gelezen.DocumentId.Value)).IsGelukt);
+        Assert.Single(await inkoop.Lijst(wie, id, Documentstatus.TeVerwerken));
+        Assert.False((await inkoop.Terugzetten(wie, id, gelezen.DocumentId.Value)).IsGelukt);
+    }
+
+    [Fact]
+    public async Task Terugdraaien_met_een_tegenboeking_en_daarna_opnieuw_boeken()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var inkoop = app.Dienst<InkoopDienst>();
+        var gelezen = await inkoop.Lees(wie, id, new MemoryStream(Belnet("T-1")), "t1.xml", null);
+        var document = gelezen.DocumentId!.Value;
+        Assert.True((await inkoop.Boek(wie, id, document, Invoer(null, new NieuweRelatie("Belnet B.V.", null, null, null), "T-1", "4900"))).IsGelukt);
+
+        var uitkomst = await inkoop.Terugdraaien(wie, id, document);
+
+        Assert.True(uitkomst.IsGelukt, string.Join("; ", uitkomst.Fouten));
+        var grootboek = app.Dienst<GrootboekDienst>();
+        var proef = await grootboek.Proefbalans(wie, id, 2026);
+        Assert.Equal((0m, 0m, 0m), (Saldo(proef, "1600"), Saldo(proef, "4900"), Saldo(proef, "1500")));
+        Assert.Equal(2, (await grootboek.Posten(wie, id, "INK")).Count);
+        Assert.Empty(await grootboek.ControleerKeten(wie, id));
+        Assert.Equal(Documentstatus.TeVerwerken, (await inkoop.Lijst(wie, id)).Single().Status);
+        Assert.False((await inkoop.Terugdraaien(wie, id, document)).IsGelukt);
+
+        // Opnieuw boeken, nu op de goede rekening, met hetzelfde factuurnummer.
+        Assert.True((await inkoop.Boek(wie, id, document, Invoer("BELNET", null, "T-1"))).IsGelukt);
+        Assert.Equal(20.65m, Saldo(await grootboek.Proefbalans(wie, id, 2026), "4310"));
+    }
+
+    [Fact]
+    public async Task Terugdraaien_kan_niet_als_de_factuur_al_betaald_is()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var inkoop = app.Dienst<InkoopDienst>();
+        var gelezen = await inkoop.Lees(wie, id, new MemoryStream(Belnet("BN-2026-0311")), "b.xml", null);
+        Assert.True((await inkoop.Boek(wie, id, gelezen.DocumentId!.Value, Invoer(null, new NieuweRelatie("Belnet B.V.", "NL63TRIO0212345678", null, null), "BN-2026-0311"))).IsGelukt);
+        await using (var db = await app.Dienst<Toegang>().Open(wie, id, Recht.Boekhouden))
+        {
+            (await db.OpenstaandePosten.SingleAsync()).Openstaand = -10m;
+            await db.SaveChangesAsync();
+        }
+
+        var uitkomst = await inkoop.Terugdraaien(wie, id, gelezen.DocumentId.Value);
+
+        Assert.Contains("al (deels) betaald", Assert.Single(uitkomst.Fouten), StringComparison.Ordinal);
+        var inzien = await app.Gebruiker("Inzien");
+        await app.Dienst<AdministratieDienst>().ZetLid(id, inzien.Id!.Value, Lidmaatschapsrol.Inzien, wie);
+        await Assert.ThrowsAsync<GeenToegangException>(() => inkoop.Terugdraaien(inzien, id, gelezen.DocumentId.Value));
+        await Assert.ThrowsAsync<GeenToegangException>(() => inkoop.Archiveer(inzien, id, gelezen.DocumentId.Value, Documentsoort.Prive, null));
+        await Assert.ThrowsAsync<GeenToegangException>(() => inkoop.Terugzetten(inzien, id, gelezen.DocumentId.Value));
+    }
+
+    private static decimal Saldo(Boekhouding.Grootboek.Proefbalans proef, string rekening) =>
+        proef.Regels.Single(r => r.Rekening.Nummer == rekening).Saldo;
+
     /// <summary>Een verzonnen PDF-factuur met het factuurnummer achter "Ref." (dat herkent het pakket niet).</summary>
     private static byte[] Drukkerij(string nummer, string datum)
     {

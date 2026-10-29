@@ -253,6 +253,24 @@ public enum Documentstatus
 
     /// <summary>De virusscan vond iets: niet geopend, niet verwerkt, inhoud niet bewaard.</summary>
     Quarantaine,
+
+    /// <summary>Bewaard zonder boeking: privé of geen boeking nodig (zie <see cref="Document.Soort"/>).</summary>
+    Gearchiveerd,
+}
+
+/// <summary>Wat voor document het is; bepaalt hoe het verwerkt wordt.</summary>
+public enum Documentsoort
+{
+    Factuur,
+
+    /// <summary>Een creditnota: de bedragen worden omgekeerd geboekt, eventueel verrekend met een openstaande factuur.</summary>
+    Creditnota,
+
+    /// <summary>Privé: niet van de onderneming, dus niet boeken.</summary>
+    Prive,
+
+    /// <summary>Geen boeking nodig (bijv. een pakbon of offerte): alleen bewaren.</summary>
+    Overig,
 }
 
 /// <summary>Een ingelezen document (inkoopfactuur, later ook bon of afschrift). De inhoud staat apart.</summary>
@@ -272,6 +290,8 @@ public sealed class Document : IVanAdministratie
     public string Sha256 { get; set; } = string.Empty;
 
     public Documentstatus Status { get; set; }
+
+    public Documentsoort Soort { get; set; }
 
     /// <summary>Wat er herkend is, als JSON (<c>HerkendeFactuur</c>); leeg als er niets herkend is.</summary>
     public string? Herkend { get; set; }
