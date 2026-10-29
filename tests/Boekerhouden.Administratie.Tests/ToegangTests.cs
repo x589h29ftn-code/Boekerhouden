@@ -109,7 +109,7 @@ public sealed class ToegangTests(AdministratieFixture app) : IClassFixture<Admin
         var id = await app.Administratie();
         var lid = await app.Gebruiker("Dirk Deactief");
         await app.Dienst<AdministratieDienst>().ZetLid(id, lid.Id!.Value, Lidmaatschapsrol.Kantoor, beheerder);
-        await app.VoerSqlUit($"UPDATE \"AspNetUsers\" SET \"Actief\" = false WHERE \"Id\" = '{lid.Id}'");
+        await app.VoerSqlUit($"UPDATE \"AspNetUsers\" SET \"Actief\" = false WHERE \"Id\" = '{AdministratieFixture.SqlId(lid.Id.Value)}'");
 
         Assert.Null(await app.Dienst<AdministratieDienst>().Open(lid, id));
     }

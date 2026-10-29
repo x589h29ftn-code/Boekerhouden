@@ -68,6 +68,16 @@ public sealed class PdfHerkenningTests
         Assert.Throws<DocumentException>(() => PdfTekst.InGebied("geen pdf"u8.ToArray(), 1, 0, 0, 10, 10));
     }
 
+    [Theory]
+    [InlineData("%PDF-1.7 ...", ".pdf")]
+    [InlineData("\uFEFF<?xml version=\"1.0\"?><Invoice/>", ".xml")]
+    [InlineData("  <Invoice xmlns=\"urn:x\"/>", ".xml")]
+    [InlineData("MZ\u0090\u0000 programma", null)]
+    [InlineData("<html><script>alert(1)</script></html>", null)]
+    [InlineData("<!DOCTYPE html><p>x</p>", null)]
+    public void Alleen_pdf_en_xml_mogen_worden_geopend(string inhoud, string? extensie) =>
+        Assert.Equal(extensie, Bestandssoort.Extensie(System.Text.Encoding.UTF8.GetBytes(inhoud)));
+
     [Fact]
     public async Task Pdf_factuur_wordt_door_het_pakket_herkend()
     {

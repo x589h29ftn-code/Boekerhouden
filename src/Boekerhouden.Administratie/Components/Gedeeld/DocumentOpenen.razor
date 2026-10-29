@@ -1,0 +1,29 @@
+@* Het origineel van een document: in de webapp een link (veilig geserveerd door de server), in de Windows-app een knop
+   die het bestand in het standaardprogramma opent. *@
+@inject IServiceProvider Diensten
+
+@if (Diensten.GetService<IDocumentvenster>() is { } venster)
+{
+    <button type="button" class="@Klasse" @onclick="() => venster.OpenOrigineel(Wie, Administratie, Document)">@Tekst</button>
+}
+else
+{
+    <a class="@Klasse" href="/a/@Administratie/documenten/@Document" target="_blank" rel="noopener">@Tekst</a>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public Uitvoerder Wie { get; set; } = default!;
+
+    [Parameter]
+    public Guid Administratie { get; set; }
+
+    [Parameter]
+    public Guid Document { get; set; }
+
+    [Parameter]
+    public string Tekst { get; set; } = "document";
+
+    [Parameter]
+    public string? Klasse { get; set; }
+}

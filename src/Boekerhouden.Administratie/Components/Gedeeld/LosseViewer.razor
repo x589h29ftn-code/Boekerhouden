@@ -1,0 +1,53 @@
+@* De factuurviewer in een eigen venster van de Windows-app (bijv. op een tweede beeldscherm). Een aangewezen gebied
+   gaat via het kanaal van de viewer naar het verwerkscherm. *@
+@implements IAsyncDisposable
+@inject InkoopDienst Inkoop
+@inject IJSRuntime JS
+
+<div @ref="container" class="factuurviewer extern-venster"></div>
+
+@code {
+    private ElementReference container;
+    private IJSObjectReference? module;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Authenticatie { get; set; } = default!;
+
+    [Parameter]
+    public Guid Administratie { get; set; }
+
+    [Parameter]
+    public Guid Document { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var wie = (await Authenticatie).User.AlsUitvoerder();
+        if (await Inkoop.Inhoud(wie, Administratie, Document) is not { } inhoud)
+        {
+            return;
+        }
+
+        module = await JS.InvokeAsync<IJSObjectReference>("import", "./factuurviewer.js");
+        await module.InvokeVoidAsync("extern", container, new DotNetStreamReference(new MemoryStream(inhoud.Inhoud)), Document.ToString());
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (module is not null)
+            {
+                await module.DisposeAsync();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // Het venster is al dicht.
+        }
+    }
+}

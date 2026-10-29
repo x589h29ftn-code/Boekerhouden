@@ -121,14 +121,14 @@ dotnet run --project src/Boekerhouden.Administratie    # http://localhost:5090, 
 
 ### Windows-app voor de tests
 
-Een zip om op een Windows-pc te proberen, zonder iets te installeren: de app (met .NET erin), een eigen PostgreSQL
-en Microsoft Defender als virusscanner. Uitpakken en `Boekerhouden.Administratie.exe` starten; de app opent in een
-eigen venster van Edge en bewaart alles in `%LOCALAPPDATA%\Boekerhouden\Administratie` (zie `LEESMIJ.txt` in de zip).
+Een zip om de boekhouding op een Windows-pc te proberen: uitpakken en `Boekerhouden.Administratie.Windows.exe`
+starten. De app opent in een eigen venster, zonder inloggen of tweestapsverificatie, zonder webserver en zonder
+databaseserver: alles staat in één bestand in `%LOCALAPPDATA%\Boekerhouden\Administratie` (zie `LEESMIJ.txt`).
 
 - Kant-en-klaar: de CI maakt bij elke push de zip *Boekerhouden-Administratie-win-x64* (GitHub, tabblad *Actions*,
-  de laatste run, onder *Artifacts*).
-- Zelf maken op Windows (met de .NET 10 SDK): `.\scripts\maak-windows-app.ps1`; op Linux of in Git Bash:
-  `scripts/maak-windows-app.sh`. Het resultaat staat in `publiceer\`.
+  de laatste run, onder *Artifacts*) en start hem op een Windows-runner.
+- Zelf maken (met de .NET 10 SDK): `.\scripts\maak-windows-app.ps1` op Windows, `scripts/maak-windows-app.sh` op
+  Linux of in Git Bash. Het resultaat staat in `publiceer\`.
 
 Ontwerp en roadmap: [`docs/administratie`](docs/administratie/README.md); beveiliging:
 [`docs/administratie/beveiliging.md`](docs/administratie/beveiliging.md).

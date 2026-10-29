@@ -318,10 +318,11 @@ het moment waarop een klant of accountant erom vraagt.
     leverancier) worden ontdaan van padtekens en verboden namen, zodat een naam nooit buiten de gekozen map kan
     schrijven. Bestaande bestanden worden nooit overschreven. Online (F2) mag alleen de beheerder een map kiezen,
     of verdwijnt de keuze: dan schrijft een server niet naar een map die een gebruiker opgeeft.
-15. **Windows-app voor de tests**: de eigen database luistert alleen op 127.0.0.1, met een willekeurig wachtwoord
-    in de map van de gebruiker en zonder socketbestand; de app zelf ook alleen op 127.0.0.1. Uploads gaan langs
-    Microsoft Defender, *fail closed*. Tweestapsverificatie blijft verplicht voor de beheerder. Bedoeld voor tests
-    op één pc, niet voor een kantoor met meerdere gebruikers (daarvoor de server, §4.11).
+15. **Windows-app voor de tests**: geen netwerk: geen webserver en geen databaseserver, alleen een SQLite-bestand
+    in de map van de Windows-gebruiker. Er is geen inloggen; wie de pc-sessie heeft, is de gebruiker (de pc zelf
+    beschermt met Windows-aanmelding en BitLocker). Boekingen en het log blijven onwijzigbaar (triggers, hash-keten),
+    uploads gaan langs Microsoft Defender (*fail closed*), en een document opent alleen als PDF of XML. Bedoeld
+    voor tests op één pc, niet voor een kantoor met meerdere gebruikers (daarvoor de server, §4.11).
 
 Bekende beperking: de databaserol van de app is eigenaar van de tabellen en kan de triggers dus uitschakelen. De
 hash-keten maakt zo'n wijziging zichtbaar; aparte databaserollen (app zonder eigenaarschap) volgen vóór F2.

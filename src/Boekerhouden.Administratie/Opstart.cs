@@ -18,6 +18,7 @@ public static class Opstart
 {
     public const string Verbindingsnaam = "Administratie";
 
+    /// <summary>De webapp: de kern, plus inloggen met cookies, tweestapsverificatie en de schermen via de server.</summary>
     public static void ConfigureerDiensten(WebApplicationBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -31,13 +32,12 @@ public static class Opstart
         services.AddScoped<Doorverwijzer>();
         services.AddScoped<AuthenticationStateProvider, HervaliderendeAuthenticatieStatus>();
 
-        var verbinding = builder.Configuration.GetConnectionString(Verbindingsnaam)
-                         ?? throw new InvalidOperationException($"Verbindingsgegevens '{Verbindingsnaam}' ontbreken in appsettings.json.");
-        services.AddDbContextFactory<AdministratieDbContext>(o => o.UseNpgsql(verbinding));
+        var identiteit = ConfigureerKern(services, builder.Configuration, builder.Environment.IsDevelopment(), lokaal: false);
+        identiteit.AddSignInManager();
 
         // De sleutels voor cookies en tokens staan in de database, zodat inloggen een herstart overleeft en de sleutels
         // niet als los bestand op de server rondslingeren (beveiliging §4.7).
-        var sleutels = services.AddDataProtection().SetApplicationName("Boekerhouden.Administratie").PersistKeysToDbContext<AdministratieDbContext>();
+        var sleutels = services.AddDataProtection().PersistKeysToDbContext<AdministratieDbContext>();
         if (OperatingSystem.IsWindows())
         {
             // Op de server-pc zijn de sleutels in de database bovendien versleuteld met de Windows-machinesleutel.
@@ -64,7 +64,27 @@ public static class Opstart
         });
         services.Configure<SecurityStampValidatorOptions>(o => o.ValidationInterval = TimeSpan.FromMinutes(1));
 
-        services.AddIdentityCore<Gebruiker>(o =>
+        services.AddAuthorizationBuilder()
+            .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
+            .AddPolicy(Rollen.Beheerder, p => p.RequireRole(Rollen.Beheerder));
+    }
+
+    /// <summary>
+    /// Wat de webapp en de Windows-app delen: de database, gebruikers en rollen (zonder inlogcookies), de diensten en de
+    /// virusscan. <paramref name="lokaal"/> is de Windows-app op één pc: één gebruiker, zonder inloggen.
+    /// </summary>
+    public static IdentityBuilder ConfigureerKern(IServiceCollection services, IConfiguration configuratie, bool ontwikkeling, bool lokaal)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configuratie);
+        services.AddSingleton(new Werkomgeving(lokaal));
+
+        var verbinding = configuratie.GetConnectionString(Verbindingsnaam)
+                         ?? throw new InvalidOperationException($"Verbindingsgegevens '{Verbindingsnaam}' ontbreken in appsettings.json.");
+        VoegDatabaseToe(services, verbinding);
+        services.AddDataProtection().SetApplicationName("Boekerhouden.Administratie");
+
+        var identiteit = services.AddIdentityCore<Gebruiker>(o =>
             {
                 o.User.RequireUniqueEmail = true;
                 o.Password.RequiredLength = 12;
@@ -80,15 +100,10 @@ public static class Opstart
             })
             .AddRoles<IdentityRole<Guid>>()
             .AddEntityFrameworkStores<AdministratieDbContext>()
-            .AddSignInManager()
             .AddDefaultTokenProviders()
             .AddErrorDescriber<NederlandseIdentityFoutmeldingen>()
             .AddPasswordValidator<VeelgebruiktWachtwoordValidator>()
             .AddClaimsPrincipalFactory<GebruikerClaimsFactory>();
-
-        services.AddAuthorizationBuilder()
-            .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
-            .AddPolicy(Rollen.Beheerder, p => p.RequireRole(Rollen.Beheerder));
 
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<AuditDienst>();
@@ -103,19 +118,49 @@ public static class Opstart
 
         // Virusscan vóór het openen van elk document (besluit B3). Zonder instelling: op de server fail closed, in
         // ontwikkeling (zonder ClamAV) zonder scan.
-        if (builder.Configuration["Virusscan:Adres"] is { Length: > 0 } adres)
+        if (configuratie["Virusscan:Adres"] is { Length: > 0 } adres)
         {
             services.AddSingleton<IVirusscanner>(ClamAvScanner.Van(adres));
         }
-        else if (string.Equals(builder.Configuration["Virusscan:Soort"], "Defender", StringComparison.OrdinalIgnoreCase))
+        else if (string.Equals(configuratie["Virusscan:Soort"], "Defender", StringComparison.OrdinalIgnoreCase))
         {
             // De Windows-app op één pc: de virusscanner van Windows zelf.
-            services.AddSingleton<IVirusscanner>(new DefenderScanner(builder.Configuration["Virusscan:Programma"]));
+            services.AddSingleton<IVirusscanner>(new DefenderScanner(configuratie["Virusscan:Programma"]));
         }
-        else if (!builder.Environment.IsDevelopment())
+        else if (!ontwikkeling)
         {
             services.AddSingleton<IVirusscanner, OntbrekendeVirusscanner>();
         }
+
+        return identiteit;
+    }
+
+    /// <summary>
+    /// PostgreSQL (de server op kantoor), of één SQLite-bestand als de verbinding met <c>Data Source=</c> begint (de
+    /// Windows-app). SQLite heeft een eigen context met eigen migraties; de diensten zien gewoon een
+    /// <see cref="AdministratieDbContext"/>.
+    /// </summary>
+    public static void VoegDatabaseToe(IServiceCollection services, string verbinding)
+    {
+        ArgumentNullException.ThrowIfNull(verbinding);
+        if (IsSqlite(verbinding))
+        {
+            services.AddDbContextFactory<SqliteAdministratieDbContext>(o => o.UseSqlite(verbinding));
+            services.AddSingleton<IDbContextFactory<AdministratieDbContext>, SqliteFabriek>();
+            services.AddScoped<AdministratieDbContext>(sp => sp.GetRequiredService<SqliteAdministratieDbContext>());
+        }
+        else
+        {
+            services.AddDbContextFactory<AdministratieDbContext>(o => o.UseNpgsql(verbinding));
+        }
+    }
+
+    public static bool IsSqlite(string verbinding) =>
+        verbinding.TrimStart().StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase);
+
+    private sealed class SqliteFabriek(IDbContextFactory<SqliteAdministratieDbContext> sqlite) : IDbContextFactory<AdministratieDbContext>
+    {
+        public AdministratieDbContext CreateDbContext() => sqlite.CreateDbContext();
     }
 
     public static void ConfigureerPijplijn(WebApplication app)

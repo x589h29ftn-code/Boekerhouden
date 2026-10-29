@@ -30,9 +30,14 @@ public sealed class AuditDienst(IDbContextFactory<AdministratieDbContext> dbFact
         if (!string.IsNullOrWhiteSpace(zoek))
         {
             var patroon = $"%{zoek.Trim()}%";
-            query = query.Where(a => EF.Functions.ILike(a.Gebruiker, patroon)
-                                     || EF.Functions.ILike(a.Actie, patroon)
-                                     || (a.Onderwerp != null && EF.Functions.ILike(a.Onderwerp, patroon)));
+            // PostgreSQL: ILIKE; in SQLite is LIKE al ongevoelig voor hoofdletters.
+            query = db.Database.IsNpgsql()
+                ? query.Where(a => EF.Functions.ILike(a.Gebruiker, patroon)
+                                   || EF.Functions.ILike(a.Actie, patroon)
+                                   || (a.Onderwerp != null && EF.Functions.ILike(a.Onderwerp, patroon)))
+                : query.Where(a => EF.Functions.Like(a.Gebruiker, patroon)
+                                   || EF.Functions.Like(a.Actie, patroon)
+                                   || (a.Onderwerp != null && EF.Functions.Like(a.Onderwerp, patroon)));
         }
 
         return await query.OrderByDescending(a => a.Id).Take(aantal).ToListAsync();

@@ -34,7 +34,7 @@ public sealed record Instellingen(
 /// instellingen. Een IBAN wijzigen is gevoelig (factuurfraude, beveiliging §4.4): alleen na bevestigen met het eigen
 /// wachtwoord, met de oude en nieuwe waarde in het wijzigingslog.
 /// </summary>
-public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimeProvider tijd, IServiceScopeFactory scopeFactory)
+public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimeProvider tijd, IServiceScopeFactory scopeFactory, Werkomgeving omgeving)
 {
     public async Task<IReadOnlyList<RelatieRegel>> Relaties(Uitvoerder wie, Guid administratie)
     {
@@ -104,7 +104,8 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
     {
         ArgumentNullException.ThrowIfNull(ibans);
         await using var db = await toegang.Open(wie, administratie, Recht.Invoeren);
-        if (!await WachtwoordKlopt(wie, wachtwoord))
+        // In de Windows-app op één pc is er geen wachtwoord; het log houdt oud en nieuw wel bij.
+        if (!omgeving.Lokaal && !await WachtwoordKlopt(wie, wachtwoord))
         {
             await audit.Log(wie, AuditActies.IbanWijzigingGeweigerd, id.ToString(), "wachtwoord onjuist", administratie);
             return Uitkomst.Mislukt("Bevestig met je wachtwoord; het ingevulde wachtwoord klopt niet.");

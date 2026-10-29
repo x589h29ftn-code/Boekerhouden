@@ -6,10 +6,14 @@
 @inject InkoopDienst Inkoop
 @inject NavigationManager Navigatie
 @inject IJSRuntime JS
+@inject IServiceProvider Diensten
 
 <AdministratieKader Id="Id" Titel="Factuur verwerken" Actief="/inkoop" BijOpenen="Open">
     <Acties>
-        <a class="btn btn-sm btn-outline-secondary" href="/a/@Id/documenten/@DocumentId" target="_blank" rel="noopener">Origineel</a>
+        @if (geopend is not null)
+        {
+            <DocumentOpenen Wie="geopend.Wie" Administratie="Id" Document="DocumentId" Tekst="Origineel" Klasse="btn btn-sm btn-outline-secondary" />
+        }
     </Acties>
     <ChildContent>
         @if (verwerking is null)
@@ -273,7 +277,14 @@
         viewerGestart = true;
         zelf ??= DotNetObjectReference.Create(this);
         module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./factuurviewer.js");
-        viewerKoppeling = await module.InvokeAsync<IJSObjectReference>("toon", viewer, $"/a/{Id}/documenten/{DocumentId}", DocumentId.ToString(), zelf);
+        // In de webapp haalt de viewer de PDF bij de server; in de Windows-app (geen server) krijgt hij de inhoud mee.
+        object bron = $"/a/{Id}/documenten/{DocumentId}";
+        if (Diensten.GetService<IDocumentvenster>() is not null && await Inkoop.Inhoud(geopend!.Wie, Id, DocumentId) is { } inhoud)
+        {
+            bron = new DotNetStreamReference(new MemoryStream(inhoud.Inhoud));
+        }
+
+        viewerKoppeling = await module.InvokeAsync<IJSObjectReference>("toon", viewer, bron, DocumentId.ToString(), zelf);
         await viewerKoppeling.InvokeVoidAsync("doel", doelNaam);
     }
 
@@ -370,7 +381,15 @@
     public async Task NaarExtern()
     {
         losVenster = true;
-        await viewerKoppeling!.InvokeVoidAsync("extern", $"/a/{Id}/inkoop/{DocumentId}/document");
+        if (Diensten.GetService<IDocumentvenster>() is { } venster)
+        {
+            venster.OpenViewer(Id, DocumentId, verwerking?.Document.Bestandsnaam ?? "Factuur", () => _ = ExternGesloten());
+        }
+        else
+        {
+            await viewerKoppeling!.InvokeVoidAsync("extern", $"/a/{Id}/inkoop/{DocumentId}/document");
+        }
+
         await InvokeAsync(StateHasChanged);
     }
 

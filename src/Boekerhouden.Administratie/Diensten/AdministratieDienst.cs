@@ -27,7 +27,8 @@ public sealed class AdministratieDienst(IDbContextFactory<AdministratieDbContext
                     select new { a, l.Rol };
         if (!string.IsNullOrWhiteSpace(zoek))
         {
-            query = query.Where(x => EF.Functions.ILike(x.a.Naam, $"%{zoek.Trim()}%"));
+            var patroon = $"%{zoek.Trim()}%";
+            query = db.Database.IsNpgsql() ? query.Where(x => EF.Functions.ILike(x.a.Naam, patroon)) : query.Where(x => EF.Functions.Like(x.a.Naam, patroon));
         }
 
         var lijst = await query.OrderBy(x => x.a.Naam).ToListAsync();

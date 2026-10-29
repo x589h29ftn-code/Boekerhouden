@@ -1,10 +1,14 @@
 @inherits LayoutComponentBase
 @layout HoofdLayout
+@inject Werkomgeving Omgeving
 
 <div class="beheer">
     <nav class="beheermenu" aria-label="Beheer">
         <div class="groep">Beheer</div>
-        <NavLink href="/beheer/gebruikers">Gebruikers en leden</NavLink>
+        @if (!Omgeving.Lokaal)
+        {
+            <NavLink href="/beheer/gebruikers">Gebruikers en leden</NavLink>
+        }
         <NavLink href="/beheer/instellingen">Kantoorinstellingen</NavLink>
         <NavLink href="/beheer/wijzigingslog">Wijzigingslog</NavLink>
     </nav>

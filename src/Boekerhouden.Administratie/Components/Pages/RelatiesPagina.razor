@@ -1,5 +1,6 @@
 @page "/a/{Id:guid}/relaties"
 @inject InrichtingDienst Inrichting
+@inject Werkomgeving Omgeving
 
 <AdministratieKader Id="Id" Titel="Relaties" Actief="/relaties" BijOpenen="Open">
     <Foutmeldingen Fouten="fouten" />
@@ -52,7 +53,10 @@
                                 <td colspan="6">
                                     <div class="d-flex gap-2 align-items-center py-1">
                                         <input class="form-control form-control-sm w-auto" size="34" @bind="ibans" aria-label="IBAN's, gescheiden door komma's" />
-                                        <input class="form-control form-control-sm w-auto" type="password" @bind="wachtwoord" placeholder="Je wachtwoord" aria-label="Bevestig met je wachtwoord" autocomplete="current-password" />
+                                        @if (!Omgeving.Lokaal)
+                                        {
+                                            <input class="form-control form-control-sm w-auto" type="password" @bind="wachtwoord" placeholder="Je wachtwoord" aria-label="Bevestig met je wachtwoord" autocomplete="current-password" />
+                                        }
                                         <button class="btn btn-sm btn-primary" @onclick="ZetIbans">Bevestigen</button>
                                         <button class="btn btn-sm btn-link" @onclick="() => ibanVoor = null">Annuleren</button>
                                     </div>

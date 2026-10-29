@@ -1,6 +1,6 @@
+using System.Data.Common;
 using Boekerhouden.Administratie.Diensten;
 using Boekerhouden.Boekhouding.Grootboek;
-using Npgsql;
 
 namespace Boekerhouden.Administratie.Tests;
 
@@ -83,13 +83,13 @@ public sealed class BoekenTests(AdministratieFixture app) : IClassFixture<Admini
         var id = await app.Administratie();
         await app.Dienst<GrootboekDienst>().Boek(wie, id, Post("2026-0001", new(2026, 1, 1), ("1100", 10m), ("0500", -10m)));
 
-        var wijzigen = await Assert.ThrowsAsync<PostgresException>(() => app.VoerSqlUit("UPDATE \"Boekingsregels\" SET \"Bedrag\" = 99 WHERE \"Rekeningnummer\" = '1100'"));
-        var verwijderen = await Assert.ThrowsAsync<PostgresException>(() => app.VoerSqlUit("DELETE FROM \"Boekingen\""));
-        var log = await Assert.ThrowsAsync<PostgresException>(() => app.VoerSqlUit("DELETE FROM \"AuditRegels\""));
+        var wijzigen = await Assert.ThrowsAnyAsync<DbException>(() => app.VoerSqlUit("UPDATE \"Boekingsregels\" SET \"Bedrag\" = 99 WHERE \"Rekeningnummer\" = '1100'"));
+        var verwijderen = await Assert.ThrowsAnyAsync<DbException>(() => app.VoerSqlUit("DELETE FROM \"Boekingen\""));
+        var log = await Assert.ThrowsAnyAsync<DbException>(() => app.VoerSqlUit("DELETE FROM \"AuditRegels\""));
 
-        Assert.Contains("kunnen niet worden gewijzigd of verwijderd", wijzigen.MessageText, StringComparison.Ordinal);
-        Assert.Contains("Boekingen", verwijderen.MessageText, StringComparison.Ordinal);
-        Assert.Contains("AuditRegels", log.MessageText, StringComparison.Ordinal);
+        Assert.Contains("kunnen niet worden gewijzigd of verwijderd", wijzigen.Message, StringComparison.Ordinal);
+        Assert.Contains("Boekingen", verwijderen.Message, StringComparison.Ordinal);
+        Assert.Contains("AuditRegels", log.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -102,12 +102,13 @@ public sealed class BoekenTests(AdministratieFixture app) : IClassFixture<Admini
         await grootboek.Boek(wie, id, Post("2026-0002", new(2026, 1, 2), ("4300", 5m), ("1100", -5m)));
 
         // De eigenaar van de tabellen kan de trigger uitzetten; de keten laat het dan alsnog zien.
-        await app.VoerSqlUit($"""
-            ALTER TABLE "Boekingsregels" DISABLE TRIGGER boekingsregels_onwijzigbaar;
+        var wijziging = $"""
             UPDATE "Boekingsregels" SET "Bedrag" = "Bedrag" * 10
-                WHERE "BoekingId" = (SELECT "Id" FROM "Boekingen" WHERE "AdministratieId" = '{id}' AND "Volgnummer" = 2);
-            ALTER TABLE "Boekingsregels" ENABLE TRIGGER boekingsregels_onwijzigbaar;
-            """);
+                WHERE "BoekingId" = (SELECT "Id" FROM "Boekingen" WHERE "AdministratieId" = '{AdministratieFixture.SqlId(id)}' AND "Volgnummer" = 2);
+            """;
+        await app.VoerSqlUit(AdministratieFixture.IsSqlite
+            ? $"DROP TRIGGER boekingsregels_onwijzigbaar_update; {wijziging}"
+            : $"""ALTER TABLE "Boekingsregels" DISABLE TRIGGER boekingsregels_onwijzigbaar; {wijziging} ALTER TABLE "Boekingsregels" ENABLE TRIGGER boekingsregels_onwijzigbaar;""");
 
         Assert.Equal([2L], await grootboek.ControleerKeten(wie, id));
     }

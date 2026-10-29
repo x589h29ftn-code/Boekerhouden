@@ -117,7 +117,7 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
     /// </summary>
     internal async Task<Boeking> VoegToeAanKeten(AdministratieDbContext db, Guid administratie, Journaalpost post, Uitvoerder wie)
     {
-        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"Administraties\" WHERE \"Id\" = {administratie} FOR UPDATE");
+        await db.Vergrendel(administratie);
         var vorige = await db.Boekingen.OrderByDescending(b => b.Volgnummer).Select(b => new { b.Volgnummer, b.Hash }).FirstOrDefaultAsync();
         var volgnummer = (vorige?.Volgnummer ?? 0) + 1;
         var vorigeHash = vorige?.Hash ?? Journaalketen.Begin;

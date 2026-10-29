@@ -15,9 +15,10 @@ function maak(tag, klasse, tekst) {
 }
 
 class Viewer {
-    constructor(container, url, opties) {
+    /** @param bron het adres van de PDF, of (Windows-app) een stroom uit .NET met de inhoud. */
+    constructor(container, bron, opties) {
         this.container = container;
-        this.url = url;
+        this.bron = bron;
         this.opties = opties;
         this.zoom = 1;
         this.paginas = [];
@@ -49,7 +50,10 @@ class Viewer {
 
     async laad() {
         try {
-            this.pdf = await pdfjs.getDocument({ url: this.url, isEvalSupported: false, standardFontDataUrl: standaardLettertypen, withCredentials: true }).promise;
+            const bron = typeof this.bron === 'string'
+                ? { url: this.bron, withCredentials: true }
+                : { data: new Uint8Array(await this.bron.arrayBuffer()) };
+            this.pdf = await pdfjs.getDocument({ ...bron, isEvalSupported: false, standardFontDataUrl: standaardLettertypen }).promise;
         } catch {
             this.vlak.replaceChildren(maak('p', 'text-secondary p-3', 'Dit document is niet als PDF te tonen.'));
             return;
@@ -148,9 +152,9 @@ class Viewer {
 const kanaal = (id) => new BroadcastChannel(`factuur-${id}`);
 
 /** De viewer op het verwerkscherm; een gebied gaat naar .NET (Gebied), ook als het in het externe venster is aangewezen. */
-export async function toon(container, url, id, dotnet) {
+export async function toon(container, bron, id, dotnet) {
     const verbinding = kanaal(id);
-    const viewer = new Viewer(container, url, {
+    const viewer = new Viewer(container, bron, {
         opGebied: (pagina, x0, y0, x1, y1) => dotnet.invokeMethodAsync('Gebied', pagina, x0, y0, x1, y1),
         extern: () => dotnet.invokeMethodAsync('NaarExtern'),
     });
@@ -173,9 +177,9 @@ export async function toon(container, url, id, dotnet) {
 }
 
 /** Het externe venster: alleen de viewer; een gebied gaat via het kanaal naar het verwerkscherm. */
-export async function extern(container) {
-    const verbinding = kanaal(container.dataset.document);
-    const viewer = new Viewer(container, container.dataset.url, {
+export async function extern(container, bron, id) {
+    const verbinding = kanaal(id ?? container.dataset.document);
+    const viewer = new Viewer(container, bron ?? container.dataset.url, {
         opGebied: (pagina, x0, y0, x1, y1) => verbinding.postMessage({ soort: 'gebied', pagina, x0, y0, x1, y1 }),
     });
     verbinding.onmessage = (e) => {

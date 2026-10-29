@@ -10,9 +10,31 @@ namespace Boekerhouden.Administratie.Data;
 /// zijn gefilterd op <see cref="Geopend"/>: zonder geopende administratie geeft een query niets. Openen gebeurt
 /// alleen via <c>Toegang</c>, na controle van het lidmaatschap.
 /// </summary>
-public sealed class AdministratieDbContext(DbContextOptions<AdministratieDbContext> options)
-    : IdentityDbContext<Gebruiker, IdentityRole<Guid>, Guid>(options), IDataProtectionKeyContext
+public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<Guid>, Guid>, IDataProtectionKeyContext
 {
+    public AdministratieDbContext(DbContextOptions<AdministratieDbContext> options)
+        : base(options)
+    {
+    }
+
+    /// <summary>Voor <see cref="SqliteAdministratieDbContext"/>, met eigen migraties.</summary>
+    protected AdministratieDbContext(DbContextOptions options)
+        : base(options)
+    {
+    }
+
+    /// <summary>
+    /// Laat andere boekingen in dezelfde administratie wachten tot het eind van deze transactie (volgnummers en de
+    /// hash-keten). Op PostgreSQL met een rij-lock; SQLite laat sowieso maar één schrijvende transactie tegelijk toe.
+    /// </summary>
+    public async Task Vergrendel(Guid administratie)
+    {
+        if (Database.IsNpgsql())
+        {
+            await Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"Administraties\" WHERE \"Id\" = {administratie} FOR UPDATE");
+        }
+    }
+
     /// <summary>De administratie waarvan deze context gegevens laat zien; leeg = geen.</summary>
     public Guid? Geopend { get; set; }
 
@@ -172,7 +194,10 @@ public sealed class AdministratieDbContext(DbContextOptions<AdministratieDbConte
             e.Property(d => d.Inhoudstype).HasMaxLength(100);
             e.Property(d => d.Sha256).HasMaxLength(64).IsFixedLength();
             e.Property(d => d.Status).HasConversion<string>().HasMaxLength(20);
-            e.Property(d => d.Herkend).HasColumnType("jsonb");
+            if (Database.IsNpgsql())
+            {
+                e.Property(d => d.Herkend).HasColumnType("jsonb");
+            }
             e.Property(d => d.Melding).HasMaxLength(2000);
             e.Property(d => d.IngelezenDoor).HasMaxLength(200);
             e.HasOne<Administratie>().WithMany().HasForeignKey(d => d.AdministratieId);

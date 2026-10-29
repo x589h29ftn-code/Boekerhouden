@@ -13,6 +13,7 @@ namespace Boekerhouden.Administratie.Tests;
 /// <summary>
 /// Start het administratiepakket tegen een eigen, lege PostgreSQL-database die na afloop wordt verwijderd.
 /// De server staat in de omgevingsvariabele BOEKERHOUDEN_TEST_DB (standaard: de lokale ontwikkeldatabase-rol).
+/// Met BOEKERHOUDEN_TEST_SQLITE=1 draait alles tegen een SQLite-bestand, zoals in de Windows-app.
 /// </summary>
 public class AdministratieFixture : WebApplicationFactory<Program>, IAsyncLifetime
 {
@@ -22,13 +23,29 @@ public class AdministratieFixture : WebApplicationFactory<Program>, IAsyncLifeti
     private readonly string server = Environment.GetEnvironmentVariable("BOEKERHOUDEN_TEST_DB") ?? StandaardServer;
     private readonly string databasenaam = $"administratie_test_{Guid.NewGuid():N}";
 
-    public string Verbinding => new NpgsqlConnectionStringBuilder(server) { Database = databasenaam }.ConnectionString;
+    /// <summary>Draaien de tests tegen SQLite (de Windows-app) in plaats van PostgreSQL?</summary>
+    public static bool IsSqlite => Environment.GetEnvironmentVariable("BOEKERHOUDEN_TEST_SQLITE") == "1";
+
+    /// <summary>Een id zoals het in ruwe SQL staat (SQLite bewaart een GUID in hoofdletters).</summary>
+    public static string SqlId(Guid id) => IsSqlite ? id.ToString().ToUpperInvariant() : id.ToString();
+
+    private string SqliteBestand => Path.Combine(Path.GetTempPath(), databasenaam + ".db");
+
+    public string Verbinding => IsSqlite
+        ? $"Data Source={SqliteBestand}"
+        : new NpgsqlConnectionStringBuilder(server) { Database = databasenaam }.ConnectionString;
 
     public T Dienst<T>()
         where T : notnull => Services.GetRequiredService<T>();
 
     public async Task InitializeAsync()
     {
+        if (IsSqlite)
+        {
+            _ = Services;
+            return;
+        }
+
         await using var verbinding = new NpgsqlConnection(new NpgsqlConnectionStringBuilder(server) { Database = "postgres" }.ConnectionString);
         await verbinding.OpenAsync();
         await using var opdracht = new NpgsqlCommand($"CREATE DATABASE \"{databasenaam}\"", verbinding);
@@ -41,6 +58,13 @@ public class AdministratieFixture : WebApplicationFactory<Program>, IAsyncLifeti
     async Task IAsyncLifetime.DisposeAsync()
     {
         await DisposeAsync();
+        if (IsSqlite)
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            File.Delete(SqliteBestand);
+            return;
+        }
+
         NpgsqlConnection.ClearAllPools();
         await using var verbinding = new NpgsqlConnection(new NpgsqlConnectionStringBuilder(server) { Database = "postgres" }.ConnectionString);
         await verbinding.OpenAsync();

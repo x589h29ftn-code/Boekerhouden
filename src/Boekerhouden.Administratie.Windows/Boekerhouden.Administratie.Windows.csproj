@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!-- De Windows-app: dezelfde schermen als de webapp in een eigen venster (BlazorWebView), zonder webserver en met
+       één SQLite-bestand als database. Bouwt ook op Linux (EnableWindowsTargeting); draaien kan alleen op Windows. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <RootNamespace>Boekerhouden.Administratie.Windows</RootNamespace>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebView.WindowsForms" />
+    <ProjectReference Include="..\Boekerhouden.Administratie\Boekerhouden.Administratie.csproj" />
+  </ItemGroup>
+
+  <!-- Het WebView2-pakket verwijst altijd ook naar zijn WPF-onderdeel; deze app is WinForms en heeft dat niet nodig. -->
+  <Target Name="ZonderWebView2Wpf" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <Reference Remove="@(Reference)" Condition="'%(Filename)' == 'Microsoft.Web.WebView2.Wpf'" />
+    </ItemGroup>
+  </Target>
+
+</Project>

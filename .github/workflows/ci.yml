@@ -37,8 +37,12 @@ jobs:
       - run: dotnet build Boekerhouden.slnx --no-restore
       - run: dotnet format Boekerhouden.slnx --verify-no-changes --no-restore
       - run: dotnet test Boekerhouden.slnx --no-build
+      # Het administratiepakket nog eens op SQLite, zoals in de Windows-app.
+      - run: dotnet test tests/Boekerhouden.Administratie.Tests --no-build
+        env:
+          BOEKERHOUDEN_TEST_SQLITE: "1"
 
-  # De Windows-app voor de tests: een zip met de app, PostgreSQL voor Windows en bureaublad.json (scripts/windows).
+  # De Windows-app voor de tests: een zip met een eigen venster (BlazorWebView), SQLite en zonder inloggen.
   windows-app:
     needs: build-en-test
     runs-on: ubuntu-latest
@@ -54,7 +58,7 @@ jobs:
           path: publiceer/Boekerhouden-Administratie-win-x64.zip
           retention-days: 30
 
-  # Proef op Windows: de app start met de meegeleverde PostgreSQL en toont de pagina voor het eerste account.
+  # Proef op Windows: de app opent zijn venster en toont het eerste scherm (met een schermafdruk als bewijs).
   windows-app-proef:
     needs: windows-app
     runs-on: windows-latest
@@ -63,21 +67,18 @@ jobs:
         with:
           name: Boekerhouden-Administratie-win-x64
       - shell: pwsh
-        env:
-          Bureaublad__Venster: Nee
-          Bureaublad__Gegevensmap: ${{ runner.temp }}\boekerhouden
         run: |
           Expand-Archive Boekerhouden-Administratie-win-x64.zip -DestinationPath app
-          $exe = "app\Boekerhouden Administratie\Boekerhouden.Administratie.exe"
-          $proces = Start-Process $exe -PassThru -RedirectStandardOutput uit.txt -RedirectStandardError fout.txt
-          $pagina = $null
-          for ($i = 0; $i -lt 90 -and -not $pagina; $i++) {
-            Start-Sleep -Seconds 2
-            try { $pagina = (Invoke-WebRequest http://127.0.0.1:5090/eerste-gebruiker -UseBasicParsing).Content } catch { }
-          }
-          Get-Content uit.txt, fout.txt
-          Stop-Process $proces -Force
-          & "app\Boekerhouden Administratie\pgsql\bin\pg_ctl.exe" stop -D "$env:Bureaublad__Gegevensmap\database" -m fast
-          if (-not $pagina -or $pagina -notmatch "Eerste gebruiker") { throw "De Windows-app startte niet." }
-          Write-Host "De Windows-app start en toont de pagina voor het eerste account."
-
+          $map = Join-Path $env:RUNNER_TEMP "proef"
+          $proces = Start-Process "app\Boekerhouden Administratie\Boekerhouden.Administratie.Windows.exe" -ArgumentList "--proef", "`"$map`"" -PassThru
+          if (-not $proces.WaitForExit(180000)) { Stop-Process $proces -Force; throw "De Windows-app reageerde niet." }
+          if (Test-Path "$map\fouten.log") { Get-Content "$map\fouten.log" }
+          if (Test-Path "$map\proef.txt") { Get-Content "$map\proef.txt" }
+          if ($proces.ExitCode -ne 0) { throw "De Windows-app toonde het eerste scherm niet (code $($proces.ExitCode))." }
+          Write-Host "De Windows-app opent en toont de administraties."
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-app-proef
+          path: ${{ runner.temp }}/proef/proef*
+          if-no-files-found: ignore

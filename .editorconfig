@@ -18,5 +18,5 @@ csharp_style_var_when_type_is_apparent = true:suggestion
 dotnet_sort_system_directives_first = true
 
 # Door EF Core gegenereerde migraties: niet analyseren of herformatteren.
-[{src/Boekerhouden.Data/Migraties/*.cs,src/Boekerhouden.Administratie/Data/Migraties/*.cs}]
+[{src/Boekerhouden.Data/Migraties/*.cs,src/Boekerhouden.Administratie/Data/Migraties/*.cs,src/Boekerhouden.Administratie/Data/MigratiesSqlite/*.cs}]
 generated_code = true

@@ -64,7 +64,7 @@
                             <td class="text-end">
                                 @if (d.Status == Documentstatus.Geboekt)
                                 {
-                                    <a class="small" href="/a/@Id/documenten/@d.Id" target="_blank" rel="noopener">document</a>
+                                    <DocumentOpenen Wie="geopend!.Wie" Administratie="Id" Document="d.Id" Klasse="btn btn-link btn-sm p-0" />
                                 }
                             </td>
                         </tr>

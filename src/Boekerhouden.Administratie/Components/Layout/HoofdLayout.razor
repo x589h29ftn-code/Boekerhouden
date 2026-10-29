@@ -1,6 +1,7 @@
 @inherits LayoutComponentBase
 @implements IDisposable
 @inject NavigationManager Navigatie
+@inject Werkomgeving Omgeving
 
 <header class="kopbalk">
     <a class="merk" href="/">
@@ -10,7 +11,7 @@
     <nav class="hoofdmenu" aria-label="Hoofdmenu">
         <a href="/" class="@(Onderdeel == "werk" ? "actief" : null)">Administraties</a>
         <AuthorizeView Roles="@Rollen.Beheerder">
-            <a href="/beheer/gebruikers" class="@(Onderdeel == "beheer" ? "actief" : null)">Beheer</a>
+            <a href="@(Omgeving.Lokaal ? "/beheer/instellingen" : "/beheer/gebruikers")" class="@(Onderdeel == "beheer" ? "actief" : null)">Beheer</a>
         </AuthorizeView>
     </nav>
     <AuthorizeView>
@@ -18,12 +19,15 @@
             <summary title="@context.User.WeergaveNaam()" aria-label="Gebruikersmenu"><span class="initialen">@context.User.WeergaveInitialen()</span></summary>
             <div class="menu">
                 <div class="naam">@context.User.WeergaveNaam()</div>
-                <a href="/account/beveiliging" data-enhance-nav="false">Beveiliging</a>
-                <a href="/wachtwoord-wijzigen" data-enhance-nav="false">Wachtwoord wijzigen</a>
-                <form action="/account/uitloggen" method="post">
-                    <AntiforgeryToken />
-                    <button type="submit">Uitloggen</button>
-                </form>
+                @if (!Omgeving.Lokaal)
+                {
+                    <a href="/account/beveiliging" data-enhance-nav="false">Beveiliging</a>
+                    <a href="/wachtwoord-wijzigen" data-enhance-nav="false">Wachtwoord wijzigen</a>
+                    <form action="/account/uitloggen" method="post">
+                        <AntiforgeryToken />
+                        <button type="submit">Uitloggen</button>
+                    </form>
+                }
             </div>
         </details>
     </AuthorizeView>

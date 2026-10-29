@@ -17,6 +17,8 @@ dotnet run --project src/Boekerhouden.Cli -- controleer tests/Fictief/bv-voorbee
 dotnet run --project src/Boekerhouden.Cli -- herken testdata/factuur.pdf --leer 4500 I21   # inkoopfactuur herkennen
 dotnet ef migrations add <Naam> --project src/Boekerhouden.Data --output-dir Migraties   # na een modelwijziging
 dotnet ef migrations add <Naam> --project src/Boekerhouden.Administratie --output-dir Data/Migraties   # idem, administratiepakket
+dotnet ef migrations add <Naam> --project src/Boekerhouden.Administratie --context SqliteAdministratieDbContext --output-dir Data/MigratiesSqlite   # en voor SQLite (Windows-app)
+BOEKERHOUDEN_TEST_SQLITE=1 dotnet test tests/Boekerhouden.Administratie.Tests   # administratiepakket op SQLite
 ```
 
 Warnings zijn errors (`TreatWarningsAsErrors`). In cloudsessies installeert `.claude/hooks/session-start.sh`
@@ -46,13 +48,16 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   gegevens van een administratie, met rechten per lidmaatschap; administraties, grootboek en boeken met hash-keten,
   gebruikers, tweestapsverificatie en passkeys, wijzigingslog; `InkoopDienst` = inlezen met virusscan, voorstel en
   (automatisch) boeken en de kopie in de documentmap; `InrichtingDienst` = relaties, regels en instellingen van een
-  administratie; `KantoorDienst` = kantoorinstellingen, alleen beheerder), `Bureaublad/` (Windows-app voor één pc: eigen
-  PostgreSQL, Edge-venster, Defender; aan met `bureaublad.json` naast de exe), `Identiteit/` (inloggen, beveiligingsheaders,
+  administratie; `KantoorDienst` = kantoorinstellingen, alleen beheerder; `Werkomgeving` = webapp of lokaal),
+  `Lokaal/` (`LokaleApp` = samenstelling voor de Windows-app: SQLite, lokale gebruiker zonder inloggen), `Identiteit/` (inloggen, beveiligingsheaders,
   tweestap verplicht voor de beheerder), `Components/` (schermen; accountpagina's statisch, de rest interactief).
   Negatieve toegangstests horen bij elke dienst. Geen inline scripts (CSP): JavaScript als los bestand in `wwwroot/`
   (`factuurviewer.js` = de PDF-viewer met gebied aanwijzen; pdf.js staat in `wwwroot/lib/pdfjs`, Apache-2.0).
-- `scripts/maak-windows-app.ps1` / `.sh` – de Windows-app als zip (met PostgreSQL voor Windows en
-  `scripts/windows/bureaublad.json`); de CI maakt hem ook en start hem op een Windows-runner.
+- `src/Boekerhouden.Administratie.Windows` – de Windows-app voor de tests: WinForms met BlazorWebView (dezelfde
+  schermen, geen webserver), SQLite in `%LOCALAPPDATA%`, geen inloggen. Bouwt op Linux (`EnableWindowsTargeting`),
+  draait alleen op Windows. `scripts/maak-windows-app.ps1` / `.sh` maken de zip; de CI ook, en start hem op Windows.
+- De database bestaat in twee smaken: PostgreSQL (`Data/Migraties`) en SQLite (`SqliteAdministratieDbContext`,
+  `Data/MigratiesSqlite`). Na een modelwijziging in het administratiepakket beide migraties maken.
 - `src/Boekerhouden.Huisstijl` – gedeelde huisstijl van beide apps (Bootstrap, `app.css`, logo) onder
   `_content/Boekerhouden.Huisstijl/`.
 - `src/Boekerhouden.Import` – importsjabloon (.xlsx/.csv) inlezen en controleren (I1–I6, I11), sjabloon genereren,

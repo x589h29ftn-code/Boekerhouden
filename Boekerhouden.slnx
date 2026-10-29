@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Boekerhouden.Administratie.Windows/Boekerhouden.Administratie.Windows.csproj" />
     <Project Path="src/Boekerhouden.Administratie/Boekerhouden.Administratie.csproj" />
     <Project Path="src/Boekerhouden.Boekhouding/Boekerhouden.Boekhouding.csproj" />
     <Project Path="src/Boekerhouden.Cli/Boekerhouden.Cli.csproj" />

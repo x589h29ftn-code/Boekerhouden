@@ -314,18 +314,19 @@ overzichten.
 | Instellingen | Twee niveaus. `/beheer/instellingen` (beheerder, `KantoorDienst`): de standaard van het kantoor. `/a/{id}/instellingen` (kantoor): naam, KvK, btw-nummer en eigen IBAN's, en per instelling afwijken van het kantoor; een leeg veld volgt het kantoor (de kantoorwaarde staat grijs in het veld). Instellingen: drempel (na hoeveel gelijke keuzes), bandbreedte (automatisch tot zoveel keer het hoogste bevestigde bedrag), limiet (geen, kantoor of eigen; B2), betalingstermijn, adrescontrole aan/uit en de documentmap (`Verwerkingsinstellingen`, `AfwijkendeInstellingen`) |
 | Documentmap | Na het boeken een kopie van het document in een map met variabelen (`Documentpad`): `#administratie`, `#jaar`, `#kwartaal`, `#maand`, `#soort`, `#leverancier`, bijv. `C:\Users\naam\OneDrive\Klanten\#administratie\#jaar\#soort`. Bestandsnaam: datum, relatie en factuurnummer. Nooit overschrijven (anders `(2)`); lukt het niet, dan blijft de boeking staan met de reden bij het document en in het log. Het origineel blijft in de database |
 
-#### Windows-app (bureaubladmodus)
+#### Windows-app voor de tests
 
-Dezelfde webapp, maar voor één pc (`Bureaublad/`): aan als er een `bureaublad.json` naast de exe staat (het
-publicatiescript zet die erbij) of met `--bureaublad`.
+Een echte Windows-applicatie voor één pc (`src/Boekerhouden.Administratie.Windows`): dezelfde schermen als de
+webapp in een eigen venster, zonder webserver, zonder databaseserver en zonder inloggen.
 
 | Onderdeel | Hoe |
 |---|---|
-| Database | `LokaleDatabase`: PostgreSQL uit `pgsql\bin` naast de exe. Bij de eerste start `initdb` in `%LOCALAPPDATA%\Boekerhouden\Administratie\database`, gebruiker `boekerhouden` met een willekeurig wachtwoord (scram-sha-256), alleen op 127.0.0.1 en zonder socketbestand, op een vrije poort. Draait hij nog (na hard afsluiten), dan gebruikt de app hem opnieuw; bij afsluiten `pg_ctl stop` |
-| Venster | `AppVenster`: Edge met `--app` en een eigen profiel; sluit de gebruiker het venster, dan stopt de app. Zonder Edge: de standaardbrowser |
+| Venster | WinForms met een `BlazorWebView` (WebView2): de Razor-schermen draaien in het venster zelf, er is geen HTTP. Startscherm `Routes`, de titel volgt de pagina |
+| Database | Eén SQLite-bestand (`administratie.db`) in `%LOCALAPPDATA%\Boekerhouden\Administratie`. `SqliteAdministratieDbContext` met eigen migraties (`Data/MigratiesSqlite`): bedragen exact als geheel getal (× 10.000), tijdstippen sorteerbaar, triggers die boekingen en het log onwijzigbaar maken. De hele testsuite draait ook op SQLite (`BOEKERHOUDEN_TEST_SQLITE=1`, in CI) |
+| Gebruiker | `LokaleApp` en `LokaleGebruiker`: wie de app start, is de lokale gebruiker (beheerder en kantoor) met de naam van de Windows-gebruiker; geen wachtwoord, geen tweestapsverificatie. `Werkomgeving.Lokaal` laat uitloggen, beveiliging, wachtwoord en gebruikersbeheer weg; het IBAN van een relatie wijzigen vraagt geen wachtwoord (het log houdt oud en nieuw bij) |
+| Documenten | `IDocumentvenster`: het origineel opent in het standaardprogramma (alleen PDF of XML, op inhoud bepaald: `Bestandssoort`); de factuurviewer krijgt de inhoud mee in plaats van een adres; *Extern* opent een tweede venster (`LosseViewer`) dat via hetzelfde kanaal met het verwerkscherm praat |
 | Virusscan | `DefenderScanner`: Microsoft Defender (`MpCmdRun.exe -Scan -ScanType 3 -File`), *fail closed* |
-| Instellingen | Sectie `Bureaublad`: `Gegevensmap`, `PostgreSql`, `Database` (`Lokaal`/`Extern`), `Poort` (5090, anders een vrije), `Browser`, `Venster` (`Nee` voor de proef in CI) |
-| Bouwen | `scripts/maak-windows-app.ps1` of `.sh`: `dotnet publish -r win-x64 --self-contained`, PostgreSQL-binaries van EDB (alleen `bin`, `lib`, `share`), `scripts/windows/bureaublad.json` en `LEESMIJ.txt`, gezipt. De CI maakt de zip en start hem op een Windows-runner |
+| Bouwen | `scripts/maak-windows-app.ps1` of `.sh`: `dotnet publish -r win-x64 --self-contained`, gezipt met `LEESMIJ.txt`. De CI maakt de zip en start hem op een Windows-runner met `--proef` (eerste scherm en proefbalans, met schermafdrukken) |
 
 Nog niet gebouwd: bank en verkoop in de app (A8–A9), OCR, btw-aangifte en periodes, het RGS-werkboek in de
 administratie (nu de RGS-code als tekst bij een nieuwe rekening), en de hulppagina.

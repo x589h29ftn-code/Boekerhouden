@@ -291,7 +291,7 @@ public sealed class InkoopDienst(
         }
 
         await using var transactie = await db.Database.BeginTransactionAsync();
-        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"Administraties\" WHERE \"Id\" = {administratie} FOR UPDATE");
+        await db.Vergrendel(administratie);
         if (nieuw is not null)
         {
             var iban = string.IsNullOrWhiteSpace(nieuw.Iban) ? null : Iban.Normaliseer(nieuw.Iban);
