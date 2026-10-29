@@ -93,6 +93,31 @@ class Viewer {
             item.vak.querySelector('.selectie')?.remove();
             await item.pagina.render({ canvasContext: canvas.getContext('2d'), canvas, viewport, transform: dpr === 1 ? null : [dpr, 0, 0, dpr, 0, 0] }).promise;
         }
+        this.tekenMarkering(false);
+    }
+
+    /** Laat de plekken (PDF-punten) oplichten waar het gekozen veld op de factuur staat, en scrolt naar de eerste. */
+    markeer(plekken) {
+        this.markering = plekken ?? [];
+        this.tekenMarkering(true);
+    }
+
+    tekenMarkering(scrollen) {
+        this.container.querySelectorAll('.vindplaats').forEach((m) => m.remove());
+        let eerste = null;
+        for (const p of this.markering ?? []) {
+            const item = this.paginas[p.pagina - 1];
+            if (!item?.viewport) continue;
+            const [xa, ya, xb, yb] = item.viewport.convertToViewportRectangle([p.x0, p.y0, p.x1, p.y1]);
+            const vak = maak('div', 'vindplaats');
+            vak.style.left = `${Math.min(xa, xb) - 2}px`;
+            vak.style.top = `${Math.min(ya, yb) - 2}px`;
+            vak.style.width = `${Math.abs(xb - xa) + 4}px`;
+            vak.style.height = `${Math.abs(yb - ya) + 4}px`;
+            item.vak.append(vak);
+            eerste ??= vak;
+        }
+        if (scrollen && eerste) eerste.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }
 
     tekenOpnieuw() {
@@ -171,6 +196,10 @@ export async function toon(container, bron, id, dotnet) {
             viewer.zetDoel(naam);
             verbinding.postMessage({ soort: 'doel', naam });
         },
+        markeer: (plekken) => {
+            viewer.markeer(plekken);
+            verbinding.postMessage({ soort: 'markeer', plekken });
+        },
         // Eén vast venster: bij de volgende factuur toont hetzelfde venster het nieuwe document.
         extern: (adres) => window.open(adres, 'factuurviewer', 'popup,width=900,height=1100'),
         sluit: () => verbinding.close(),
@@ -185,6 +214,7 @@ export async function extern(container, bron, id) {
     });
     verbinding.onmessage = (e) => {
         if (e.data?.soort === 'doel') viewer.zetDoel(e.data.naam);
+        else if (e.data?.soort === 'markeer') viewer.markeer(e.data.plekken);
     };
     window.addEventListener('pagehide', () => verbinding.postMessage({ soort: 'gesloten' }));
     await viewer.laad();

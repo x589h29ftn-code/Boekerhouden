@@ -225,6 +225,33 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
         Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.ZoektemplateBijgewerkt && r.Onderwerp == "DRUKKERIJ");
     }
 
+    [Fact]
+    public async Task Vindplaatsen_van_herkende_waarden_op_een_pdf()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var inkoop = app.Dienst<InkoopDienst>();
+        var pdf = await inkoop.Lees(wie, id, new MemoryStream(Drukkerij("DV-31", "05-03-2026")), "d.pdf", "application/pdf");
+        var xml = await inkoop.Lees(wie, id, new MemoryStream(Belnet("V-1")), "v.xml", null);
+        var velden = new Dictionary<string, IReadOnlyList<string>>
+        {
+            ["nummer"] = Tekstvormen.Tekst("DV-31"),
+            ["datum"] = Tekstvormen.Datum(new DateOnly(2026, 3, 5)),
+            ["totaal"] = Tekstvormen.Bedrag(121m),
+            ["anders"] = Tekstvormen.Tekst("BN-1"),
+        };
+
+        var plekken = await inkoop.Vindplaatsen(wie, id, pdf.DocumentId!.Value, velden);
+
+        Assert.Equal(1, Assert.Single(plekken["nummer"]).Pagina);
+        Assert.Single(plekken["datum"]);
+        Assert.Single(plekken["totaal"]);
+        Assert.Empty(plekken["anders"]);
+        Assert.All((await inkoop.Vindplaatsen(wie, id, xml.DocumentId!.Value, velden)).Values, Assert.Empty);
+        var buiten = await app.Gebruiker("Buiten");
+        await Assert.ThrowsAsync<GeenToegangException>(() => inkoop.Vindplaatsen(buiten, id, pdf.DocumentId.Value, velden));
+    }
+
     /// <summary>Een verzonnen PDF-factuur met het factuurnummer achter "Ref." (dat herkent het pakket niet).</summary>
     private static byte[] Drukkerij(string nummer, string datum)
     {

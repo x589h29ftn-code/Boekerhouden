@@ -375,6 +375,31 @@ public sealed class InkoopDienst(
         }
     }
 
+    /// <summary>
+    /// Waar de waarden van de velden op de factuur staan (per veld de vormen waarin de waarde kan staan), om ze op te
+    /// laten lichten in de viewer. Leeg bij een document dat geen PDF is.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, IReadOnlyList<PdfPlek>>> Vindplaatsen(
+        Uitvoerder wie, Guid administratie, Guid document, IReadOnlyDictionary<string, IReadOnlyList<string>> velden)
+    {
+        ArgumentNullException.ThrowIfNull(velden);
+        await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
+        var inhoud = await db.DocumentInhouden.AsNoTracking().Where(x => x.DocumentId == document).Select(x => x.Inhoud).FirstOrDefaultAsync();
+        if (inhoud is null || Bestandssoort.Extensie(inhoud) != ".pdf")
+        {
+            return velden.ToDictionary(v => v.Key, _ => (IReadOnlyList<PdfPlek>)[]);
+        }
+
+        try
+        {
+            return PdfTekst.Zoek(inhoud, velden);
+        }
+        catch (DocumentException)
+        {
+            return velden.ToDictionary(v => v.Key, _ => (IReadOnlyList<PdfPlek>)[]);
+        }
+    }
+
     private async Task<Uitkomst> BoekFactuur(
         AdministratieDbContext db, Guid administratie, Document document, Factuur factuur, HerkendeFactuur? herkend,
         Relatie? relatie, NieuweRelatie? nieuw, Uitvoerder wie, bool automatisch, string? sjabloon)

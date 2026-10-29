@@ -438,3 +438,18 @@ body.scheiding-slepen {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+/* Waar het gekozen veld op de factuur staat. */
+.pdfpagina .vindplaats {
+    position: absolute;
+    pointer-events: none;
+    border: 2px solid var(--bs-primary);
+    border-radius: 3px;
+    background: rgba(var(--bs-primary-rgb), .12);
+}
+
+/* Een veld dat de herkenning niet vond, of niet op de factuur kon terugvinden: rustig, met de reden in de tooltip. */
+.form-control.onzeker {
+    border-style: dashed;
+    border-color: var(--bs-secondary-color);
+}

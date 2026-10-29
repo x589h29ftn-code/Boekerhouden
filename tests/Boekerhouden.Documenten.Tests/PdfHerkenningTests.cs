@@ -55,6 +55,54 @@ public sealed class PdfHerkenningTests
     }
 
     [Fact]
+    public void Herkende_waarden_terugvinden_op_de_factuur()
+    {
+        var velden = new Dictionary<string, IReadOnlyList<string>>
+        {
+            ["nummer"] = Tekstvormen.Tekst("TW-2026-0042"),
+            ["datum"] = Tekstvormen.Datum(new DateOnly(2026, 2, 14)),
+            ["totaal"] = Tekstvormen.Bedrag(629.20m),
+            ["stuk"] = Tekstvormen.Bedrag(605m),
+            ["iban"] = Tekstvormen.Tekst("NL20 INGB 0001 2345 67"),
+            ["naam"] = Tekstvormen.Tekst("Voorbeeldhandel B.V."),
+            ["ontbreekt"] = Tekstvormen.Tekst("XYZ-999"),
+            ["leeg"] = Tekstvormen.Tekst(null),
+        };
+
+        var plekken = PdfTekst.Zoek(Webwinkelfactuur(), velden);
+
+        var nummer = Assert.Single(plekken["nummer"]);
+        Assert.Equal((1, 160d), (nummer.Pagina, Math.Round(nummer.X0)));
+        Assert.True(nummer.Y0 is > 695 and < 705 && nummer.Y1 > nummer.Y0, $"{nummer}");
+        Assert.Single(plekken["datum"]);
+        // "EUR 629,20": alleen het bedrag licht op.
+        Assert.True(Assert.Single(plekken["totaal"]).X0 > 470);
+        Assert.Equal(2, plekken["stuk"].Count);
+        Assert.Single(plekken["iban"]);
+        Assert.Equal(40d, Math.Round(Assert.Single(plekken["naam"]).X0));
+        Assert.Empty(plekken["ontbreekt"]);
+        Assert.Empty(plekken["leeg"]);
+    }
+
+    [Theory]
+    [InlineData("1-4-2026")]
+    [InlineData("01/04/2026")]
+    [InlineData("1 april 2026")]
+    [InlineData("1 apr. 2026")]
+    [InlineData("April 1, 2026")]
+    [InlineData("2026-04-01")]
+    public void Vormen_van_een_datum(string tekst) =>
+        Assert.Contains(Tekstvormen.Compact(tekst), Tekstvormen.Datum(new DateOnly(2026, 4, 1)).Select(Tekstvormen.Compact));
+
+    [Theory]
+    [InlineData("1.234,56")]
+    [InlineData("1234,56")]
+    [InlineData("€ 1,234.56")]
+    [InlineData("1234.56")]
+    public void Vormen_van_een_bedrag(string tekst) =>
+        Assert.Contains(Tekstvormen.Compact(tekst), Tekstvormen.Bedrag(-1234.56m).Select(Tekstvormen.Compact));
+
+    [Fact]
     public void Tekst_uit_een_aangewezen_gebied()
     {
         var pdf = Webwinkelfactuur();

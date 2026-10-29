@@ -105,15 +105,15 @@
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label" for="iban">IBAN</label>
-                                        <input id="iban" class="form-control @Doel("iban")" @bind="nieuw.Iban" @onfocus='() => Kies("iban", "IBAN")' />
+                                        <input id="iban" class="form-control @Doel("iban") @Onzeker("iban")" title="@Waarom("iban")" @bind="nieuw.Iban" @bind:after='() => onzeker.Remove("iban")' @onfocus='() => Kies("iban", "IBAN")' />
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label" for="btwnr">Btw-nummer</label>
-                                        <input id="btwnr" class="form-control @Doel("btwnr")" @bind="nieuw.BtwNummer" @onfocus='() => Kies("btwnr", "Btw-nummer")' />
+                                        <input id="btwnr" class="form-control @Doel("btwnr") @Onzeker("btwnr")" title="@Waarom("btwnr")" @bind="nieuw.BtwNummer" @bind:after='() => onzeker.Remove("btwnr")' @onfocus='() => Kies("btwnr", "Btw-nummer")' />
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label" for="kvk">KvK-nummer</label>
-                                        <input id="kvk" class="form-control @Doel("kvk")" @bind="nieuw.KvkNummer" @onfocus='() => Kies("kvk", "KvK-nummer")' />
+                                        <input id="kvk" class="form-control @Doel("kvk") @Onzeker("kvk")" title="@Waarom("kvk")" @bind="nieuw.KvkNummer" @bind:after='() => onzeker.Remove("kvk")' @onfocus='() => Kies("kvk", "KvK-nummer")' />
                                     </div>
                                 }
                             </div>
@@ -135,11 +135,11 @@
                             <div class="row g-2 mb-3">
                                 <div class="col-md-3">
                                     <label class="form-label" for="nummer">Factuurnummer</label>
-                                    <input id="nummer" class="form-control @Doel("nummer")" @bind="factuurnummer" @bind:event="oninput" @onfocus='() => Kies("nummer", "Factuurnummer")' />
+                                    <input id="nummer" class="form-control @Doel("nummer") @Onzeker("nummer")" title="@Waarom("nummer")" @bind="factuurnummer" @bind:event="oninput" @bind:after='() => onzeker.Remove("nummer")' @onfocus='() => Kies("nummer", "Factuurnummer")' />
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label" for="datum">Factuurdatum</label>
-                                    <input id="datum" type="date" class="form-control @Doel("datum")" @bind="datum" @onfocus='() => Kies("datum", "Factuurdatum")' />
+                                    <input id="datum" type="date" class="form-control @Doel("datum") @Onzeker("datum")" title="@Waarom("datum")" @bind="datum" @bind:after='() => onzeker.Remove("datum")' @onfocus='() => Kies("datum", "Factuurdatum")' />
                                 </div>
                                 <div class="col-md-3 @(Toon("verval") ? null : "d-none")">
                                     <label class="form-label" for="verval">Vervaldatum</label>
@@ -147,7 +147,7 @@
                                 </div>
                                 <div class="col-md-3 @(Toon("verval") ? null : "d-none")">
                                     <label class="form-label" for="kenmerk">Betalingskenmerk</label>
-                                    <input id="kenmerk" class="form-control @Doel("kenmerk")" @bind="kenmerk" @bind:event="oninput" @onfocus='() => Kies("kenmerk", "Betalingskenmerk")' />
+                                    <input id="kenmerk" class="form-control @Doel("kenmerk") @Onzeker("kenmerk")" title="@Waarom("kenmerk")" @bind="kenmerk" @bind:event="oninput" @bind:after='() => onzeker.Remove("kenmerk")' @onfocus='() => Kies("kenmerk", "Betalingskenmerk")' />
                                 </div>
                                 <div class="col-12">
                                     <label class="form-label" for="omschrijving">Omschrijving</label>
@@ -317,6 +317,9 @@
     private string? overgenomen;
     private int variabeleKeuze;
 
+    // Velden die de herkenning niet vond of niet op de factuur terugvond, met de reden (tooltip).
+    private readonly Dictionary<string, string> onzeker = [];
+
     // Wat de gebruiker op de factuur aanwees, per veld: wordt bij het boeken het zoektemplate van de leverancier.
     private readonly Dictionary<Factuurveld, Zoekgebied> aanwijzingen = [];
 
@@ -414,6 +417,7 @@
                 : [new Invoerregel { Rekening = rekening, BtwCode = voorstel?.Advies.BtwCode ?? "I21", Bedrag = Exclusief(herkend, voorstel?.Advies.BtwCode ?? "I21") is { } e ? Bedragen.Getal(e) : null }];
 
         await LaadHistorie();
+        await ControleerHerkenning();
 
         // Btw van de factuur die afwijkt van het tarief (afronding van de leverancier) geldt als aangepast.
         foreach (var r in regels)
@@ -513,6 +517,81 @@
 
     private string? Doel(string veld) => doel == veld ? "doelveld" : null;
 
+    private string? Onzeker(string veld) => onzeker.ContainsKey(veld) ? "onzeker" : null;
+
+    private string? Waarom(string veld) => onzeker.GetValueOrDefault(veld);
+
+    /// <summary>De vormen waarin de waarde van een veld op de factuur kan staan (om hem daar terug te vinden).</summary>
+    private IReadOnlyList<string> Vormen(string veld) => veld.Split(':') switch
+    {
+        ["nummer"] => Tekstvormen.Tekst(factuurnummer),
+        ["datum"] => Tekstvormen.Datum(datum),
+        ["verval"] => Tekstvormen.Datum(vervaldatum),
+        ["kenmerk"] => Tekstvormen.Tekst(kenmerk),
+        ["omschrijving"] => Omschrijvingssjabloon.IsSjabloon(omschrijving) ? [] : Tekstvormen.Tekst(omschrijving),
+        ["naam"] => Tekstvormen.Tekst(nieuw.Naam),
+        ["iban"] => Tekstvormen.Tekst(nieuw.Iban),
+        ["btwnr"] => Tekstvormen.Tekst(nieuw.BtwNummer),
+        ["kvk"] => Tekstvormen.Tekst(nieuw.KvkNummer),
+        ["bedrag", var n] when RegelBij(n) is { } r => Tekstvormen.Bedrag(Getal(r.Bedrag)),
+        ["btw", var n] when RegelBij(n) is { } r => Tekstvormen.Bedrag(Getal(BtwTekst(r))),
+        ["regel", var n] when RegelBij(n) is { } r => Tekstvormen.Tekst(r.Omschrijving),
+        _ => [],
+    };
+
+    private Invoerregel? RegelBij(string index) =>
+        int.TryParse(index, System.Globalization.CultureInfo.InvariantCulture, out var i) && i >= 0 && i < regels.Count ? regels[i] : null;
+
+    /// <summary>
+    /// Bij een factuur uit de tekst van een PDF (geen e-factuur): welke velden de herkenning niet vond, en welke
+    /// gevonden waarden niet op de factuur terug te vinden zijn. Die velden krijgen een rustige markering.
+    /// </summary>
+    private async Task ControleerHerkenning()
+    {
+        onzeker.Clear();
+        if (verwerking?.Herkend is not { Bron: not Herkenningsbron.EFactuur } herkend || geopend is null)
+        {
+            return;
+        }
+
+        if (herkend.Factuurnummer is null)
+        {
+            onzeker["nummer"] = "Niet herkend";
+        }
+
+        if (herkend.Factuurdatum is null)
+        {
+            onzeker["datum"] = "Niet herkend";
+        }
+
+        string[] controleren = leverancier == Nieuw ? ["nummer", "datum", "kenmerk", "iban", "btwnr", "kvk"] : ["nummer", "datum", "kenmerk"];
+        var velden = controleren.Where(v => !onzeker.ContainsKey(v)).Select(v => (v, Vormen(v))).Where(x => x.Item2.Count > 0)
+            .ToDictionary(x => x.v, x => x.Item2);
+        var plekken = await Inkoop.Vindplaatsen(geopend.Wie, Id, DocumentId, velden);
+
+        // Vond het pakket niets terug (bijv. geen tekstlaag), dan zegt dat niets over de afzonderlijke velden.
+        if (plekken.Values.Any(p => p.Count > 0))
+        {
+            foreach (var (veld, lijst) in plekken.Where(p => p.Value.Count == 0))
+            {
+                onzeker[veld] = "Niet op de factuur teruggevonden";
+            }
+        }
+    }
+
+    /// <summary>Laat in de viewer oplichten waar de waarde van het veld op de factuur staat.</summary>
+    private async Task Markeer(string veld)
+    {
+        if (viewerKoppeling is null || geopend is null)
+        {
+            return;
+        }
+
+        var vormen = Vormen(veld);
+        var plekken = vormen.Count == 0 ? [] : (await Inkoop.Vindplaatsen(geopend.Wie, Id, DocumentId, new Dictionary<string, IReadOnlyList<string>> { [veld] = vormen }))[veld];
+        await viewerKoppeling.InvokeVoidAsync("markeer", plekken);
+    }
+
     private async Task ZetWeergave(string sleutel, bool aan)
     {
         if (aan)
@@ -557,6 +636,7 @@
         if (viewerKoppeling is not null)
         {
             await viewerKoppeling.InvokeVoidAsync("doel", naam);
+            await Markeer(veld);
         }
     }
 
@@ -570,6 +650,12 @@
         if (gelukt && Templateveld is { } veld)
         {
             aanwijzingen[veld] = new Zoekgebied(veld, pagina, x0, y0, x1, y1);
+        }
+
+        if (gelukt)
+        {
+            onzeker.Remove(doel);
+            await Markeer(doel);
         }
 
         await InvokeAsync(StateHasChanged);
