@@ -113,6 +113,7 @@ public static class Opstart
         services.AddSingleton<GrootboekDienst>();
         services.AddSingleton<BeveiligingDienst>();
         services.AddSingleton<InkoopDienst>();
+        services.AddSingleton<BankDienst>();
         services.AddSingleton<InrichtingDienst>();
         services.AddSingleton<KantoorDienst>();
         services.AddScoped<Components.Gedeeld.Menustaat>();

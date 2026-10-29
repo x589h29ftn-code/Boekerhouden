@@ -68,6 +68,10 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
 
     public DbSet<Zoekplek> Zoekplekken => Set<Zoekplek>();
 
+    public DbSet<Afschrift> Afschriften => Set<Afschrift>();
+
+    public DbSet<Banktransactie> Banktransacties => Set<Banktransactie>();
+
     /// <summary>De sleutels van ASP.NET Core Data Protection (cookies, tokens).</summary>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
@@ -134,6 +138,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(d => d.Naam).HasMaxLength(100);
             e.Property(d => d.Soort).HasConversion<string>().HasMaxLength(20);
             e.Property(d => d.Rekeningnummer).HasMaxLength(20);
+            e.Property(d => d.Iban).HasMaxLength(34);
             e.HasOne<Administratie>().WithMany().HasForeignKey(d => d.AdministratieId);
         });
 
@@ -272,6 +277,42 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(z => z.Veld).HasConversion<string>().HasMaxLength(30);
         });
 
+        builder.Entity<Afschrift>(e =>
+        {
+            e.ToTable("Afschriften");
+            e.HasIndex(a => new { a.AdministratieId, a.Iban, a.Einddatum });
+            e.Property(a => a.Dagboek).HasMaxLength(10);
+            e.Property(a => a.Iban).HasMaxLength(34);
+            e.Property(a => a.Nummer).HasMaxLength(50);
+            e.Property(a => a.Beginsaldo).HasPrecision(18, 2);
+            e.Property(a => a.Eindsaldo).HasPrecision(18, 2);
+            e.Property(a => a.Bestandsnaam).HasMaxLength(260);
+            e.Property(a => a.Melding).HasMaxLength(1000);
+            e.Property(a => a.IngelezenDoor).HasMaxLength(200);
+            e.HasOne<Administratie>().WithMany().HasForeignKey(a => a.AdministratieId);
+        });
+
+        builder.Entity<Banktransactie>(e =>
+        {
+            e.ToTable("Banktransacties");
+            e.HasIndex(t => new { t.AdministratieId, t.Sleutel }).IsUnique();
+            e.HasIndex(t => new { t.AdministratieId, t.Status });
+            e.Property(t => t.Dagboek).HasMaxLength(10);
+            e.Property(t => t.Iban).HasMaxLength(34);
+            e.Property(t => t.Bedrag).HasPrecision(18, 2);
+            e.Property(t => t.Omschrijving).HasMaxLength(1000);
+            e.Property(t => t.TegenIban).HasMaxLength(34);
+            e.Property(t => t.TegenNaam).HasMaxLength(300);
+            e.Property(t => t.Betalingskenmerk).HasMaxLength(50);
+            e.Property(t => t.EndToEndId).HasMaxLength(100);
+            e.Property(t => t.Sleutel).HasMaxLength(64).IsFixedLength();
+            e.Property(t => t.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(t => t.Melding).HasMaxLength(1000);
+            e.HasOne<Afschrift>().WithMany().HasForeignKey(t => t.AfschriftId);
+        });
+
+        builder.Entity<Afschrift>().HasQueryFilter(e => e.AdministratieId == Geopend);
+        builder.Entity<Banktransactie>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Leerkeuze>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Zoekplek>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Automatiseringsregel>().HasQueryFilter(e => e.AdministratieId == Geopend);

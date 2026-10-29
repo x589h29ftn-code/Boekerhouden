@@ -85,5 +85,9 @@ public static class AuditActies
     public const string PasskeyToegevoegd = "Passkey toegevoegd";
     public const string PasskeyVerwijderd = "Passkey verwijderd";
     public const string IngelogdMetPasskey = "Ingelogd met passkey";
+    public const string AfschriftIngelezen = "Bankafschrift ingelezen";
+    public const string BankdagboekGekoppeld = "Bankdagboek gekoppeld aan rekening";
+    public const string Afgeletterd = "Afgeletterd";
+    public const string IbanGeleerd = "IBAN geleerd bij relatie";
     public const string KetenGecontroleerd = "Journaal gecontroleerd";
 }

@@ -133,6 +133,9 @@ public sealed class Dagboekdefinitie : IVanAdministratie
 
     public string? Rekeningnummer { get; set; }
 
+    /// <summary>Bij een bankdagboek: het IBAN van de rekening; afschriften van dat IBAN komen in dit dagboek.</summary>
+    public string? Iban { get; set; }
+
     public Dagboek NaarDomein() => new(Code, Naam, Soort, Rekeningnummer);
 }
 
@@ -448,3 +451,84 @@ public sealed class Zoekplek : IVanAdministratie
     public Boekhouding.Herkenning.Zoekgebied NaarDomein() => new(Veld, Pagina, X0, Y0, X1, Y1, Voorrang);
 }
 
+
+/// <summary>Een ingelezen bankafschrift: de saldi, om het aansluiten op het volgende afschrift te controleren.</summary>
+public sealed class Afschrift : IVanAdministratie
+{
+    public Guid Id { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    public string Dagboek { get; set; } = string.Empty;
+
+    public string Iban { get; set; } = string.Empty;
+
+    public string? Nummer { get; set; }
+
+    public DateOnly? Begindatum { get; set; }
+
+    public decimal Beginsaldo { get; set; }
+
+    public DateOnly? Einddatum { get; set; }
+
+    public decimal Eindsaldo { get; set; }
+
+    public string Bestandsnaam { get; set; } = string.Empty;
+
+    /// <summary>Bijv. dat het beginsaldo niet aansluit op het vorige afschrift.</summary>
+    public string? Melding { get; set; }
+
+    public DateTimeOffset IngelezenOp { get; set; }
+
+    public string IngelezenDoor { get; set; } = string.Empty;
+}
+
+public enum Banktransactiestatus
+{
+    TeVerwerken,
+    Geboekt,
+}
+
+/// <summary>Een mutatie van een bankafschrift. Wordt één keer geboekt; de sleutel voorkomt dat hij twee keer wordt ingelezen.</summary>
+public sealed class Banktransactie : IVanAdministratie
+{
+    public Guid Id { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    public Guid AfschriftId { get; set; }
+
+    /// <summary>De plaats op het afschrift.</summary>
+    public int Volgorde { get; set; }
+
+    public string Dagboek { get; set; } = string.Empty;
+
+    public string Iban { get; set; } = string.Empty;
+
+    public DateOnly Datum { get; set; }
+
+    /// <summary>Ontvangst positief, betaling negatief.</summary>
+    public decimal Bedrag { get; set; }
+
+    public string Omschrijving { get; set; } = string.Empty;
+
+    public string? TegenIban { get; set; }
+
+    public string? TegenNaam { get; set; }
+
+    public string? Betalingskenmerk { get; set; }
+
+    public string? EndToEndId { get; set; }
+
+    /// <summary>SHA-256 van <see cref="Boekhouding.Bank.Bankmutatie.Sleutel"/>: dezelfde mutatie nog eens inlezen wordt herkend.</summary>
+    public string Sleutel { get; set; } = string.Empty;
+
+    public Banktransactiestatus Status { get; set; }
+
+    /// <summary>Waarom de mutatie nog te verwerken is, of hoe hij geboekt is.</summary>
+    public string? Melding { get; set; }
+
+    public Guid? BoekingId { get; set; }
+
+    public Boekhouding.Bank.Bankmutatie NaarDomein() => new(Datum, Bedrag, Omschrijving, TegenIban, TegenNaam, Betalingskenmerk, EndToEndId);
+}

@@ -251,7 +251,7 @@ gedaan.
 | A5 ✅ | **Herkenning** (domein): tekstanalyse van een factuur, UBL lezen, leverancier herkennen | Gegevens uit e-facturen en PDF-tekst |
 | A6 ✅ | **Webapp I**: project `Boekerhouden.Administratie`, database, inloggen met tweestapsverificatie (app en passkeys), administraties met rechten, standaardrekeningschema (RGS), memoriaal, journaal met hash-keten, grootboekkaart, proefbalans, balans en W&V, gebruikers en leden, wijzigingslog | Werkende boekhouding in de browser |
 | A7 ✅ | **Inkoop in de app**: uploaden, herkennen (UBL, PdfPig), Te verwerken, voorstel en automatisch boeken, regels beheren | Inkoopfacturen verwerken |
-| A8 | **Bank in de app**: inlezen, afletteren (automatisch en met voorstellen), handmatig boeken, werklijsten met *factuur uploaden* | Bank bijna vanzelf bij |
+| A8 (deels) | **Bank in de app**: inlezen, afletteren (automatisch en met voorstellen), handmatig boeken, werklijsten met *factuur uploaden* | Bank bijna vanzelf bij |
 | A9 | **Verkoop**: factuur maken, nummeren, PDF, debiteurenlijst, ouderdomsanalyse | Factureren |
 | A10 | **Btw-aangifte en periodes**: aangifte per rubriek, afdrachtboeking, periodes afsluiten | Aangifte klaarzetten |
 | A11 | **Scans**: Tesseract voor scans en foto's | Ook papieren bonnen |
@@ -268,7 +268,7 @@ verzonnen voorbeeldbestanden in `tests/Fictief/administratie`:
 | Grootboek | `Rekeningschema`, `Journaal` (boeken met controles, `Kaart`, `Proefbalans`), `Jaaroverzicht`, `Proefbalans.NaarSaldibalans` |
 | Btw | `BtwCodes.Standaard`, `BtwBerekening` |
 | Facturen | `Factuurboeker` (factuur → journaalpost + openstaande post) |
-| Bank | `Bankbestand` (herkent MT940 of CAMT.053), `Mt940Lezer`, `Camt053Lezer`, `Bankboeker` (afletteren, op rekening) |
+| Bank | `Bankbestand` (herkent MT940 of CAMT.053), `Mt940Lezer`, `Camt053Lezer`, `Bankboeker` (afletteren, op rekening), `Bankverwerker` (afletteren en regels/leergeheugen samen: wat automatisch mag) |
 | Afletteren | `Afletteraar` (kandidaten met zekerheid en reden), `Factuurnummers` |
 | Regels | `Verwerkingsregel`, `Leergeheugen`, `Verwerkingsadviseur` |
 | Herkenning | `Factuurtekst` (tekstanalyse), `UblFactuurLezer`, `Leverancierherkenning`, `Inkoopverwerker` (herkende factuur → voorstel met belemmeringen), `IFactuurHerkenner` |
@@ -299,7 +299,7 @@ overzichten.
 | Boeken | `GrootboekDienst.Boek`: controles uit het domein, één boeking tegelijk per administratie (rij-lock), volgnummer en SHA-256-keten (`Journaalketen`); triggers in de database weigeren wijzigen en verwijderen van boekingen en het wijzigingslog |
 | Overzichten | balans en W&V per RGS-hoofdpost (`RgsHoofdposten`, zonder werkboek), proefbalans, grootboekkaart, journaal met ketencontrole |
 | Inloggen | wachtwoord en daarna de code uit de authenticator-app (of een herstelcode), of een passkey; voor de beheerder is tweestapsverificatie verplicht (`TweestapVerplicht`) |
-| Schermen | `/` administraties; in een administratie een zijmenu in groepen, in te klappen (heel en per groep, onthouden in de browser): **Boekhouden** (`/inkoop`, `/memoriaal`, `/journaal`; verkoop en bank volgen), **Rapportages** (`/a/{id}` balans en W&V, `/kolommenbalans`, `/proefbalans`, `/grootboek`) en **Inrichting** (`/relaties`, `/regels`, `/rekeningschema`, `/instellingen`); `/account/beveiliging`; beheer: `/beheer/gebruikers`, `/beheer/instellingen`, `/beheer/wijzigingslog` |
+| Schermen | `/` administraties; in een administratie een zijmenu in groepen, in te klappen (heel en per groep, onthouden in de browser): **Boekhouden** (`/inkoop`, `/bank`, `/memoriaal`, `/journaal`; verkoop volgt), **Rapportages** (`/a/{id}` balans en W&V, `/kolommenbalans`, `/proefbalans`, `/grootboek`) en **Inrichting** (`/relaties`, `/regels`, `/rekeningschema`, `/instellingen`); `/account/beveiliging`; beheer: `/beheer/gebruikers`, `/beheer/instellingen`, `/beheer/wijzigingslog` |
 | Kolommenbalans | `Journaal.Kolommenbalans`: per rekening de proefbalans (totaal debet en credit, met de beginstand van balansrekeningen en het resultaat van eerdere jaren op onverdeeld resultaat), de saldibalans, en het saldo op de balans of in de W&V; de winst of het verlies sluit de laatste twee kolommenparen |
 
 #### Inkoop (plakje A7)
@@ -319,6 +319,17 @@ overzichten.
 | Instellingen | Twee niveaus. `/beheer/instellingen` (beheerder, `KantoorDienst`): de standaard van het kantoor. `/a/{id}/instellingen` (kantoor): naam, KvK, btw-nummer en eigen IBAN's, en per instelling afwijken van het kantoor; een leeg veld volgt het kantoor (de kantoorwaarde staat grijs in het veld). Instellingen: drempel (na hoeveel gelijke keuzes), bandbreedte (automatisch tot zoveel keer het hoogste bevestigde bedrag), limiet (geen, kantoor of eigen; B2), betalingstermijn, adrescontrole aan/uit en de documentmap (`Verwerkingsinstellingen`, `AfwijkendeInstellingen`) |
 | Documentmap | Na het boeken een kopie van het document in een map met variabelen (`Documentpad`): `#administratie`, `#jaar`, `#kwartaal`, `#maand`, `#soort`, `#leverancier`, bijv. `C:\Users\naam\OneDrive\Klanten\#administratie\#jaar\#soort`. Bestandsnaam: datum, relatie en factuurnummer. Nooit overschrijven (anders `(2)`); lukt het niet, dan blijft de boeking staan met de reden bij het document en in het log. Het origineel blijft in de database |
 
+#### Bank (plakje A8, eerste deel)
+
+| Onderdeel | Hoe |
+|---|---|
+| Inlezen | `/a/{id}/bank`: MT940 en CAMT.053 slepen of kiezen (`BankDienst.Lees`). Een afschrift waarvan beginsaldo plus mutaties niet het eindsaldo is, weigert het pakket: dan wordt niets ingelezen. Sluit het beginsaldo niet aan op het eindsaldo van het vorige afschrift van die rekening, dan staat dat als melding bij het afschrift (mist er een afschrift?) |
+| Dubbel | Elke mutatie krijgt een sleutel (SHA-256 van datum, bedrag, tegenrekening, referenties en omschrijving, met een volgnummer voor gelijke mutaties op één afschrift). Hetzelfde of een overlappend bestand nog eens inlezen slaat bekende mutaties over |
+| Bankdagboek | Het dagboek met het IBAN van het afschrift. Heeft geen dagboek dat IBAN, dan krijgt het eerste bankdagboek zonder IBAN het, en het IBAN komt bij de eigen rekeningen. Staat er al een eigen rekening en is dit IBAN er niet bij, dan weigert het pakket het bestand: zo komt een afschrift van een andere klant nooit in deze administratie |
+| Automatisch | Per nieuwe mutatie `Bankverwerker`: eerst afletteren (§3.8); de enige zekere kandidaat wordt geboekt. Kan er geen openstaande post bij horen, dan boekt een automatische regel of een geleerde keuze (na de drempel, binnen de bandbreedte, zelfde IBAN) op de rekening. De rest staat in *Te verwerken*, met de reden |
+| Verwerken | Een mutatie aanklikken opent het paneel eronder: de kandidaten om af te letteren (één klik), zelf openstaande posten kiezen, of op een rekening met btw-code en omschrijving boeken. Kan de mutatie een factuur betalen, dan staat er geen rekening vooraf ingevuld. Afletteren boekt het verschil op vraagposten; bevestigt de gebruiker een voorstel en hoort het IBAN nog bij geen relatie, dan leert het pakket het bij de relatie (*IBAN geleerd bij relatie* in het log). Op rekening boeken gaat in het leergeheugen |
+| Opslag | `Afschrift` (saldi en melding) en `Banktransactie` (de mutatie, status, de boeking); migratie `Bank` voor PostgreSQL en SQLite |
+
 #### Windows-app voor de tests
 
 Een echte Windows-applicatie voor één pc (`src/Boekerhouden.Administratie.Windows`): dezelfde schermen als de
@@ -333,7 +344,7 @@ webapp in een eigen venster, zonder webserver, zonder databaseserver en zonder i
 | Virusscan | Geen: wat de gebruiker op zijn eigen pc uploadt, is van hemzelf (Windows scant de bestanden op schijf al). De webapp op kantoor scant wel, met ClamAV |
 | Bouwen | `scripts/maak-windows-app.ps1` of `.sh`: `dotnet publish -r win-x64 --self-contained`, gezipt met `LEESMIJ.txt`. De CI maakt de zip en start hem op een Windows-runner met `--proef` (eerste scherm en proefbalans, met schermafdrukken) |
 
-Nog niet gebouwd: bank en verkoop in de app (A8–A9), OCR, btw-aangifte en periodes, het RGS-werkboek in de
+Nog niet gebouwd: de werklijsten en *factuur uploaden* bij een bankmutatie (rest van A8), verkoop (A9), OCR, btw-aangifte en periodes, het RGS-werkboek in de
 administratie (nu de RGS-code als tekst bij een nieuwe rekening), en de hulppagina.
 
 ## 6. Open vragen

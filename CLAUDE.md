@@ -47,7 +47,7 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   migraties met triggers die boekingen en het log onwijzigbaar maken), `Diensten/` (`Toegang` = de enige weg naar de
   gegevens van een administratie, met rechten per lidmaatschap; administraties, grootboek en boeken met hash-keten,
   gebruikers, tweestapsverificatie en passkeys, wijzigingslog; `InkoopDienst` = inlezen met virusscan, voorstel en
-  (automatisch) boeken en de kopie in de documentmap; `InrichtingDienst` = relaties, regels en instellingen van een
+  (automatisch) boeken en de kopie in de documentmap; `BankDienst` = afschriften inlezen (saldo, aansluiting, dubbel), afletteren en op rekening boeken; `InrichtingDienst` = relaties, regels en instellingen van een
   administratie; `KantoorDienst` = kantoorinstellingen, alleen beheerder; `Werkomgeving` = webapp of lokaal),
   `Lokaal/` (`LokaleApp` = samenstelling voor de Windows-app: SQLite, lokale gebruiker zonder inloggen), `Identiteit/` (inloggen, beveiligingsheaders,
   tweestap verplicht voor de beheerder), `Components/` (schermen; accountpagina's statisch, de rest interactief).

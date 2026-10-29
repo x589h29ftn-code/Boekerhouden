@@ -2,6 +2,7 @@ using Boekerhouden.Boekhouding.Afletteren;
 using Boekerhouden.Boekhouding.Bank;
 using Boekerhouden.Boekhouding.Btw;
 using Boekerhouden.Boekhouding.Facturen;
+using Boekerhouden.Boekhouding.Regels;
 using Boekerhouden.Boekhouding.Relaties;
 
 namespace Boekerhouden.Boekhouding.Tests;
@@ -232,5 +233,60 @@ public sealed class BankboekerTests
 
         Assert.Equal(1.25m, boeking.Regels.Single(r => r.Rekeningnummer == "4300").Bedrag);
         Assert.Throws<ArgumentException>(() => Bankboeker.OpRekening(new Bankmutatie(Datum, -1m, "x"), "4300", null, Testadministratie.Memoriaal, "4", schema));
+    }
+}
+
+public sealed class BankverwerkerTests
+{
+    private const string IbanBank = "NL86INGB0002445588";
+    private static readonly Relatie[] Relaties = [new("BELNET", "Belnet B.V.", ["NL63TRIO0212345678"])];
+    private static readonly Verwerkingsregel Bankkosten = new("Bankkosten", "9000", Automatisch: true, Soort: Verwerkingssoort.Bankmutatie, TegenIban: IbanBank);
+
+    private static Bankmutatie Kosten(decimal bedrag = -7.5m) => new(new DateOnly(2026, 3, 31), bedrag, "Kosten zakelijk pakket", IbanBank, "ING Bank");
+
+    [Fact]
+    public void Zekere_kandidaat_wordt_afgeletterd()
+    {
+        var post = new OpenPost(Guid.NewGuid(), Factuursoort.Inkoop, "BELNET", "BN-2026-0311", new(2026, 3, 1), new(2026, 3, 15), -25m, -25m);
+        var mutatie = new Bankmutatie(new(2026, 3, 2), -25m, "Factuur BN-2026-0311", "NL63TRIO0212345678", "Belnet B.V.");
+
+        var voorstel = Bankverwerker.Verwerk(mutatie, [post], Relaties, [], new Leergeheugen(), BtwCodes.Standaard);
+
+        Assert.Equal(Bankactie.Afletteren, voorstel.Automatisch);
+        Assert.Equal("BELNET", voorstel.Relatie?.Code);
+        Assert.Equal("Afgeletterd: factuurnummer", voorstel.Reden);
+    }
+
+    [Fact]
+    public void Automatische_regel_boekt_op_rekening_als_er_geen_openstaande_post_bij_past()
+    {
+        var voorstel = Bankverwerker.Verwerk(Kosten(), [], Relaties, [Bankkosten], new Leergeheugen(), BtwCodes.Standaard);
+
+        Assert.Equal(Bankactie.OpRekening, voorstel.Automatisch);
+        Assert.Equal(("9000", "Regel: Bankkosten"), (voorstel.Advies.Rekeningnummer, voorstel.Reden));
+    }
+
+    [Fact]
+    public void Een_mogelijke_factuur_gaat_voor_op_een_automatische_regel()
+    {
+        var post = new OpenPost(Guid.NewGuid(), Factuursoort.Inkoop, "ING", "2026-03", new(2026, 3, 1), new(2026, 3, 31), -7.5m, -7.5m);
+
+        var voorstel = Bankverwerker.Verwerk(Kosten(), [post], Relaties, [Bankkosten], new Leergeheugen(), BtwCodes.Standaard);
+
+        Assert.Equal(Bankactie.Geen, voorstel.Automatisch);
+        Assert.Equal("Voorstel: alleen bedrag", voorstel.Reden);
+    }
+
+    [Fact]
+    public void Geleerd_na_de_drempel_en_weer_ter_controle_bij_een_hoger_bedrag()
+    {
+        var geheugen = new Leergeheugen(drempel: 2);
+        var gegevens = Bankverwerker.Gegevens(Kosten(), null);
+        geheugen.Onthoud(gegevens, new Keuze("9000", null));
+        Assert.Equal(Bankactie.Geen, Bankverwerker.Verwerk(Kosten(), [], Relaties, [], geheugen, BtwCodes.Standaard).Automatisch);
+
+        geheugen.Onthoud(gegevens, new Keuze("9000", null));
+        Assert.Equal(Bankactie.OpRekening, Bankverwerker.Verwerk(Kosten(), [], Relaties, [], geheugen, BtwCodes.Standaard).Automatisch);
+        Assert.Equal(Bankactie.Geen, Bankverwerker.Verwerk(Kosten(-50m), [], Relaties, [], geheugen, BtwCodes.Standaard).Automatisch);
     }
 }

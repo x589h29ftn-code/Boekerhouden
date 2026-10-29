@@ -1,0 +1,281 @@
+@page "/a/{Id:guid}/bank"
+@using Boekerhouden.Boekhouding.Afletteren
+@using Boekerhouden.Boekhouding.Bank
+@using Boekerhouden.Boekhouding.Relaties
+@inject BankDienst Bank
+
+<AdministratieKader Id="Id" Titel="Bank" Actief="/bank" BijOpenen="Open">
+    @if (context.Mag(Recht.Invoeren))
+    {
+        <div class="card card-body mb-3 inlezen">
+            <label class="form-label fw-semibold mb-1" for="afschriften">Afschriften inlezen</label>
+            <InputFile id="afschriften" class="form-control" multiple accept=".mt940,.940,.sta,.swi,.txt,.xml,.camt" OnChange="LeesIn" disabled="@bezig" />
+            @if (bezig)
+            {
+                <div class="status mt-2">bezig met inlezen…</div>
+            }
+            @foreach (var (bestand, uitkomst) in uitkomsten)
+            {
+                @if (uitkomst.Waarde is { } w)
+                {
+                    <div class="small mt-1">@bestand: @Samenvatting(w)</div>
+                    @foreach (var m in w.Meldingen)
+                    {
+                        <div class="small status let-op">@m</div>
+                    }
+                }
+                else
+                {
+                    <div class="small mt-1 status let-op">@string.Join(" ", uitkomst.Fouten)</div>
+                }
+            }
+        </div>
+    }
+
+    <div class="d-flex align-items-center mb-2">
+        <h2 class="h6 text-secondary mb-0">@(ookGeboekt ? "Mutaties" : "Te verwerken")</h2>
+        <span class="form-check form-switch ms-auto mb-0">
+            <input class="form-check-input" type="checkbox" id="ookgeboekt" checked="@ookGeboekt" @onchange="WisselGeboekt" />
+            <label class="form-check-label small text-secondary" for="ookgeboekt">ook geboekt</label>
+        </span>
+    </div>
+    @if (mutaties is { Count: 0 })
+    {
+        <div class="card card-body text-center text-secondary py-4">Niets te verwerken.</div>
+    }
+    else if (mutaties is not null)
+    {
+        <div class="card">
+            <table class="table table-hover align-middle mb-0 bankmutaties">
+                <thead>
+                    <tr><th>Datum</th><th>Tegenpartij</th><th>Omschrijving</th><th class="text-end">Bedrag</th><th>Waarom</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var m in mutaties)
+                    {
+                        var open = gekozen?.Mutatie.Id == m.Id;
+                        <tr class="@(m.Status == Banktransactiestatus.TeVerwerken ? "kiesbaar" : null) @(open ? "table-active" : null)" @onclick="() => Kies(m)">
+                            <td class="text-nowrap">@Weergave.Datum(m.Datum)</td>
+                            <td title="@(m.TegenIban is { } iban ? Iban.Toon(iban) : null)">@m.TegenNaam</td>
+                            <td class="small omschrijving" title="@m.Omschrijving">@m.Omschrijving</td>
+                            <td class="bedrag text-end"><Euro Waarde="m.Bedrag" /></td>
+                            <td class="small text-secondary">
+                                @if (m.Status == Banktransactiestatus.Geboekt)
+                                {
+                                    <span class="status" title="@m.Melding">geboekt</span>
+                                }
+                                else
+                                {
+                                    @m.Melding
+                                }
+                            </td>
+                        </tr>
+                        @if (open && gekozen is not null)
+                        {
+                            <tr class="verwerkpaneel">
+                                <td colspan="5">
+                                    <Foutmeldingen Fouten="fouten" />
+                                    @if (gekozen.Voorstel.Afletteren.Kandidaten.Count > 0)
+                                    {
+                                        <div class="mb-3">
+                                            <div class="paneelkop">Afletteren</div>
+                                            @foreach (var k in gekozen.Voorstel.Afletteren.Kandidaten)
+                                            {
+                                                <div class="d-flex align-items-center gap-2 py-1 kandidaat">
+                                                    <span>@string.Join(", ", k.Posten.Select(Post))</span>
+                                                    <span class="small text-secondary" title="@(k.Verschil == 0 ? null : $"verschil {Bedragen.Getal(k.Verschil)}")">@k.Reden@(k.Zekerheid == Zekerheid.Zeker ? " · zeker" : null)</span>
+                                                    @if (mag)
+                                                    {
+                                                        <button class="btn btn-sm btn-outline-primary ms-auto" @onclick="() => Afletteren(k.Posten.Select(p => p.Id).ToList())" @onclick:stopPropagation>Afletteren</button>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                    @if (mag && gekozen.OpenPosten.Count > 0)
+                                    {
+                                        <div class="mb-3">
+                                            <div class="paneelkop">Openstaande post</div>
+                                            <div class="d-flex gap-2 align-items-start">
+                                                <div class="openposten">
+                                                    @foreach (var p in gekozen.OpenPosten)
+                                                    {
+                                                        <label class="form-check d-block mb-0">
+                                                            <input class="form-check-input" type="checkbox" checked="@zelfGekozen.Contains(p.Id)" @onchange="() => WisselPost(p.Id)" />
+                                                            <span class="form-check-label">@Post(p)</span>
+                                                            <span class="small text-secondary ms-1">@Weergave.Datum(p.Datum)</span>
+                                                        </label>
+                                                    }
+                                                </div>
+                                                <button class="btn btn-sm btn-outline-primary ms-auto text-nowrap" disabled="@(zelfGekozen.Count == 0)" @onclick="() => Afletteren(zelfGekozen)">Afletteren</button>
+                                            </div>
+                                        </div>
+                                    }
+                                    @if (mag)
+                                    {
+                                        <div>
+                                            <div class="paneelkop" title="@gekozen.Voorstel.Advies.Reden">Op rekening</div>
+                                            <div class="row g-2 align-items-end">
+                                                <div class="col-md-3">
+                                                    <label class="form-label small mb-0" for="rekening">Rekening</label>
+                                                    <input id="rekening" class="form-control form-control-sm" list="bankrekeningen" @bind="rekening" @bind:event="oninput" />
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label small mb-0" for="btw">Btw</label>
+                                                    <select id="btw" class="form-select form-select-sm" @bind="btwCode">
+                                                        <option value="">geen</option>
+                                                        @foreach (var c in gekozen.BtwCodes)
+                                                        {
+                                                            <option value="@c.Code" title="@c.Omschrijving">@c.Code</option>
+                                                        }
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-5">
+                                                    <label class="form-label small mb-0" for="omschrijving">Omschrijving</label>
+                                                    <input id="omschrijving" class="form-control form-control-sm" @bind="omschrijving" placeholder="@Standaardomschrijving(gekozen.Mutatie)" />
+                                                </div>
+                                                <div class="col-md-2 text-end">
+                                                    <button class="btn btn-sm btn-primary" disabled="@string.IsNullOrWhiteSpace(rekening)" @onclick="OpRekening">Boeken</button>
+                                                </div>
+                                            </div>
+                                            <datalist id="bankrekeningen">
+                                                @foreach (var r in gekozen.Schema.Alle)
+                                                {
+                                                    <option value="@r.Nummer">@r.Naam</option>
+                                                }
+                                            </datalist>
+                                        </div>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</AdministratieKader>
+
+@code {
+    private const int MaximumBestanden = 20;
+
+    private Geopend? geopend;
+    private IReadOnlyList<BankmutatieRegel>? mutaties;
+    private List<(string Bestand, Uitkomst<Bankinlezing> Uitkomst)> uitkomsten = [];
+    private bool bezig;
+    private bool ookGeboekt;
+    private bool mag;
+    private Bankverwerking? gekozen;
+    private List<Guid> zelfGekozen = [];
+    private string? rekening;
+    private string? btwCode;
+    private string? omschrijving;
+    private IReadOnlyList<string>? fouten;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        mag = g.Kop.Mag(Recht.Invoeren);
+        await Laad();
+    }
+
+    private async Task Laad() => mutaties = await Bank.Lijst(geopend!.Wie, Id, ookGeboekt);
+
+    private async Task WisselGeboekt(ChangeEventArgs e)
+    {
+        ookGeboekt = e.Value is true;
+        gekozen = null;
+        await Laad();
+    }
+
+    private async Task Kies(BankmutatieRegel m)
+    {
+        fouten = null;
+        if (m.Status != Banktransactiestatus.TeVerwerken || gekozen?.Mutatie.Id == m.Id)
+        {
+            gekozen = null;
+            return;
+        }
+
+        gekozen = await Bank.Verwerking(geopend!.Wie, Id, m.Id);
+        zelfGekozen = [];
+        // Kan de mutatie de betaling van een factuur zijn, dan geen rekening vooraf: anders staat de kost er twee keer in.
+        var advies = gekozen?.Voorstel.Afletteren.Kandidaten.Count == 0 ? gekozen.Voorstel.Advies : null;
+        rekening = advies?.Rekeningnummer;
+        btwCode = advies?.BtwCode;
+        omschrijving = null;
+    }
+
+    private void WisselPost(Guid post)
+    {
+        if (!zelfGekozen.Remove(post))
+        {
+            zelfGekozen.Add(post);
+        }
+    }
+
+    private async Task Afletteren(List<Guid> posten) =>
+        await Na(await Bank.Afletteren(geopend!.Wie, Id, gekozen!.Mutatie.Id, posten));
+
+    private async Task OpRekening() =>
+        await Na(await Bank.OpRekening(geopend!.Wie, Id, gekozen!.Mutatie.Id, rekening ?? "", btwCode, omschrijving));
+
+    private async Task Na(Uitkomst uitkomst)
+    {
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            gekozen = null;
+            await Laad();
+        }
+    }
+
+    private async Task LeesIn(InputFileChangeEventArgs e)
+    {
+        bezig = true;
+        uitkomsten = [];
+        gekozen = null;
+        foreach (var bestand in e.GetMultipleFiles(MaximumBestanden))
+        {
+            try
+            {
+                await using var stream = bestand.OpenReadStream(BankDienst.MaximumBytes);
+                uitkomsten.Add((bestand.Name, await Bank.Lees(geopend!.Wie, Id, stream, bestand.Name)));
+            }
+            catch (IOException)
+            {
+                uitkomsten.Add((bestand.Name, Uitkomst<Bankinlezing>.Mislukt($"{bestand.Name} is groter dan {BankDienst.MaximumBytes / 1024 / 1024} MB en is niet ingelezen.")));
+            }
+
+            StateHasChanged();
+        }
+
+        bezig = false;
+        await Laad();
+    }
+
+    private static string Samenvatting(Bankinlezing w)
+    {
+        var delen = new List<string> { w.Nieuw == 1 ? "1 nieuwe mutatie" : $"{w.Nieuw} nieuwe mutaties" };
+        if (w.Automatisch > 0)
+        {
+            delen.Add($"{w.Automatisch} automatisch geboekt");
+        }
+
+        if (w.Dubbel > 0)
+        {
+            delen.Add($"{w.Dubbel} al ingelezen");
+        }
+
+        return string.Join(", ", delen);
+    }
+
+    private string Post(Boekhouding.Facturen.OpenPost p) =>
+        $"{gekozen?.Relaties.FirstOrDefault(r => r.Code == p.Relatie)?.Naam ?? p.Relatie} {p.Factuurnummer} {Bedragen.Getal(p.Openstaand)}";
+
+    private static string Standaardomschrijving(BankmutatieRegel m) =>
+        string.Join(" – ", new[] { m.TegenNaam, m.Omschrijving }.Where(t => !string.IsNullOrWhiteSpace(t)));
+}
