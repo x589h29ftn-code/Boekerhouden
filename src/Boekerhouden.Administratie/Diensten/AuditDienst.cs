@@ -55,6 +55,14 @@ public static class AuditActies
     public const string Geboekt = "Geboekt";
     public const string AutomatischGeboekt = "Automatisch geboekt";
     public const string DocumentIngelezen = "Document ingelezen";
+    public const string RelatieToegevoegd = "Relatie toegevoegd";
+    public const string RelatieGewijzigd = "Relatie gewijzigd";
+    public const string IbanGewijzigd = "IBAN gewijzigd";
+    public const string IbanWijzigingGeweigerd = "IBAN wijzigen geweigerd";
+    public const string RegelToegevoegd = "Regel toegevoegd";
+    public const string RegelVerwijderd = "Regel verwijderd";
+    public const string RegelVerplaatst = "Regel verplaatst";
+    public const string InstellingenGewijzigd = "Instellingen gewijzigd";
     public const string DocumentQuarantaine = "Document in quarantaine";
     public const string TweestapAan = "Tweestapsverificatie aangezet";
     public const string TweestapUit = "Tweestapsverificatie uitgezet";

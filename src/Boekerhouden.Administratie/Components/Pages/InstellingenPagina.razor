@@ -1,0 +1,93 @@
+@page "/a/{Id:guid}/instellingen"
+@inject InrichtingDienst Inrichting
+
+<AdministratieKader Id="Id" Titel="Instellingen" Actief="/instellingen" BijOpenen="Open">
+    @if (!context.Mag(Recht.Boekhouden))
+    {
+        <div class="alert alert-warning">De instellingen zijn voor het kantoor.</div>
+    }
+    else if (invoer is not null)
+    {
+        <Foutmeldingen Fouten="fouten" />
+        @if (bericht is not null)
+        {
+            <div class="bericht mb-2">@bericht</div>
+        }
+        <div class="card card-body" style="max-width: 44rem">
+            <div class="row g-2 mb-3">
+                <div class="col-12"><label class="form-label" for="naam">Naam</label><input id="naam" class="form-control" @bind="invoer.Naam" /></div>
+                <div class="col-md-6"><label class="form-label" for="kvk">KvK-nummer</label><input id="kvk" class="form-control" @bind="invoer.KvkNummer" /></div>
+                <div class="col-md-6"><label class="form-label" for="btw">Btw-nummer</label><input id="btw" class="form-control" @bind="invoer.BtwNummer" /></div>
+                <div class="col-12"><label class="form-label" for="ibans">Eigen bankrekeningen (IBAN's, gescheiden door komma's)</label><input id="ibans" class="form-control" @bind="invoer.Ibans" /></div>
+                <div class="col-md-6"><label class="form-label" for="termijn">Betalingstermijn (dagen)</label><input id="termijn" type="number" min="0" max="365" class="form-control" @bind="invoer.Betalingstermijn" /></div>
+                <div class="col-md-6"><label class="form-label" for="limiet">Limiet automatisch boeken</label><input id="limiet" class="form-control" @bind="invoer.Limiet" placeholder="geen limiet" /></div>
+            </div>
+            <div><button class="btn btn-primary" @onclick="Bewaar">Opslaan</button></div>
+        </div>
+    }
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private Invoer? invoer;
+    private IReadOnlyList<string>? fouten;
+    private string? bericht;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        if (!g.Kop.Mag(Recht.Boekhouden))
+        {
+            return;
+        }
+
+        var i = await Inrichting.Instellingen(g.Wie, Id);
+        invoer = new Invoer
+        {
+            Naam = i.Naam,
+            KvkNummer = i.KvkNummer,
+            BtwNummer = i.BtwNummer,
+            Ibans = string.Join(", ", i.Ibans),
+            Betalingstermijn = i.Betalingstermijn,
+            Limiet = i.LimietAutomatisch is { } l ? Bedragen.Getal(l) : null,
+        };
+    }
+
+    private async Task Bewaar()
+    {
+        decimal? limiet = null;
+        if (!string.IsNullOrWhiteSpace(invoer!.Limiet))
+        {
+            if (!BedragParser.TryParse(invoer.Limiet, out var l))
+            {
+                fouten = ["De limiet is geen bedrag."];
+                return;
+            }
+
+            limiet = l;
+        }
+
+        var uitkomst = await Inrichting.WijzigInstellingen(geopend!.Wie, Id, new Instellingen(invoer.Naam, invoer.KvkNummer, invoer.BtwNummer,
+            [.. invoer.Ibans.Split(',', ';')], invoer.Betalingstermijn, limiet));
+        fouten = uitkomst.Fouten;
+        bericht = uitkomst.IsGelukt ? "Opgeslagen." : null;
+    }
+
+    private sealed class Invoer
+    {
+        public string Naam { get; set; } = "";
+
+        public string? KvkNummer { get; set; }
+
+        public string? BtwNummer { get; set; }
+
+        public string Ibans { get; set; } = "";
+
+        public int Betalingstermijn { get; set; }
+
+        public string? Limiet { get; set; }
+    }
+}

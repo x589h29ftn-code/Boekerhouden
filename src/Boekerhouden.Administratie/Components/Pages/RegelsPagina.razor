@@ -1,0 +1,213 @@
+@page "/a/{Id:guid}/regels"
+@using Boekerhouden.Boekhouding.Btw
+@using Boekerhouden.Boekhouding.Regels
+@inject InrichtingDienst Inrichting
+@inject GrootboekDienst Grootboek
+
+<AdministratieKader Id="Id" Titel="Regels" Actief="/regels" BijOpenen="Open">
+    <Foutmeldingen Fouten="fouten" />
+    @if (regels is { Count: 0 })
+    {
+        <div class="card card-body text-center text-secondary py-4 mb-3">Nog geen regels.</div>
+    }
+    else if (regels is not null)
+    {
+        <div class="card mb-3">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr><th>Regel</th><th>Als</th><th>Dan</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in regels)
+                    {
+                        <tr class="regel-met-acties">
+                            <td>@r.Regel.Naam</td>
+                            <td class="small text-secondary">@Voorwaarden(r.Regel)</td>
+                            <td class="small">@r.Regel.Rekeningnummer @r.Regel.BtwCode @(r.Regel.Automatisch ? "· automatisch" : null)</td>
+                            <td class="text-end text-nowrap">
+                                @if (context.Mag(Recht.Boekhouden))
+                                {
+                                    <span class="acties">
+                                        <button class="btn btn-sm btn-link p-0" title="Eerder toepassen" @onclick="() => Verplaats(r.Id, true)">↑</button>
+                                        <button class="btn btn-sm btn-link p-0 ms-1" title="Later toepassen" @onclick="() => Verplaats(r.Id, false)">↓</button>
+                                        <button class="btn btn-sm btn-link text-secondary p-0 ms-2" @onclick="() => Verwijder(r.Id)">verwijderen</button>
+                                    </span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    @if (context.Mag(Recht.Boekhouden))
+    {
+        <div class="card">
+            <div class="card-header fw-semibold">Nieuwe regel</div>
+            <div class="card-body">
+                <div class="row g-2 mb-2">
+                    <div class="col-md-4"><label class="form-label" for="naam">Naam</label><input id="naam" class="form-control" @bind="invoer.Naam" /></div>
+                    <div class="col-md-2">
+                        <label class="form-label" for="soort">Voor</label>
+                        <select id="soort" class="form-select" @bind="invoer.Soort">
+                            <option value="">facturen en bank</option>
+                            <option value="@Verwerkingssoort.Inkoopfactuur">inkoopfacturen</option>
+                            <option value="@Verwerkingssoort.Bankmutatie">bankmutaties</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3"><label class="form-label" for="bevat">Naam bevat</label><input id="bevat" class="form-control" @bind="invoer.NaamBevat" /></div>
+                    <div class="col-md-3"><label class="form-label" for="omschr">Omschrijving bevat</label><input id="omschr" class="form-control" @bind="invoer.OmschrijvingBevat" /></div>
+                    <div class="col-md-2"><label class="form-label" for="van">Bedrag van</label><input id="van" class="form-control" @bind="invoer.Van" /></div>
+                    <div class="col-md-2"><label class="form-label" for="tot">tot en met</label><input id="tot" class="form-control" @bind="invoer.Tot" /></div>
+                    <div class="col-md-4"><label class="form-label" for="iban">Tegenrekening (IBAN)</label><input id="iban" class="form-control" @bind="invoer.Iban" /></div>
+                    <div class="col-md-2"><label class="form-label" for="rek">Rekening</label><input id="rek" class="form-control" list="rekeningen" @bind="invoer.Rekening" /></div>
+                    <div class="col-md-2">
+                        <label class="form-label" for="btw">Btw</label>
+                        <select id="btw" class="form-select" @bind="invoer.BtwCode">
+                            <option value="">geen</option>
+                            @foreach (var c in BtwCodes.Standaard)
+                            {
+                                <option value="@c.Code">@c.Code</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <datalist id="rekeningen">
+                    @foreach (var r in rekeningen)
+                    {
+                        <option value="@r.Nummer">@r.Naam</option>
+                    }
+                </datalist>
+                <div class="d-flex align-items-center gap-3">
+                    <span class="form-check mb-0">
+                        <input class="form-check-input" type="checkbox" id="automatisch" @bind="invoer.Automatisch" />
+                        <label class="form-check-label" for="automatisch">automatisch boeken</label>
+                    </span>
+                    <button class="btn btn-outline-primary ms-auto" @onclick="VoegToe">Regel toevoegen</button>
+                </div>
+            </div>
+        </div>
+    }
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private IReadOnlyList<RegelRegel>? regels;
+    private IReadOnlyList<Boekhouding.Grootboek.Rekening> rekeningen = [];
+    private Invoer invoer = new();
+    private IReadOnlyList<string>? fouten;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        regels = await Inrichting.Regels(g.Wie, Id);
+        rekeningen = [.. (await Grootboek.Schema(g.Wie, Id)).Alle];
+    }
+
+    private async Task VoegToe()
+    {
+        if (!LeesBedrag(invoer.Van, out var van) || !LeesBedrag(invoer.Tot, out var tot))
+        {
+            fouten = ["Een bedrag is niet te lezen."];
+            return;
+        }
+
+        var regel = new Verwerkingsregel(invoer.Naam, invoer.Rekening.Trim(), string.IsNullOrEmpty(invoer.BtwCode) ? null : invoer.BtwCode, invoer.Automatisch,
+            invoer.Soort, null, Leeg(invoer.NaamBevat), van, tot, Leeg(invoer.OmschrijvingBevat), Leeg(invoer.Iban));
+        var uitkomst = await Inrichting.VoegRegelToe(geopend!.Wie, Id, regel);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            invoer = new();
+            regels = await Inrichting.Regels(geopend.Wie, Id);
+        }
+    }
+
+    private async Task Verplaats(Guid id, bool omhoog)
+    {
+        fouten = (await Inrichting.VerplaatsRegel(geopend!.Wie, Id, id, omhoog)).Fouten;
+        regels = await Inrichting.Regels(geopend.Wie, Id);
+    }
+
+    private async Task Verwijder(Guid id)
+    {
+        fouten = (await Inrichting.VerwijderRegel(geopend!.Wie, Id, id)).Fouten;
+        regels = await Inrichting.Regels(geopend.Wie, Id);
+    }
+
+    private static string Voorwaarden(Verwerkingsregel r)
+    {
+        var delen = new List<string>();
+        if (r.Soort is { } s)
+        {
+            delen.Add(s == Verwerkingssoort.Inkoopfactuur ? "inkoopfactuur" : "bankmutatie");
+        }
+
+        if (r.NaamBevat is { } n)
+        {
+            delen.Add($"naam bevat ‘{n}’");
+        }
+
+        if (r.OmschrijvingBevat is { } o)
+        {
+            delen.Add($"omschrijving bevat ‘{o}’");
+        }
+
+        if (r.BedragVan is not null || r.BedragTot is not null)
+        {
+            delen.Add($"bedrag {(r.BedragVan is { } v ? Bedragen.Getal(v) : "…")} – {(r.BedragTot is { } t ? Bedragen.Getal(t) : "…")}");
+        }
+
+        if (r.TegenIban is { } i)
+        {
+            delen.Add($"IBAN {Boekhouding.Relaties.Iban.Toon(i)}");
+        }
+
+        return string.Join(", ", delen);
+    }
+
+    private static bool LeesBedrag(string? tekst, out decimal? bedrag)
+    {
+        bedrag = null;
+        if (string.IsNullOrWhiteSpace(tekst))
+        {
+            return true;
+        }
+
+        if (!BedragParser.TryParse(tekst, out var b))
+        {
+            return false;
+        }
+
+        bedrag = b;
+        return true;
+    }
+
+    private static string? Leeg(string? tekst) => string.IsNullOrWhiteSpace(tekst) ? null : tekst.Trim();
+
+    private sealed class Invoer
+    {
+        public string Naam { get; set; } = "";
+
+        public Verwerkingssoort? Soort { get; set; } = Verwerkingssoort.Inkoopfactuur;
+
+        public string? NaamBevat { get; set; }
+
+        public string? OmschrijvingBevat { get; set; }
+
+        public string? Van { get; set; }
+
+        public string? Tot { get; set; }
+
+        public string? Iban { get; set; }
+
+        public string Rekening { get; set; } = "";
+
+        public string? BtwCode { get; set; } = "I21";
+
+        public bool Automatisch { get; set; }
+    }
+}

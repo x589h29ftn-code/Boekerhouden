@@ -98,6 +98,7 @@ public static class Opstart
         services.AddSingleton<GrootboekDienst>();
         services.AddSingleton<BeveiligingDienst>();
         services.AddSingleton<InkoopDienst>();
+        services.AddSingleton<InrichtingDienst>();
 
         // Virusscan vóór het openen van elk document (besluit B3). Zonder instelling: op de server fail closed, in
         // ontwikkeling (zonder ClamAV) zonder scan.

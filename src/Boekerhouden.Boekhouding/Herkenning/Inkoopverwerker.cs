@@ -66,6 +66,11 @@ public static class Inkoopverwerker
             belemmeringen.Add($"Lijkt al geboekt: factuur {dubbel.Factuurnummer} van {dubbel.Datum:dd-MM-yyyy}.");
         }
 
+        if (leverancier is not null && herkend.TotaalInclusief is { } nu && Afwijkend(nu, leverancier.Relatie.Code, bestaand) is { } hoogste)
+        {
+            belemmeringen.Add($"Het bedrag is veel hoger dan gebruikelijk bij {leverancier.Relatie.Naam} (tot nu toe hoogstens {Domain.Bedragen.Euro(hoogste)}).");
+        }
+
         // Factuurfraude: een bekende leverancier met ineens een ander rekeningnummer.
         if (leverancier is { Op: not "IBAN" } && herkend.Iban is { } iban && leverancier.Relatie.Ibans.Count > 0 && !leverancier.Relatie.HeeftIban(iban))
         {
@@ -114,6 +119,26 @@ public static class Inkoopverwerker
         }
 
         return new Inkoopvoorstel(herkend, leverancier, advies, factuur, belemmeringen);
+    }
+
+    /// <summary>Minstens zoveel eerdere facturen van de leverancier voordat een bedrag "ongebruikelijk" kan zijn.</summary>
+    public const int EerdereFacturenVoorAfwijking = 3;
+
+    /// <summary>
+    /// Het hoogste eerdere bedrag als dit bedrag meer dan twee keer zo hoog is; anders <c>null</c>. Pas vanaf
+    /// <see cref="EerdereFacturenVoorAfwijking"/> eerdere facturen, zodat een nieuwe leverancier geen signaal geeft.
+    /// </summary>
+    public static decimal? Afwijkend(decimal bedrag, string relatie, IEnumerable<BestaandeFactuur> bestaand)
+    {
+        ArgumentNullException.ThrowIfNull(bestaand);
+        var eerder = bestaand.Where(f => f.Relatie == relatie).Select(f => Math.Abs(f.Totaal)).ToList();
+        if (eerder.Count < EerdereFacturenVoorAfwijking)
+        {
+            return null;
+        }
+
+        var hoogste = eerder.Max();
+        return Math.Abs(bedrag) > 2 * hoogste ? hoogste : null;
     }
 
     /// <summary>De gegevens waarop regels en leergeheugen werken.</summary>

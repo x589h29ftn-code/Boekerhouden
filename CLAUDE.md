@@ -44,7 +44,8 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   `boekerhouden_administratie`): `Data/` (entiteiten, `AdministratieDbContext` met query filter per administratie,
   migraties met triggers die boekingen en het log onwijzigbaar maken), `Diensten/` (`Toegang` = de enige weg naar de
   gegevens van een administratie, met rechten per lidmaatschap; administraties, grootboek en boeken met hash-keten,
-  gebruikers, tweestapsverificatie en passkeys, wijzigingslog), `Identiteit/` (inloggen, beveiligingsheaders,
+  gebruikers, tweestapsverificatie en passkeys, wijzigingslog; `InkoopDienst` = inlezen met virusscan, voorstel en
+  (automatisch) boeken; `InrichtingDienst` = relaties, regels en instellingen), `Identiteit/` (inloggen, beveiligingsheaders,
   tweestap verplicht voor de beheerder), `Components/` (schermen; accountpagina's statisch, de rest interactief).
   Negatieve toegangstests horen bij elke dienst. Geen inline scripts (CSP): JavaScript als los bestand in `wwwroot/`.
 - `src/Boekerhouden.Huisstijl` – gedeelde huisstijl van beide apps (Bootstrap, `app.css`, logo) onder

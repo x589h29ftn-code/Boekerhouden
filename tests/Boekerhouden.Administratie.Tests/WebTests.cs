@@ -86,6 +86,41 @@ public sealed class WebTests(AdministratieFixture app) : IClassFixture<Administr
     }
 
     [Fact]
+    public async Task Relaties_regels_en_instellingen_tonen_wat_de_rol_mag()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Inrichting Voorbeeld B.V.");
+        var inrichting = app.Dienst<InrichtingDienst>();
+        await inrichting.VoegRelatieToe(wie, id, new RelatieInvoer("Belnet B.V.", null, null, "4310"), "NL91ABNA0417164300");
+        await inrichting.VoegRegelToe(wie, id, new Boekhouding.Regels.Verwerkingsregel("Belnet is telefoon", "4310", "I21", NaamBevat: "Belnet", BedragVan: 10, BedragTot: 30));
+        var ondernemer = await app.Gebruiker("Olga Ondernemer");
+        await app.Dienst<AdministratieDienst>().ZetLid(id, ondernemer.Id!.Value, Lidmaatschapsrol.Ondernemer, wie);
+
+        using var beheerder = NieuweClient();
+        await Aanmelden.LogInMetCode(beheerder, "beheer@kantoor.test", AdministratieFixture.Wachtwoord, await app.Tweestap(wie), "/");
+        var relaties = await beheerder.GetStringAsync(new Uri($"/a/{id}/relaties", UriKind.Relative));
+        var regels = WebUtility.HtmlDecode(await beheerder.GetStringAsync(new Uri($"/a/{id}/regels", UriKind.Relative)));
+        var instellingen = await beheerder.GetStringAsync(new Uri($"/a/{id}/instellingen", UriKind.Relative));
+
+        Assert.Contains("NL91 ABNA 0417 1643 00", relaties, StringComparison.Ordinal);
+        Assert.Contains("naam bevat ‘Belnet’", regels, StringComparison.Ordinal);
+        Assert.Contains("Regel toevoegen", regels, StringComparison.Ordinal);
+        Assert.Contains("Inrichting Voorbeeld B.V.", instellingen, StringComparison.Ordinal);
+        Assert.Contains("Limiet automatisch boeken", instellingen, StringComparison.Ordinal);
+
+        using var client = NieuweClient();
+        var email = (await app.Dienst<GebruikerDienst>().Lijst()).Single(g => g.Id == ondernemer.Id).Email;
+        await Aanmelden.LogIn(client, email, AdministratieFixture.Wachtwoord, "/");
+        var regelsOndernemer = await client.GetStringAsync(new Uri($"/a/{id}/regels", UriKind.Relative));
+        var instellingenOndernemer = await client.GetStringAsync(new Uri($"/a/{id}/instellingen", UriKind.Relative));
+
+        Assert.Contains("Belnet is telefoon", regelsOndernemer, StringComparison.Ordinal);
+        Assert.DoesNotContain("Regel toevoegen", regelsOndernemer, StringComparison.Ordinal);
+        Assert.Contains("De instellingen zijn voor het kantoor.", instellingenOndernemer, StringComparison.Ordinal);
+        Assert.DoesNotContain("Limiet automatisch boeken", instellingenOndernemer, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Inloggen_en_uitloggen_komen_in_het_log()
     {
         await app.Beheerder();

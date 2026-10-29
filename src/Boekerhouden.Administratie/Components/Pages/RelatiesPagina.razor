@@ -1,0 +1,130 @@
+@page "/a/{Id:guid}/relaties"
+@inject InrichtingDienst Inrichting
+
+<AdministratieKader Id="Id" Titel="Relaties" Actief="/relaties" BijOpenen="Open">
+    <Foutmeldingen Fouten="fouten" />
+    @if (bericht is not null)
+    {
+        <div class="bericht mb-2">@bericht</div>
+    }
+    @if (context.Mag(Recht.Invoeren))
+    {
+        <div class="card card-body mb-3">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3"><label class="form-label" for="naam">Naam</label><input id="naam" class="form-control" @bind="nieuw.Naam" /></div>
+                <div class="col-md-3"><label class="form-label" for="iban">IBAN</label><input id="iban" class="form-control" @bind="nieuw.Iban" /></div>
+                <div class="col-md-2"><label class="form-label" for="btw">Btw-nummer</label><input id="btw" class="form-control" @bind="nieuw.BtwNummer" /></div>
+                <div class="col-md-2"><label class="form-label" for="rek">Standaardrekening</label><input id="rek" class="form-control" @bind="nieuw.Tegenrekening" /></div>
+                <div class="col-md-2"><button class="btn btn-outline-primary w-100" @onclick="VoegToe">Toevoegen</button></div>
+            </div>
+        </div>
+    }
+    @if (relaties is { Count: 0 })
+    {
+        <div class="card card-body text-center text-secondary py-4">Nog geen relaties.</div>
+    }
+    else if (relaties is not null)
+    {
+        <div class="card">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr><th>Naam</th><th>IBAN</th><th>Btw-nummer</th><th>KvK</th><th>Standaardrekening</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in relaties)
+                    {
+                        <tr class="regel-met-acties">
+                            <td title="@r.Code">@r.Naam</td>
+                            <td class="small">@string.Join(", ", r.Ibans.Select(Boekhouding.Relaties.Iban.Toon))</td>
+                            <td class="small">@r.BtwNummer</td>
+                            <td class="small">@r.KvkNummer</td>
+                            <td class="small">@r.Tegenrekening</td>
+                            <td class="text-end">
+                                @if (context.Mag(Recht.Invoeren))
+                                {
+                                    <button class="btn btn-sm btn-link p-0 acties" @onclick="() => KiesIban(r)">IBAN wijzigen</button>
+                                }
+                            </td>
+                        </tr>
+                        @if (ibanVoor?.Id == r.Id)
+                        {
+                            <tr>
+                                <td colspan="6">
+                                    <div class="d-flex gap-2 align-items-center py-1">
+                                        <input class="form-control form-control-sm w-auto" size="34" @bind="ibans" aria-label="IBAN's, gescheiden door komma's" />
+                                        <input class="form-control form-control-sm w-auto" type="password" @bind="wachtwoord" placeholder="Je wachtwoord" aria-label="Bevestig met je wachtwoord" autocomplete="current-password" />
+                                        <button class="btn btn-sm btn-primary" @onclick="ZetIbans">Bevestigen</button>
+                                        <button class="btn btn-sm btn-link" @onclick="() => ibanVoor = null">Annuleren</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private IReadOnlyList<RelatieRegel>? relaties;
+    private Invoer nieuw = new();
+    private RelatieRegel? ibanVoor;
+    private string ibans = "";
+    private string wachtwoord = "";
+    private IReadOnlyList<string>? fouten;
+    private string? bericht;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        relaties = await Inrichting.Relaties(g.Wie, Id);
+    }
+
+    private async Task VoegToe()
+    {
+        var uitkomst = await Inrichting.VoegRelatieToe(geopend!.Wie, Id, new RelatieInvoer(nieuw.Naam, nieuw.BtwNummer, null, nieuw.Tegenrekening), nieuw.Iban);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            nieuw = new();
+            relaties = await Inrichting.Relaties(geopend.Wie, Id);
+        }
+    }
+
+    private void KiesIban(RelatieRegel relatie)
+    {
+        ibanVoor = relatie;
+        ibans = string.Join(", ", relatie.Ibans);
+        wachtwoord = "";
+        bericht = null;
+    }
+
+    private async Task ZetIbans()
+    {
+        var uitkomst = await Inrichting.ZetIbans(geopend!.Wie, Id, ibanVoor!.Id, ibans.Split(',', ';'), wachtwoord);
+        wachtwoord = "";
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            bericht = $"IBAN van {ibanVoor.Naam} gewijzigd.";
+            ibanVoor = null;
+            relaties = await Inrichting.Relaties(geopend.Wie, Id);
+        }
+    }
+
+    private sealed class Invoer
+    {
+        public string Naam { get; set; } = "";
+
+        public string? Iban { get; set; }
+
+        public string? BtwNummer { get; set; }
+
+        public string? Tegenrekening { get; set; }
+    }
+}

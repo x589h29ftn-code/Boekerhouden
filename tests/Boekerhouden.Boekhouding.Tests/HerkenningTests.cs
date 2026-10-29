@@ -274,6 +274,23 @@ public sealed class InkoopverwerkerTests
         Assert.Contains("Het bedrag is hoger dan de limiet voor automatisch verwerken (€ 20,00).", boven.Belemmeringen);
     }
 
+    [Fact]
+    public void Veel_hoger_bedrag_dan_gebruikelijk_wordt_niet_automatisch_verwerkt()
+    {
+        static BestaandeFactuur Eerder(int maand, decimal totaal) => new("BELNET", $"BN2026-{maand:00}", new(2026, maand, 1), totaal);
+
+        var gewoon = Inkoopverwerker.Verwerk(Ubl(), Relaties, [Telefoon], new Leergeheugen(), Testadministratie.Btw, [Eerder(1, 15m), Eerder(2, 12m), Eerder(3, 15m)]);
+        var nieuw = Inkoopverwerker.Verwerk(Ubl(), Relaties, [Telefoon], new Leergeheugen(), Testadministratie.Btw, [Eerder(1, 8m), Eerder(2, 9m)]);
+        var hoog = Inkoopverwerker.Verwerk(Ubl(), Relaties, [Telefoon], new Leergeheugen(), Testadministratie.Btw, [Eerder(1, 8m), Eerder(2, -9m), Eerder(3, 10m)]);
+
+        Assert.True(gewoon.Automatisch);
+        Assert.True(nieuw.Automatisch);
+        Assert.False(hoog.Automatisch);
+        Assert.Contains("Het bedrag is veel hoger dan gebruikelijk bij Belnet B.V. (tot nu toe hoogstens € 10,00).", hoog.Belemmeringen);
+        Assert.Null(Inkoopverwerker.Afwijkend(20m, "BELNET", [Eerder(1, 10m), Eerder(2, 10m), Eerder(3, 10m)]));
+        Assert.Null(Inkoopverwerker.Afwijkend(100m, "ANDER", [Eerder(1, 10m), Eerder(2, 10m), Eerder(3, 10m)]));
+    }
+
     private static HerkendeFactuur Ubl()
     {
         using var stream = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fictief", "administratie", "belnet-2026-0411.xml"));

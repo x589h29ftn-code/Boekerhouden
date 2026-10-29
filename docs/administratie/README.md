@@ -233,7 +233,7 @@ gedaan.
 | A4 ✅ | **Regels en leren** (domein): verwerkingsregels, leergeheugen (1-2-3), advies voor factuur en bankmutatie | *KPN € 10–30 → telefoonkosten*, en zelf leren |
 | A5 ✅ | **Herkenning** (domein): tekstanalyse van een factuur, UBL lezen, leverancier herkennen | Gegevens uit e-facturen en PDF-tekst |
 | A6 ✅ | **Webapp I**: project `Boekerhouden.Administratie`, database, inloggen met tweestapsverificatie (app en passkeys), administraties met rechten, standaardrekeningschema (RGS), memoriaal, journaal met hash-keten, grootboekkaart, proefbalans, balans en W&V, gebruikers en leden, wijzigingslog | Werkende boekhouding in de browser |
-| A7 | **Inkoop in de app**: uploaden, herkennen (UBL, PdfPig), Te verwerken, voorstel en automatisch boeken, regels beheren | Inkoopfacturen verwerken |
+| A7 ✅ | **Inkoop in de app**: uploaden, herkennen (UBL, PdfPig), Te verwerken, voorstel en automatisch boeken, regels beheren | Inkoopfacturen verwerken |
 | A8 | **Bank in de app**: inlezen, afletteren (automatisch en met voorstellen), handmatig boeken, werklijsten met *factuur uploaden* | Bank bijna vanzelf bij |
 | A9 | **Verkoop**: factuur maken, nummeren, PDF, debiteurenlijst, ouderdomsanalyse | Factureren |
 | A10 | **Btw-aangifte en periodes**: aangifte per rubriek, afdrachtboeking, periodes afsluiten | Aangifte klaarzetten |
@@ -241,7 +241,7 @@ gedaan.
 | A12 | **Saldibalans naar het samenstelpakket** | Jaarrekening zonder export |
 | later | Online voor ondernemers (AD2), facturen per e-mail, directe bankkoppeling (PSD2), herinneringen, terugkerende facturen, kas, AI-herkenning als extra motor, e-facturen verzenden (Peppol) | |
 
-### Stand na A1–A6 (en het begin van A7)
+### Stand na A1–A7
 
 De boekhoudkern staat in `src/Boekerhouden.Boekhouding`, met tests in `tests/Boekerhouden.Boekhouding.Tests` en
 verzonnen voorbeeldbestanden in `tests/Fictief/administratie`:
@@ -284,7 +284,18 @@ overzichten.
 | Inloggen | wachtwoord en daarna de code uit de authenticator-app (of een herstelcode), of een passkey; voor de beheerder is tweestapsverificatie verplicht (`TweestapVerplicht`) |
 | Schermen | `/` administraties, `/a/{id}` balans en W&V, `/a/{id}/proefbalans`, `/grootboek`, `/journaal`, `/memoriaal`, `/rekeningschema`; `/account/beveiliging`; beheer: `/beheer/gebruikers`, `/beheer/wijzigingslog` |
 
-Nog niet gebouwd: inkoop, bank en verkoop in de app (A7–A9), OCR, btw-aangifte en periodes, het RGS-werkboek in de
+#### Inkoop (plakje A7)
+
+| Onderdeel | Hoe |
+|---|---|
+| Inlezen | `/a/{id}/inkoop`: PDF's en UBL-bestanden slepen of kiezen. Eerst de virusscan (ClamAV via `Virusscan:Adres`; zonder scanner buiten Development *fail closed*), dan herkennen; een besmet bestand gaat in quarantaine. Het bestand wordt op SHA-256 bewaard; hetzelfde bestand nog eens inlezen geeft een melding |
+| Voorstel | `InkoopDienst` maakt het voorstel met `Inkoopverwerker`: regel > geleerd > relatie, met de signalen (afwijkend IBAN, afwijkend bedrag, dubbel, onbekende leverancier, niet op eigen naam, boven de limiet). Zonder signaal en met een automatisch advies boekt het pakket zelf (`AutomatischGeboekt` in het log) |
+| Te verwerken | `/a/{id}/inkoop/{document}`: factuur naast de gegevens, rekening en btw-code per regel kiezen, nieuwe leverancier bevestigen; elke keuze gaat in het leergeheugen |
+| Relaties | `/a/{id}/relaties`: toevoegen en de standaardrekening; het IBAN wijzigen vraagt het wachtwoord en logt oud en nieuw (`InrichtingDienst.ZetIbans`) |
+| Regels | `/a/{id}/regels`: automatiseringsregels toevoegen, volgorde en verwijderen; alleen het kantoor (recht Boekhouden) |
+| Instellingen | `/a/{id}/instellingen` (kantoor): naam, KvK, btw-nummer, eigen IBAN's, betalingstermijn en de limiet voor automatisch boeken (leeg = geen limiet, B2) |
+
+Nog niet gebouwd: bank en verkoop in de app (A8–A9), OCR, btw-aangifte en periodes, het RGS-werkboek in de
 administratie (nu de RGS-code als tekst bij een nieuwe rekening), en de hulppagina.
 
 ## 6. Open vragen

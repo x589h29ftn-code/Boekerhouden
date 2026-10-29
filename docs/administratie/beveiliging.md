@@ -143,9 +143,9 @@ Bij gangbare pakketten zijn dit de signalen die het meeste schade voorkomen:
 | **Dubbele factuur**: zelfde leverancier en factuurnummer (ongeacht leestekens), of zelfde datum en bedrag | ✅ |
 | **Onbekende leverancier**: wordt nooit automatisch verwerkt. De gebruiker bevestigt eerst de nieuwe relatie | ✅ |
 | **Niet op naam van de onderneming**: wordt niet automatisch verwerkt, met de melding dat de btw dan niet aftrekbaar is | ✅ |
-| **Bedraglimiet voor automatisch verwerken** (B2): standaard **geen** limiet. Per administratie is er een limiet in te stellen; daarboven bevestigt altijd een mens | ✅ (domein), F1 instelling |
-| **IBAN van een relatie wijzigen**: alleen met opnieuw bevestigen, met een vermelding in het log en een melding aan de andere gebruikers van de administratie. Online met vier ogen | F1 / F2 |
-| Afwijkend bedrag: veel hoger dan gebruikelijk bij deze leverancier, als signaal in Te verwerken | F1 (A7) |
+| **Bedraglimiet voor automatisch verwerken** (B2): standaard **geen** limiet. Per administratie is er een limiet in te stellen; daarboven bevestigt altijd een mens | ✅ |
+| **IBAN van een relatie wijzigen**: alleen met opnieuw bevestigen (wachtwoord), met oud en nieuw IBAN in het log. Een melding aan de andere gebruikers van de administratie, en online vier ogen | ✅ bevestigen en log, F2 melding en vier ogen |
+| **Afwijkend bedrag**: na minstens drie facturen van een leverancier is een bedrag van meer dan twee keer het hoogste eerdere bedrag een signaal in Te verwerken | ✅ |
 | **Het pakket betaalt niet zelf.** Betaalbestanden (SEPA) worden in de bank ondertekend, met de bankpas of app van de ondernemer | uitgangspunt |
 
 ### 4.5 Uploads en documenten
@@ -159,8 +159,8 @@ Documenten van buiten zijn de grootste technische aanvalsroute.
 | Een onleesbare of beveiligde PDF geeft een nette melding (`DocumentException`) en laat de app nooit vallen | ✅ |
 | **Type op inhoud, niet op extensie**: PDF aan `%PDF-`, XML aan de root, en afbeeldingen aan hun *magic bytes*. Al het andere wordt geweigerd | ✅ PDF/XML, F1 afbeeldingen |
 | **Herkennen in een apart proces** met een tijd- en geheugenlimiet (bijv. 30 seconden en 512 MB), zodat een kwaadaardige PDF de app niet kan raken. Online in een aparte container zonder netwerk | F2 |
-| Uploads buiten de webmap, met de SHA-256 als bestandsnaam. Downloaden altijd met `Content-Disposition: attachment` en `X-Content-Type-Options: nosniff`. Nooit HTML of SVG van een gebruiker in de app tonen | F1 |
-| **Virusscan** (B3) met ClamAV (open source) op de server, **vóórdat** het pakket een bestand opent. Een besmet bestand gaat in quarantaine en wordt niet verwerkt. Is de scanner niet bereikbaar, dan wacht het bestand tot een geslaagde scan (*fail closed*). De koppeling (`ClamAvScanner`, via clamd) is gebouwd | ✅ koppeling, F1 installatie |
+| Uploads buiten de webmap (in de database, met de SHA-256 als sleutel). Downloaden met `X-Content-Type-Options: nosniff` en een CSP-sandbox; alleen een PDF wordt getoond, al het andere is `Content-Disposition: attachment`. Nooit HTML of SVG van een gebruiker in de app tonen | ✅ |
+| **Virusscan** (B3) met ClamAV (open source) op de server, **vóórdat** het pakket een bestand opent. Een besmet bestand gaat in quarantaine en wordt niet verwerkt. Is de scanner niet bereikbaar, dan wacht het bestand tot een geslaagde scan (*fail closed*). Elke upload in de app gaat eerst langs de scanner; zonder ingestelde scanner weigert de app buiten Development elke upload | ✅ koppeling en upload, F1 installatie op de server-pc |
 | **Facturen per e-mail**: alleen bijlagen van toegestane typen, controle op SPF, DKIM en DMARC, en een lijst met bekende afzenders per administratie. De rest gaat naar quarantaine | F2 |
 
 ### 4.6 Herkenning, AI en bankkoppeling
@@ -301,6 +301,10 @@ het moment waarop een klant of accountant erom vraagt.
 8. **Beveiligingsheaders** (A6a): strikte CSP zonder inline scripts, `frame-ancestors 'none'`, `X-Frame-Options:
    DENY`, `nosniff`, `Referrer-Policy` en `Permissions-Policy`; Data Protection-sleutels in de database.
 9. **Tweestapsverificatie** (A6b): authenticator-app met herstelcodes en passkeys; verplicht voor de beheerder.
+10. **Inkoop** (A7): virusscan vóór elke upload met quarantaine, opslag op hash, documenten alleen via de
+    toegangscontrole en met een CSP-sandbox, het signaal *afwijkend bedrag*, de bedraglimiet per administratie, en
+    het IBAN van een relatie alleen wijzigen na het wachtwoord, met oud en nieuw in het log. Regels en instellingen
+    alleen door het kantoor.
 
 Bekende beperking: de databaserol van de app is eigenaar van de tabellen en kan de triggers dus uitschakelen. De
 hash-keten maakt zo'n wijziging zichtbaar; aparte databaserollen (app zonder eigenaarschap) volgen vóór F2.
@@ -310,7 +314,7 @@ hash-keten maakt zo'n wijziging zichtbaar; aparte databaserollen (app zonder eig
 | Plakje | Beveiliging die erbij hoort |
 |---|---|
 | A6 webapp ✅ | Administraties met rechten, global query filters, negatieve tests, beveiligingsheaders, Data Protection-sleutels, tweestapsverificatie met TOTP en passkeys (verplicht voor de beheerder), geboekt = onwijzigbaar, hash-keten, log alleen toevoegen. Nog open: het register van maatregelen (§4.13) |
-| A7 inkoop | ClamAV op de server-pc en de scan vóór elke upload, quarantaine, uploads op type en grootte, opslag op hash, bedraglimiet als optie per administratie, afwijkend bedrag, IBAN wijzigen met bevestiging |
+| A7 inkoop ✅ | Scan vóór elke upload, quarantaine, uploads op type en grootte, opslag op hash, bedraglimiet als optie per administratie, afwijkend bedrag, IBAN wijzigen met bevestiging. Nog open: ClamAV installeren op de server-pc, melding aan andere gebruikers bij een IBAN-wijziging |
 | A8 bank | Dubbele mutaties weigeren (sleutel per mutatie ✅ in het domein), bankregels alleen door het kantoor |
 | A10 periodes | Afgesloten periodes, heropenen met een reden |
 | vóór online (F2) | Tweestapsverificatie voor iedereen, Row Level Security, rate limiting, herkennen in een apart proces, hoster kiezen met de criteria uit §4.11, pentest, verwerkersovereenkomsten |

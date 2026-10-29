@@ -28,3 +28,12 @@
 .memoriaal-regels input.text-end {
     font-variant-numeric: tabular-nums;
 }
+
+/* Actieknoppen op een regel pas bij aanwijzen (rustige uitstraling). */
+.regel-met-acties .acties {
+    visibility: hidden;
+}
+
+.regel-met-acties:is(:hover, :focus-within) .acties {
+    visibility: visible;
+}
