@@ -1,0 +1,105 @@
+@* Een rekening kiezen op nummer of naam (Rekeningzoeker), met de voorkeur bovenaan. Typen houdt de waarde bij; een
+   keuze uit de lijst (klik, of Enter na pijl omlaag) zet het nummer. Bij het verlaten van het veld wordt de enige
+   passende rekening gekozen. *@
+@using Boekerhouden.Boekhouding.Grootboek
+
+<div class="rekeningkeuze">
+    <input id="@Id" class="@Klasse" value="@Waarde" aria-label="@Label" autocomplete="off" title="@Schema?.Zoek(Waarde ?? "")?.Naam"
+           @oninput="Typ" @onkeydown="Toets" @onfocus="Open" @onblur="Verlaat" />
+    @if (open && treffers.Count > 0)
+    {
+        <ul class="rekeningkeuze-lijst" role="listbox">
+            @for (var i = 0; i < treffers.Count; i++)
+            {
+                var r = treffers[i];
+                var n = i;
+                <li role="option" aria-selected="@(n == gemarkeerd)" class="@(n == gemarkeerd ? "gemarkeerd" : null)" @onmousedown="() => Kies(r)" @onmousedown:preventDefault>
+                    <span class="nummer">@r.Nummer</span> @r.Naam@(Voorkeur.Contains(r.Nummer) ? " ·" : null)
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    private bool open;
+    private int gemarkeerd = -1;
+    private IReadOnlyList<Rekening> treffers = [];
+
+    [Parameter]
+    public string? Waarde { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> WaardeChanged { get; set; }
+
+    [Parameter, EditorRequired]
+    public Rekeningschema? Schema { get; set; }
+
+    /// <summary>Rekeningnummers die bovenaan staan, bijv. de vaakst gebruikte bij deze leverancier.</summary>
+    [Parameter]
+    public IReadOnlyList<string> Voorkeur { get; set; } = [];
+
+    [Parameter]
+    public string Label { get; set; } = "Rekening";
+
+    [Parameter]
+    public string? Id { get; set; }
+
+    [Parameter]
+    public string Klasse { get; set; } = "form-control form-control-sm";
+
+    private void Open()
+    {
+        open = true;
+        Zoek(Schema?.Zoek(Waarde ?? "") is null ? Waarde : null);
+    }
+
+    private async Task Typ(ChangeEventArgs e)
+    {
+        var tekst = e.Value?.ToString();
+        open = true;
+        Zoek(tekst);
+        await WaardeChanged.InvokeAsync(tekst);
+    }
+
+    private void Zoek(string? tekst)
+    {
+        treffers = Schema is null ? [] : Rekeningzoeker.Zoek(tekst, Schema.Alle, Voorkeur);
+        gemarkeerd = string.IsNullOrWhiteSpace(tekst) ? -1 : 0;
+    }
+
+    private async Task Toets(KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "ArrowDown":
+                open = true;
+                gemarkeerd = Math.Min(treffers.Count - 1, gemarkeerd + 1);
+                break;
+            case "ArrowUp":
+                gemarkeerd = Math.Max(0, gemarkeerd - 1);
+                break;
+            case "Enter" when !e.CtrlKey && open && gemarkeerd >= 0 && gemarkeerd < treffers.Count:
+                await Kies(treffers[gemarkeerd]);
+                break;
+            case "Escape":
+                open = false;
+                break;
+        }
+    }
+
+    private async Task Kies(Rekening rekening)
+    {
+        open = false;
+        await WaardeChanged.InvokeAsync(rekening.Nummer);
+    }
+
+    private async Task Verlaat()
+    {
+        open = false;
+        if (Schema is not null && Schema.Zoek(Waarde ?? "") is null && Rekeningzoeker.Enige(Waarde, Schema.Alle) is { } enige)
+        {
+            await WaardeChanged.InvokeAsync(enige.Nummer);
+        }
+    }
+}

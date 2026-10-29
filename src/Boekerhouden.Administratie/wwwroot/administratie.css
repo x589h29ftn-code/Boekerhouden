@@ -367,3 +367,74 @@ body.scheiding-slepen {
         display: none;
     }
 }
+
+/* Rekening kiezen op nummer of naam. */
+.rekeningkeuze {
+    position: relative;
+}
+
+.rekeningkeuze-lijst {
+    position: absolute;
+    z-index: 20;
+    left: 0;
+    top: 100%;
+    min-width: 18rem;
+    max-height: 16rem;
+    overflow-y: auto;
+    margin: 2px 0 0;
+    padding: .25rem 0;
+    list-style: none;
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+    box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .08);
+    font-size: .875rem;
+}
+
+.rekeningkeuze-lijst li {
+    padding: .2rem .6rem;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.rekeningkeuze-lijst li.gemarkeerd, .rekeningkeuze-lijst li:hover {
+    background: var(--bs-tertiary-bg);
+}
+
+.rekeningkeuze-lijst .nummer {
+    display: inline-block;
+    min-width: 3.5rem;
+    color: var(--bs-secondary-color);
+}
+
+/* Eerdere facturen van de leverancier: één regel per factuur; aanklikken neemt rekening en btw-code over. */
+.historie {
+    border-top: 1px solid var(--bs-border-color-translucent);
+}
+
+.historie-regel {
+    display: grid;
+    grid-template-columns: 6rem 8rem 5rem 1fr 3rem;
+    gap: .5rem;
+    width: 100%;
+    padding: .2rem .25rem;
+    font-size: .8rem;
+    text-align: left;
+    background: none;
+    border: 0;
+    border-bottom: 1px solid var(--bs-border-color-translucent);
+}
+
+.historie-regel:hover {
+    background: var(--bs-tertiary-bg);
+}
+
+.historie-regel .bedrag {
+    text-align: right;
+}
+
+.historie-nummer, .historie-rekening {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

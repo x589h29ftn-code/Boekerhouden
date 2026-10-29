@@ -214,3 +214,37 @@ public sealed class JaaroverzichtTests
         Assert.All(overzicht.Activa.Concat(overzicht.Passiva), p => Assert.Equal(Jaaroverzicht.NietGekoppeld, p.Naam));
     }
 }
+
+public sealed class RekeningzoekerTests
+{
+    private static readonly Rekening[] Rekeningen =
+    [
+        new("4300", "Kantoorbenodigdheden", Rekeningsoort.Resultaat),
+        new("4310", "Telefoon en internet", Rekeningsoort.Resultaat),
+        new("4330", "Contributies en abonnementen", Rekeningsoort.Resultaat),
+        new("4900", "Algemene kosten", Rekeningsoort.Resultaat),
+        new("8000", "Omzet diensten", Rekeningsoort.Resultaat),
+    ];
+
+    [Theory]
+    [InlineData("43", "4300,4310,4330")]
+    [InlineData("tele", "4310")]
+    [InlineData("INTERNET", "4310")]
+    [InlineData("abon", "4330")]
+    [InlineData("kosten", "4900")]
+    [InlineData("xyz", "")]
+    public void Zoeken_op_nummer_of_naam(string tekst, string verwacht) =>
+        Assert.Equal(verwacht, string.Join(",", Rekeningzoeker.Zoek(tekst, Rekeningen).Select(r => r.Nummer)));
+
+    [Fact]
+    public void Voorkeur_staat_bovenaan() =>
+        Assert.Equal(["4900", "4310", "4300"], Rekeningzoeker.Zoek("", Rekeningen, ["4900", "4310"]).Take(3).Select(r => r.Nummer));
+
+    [Theory]
+    [InlineData("4310", "4310")]
+    [InlineData("telef", "4310")]
+    [InlineData("43", null)]
+    [InlineData("", null)]
+    public void De_enige_passende_rekening(string tekst, string? verwacht) =>
+        Assert.Equal(verwacht, Rekeningzoeker.Enige(tekst, Rekeningen)?.Nummer);
+}

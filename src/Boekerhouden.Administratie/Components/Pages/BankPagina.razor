@@ -118,7 +118,7 @@
                                             <div class="row g-2 align-items-end">
                                                 <div class="col-md-3">
                                                     <label class="form-label small mb-0" for="rekening">Rekening</label>
-                                                    <input id="rekening" class="form-control form-control-sm" list="bankrekeningen" @bind="rekening" @bind:event="oninput" />
+                                                    <RekeningKeuze Id="rekening" @bind-Waarde="rekening" Schema="gekozen.Schema" />
                                                 </div>
                                                 <div class="col-md-2">
                                                     <label class="form-label small mb-0" for="btw">Btw</label>
@@ -138,12 +138,6 @@
                                                     <button class="btn btn-sm btn-primary" disabled="@string.IsNullOrWhiteSpace(rekening)" @onclick="OpRekening">Boeken</button>
                                                 </div>
                                             </div>
-                                            <datalist id="bankrekeningen">
-                                                @foreach (var r in gekozen.Schema.Alle)
-                                                {
-                                                    <option value="@r.Nummer">@r.Naam</option>
-                                                }
-                                            </datalist>
                                         </div>
                                     }
                                 </td>

@@ -89,7 +89,7 @@
                             <div class="row g-2 mb-3">
                                 <div class="col-md-6">
                                     <label class="form-label" for="leverancier">Leverancier</label>
-                                    <select id="leverancier" class="form-select" @bind="leverancier">
+                                    <select id="leverancier" class="form-select" @bind="leverancier" @bind:after="LaadHistorie">
                                         <option value="@Nieuw">Nieuwe leverancier…</option>
                                         @foreach (var r in verwerking.Relaties)
                                         {
@@ -117,6 +117,21 @@
                                     </div>
                                 }
                             </div>
+                            @if (Toon("historie") && leverancier != Nieuw && historie is { Count: > 0 })
+                            {
+                                <div class="historie mb-3" aria-label="Eerdere facturen van deze leverancier">
+                                    @foreach (var h in historie)
+                                    {
+                                        <button type="button" class="historie-regel" title="Rekening en btw-code overnemen" @onclick="() => NeemOver(h)">
+                                            <span class="text-secondary">@Weergave.Datum(h.Datum)</span>
+                                            <span class="historie-nummer">@h.Factuurnummer</span>
+                                            <span class="bedrag">@Bedragen.Getal(h.Totaal)</span>
+                                            <span class="historie-rekening">@h.Rekening @verwerking.Schema.Zoek(h.Rekening)?.Naam</span>
+                                            <span class="text-secondary">@h.BtwCode</span>
+                                        </button>
+                                    }
+                                </div>
+                            }
                             <div class="row g-2 mb-3">
                                 <div class="col-md-3">
                                     <label class="form-label" for="nummer">Factuurnummer</label>
@@ -157,12 +172,6 @@
                                 </div>
                             </div>
 
-                            <datalist id="rekeningen">
-                                @foreach (var r in verwerking.Schema.Alle)
-                                {
-                                    <option value="@r.Nummer">@r.Naam</option>
-                                }
-                            </datalist>
                             <table class="table table-sm align-middle">
                                 <thead>
                                     <tr>
@@ -190,7 +199,7 @@
                                         var regel = regels[i];
                                         var n = i;
                                         <tr>
-                                            <td><input class="form-control form-control-sm" list="rekeningen" @bind="regel.Rekening" @bind:event="oninput" aria-label="Rekening" /></td>
+                                            <td><RekeningKeuze @bind-Waarde:get="regel.Rekening" @bind-Waarde:set='v => regel.Rekening = v ?? ""' Schema="verwerking.Schema" Voorkeur="voorkeur" /></td>
                                             @if (Toon("regelomschrijving"))
                                             {
                                                 <td><input class="form-control form-control-sm @Doel($"regel:{n}")" @bind="regel.Omschrijving" @bind:event="oninput" @onfocus='() => Kies($"regel:{n}", $"Omschrijving regel {n + 1}")' placeholder="@(Omschrijvingssjabloon.IsSjabloon(omschrijving) ? Omschrijvingssjabloon.Vul(omschrijving, Variabelen) : omschrijving)" title="@verwerking.Schema.Zoek(regel.Rekening)?.Naam" aria-label="Omschrijving regel" /></td>
@@ -288,6 +297,10 @@
     private bool naBoeken;
     private bool externVolgen;
     private IJSObjectReference? sneltoetsen;
+
+    // Eerdere facturen van de gekozen leverancier, en de rekeningen die daarbij het vaakst gebruikt zijn.
+    private IReadOnlyList<EerdereFactuur>? historie;
+    private IReadOnlyList<string> voorkeur = [];
     private bool scheidingGekoppeld;
 
     // De viewer: het veld dat een aangewezen gebied krijgt, en of de factuur in een apart venster staat.
@@ -311,6 +324,7 @@
     private static readonly (string Sleutel, string Naam)[] Weergaveopties =
     [
         ("werkvoorraad", "Werkvoorraad naast het formulier"),
+        ("historie", "Eerdere facturen van de leverancier"),
         ("viewer", "Factuur naast het formulier"),
         ("btwbedrag", "Btw-bedrag per regel"),
         ("regelomschrijving", "Omschrijving per regel"),
@@ -398,6 +412,8 @@
                     Btw = Bedragen.Getal(b.Btw),
                 })]
                 : [new Invoerregel { Rekening = rekening, BtwCode = voorstel?.Advies.BtwCode ?? "I21", Bedrag = Exclusief(herkend, voorstel?.Advies.BtwCode ?? "I21") is { } e ? Bedragen.Getal(e) : null }];
+
+        await LaadHistorie();
 
         // Btw van de factuur die afwijkt van het tarief (afronding van de leverancier) geldt als aangepast.
         foreach (var r in regels)
@@ -725,6 +741,25 @@
         }
 
         Navigatie.NavigateTo($"/a/{Id}/inkoop/{rest[Math.Min(positie, rest.Count - 1)].Id}");
+    }
+
+    private async Task LaadHistorie()
+    {
+        historie = leverancier == Nieuw || geopend is null ? [] : await Inkoop.Historie(geopend.Wie, Id, leverancier);
+        voorkeur = [.. historie.GroupBy(h => h.Rekening).OrderByDescending(g => g.Count()).Select(g => g.Key)];
+    }
+
+    /// <summary>De rekening en btw-code van een eerdere factuur: op de enige regel, of op de regels zonder rekening.</summary>
+    private void NeemOver(EerdereFactuur eerder)
+    {
+        foreach (var regel in regels.Count == 1 ? regels : regels.Where(r => string.IsNullOrWhiteSpace(r.Rekening)))
+        {
+            regel.Rekening = eerder.Rekening;
+            if (eerder.BtwCode is { } code)
+            {
+                regel.BtwCode = code;
+            }
+        }
     }
 
     /// <summary>Naar de vorige of volgende factuur in de werkvoorraad, zonder te boeken.</summary>

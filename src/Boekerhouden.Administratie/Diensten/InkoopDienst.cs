@@ -25,6 +25,11 @@ public sealed record DocumentRegel(
     DateTimeOffset IngelezenOp,
     string IngelezenDoor);
 
+/// <summary>Een eerder geboekte factuur van een leverancier: hoe die toen geboekt is.</summary>
+/// <param name="Totaal">Het totaal inclusief btw.</param>
+/// <param name="Rekening">De kostenrekening (bij meerdere regels die met het grootste bedrag).</param>
+public sealed record EerdereFactuur(DateOnly Datum, string Factuurnummer, decimal Totaal, string Rekening, string? BtwCode, bool Betaald);
+
 /// <summary>Wat er met een ingelezen bestand gebeurd is.</summary>
 public sealed record Inleesuitkomst(Guid? DocumentId, Documentstatus? Status, string Melding)
 {
@@ -203,6 +208,24 @@ public sealed class InkoopDienst(
         var voorstel = herkend is null ? null : Voorstel(herkend, context);
         var (schema, _) = await GrootboekDienst.Inrichting(db);
         return new Verwerking(Regel(d), herkend, voorstel, context.Relaties, schema, BtwCodes, uitTemplate);
+    }
+
+    /// <summary>De laatste facturen van een leverancier, de nieuwste eerst, met de rekening en btw-code van toen.</summary>
+    public async Task<IReadOnlyList<EerdereFactuur>> Historie(Uitvoerder wie, Guid administratie, string relatie, int aantal = 5)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
+        var posten = await db.OpenstaandePosten.AsNoTracking().Where(p => p.Soort == Factuursoort.Inkoop && p.Relatie == relatie)
+            .OrderByDescending(p => p.Datum).ThenByDescending(p => p.Factuurnummer).Take(aantal).ToListAsync();
+        var boekingen = posten.Select(p => p.BoekingId).ToList();
+        var regels = await db.Boekingsregels.AsNoTracking().Where(r => boekingen.Contains(r.BoekingId)).ToListAsync();
+        var (schema, _) = await GrootboekDienst.Inrichting(db);
+        bool IsKosten(Boekingsregel r) => schema.Zoek(r.Rekeningnummer)?.Functie is not (Rekeningfunctie.Crediteuren or Rekeningfunctie.Voorbelasting or Rekeningfunctie.AfTeDragenBtw);
+        return
+        [
+            .. posten.Select(p => (Post: p, Regel: regels.Where(r => r.BoekingId == p.BoekingId && IsKosten(r)).MaxBy(r => Math.Abs(r.Bedrag))))
+                .Where(x => x.Regel is not null)
+                .Select(x => new EerdereFactuur(x.Post.Datum, x.Post.Factuurnummer, -x.Post.Bedrag, x.Regel!.Rekeningnummer, x.Regel.BtwCode, x.Post.Openstaand == 0)),
+        ];
     }
 
     /// <summary>Boekt een document zoals de gebruiker het heeft ingevuld (of bevestigd), en onthoudt de keuze.</summary>

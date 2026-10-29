@@ -70,6 +70,27 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
     }
 
     [Fact]
+    public async Task Historie_toont_de_laatste_facturen_van_de_leverancier_met_rekening_en_btw()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var inkoop = app.Dienst<InkoopDienst>();
+        var eerste = await inkoop.Lees(wie, id, new MemoryStream(Belnet("H-1", "2026-03-01")), "h1.xml", null);
+        var nieuw = new NieuweRelatie("Belnet B.V.", null, null, null);
+        Assert.True((await inkoop.Boek(wie, id, eerste.DocumentId!.Value, Invoer(null, nieuw, "H-1"))).IsGelukt);
+        var tweede = await inkoop.Lees(wie, id, new MemoryStream(Belnet("H-2", "2026-04-01")), "h2.xml", null);
+        Assert.True((await inkoop.Boek(wie, id, tweede.DocumentId!.Value, Invoer("BELNET", null, "H-2", "4330") with { Datum = new(2026, 4, 2) })).IsGelukt);
+
+        var historie = await inkoop.Historie(wie, id, "BELNET");
+
+        Assert.Equal(["H-2", "H-1"], historie.Select(h => h.Factuurnummer));
+        Assert.Equal(("4330", "I21", 24.99m, false), (historie[0].Rekening, historie[0].BtwCode, historie[0].Totaal, historie[0].Betaald));
+        Assert.Empty(await inkoop.Historie(wie, id, "ONBEKEND"));
+        var buiten = await app.Gebruiker("Buiten");
+        await Assert.ThrowsAsync<GeenToegangException>(() => inkoop.Historie(buiten, id, "BELNET"));
+    }
+
+    [Fact]
     public async Task Tweede_keer_een_voorstel_derde_keer_automatisch_geboekt()
     {
         var wie = await app.Beheerder();
