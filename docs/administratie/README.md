@@ -1,6 +1,6 @@
 # Administratiepakket: ontwerp en roadmap
 
-*Stand van zaken: 26 oktober 2026*
+*Stand van zaken: 29 oktober 2026*
 
 Naast de samenstel-app komt een **eigen administratiepakket**: een webapp waarin de administratie
 van een ondernemer gevoerd wordt. Het doel is **zo veel mogelijk automatisch**: inkoopfacturen
@@ -190,8 +190,10 @@ debiteuren, een betaling bij crediteuren. Elke kandidaat krijgt een **zekerheid*
 
 ### 3.9 Rechten en gebruikers
 
-- Een gebruiker heeft per administratie de rol **ondernemer** (inlezen, factureren, eigen
-  overzichten) of **kantoor** (alles, ook memoriaal, periodes en regels).
+- Een gebruiker heeft per administratie de rol **inzien** (alleen overzichten), **ondernemer** (inlezen,
+  factureren, eigen overzichten) of **kantoor** (alles, ook memoriaal, rekeningschema, periodes en regels).
+- In het pakket zelf zijn er twee rollen: **kantoor** (mag administraties aanmaken en wordt daar lid met de rol
+  kantoor) en **beheerder** (gebruikers en leden, wijzigingslog; ziet géén cijfers zonder lidmaatschap).
 - Elke handeling die gegevens wijzigt, staat in het **wijzigingslog** (wie, wat, onderwerp), zoals in de
   samenstel-app.
 
@@ -215,8 +217,11 @@ gedaan.
   | OCR | Tesseract (via `TesseractOCR` of de opdrachtregel) | Apache-2.0 |
   | PDF van een verkoopfactuur | de bestaande `PdfDienst` (Chromium) | – |
 
-- **Bedragen**: `decimal`, exact in centen. Btw wordt per regel berekend en per tarief opgeteld, met
-  afronding *away from zero*.
+- **Bedragen**: `decimal`, exact in centen, en ook zo getoond (een administratie is exact; de jaarrekening in
+  de samenstel-app toont hele euro's). Btw wordt per regel berekend en per tarief opgeteld, met afronding
+  *away from zero*.
+- **Huisstijl**: Bootstrap, `app.css` en het logo staan in de bibliotheek `Boekerhouden.Huisstijl` en worden door
+  beide apps gedeeld (`_content/Boekerhouden.Huisstijl/...`).
 
 ## 5. Roadmap in plakjes
 
@@ -227,7 +232,7 @@ gedaan.
 | A3 ✅ | **Afletteren** (domein): kandidaten met zekerheid en reden (§3.8), verzamelbetalingen | Slimme aflettering, ook zonder factuurnummer |
 | A4 ✅ | **Regels en leren** (domein): verwerkingsregels, leergeheugen (1-2-3), advies voor factuur en bankmutatie | *KPN € 10–30 → telefoonkosten*, en zelf leren |
 | A5 ✅ | **Herkenning** (domein): tekstanalyse van een factuur, UBL lezen, leverancier herkennen | Gegevens uit e-facturen en PDF-tekst |
-| A6 | **Webapp I**: project `Boekerhouden.Administratie`, database, inloggen, administraties met rechten, rekeningschema (vanuit RGS), memoriaal, grootboekkaart, proefbalans, balans en W&V | Werkende boekhouding in de browser |
+| A6 ✅ | **Webapp I**: project `Boekerhouden.Administratie`, database, inloggen met tweestapsverificatie (app en passkeys), administraties met rechten, standaardrekeningschema (RGS), memoriaal, journaal met hash-keten, grootboekkaart, proefbalans, balans en W&V, gebruikers en leden, wijzigingslog | Werkende boekhouding in de browser |
 | A7 | **Inkoop in de app**: uploaden, herkennen (UBL, PdfPig), Te verwerken, voorstel en automatisch boeken, regels beheren | Inkoopfacturen verwerken |
 | A8 | **Bank in de app**: inlezen, afletteren (automatisch en met voorstellen), handmatig boeken, werklijsten met *factuur uploaden* | Bank bijna vanzelf bij |
 | A9 | **Verkoop**: factuur maken, nummeren, PDF, debiteurenlijst, ouderdomsanalyse | Factureren |
@@ -236,7 +241,7 @@ gedaan.
 | A12 | **Saldibalans naar het samenstelpakket** | Jaarrekening zonder export |
 | later | Online voor ondernemers (AD2), facturen per e-mail, directe bankkoppeling (PSD2), herinneringen, terugkerende facturen, kas, AI-herkenning als extra motor, e-facturen verzenden (Peppol) | |
 
-### Stand na A1–A5 (en het begin van A7)
+### Stand na A1–A6 (en het begin van A7)
 
 De boekhoudkern staat in `src/Boekerhouden.Boekhouding`, met tests in `tests/Boekerhouden.Boekhouding.Tests` en
 verzonnen voorbeeldbestanden in `tests/Fictief/administratie`:
@@ -261,14 +266,33 @@ dotnet run --project src/Boekerhouden.Cli -- herken testdata/factuur.pdf --eigen
 Dat toont wat het pakket herkent, het inkoopvoorstel in een lege administratie, en daarna drie facturen van dezelfde
 leverancier: kiezen, voorstel, automatisch, met de journaalpost.
 
-Nog niet gebouwd: opslag (database), schermen, OCR, verkoopfacturen als document, btw-aangifte en
-periodes. Dat volgt vanaf plakje A6.
+#### De webapp (plakje A6)
+
+```bash
+dotnet run --project src/Boekerhouden.Administratie     # http://localhost:5090, eigen database boekerhouden_administratie
+```
+
+De eerste bezoeker maakt het eerste account (beheerder én kantoor) en stelt daarna eerst tweestapsverificatie in.
+Daarna: *Nieuwe administratie* (krijgt het standaardrekeningschema en de dagboeken), boeken in het memoriaal, en de
+overzichten.
+
+| Onderdeel | Hoe |
+|---|---|
+| Toegang | `Toegang.Open(wie, administratie, recht)` is de enige weg naar de gegevens: lidmaatschap en recht worden gecontroleerd, en de `AdministratieDbContext` laat daarna alleen die administratie zien (query filter) en slaat alleen daarin op. Zonder lidmaatschap: "bestaat niet of geen toegang" |
+| Boeken | `GrootboekDienst.Boek`: controles uit het domein, één boeking tegelijk per administratie (rij-lock), volgnummer en SHA-256-keten (`Journaalketen`); triggers in de database weigeren wijzigen en verwijderen van boekingen en het wijzigingslog |
+| Overzichten | balans en W&V per RGS-hoofdpost (`RgsHoofdposten`, zonder werkboek), proefbalans, grootboekkaart, journaal met ketencontrole |
+| Inloggen | wachtwoord en daarna de code uit de authenticator-app (of een herstelcode), of een passkey; voor de beheerder is tweestapsverificatie verplicht (`TweestapVerplicht`) |
+| Schermen | `/` administraties, `/a/{id}` balans en W&V, `/a/{id}/proefbalans`, `/grootboek`, `/journaal`, `/memoriaal`, `/rekeningschema`; `/account/beveiliging`; beheer: `/beheer/gebruikers`, `/beheer/wijzigingslog` |
+
+Nog niet gebouwd: inkoop, bank en verkoop in de app (A7–A9), OCR, btw-aangifte en periodes, het RGS-werkboek in de
+administratie (nu de RGS-code als tekst bij een nieuwe rekening), en de hulppagina.
 
 ## 6. Open vragen
 
 1. **Btw-tarieven en -rubrieken** zijn opgenomen zoals in 2026 (21%, 9%, 0%). Controleer de rubrieken van het
    aangifteformulier bij plakje A10.
 2. **Drempel voor automatisch verwerken**: nu twee gelijke keuzes op rij. Per administratie instelbaar maken?
+   (De bedraglimiet is besloten: standaard geen, wel instelbaar, B2.)
 3. **Directe bankkoppeling**: welke aanbieder (kosten per rekening per maand), en wanneer?
 4. **Hosting voor ondernemers** (AD2): VPS in Nederland, tweestapsverificatie verplicht, back-up buiten de
    server. Een besluit is nodig vóór "later".

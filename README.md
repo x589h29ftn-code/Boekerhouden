@@ -111,7 +111,14 @@ dotnet run --project src/Boekerhouden.Cli -- herken factuur.pdf --leer 4500 I21 
 Naast de samenstel-app komt een eigen administratiepakket: inkoopfacturen inlezen en herkennen (e-factuur, PDF,
 later scans), voorstellen die leren van eerdere keuzes, verwerkingsregels, verkoopfacturen, bankafschriften (MT940,
 CAMT.053) met slim afletteren, en grootboekkaarten, balans en W&V. De saldibalans gaat met RGS-codes naar het
-samenstelpakket. De boekhoudkern staat in `src/Boekerhouden.Boekhouding` (plakjes A1–A5); de webapp volgt.
+samenstelpakket. De boekhoudkern staat in `src/Boekerhouden.Boekhouding` (plakjes A1–A5). De webapp (A6) heeft
+administraties met rechten per gebruiker, een memoriaal met een onwijzigbaar journaal (hash-keten), grootboekkaart,
+proefbalans en balans en W&V, en inloggen met tweestapsverificatie (authenticator-app of passkey):
+
+```bash
+dotnet run --project src/Boekerhouden.Administratie    # http://localhost:5090, eigen database boekerhouden_administratie
+```
+
 Ontwerp en roadmap: [`docs/administratie`](docs/administratie/README.md); beveiliging:
 [`docs/administratie/beveiliging.md`](docs/administratie/beveiliging.md).
 

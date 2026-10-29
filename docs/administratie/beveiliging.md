@@ -81,7 +81,7 @@ Legenda:
 | Maatregel | Fase |
 |---|---|
 | Wachtwoorden van minstens 12 tekens, met een lijst van verboden wachtwoorden, gehasht met PBKDF2 (Identity), en lockout na 5 pogingen. Zoals in de samenstel-app | ✅ (samenstel-app), F1 |
-| **Tweestapsverificatie** (B1) met een authenticator-app (TOTP) **én passkeys** (WebAuthn: vingerafdruk, gezichtsherkenning of een beveiligingssleutel; bestand tegen phishing). De gebruiker kiest. Herstelcodes worden eenmalig getoond. Verplicht voor iedereen die online inlogt; op kantoor verplicht voor de beheerder en aan te zetten voor de anderen | beheerder F1, iedereen F2 |
+| **Tweestapsverificatie** (B1) met een authenticator-app (TOTP) **én passkeys** (WebAuthn: vingerafdruk, gezichtsherkenning of een beveiligingssleutel; bestand tegen phishing). De gebruiker kiest. Herstelcodes worden eenmalig getoond. Verplicht voor iedereen die online inlogt; op kantoor verplicht voor de beheerder en aan te zetten voor de anderen | ✅ (A6b; verplicht voor de beheerder), iedereen F2 |
 | **Rate limiting** op inloggen en wachtwoord vergeten, per IP en per account (ASP.NET Core `RateLimiter`), tegen credential stuffing | F2 |
 | Controle tegen **gelekte wachtwoorden**: een offline lijst, of de *k-anonymity*-dienst van een externe bron (dan gaan alleen de eerste 5 tekens van de hash naar buiten) | F2 |
 | **Uitnodigen met een eenmalige link** die na 48 uur verloopt, in plaats van een tijdelijk wachtwoord (online) | F2 |
@@ -117,15 +117,19 @@ ziet. Daarom nemen we drie lagen maatregelen, plus tests die bewijzen dat ze wer
 
 *Fase: F1 (ook op kantoor een goede gewoonte); tests en RLS verplicht vóór F2.*
 
+*Gebouwd in A6a:* punt 1 (`Toegang` en de query filters in `AdministratieDbContext`, dat bovendien weigert op te
+slaan in een andere dan de geopende administratie), punt 3 (rollen inzien, ondernemer en kantoor; de beheerder ziet
+geen cijfers zonder lidmaatschap), punt 4 (`ToegangTests`) en punt 5. Row Level Security (punt 2) volgt vóór F2.
+
 ### 4.3 Integriteit van de boekhouding
 
 | Maatregel | Fase |
 |---|---|
 | Een journaalpost is altijd in evenwicht en heeft een uniek boekstuknummer per dagboek (`Journaalcontrole`) | ✅ |
-| **Geboekt is geboekt**: een journaalpost wordt nooit gewijzigd of verwijderd, maar gecorrigeerd met een tegenboeking (memoriaal of creditfactuur). Verkoopfacturen hebben een doorlopende nummering zonder gaten | F1 |
+| **Geboekt is geboekt**: een journaalpost wordt nooit gewijzigd of verwijderd (✅ A6a: de app kan het niet en de database weigert het), maar gecorrigeerd met een tegenboeking (memoriaal of creditfactuur). Verkoopfacturen hebben een doorlopende nummering zonder gaten | F1 |
 | **Afgesloten periodes** (na de btw-aangifte) zijn niet meer te bebouwen. Heropenen kan alleen door het kantoor, met een reden in het log | F1 |
-| **Hash-keten** over het journaal: elke post krijgt een SHA-256 over de inhoud plus de hash van de vorige post. Een controle in Beheer laat zien of er buiten de app iets in de database is veranderd | F1 |
-| **Wijzigingslog alleen toevoegen**: de databaserol van de app mag in de logtabel alleen `INSERT` (geen `UPDATE` of `DELETE`) | F1 |
+| **Hash-keten** over het journaal: elke post krijgt een SHA-256 over de inhoud plus de hash van de vorige post. Een controle in Beheer laat zien of er buiten de app iets in de database is veranderd | ✅ (A6a; ketencontrole op de pagina Journaal) |
+| **Wijzigingslog alleen toevoegen**: de databaserol van de app mag in de logtabel alleen `INSERT` (geen `UPDATE` of `DELETE`) | ✅ (A6a, met een trigger die `UPDATE` en `DELETE` weigert; aparte databaserollen F2) |
 | **Documenten onveranderlijk**: opgeslagen onder hun SHA-256, gekoppeld aan de journaalpost, en nooit overschreven | F1 |
 | Export als **XAF-auditfile** en als archief (PDF's, bijlagen en JSON) voor de bewaarplicht | F1 (A12) |
 
@@ -178,12 +182,12 @@ Documenten van buiten zijn de grootste technische aanvalsroute.
 | Maatregel | Fase |
 |---|---|
 | Alleen **HTTPS** (TLS 1.2 of hoger), met HSTS | ✅ (samenstel-app), F1 |
-| **Beveiligingsheaders**: een strikte `Content-Security-Policy` (`default-src 'self'`, `frame-ancestors 'none'`), `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin` en `Permissions-Policy` (camera alleen voor het fotograferen van een bon) | F1 |
-| **Cookies** met `Secure`, `HttpOnly` en `SameSite=Lax`/`Strict`, plus antiforgery voor formulieren | ✅ (antiforgery), F1 |
+| **Beveiligingsheaders**: een strikte `Content-Security-Policy` (`default-src 'self'`, `frame-ancestors 'none'`), `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin` en `Permissions-Policy` (camera alleen voor het fotograferen van een bon) | ✅ (A6a; zonder inline scripts) |
+| **Cookies** met `Secure`, `HttpOnly` en `SameSite=Lax`/`Strict`, plus antiforgery voor formulieren | ✅ (A6a: `HttpOnly`, `SameSite=Strict`, antiforgery; `Secure` zodra HTTPS) |
 | **Blazor Server**: elke actie controleert op de server opnieuw het recht (nooit vertrouwen op wat de browser laat zien), met grenzen aan de berichtgrootte en het aantal circuits per gebruiker, en geen `MarkupString` met invoer van gebruikers | F1 |
-| **Database alleen via EF Core** met parameters, nooit SQL aan elkaar plakken | F1 |
+| **Database alleen via EF Core** met parameters, nooit SQL aan elkaar plakken | ✅ |
 | Foutpagina's zonder technische details; details alleen in het serverlog | ✅ (samenstel-app) |
-| **Data Protection-sleutels** bewaard en versleuteld (DPAPI of een certificaat), zodat cookies een herstart overleven en de sleutels niet leesbaar zijn | F1 |
+| **Data Protection-sleutels** bewaard en versleuteld (DPAPI of een certificaat), zodat cookies een herstart overleven en de sleutels niet leesbaar zijn | ✅ (A6a: in de database; op Windows met DPAPI versleuteld) |
 
 ### 4.8 Opslag, sleutels en logboeken
 
@@ -291,12 +295,21 @@ het moment waarop een klant of accountant erom vraagt.
    - gesloten periode.
 
    Elk signaal houdt automatisch verwerken tegen.
+6. **Scheiding van administraties** (A6a): alleen via `Toegang`, query filter per administratie, negatieve tests.
+7. **Onwijzigbaar journaal** (A6a): hash-keten met volgnummers, triggers tegen wijzigen en verwijderen van boekingen
+   en het wijzigingslog, en een ketencontrole die ook vindt wat er met uitgeschakelde triggers is veranderd.
+8. **Beveiligingsheaders** (A6a): strikte CSP zonder inline scripts, `frame-ancestors 'none'`, `X-Frame-Options:
+   DENY`, `nosniff`, `Referrer-Policy` en `Permissions-Policy`; Data Protection-sleutels in de database.
+9. **Tweestapsverificatie** (A6b): authenticator-app met herstelcodes en passkeys; verplicht voor de beheerder.
+
+Bekende beperking: de databaserol van de app is eigenaar van de tabellen en kan de triggers dus uitschakelen. De
+hash-keten maakt zo'n wijziging zichtbaar; aparte databaserollen (app zonder eigenaarschap) volgen vóór F2.
 
 ## 6. Volgorde
 
 | Plakje | Beveiliging die erbij hoort |
 |---|---|
-| A6 webapp | Administraties met rechten, global query filters, negatieve tests, beveiligingsheaders, Data Protection-sleutels, tweestapsverificatie met TOTP en passkeys (verplicht voor de beheerder), geboekt = onwijzigbaar, hash-keten, log alleen toevoegen, register van maatregelen |
+| A6 webapp ✅ | Administraties met rechten, global query filters, negatieve tests, beveiligingsheaders, Data Protection-sleutels, tweestapsverificatie met TOTP en passkeys (verplicht voor de beheerder), geboekt = onwijzigbaar, hash-keten, log alleen toevoegen. Nog open: het register van maatregelen (§4.13) |
 | A7 inkoop | ClamAV op de server-pc en de scan vóór elke upload, quarantaine, uploads op type en grootte, opslag op hash, bedraglimiet als optie per administratie, afwijkend bedrag, IBAN wijzigen met bevestiging |
 | A8 bank | Dubbele mutaties weigeren (sleutel per mutatie ✅ in het domein), bankregels alleen door het kantoor |
 | A10 periodes | Afgesloten periodes, heropenen met een reden |

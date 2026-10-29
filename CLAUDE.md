@@ -12,14 +12,16 @@ dotnet test Boekerhouden.slnx
 dotnet format Boekerhouden.slnx --verify-no-changes   # opmaak/stijl
 dotnet run --project src/Boekerhouden.Server           # webapp op http://localhost:5080
 dotnet run --project src/Boekerhouden.Server -- --demo   # idem, gevuld met demo-account, RGS en klanten (README)
+dotnet run --project src/Boekerhouden.Administratie    # administratiepakket op http://localhost:5090
 dotnet run --project src/Boekerhouden.Cli -- controleer tests/Fictief/bv-voorbeeld-bakkerij/saldibalans-2025.csv
 dotnet run --project src/Boekerhouden.Cli -- herken testdata/factuur.pdf --leer 4500 I21   # inkoopfactuur herkennen
 dotnet ef migrations add <Naam> --project src/Boekerhouden.Data --output-dir Migraties   # na een modelwijziging
+dotnet ef migrations add <Naam> --project src/Boekerhouden.Administratie --output-dir Data/Migraties   # idem, administratiepakket
 ```
 
 Warnings zijn errors (`TreatWarningsAsErrors`). In cloudsessies installeert `.claude/hooks/session-start.sh`
 de .NET 10 SDK en PostgreSQL, met rol en database `boekerhouden` (wachtwoord `boekerhouden-dev`).
-`Boekerhouden.Server.Tests` maakt per testklasse een eigen database aan en ruimt die op; een andere
+`Boekerhouden.Server.Tests` en `Boekerhouden.Administratie.Tests` maken per testklasse een eigen database aan en ruimen die op; een andere
 server kies je met `BOEKERHOUDEN_TEST_DB` (bijv. `Host=...;Username=...;Password=...`). De server past
 migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien alleen als
 `BOEKERHOUDEN_RGS_WERKBOEK` naar het bestand wijst (het werkboek staat niet in git).
@@ -38,6 +40,15 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
 - `src/Boekerhouden.Documenten` – documenten van buiten lezen voor de herkenning: tekst uit PDF (PdfPig), UBL als los
   bestand of als bijlage; begrensd (grootte, pagina's), XML altijd zonder DTD; vooraf een virusscan met ClamAV (clamd),
   *fail closed*. Beveiliging en besluiten B1–B5: `docs/administratie/beveiliging.md`.
+- `src/Boekerhouden.Administratie` – Blazor Server-app van het **administratiepakket** (eigen database
+  `boekerhouden_administratie`): `Data/` (entiteiten, `AdministratieDbContext` met query filter per administratie,
+  migraties met triggers die boekingen en het log onwijzigbaar maken), `Diensten/` (`Toegang` = de enige weg naar de
+  gegevens van een administratie, met rechten per lidmaatschap; administraties, grootboek en boeken met hash-keten,
+  gebruikers, tweestapsverificatie en passkeys, wijzigingslog), `Identiteit/` (inloggen, beveiligingsheaders,
+  tweestap verplicht voor de beheerder), `Components/` (schermen; accountpagina's statisch, de rest interactief).
+  Negatieve toegangstests horen bij elke dienst. Geen inline scripts (CSP): JavaScript als los bestand in `wwwroot/`.
+- `src/Boekerhouden.Huisstijl` – gedeelde huisstijl van beide apps (Bootstrap, `app.css`, logo) onder
+  `_content/Boekerhouden.Huisstijl/`.
 - `src/Boekerhouden.Import` – importsjabloon (.xlsx/.csv) inlezen en controleren (I1–I6, I11), sjabloon genereren,
   het officiële RGS-werkboek lezen (`RgsWerkboekLezer`).
 - `src/Boekerhouden.Cli` – opdrachtregel om sjablonen te maken en bestanden te controleren.
