@@ -96,3 +96,34 @@
     border-color: var(--bs-primary);
     box-shadow: 0 0 0 .15rem rgba(13, 110, 253, .2);
 }
+
+/* Weergave van het verwerkscherm: een klein uitklapmenu met schakelaars. */
+.weergavemenu {
+    position: relative;
+}
+
+.weergavemenu summary {
+    list-style: none;
+}
+
+.weergavemenu summary::-webkit-details-marker {
+    display: none;
+}
+
+.weergavemenu .menu {
+    position: absolute;
+    right: 0;
+    z-index: 20;
+    min-width: 16rem;
+    margin-top: .25rem;
+    padding: .5rem .75rem;
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+    box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .08);
+}
+
+.weergavemenu .form-check {
+    display: block;
+    margin: .25rem 0;
+}

@@ -66,6 +66,8 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
 
     public DbSet<Kantoorinstellingen> Kantoorinstellingen => Set<Kantoorinstellingen>();
 
+    public DbSet<Zoekplek> Zoekplekken => Set<Zoekplek>();
+
     /// <summary>De sleutels van ASP.NET Core Data Protection (cookies, tokens).</summary>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
@@ -262,7 +264,16 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
         builder.Entity<Document>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<DocumentInhoud>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<OpenstaandePost>().HasQueryFilter(e => e.AdministratieId == Geopend);
+        builder.Entity<Zoekplek>(e =>
+        {
+            e.ToTable("Zoekplekken");
+            e.HasIndex(z => new { z.AdministratieId, z.Relatie, z.Veld }).IsUnique();
+            e.Property(z => z.Relatie).HasMaxLength(50);
+            e.Property(z => z.Veld).HasConversion<string>().HasMaxLength(30);
+        });
+
         builder.Entity<Leerkeuze>().HasQueryFilter(e => e.AdministratieId == Geopend);
+        builder.Entity<Zoekplek>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Automatiseringsregel>().HasQueryFilter(e => e.AdministratieId == Geopend);
     }
 

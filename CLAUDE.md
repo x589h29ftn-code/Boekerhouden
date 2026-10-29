@@ -16,7 +16,7 @@ dotnet run --project src/Boekerhouden.Administratie    # administratiepakket op 
 dotnet run --project src/Boekerhouden.Cli -- controleer tests/Fictief/bv-voorbeeld-bakkerij/saldibalans-2025.csv
 dotnet run --project src/Boekerhouden.Cli -- herken testdata/factuur.pdf --leer 4500 I21   # inkoopfactuur herkennen
 dotnet ef migrations add <Naam> --project src/Boekerhouden.Data --output-dir Migraties   # na een modelwijziging
-dotnet ef migrations add <Naam> --project src/Boekerhouden.Administratie --output-dir Data/Migraties   # idem, administratiepakket
+dotnet ef migrations add <Naam> --project src/Boekerhouden.Administratie --context AdministratieDbContext --output-dir Data/Migraties   # idem, administratiepakket
 dotnet ef migrations add <Naam> --project src/Boekerhouden.Administratie --context SqliteAdministratieDbContext --output-dir Data/MigratiesSqlite   # en voor SQLite (Windows-app)
 BOEKERHOUDEN_TEST_SQLITE=1 dotnet test tests/Boekerhouden.Administratie.Tests   # administratiepakket op SQLite
 ```

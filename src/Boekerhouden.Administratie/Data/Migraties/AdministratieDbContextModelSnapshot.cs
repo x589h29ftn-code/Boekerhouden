@@ -760,6 +760,56 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.ToTable("OpenstaandePosten", (string)null);
                 });
 
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Zoekplek", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Pagina")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Relatie")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTimeOffset>("Tijdstip")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Veld")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<bool>("Voorrang")
+                        .HasColumnType("boolean");
+
+                    b.Property<double>("X0")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("X1")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Y0")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Y1")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdministratieId", "Relatie", "Veld")
+                        .IsUnique();
+
+                    b.ToTable("Zoekplekken", (string)null);
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
                 {
                     b.Property<int>("Id")

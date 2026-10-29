@@ -179,6 +179,48 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
     }
 
     [Fact]
+    public async Task Aangewezen_factuurnummer_onthoudt_het_pakket_per_leverancier()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var inkoop = app.Dienst<InkoopDienst>();
+
+        // Het pakket vindt het nummer niet ("Ref."); de gebruiker wijst het aan op de factuur.
+        var eerste = await inkoop.Lees(wie, id, new MemoryStream(Drukkerij("DV/77/2026", "01-03-2026")), "dv-77.pdf", "application/pdf");
+        var verwerking = (await inkoop.Verwerking(wie, id, eerste.DocumentId!.Value))!;
+        Assert.Null(verwerking.Herkend!.Factuurnummer);
+        var plek = new Zoekgebied(Factuurveld.Factuurnummer, 1, 35, 698, 300, 712);
+        Assert.Equal(["Ref. DV/77/2026"], await inkoop.TekstInGebied(wie, id, eerste.DocumentId.Value, plek.Pagina, plek.X0, plek.Y0, plek.X1, plek.Y1));
+        var boeken = await inkoop.Boek(wie, id, eerste.DocumentId.Value, new Factuurinvoer(null, new("Drukkerij Voorbeeld", "NL20INGB0001234567", null, null),
+            "DV/77/2026", new(2026, 3, 1), new(2026, 3, 31), "Drukwerk", [new Factuurregel("", "4500", "I21", 100m, 21m)], Aanwijzingen: [plek]));
+        Assert.True(boeken.IsGelukt, string.Join("; ", boeken.Fouten));
+
+        // De volgende factuur van dezelfde leverancier: het nummer komt van de aangewezen plek.
+        var tweede = await inkoop.Lees(wie, id, new MemoryStream(Drukkerij("DV/91/2026", "01-04-2026")), "dv-91.pdf", "application/pdf");
+        var volgende = (await inkoop.Verwerking(wie, id, tweede.DocumentId!.Value))!;
+        Assert.Equal("DV/91/2026", volgende.Herkend!.Factuurnummer);
+        Assert.Equal("DRUKKERIJ", volgende.Voorstel!.Leverancier?.Relatie.Code);
+        Assert.DoesNotContain("Factuurnummer niet gevonden.", volgende.Voorstel.Belemmeringen);
+        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.ZoektemplateBijgewerkt && r.Onderwerp == "DRUKKERIJ");
+    }
+
+    /// <summary>Een verzonnen PDF-factuur met het factuurnummer achter "Ref." (dat herkent het pakket niet).</summary>
+    private static byte[] Drukkerij(string nummer, string datum)
+    {
+        var builder = new UglyToad.PdfPig.Writer.PdfDocumentBuilder();
+        var pagina = builder.AddPage(UglyToad.PdfPig.Content.PageSize.A4);
+        var font = builder.AddStandard14Font(UglyToad.PdfPig.Fonts.Standard14Fonts.Standard14Font.Helvetica);
+        var y = 800.0;
+        foreach (var regel in new[] { "Drukkerij Voorbeeld", "IBAN NL20INGB0001234567", $"Datum {datum}", $"Ref. {nummer}", "Drukwerk folders", "Subtotaal EUR 100,00", "BTW 21% EUR 21,00", "Totaal EUR 121,00" })
+        {
+            pagina.AddText(regel, 10, new UglyToad.PdfPig.Core.PdfPoint(40, y), font);
+            y -= 34;
+        }
+
+        return builder.Build();
+    }
+
+    [Fact]
     public async Task Regel_boekt_de_eerste_factuur_van_een_bekende_leverancier_meteen()
     {
         var wie = await app.Beheerder();

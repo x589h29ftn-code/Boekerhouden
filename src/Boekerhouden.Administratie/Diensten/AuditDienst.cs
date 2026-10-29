@@ -71,6 +71,8 @@ public static class AuditActies
 
     public const string KantoorinstellingenGewijzigd = "Kantoorinstellingen gewijzigd";
 
+    public const string ZoektemplateBijgewerkt = "Zoektemplate van leverancier bijgewerkt";
+
     public const string DocumentOpgeslagen = "Document in de documentmap gezet";
 
     public const string DocumentNietOpgeslagen = "Document niet in de documentmap gezet";

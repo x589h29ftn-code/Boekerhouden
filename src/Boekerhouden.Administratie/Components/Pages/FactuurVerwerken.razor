@@ -10,6 +10,18 @@
 
 <AdministratieKader Id="Id" Titel="Factuur verwerken" Actief="/inkoop" BijOpenen="Open">
     <Acties>
+        <details class="uitklapmenu weergavemenu">
+            <summary class="btn btn-sm btn-outline-secondary">Weergave</summary>
+            <div class="menu">
+                @foreach (var (sleutel, naam) in Weergaveopties)
+                {
+                    <label class="form-check">
+                        <input class="form-check-input" type="checkbox" checked="@weergave.Contains(sleutel)" @onchange="e => ZetWeergave(sleutel, e.Value is true)" />
+                        <span class="form-check-label">@naam</span>
+                    </label>
+                }
+            </div>
+        </details>
         @if (geopend is not null)
         {
             <DocumentOpenen Wie="geopend.Wie" Administratie="Id" Document="DocumentId" Tekst="Origineel" Klasse="btn btn-sm btn-outline-secondary" />
@@ -27,15 +39,19 @@
         else
         {
             <div class="row g-3">
-                <div class="col-xl-6 @(losVenster ? "d-none" : null)">
+                <div class="col-xl-6 @(ViewerZichtbaar ? null : "d-none")">
                     <div @ref="viewer" class="factuurviewer"></div>
                 </div>
-                <div class="@(losVenster ? "col-12" : "col-xl-6")">
+                <div class="@(ViewerZichtbaar ? "col-xl-6" : "col-12")">
                     <Foutmeldingen Fouten="fouten" />
                     @if (verwerking.Voorstel is { } v)
                     {
                         <div class="mb-3 small">
                             <span class="text-secondary">@v.Advies.Reden</span>
+                            @if (verwerking.UitZoektemplate is { Count: > 0 } uitTemplate)
+                            {
+                                <div class="text-secondary mt-1">Van de aangewezen plek: @string.Join(", ", uitTemplate.Select(Veldnaam))</div>
+                            }
                             @foreach (var b in v.Belemmeringen)
                             {
                                 <div class="status let-op mt-1">@b</div>
@@ -89,11 +105,11 @@
                                     <label class="form-label" for="datum">Factuurdatum</label>
                                     <input id="datum" type="date" class="form-control @Doel("datum")" @bind="datum" @onfocus='() => Kies("datum", "Factuurdatum")' />
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-3 @(Toon("verval") ? null : "d-none")">
                                     <label class="form-label" for="verval">Vervaldatum</label>
                                     <input id="verval" type="date" class="form-control @Doel("verval")" @bind="vervaldatum" @onfocus='() => Kies("verval", "Vervaldatum")' />
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-3 @(Toon("verval") ? null : "d-none")">
                                     <label class="form-label" for="kenmerk">Betalingskenmerk</label>
                                     <input id="kenmerk" class="form-control @Doel("kenmerk")" @bind="kenmerk" @bind:event="oninput" @onfocus='() => Kies("kenmerk", "Betalingskenmerk")' />
                                 </div>
@@ -128,7 +144,24 @@
                             </datalist>
                             <table class="table table-sm align-middle">
                                 <thead>
-                                    <tr><th style="width:8rem">Rekening</th><th></th><th style="width:11rem">Btw</th><th class="text-end" style="width:8rem">Excl. btw</th><th class="text-end" style="width:7rem">Btw</th><th style="width:2rem"></th></tr>
+                                    <tr>
+                                        <th style="width:8rem">Rekening</th>
+                                        @if (Toon("regelomschrijving"))
+                                        {
+                                            <th>Omschrijving</th>
+                                        }
+                                        else
+                                        {
+                                            <th></th>
+                                        }
+                                        <th style="width:11rem">Btw</th>
+                                        <th class="text-end" style="width:8rem">Excl. btw</th>
+                                        @if (Toon("btwbedrag"))
+                                        {
+                                            <th class="text-end" style="width:8rem">Btw</th>
+                                        }
+                                        <th style="width:2rem"></th>
+                                    </tr>
                                 </thead>
                                 <tbody>
                                     @for (var i = 0; i < regels.Count; i++)
@@ -137,7 +170,14 @@
                                         var n = i;
                                         <tr>
                                             <td><input class="form-control form-control-sm" list="rekeningen" @bind="regel.Rekening" @bind:event="oninput" aria-label="Rekening" /></td>
-                                            <td class="small text-secondary text-nowrap">@verwerking.Schema.Zoek(regel.Rekening)?.Naam</td>
+                                            @if (Toon("regelomschrijving"))
+                                            {
+                                                <td><input class="form-control form-control-sm @Doel($"regel:{n}")" @bind="regel.Omschrijving" @bind:event="oninput" @onfocus='() => Kies($"regel:{n}", $"Omschrijving regel {n + 1}")' placeholder="@(Omschrijvingssjabloon.IsSjabloon(omschrijving) ? Omschrijvingssjabloon.Vul(omschrijving, Variabelen) : omschrijving)" title="@verwerking.Schema.Zoek(regel.Rekening)?.Naam" aria-label="Omschrijving regel" /></td>
+                                            }
+                                            else
+                                            {
+                                                <td class="small text-secondary text-nowrap">@verwerking.Schema.Zoek(regel.Rekening)?.Naam</td>
+                                            }
                                             <td>
                                                 <select class="form-select form-select-sm" @bind="regel.BtwCode" aria-label="Btw-code">
                                                     @foreach (var c in verwerking.BtwCodes.Where(c => c.Richting == BtwRichting.Inkoop))
@@ -147,16 +187,35 @@
                                                 </select>
                                             </td>
                                             <td><input class="form-control form-control-sm text-end @Doel($"bedrag:{n}")" @bind="regel.Bedrag" @bind:event="oninput" @onfocus='() => Kies($"bedrag:{n}", "Bedrag exclusief btw")' aria-label="Bedrag exclusief btw" /></td>
-                                            <td><input class="form-control form-control-sm text-end @Doel($"btw:{n}")" @bind="regel.Btw" @bind:event="oninput" @onfocus='() => Kies($"btw:{n}", "Btw")' placeholder="@BerekendeBtw(regel)" aria-label="Btw" /></td>
+                                            @if (Toon("btwbedrag"))
+                                            {
+                                                <td>
+                                                    <div class="d-flex align-items-center gap-1">
+                                                        <input class="form-control form-control-sm text-end @Doel($"btw:{n}")" @bind:get="BtwTekst(regel)" @bind:set="v => ZetBtw(regel, v)" @bind:event="oninput" @onfocus='() => Kies($"btw:{n}", "Btw")' title="@(regel.BtwHandmatig ? $"Aangepast; berekend {BerekendeBtw(regel)}" : "Berekend uit het tarief")" aria-label="Btw" />
+                                                        @if (regel.BtwHandmatig)
+                                                        {
+                                                            <button class="btn btn-sm btn-link text-secondary p-0" title="Terug naar de berekende btw (@BerekendeBtw(regel))" @onclick="() => regel.BtwHandmatig = false">↺</button>
+                                                        }
+                                                    </div>
+                                                </td>
+                                            }
                                             <td><button class="btn btn-sm btn-link text-secondary p-0" title="Regel verwijderen" @onclick="() => Verwijder(regel)" disabled="@(regels.Count <= 1)">×</button></td>
                                         </tr>
                                     }
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <td colspan="3"><button class="btn btn-sm btn-outline-secondary" @onclick="() => regels.Add(new() { BtwCode = regels[^1].BtwCode })">Regel toevoegen</button></td>
-                                        <td colspan="2" class="text-end small">
-                                            Totaal <span class="bedrag fw-semibold">@(Totaal is { } t ? Bedragen.Getal(t) : "–")</span>
+                                        <td colspan="3"><button class="btn btn-sm btn-outline-secondary" @onclick="RegelToevoegen">Regel toevoegen</button></td>
+                                        <td colspan="@(Toon("btwbedrag") ? 2 : 1)" class="text-end small">
+                                            <div>Totaal incl. btw <span class="bedrag fw-semibold">@(Totaal is { } t ? Bedragen.Getal(t) : "–")</span></div>
+                                            @if (verwerking.Herkend?.TotaalInclusief is { } factuurtotaal)
+                                            {
+                                                <div class="text-secondary">Factuur <span class="bedrag">@Bedragen.Getal(factuurtotaal)</span></div>
+                                                @if (Verschil is { } verschil && verschil != 0)
+                                                {
+                                                    <div class="status let-op" title="Totaal van de regels min het totaal van de factuur">Verschil <span class="bedrag">@Bedragen.Getal(verschil)</span></div>
+                                                }
+                                            }
                                         </td>
                                         <td></td>
                                     </tr>
@@ -167,7 +226,7 @@
                                 <div class="status let-op mb-1">@s</div>
                             }
                             <div class="d-flex align-items-center gap-3 mt-3">
-                                <button class="btn btn-primary" @onclick="Boek" disabled="@bezig">@(Signalen.Count > 0 ? "Toch boeken" : "Boeken")</button>
+                                <button class="btn btn-primary" @onclick="Boek" disabled="@bezig">@(Signalen.Count > 0 || Verschil is not (null or 0) ? "Toch boeken" : "Boeken")</button>
                                 @if (overgenomen is not null)
                                 {
                                     <span class="small text-secondary text-truncate">@overgenomen</span>
@@ -209,6 +268,20 @@
     private string? overgenomen;
     private int variabeleKeuze;
 
+    // Wat de gebruiker op de factuur aanwees, per veld: wordt bij het boeken het zoektemplate van de leverancier.
+    private readonly Dictionary<Factuurveld, Zoekgebied> aanwijzingen = [];
+
+    // Weergave: wat de gebruiker wil zien tijdens het verwerken; onthouden in de browser.
+    private static readonly (string Sleutel, string Naam)[] Weergaveopties =
+    [
+        ("viewer", "Factuur naast het formulier"),
+        ("btwbedrag", "Btw-bedrag per regel"),
+        ("regelomschrijving", "Omschrijving per regel"),
+        ("verval", "Vervaldatum en betalingskenmerk"),
+    ];
+
+    private HashSet<string> weergave = ["viewer", "btwbedrag", "regelomschrijving", "verval"];
+
     [Parameter]
     public Guid Id { get; set; }
 
@@ -218,6 +291,13 @@
     private decimal? Totaal => regels.All(r => Getal(r.Bedrag) is not null)
         ? regels.Sum(r => Getal(r.Bedrag)!.Value + BtwOpFactuur(r))
         : null;
+
+    /// <summary>Totaal van de regels min het totaal van de factuur; leeg als een van beide onbekend is.</summary>
+    private decimal? Verschil => Totaal is { } t && verwerking?.Herkend?.TotaalInclusief is { } f ? t - f : null;
+
+    private bool Toon(string sleutel) => weergave.Contains(sleutel);
+
+    private bool ViewerZichtbaar => Toon("viewer") && !losVenster;
 
     private Factuurvariabelen Variabelen => new(
         factuurnummer, verwerking?.Herkend?.Omschrijving,
@@ -229,14 +309,15 @@
     {
         get
         {
-            if (verwerking is null || regels.Any(r => Getal(r.Bedrag) is null || (r.Btw is { Length: > 0 } && Getal(r.Btw) is null)))
+            if (verwerking is null || regels.Any(r => Getal(r.Bedrag) is null || (BtwTekst(r) is { Length: > 0 } b && Getal(b) is null)))
             {
                 return [];
             }
 
+            // Het verschil met het factuurtotaal staat onder de regels; hier de btw per regel en in totaal.
             var h = verwerking.Herkend;
-            var factuur = h is null ? null : new Factuurbedragen(h.TotaalInclusief, h.Btwregels.Count > 0 ? h.TotaalBtw : null, h.Regels?.Count ?? 1);
-            return Bedragcontrole.Controleer([.. regels.Select(r => new Factuurregel("", r.Rekening, r.BtwCode, Getal(r.Bedrag)!.Value, Getal(r.Btw)))], verwerking.BtwCodes, factuur);
+            var factuur = h is null ? null : new Factuurbedragen(null, h.Btwregels.Count > 0 ? h.TotaalBtw : null, h.Regels?.Count ?? 1);
+            return Bedragcontrole.Controleer([.. regels.Select(r => new Factuurregel("", r.Rekening, r.BtwCode, Getal(r.Bedrag)!.Value, Getal(BtwTekst(r))))], verwerking.BtwCodes, factuur);
         }
     }
 
@@ -262,12 +343,34 @@
         regels = voorstel?.Factuur is { } f
             ? [.. f.Regels.Select(r => new Invoerregel { Rekening = r.Rekeningnummer, BtwCode = r.BtwCode, Bedrag = Bedragen.Getal(r.Bedrag), Btw = r.Btw is { } b ? Bedragen.Getal(b) : null })]
             : herkend?.Btwregels is { Count: > 0 } btw
-                ? [.. btw.Select(b => new Invoerregel { Rekening = rekening, BtwCode = BtwCodes.Bij(verwerking.BtwCodes, BtwRichting.Inkoop, b.Percentage)?.Code ?? "I21", Bedrag = b.Grondslag is { } g2 ? Bedragen.Getal(g2) : null, Btw = Bedragen.Getal(b.Btw) })]
+                ? [.. btw.Select(b => new Invoerregel
+                {
+                    Rekening = rekening,
+                    BtwCode = BtwCodes.Bij(verwerking.BtwCodes, BtwRichting.Inkoop, b.Percentage)?.Code ?? "I21",
+                    Bedrag = (b.Grondslag ?? (btw.Count == 1 ? herkend.TotaalExclusief : null)) is { } g2 ? Bedragen.Getal(g2) : null,
+                    Btw = Bedragen.Getal(b.Btw),
+                })]
                 : [new Invoerregel { Rekening = rekening, BtwCode = voorstel?.Advies.BtwCode ?? "I21", Bedrag = herkend?.TotaalExclusief is { } e ? Bedragen.Getal(e) : null }];
+
+        // Btw van de factuur die afwijkt van het tarief (afronding van de leverancier) geldt als aangepast.
+        foreach (var r in regels)
+        {
+            r.BtwHandmatig = Getal(r.Btw) is { } vanFactuur && Getal(BerekendeBtw(r)) is { } berekend && vanFactuur != berekend;
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender)
+        {
+            module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./factuurviewer.js");
+            if (await module.InvokeAsync<string?>("leesWeergave") is { } opgeslagen)
+            {
+                weergave = [.. opgeslagen.Split(',', StringSplitOptions.RemoveEmptyEntries)];
+                StateHasChanged();
+            }
+        }
+
         // Eén keer: een volgende render tijdens het laden mag geen tweede viewer starten.
         if (viewerGestart || verwerking?.Document.Status != Documentstatus.TeVerwerken || viewer.Context is null)
         {
@@ -290,6 +393,43 @@
 
     private string? Doel(string veld) => doel == veld ? "doelveld" : null;
 
+    private async Task ZetWeergave(string sleutel, bool aan)
+    {
+        if (aan)
+        {
+            weergave.Add(sleutel);
+        }
+        else
+        {
+            weergave.Remove(sleutel);
+        }
+
+        if (module is not null)
+        {
+            await module.InvokeVoidAsync("bewaarWeergave", string.Join(",", weergave));
+        }
+    }
+
+    private static string Veldnaam(Factuurveld veld) => veld switch
+    {
+        Factuurveld.Factuurnummer => "factuurnummer",
+        Factuurveld.Factuurdatum => "factuurdatum",
+        Factuurveld.Vervaldatum => "vervaldatum",
+        Factuurveld.Betalingskenmerk => "betalingskenmerk",
+        _ => "omschrijving",
+    };
+
+    /// <summary>Het veld van het zoektemplate bij het gekozen doel, of leeg (bedragen en relatiegegevens niet).</summary>
+    private Factuurveld? Templateveld => doel switch
+    {
+        "nummer" => Factuurveld.Factuurnummer,
+        "datum" => Factuurveld.Factuurdatum,
+        "verval" => Factuurveld.Vervaldatum,
+        "kenmerk" => Factuurveld.Betalingskenmerk,
+        "omschrijving" => Factuurveld.Omschrijving,
+        _ => null,
+    };
+
     private async Task Kies(string veld, string naam)
     {
         doel = veld;
@@ -305,7 +445,13 @@
     public async Task Gebied(int pagina, double x0, double y0, double x1, double y1)
     {
         var tekst = string.Join(" ", await Inkoop.TekstInGebied(geopend!.Wie, Id, DocumentId, pagina, x0, y0, x1, y1)).Trim();
-        overgenomen = tekst.Length == 0 ? "Geen tekst in dit gebied." : Vul(tekst) ? $"{doelNaam}: {tekst}" : $"Geen {(doel.StartsWith("bedrag", StringComparison.Ordinal) || doel.StartsWith("btw", StringComparison.Ordinal) ? "bedrag" : "datum")} in ‘{tekst}’.";
+        var gelukt = tekst.Length > 0 && Vul(tekst);
+        overgenomen = tekst.Length == 0 ? "Geen tekst in dit gebied." : gelukt ? $"{doelNaam}: {tekst}" : $"Geen {(doel.StartsWith("bedrag", StringComparison.Ordinal) || doel.StartsWith("btw", StringComparison.Ordinal) ? "bedrag" : "datum")} in ‘{tekst}’.";
+        if (gelukt && Templateveld is { } veld)
+        {
+            aanwijzingen[veld] = new Zoekgebied(veld, pagina, x0, y0, x1, y1);
+        }
+
         await InvokeAsync(StateHasChanged);
     }
 
@@ -343,19 +489,25 @@
             }
             else
             {
-                regels[i].Btw = Bedragen.Getal(bedrag);
+                ZetBtw(regels[i], Bedragen.Getal(bedrag));
             }
 
+            return true;
+        }
+
+        if (doel.Split(':') is ["regel", var r] && int.Parse(r, System.Globalization.CultureInfo.InvariantCulture) is var j && j < regels.Count)
+        {
+            regels[j].Omschrijving = tekst;
             return true;
         }
 
         switch (doel)
         {
             case "nummer":
-                factuurnummer = tekst;
+                factuurnummer = Zoektemplate.Factuurnummer(tekst) ?? tekst;
                 break;
             case "kenmerk":
-                kenmerk = tekst;
+                kenmerk = Zoektemplate.Kenmerk(tekst) ?? tekst;
                 break;
             case "naam":
                 nieuw.Naam = tekst;
@@ -410,6 +562,18 @@
         variabeleKeuze++;
     }
 
+    /// <summary>Een regel erbij (uitsplitsen): met wat er nog niet verdeeld is ten opzichte van het factuurtotaal.</summary>
+    private void RegelToevoegen()
+    {
+        var regel = new Invoerregel { Rekening = regels[^1].Rekening, BtwCode = regels[^1].BtwCode };
+        if (Verschil is { } verschil && verschil < 0 && BtwCodes.Zoek(verwerking!.BtwCodes, regel.BtwCode) is { } code)
+        {
+            regel.Bedrag = Bedragen.Getal(code.BtwOpFactuur ? BtwBerekening.UitInclusief(-verschil, code.Percentage).Grondslag : -verschil);
+        }
+
+        regels.Add(regel);
+    }
+
     private void Verwijder(Invoerregel regel)
     {
         regels.Remove(regel);
@@ -422,7 +586,7 @@
 
     private async Task Boek()
     {
-        var ongeldig = regels.Select((r, i) => (r, i)).Where(x => Getal(x.r.Bedrag) is null || (x.r.Btw is { Length: > 0 } && Getal(x.r.Btw) is null)).Select(x => $"Regel {x.i + 1}: het bedrag is niet te lezen.").ToList();
+        var ongeldig = regels.Select((r, i) => (r, i)).Where(x => Getal(x.r.Bedrag) is null || (BtwTekst(x.r) is { Length: > 0 } b && Getal(b) is null)).Select(x => $"Regel {x.i + 1}: het bedrag is niet te lezen.").ToList();
         if (ongeldig.Count > 0)
         {
             fouten = ongeldig;
@@ -433,8 +597,9 @@
             leverancier == Nieuw ? null : leverancier,
             leverancier == Nieuw ? new NieuweRelatie(nieuw.Naam, nieuw.Iban, nieuw.BtwNummer, nieuw.KvkNummer) : null,
             factuurnummer, datum, vervaldatum, omschrijving,
-            [.. regels.Select(r => new Factuurregel(omschrijving, r.Rekening.Trim(), r.BtwCode, Getal(r.Bedrag)!.Value, Getal(r.Btw)))],
-            kenmerk);
+            [.. regels.Select(r => new Factuurregel(string.IsNullOrWhiteSpace(r.Omschrijving) ? omschrijving : r.Omschrijving.Trim(), r.Rekening.Trim(), r.BtwCode, Getal(r.Bedrag)!.Value, Getal(BtwTekst(r))))],
+            kenmerk,
+            [.. aanwijzingen.Values]);
         bezig = true;
         var uitkomst = await Inkoop.Boek(geopend!.Wie, Id, DocumentId, invoer);
         bezig = false;
@@ -452,7 +617,16 @@
     private decimal BtwOpFactuur(Invoerregel regel)
     {
         var code = BtwCodes.Zoek(verwerking!.BtwCodes, regel.BtwCode);
-        return code is null || !code.BtwOpFactuur ? 0 : Getal(regel.Btw) ?? code.Bereken(Getal(regel.Bedrag) ?? 0);
+        return code is null || !code.BtwOpFactuur ? 0 : Getal(BtwTekst(regel)) ?? 0;
+    }
+
+    /// <summary>De btw van een regel: berekend uit bedrag en tarief, tenzij de gebruiker hem heeft aangepast.</summary>
+    private string? BtwTekst(Invoerregel regel) => regel.BtwHandmatig ? regel.Btw : BerekendeBtw(regel);
+
+    private static void ZetBtw(Invoerregel regel, string? waarde)
+    {
+        regel.Btw = waarde;
+        regel.BtwHandmatig = true;
     }
 
     private string? BerekendeBtw(Invoerregel regel) =>
@@ -504,5 +678,11 @@
         public string? Bedrag { get; set; }
 
         public string? Btw { get; set; }
+
+        /// <summary>De btw is met de hand (of van de factuur) gezet en wordt niet meer berekend.</summary>
+        public bool BtwHandmatig { get; set; }
+
+        /// <summary>Eigen omschrijving van deze regel; leeg = de omschrijving van de factuur.</summary>
+        public string? Omschrijving { get; set; }
     }
 }

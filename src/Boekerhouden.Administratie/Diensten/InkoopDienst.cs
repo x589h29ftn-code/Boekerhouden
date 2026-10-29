@@ -43,7 +43,8 @@ public sealed record Factuurinvoer(
     DateOnly Vervaldatum,
     string Omschrijving,
     IReadOnlyList<Factuurregel> Regels,
-    string? Betalingskenmerk = null);
+    string? Betalingskenmerk = null,
+    IReadOnlyList<Zoekgebied>? Aanwijzingen = null);
 
 /// <summary>Alles wat het scherm nodig heeft om een document te verwerken.</summary>
 public sealed record Verwerking(
@@ -52,7 +53,8 @@ public sealed record Verwerking(
     Inkoopvoorstel? Voorstel,
     IReadOnlyList<Relatie> Relaties,
     Rekeningschema Schema,
-    IReadOnlyList<BtwCode> BtwCodes);
+    IReadOnlyList<BtwCode> BtwCodes,
+    IReadOnlyList<Factuurveld>? UitZoektemplate = null);
 
 /// <summary>
 /// Inkoopfacturen: inlezen (eerst de virusscan, dan pas openen), herkennen, het voorstel (regel &gt; geleerd &gt;
@@ -130,6 +132,12 @@ public sealed class InkoopDienst(
         var gegevens = await db.Administraties.AsNoTracking().SingleAsync(a => a.Id == administratie, annulering);
         var eigen = new EigenGegevens(gegevens.Ibans, gegevens.BtwNummer is null ? [] : [gegevens.BtwNummer], [gegevens.Naam]);
         var herkenning = await Factuurherkenning.Standaard(eigen).HerkenAsync(new MemoryStream(bytes), naam, inhoudstype, annulering);
+        var context = await Context(db, administratie);
+        if (herkenning.Factuur is { } eerst)
+        {
+            herkenning = herkenning with { Factuur = (await PasZoektemplateToe(db, eerst, bytes, context.Relaties)).Factuur };
+        }
+
         document.Herkend = herkenning.Factuur is null ? null : JsonSerializer.Serialize(herkenning.Factuur, Json);
         document.Status = Documentstatus.TeVerwerken;
         document.Melding = herkenning.Melding;
@@ -143,7 +151,6 @@ public sealed class InkoopDienst(
             return new(document.Id, document.Status, $"{naam}: {herkenning.Melding}");
         }
 
-        var context = await Context(db, administratie);
         var voorstel = Voorstel(herkend, context);
         if (voorstel.Automatisch)
         {
@@ -185,9 +192,17 @@ public sealed class InkoopDienst(
 
         var context = await Context(db, administratie);
         var herkend = Herkend(d);
+        IReadOnlyList<Factuurveld> uitTemplate = [];
+        if (herkend is not null && d.Status == Documentstatus.TeVerwerken)
+        {
+            // Een plek die na het inlezen is aangewezen, telt ook voor facturen die al klaarstaan.
+            var inhoud = await db.DocumentInhouden.AsNoTracking().Where(i => i.DocumentId == d.Id).Select(i => i.Inhoud).FirstOrDefaultAsync();
+            (herkend, uitTemplate) = await PasZoektemplateToe(db, herkend, inhoud, context.Relaties);
+        }
+
         var voorstel = herkend is null ? null : Voorstel(herkend, context);
         var (schema, _) = await GrootboekDienst.Inrichting(db);
-        return new Verwerking(Regel(d), herkend, voorstel, context.Relaties, schema, BtwCodes);
+        return new Verwerking(Regel(d), herkend, voorstel, context.Relaties, schema, BtwCodes, uitTemplate);
     }
 
     /// <summary>Boekt een document zoals de gebruiker het heeft ingevuld (of bevestigd), en onthoudt de keuze.</summary>
@@ -230,7 +245,79 @@ public sealed class InkoopDienst(
         var factuur = new Factuur(Factuursoort.Inkoop, code, invoer.Factuurnummer.Trim(), invoer.Datum, invoer.Vervaldatum, Kort(omschrijving),
             [.. invoer.Regels.Select(r => r with { Omschrijving = Kort(string.IsNullOrWhiteSpace(r.Omschrijving) ? omschrijving : Omschrijvingssjabloon.Vul(r.Omschrijving, variabelen)) })],
             kenmerk);
-        return await BoekFactuur(db, administratie, d, factuur, herkend, relatie, invoer.Nieuw, wie, automatisch: false, sjabloon);
+        var uitkomst = await BoekFactuur(db, administratie, d, factuur, herkend, relatie, invoer.Nieuw, wie, automatisch: false, sjabloon);
+        if (uitkomst.IsGelukt && invoer.Aanwijzingen is { Count: > 0 } aanwijzingen)
+        {
+            await BewaarZoektemplate(db, administratie, code, aanwijzingen, herkend, wie);
+        }
+
+        return uitkomst;
+    }
+
+    /// <summary>
+    /// De tekst op de plekken die de gebruiker eerder bij deze leverancier aanwees, vult aan wat de herkenning mist (of
+    /// gaat voor, als de gebruiker de herkenning toen corrigeerde). Alleen bij een PDF van een herkende leverancier.
+    /// </summary>
+    private static async Task<(HerkendeFactuur Factuur, IReadOnlyList<Factuurveld> Ingevuld)> PasZoektemplateToe(
+        AdministratieDbContext db, HerkendeFactuur herkend, byte[]? pdf, IReadOnlyList<Relatie> relaties)
+    {
+        if (pdf is null || Bestandssoort.Extensie(pdf) != ".pdf" || Leverancierherkenning.Zoek(herkend, relaties) is not { } leverancier)
+        {
+            return (herkend, []);
+        }
+
+        var plekken = await db.Zoekplekken.AsNoTracking().Where(z => z.Relatie == leverancier.Relatie.Code).ToListAsync();
+        if (plekken.Count == 0)
+        {
+            return (herkend, []);
+        }
+
+        var teksten = new List<(Zoekgebied, string)>();
+        foreach (var plek in plekken)
+        {
+            try
+            {
+                teksten.Add((plek.NaarDomein(), string.Join(" ", PdfTekst.InGebied(pdf, plek.Pagina, plek.X0, plek.Y0, plek.X1, plek.Y1))));
+            }
+            catch (DocumentException)
+            {
+                // Bijv. een pagina die deze factuur niet heeft: dan dit gebied overslaan.
+            }
+        }
+
+        return Zoektemplate.Pas(herkend, teksten);
+    }
+
+    /// <summary>
+    /// Bewaart per veld de laatst aangewezen plek bij deze leverancier. Vond de herkenning dat veld wel (maar wees de
+    /// gebruiker het toch aan), dan gaat de plek voortaan voor.
+    /// </summary>
+    private async Task BewaarZoektemplate(AdministratieDbContext db, Guid administratie, string relatie, IReadOnlyList<Zoekgebied> aanwijzingen, HerkendeFactuur? herkend, Uitvoerder wie)
+    {
+        var bestaand = await db.Zoekplekken.Where(z => z.Relatie == relatie).ToListAsync();
+        foreach (var aanwijzing in aanwijzingen.GroupBy(a => a.Veld).Select(g => g.Last()))
+        {
+            var voorrang = aanwijzing.Veld switch
+            {
+                Factuurveld.Factuurnummer => herkend?.Factuurnummer is not null,
+                Factuurveld.Factuurdatum => herkend?.Factuurdatum is not null,
+                Factuurveld.Vervaldatum => herkend?.Vervaldatum is not null,
+                Factuurveld.Betalingskenmerk => herkend?.Betalingskenmerk is not null,
+                _ => herkend?.Omschrijving is not null,
+            };
+            var plek = bestaand.FirstOrDefault(z => z.Veld == aanwijzing.Veld);
+            if (plek is null)
+            {
+                plek = new Zoekplek { AdministratieId = administratie, Relatie = relatie, Veld = aanwijzing.Veld };
+                db.Zoekplekken.Add(plek);
+            }
+
+            (plek.Pagina, plek.X0, plek.Y0, plek.X1, plek.Y1, plek.Voorrang, plek.Tijdstip) =
+                (aanwijzing.Pagina, aanwijzing.X0, aanwijzing.Y0, aanwijzing.X1, aanwijzing.Y1, voorrang, tijd.GetUtcNow());
+        }
+
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.ZoektemplateBijgewerkt, relatie, string.Join(", ", aanwijzingen.Select(a => a.Veld).Distinct()), administratie);
     }
 
     /// <summary>De inhoud van een document, om te bekijken of te downloaden.</summary>

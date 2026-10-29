@@ -418,3 +418,33 @@ public sealed class Kantoorinstellingen
     public Boekhouding.Regels.Verwerkingsinstellingen NaarDomein() =>
         new(DrempelAutomatisch, Bandbreedte, LimietAutomatisch, Betalingstermijn, Adrescontrole, Documentmap);
 }
+
+/// <summary>Een aangewezen plek op de factuur van een leverancier (zoektemplate), per veld de laatste.</summary>
+public sealed class Zoekplek : IVanAdministratie
+{
+    public long Id { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    /// <summary>De code van de relatie.</summary>
+    public string Relatie { get; set; } = string.Empty;
+
+    public Boekhouding.Herkenning.Factuurveld Veld { get; set; }
+
+    public int Pagina { get; set; }
+
+    public double X0 { get; set; }
+
+    public double Y0 { get; set; }
+
+    public double X1 { get; set; }
+
+    public double Y1 { get; set; }
+
+    public bool Voorrang { get; set; }
+
+    public DateTimeOffset Tijdstip { get; set; }
+
+    public Boekhouding.Herkenning.Zoekgebied NaarDomein() => new(Veld, Pagina, X0, Y0, X1, Y1, Voorrang);
+}
+

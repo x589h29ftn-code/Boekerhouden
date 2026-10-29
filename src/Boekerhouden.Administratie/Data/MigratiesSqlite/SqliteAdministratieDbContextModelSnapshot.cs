@@ -748,6 +748,54 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.ToTable("OpenstaandePosten", (string)null);
                 });
 
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Zoekplek", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Pagina")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Relatie")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Tijdstip")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Veld")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Voorrang")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double>("X0")
+                        .HasColumnType("REAL");
+
+                    b.Property<double>("X1")
+                        .HasColumnType("REAL");
+
+                    b.Property<double>("Y0")
+                        .HasColumnType("REAL");
+
+                    b.Property<double>("Y1")
+                        .HasColumnType("REAL");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdministratieId", "Relatie", "Veld")
+                        .IsUnique();
+
+                    b.ToTable("Zoekplekken", (string)null);
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
                 {
                     b.Property<int>("Id")

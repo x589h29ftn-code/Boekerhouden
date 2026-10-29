@@ -189,3 +189,23 @@ export async function extern(container, bron, id) {
     await viewer.laad();
     verbinding.postMessage({ soort: 'geopend' });
 }
+
+const weergaveSleutel = 'boekerhouden.inkoop.weergave';
+
+/** De weergave van het verwerkscherm (welke onderdelen zichtbaar zijn), per browser onthouden. */
+export function leesWeergave() {
+    try {
+        return localStorage.getItem(weergaveSleutel);
+    } catch {
+        return null;
+    }
+}
+
+export function bewaarWeergave(waarde) {
+    try {
+        localStorage.setItem(weergaveSleutel, waarde);
+    } catch {
+        // Geen opslag (bijv. privévenster): dan geldt de standaardweergave.
+    }
+}
+
