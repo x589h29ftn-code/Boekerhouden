@@ -156,7 +156,7 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
             fouten.Add($"Rekening {regel.Rekeningnummer} bestaat niet.");
         }
 
-        if (regel.BtwCode is not null && BtwCodes.Zoek(BtwCodes.Standaard, regel.BtwCode) is null)
+        if (regel.BtwCode is not null && BtwCodes.Zoek((await BtwDienst.Lees(db)).Codes, regel.BtwCode) is null)
         {
             fouten.Add($"Btw-code {regel.BtwCode} bestaat niet.");
         }

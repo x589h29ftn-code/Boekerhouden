@@ -70,7 +70,6 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
     /// <summary>Groter is geen bankafschrift.</summary>
     public const int MaximumBytes = 20 * 1024 * 1024;
 
-    private static IReadOnlyList<BtwCode> BtwCodes => Boekhouding.Btw.BtwCodes.Standaard;
 
     /// <summary>
     /// Leest een bankbestand in. Een afschrift waarvan de mutaties niet op het eindsaldo uitkomen, weigert het pakket
@@ -262,7 +261,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         var (schema, _) = await GrootboekDienst.Inrichting(db);
         var posten = context.OpenPosten.Where(p => Math.Sign(p.Openstaand) == Math.Sign(t.Bedrag))
             .OrderBy(p => p.Datum).ToList();
-        return new Bankverwerking(Regel(t), Voorstel(t, context), posten, context.Relaties, schema, BtwCodes);
+        return new Bankverwerking(Regel(t), Voorstel(t, context), posten, context.Relaties, schema, context.Btw.Op(t.Datum));
     }
 
     /// <summary>
@@ -439,7 +438,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             return Uitkomst.Mislukt($"Dagboek {t.Dagboek} bestaat niet meer.");
         }
 
-        var btw = Boekhouding.Btw.BtwCodes.Zoek(BtwCodes, btwCode);
+        var btw = Boekhouding.Btw.BtwCodes.Zoek((await BtwDienst.Lees(db)).Op(t.Datum), btwCode);
         if (btwCode is not null && btw is null)
         {
             return Uitkomst.Mislukt($"Btw-code {btwCode} bestaat niet.");
@@ -596,7 +595,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         return sleutels;
     }
 
-    private sealed record Bankcontext(IReadOnlyList<OpenPost> OpenPosten, IReadOnlyList<Relatie> Relaties, IReadOnlyList<Verwerkingsregel> Regels, Leergeheugen Geheugen);
+    private sealed record Bankcontext(IReadOnlyList<OpenPost> OpenPosten, IReadOnlyList<Relatie> Relaties, IReadOnlyList<Verwerkingsregel> Regels, Leergeheugen Geheugen, Btwtabel Btw);
 
     private static async Task<Bankcontext> Context(AdministratieDbContext db, Guid administratie)
     {
@@ -609,11 +608,11 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
 
         var posten = (await db.OpenstaandePosten.AsNoTracking().Where(p => p.Openstaand != 0).ToListAsync()).Select(p => p.NaarDomein()).ToList();
         var regels = (await db.Regels.AsNoTracking().OrderBy(r => r.Volgorde).ToListAsync()).Select(r => r.NaarDomein()).ToList();
-        return new Bankcontext(posten, await Relaties(db), regels, geheugen);
+        return new Bankcontext(posten, await Relaties(db), regels, geheugen, await BtwDienst.Lees(db));
     }
 
     private static Bankvoorstel Voorstel(Banktransactie t, Bankcontext context) =>
-        Bankverwerker.Verwerk(t.NaarDomein(), context.OpenPosten, context.Relaties, context.Regels, context.Geheugen, BtwCodes);
+        Bankverwerker.Verwerk(t.NaarDomein(), context.OpenPosten, context.Relaties, context.Regels, context.Geheugen, context.Btw.Op(t.Datum));
 
     private static async Task<IReadOnlyList<Relatie>> Relaties(AdministratieDbContext db) =>
         [.. (await db.Relaties.AsNoTracking().OrderBy(r => r.Naam).ToListAsync()).Select(r => r.NaarDomein())];

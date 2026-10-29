@@ -1,0 +1,230 @@
+@page "/beheer/btw"
+@layout BeheerLayout
+@attribute [Authorize(Roles = Rollen.Beheerder)]
+@using Boekerhouden.Boekhouding.Btw
+@inject BtwDienst Btw
+
+<PageTitle>Btw-tabel – Administratie</PageTitle>
+
+<h1 class="h3 mb-3">Btw-tabel</h1>
+<Foutmeldingen Fouten="fouten" />
+@if (bericht is not null)
+{
+    <div class="bericht mb-2">@bericht</div>
+}
+
+<h2 class="h6 text-secondary">Tarieven</h2>
+<div class="card overzichtskaart mb-2" style="max-width: 40rem">
+    <table class="table align-middle mb-0 overzichtstabel">
+        <thead>
+            <tr><th>Tarief</th><th>Vanaf</th><th class="text-end">Percentage</th><th></th></tr>
+        </thead>
+        <tbody>
+            @foreach (var t in tarieven)
+            {
+                var geldt = Geldend(t);
+                <tr class="regel-met-acties">
+                    <td>@BtwDienst.Naam(t.Tarief)</td>
+                    <td>@Weergave.Datum(t.Vanaf)</td>
+                    <td class="bedrag text-end">@Btwpercentage.Tekst(t.Percentage)</td>
+                    <td class="text-end text-nowrap">
+                        @if (geldt)
+                        {
+                            <span class="status">geldt nu</span>
+                        }
+                        <span class="acties"><button class="btn btn-sm btn-link text-secondary p-0 ms-2" @onclick="() => VerwijderTarief(t.Id)">verwijderen</button></span>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+<div class="d-flex flex-wrap align-items-end gap-2 mb-4" style="max-width: 40rem">
+    <div>
+        <label class="form-label small mb-0" for="tarief">Tarief</label>
+        <select id="tarief" class="form-select form-select-sm" @bind="nieuwTarief">
+            <option value="@Tarief.Hoog">hoog</option>
+            <option value="@Tarief.Laag">laag</option>
+            <option value="@Tarief.Nul">nul</option>
+        </select>
+    </div>
+    <div>
+        <label class="form-label small mb-0" for="vanaf">Vanaf</label>
+        <input id="vanaf" type="date" class="form-control form-control-sm" @bind="nieuwVanaf" />
+    </div>
+    <div>
+        <label class="form-label small mb-0" for="percentage">Percentage</label>
+        <input id="percentage" class="form-control form-control-sm text-end" style="width: 7rem" @bind="nieuwPercentage" placeholder="21,15" />
+    </div>
+    <button class="btn btn-sm btn-outline-primary" @onclick="VoegTariefToe">Tarief toevoegen</button>
+</div>
+
+<h2 class="h6 text-secondary">Btw-codes</h2>
+<div class="card overzichtskaart mb-2">
+    <table class="table align-middle mb-0 overzichtstabel">
+        <thead>
+            <tr><th>Code</th><th>Omschrijving</th><th>Soort</th><th>Tarief</th><th>Grondslag</th><th>Btw</th><th>Voorbelasting</th><th></th></tr>
+        </thead>
+        <tbody>
+            @foreach (var c in codesVandaag)
+            {
+                <tr class="regel-met-acties @(c.Actief ? null : "text-secondary")">
+                    <td><span class="rekeningnummer">@c.Code</span></td>
+                    <td>
+                        @if (bewerk == c.Code)
+                        {
+                            <input class="form-control form-control-sm" aria-label="Omschrijving" @bind="bewerkOmschrijving" />
+                        }
+                        else
+                        {
+                            @c.Omschrijving
+                        }
+                    </td>
+                    <td title="@c.Info.Omschrijving">@c.Info.Naam</td>
+                    <td class="text-nowrap">@BtwDienst.Naam(c.Tarief)@(c.Tarief == Tarief.Geen ? null : $" ({Btwpercentage.Tekst(c.Percentage)})")</td>
+                    <td>@c.Rubriek</td>
+                    <td>@c.RubriekBtw</td>
+                    <td>@(c.Voorbelasting ? "5b" : null)</td>
+                    <td class="text-end text-nowrap">
+                        @if (bewerk == c.Code)
+                        {
+                            <span class="form-check form-switch d-inline-block mb-0 me-2">
+                                <input class="form-check-input" type="checkbox" id="actief-@c.Code" @bind="bewerkActief" />
+                                <label class="form-check-label small" for="actief-@c.Code">actief</label>
+                            </span>
+                            <button class="btn btn-sm btn-primary" @onclick="BewaarCode">Opslaan</button>
+                            <button class="btn btn-sm btn-link text-secondary" @onclick="() => bewerk = null">annuleren</button>
+                        }
+                        else
+                        {
+                            @if (!c.Actief)
+                            {
+                                <span class="status">inactief</span>
+                            }
+                            <span class="acties"><button class="btn btn-sm btn-link text-secondary p-0 ms-2" @onclick="() => Bewerk(c)">wijzigen</button></span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+<div class="d-flex flex-wrap align-items-end gap-2">
+    <div>
+        <label class="form-label small mb-0" for="code">Code</label>
+        <input id="code" class="form-control form-control-sm" style="width: 6rem" @bind="nieuweCode" />
+    </div>
+    <div class="flex-grow-1" style="max-width: 20rem">
+        <label class="form-label small mb-0" for="omschrijving">Omschrijving</label>
+        <input id="omschrijving" class="form-control form-control-sm" @bind="nieuweOmschrijving" />
+    </div>
+    <div>
+        <label class="form-label small mb-0" for="soort">Soort</label>
+        <select id="soort" class="form-select form-select-sm" @bind="nieuweSoort">
+            @foreach (var s in Btwsoorten.Alle)
+            {
+                <option value="@s.Soort" title="@s.Omschrijving">@(s.Richting == BtwRichting.Inkoop ? "Inkoop" : "Verkoop"): @s.Naam</option>
+            }
+        </select>
+    </div>
+    <div>
+        <label class="form-label small mb-0" for="codetarief">Tarief</label>
+        <select id="codetarief" class="form-select form-select-sm" @bind="nieuwCodeTarief">
+            <option value="@Tarief.Hoog">hoog</option>
+            <option value="@Tarief.Laag">laag</option>
+            <option value="@Tarief.Nul">nul</option>
+            <option value="@Tarief.Geen">geen btw</option>
+        </select>
+    </div>
+    <button class="btn btn-sm btn-outline-primary" @onclick="VoegCodeToe">Code toevoegen</button>
+</div>
+
+@code {
+    private IReadOnlyList<Btwtariefregeling> tarieven = [];
+    private IReadOnlyList<BtwCode> codesVandaag = [];
+    private Btwtabel? tabel;
+    private IReadOnlyList<string>? fouten;
+    private string? bericht;
+
+    private Tarief nieuwTarief = Tarief.Hoog;
+    private DateOnly nieuwVanaf = new(DateTime.Today.Year + 1, 1, 1);
+    private string? nieuwPercentage;
+
+    private string? nieuweCode;
+    private string? nieuweOmschrijving;
+    private Btwsoort nieuweSoort = Btwsoort.InkoopVoorbelasting;
+    private Tarief nieuwCodeTarief = Tarief.Hoog;
+
+    private string? bewerk;
+    private string bewerkOmschrijving = "";
+    private bool bewerkActief;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Status { get; set; } = default!;
+
+    private static DateOnly Vandaag => DateOnly.FromDateTime(DateTime.Today);
+
+    protected override Task OnInitializedAsync() => Laad();
+
+    private async Task Laad()
+    {
+        tarieven = await Btw.Tarieven();
+        tabel = await Btw.Tabel();
+        codesVandaag = tabel.Op(Vandaag);
+    }
+
+    /// <summary>Is dit het percentage dat vandaag geldt voor zijn tarief?</summary>
+    private bool Geldend(Btwtariefregeling t) =>
+        tarieven.Where(x => x.Tarief == t.Tarief && x.Vanaf <= Vandaag).OrderBy(x => x.Vanaf).LastOrDefault()?.Id == t.Id;
+
+    private async Task Na(Uitkomst uitkomst, string gelukt)
+    {
+        fouten = uitkomst.Fouten;
+        bericht = uitkomst.IsGelukt ? gelukt : null;
+        await Laad();
+    }
+
+    private async Task VoegTariefToe()
+    {
+        if (!BedragParser.TryParse(nieuwPercentage ?? "", out var percentage))
+        {
+            (fouten, bericht) = (["Het percentage is niet te lezen."], null);
+            return;
+        }
+
+        var uitkomst = await Btw.VoegTariefToe((await Status).User.AlsUitvoerder(), nieuwTarief, nieuwVanaf, percentage);
+        if (uitkomst.IsGelukt)
+        {
+            nieuwPercentage = null;
+        }
+
+        await Na(uitkomst, $"Tarief {BtwDienst.Naam(nieuwTarief)} {Btwpercentage.Tekst(percentage)} geldt vanaf {Weergave.Datum(nieuwVanaf)}.");
+    }
+
+    private async Task VerwijderTarief(int id) =>
+        await Na(await Btw.VerwijderTarief((await Status).User.AlsUitvoerder(), id), "Tarief verwijderd.");
+
+    private async Task VoegCodeToe()
+    {
+        var uitkomst = await Btw.VoegCodeToe((await Status).User.AlsUitvoerder(), nieuweCode ?? "", nieuweOmschrijving ?? "", nieuweSoort, nieuwCodeTarief);
+        if (uitkomst.IsGelukt)
+        {
+            (nieuweCode, nieuweOmschrijving) = (null, null);
+        }
+
+        await Na(uitkomst, "Btw-code toegevoegd.");
+    }
+
+    private void Bewerk(BtwCode c) => (bewerk, bewerkOmschrijving, bewerkActief) = (c.Code, c.Omschrijving, c.Actief);
+
+    private async Task BewaarCode()
+    {
+        var uitkomst = await Btw.WijzigCode((await Status).User.AlsUitvoerder(), bewerk!, bewerkOmschrijving, bewerkActief);
+        if (uitkomst.IsGelukt)
+        {
+            bewerk = null;
+        }
+
+        await Na(uitkomst, "Btw-code opgeslagen.");
+    }
+}

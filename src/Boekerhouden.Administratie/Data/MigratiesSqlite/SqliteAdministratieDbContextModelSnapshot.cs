@@ -454,6 +454,229 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.ToTable("Boekingsregels", (string)null);
                 });
 
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Btwcodedefinitie", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Actief")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Omschrijving")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Soort")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Tarief")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Volgorde")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Code");
+
+                    b.ToTable("Btwcodes", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Code = "V21",
+                            Actief = true,
+                            Omschrijving = "Verkoop hoog tarief",
+                            Soort = "VerkoopHoog",
+                            Tarief = "Hoog",
+                            Volgorde = 10
+                        },
+                        new
+                        {
+                            Code = "V9",
+                            Actief = true,
+                            Omschrijving = "Verkoop laag tarief",
+                            Soort = "VerkoopLaag",
+                            Tarief = "Laag",
+                            Volgorde = 20
+                        },
+                        new
+                        {
+                            Code = "V0",
+                            Actief = true,
+                            Omschrijving = "Verkoop 0%",
+                            Soort = "VerkoopNul",
+                            Tarief = "Nul",
+                            Volgorde = 30
+                        },
+                        new
+                        {
+                            Code = "VVL",
+                            Actief = true,
+                            Omschrijving = "Verkoop, btw verlegd naar de afnemer",
+                            Soort = "VerkoopVerlegd",
+                            Tarief = "Geen",
+                            Volgorde = 40
+                        },
+                        new
+                        {
+                            Code = "VEX",
+                            Actief = true,
+                            Omschrijving = "Verkoop buiten de EU (uitvoer)",
+                            Soort = "VerkoopBuitenEu",
+                            Tarief = "Nul",
+                            Volgorde = 50
+                        },
+                        new
+                        {
+                            Code = "VEU",
+                            Actief = true,
+                            Omschrijving = "Verkoop binnen de EU",
+                            Soort = "VerkoopBinnenEu",
+                            Tarief = "Nul",
+                            Volgorde = 60
+                        },
+                        new
+                        {
+                            Code = "VVR",
+                            Actief = true,
+                            Omschrijving = "Verkoop vrijgesteld",
+                            Soort = "VerkoopVrijgesteld",
+                            Tarief = "Geen",
+                            Volgorde = 70
+                        },
+                        new
+                        {
+                            Code = "I21",
+                            Actief = true,
+                            Omschrijving = "Inkoop hoog tarief",
+                            Soort = "InkoopVoorbelasting",
+                            Tarief = "Hoog",
+                            Volgorde = 80
+                        },
+                        new
+                        {
+                            Code = "I9",
+                            Actief = true,
+                            Omschrijving = "Inkoop laag tarief",
+                            Soort = "InkoopVoorbelasting",
+                            Tarief = "Laag",
+                            Volgorde = 90
+                        },
+                        new
+                        {
+                            Code = "I0",
+                            Actief = true,
+                            Omschrijving = "Inkoop 0% of vrijgesteld",
+                            Soort = "InkoopNul",
+                            Tarief = "Nul",
+                            Volgorde = 100
+                        },
+                        new
+                        {
+                            Code = "IVL",
+                            Actief = true,
+                            Omschrijving = "Inkoop, btw naar u verlegd",
+                            Soort = "InkoopVerlegd",
+                            Tarief = "Hoog",
+                            Volgorde = 110
+                        },
+                        new
+                        {
+                            Code = "IEX",
+                            Actief = true,
+                            Omschrijving = "Inkoop buiten de EU",
+                            Soort = "InkoopBuitenEu",
+                            Tarief = "Hoog",
+                            Volgorde = 120
+                        },
+                        new
+                        {
+                            Code = "IEU",
+                            Actief = true,
+                            Omschrijving = "Inkoop binnen de EU",
+                            Soort = "InkoopBinnenEu",
+                            Tarief = "Hoog",
+                            Volgorde = 130
+                        },
+                        new
+                        {
+                            Code = "GB",
+                            Actief = true,
+                            Omschrijving = "Geen btw",
+                            Soort = "GeenBtw",
+                            Tarief = "Geen",
+                            Volgorde = 140
+                        });
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Btwtariefrecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("Percentage")
+                        .HasPrecision(6, 3)
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Tarief")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("Vanaf")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Tarief", "Vanaf")
+                        .IsUnique();
+
+                    b.ToTable("Btwtarieven", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Percentage = 190000L,
+                            Tarief = "Hoog",
+                            Vanaf = new DateOnly(2001, 1, 1)
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Percentage = 210000L,
+                            Tarief = "Hoog",
+                            Vanaf = new DateOnly(2012, 10, 1)
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Percentage = 60000L,
+                            Tarief = "Laag",
+                            Vanaf = new DateOnly(2001, 1, 1)
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Percentage = 90000L,
+                            Tarief = "Laag",
+                            Vanaf = new DateOnly(2019, 1, 1)
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Percentage = 0L,
+                            Tarief = "Nul",
+                            Vanaf = new DateOnly(2001, 1, 1)
+                        });
+                });
+
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Dagboekdefinitie", b =>
                 {
                     b.Property<Guid>("Id")

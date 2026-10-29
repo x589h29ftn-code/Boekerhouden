@@ -94,5 +94,9 @@ public static class AuditActies
     public const string BoekingTeruggedraaid = "Boeking teruggedraaid";
     public const string CreditnotaVerrekend = "Creditnota verrekend";
     public const string OpnieuwVerwerkt = "Opnieuw automatisch verwerkt";
+    public const string BtwtariefToegevoegd = "Btw-tarief toegevoegd";
+    public const string BtwtariefVerwijderd = "Btw-tarief verwijderd";
+    public const string BtwcodeToegevoegd = "Btw-code toegevoegd";
+    public const string BtwcodeGewijzigd = "Btw-code gewijzigd";
     public const string KetenGecontroleerd = "Journaal gecontroleerd";
 }

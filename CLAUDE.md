@@ -36,7 +36,7 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   en specificaties, `RapportVariabelen` voor `{boekjaar}` e.d. in teksten, `Samenstellingsverklaring` voor de BV); geen I/O.
 - `src/Boekerhouden.Boekhouding` – domein van het **administratiepakket** (ontwerp: `docs/administratie/README.md`), geen I/O:
   `Grootboek/` (rekeningschema met RGS-code en functie, dagboeken, journaal, grootboekkaart, proefbalans, balans en W&V),
-  `Btw/` (btw-codes met aangifterubriek), `Relaties/` (IBAN, btw-nummer, namen vergelijken), `Facturen/` (facturen boeken,
+  `Btw/` (btw-codes met soort en tarief, koppeling met de aangifterubrieken, tarieven per datum, aangifte berekenen), `Relaties/` (IBAN, btw-nummer, namen vergelijken), `Facturen/` (facturen boeken,
   openstaande posten), `Bank/` (MT940, CAMT.053, bankboekingen), `Afletteren/`, `Regels/` (verwerkingsregels, leergeheugen,
   advies) en `Herkenning/` (factuurtekst, UBL, leverancier herkennen, inkoopvoorstel).
 - `src/Boekerhouden.Documenten` – documenten van buiten lezen voor de herkenning: tekst uit PDF (PdfPig), UBL als los
@@ -48,7 +48,7 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   gegevens van een administratie, met rechten per lidmaatschap; administraties, grootboek en boeken met hash-keten,
   gebruikers, tweestapsverificatie en passkeys, wijzigingslog; `InkoopDienst` = inlezen met virusscan, voorstel en
   (automatisch) boeken en de kopie in de documentmap; `BankDienst` = afschriften inlezen (saldo, aansluiting, dubbel), afletteren en op rekening boeken; `InrichtingDienst` = relaties, regels en instellingen van een
-  administratie; `KantoorDienst` = kantoorinstellingen, alleen beheerder; `Werkomgeving` = webapp of lokaal),
+  administratie; `KantoorDienst` = kantoorinstellingen, alleen beheerder; `BtwDienst` = btw-tabel (codes met soort en tarief, tarieven per datum), wijzigen alleen beheerder; `Werkomgeving` = webapp of lokaal),
   `Lokaal/` (`LokaleApp` = samenstelling voor de Windows-app: SQLite, lokale gebruiker zonder inloggen), `Identiteit/` (inloggen, beveiligingsheaders,
   tweestap verplicht voor de beheerder), `Components/` (schermen; accountpagina's statisch, de rest interactief).
   Negatieve toegangstests horen bij elke dienst. Geen inline scripts (CSP): JavaScript als los bestand in `wwwroot/`

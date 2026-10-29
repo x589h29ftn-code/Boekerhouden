@@ -113,7 +113,7 @@
                                 <div class="veld"><span class="veldnaam">Boekstuk</span><span>@g.Dagboek @g.Boekstuk</span></div>
                                 <table class="table table-sm align-middle regeltabel mt-3 mb-0">
                                     <thead>
-                                        <tr><th>Omschrijving</th><th>Grootboekrekening</th><th>Btw</th><th class="text-end">Excl. btw</th><th class="text-end">Btw</th></tr>
+                                        <tr><th>Omschrijving</th><th>Grootboekrekening</th><th>Btw</th><th class="text-end">Excl. btw</th><th class="text-end">Btw-bedrag</th></tr>
                                     </thead>
                                     <tbody>
                                         @foreach (var r in g.Regels)
@@ -121,7 +121,7 @@
                                             <tr>
                                                 <td>@(r.Omschrijving.Length > 0 ? r.Omschrijving : g.Omschrijving)</td>
                                                 <td><span class="rekeningnummer">@r.Rekeningnummer</span> @verwerking.Schema.Zoek(r.Rekeningnummer)?.Naam</td>
-                                                <td>@(BtwCodes.Zoek(verwerking.BtwCodes, r.BtwCode) is { } c ? KorteBtw(c) : r.BtwCode)</td>
+                                                <td title="@r.BtwCode">@(BtwCodes.Zoek(verwerking.Btwtabel.Op(g.Datum), r.BtwCode)?.Kort ?? r.BtwCode)</td>
                                                 <td class="bedrag text-end">@Bedragen.Getal(r.Bedrag)</td>
                                                 <td class="bedrag text-end">@(r.Btw is { } b ? Bedragen.Getal(b) : null)</td>
                                             </tr>
@@ -275,7 +275,7 @@
                                         <th class="text-end" style="width:8rem">Excl. btw</th>
                                         @if (Toon("btwbedrag"))
                                         {
-                                            <th class="text-end" style="width:7rem">Btw</th>
+                                            <th class="text-end" style="width:7rem">Btw-bedrag</th>
                                         }
                                         <th style="width:2rem"></th>
                                     </tr>
@@ -299,9 +299,9 @@
                                             </td>
                                             <td>
                                                 <select class="form-select form-select-sm" @bind="regel.BtwCode" aria-label="Btw-code">
-                                                    @foreach (var c in verwerking.BtwCodes.Where(c => c.Richting == BtwRichting.Inkoop))
+                                                    @foreach (var c in Codes.Where(c => c.Richting == BtwRichting.Inkoop && (c.Actief || c.Code == regel.BtwCode)))
                                                     {
-                                                        <option value="@c.Code" title="@c.Omschrijving">@KorteBtw(c)</option>
+                                                        <option value="@c.Code" title="@c.Code · @c.Omschrijving">@c.Kort</option>
                                                     }
                                                 </select>
                                             </td>
@@ -449,6 +449,9 @@
 
     private bool Toon(string sleutel) => weergave.Contains(sleutel);
 
+    /// <summary>De btw-codes met de tarieven op de factuurdatum (een nieuw tarief geldt vanaf zijn ingangsdatum).</summary>
+    private IReadOnlyList<BtwCode> Codes => verwerking?.Btwtabel.Op(datum) ?? [];
+
     private bool ViewerZichtbaar => Toon("viewer") && !losVenster;
 
     /// <summary>De plaats van dit document in de werkvoorraad, of leeg als het er niet (meer) in staat.</summary>
@@ -472,7 +475,7 @@
             // Het verschil met het factuurtotaal staat onder de regels; hier de btw per regel en in totaal.
             var h = verwerking.Herkend;
             var factuur = h is null ? null : new Factuurbedragen(null, h.Btwregels.Count > 0 ? h.TotaalBtw : null, h.Regels?.Count ?? 1);
-            return Bedragcontrole.Controleer([.. regels.Select(r => new Factuurregel("", r.Rekening, r.BtwCode, Getal(r.Bedrag)!.Value, Getal(BtwTekst(r))))], verwerking.BtwCodes, factuur);
+            return Bedragcontrole.Controleer([.. regels.Select(r => new Factuurregel("", r.Rekening, r.BtwCode, Getal(r.Bedrag)!.Value, Getal(BtwTekst(r))))], Codes, factuur);
         }
     }
 
@@ -503,7 +506,7 @@
                 ? [.. btw.Select(b => new Invoerregel
                 {
                     Rekening = rekening,
-                    BtwCode = BtwCodes.Bij(verwerking.BtwCodes, BtwRichting.Inkoop, b.Percentage)?.Code ?? "I21",
+                    BtwCode = BtwCodes.Bij(Codes, BtwRichting.Inkoop, b.Percentage)?.Code ?? "I21",
                     Bedrag = (b.Grondslag ?? (btw.Count == 1 ? herkend.TotaalExclusief : null)) is { } g2 ? Bedragen.Getal(g2) : null,
                     Btw = Bedragen.Getal(b.Btw),
                 })]
@@ -722,18 +725,6 @@
         }
     }
 
-    /// <summary>De btw-code kort, zoals in de regel past; de volledige omschrijving staat in de tooltip.</summary>
-    private static string KorteBtw(BtwCode code) => code.Code switch
-    {
-        "I21" => "Hoog 21%",
-        "I9" => "Laag 9%",
-        "I0" => "0% of vrijgesteld",
-        "IVL" => "Verlegd",
-        "IEX" => "Buiten de EU",
-        "IEU" => "Binnen de EU",
-        _ => code.Omschrijving,
-    };
-
     private static string Veldnaam(Factuurveld veld) => veld switch
     {
         Factuurveld.Factuurnummer => "factuurnummer",
@@ -908,7 +899,7 @@
     private void RegelToevoegen()
     {
         var regel = new Invoerregel { Rekening = regels[^1].Rekening, BtwCode = regels[^1].BtwCode };
-        if (Verschil is { } verschil && verschil < 0 && BtwCodes.Zoek(verwerking!.BtwCodes, regel.BtwCode) is { } code)
+        if (Verschil is { } verschil && verschil < 0 && BtwCodes.Zoek(Codes, regel.BtwCode) is { } code)
         {
             regel.Bedrag = Bedragen.Getal(code.BtwOpFactuur ? BtwBerekening.UitInclusief(-verschil, code.Percentage).Grondslag : -verschil);
         }
@@ -1064,13 +1055,13 @@
     /// <summary>Het bedrag exclusief btw; staat alleen het totaal op de factuur, dan teruggerekend met het tarief.</summary>
     private decimal? Exclusief(HerkendeFactuur? herkend, string btwCode) =>
         herkend?.TotaalExclusief
-        ?? (herkend?.TotaalInclusief is { } inclusief && BtwCodes.Zoek(verwerking!.BtwCodes, btwCode) is { } code
+        ?? (herkend?.TotaalInclusief is { } inclusief && BtwCodes.Zoek(Codes, btwCode) is { } code
             ? (code.BtwOpFactuur ? BtwBerekening.UitInclusief(inclusief, code.Percentage).Grondslag : inclusief)
             : null);
 
     private decimal BtwOpFactuur(Invoerregel regel)
     {
-        var code = BtwCodes.Zoek(verwerking!.BtwCodes, regel.BtwCode);
+        var code = BtwCodes.Zoek(Codes, regel.BtwCode);
         return code is null || !code.BtwOpFactuur ? 0 : Getal(BtwTekst(regel)) ?? 0;
     }
 
@@ -1084,7 +1075,7 @@
     }
 
     private string? BerekendeBtw(Invoerregel regel) =>
-        BtwCodes.Zoek(verwerking!.BtwCodes, regel.BtwCode) is { } code && Getal(regel.Bedrag) is { } bedrag ? Bedragen.Getal(code.Bereken(bedrag)) : null;
+        BtwCodes.Zoek(Codes, regel.BtwCode) is { } code && Getal(regel.Bedrag) is { } bedrag ? Bedragen.Getal(code.Bereken(bedrag)) : null;
 
     private static decimal? Getal(string? tekst) =>
         string.IsNullOrWhiteSpace(tekst) ? null : BedragParser.TryParse(tekst, out var b) ? b : null;

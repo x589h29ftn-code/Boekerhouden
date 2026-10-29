@@ -77,6 +77,27 @@ samenstelpakket.
   de EU gaan zowel de af te dragen btw als de voorbelasting op dezelfde post.
 - **Btw-aangifte** per periode: per rubriek de omzet en de btw, controle op het saldo van de
   btw-rekeningen, en de afdrachtboeking naar de rekening *te betalen omzetbelasting*.
+- **Btw-tabel** (gebouwd, `/beheer/btw`, alleen de beheerder): de btw-codes van het kantoor met hun **soort** en **tarief**.
+  De soort (`Btwsoorten`) is de koppeling met de aangifte: in welke rubriek de grondslag en de btw komen en of de
+  btw aftrekbaar is (5b):
+
+  | Soort | Grondslag | Btw | 5b |
+  |---|---|---|---|
+  | Omzet hoog / laag | 1a / 1b | 1a / 1b | |
+  | Omzet 0%, verlegd door u | 1e | | |
+  | Export buiten de EU / levering binnen de EU (ICP) / afstandsverkopen | 3a / 3b / 3c | | |
+  | Voorbelasting (inkoop hoog of laag) | | | ja |
+  | Verlegd naar u | 2a | 2a | ja |
+  | Import buiten de EU / inkoop binnen de EU (ICV) | 4a / 4b | 4a / 4b | ja |
+  | Inkoop 0% of vrijgesteld, vrijgesteld, geen btw | | | |
+
+  Het **tarief** (hoog, laag, nul, geen) krijgt zijn percentage uit de **tarieven door de tijd** (`Btwtarieven`): per tarief
+  percentages met een ingangsdatum (hoog 19% → 21% per 1-10-2012, laag 6% → 9% per 1-1-2019). Een nieuw percentage
+  (bijv. hoog 21,15% per een datum) voegt de beheerder toe; boeken gebeurt met het percentage op de factuurdatum
+  (`Btwtabel.Op`), wat al geboekt is verandert niet. Een code is (in)actief te zetten; soort en tarief van een bestaande
+  code liggen vast. Codes en tarieven staan in de database (`Btwcodes`, `Btwtarieven`), gevuld met de standaard.
+- **Aangifte berekenen** (gebouwd in het domein, `Btwaangifte.Bereken`): uit de boekingen van een periode per rubriek de
+  grondslag en de btw, de voorbelasting (5b) en het te betalen of terug te vragen bedrag. Het scherm volgt in A10.
 
 ### 3.3 Relaties en openstaande posten
 
@@ -266,7 +287,7 @@ verzonnen voorbeeldbestanden in `tests/Fictief/administratie`:
 | Onderdeel | Klassen |
 |---|---|
 | Grootboek | `Rekeningschema`, `Journaal` (boeken met controles, `Kaart`, `Proefbalans`), `Jaaroverzicht`, `Proefbalans.NaarSaldibalans` |
-| Btw | `BtwCodes.Standaard`, `BtwBerekening` |
+| Btw | `BtwCodes` (definities en standaard), `Btwsoorten` (koppeling met de aangifte), `Btwtarieven` en `Btwtabel` (percentages per datum), `BtwBerekening`, `Btwaangifte` |
 | Facturen | `Factuurboeker` (factuur → journaalpost + openstaande post) |
 | Bank | `Bankbestand` (herkent MT940 of CAMT.053), `Mt940Lezer`, `Camt053Lezer`, `Bankboeker` (afletteren, op rekening), `Bankverwerker` (afletteren en regels/leergeheugen samen: wat automatisch mag) |
 | Afletteren | `Afletteraar` (kandidaten met zekerheid en reden), `Factuurnummers` |
@@ -299,7 +320,7 @@ overzichten.
 | Boeken | `GrootboekDienst.Boek`: controles uit het domein, één boeking tegelijk per administratie (rij-lock), volgnummer en SHA-256-keten (`Journaalketen`); triggers in de database weigeren wijzigen en verwijderen van boekingen en het wijzigingslog |
 | Overzichten | balans en W&V per RGS-hoofdpost (`RgsHoofdposten`, zonder werkboek), proefbalans, grootboekkaart, journaal met ketencontrole |
 | Inloggen | wachtwoord en daarna de code uit de authenticator-app (of een herstelcode), of een passkey; voor de beheerder is tweestapsverificatie verplicht (`TweestapVerplicht`) |
-| Schermen | `/` administraties; in een administratie een zijmenu in groepen, in te klappen (heel en per groep, onthouden in de browser): **Boekhouden** (`/inkoop`, `/bank`, `/memoriaal`, `/journaal`; verkoop volgt), **Rapportages** (`/a/{id}` balans en W&V, `/kolommenbalans`, `/proefbalans`, `/grootboek` met periode) en **Inrichting** (`/relaties`, `/regels`, `/rekeningschema`, `/instellingen`); `/account/beveiliging`; beheer: `/beheer/gebruikers`, `/beheer/instellingen`, `/beheer/wijzigingslog` |
+| Schermen | `/` administraties; in een administratie een zijmenu in groepen, in te klappen (heel en per groep, onthouden in de browser): **Boekhouden** (`/inkoop`, `/bank`, `/memoriaal`, `/journaal`; verkoop volgt), **Rapportages** (`/a/{id}` balans en W&V, `/kolommenbalans`, `/proefbalans`, `/grootboek` met periode) en **Inrichting** (`/relaties`, `/regels`, `/rekeningschema`, `/instellingen`); `/account/beveiliging`; beheer: `/beheer/gebruikers`, `/beheer/instellingen`, `/beheer/btw`, `/beheer/wijzigingslog` |
 | Kolommenbalans | `/a/{id}/kolommenbalans`: per rekening het saldo in de W&V (debet, credit) of op de balans (debet, credit), onderaan *Totaal*, *Resultaat* en *Totaal generaal*. Bovenin de periode (van, tot en met; ‹ › schuift een periode van dezelfde lengte, `Periode.Schuif`): alleen boekingen in die periode tellen, balansrekeningen met hun beginstand (`Journaal.Kolommenbalans(van, tot)`). Een regel aanklikken opent de grootboekkaart over dezelfde periode; een mutatie daar opent de boeking (`/a/{id}/boeking/{dagboek}/{boekstuk}`, met *Factuur* als er een document bij hoort), en van daar de factuur zelf met de viewer |
 
 #### Inkoop (plakje A7)

@@ -555,3 +555,35 @@ public sealed class Banktransactie : IVanAdministratie
 
     public Boekhouding.Bank.Bankmutatie NaarDomein() => new(Datum, Bedrag, Omschrijving, TegenIban, TegenNaam, Betalingskenmerk, EndToEndId);
 }
+
+/// <summary>Een btw-code van het kantoor: de soort bepaalt de rubrieken in de aangifte, het tarief het percentage.</summary>
+public sealed class Btwcodedefinitie
+{
+    public string Code { get; set; } = string.Empty;
+
+    public string Omschrijving { get; set; } = string.Empty;
+
+    public Boekhouding.Btw.Btwsoort Soort { get; set; }
+
+    public Boekhouding.Btw.Tarief Tarief { get; set; }
+
+    public bool Actief { get; set; } = true;
+
+    public int Volgorde { get; set; }
+
+    public Boekhouding.Btw.BtwCode NaarDomein() => new(Code, Omschrijving, Soort, Tarief, Actief: Actief);
+}
+
+/// <summary>Een btw-percentage vanaf een datum (bijv. hoog 21% vanaf 1-10-2012).</summary>
+public sealed class Btwtariefrecord
+{
+    public int Id { get; set; }
+
+    public Boekhouding.Btw.Tarief Tarief { get; set; }
+
+    public DateOnly Vanaf { get; set; }
+
+    public decimal Percentage { get; set; }
+
+    public Boekhouding.Btw.Btwtariefregel NaarDomein() => new(Tarief, Vanaf, Percentage);
+}

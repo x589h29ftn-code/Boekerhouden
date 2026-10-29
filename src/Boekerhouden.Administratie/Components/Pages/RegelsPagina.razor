@@ -3,6 +3,7 @@
 @using Boekerhouden.Boekhouding.Regels
 @inject InrichtingDienst Inrichting
 @inject GrootboekDienst Grootboek
+@inject BtwDienst Btw
 
 <AdministratieKader Id="Id" Titel="Regels" Actief="/regels" BijOpenen="Open">
     <Foutmeldingen Fouten="fouten" />
@@ -65,9 +66,9 @@
                         <label class="form-label" for="btw">Btw</label>
                         <select id="btw" class="form-select" @bind="invoer.BtwCode">
                             <option value="">geen</option>
-                            @foreach (var c in BtwCodes.Standaard)
+                            @foreach (var c in btwCodes.Where(c => c.Actief))
                             {
-                                <option value="@c.Code">@c.Code</option>
+                                <option value="@c.Code" title="@c.Omschrijving">@c.Code · @c.Kort</option>
                             }
                         </select>
                     </div>
@@ -96,6 +97,7 @@
 @code {
     private Geopend? geopend;
     private IReadOnlyList<RegelRegel>? regels;
+    private IReadOnlyList<BtwCode> btwCodes = [];
     private IReadOnlyList<Boekhouding.Grootboek.Rekening> rekeningen = [];
     private Invoer invoer = new();
     private IReadOnlyList<string>? fouten;
@@ -107,6 +109,7 @@
     {
         geopend = g;
         regels = await Inrichting.Regels(g.Wie, Id);
+        btwCodes = (await Btw.Tabel()).Op(DateOnly.FromDateTime(DateTime.Today));
         rekeningen = [.. (await Grootboek.Schema(g.Wie, Id)).Alle];
     }
 

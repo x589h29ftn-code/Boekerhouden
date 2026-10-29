@@ -70,6 +70,10 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
 
     public DbSet<Afschrift> Afschriften => Set<Afschrift>();
 
+    public DbSet<Btwcodedefinitie> Btwcodes => Set<Btwcodedefinitie>();
+
+    public DbSet<Btwtariefrecord> Btwtarieven => Set<Btwtariefrecord>();
+
     public DbSet<Banktransactie> Banktransacties => Set<Banktransactie>();
 
     /// <summary>De sleutels van ASP.NET Core Data Protection (cookies, tokens).</summary>
@@ -310,6 +314,41 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(t => t.Status).HasConversion<string>().HasMaxLength(20);
             e.Property(t => t.Melding).HasMaxLength(1000);
             e.HasOne<Afschrift>().WithMany().HasForeignKey(t => t.AfschriftId);
+        });
+
+        // De btw-tabel van het kantoor, gevuld met de standaardcodes en de Nederlandse tarieven.
+        builder.Entity<Btwcodedefinitie>(e =>
+        {
+            e.ToTable("Btwcodes");
+            e.HasKey(c => c.Code);
+            e.Property(c => c.Code).HasMaxLength(10);
+            e.Property(c => c.Omschrijving).HasMaxLength(200);
+            e.Property(c => c.Soort).HasConversion<string>().HasMaxLength(30);
+            e.Property(c => c.Tarief).HasConversion<string>().HasMaxLength(10);
+            e.HasData(Boekhouding.Btw.BtwCodes.Definities.Select((c, i) => new Btwcodedefinitie
+            {
+                Code = c.Code,
+                Omschrijving = c.Omschrijving,
+                Soort = c.Soort,
+                Tarief = c.Tarief,
+                Actief = true,
+                Volgorde = (i + 1) * 10,
+            }));
+        });
+
+        builder.Entity<Btwtariefrecord>(e =>
+        {
+            e.ToTable("Btwtarieven");
+            e.HasIndex(t => new { t.Tarief, t.Vanaf }).IsUnique();
+            e.Property(t => t.Tarief).HasConversion<string>().HasMaxLength(10);
+            e.Property(t => t.Percentage).HasPrecision(6, 3);
+            e.HasData(Boekhouding.Btw.Btwtarieven.Standaard.Regels.Select((t, i) => new Btwtariefrecord
+            {
+                Id = i + 1,
+                Tarief = t.Tarief,
+                Vanaf = t.Vanaf,
+                Percentage = t.Percentage,
+            }));
         });
 
         builder.Entity<Afschrift>().HasQueryFilter(e => e.AdministratieId == Geopend);

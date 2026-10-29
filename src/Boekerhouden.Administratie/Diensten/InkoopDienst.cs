@@ -87,6 +87,7 @@ public sealed record Verwerking(
     IReadOnlyList<Relatie> Relaties,
     Rekeningschema Schema,
     IReadOnlyList<BtwCode> BtwCodes,
+    Btwtabel Btwtabel,
     IReadOnlyList<Factuurveld>? UitZoektemplate = null);
 
 /// <summary>
@@ -104,7 +105,6 @@ public sealed class InkoopDienst(
 {
     private static readonly JsonSerializerOptions Json = new();
 
-    private static IReadOnlyList<BtwCode> BtwCodes => Boekhouding.Btw.BtwCodes.Standaard;
 
     /// <summary>
     /// Leest een bestand in. Een besmet bestand gaat in quarantaine (zonder inhoud); is de scanner niet bereikbaar, dan
@@ -308,7 +308,7 @@ public sealed class InkoopDienst(
 
         var voorstel = herkend is null ? null : Voorstel(herkend, context);
         var (schema, _) = await GrootboekDienst.Inrichting(db);
-        return new Verwerking(Regel(d), herkend, voorstel, context.Relaties, schema, BtwCodes, uitTemplate);
+        return new Verwerking(Regel(d), herkend, voorstel, context.Relaties, schema, context.Btw.Op(herkend?.Factuurdatum ?? DateOnly.MaxValue), context.Btw, uitTemplate);
     }
 
     /// <summary>Bewaart een document zonder boeking: privé, of geen boeking nodig. Het blijft in te zien en is terug te zetten.</summary>
@@ -651,7 +651,9 @@ public sealed class InkoopDienst(
             return Uitkomst.Mislukt("Deze administratie heeft geen inkoopboek.");
         }
 
-        var fouten = Factuurboeker.Controleer(factuur, dagboek, BtwCodes).ToList();
+        // De btw-codes met de tarieven op de factuurdatum (een nieuw tarief geldt vanaf zijn ingangsdatum).
+        var codes = (await BtwDienst.Lees(db)).Op(factuur.Datum);
+        var fouten = Factuurboeker.Controleer(factuur, dagboek, codes).ToList();
         var nummer = Factuurnummers.Normaliseer(factuur.Factuurnummer);
         var eerder = await db.OpenstaandePosten.AsNoTracking()
             .Where(p => p.Soort == Factuursoort.Inkoop && p.Relatie == factuur.Relatie).Select(p => p.Factuurnummer).ToListAsync();
@@ -689,7 +691,7 @@ public sealed class InkoopDienst(
         OpenPost open;
         try
         {
-            (post, open) = Factuurboeker.Boek(factuur, dagboek, boekstuk, schema, BtwCodes);
+            (post, open) = Factuurboeker.Boek(factuur, dagboek, boekstuk, schema, codes);
         }
         catch (Exception fout) when (fout is ArgumentException or InvalidOperationException)
         {
@@ -745,7 +747,7 @@ public sealed class InkoopDienst(
         var gegevens = (herkend is null
             ? new Verwerkingsgegevens(Verwerkingssoort.Inkoopfactuur, factuur.Relatie, relatie?.Naam ?? nieuw?.Naam, 0m)
             : Inkoopverwerker.Gegevens(herkend, relatie ?? new Relatie(factuur.Relatie, nieuw!.Naam, []))) with
-        { Relatie = factuur.Relatie, Bedrag = factuur.Totaal(BtwCodes) };
+        { Relatie = factuur.Relatie, Bedrag = factuur.Totaal(codes) };
         if (!credit && Leergeheugen.Sleutel(gegevens) is { } sleutel)
         {
             var bevestiging = Leergeheugen.Bij(gegevens, new Keuze(factuur.Regels[0].Rekeningnummer, factuur.Regels[0].BtwCode), sjabloon);
@@ -766,7 +768,7 @@ public sealed class InkoopDienst(
         await db.SaveChangesAsync();
         await transactie.CommitAsync();
         await audit.Log(wie, automatisch ? AuditActies.AutomatischGeboekt : AuditActies.Geboekt,
-            $"{dagboek.Code} {boekstuk}", $"{(credit ? "creditnota " : null)}{factuur.Relatie} {factuur.Factuurnummer}; {factuur.Totaal(BtwCodes):0.00}", administratie);
+            $"{dagboek.Code} {boekstuk}", $"{(credit ? "creditnota " : null)}{factuur.Relatie} {factuur.Factuurnummer}; {factuur.Totaal(codes):0.00}", administratie);
         if (verrekend is not null)
         {
             await audit.Log(wie, AuditActies.CreditnotaVerrekend, $"{factuur.Relatie} {factuur.Factuurnummer}", $"met {verrekend}", administratie);
@@ -840,7 +842,8 @@ public sealed class InkoopDienst(
         IReadOnlyList<Relatie> Relaties,
         IReadOnlyList<Verwerkingsregel> Regels,
         Leergeheugen Geheugen,
-        IReadOnlyList<BestaandeFactuur> Bestaand);
+        IReadOnlyList<BestaandeFactuur> Bestaand,
+        Btwtabel Btw);
 
     private static async Task<Inkoopcontext> Context(AdministratieDbContext db, Guid administratie)
     {
@@ -856,11 +859,11 @@ public sealed class InkoopDienst(
 
         var bestaand = await db.OpenstaandePosten.AsNoTracking().Where(p => p.Soort == Factuursoort.Inkoop)
             .Select(p => new BestaandeFactuur(p.Relatie, p.Factuurnummer, p.Datum, -p.Bedrag)).ToListAsync();
-        return new Inkoopcontext(gegevens, instellingen, relaties, regels, geheugen, bestaand);
+        return new Inkoopcontext(gegevens, instellingen, relaties, regels, geheugen, bestaand, await BtwDienst.Lees(db));
     }
 
     private static Inkoopvoorstel Voorstel(HerkendeFactuur herkend, Inkoopcontext context) =>
-        Inkoopverwerker.Verwerk(herkend, context.Relaties, context.Regels, context.Geheugen, BtwCodes, context.Bestaand,
+        Inkoopverwerker.Verwerk(herkend, context.Relaties, context.Regels, context.Geheugen, context.Btw.Op(herkend.Factuurdatum ?? DateOnly.MaxValue), context.Bestaand,
             context.Instellingen.Betalingstermijn, periodeOpen: null, context.Instellingen.Limiet);
 
     private static string Kort(string tekst) => tekst.Length > 200 ? tekst[..200] : tekst;

@@ -172,3 +172,97 @@ public sealed class RelatieTests
     [InlineData("AB", "AB Bouw", false)]
     public void Namen_lijken_op_elkaar(string a, string b, bool verwacht) => Assert.Equal(verwacht, Namen.LijktOp(a, b));
 }
+
+public sealed class BtwtabelTests
+{
+    private static readonly DateOnly Datum = new(2026, 3, 1);
+
+    [Fact]
+    public void Tarief_hangt_af_van_de_datum_en_een_nieuw_tarief_geldt_vanaf_zijn_ingangsdatum()
+    {
+        var tarieven = new Btwtarieven([.. Btwtarieven.Standaard.Regels, new Btwtariefregel(Tarief.Hoog, new DateOnly(2027, 1, 1), 21.15m)]);
+        var tabel = new Btwtabel(BtwCodes.Definities, tarieven);
+
+        Assert.Equal(19m, tarieven.Percentage(Tarief.Hoog, new DateOnly(2012, 9, 30)));
+        Assert.Equal(21m, BtwCodes.Zoek(tabel.Op(new DateOnly(2026, 12, 31)), "I21")!.Percentage);
+        Assert.Equal(21.15m, BtwCodes.Zoek(tabel.Op(new DateOnly(2027, 1, 1)), "I21")!.Percentage);
+        Assert.Equal(21.15m, BtwCodes.Zoek(tabel.Op(new DateOnly(2027, 1, 1)), "IEU")!.Percentage);
+        Assert.Equal(9m, BtwCodes.Zoek(tabel.Op(new DateOnly(2027, 1, 1)), "V9")!.Percentage);
+        Assert.Equal(6m, BtwCodes.Zoek(tabel.Op(new DateOnly(2018, 12, 31)), "V9")!.Percentage);
+        Assert.Equal(0m, BtwCodes.Zoek(tabel.Op(Datum), "VVL")!.Percentage);
+        Assert.Equal(21.15m, BtwCodes.Zoek(tabel.Op(new DateOnly(2027, 1, 1)), "I21")!.Bereken(100m));
+    }
+
+    [Fact]
+    public void Controle_van_de_tarieven()
+    {
+        Assert.Empty(Btwtarieven.Controleer(Btwtarieven.Standaard.Regels));
+        Assert.Equal(2, Btwtarieven.Controleer([new(Tarief.Hoog, Datum, 21m), new(Tarief.Hoog, Datum, 22m), new(Tarief.Laag, Datum, 120m)]).Count);
+        Assert.Single(Btwtarieven.Controleer([new(Tarief.Geen, Datum, 0m)]));
+    }
+
+    [Theory]
+    [InlineData("I21", "Hoog 21%")]
+    [InlineData("I9", "Laag 9%")]
+    [InlineData("IVL", "Verlegd naar u 21%")]
+    [InlineData("IEU", "Inkoop binnen de EU (ICV) 21%")]
+    [InlineData("GB", "Geen btw")]
+    [InlineData("VEU", "Levering binnen de EU (ICP)")]
+    public void Korte_naam_met_percentage(string code, string kort) =>
+        Assert.Equal(kort, BtwCodes.Zoek(BtwCodes.Standaard, code)!.Kort);
+
+    [Fact]
+    public void Percentage_zonder_nullen_achter_de_komma()
+    {
+        Assert.Equal("21%", Btwpercentage.Tekst(21.00m));
+        Assert.Equal("21,15%", Btwpercentage.Tekst(21.15m));
+    }
+
+    [Theory]
+    [InlineData("V21", "1a", "1a", false)]
+    [InlineData("V9", "1b", "1b", false)]
+    [InlineData("VVL", "1e", null, false)]
+    [InlineData("VEU", "3b", null, false)]
+    [InlineData("VEX", "3a", null, false)]
+    [InlineData("I21", null, null, true)]
+    [InlineData("IVL", "2a", "2a", true)]
+    [InlineData("IEU", "4b", "4b", true)]
+    [InlineData("IEX", "4a", "4a", true)]
+    [InlineData("GB", null, null, false)]
+    public void Koppeling_met_de_aangifte(string code, string? grondslag, string? btw, bool voorbelasting)
+    {
+        var c = BtwCodes.Zoek(BtwCodes.Standaard, code)!;
+        Assert.Equal((grondslag, btw, voorbelasting), (c.Rubriek, c.RubriekBtw, c.Voorbelasting));
+    }
+
+    [Fact]
+    public void Aangifte_uit_de_boekingen()
+    {
+        var schema = new Grootboek.Rekeningschema(Grootboek.StandaardRekeningschema.Rekeningen(Grootboek.Ondernemingsvorm.BV));
+        var inkoop = Grootboek.StandaardRekeningschema.Dagboeken.Single(d => d.Code == "INK");
+        var verkoop = Grootboek.StandaardRekeningschema.Dagboeken.Single(d => d.Code == "VRK");
+        var codes = BtwCodes.Standaard;
+        Grootboek.Journaalpost Boek(Factuursoort soort, string nummer, params Factuurregel[] regels) =>
+            Factuurboeker.Boek(new Factuur(soort, "REL", nummer, Datum, Datum.AddDays(14), nummer, regels), soort == Factuursoort.Inkoop ? inkoop : verkoop, nummer, schema, codes).Post;
+
+        var posten = new[]
+        {
+            Boek(Factuursoort.Verkoop, "V-1", new Factuurregel("Advies", "8000", "V21", 1000m), new Factuurregel("Boek", "8010", "V9", 100m)),
+            Boek(Factuursoort.Verkoop, "V-2", new Factuurregel("Levering EU", "8010", "VEU", 500m)),
+            Boek(Factuursoort.Inkoop, "I-1", new Factuurregel("Papier", "4300", "I21", 100m)),
+            Boek(Factuursoort.Inkoop, "I-2", new Factuurregel("Software", "4330", "IEU", 200m)),
+            Boek(Factuursoort.Inkoop, "I-3", new Factuurregel("Onderaanneming", "7100", "IVL", 300m)),
+        };
+
+        var aangifte = Btwaangifte.Bereken(posten, schema, codes, new(2026, 1, 1), new(2026, 3, 31));
+
+        Assert.Equal(new Aangifterubriek("1a", 1000m, 210m), aangifte.Rubriek("1a"));
+        Assert.Equal(new Aangifterubriek("1b", 100m, 9m), aangifte.Rubriek("1b"));
+        Assert.Equal(new Aangifterubriek("3b", 500m, 0m), aangifte.Rubriek("3b"));
+        Assert.Equal(new Aangifterubriek("4b", 200m, 42m), aangifte.Rubriek("4b"));
+        Assert.Equal(new Aangifterubriek("2a", 300m, 63m), aangifte.Rubriek("2a"));
+        Assert.Equal(21m + 42m + 63m, aangifte.Voorbelasting);
+        Assert.Equal(210m + 9m + 42m + 63m - 126m, aangifte.TeBetalen);
+        Assert.Equal(0m, Btwaangifte.Bereken(posten, schema, codes, new(2026, 4, 1), new(2026, 6, 30)).Verschuldigd);
+    }
+}

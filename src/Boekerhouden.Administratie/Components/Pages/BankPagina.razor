@@ -204,9 +204,9 @@
                                                     <label class="form-label small mb-0" for="btw">Btw</label>
                                                     <select id="btw" class="form-select form-select-sm" @bind="btwCode">
                                                         <option value="">geen</option>
-                                                        @foreach (var c in gekozen.BtwCodes)
+                                                        @foreach (var c in gekozen.BtwCodes.Where(c => c.Actief))
                                                         {
-                                                            <option value="@c.Code" title="@c.Omschrijving">@c.Code</option>
+                                                            <option value="@c.Code" title="@c.Code · @c.Omschrijving">@c.Kort</option>
                                                         }
                                                     </select>
                                                 </div>
