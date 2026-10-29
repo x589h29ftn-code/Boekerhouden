@@ -385,3 +385,47 @@ public sealed class EigenNaamEnVerleggingTests
         Assert.False(UblFactuurLezer.Lees(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(FactuurtekstTests.Lees("belnet-2026-0411.xml")))).Verlegd);
     }
 }
+
+/// <summary>Facturen zonder btw (vrijgesteld, kleineondernemersregeling), met een btw-tabel, en zonder kopregel boven de regels.</summary>
+public sealed class BtwVormenTests
+{
+    [Theory]
+    [InlineData("Te betalen € 740,52\nVrijgesteld van btw", 740.52)]
+    [InlineData("Totaal €350,00\nGeen btw in rekening gebracht op grond van de kleineondernemersregeling (KOR).", 350.00)]
+    [InlineData("Total € 99.00\nVAT exempt", 99.00)]
+    public void Geen_btw_op_de_factuur_is_nul_procent_over_het_hele_bedrag(string slot, decimal totaal)
+    {
+        var factuur = Factuurtekst.Analyseer($"Leverancier B.V.\nFactuurnummer: 1\nDatum: 01-04-2026\n{slot}");
+
+        Assert.Equal([new Btwregel(0m, totaal, 0m)], factuur.Btwregels);
+        Assert.Equal((totaal, totaal, 0m), (factuur.TotaalExclusief!.Value, factuur.TotaalInclusief!.Value, factuur.EnigTarief!.Value));
+        Assert.Equal("I0", Btw.BtwCodes.Bij(Btw.BtwCodes.Standaard, Btw.BtwRichting.Inkoop, factuur.EnigTarief.Value)?.Code);
+    }
+
+    [Fact]
+    public void Btw_tabel_met_percentage_grondslag_en_btw()
+    {
+        var factuur = Factuurtekst.Analyseer("Pen B.V.\nInvoice #12345\nDatum: 2026-04-15\nBureaustoel    1.150,00\nKorting 10%    -115,00\n"
+                                            + "Btw-percentage    Grondslag    Btw\n21%    1.035,00    217,35\nTotaalbedrag € 1.252,35");
+
+        Assert.Equal([new Btwregel(21m, 1035m, 217.35m)], factuur.Btwregels);
+        Assert.Equal((1035m, 1252.35m), (factuur.TotaalExclusief!.Value, factuur.TotaalInclusief!.Value));
+        Assert.Empty(factuur.Controleer());
+    }
+
+    [Fact]
+    public void Btw_regel_met_over_is_geen_tabelkop()
+    {
+        var factuur = Factuurtekst.Analyseer("Vers B.V.\nBTW 9% over 60,00: 5,40\nBTW 21% over 20,00: 4,20\nTotaal te betalen 89,60");
+
+        Assert.Equal([new Btwregel(21m, 20m, 4.20m), new Btwregel(9m, 60m, 5.40m)], factuur.Btwregels);
+    }
+
+    [Fact]
+    public void Omschrijving_zonder_kopregel_is_de_eerste_regel_met_een_bedrag_na_nummer_en_datum()
+    {
+        var factuur = Factuurtekst.Analyseer("Fotografie Lens\nFactuur nr. 2026/0042\nFactuurdatum: 15-4-26\nProductfoto's website    €350,00\nTotaal €350,00");
+
+        Assert.Equal(("Productfoto's website", "2026/0042", new DateOnly(2026, 4, 15)), (factuur.Omschrijving, factuur.Factuurnummer, factuur.Factuurdatum!.Value));
+    }
+}

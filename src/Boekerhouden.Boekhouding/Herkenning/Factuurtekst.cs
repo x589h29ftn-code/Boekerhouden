@@ -37,6 +37,13 @@ public static partial class Factuurtekst
         var btw = Btwregels(regels);
         var exclusief = BedragNaLabel(regels, ExclusiefLabel());
         var inclusief = BedragNaLabel(regels, InclusiefLabel());
+
+        // Geen btw op de factuur (vrijgesteld, kleineondernemersregeling): 0% over het hele bedrag.
+        if (btw.Count == 0 && GeenBtwPatroon().IsMatch(tekst) && (inclusief ?? exclusief) is { } zonderBtw)
+        {
+            btw = [new Btwregel(0m, zonderBtw, 0m)];
+            (exclusief, inclusief) = (zonderBtw, zonderBtw);
+        }
         var totaalBtw = btw.Sum(b => b.Btw);
         if (inclusief is null && exclusief is { } e)
         {
@@ -78,12 +85,17 @@ public static partial class Factuurtekst
         var kop = regels.FindIndex(r => KopregelOmschrijving().IsMatch(r));
         if (kop < 0)
         {
-            return null;
+            // Zonder kopregel: na de regels met factuurnummer en datum, de eerste regel met tekst en een bedrag.
+            kop = regels.FindLastIndex(r => FactuurnummerLabel().IsMatch(r) || FactuurdatumLabel().IsMatch(r) || VervaldatumLabel().IsMatch(r));
+            if (kop < 0)
+            {
+                return null;
+            }
         }
 
         var factuurregels = regels.Skip(kop + 1)
-            .TakeWhile(r => !ExclusiefLabel().IsMatch(r) && !InclusiefLabel().IsMatch(r) && !BtwRegel().IsMatch(r))
-            .Where(r => BedragPatroon().IsMatch(r))
+            .TakeWhile(r => !ExclusiefLabel().IsMatch(r) && !InclusiefLabel().IsMatch(r) && !BtwRegel().IsMatch(r) && !(BtwTabelKop().IsMatch(r) && Bedragen(r).Count == 0))
+            .Where(r => BedragPatroon().IsMatch(r) && !KlantLabel().IsMatch(r) && Datums(r).Count == 0)
             .ToList();
         if (factuurregels.Count == 0)
         {
@@ -224,8 +236,27 @@ public static partial class Factuurtekst
     private static List<Btwregel> Btwregels(List<string> regels)
     {
         var perTarief = new Dictionary<decimal, Btwregel>();
-        foreach (var regel in regels)
+        var tabelTot = -1;
+        for (var i = 0; i < regels.Count; i++)
         {
+            var regel = regels[i];
+
+            // Een btw-tabel: onder een kop als "Btw-percentage  Grondslag  Btw" regels als "21%  1.035,00  217,35".
+            if (BtwTabelKop().IsMatch(regel) && Bedragen(regel).Count == 0)
+            {
+                tabelTot = i + 6;
+                continue;
+            }
+
+            if (i <= tabelTot && TabelRegel().Match(regel) is { Success: true } rij
+                && Bedragen(regel[(rij.Index + rij.Length)..]) is [.., var grondslag, var tabelBtw]
+                && decimal.Parse(rij.Groups[1].Value.Replace(',', '.'), CultureInfo.InvariantCulture) is var tabelPercentage
+                && Btw.BtwBerekening.Klopt(grondslag, tabelBtw, tabelPercentage, 5))
+            {
+                perTarief[tabelPercentage] = new Btwregel(tabelPercentage, grondslag, tabelBtw);
+                continue;
+            }
+
             var m = BtwRegel().Match(regel);
             if (!m.Success)
             {
@@ -323,6 +354,15 @@ public static partial class Factuurtekst
 
     [GeneratedRegex(@"\b(?:VAT|BTW|TVA|IVA|UST-?IDNR\.?|USTID|MWST|VAT\s*(?:NO|NUMBER|REG\.?\s*NO)\.?)\s*(?:NR\.?|NUMMER|ID)?\s*:?\s*([A-Z]{2}\s?[0-9A-Z][0-9A-Z ]{6,13}[0-9A-Z])\b")]
     private static partial Regex BuitenlandsBtw();
+
+    [GeneratedRegex(@"vrijgesteld\s+van\s+(?:de\s+)?(?:btw|omzetbelasting)|btw[- ]?vrijgesteld|geen\s+btw\s+(?:in\s+rekening|berekend)|kleine\s?ondernemersregeling|\bKOR\b|vat\s+exempt|exempt\s+from\s+vat", RegexOptions.IgnoreCase)]
+    private static partial Regex GeenBtwPatroon();
+
+    [GeneratedRegex(@"(?:btw|vat)[- ]?(?:%|perc|tarief|rate)?.*(?:grondslag|over|basis|excl|net)|(?:grondslag|basis).*(?:btw|vat)", RegexOptions.IgnoreCase)]
+    private static partial Regex BtwTabelKop();
+
+    [GeneratedRegex(@"^\s*([0-9]{1,2}(?:[.,][0-9]+)?)\s*%")]
+    private static partial Regex TabelRegel();
 
     [GeneratedRegex(@"\s{3,}|\s+[·|]\s+")]
     private static partial Regex Kolommen();
