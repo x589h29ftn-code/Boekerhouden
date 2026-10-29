@@ -462,37 +462,6 @@ body.scheiding-slepen {
     color: var(--bs-secondary-color);
 }
 
-/* Eerdere facturen van de leverancier: één regel per factuur; aanklikken neemt rekening en btw-code over. */
-.historie {
-    border-top: 1px solid var(--bs-border-color-translucent);
-}
-
-.historie-regel {
-    display: grid;
-    grid-template-columns: 6rem 8rem 5rem 1fr 3rem;
-    gap: .5rem;
-    width: 100%;
-    padding: .2rem .25rem;
-    font-size: .8rem;
-    text-align: left;
-    background: none;
-    border: 0;
-    border-bottom: 1px solid var(--bs-border-color-translucent);
-}
-
-.historie-regel:hover {
-    background: var(--bs-tertiary-bg);
-}
-
-.historie-regel .bedrag {
-    text-align: right;
-}
-
-.historie-nummer, .historie-rekening {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
 
 /* Waar het gekozen veld op de factuur staat. */
 .pdfpagina .vindplaats {
@@ -612,4 +581,94 @@ body.scheiding-slepen {
         animation: none;
         width: 100%;
     }
+}
+
+/* Het boekformulier: labels links, velden rechts; de regels als tabel met rustige kopjes. */
+.boekformulier .veld {
+    display: grid;
+    grid-template-columns: 9.5rem minmax(0, 1fr);
+    align-items: center;
+    gap: .75rem;
+    margin-bottom: .6rem;
+}
+
+.boekformulier .veld.veld-boven {
+    align-items: start;
+}
+
+.boekformulier .veld.veld-boven > label {
+    padding-top: .4rem;
+}
+
+.boekformulier .veld > label, .boekformulier .veld-rij > label {
+    margin: 0;
+    color: var(--bs-secondary-color);
+    font-size: .9rem;
+}
+
+.veld-rij {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    flex-wrap: wrap;
+}
+
+.veld-rij > .form-control {
+    flex: 1 1 8rem;
+}
+
+.veld-rij > .veld-smal {
+    flex: 0 1 11rem;
+}
+
+.regeltabel > thead th {
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    background: var(--bs-tertiary-bg);
+    border-bottom-width: 1px;
+}
+
+.regeltabel .rekeningnaam {
+    max-width: 14rem;
+    margin-top: .1rem;
+}
+
+.regeltabel .regel-weg {
+    opacity: 0;
+    transition: opacity .15s ease;
+}
+
+.regeltabel tr:hover .regel-weg, .regeltabel .regel-weg:focus {
+    opacity: 1;
+}
+
+.nog-een-regel {
+    padding-left: 0;
+    text-decoration: none;
+}
+
+.infomenu .menu {
+    min-width: 22rem;
+    max-width: 28rem;
+    white-space: normal;
+}
+
+@media (max-width: 575.98px) {
+    .boekformulier .veld {
+        grid-template-columns: 1fr;
+        gap: .25rem;
+    }
+}
+
+.input-group > .variabelekeuze {
+    flex: 0 0 4.75rem;
+    width: 4.75rem;
+    min-width: 4.75rem;
+}
+
+.regeltabel td:first-child input {
+    min-width: 7rem;
 }
