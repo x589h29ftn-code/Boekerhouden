@@ -195,6 +195,66 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
     }
 
     [Fact]
+    public async Task Factuur_geupload_bij_een_betaling_wordt_na_het_boeken_gekoppeld()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var bank = app.Dienst<BankDienst>();
+        var inkoop = app.Dienst<InkoopDienst>();
+        await bank.Lees(wie, id, Afschrift(belnet: "24,99"), "ing.mt940");
+        var betaling = (await bank.Lijst(wie, id)).Single(m => m.Bedrag == -24.99m);
+
+        var gelezen = await inkoop.Lees(wie, id, new MemoryStream(InkoopTests.Belnet("BN-2026-0311", "2026-03-01")), "belnet.xml", null, betaling.Id);
+        var uitkomst = await inkoop.Boek(wie, id, gelezen.DocumentId!.Value, new Factuurinvoer(null, new NieuweRelatie("Belnet B.V.", null, null, null), "BN-2026-0311",
+            new(2026, 3, 1), new(2026, 3, 15), "Abonnement", [new Boekhouding.Facturen.Factuurregel("Abonnement", "4310", "I21", 20.65m, 4.34m)]));
+
+        Assert.True(uitkomst.IsGelukt, string.Join("; ", uitkomst.Fouten));
+        Assert.DoesNotContain(await bank.Lijst(wie, id), m => m.Id == betaling.Id);
+        await using var db = await app.Dienst<Toegang>().Open(wie, id, Recht.Lezen);
+        Assert.Equal(0m, (await db.OpenstaandePosten.SingleAsync()).Openstaand);
+        Assert.Equal(["NL63TRIO0212345678"], (await db.Relaties.SingleAsync()).Ibans);
+        Assert.StartsWith("Gekoppeld", (await db.Banktransacties.SingleAsync(t => t.Id == betaling.Id)).Melding, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Een_factuur_die_later_binnenkomt_lettert_de_betaling_alsnog_af()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var bank = app.Dienst<BankDienst>();
+        await bank.Lees(wie, id, Afschrift(belnet: "24,99"), "ing.mt940");
+        Assert.Equal(3, (await bank.Lijst(wie, id)).Count);
+
+        await BoekBelnet(wie, id);
+
+        Assert.Equal(2, (await bank.Lijst(wie, id)).Count);
+        Assert.Empty(await bank.OpenPosten(wie, id));
+    }
+
+    [Fact]
+    public async Task Openstaande_posten_op_vervaldatum_met_deelbetalingen_en_vraagposten()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var bank = app.Dienst<BankDienst>();
+        await BoekBelnet(wie, id);
+        await bank.Lees(wie, id, Afschrift(belnet: "20,00"), "ing.mt940");
+        var deel = (await bank.Lijst(wie, id)).Single(m => m.Bedrag == -20m);
+        var post = (await bank.OpenPosten(wie, id)).Single();
+        Assert.Equal(("Belnet B.V.", -24.99m, false), (post.Naam, post.Openstaand, post.Deels));
+
+        Assert.True((await bank.Afletteren(wie, id, deel.Id, [post.Id])).IsGelukt);
+
+        post = (await bank.OpenPosten(wie, id)).Single();
+        Assert.Equal((-4.99m, true, new DateOnly(2026, 3, 15)), (post.Openstaand, post.Deels, post.Vervaldatum));
+        Assert.Equal(("2000", 0m), await bank.Vraagposten(wie, id));
+        var buiten = await app.Gebruiker("Buiten");
+        await Assert.ThrowsAsync<GeenToegangException>(() => bank.OpenPosten(buiten, id));
+        await Assert.ThrowsAsync<GeenToegangException>(() => bank.Vraagposten(buiten, id));
+        await Assert.ThrowsAsync<GeenToegangException>(() => bank.NaFactuur(buiten, id, post.Id, null));
+    }
+
+    [Fact]
     public async Task Zonder_lidmaatschap_of_met_alleen_inzien_geen_bank()
     {
         var beheerder = await app.Beheerder();

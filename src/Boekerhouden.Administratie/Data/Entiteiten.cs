@@ -304,6 +304,9 @@ public sealed class Document : IVanAdministratie
     public string IngelezenDoor { get; set; } = string.Empty;
 
     public Guid? BoekingId { get; set; }
+
+    /// <summary>De bankmutatie waarbij de gebruiker deze factuur uploadde; na het boeken worden ze aan elkaar gekoppeld.</summary>
+    public Guid? BanktransactieId { get; set; }
 }
 
 public sealed class DocumentInhoud : IVanAdministratie

@@ -3,6 +3,7 @@
 @using Boekerhouden.Boekhouding.Bank
 @using Boekerhouden.Boekhouding.Relaties
 @inject BankDienst Bank
+@inject InkoopDienst Inkoop
 
 <AdministratieKader Id="Id" Titel="Bank" Actief="/bank" BijOpenen="Open">
     @if (context.Mag(Recht.Invoeren))
@@ -32,14 +33,74 @@
         </div>
     }
 
-    <div class="d-flex align-items-center mb-2">
-        <h2 class="h6 text-secondary mb-0">@(ookGeboekt ? "Mutaties" : "Te verwerken")</h2>
-        <span class="form-check form-switch ms-auto mb-0">
-            <input class="form-check-input" type="checkbox" id="ookgeboekt" checked="@ookGeboekt" @onchange="WisselGeboekt" />
-            <label class="form-check-label small text-secondary" for="ookgeboekt">ook geboekt</label>
-        </span>
+    <div class="d-flex align-items-center mb-2 werklijsten">
+        <nav class="nav nav-underline small" aria-label="Werklijsten">
+            <button class="nav-link @(lijst == Werklijst.Mutaties ? "active" : null)" @onclick="() => Toon(Werklijst.Mutaties)">@(ookGeboekt ? "Mutaties" : "Te verwerken")</button>
+            <button class="nav-link @(lijst == Werklijst.OpenPosten ? "active" : null)" @onclick="() => Toon(Werklijst.OpenPosten)">Openstaande posten</button>
+            <button class="nav-link @(lijst == Werklijst.Verschillen ? "active" : null)" @onclick="() => Toon(Werklijst.Verschillen)">Verschillen</button>
+        </nav>
+        @if (lijst == Werklijst.Mutaties)
+        {
+            <span class="form-check form-switch ms-auto mb-0">
+                <input class="form-check-input" type="checkbox" id="ookgeboekt" checked="@ookGeboekt" @onchange="WisselGeboekt" />
+                <label class="form-check-label small text-secondary" for="ookgeboekt">ook geboekt</label>
+            </span>
+        }
     </div>
-    @if (mutaties is { Count: 0 })
+    @if (lijst == Werklijst.OpenPosten || lijst == Werklijst.Verschillen)
+    {
+        var posten = lijst == Werklijst.OpenPosten ? openPosten : openPosten?.Where(p => p.Deels).ToList();
+        @if (lijst == Werklijst.Verschillen && vraagposten is { Rekening: { } vraagrekening, Saldo: var vraagsaldo })
+        {
+            <div class="small mb-2">
+                <a href="/a/@Id/grootboek?rekening=@vraagrekening">Vraagposten</a>
+                <span class="bedrag ms-2">@Bedragen.Getal(vraagsaldo)</span>
+            </div>
+        }
+        @if (posten is { Count: 0 })
+        {
+            <div class="card card-body text-center text-secondary py-4">@(lijst == Werklijst.OpenPosten ? "Geen openstaande posten." : "Geen deelbetalingen.")</div>
+        }
+        else if (posten is not null)
+        {
+            <div class="card">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr><th>Vervalt</th><th>Relatie</th><th>Factuur</th><th class="text-end">Bedrag</th><th class="text-end">Open</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in posten)
+                        {
+                            var dagen = Vandaag.DayNumber - p.Vervaldatum.DayNumber;
+                            <tr>
+                                <td class="text-nowrap">@Weergave.Datum(p.Vervaldatum)</td>
+                                <td title="@(p.Soort == Boekhouding.Facturen.Factuursoort.Inkoop ? "Crediteur" : "Debiteur")">@p.Naam</td>
+                                <td>
+                                    @if (p.DocumentId is { } document)
+                                    {
+                                        <a href="/a/@Id/inkoop/@document" title="@Weergave.Datum(p.Datum)">@p.Factuurnummer</a>
+                                    }
+                                    else
+                                    {
+                                        <span title="@Weergave.Datum(p.Datum)">@p.Factuurnummer</span>
+                                    }
+                                </td>
+                                <td class="bedrag text-end"><Euro Waarde="p.Bedrag" /></td>
+                                <td class="bedrag text-end"><Euro Waarde="p.Openstaand" /></td>
+                                <td class="small">
+                                    @if (dagen > 0)
+                                    {
+                                        <span class="status">@dagen @(dagen == 1 ? "dag" : "dagen") vervallen</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+    else if (mutaties is { Count: 0 })
     {
         <div class="card card-body text-center text-secondary py-4">Niets te verwerken.</div>
     }
@@ -113,6 +174,20 @@
                                     }
                                     @if (mag)
                                     {
+                                        <div class="mb-3">
+                                            <label class="paneelkop d-block" for="factuur">Factuur uploaden</label>
+                                            <InputFile id="factuur" class="form-control form-control-sm" accept=".pdf,.xml,application/pdf,application/xml,text/xml" OnChange="UploadFactuur" disabled="@bezig" />
+                                            @if (factuurUitkomst is { } fu)
+                                            {
+                                                <div class="small mt-1 @(fu.DocumentId is null || fu.Status == Documentstatus.Quarantaine ? "status let-op" : null)">
+                                                    @fu.Melding
+                                                    @if (fu.DocumentId is { } doc && fu.Status == Documentstatus.TeVerwerken)
+                                                    {
+                                                        <a class="ms-1" href="/a/@Id/inkoop/@doc">Factuur verwerken</a>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
                                         <div>
                                             <div class="paneelkop" title="@gekozen.Voorstel.Advies.Reden">Op rekening</div>
                                             <div class="row g-2 align-items-end">
@@ -165,6 +240,21 @@
     private string? btwCode;
     private string? omschrijving;
     private IReadOnlyList<string>? fouten;
+    private Inleesuitkomst? factuurUitkomst;
+
+    // De werklijsten: de mutaties, de openstaande posten (op vervaldatum) en de verschillen (deelbetalingen, vraagposten).
+    private enum Werklijst
+    {
+        Mutaties,
+        OpenPosten,
+        Verschillen,
+    }
+
+    private Werklijst lijst;
+    private IReadOnlyList<OpenpostRegel>? openPosten;
+    private (string? Rekening, decimal Saldo)? vraagposten;
+
+    private static DateOnly Vandaag => DateOnly.FromDateTime(DateTime.Today);
 
     [Parameter]
     public Guid Id { get; set; }
@@ -176,7 +266,44 @@
         await Laad();
     }
 
-    private async Task Laad() => mutaties = await Bank.Lijst(geopend!.Wie, Id, ookGeboekt);
+    private async Task Laad()
+    {
+        mutaties = await Bank.Lijst(geopend!.Wie, Id, ookGeboekt);
+        if (lijst != Werklijst.Mutaties)
+        {
+            openPosten = await Bank.OpenPosten(geopend.Wie, Id);
+            vraagposten = await Bank.Vraagposten(geopend.Wie, Id);
+        }
+    }
+
+    private async Task Toon(Werklijst werklijst)
+    {
+        lijst = werklijst;
+        gekozen = null;
+        await Laad();
+    }
+
+    /// <summary>Een factuur bij deze mutatie: inlezen zoals bij inkoop; na het boeken wordt hij op de mutatie afgeletterd.</summary>
+    private async Task UploadFactuur(InputFileChangeEventArgs e)
+    {
+        bezig = true;
+        try
+        {
+            await using var stream = e.File.OpenReadStream(Boekerhouden.Documenten.PdfTekst.MaximumBytes);
+            factuurUitkomst = await Inkoop.Lees(geopend!.Wie, Id, stream, e.File.Name, e.File.ContentType, gekozen!.Mutatie.Id);
+        }
+        catch (IOException)
+        {
+            factuurUitkomst = new Inleesuitkomst(null, null, $"{e.File.Name} is te groot.");
+        }
+
+        bezig = false;
+        if (factuurUitkomst.IsGeboekt)
+        {
+            gekozen = null;
+            await Laad();
+        }
+    }
 
     private async Task WisselGeboekt(ChangeEventArgs e)
     {
@@ -194,6 +321,7 @@
             return;
         }
 
+        factuurUitkomst = null;
         gekozen = await Bank.Verwerking(geopend!.Wie, Id, m.Id);
         zelfGekozen = [];
         // Kan de mutatie de betaling van een factuur zijn, dan geen rekening vooraf: anders staat de kost er twee keer in.

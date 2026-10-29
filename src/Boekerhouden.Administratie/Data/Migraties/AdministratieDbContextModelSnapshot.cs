@@ -513,6 +513,9 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.Property<Guid>("AdministratieId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("BanktransactieId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Bestandsnaam")
                         .IsRequired()
                         .HasMaxLength(260)

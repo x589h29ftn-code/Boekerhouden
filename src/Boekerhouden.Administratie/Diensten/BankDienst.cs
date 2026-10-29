@@ -28,6 +28,24 @@ public sealed record BankmutatieRegel(
     Banktransactiestatus Status,
     string? Melding);
 
+/// <summary>Een openstaande post in de werklijst, met de naam van de relatie en het document.</summary>
+/// <param name="Openstaand">Zoals in het grootboek: te ontvangen positief, te betalen negatief.</param>
+public sealed record OpenpostRegel(
+    Guid Id,
+    Factuursoort Soort,
+    string Relatie,
+    string Naam,
+    string Factuurnummer,
+    DateOnly Datum,
+    DateOnly Vervaldatum,
+    decimal Bedrag,
+    decimal Openstaand,
+    Guid? DocumentId)
+{
+    /// <summary>Al deels betaald (of verrekend): het verschil staat nog open.</summary>
+    public bool Deels => Openstaand != Bedrag;
+}
+
 /// <summary>Alles wat het scherm nodig heeft om een bankmutatie te verwerken.</summary>
 /// <param name="OpenPosten">De openstaande posten met hetzelfde teken als de mutatie, om zelf te kiezen.</param>
 public sealed record Bankverwerking(
@@ -269,6 +287,72 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         var relatie = relaties.FirstOrDefault(r => r.HeeftIban(t.TegenIban));
         return await BoekOpRekening(db, administratie, t, rekening.Trim(), string.IsNullOrWhiteSpace(btwCode) ? null : btwCode.Trim(),
             string.IsNullOrWhiteSpace(omschrijving) ? null : omschrijving.Trim(), relatie, wie, reden: null);
+    }
+
+    /// <summary>
+    /// Na het boeken van een nieuwe factuur: hoort die bij een bankmutatie die nog te verwerken is? Uploadde de gebruiker
+    /// de factuur bij een mutatie en is het bedrag gelijk, dan wordt die mutatie erop afgeletterd (en het IBAN geleerd).
+    /// Anders lettert het pakket een mutatie af waarvoor deze factuur nu de enige zekere kandidaat is.
+    /// </summary>
+    /// <returns>Of er een mutatie is afgeletterd.</returns>
+    public async Task<bool> NaFactuur(Uitvoerder wie, Guid administratie, Guid post, Guid? transactie)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Invoeren);
+        if (await db.OpenstaandePosten.AsNoTracking().FirstOrDefaultAsync(p => p.Id == post) is not { Openstaand: not 0 } open)
+        {
+            return false;
+        }
+
+        if (transactie is { } id && await TeVerwerken(db, id) is { } bij && bij.Bedrag == open.Openstaand)
+        {
+            var uitkomst = await BoekAfletteren(db, administratie, bij, [post], wie, $"Gekoppeld: factuur {open.Factuurnummer} geüpload bij deze betaling");
+            if (uitkomst.IsGelukt)
+            {
+                await LeerIban(db, administratie, bij, [post], wie);
+            }
+
+            return uitkomst.IsGelukt;
+        }
+
+        var context = await Context(db, administratie);
+        var kandidaten = await db.Banktransacties.Where(t => t.Status == Banktransactiestatus.TeVerwerken && (open.Openstaand > 0 ? t.Bedrag > 0 : t.Bedrag < 0))
+            .OrderBy(t => t.Datum).ToListAsync();
+        foreach (var t in kandidaten)
+        {
+            if (Voorstel(t, context).Afletteren.Automatisch is { } zeker && zeker.Posten.Any(p => p.Id == post))
+            {
+                return (await BoekAfletteren(db, administratie, t, [.. zeker.Posten.Select(p => p.Id)], wie, $"Afgeletterd na het boeken van factuur {open.Factuurnummer}")).IsGelukt;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>De openstaande posten (debiteuren en crediteuren), de oudste vervaldatum eerst.</summary>
+    public async Task<IReadOnlyList<OpenpostRegel>> OpenPosten(Uitvoerder wie, Guid administratie)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
+        var namen = await db.Relaties.AsNoTracking().ToDictionaryAsync(r => r.Code, r => r.Naam);
+        var posten = await db.OpenstaandePosten.AsNoTracking().Where(p => p.Openstaand != 0).ToListAsync();
+        return
+        [
+            .. posten.OrderBy(p => p.Vervaldatum).ThenBy(p => p.Factuurnummer, StringComparer.Ordinal)
+                .Select(p => new OpenpostRegel(p.Id, p.Soort, p.Relatie, namen.GetValueOrDefault(p.Relatie, p.Relatie), p.Factuurnummer, p.Datum, p.Vervaldatum, p.Bedrag, p.Openstaand, p.DocumentId)),
+        ];
+    }
+
+    /// <summary>Het saldo van de vraagposten (wat bij afletteren niet op een factuur paste), met het rekeningnummer.</summary>
+    public async Task<(string? Rekening, decimal Saldo)> Vraagposten(Uitvoerder wie, Guid administratie)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
+        var (schema, _) = await GrootboekDienst.Inrichting(db);
+        if (schema.MetFunctie(Rekeningfunctie.Vraagposten).FirstOrDefault() is not { } rekening)
+        {
+            return (null, 0m);
+        }
+
+        var bedragen = await db.Boekingsregels.AsNoTracking().Where(r => r.Rekeningnummer == rekening.Nummer).Select(r => r.Bedrag).ToListAsync();
+        return (rekening.Nummer, bedragen.Sum());
     }
 
     private async Task<Uitkomst> BoekAfletteren(AdministratieDbContext db, Guid administratie, Banktransactie t, IReadOnlyList<Guid> postIds, Uitvoerder wie, string? reden)

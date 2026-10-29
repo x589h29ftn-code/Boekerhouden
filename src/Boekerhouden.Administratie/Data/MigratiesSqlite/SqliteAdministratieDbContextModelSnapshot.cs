@@ -503,6 +503,9 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.Property<Guid>("AdministratieId")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("BanktransactieId")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Bestandsnaam")
                         .IsRequired()
                         .HasMaxLength(260)

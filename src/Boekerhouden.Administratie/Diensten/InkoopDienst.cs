@@ -80,7 +80,8 @@ public sealed class InkoopDienst(
     GrootboekDienst grootboek,
     AuditDienst audit,
     TimeProvider tijd,
-    IEnumerable<IVirusscanner> virusscanners)
+    IEnumerable<IVirusscanner> virusscanners,
+    BankDienst bank)
 {
     private static readonly JsonSerializerOptions Json = new();
 
@@ -90,7 +91,9 @@ public sealed class InkoopDienst(
     /// Leest een bestand in. Een besmet bestand gaat in quarantaine (zonder inhoud); is de scanner niet bereikbaar, dan
     /// wordt het niet bewaard. Daarna herkennen en, als dat veilig kan, meteen boeken.
     /// </summary>
-    public async Task<Inleesuitkomst> Lees(Uitvoerder wie, Guid administratie, Stream inhoud, string bestandsnaam, string? inhoudstype, CancellationToken annulering = default)
+    /// <param name="banktransactie">De bankmutatie waarbij de gebruiker de factuur uploadt: na het boeken worden ze gekoppeld.</param>
+    public async Task<Inleesuitkomst> Lees(
+        Uitvoerder wie, Guid administratie, Stream inhoud, string bestandsnaam, string? inhoudstype, Guid? banktransactie = null, CancellationToken annulering = default)
     {
         ArgumentNullException.ThrowIfNull(wie);
         ArgumentNullException.ThrowIfNull(inhoud);
@@ -122,6 +125,7 @@ public sealed class InkoopDienst(
             Sha256 = hash,
             IngelezenOp = tijd.GetUtcNow(),
             IngelezenDoor = wie.Naam,
+            BanktransactieId = banktransactie,
         };
 
         if (virusscanners.FirstOrDefault() is { } scanner)
@@ -627,6 +631,7 @@ public sealed class InkoopDienst(
             await audit.Log(wie, AuditActies.CreditnotaVerrekend, $"{factuur.Relatie} {factuur.Factuurnummer}", $"met {verrekend}", administratie);
         }
         await ZetInDocumentmap(db, administratie, document, factuur, relatie?.Naam ?? nieuw?.Naam, wie);
+        await bank.NaFactuur(wie, administratie, open.Id, document.BanktransactieId);
         return Uitkomst.Gelukt;
     }
 

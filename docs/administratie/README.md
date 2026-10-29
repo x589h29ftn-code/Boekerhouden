@@ -251,7 +251,7 @@ gedaan.
 | A5 ✅ | **Herkenning** (domein): tekstanalyse van een factuur, UBL lezen, leverancier herkennen | Gegevens uit e-facturen en PDF-tekst |
 | A6 ✅ | **Webapp I**: project `Boekerhouden.Administratie`, database, inloggen met tweestapsverificatie (app en passkeys), administraties met rechten, standaardrekeningschema (RGS), memoriaal, journaal met hash-keten, grootboekkaart, proefbalans, balans en W&V, gebruikers en leden, wijzigingslog | Werkende boekhouding in de browser |
 | A7 ✅ | **Inkoop in de app**: uploaden, herkennen (UBL, PdfPig), Te verwerken, voorstel en automatisch boeken, regels beheren | Inkoopfacturen verwerken |
-| A8 (deels) | **Bank in de app**: inlezen, afletteren (automatisch en met voorstellen), handmatig boeken, werklijsten met *factuur uploaden* | Bank bijna vanzelf bij |
+| A8 ✅ | **Bank in de app**: inlezen, afletteren (automatisch en met voorstellen), handmatig boeken, werklijsten met *factuur uploaden* | Bank bijna vanzelf bij |
 | A9 | **Verkoop**: factuur maken, nummeren, PDF, debiteurenlijst, ouderdomsanalyse | Factureren |
 | A10 | **Btw-aangifte en periodes**: aangifte per rubriek, afdrachtboeking, periodes afsluiten | Aangifte klaarzetten |
 | A11 | **Scans**: Tesseract voor scans en foto's | Ook papieren bonnen |
@@ -327,7 +327,7 @@ overzichten.
 | Instellingen | Twee niveaus. `/beheer/instellingen` (beheerder, `KantoorDienst`): de standaard van het kantoor. `/a/{id}/instellingen` (kantoor): naam, KvK, btw-nummer en eigen IBAN's, en per instelling afwijken van het kantoor; een leeg veld volgt het kantoor (de kantoorwaarde staat grijs in het veld). Instellingen: drempel (na hoeveel gelijke keuzes), bandbreedte (automatisch tot zoveel keer het hoogste bevestigde bedrag), limiet (geen, kantoor of eigen; B2), betalingstermijn, adrescontrole aan/uit en de documentmap (`Verwerkingsinstellingen`, `AfwijkendeInstellingen`) |
 | Documentmap | Na het boeken een kopie van het document in een map met variabelen (`Documentpad`): `#administratie`, `#jaar`, `#kwartaal`, `#maand`, `#soort`, `#leverancier`, bijv. `C:\Users\naam\OneDrive\Klanten\#administratie\#jaar\#soort`. Bestandsnaam: datum, relatie en factuurnummer. Nooit overschrijven (anders `(2)`); lukt het niet, dan blijft de boeking staan met de reden bij het document en in het log. Het origineel blijft in de database |
 
-#### Bank (plakje A8, eerste deel)
+#### Bank (plakje A8)
 
 | Onderdeel | Hoe |
 |---|---|
@@ -336,7 +336,9 @@ overzichten.
 | Bankdagboek | Het dagboek met het IBAN van het afschrift. Heeft geen dagboek dat IBAN, dan krijgt het eerste bankdagboek zonder IBAN het, en het IBAN komt bij de eigen rekeningen. Staat er al een eigen rekening en is dit IBAN er niet bij, dan weigert het pakket het bestand: zo komt een afschrift van een andere klant nooit in deze administratie |
 | Automatisch | Per nieuwe mutatie `Bankverwerker`: eerst afletteren (§3.8); de enige zekere kandidaat wordt geboekt. Kan er geen openstaande post bij horen, dan boekt een automatische regel of een geleerde keuze (na de drempel, binnen de bandbreedte, zelfde IBAN) op de rekening. De rest staat in *Te verwerken*, met de reden |
 | Verwerken | Een mutatie aanklikken opent het paneel eronder: de kandidaten om af te letteren (één klik), zelf openstaande posten kiezen, of op een rekening met btw-code en omschrijving boeken. Kan de mutatie een factuur betalen, dan staat er geen rekening vooraf ingevuld. Afletteren boekt het verschil op vraagposten; bevestigt de gebruiker een voorstel en hoort het IBAN nog bij geen relatie, dan leert het pakket het bij de relatie (*IBAN geleerd bij relatie* in het log). Op rekening boeken gaat in het leergeheugen |
-| Opslag | `Afschrift` (saldi en melding) en `Banktransactie` (de mutatie, status, de boeking); migratie `Bank` voor PostgreSQL en SQLite |
+| Factuur uploaden | In het paneel van een mutatie: de factuur inlezen zoals bij inkoop (`InkoopDienst.Lees` met de mutatie). Na het boeken van die factuur lettert het pakket de mutatie erop af als het bedrag gelijk is, en leert het IBAN (`BankDienst.NaFactuur`). Ook zonder upload: komt een factuur later binnen en is die nu de enige zekere kandidaat voor een mutatie in *Te verwerken*, dan wordt die mutatie afgeletterd |
+| Werklijsten | Tabbladen op het bankscherm: *Te verwerken* (de betalingen en ontvangsten zonder factuur of regel), *Openstaande posten* (debiteuren en crediteuren op vervaldatum, met het aantal dagen vervallen en een link naar de factuur) en *Verschillen* (deels betaalde of verrekende posten, en het saldo van de vraagposten met een link naar de grootboekkaart) |
+| Opslag | `Afschrift` (saldi en melding) en `Banktransactie` (de mutatie, status, de boeking); bij een document de mutatie waarbij het geüpload is (`Document.BanktransactieId`); migraties `Bank` en `DocumentBijBank` voor PostgreSQL en SQLite |
 
 #### Windows-app voor de tests
 
@@ -352,7 +354,7 @@ webapp in een eigen venster, zonder webserver, zonder databaseserver en zonder i
 | Virusscan | Geen: wat de gebruiker op zijn eigen pc uploadt, is van hemzelf (Windows scant de bestanden op schijf al). De webapp op kantoor scant wel, met ClamAV |
 | Bouwen | `scripts/maak-windows-app.ps1` of `.sh`: `dotnet publish -r win-x64 --self-contained`, gezipt met `LEESMIJ.txt`. De CI maakt de zip en start hem op een Windows-runner met `--proef` (eerste scherm en proefbalans, met schermafdrukken) |
 
-Nog niet gebouwd: de werklijsten en *factuur uploaden* bij een bankmutatie (rest van A8), verkoop (A9), OCR, btw-aangifte en periodes, het RGS-werkboek in de
+Nog niet gebouwd: verkoop (A9), facturen per e-mail of uit een map, Peppol, OCR, btw-aangifte en periodes, het RGS-werkboek in de
 administratie (nu de RGS-code als tekst bij een nieuwe rekening), en de hulppagina.
 
 ## 6. Open vragen
