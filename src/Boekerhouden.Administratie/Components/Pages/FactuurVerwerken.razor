@@ -38,11 +38,8 @@
         }
         else
         {
-            <div class="row g-3">
-                <div class="col-xl-6 @(ViewerZichtbaar ? null : "d-none")">
-                    <div @ref="viewer" class="factuurviewer"></div>
-                </div>
-                <div class="@(ViewerZichtbaar ? "col-xl-6" : "col-12")">
+            <div class="verwerken">
+                <div class="verwerken-formulier">
                     <Foutmeldingen Fouten="fouten" />
                     @if (verwerking.Voorstel is { } v)
                     {
@@ -235,6 +232,10 @@
                         </div>
                     </div>
                 </div>
+                <div @ref="scheiding" class="verwerken-scheiding @(ViewerZichtbaar ? null : "d-none")" title="Sleep om de factuur breder of smaller te maken; dubbelklik voor de standaardbreedte"></div>
+                <div @ref="viewerPaneel" class="verwerken-viewer @(ViewerZichtbaar ? null : "d-none")">
+                    <div @ref="viewer" class="factuurviewer"></div>
+                </div>
             </div>
         }
     </ChildContent>
@@ -258,6 +259,8 @@
 
     // De viewer: het veld dat een aangewezen gebied krijgt, en of de factuur in een apart venster staat.
     private ElementReference viewer;
+    private ElementReference viewerPaneel;
+    private ElementReference scheiding;
     private IJSObjectReference? module;
     private IJSObjectReference? viewerKoppeling;
     private bool viewerGestart;
@@ -387,6 +390,7 @@
             bron = new DotNetStreamReference(new MemoryStream(inhoud.Inhoud));
         }
 
+        await module.InvokeVoidAsync("scheiding", scheiding, viewerPaneel);
         viewerKoppeling = await module.InvokeAsync<IJSObjectReference>("toon", viewer, bron, DocumentId.ToString(), zelf);
         await viewerKoppeling.InvokeVoidAsync("doel", doelNaam);
     }

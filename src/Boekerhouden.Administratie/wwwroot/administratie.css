@@ -127,3 +127,84 @@
     display: block;
     margin: .25rem 0;
 }
+
+/* Verwerkscherm: het formulier links, de factuur rechts, met een versleepbare scheiding ertussen. */
+.verwerken {
+    display: flex;
+    align-items: flex-start;
+}
+
+.verwerken-formulier {
+    flex: 1 1 auto;
+    min-width: 520px;
+}
+
+.verwerken-formulier .status {
+    white-space: normal;
+}
+
+.verwerken-viewer {
+    flex: 0 0 auto;
+    width: 46%;
+    min-width: 320px;
+    position: sticky;
+    top: 1rem;
+}
+
+.verwerken-scheiding {
+    flex: 0 0 auto;
+    align-self: stretch;
+    width: 1rem;
+    cursor: col-resize;
+    position: relative;
+    touch-action: none;
+}
+
+.verwerken-scheiding::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(50% - 1px);
+    width: 2px;
+    border-radius: 1px;
+    background: var(--bs-border-color);
+}
+
+.verwerken-scheiding:hover::after, body.scheiding-slepen .verwerken-scheiding::after {
+    background: var(--bs-primary);
+}
+
+body.scheiding-slepen {
+    cursor: col-resize;
+    user-select: none;
+}
+
+/* De hoogte van de factuur: met de hoek rechtsonder te vergroten of te verkleinen. */
+.verwerken-viewer .factuurviewer {
+    resize: vertical;
+    overflow: hidden;
+    min-height: 20rem;
+}
+
+/* Smal scherm: de factuur onder het formulier, over de hele breedte. */
+@media (max-width: 1199.98px) {
+    .verwerken {
+        flex-direction: column;
+    }
+
+    .verwerken-scheiding {
+        display: none;
+    }
+
+    .verwerken-formulier {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .verwerken-viewer {
+        width: 100% !important;
+        position: static;
+        margin-top: 1rem;
+    }
+}

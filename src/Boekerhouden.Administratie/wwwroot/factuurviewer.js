@@ -209,3 +209,54 @@ export function bewaarWeergave(waarde) {
     }
 }
 
+const breedteSleutel = 'boekerhouden.inkoop.viewerbreedte';
+
+/**
+ * De scheiding tussen formulier en factuur: slepen maakt de factuur (rechts) breder of smaller, dubbelklikken zet de
+ * standaardbreedte terug. De breedte wordt per browser onthouden.
+ */
+export function scheiding(handvat, paneel) {
+    const zet = (breedte) => {
+        if (breedte) paneel.style.width = `${breedte}px`;
+        else paneel.style.removeProperty('width');
+    };
+    try {
+        const opgeslagen = Number(localStorage.getItem(breedteSleutel));
+        if (opgeslagen > 0) zet(Math.min(opgeslagen, window.innerWidth * 0.8));
+    } catch {
+        // Geen opslag: de standaardbreedte.
+    }
+
+    let slepen = false;
+    handvat.addEventListener('pointerdown', (e) => {
+        slepen = true;
+        handvat.setPointerCapture(e.pointerId);
+        document.body.classList.add('scheiding-slepen');
+        e.preventDefault();
+    });
+    handvat.addEventListener('pointermove', (e) => {
+        if (!slepen) return;
+        const rechts = paneel.getBoundingClientRect().right;
+        // Het formulier links houdt minstens 520 pixels.
+        const max = Math.min(window.innerWidth * 0.8, paneel.parentElement.getBoundingClientRect().width - 520 - handvat.offsetWidth);
+        zet(Math.round(Math.min(max, Math.max(320, rechts - e.clientX - handvat.offsetWidth / 2))));
+    });
+    handvat.addEventListener('pointerup', () => {
+        slepen = false;
+        document.body.classList.remove('scheiding-slepen');
+        try {
+            localStorage.setItem(breedteSleutel, String(Math.round(paneel.getBoundingClientRect().width)));
+        } catch {
+            // Niet onthouden; de breedte geldt dan alleen nu.
+        }
+    });
+    handvat.addEventListener('dblclick', () => {
+        zet(null);
+        try {
+            localStorage.removeItem(breedteSleutel);
+        } catch {
+            // Niets te vergeten.
+        }
+    });
+}
+
