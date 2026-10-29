@@ -1,11 +1,109 @@
 /* Aanvullingen op app.css (gedeeld met de samenstel-app) voor het administratiepakket. */
 
-.administratiemenu .nav-link {
-    color: #495057;
+/* Administratie: zijmenu links (gegroepeerd, in te klappen), inhoud rechts. */
+.administratie {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.5rem;
 }
 
-.administratiemenu .nav-link.active {
-    color: #212529;
+.administratie-inhoud {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.zijmenu {
+    flex: 0 0 13rem;
+    position: sticky;
+    top: 1rem;
+    padding: .5rem 0;
+    border-right: 1px solid var(--bs-border-color);
+    font-size: .9375rem;
+}
+
+.menu-ingeklapt .zijmenu {
+    flex-basis: 2.25rem;
+}
+
+.zijmenu-kop {
+    display: flex;
+    align-items: center;
+    gap: .25rem;
+    padding: 0 .5rem .5rem 0;
+}
+
+.zijmenu-naam {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    color: var(--bs-body-color);
+    text-decoration: none;
+}
+
+.zijmenu-knop, .zijmenu-groepkop {
+    border: 0;
+    background: none;
+    color: var(--bs-secondary-color);
+}
+
+.zijmenu-knop {
+    padding: 0 .375rem;
+    border-radius: var(--bs-border-radius);
+}
+
+.zijmenu-knop:hover, .zijmenu-groepkop:hover {
+    color: var(--bs-body-color);
+}
+
+.zijmenu-groep {
+    margin-bottom: .5rem;
+}
+
+.zijmenu-groepkop {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    padding: .25rem .75rem .25rem 0;
+    font-size: .75rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.zijmenu-link {
+    display: block;
+    padding: .25rem .75rem .25rem .5rem;
+    margin-right: -1px;
+    color: var(--bs-body-color);
+    text-decoration: none;
+    border-right: 2px solid transparent;
+}
+
+.zijmenu-link:hover {
+    background: var(--bs-tertiary-bg);
+}
+
+.zijmenu-link.actief {
+    font-weight: 600;
+    border-right-color: var(--bs-primary);
+}
+
+/* Smal scherm: het menu boven de inhoud. */
+@media (max-width: 767.98px) {
+    .administratie {
+        flex-direction: column;
+    }
+
+    .zijmenu {
+        position: static;
+        flex-basis: auto;
+        width: 100%;
+        border-right: 0;
+        border-bottom: 1px solid var(--bs-border-color);
+    }
 }
 
 .overzicht tr.rekening td:first-child {

@@ -75,6 +75,14 @@ public sealed class WebTests(AdministratieFixture app) : IClassFixture<Administr
         Assert.Contains("Webwinkel Voorbeeld B.V.", lijst, StringComparison.Ordinal);
         Assert.Contains("1.234,56", kaart, StringComparison.Ordinal);
 
+        // Het zijmenu in groepen, met de kolommenbalans onder Rapportages.
+        var koba = await beheerder.GetStringAsync(new Uri($"/a/{id}/kolommenbalans", UriKind.Relative));
+        Assert.Contains("Boekhouden", koba, StringComparison.Ordinal);
+        Assert.Contains("Rapportages", koba, StringComparison.Ordinal);
+        Assert.Contains("Inrichting", koba, StringComparison.Ordinal);
+        Assert.Contains("Saldibalans", koba, StringComparison.Ordinal);
+        Assert.Contains("1.234,56", koba, StringComparison.Ordinal);
+
         var buiten = await app.Gebruiker("Bert Buiten");
         var email = (await app.Dienst<GebruikerDienst>().Lijst()).Single(g => g.Id == buiten.Id).Email;
         using var client = NieuweClient();

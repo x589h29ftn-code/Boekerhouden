@@ -299,7 +299,8 @@ overzichten.
 | Boeken | `GrootboekDienst.Boek`: controles uit het domein, één boeking tegelijk per administratie (rij-lock), volgnummer en SHA-256-keten (`Journaalketen`); triggers in de database weigeren wijzigen en verwijderen van boekingen en het wijzigingslog |
 | Overzichten | balans en W&V per RGS-hoofdpost (`RgsHoofdposten`, zonder werkboek), proefbalans, grootboekkaart, journaal met ketencontrole |
 | Inloggen | wachtwoord en daarna de code uit de authenticator-app (of een herstelcode), of een passkey; voor de beheerder is tweestapsverificatie verplicht (`TweestapVerplicht`) |
-| Schermen | `/` administraties, `/a/{id}` balans en W&V, `/a/{id}/proefbalans`, `/grootboek`, `/journaal`, `/memoriaal`, `/rekeningschema`; `/account/beveiliging`; beheer: `/beheer/gebruikers`, `/beheer/wijzigingslog` |
+| Schermen | `/` administraties; in een administratie een zijmenu in groepen, in te klappen (heel en per groep, onthouden in de browser): **Boekhouden** (`/inkoop`, `/memoriaal`, `/journaal`; verkoop en bank volgen), **Rapportages** (`/a/{id}` balans en W&V, `/kolommenbalans`, `/proefbalans`, `/grootboek`) en **Inrichting** (`/relaties`, `/regels`, `/rekeningschema`, `/instellingen`); `/account/beveiliging`; beheer: `/beheer/gebruikers`, `/beheer/instellingen`, `/beheer/wijzigingslog` |
+| Kolommenbalans | `Journaal.Kolommenbalans`: per rekening de proefbalans (totaal debet en credit, met de beginstand van balansrekeningen en het resultaat van eerdere jaren op onverdeeld resultaat), de saldibalans, en het saldo op de balans of in de W&V; de winst of het verlies sluit de laatste twee kolommenparen |
 
 #### Inkoop (plakje A7)
 

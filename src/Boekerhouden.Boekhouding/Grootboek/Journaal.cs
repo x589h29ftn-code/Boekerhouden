@@ -164,6 +164,60 @@ public sealed class Journaal
         return new Proefbalans(van, tot, Schema.Alle.Select(r => new Proefbalansregel(r, saldi[r.Nummer])).ToList());
     }
 
+    /// <summary>
+    /// De kolommenbalans over een periode. Balansrekeningen beginnen met hun stand van vóór de periode (als debet of
+    /// credit), resultaatrekeningen met nul; het resultaat van vóór de periode komt op het onverdeelde resultaat. De
+    /// saldi zijn gelijk aan die van de <see cref="Proefbalans(DateOnly, DateOnly)"/>.
+    /// </summary>
+    public Kolommenbalans Kolommenbalans(DateOnly van, DateOnly tot)
+    {
+        var debet = Schema.Alle.ToDictionary(r => r.Nummer, _ => 0m, StringComparer.Ordinal);
+        var credit = Schema.Alle.ToDictionary(r => r.Nummer, _ => 0m, StringComparer.Ordinal);
+        var begin = Schema.Alle.ToDictionary(r => r.Nummer, _ => 0m, StringComparer.Ordinal);
+        var eerder = 0m;
+        foreach (var post in posten.Where(p => p.Datum <= tot))
+        {
+            foreach (var regel in post.Regels)
+            {
+                var rekening = Schema.Zoek(regel.Rekeningnummer)!;
+                if (post.Datum >= van)
+                {
+                    if (regel.Bedrag > 0)
+                    {
+                        debet[rekening.Nummer] += regel.Bedrag;
+                    }
+                    else
+                    {
+                        credit[rekening.Nummer] -= regel.Bedrag;
+                    }
+                }
+                else if (rekening.IsBalans)
+                {
+                    begin[rekening.Nummer] += regel.Bedrag;
+                }
+                else
+                {
+                    eerder += regel.Bedrag;
+                }
+            }
+        }
+
+        if (eerder != 0)
+        {
+            var onverdeeld = Schema.MetFunctie(Rekeningfunctie.OnverdeeldResultaat).FirstOrDefault()
+                ?? throw new InvalidOperationException("Er is resultaat van vóór de periode, maar geen rekening voor het onverdeelde resultaat.");
+            begin[onverdeeld.Nummer] += eerder;
+        }
+
+        return new Kolommenbalans(van, tot, Schema.Alle.Select(r => new Kolommenbalansregel(
+            r,
+            debet[r.Nummer] + Math.Max(begin[r.Nummer], 0),
+            credit[r.Nummer] + Math.Max(-begin[r.Nummer], 0))).ToList());
+    }
+
+    /// <summary>De kolommenbalans van een kalenderjaar.</summary>
+    public Kolommenbalans Kolommenbalans(int boekjaar) => Kolommenbalans(new DateOnly(boekjaar, 1, 1), new DateOnly(boekjaar, 12, 31));
+
     /// <summary>De proefbalans van een kalenderjaar.</summary>
     public Proefbalans Proefbalans(int boekjaar) => Proefbalans(new DateOnly(boekjaar, 1, 1), new DateOnly(boekjaar, 12, 31));
 

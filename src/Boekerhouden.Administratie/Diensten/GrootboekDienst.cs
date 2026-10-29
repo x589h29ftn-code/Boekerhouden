@@ -194,6 +194,9 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
     public async Task<Proefbalans> Proefbalans(Uitvoerder wie, Guid administratie, int boekjaar) =>
         (await Journaal(wie, administratie)).Proefbalans(boekjaar);
 
+    public async Task<Kolommenbalans> Kolommenbalans(Uitvoerder wie, Guid administratie, int boekjaar) =>
+        (await Journaal(wie, administratie)).Kolommenbalans(boekjaar);
+
     public async Task<Jaaroverzicht> Jaaroverzicht(Uitvoerder wie, Guid administratie, int boekjaar) =>
         Boekhouding.Grootboek.Jaaroverzicht.Maak(await Proefbalans(wie, administratie, boekjaar), RgsHoofdposten.Schema);
 

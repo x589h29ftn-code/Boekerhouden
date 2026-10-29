@@ -1,0 +1,107 @@
+@page "/a/{Id:guid}/kolommenbalans"
+@inject GrootboekDienst Grootboek
+
+<AdministratieKader Id="Id" Titel="Kolommenbalans" Actief="/kolommenbalans" BijOpenen="Open">
+    <Acties>
+        <span class="form-check form-switch mb-0 small text-nowrap">
+            <input class="form-check-input" type="checkbox" id="met-nul" @bind="metNul" />
+            <label class="form-check-label" for="met-nul">ook zonder bedragen</label>
+        </span>
+        <JaarKeuze Jaren="jaren" @bind-Jaar="jaar" @bind-Jaar:after="Laad" />
+    </Acties>
+    <ChildContent>
+        @if (koba is not null)
+        {
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0 kolommenbalans">
+                        <thead>
+                            <tr>
+                                <th rowspan="2">Rekening</th>
+                                <th colspan="2" class="text-center">Proefbalans</th>
+                                <th colspan="2" class="text-center">Saldibalans</th>
+                                <th colspan="2" class="text-center">Balans</th>
+                                <th colspan="2" class="text-center">Winst en verlies</th>
+                            </tr>
+                            <tr>
+                                @for (var i = 0; i < 4; i++)
+                                {
+                                    <th class="text-end">Debet</th>
+                                    <th class="text-end">Credit</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in koba.Regels.Where(r => metNul || r.Debet != 0 || r.Credit != 0))
+                            {
+                                <tr>
+                                    <td class="text-nowrap" title="@r.Rekening.RgsCode"><a href="/a/@Id/grootboek?rekening=@r.Rekening.Nummer&jaar=@jaar"><span class="nr">@r.Rekening.Nummer</span> @r.Rekening.Naam</a></td>
+                                    <td class="bedrag text-end">@Getal(r.Debet)</td>
+                                    <td class="bedrag text-end">@Getal(r.Credit)</td>
+                                    <td class="bedrag text-end">@Getal(r.SaldoDebet)</td>
+                                    <td class="bedrag text-end">@Getal(r.SaldoCredit)</td>
+                                    <td class="bedrag text-end">@Getal(r.BalansDebet)</td>
+                                    <td class="bedrag text-end">@Getal(r.BalansCredit)</td>
+                                    <td class="bedrag text-end">@Getal(r.WinstEnVerliesDebet)</td>
+                                    <td class="bedrag text-end">@Getal(r.WinstEnVerliesCredit)</td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr class="fw-semibold">
+                                <td>Totaal</td>
+                                <td class="bedrag text-end">@Bedragen.Getal(koba.TotaalDebet)</td>
+                                <td class="bedrag text-end">@Bedragen.Getal(koba.TotaalCredit)</td>
+                                <td class="bedrag text-end">@Bedragen.Getal(koba.SaldoDebet)</td>
+                                <td class="bedrag text-end">@Bedragen.Getal(koba.SaldoCredit)</td>
+                                <td class="bedrag text-end">@Bedragen.Getal(koba.BalansDebet)</td>
+                                <td class="bedrag text-end">@Bedragen.Getal(koba.BalansCredit)</td>
+                                <td class="bedrag text-end">@Bedragen.Getal(koba.WinstEnVerliesDebet)</td>
+                                <td class="bedrag text-end">@Bedragen.Getal(koba.WinstEnVerliesCredit)</td>
+                            </tr>
+                            <tr class="text-secondary">
+                                <td>@(koba.Resultaat >= 0 ? "Winst" : "Verlies") @jaar</td>
+                                <td colspan="4"></td>
+                                <td class="bedrag text-end">@(koba.Resultaat < 0 ? Bedragen.Getal(-koba.Resultaat) : null)</td>
+                                <td class="bedrag text-end">@(koba.Resultaat > 0 ? Bedragen.Getal(koba.Resultaat) : null)</td>
+                                <td class="bedrag text-end">@(koba.Resultaat > 0 ? Bedragen.Getal(koba.Resultaat) : null)</td>
+                                <td class="bedrag text-end">@(koba.Resultaat < 0 ? Bedragen.Getal(-koba.Resultaat) : null)</td>
+                            </tr>
+                            <tr class="fw-semibold">
+                                <td></td>
+                                <td colspan="4"></td>
+                                <td class="bedrag text-end">@Bedragen.Getal(koba.BalansDebet + Math.Max(-koba.Resultaat, 0))</td>
+                                <td class="bedrag text-end">@Bedragen.Getal(koba.BalansCredit + Math.Max(koba.Resultaat, 0))</td>
+                                <td class="bedrag text-end">@Bedragen.Getal(koba.WinstEnVerliesDebet + Math.Max(koba.Resultaat, 0))</td>
+                                <td class="bedrag text-end">@Bedragen.Getal(koba.WinstEnVerliesCredit + Math.Max(-koba.Resultaat, 0))</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        }
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private IReadOnlyList<int> jaren = [];
+    private int jaar;
+    private bool metNul;
+    private Boekhouding.Grootboek.Kolommenbalans? koba;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        jaren = await Grootboek.Boekjaren(g.Wie, Id);
+        jaar = jaren[0];
+        await Laad();
+    }
+
+    private async Task Laad() => koba = await Grootboek.Kolommenbalans(geopend!.Wie, Id, jaar);
+
+    private static string? Getal(decimal bedrag) => bedrag == 0 ? null : Bedragen.Getal(bedrag);
+}

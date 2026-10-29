@@ -1,6 +1,10 @@
-@* Kop, menu en toegangscontrole van een pagina binnen een administratie. Pas na de controle laadt de pagina haar
-   gegevens (BijOpenen); zonder lidmaatschap dezelfde melding als bij een administratie die niet bestaat. *@
+@* Kop, zijmenu en toegangscontrole van een pagina binnen een administratie. Pas na de controle laadt de pagina haar
+   gegevens (BijOpenen); zonder lidmaatschap dezelfde melding als bij een administratie die niet bestaat. Het zijmenu
+   is gegroepeerd en in te klappen (het hele menu en per groep); die stand onthoudt de browser. *@
+@implements IAsyncDisposable
 @inject AdministratieDienst AdministratieDienst
+@inject Menustaat Staat
+@inject IJSRuntime JS
 
 @if (!geladen)
 {
@@ -13,43 +17,85 @@ else if (kop is null)
 else
 {
     <PageTitle>@Titel – @kop.Naam</PageTitle>
-    <nav aria-label="kruimelpad">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="/">Administraties</a></li>
-            <li class="breadcrumb-item"><a href="/a/@kop.Id">@kop.Naam</a></li>
-            <li class="breadcrumb-item active" aria-current="page">@Titel</li>
-        </ol>
-    </nav>
-    <div class="d-flex align-items-center flex-wrap gap-3 mb-3">
-        <h1 class="h3 mb-0 me-auto">@Titel</h1>
-        @Acties
-    </div>
-    <nav class="nav nav-underline administratiemenu mb-3" aria-label="Administratie">
-        @foreach (var (pad, naam, recht) in Menu)
-        {
-            @if (kop.Mag(recht))
+    <div class="administratie @(Staat.Ingeklapt ? "menu-ingeklapt" : null)">
+        <nav class="zijmenu" aria-label="Administratie">
+            <div class="zijmenu-kop">
+                @if (!Staat.Ingeklapt)
+                {
+                    <a class="zijmenu-naam" href="/a/@kop.Id" title="@kop.Naam">@kop.Naam</a>
+                }
+                <button type="button" class="zijmenu-knop" title="@(Staat.Ingeklapt ? "Menu uitklappen" : "Menu inklappen")" aria-expanded="@(!Staat.Ingeklapt)" @onclick="WisselMenu">@(Staat.Ingeklapt ? "»" : "«")</button>
+            </div>
+            @if (!Staat.Ingeklapt)
             {
-                <a class="nav-link @(pad == Actief ? "active" : null)" href="@($"/a/{kop.Id}{pad}")">@naam</a>
+                @foreach (var (groep, items) in Menu)
+                {
+                    var zichtbaar = items.Where(i => kop.Mag(i.Recht)).ToList();
+                    if (zichtbaar.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    var open = !Staat.Dicht.Contains(groep) || zichtbaar.Any(i => i.Pad == Actief);
+                    <div class="zijmenu-groep">
+                        <button type="button" class="zijmenu-groepkop" aria-expanded="@open" @onclick="() => WisselGroep(groep)">
+                            @groep <span class="pijl" aria-hidden="true">@(open ? "▾" : "▸")</span>
+                        </button>
+                        @if (open)
+                        {
+                            @foreach (var (pad, naam, _) in zichtbaar)
+                            {
+                                <a class="zijmenu-link @(pad == Actief ? "actief" : null)" href="@($"/a/{kop.Id}{pad}")" aria-current="@(pad == Actief ? "page" : null)">@naam</a>
+                            }
+                        }
+                    </div>
+                }
             }
-        }
-    </nav>
-    @ChildContent(kop)
+        </nav>
+        <div class="administratie-inhoud">
+            <nav aria-label="kruimelpad">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/">Administraties</a></li>
+                    <li class="breadcrumb-item"><a href="/a/@kop.Id">@kop.Naam</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">@Titel</li>
+                </ol>
+            </nav>
+            <div class="d-flex align-items-center flex-wrap gap-3 mb-3">
+                <h1 class="h3 mb-0 me-auto">@Titel</h1>
+                @Acties
+            </div>
+            @ChildContent(kop)
+        </div>
+    </div>
 }
 
 @code {
-    private static readonly (string Pad, string Naam, Recht Recht)[] Menu =
+    /// <summary>Het menu per groep: boekhouden, rapportages en inrichting.</summary>
+    private static readonly (string Groep, (string Pad, string Naam, Recht Recht)[] Items)[] Menu =
     [
-        ("/inkoop", "Inkoop", Recht.Lezen),
-        ("", "Balans en W&V", Recht.Lezen),
-        ("/proefbalans", "Proefbalans", Recht.Lezen),
-        ("/grootboek", "Grootboekkaart", Recht.Lezen),
-        ("/journaal", "Journaal", Recht.Lezen),
-        ("/memoriaal", "Memoriaal", Recht.Boekhouden),
-        ("/rekeningschema", "Rekeningschema", Recht.Lezen),
-        ("/relaties", "Relaties", Recht.Lezen),
-        ("/regels", "Regels", Recht.Lezen),
-        ("/instellingen", "Instellingen", Recht.Boekhouden),
+        ("Boekhouden",
+        [
+            ("/inkoop", "Inkoop", Recht.Lezen),
+            ("/memoriaal", "Memoriaal", Recht.Boekhouden),
+            ("/journaal", "Journaal", Recht.Lezen),
+        ]),
+        ("Rapportages",
+        [
+            ("", "Balans en W&V", Recht.Lezen),
+            ("/kolommenbalans", "Kolommenbalans", Recht.Lezen),
+            ("/proefbalans", "Proefbalans", Recht.Lezen),
+            ("/grootboek", "Grootboekkaart", Recht.Lezen),
+        ]),
+        ("Inrichting",
+        [
+            ("/relaties", "Relaties", Recht.Lezen),
+            ("/regels", "Regels", Recht.Lezen),
+            ("/rekeningschema", "Rekeningschema", Recht.Lezen),
+            ("/instellingen", "Instellingen", Recht.Boekhouden),
+        ]),
     ];
+
+    private IJSObjectReference? module;
 
     private bool geladen;
     private AdministratieKop? kop;
@@ -92,5 +138,57 @@ else
         }
 
         geladen = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // De stand van het menu staat in de browser; één keer per sessie inlezen.
+        if (!firstRender || Staat.Gelezen)
+        {
+            return;
+        }
+
+        module = await JS.InvokeAsync<IJSObjectReference>("import", "./menu.js");
+        if (Staat.Lees(await module.InvokeAsync<string?>("lees")))
+        {
+            StateHasChanged();
+        }
+    }
+
+    private async Task WisselMenu()
+    {
+        Staat.Ingeklapt = !Staat.Ingeklapt;
+        await Bewaar();
+    }
+
+    private async Task WisselGroep(string groep)
+    {
+        if (!Staat.Dicht.Remove(groep))
+        {
+            Staat.Dicht.Add(groep);
+        }
+
+        await Bewaar();
+    }
+
+    private async Task Bewaar()
+    {
+        module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./menu.js");
+        await module.InvokeVoidAsync("bewaar", Staat.Tekst());
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (module is not null)
+            {
+                await module.DisposeAsync();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // Het circuit is al weg.
+        }
     }
 }

@@ -132,6 +132,33 @@ public sealed class JournaalTests
     }
 
     [Fact]
+    public void Kolommenbalans_met_beginstand_mutaties_en_resultaat_die_alle_kolommen_sluit()
+    {
+        var journaal = Testadministratie.Journaal();
+        journaal.Boek(Memoriaal("2025-0001", new(2025, 1, 1), ("1100", 5000m), ("0500", -5000m)));
+        journaal.Boek(Memoriaal("2025-0002", new(2025, 6, 1), ("1100", 1200m), ("8000", -1200m)));
+        journaal.Boek(Memoriaal("2026-0001", new(2026, 3, 1), ("1100", 800m), ("8000", -800m)));
+        journaal.Boek(Memoriaal("2026-0002", new(2026, 6, 1), ("4300", 30m), ("1100", -30m)));
+
+        var koba = journaal.Kolommenbalans(2026);
+        var proefbalans = journaal.Proefbalans(2026);
+
+        // Bank: beginstand 6.200 debet, plus 800 debet en 30 credit in 2026.
+        var bank = koba.Regels.Single(r => r.Rekening.Nummer == "1100");
+        Assert.Equal((7000m, 30m, 6970m), (bank.Debet, bank.Credit, bank.BalansDebet));
+        Assert.Equal(1200m, koba.Regels.Single(r => r.Rekening.Nummer == "0590").BalansCredit);
+        Assert.Equal(800m, koba.Regels.Single(r => r.Rekening.Nummer == "8000").WinstEnVerliesCredit);
+
+        // Elk saldo gelijk aan de proefbalans, en alle kolommen sluiten (met het resultaat).
+        Assert.All(koba.Regels, r => Assert.Equal(Saldo(proefbalans, r.Rekening.Nummer), r.Saldo));
+        Assert.Equal(koba.TotaalDebet, koba.TotaalCredit);
+        Assert.Equal(koba.SaldoDebet, koba.SaldoCredit);
+        Assert.Equal(770m, koba.Resultaat);
+        Assert.Equal(koba.BalansDebet, koba.BalansCredit + koba.Resultaat);
+        Assert.Equal(koba.WinstEnVerliesDebet + koba.Resultaat, koba.WinstEnVerliesCredit);
+    }
+
+    [Fact]
     public void Saldibalans_voor_het_samenstelpakket_heeft_de_rgs_codes()
     {
         var journaal = Testadministratie.Journaal();
