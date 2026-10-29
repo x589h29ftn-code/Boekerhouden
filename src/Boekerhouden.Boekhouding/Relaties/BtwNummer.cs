@@ -39,6 +39,14 @@ public static partial class BtwNummer
         return elfproef || mod97;
     }
 
+    private static readonly HashSet<string> EuLanden = new(StringComparer.Ordinal)
+    {
+        "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "EL", "ES", "FI", "FR", "HR", "HU", "IE", "IT", "LT", "LU", "LV", "MT", "NL", "PL", "PT", "RO", "SE", "SI", "SK", "XI",
+    };
+
+    /// <summary>Is dit de landcode van een EU-land (zoals in btw-nummers en IBAN's, Griekenland als EL of GR)?</summary>
+    public static bool IsEuLand(string? land) => land is { Length: 2 } && (EuLanden.Contains(land.ToUpperInvariant()) || land.Equals("GR", StringComparison.OrdinalIgnoreCase));
+
     private static int Mod97(string cijfers) => cijfers.Aggregate(0, (rest, c) => ((rest * 10) + (c - '0')) % 97);
 
     [GeneratedRegex("^NL[0-9]{9}B[0-9]{2}$")]

@@ -154,13 +154,43 @@ public static class Inkoopverwerker
     {
         ArgumentNullException.ThrowIfNull(herkend);
         return new Verwerkingsgegevens(Verwerkingssoort.Inkoopfactuur, relatie?.Code, relatie?.Naam ?? herkend.Naam,
-            herkend.TotaalInclusief ?? 0m, herkend.Omschrijving, herkend.Iban, herkend.EnigTarief, herkend.Postcodes);
+            herkend.TotaalInclusief ?? 0m, herkend.Omschrijving, herkend.Iban, herkend.Verlegd ? null : herkend.EnigTarief, herkend.Postcodes);
+    }
+
+    /// <summary>
+    /// De btw-code bij een factuur met verlegde btw: binnenland (2a), binnen de EU (4b) of buiten de EU (4a), naar het
+    /// land van het btw-nummer van de leverancier, of anders van zijn IBAN. Leeg als de btw niet verlegd is.
+    /// </summary>
+    public static BtwCode? VerlegdeCode(HerkendeFactuur herkend, IReadOnlyList<BtwCode> btwCodes)
+    {
+        ArgumentNullException.ThrowIfNull(herkend);
+        ArgumentNullException.ThrowIfNull(btwCodes);
+        if (!herkend.Verlegd)
+        {
+            return null;
+        }
+
+        var land = (herkend.BtwNummer ?? herkend.Iban) is { Length: >= 2 } nummer ? nummer[..2].ToUpperInvariant() : null;
+        var soort = land switch
+        {
+            "NL" => Btwsoort.InkoopVerlegd,
+            not null when BtwNummer.IsEuLand(land) => Btwsoort.InkoopBinnenEu,
+            not null => Btwsoort.InkoopBuitenEu,
+            _ => Btwsoort.InkoopVerlegd,
+        };
+        return btwCodes.FirstOrDefault(c => c.Soort == soort && c.Tarief == Tarief.Hoog && c.Actief) ?? btwCodes.FirstOrDefault(c => c.Soort == soort);
     }
 
     private static List<Factuurregel>? Factuurregels(HerkendeFactuur herkend, string rekening, string? adviesCode, IReadOnlyList<BtwCode> btwCodes, decimal totaal)
     {
         var omschrijving = herkend.Omschrijving ?? herkend.Naam ?? "Inkoop";
         var advies = BtwCodes.Zoek(btwCodes, adviesCode);
+
+        // Btw verlegd: geen btw op de factuur; één regel met de verlegde code (die van het advies, als die verlegd is).
+        if (VerlegdeCode(herkend, btwCodes) is { } verlegd)
+        {
+            return [new Factuurregel(omschrijving, rekening, (advies is { Verlegd: true } ? advies : verlegd).Code, herkend.TotaalExclusief ?? totaal)];
+        }
 
         // Btw per tarief bekend: één regel per tarief, met de btw zoals op de factuur.
         if (herkend.Btwregels.Count > 0)

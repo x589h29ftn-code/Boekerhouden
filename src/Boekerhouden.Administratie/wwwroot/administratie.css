@@ -756,3 +756,27 @@ body.scheiding-slepen {
 .overzichtskaart {
     overflow: visible;
 }
+
+/* De regels: vaste verhoudingen, zodat btw en bedragen ook naast werkvoorraad en factuur leesbaar blijven. */
+.boekformulier .regeltabel {
+    table-layout: fixed;
+}
+
+.boekformulier .regeltabel th:nth-last-child(1) {
+    width: 1.75rem !important;
+}
+
+.boekformulier .regeltabel input, .boekformulier .regeltabel select {
+    min-width: 0;
+}
+
+.boekformulier .regeltabel .form-select-sm {
+    padding-right: 1.6rem;
+    background-position: right .4rem center;
+}
+
+.regeltabel > thead th {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

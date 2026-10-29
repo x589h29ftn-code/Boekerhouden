@@ -103,13 +103,27 @@ public sealed record BtwCode(string Code, string Omschrijving, Btwsoort Soort, T
     /// <summary>Komt er een btw-bedrag op de factuur zelf (dus niet bij 0%, vrijgesteld of verlegd)?</summary>
     public bool BtwOpFactuur => Percentage != 0 && !Verlegd;
 
-    /// <summary>Kort, voor in een regel: bijv. "Hoog 21%", "Verlegd naar u 21%" of "Geen btw".</summary>
-    public string Kort => Soort switch
+    /// <summary>Kort, voor in een regel: bijv. "Hoog 21%", "Verlegd 21%", "ICV 21%" of "Geen btw".</summary>
+    public string Kort
     {
-        Btwsoort.InkoopVoorbelasting or Btwsoort.VerkoopHoog or Btwsoort.VerkoopLaag => $"{(Tarief == Tarief.Laag ? "Laag" : "Hoog")} {Btwpercentage.Tekst(Percentage)}",
-        _ when Percentage != 0 => $"{Info.Naam} {Btwpercentage.Tekst(Percentage)}",
-        _ => Info.Naam,
-    };
+        get
+        {
+            var naam = Soort switch
+            {
+                Btwsoort.InkoopVoorbelasting or Btwsoort.VerkoopHoog or Btwsoort.VerkoopLaag => Tarief == Tarief.Laag ? "Laag" : "Hoog",
+                Btwsoort.InkoopVerlegd or Btwsoort.VerkoopVerlegd => "Verlegd",
+                Btwsoort.InkoopBinnenEu => "ICV",
+                Btwsoort.InkoopBuitenEu => "Import",
+                Btwsoort.VerkoopBinnenEu => "ICP",
+                Btwsoort.VerkoopBuitenEu => "Export",
+                Btwsoort.VerkoopAfstand => "Afstandsverkoop",
+                Btwsoort.InkoopNul or Btwsoort.VerkoopNul => "0%",
+                Btwsoort.VerkoopVrijgesteld => "Vrijgesteld",
+                _ => "Geen btw",
+            };
+            return Percentage != 0 && naam != "0%" ? $"{naam} {Btwpercentage.Tekst(Percentage)}" : naam;
+        }
+    }
 
     /// <summary>De btw over een grondslag, op centen afgerond (half van nul af).</summary>
     public decimal Bereken(decimal grondslag) => BtwBerekening.Btw(grondslag, Percentage);

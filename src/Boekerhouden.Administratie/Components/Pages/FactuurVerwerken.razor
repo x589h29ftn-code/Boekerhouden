@@ -270,14 +270,14 @@
                                         {
                                             <th>Omschrijving</th>
                                         }
-                                        <th style="width:12rem">Grootboekrekening</th>
-                                        <th style="width:8.5rem">Btw</th>
-                                        <th class="text-end" style="width:8rem">Excl. btw</th>
+                                        <th style="width:27%">Grootboekrekening</th>
+                                        <th style="width:21%">Btw</th>
+                                        <th class="text-end" style="width:15%">Excl. btw</th>
                                         @if (Toon("btwbedrag"))
                                         {
-                                            <th class="text-end" style="width:7rem">Btw-bedrag</th>
+                                            <th class="text-end" style="width:14%">Btw-bedrag</th>
                                         }
-                                        <th style="width:2rem"></th>
+                                        <th style="width:1.75rem"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -310,7 +310,7 @@
                                             {
                                                 <td>
                                                     <div class="d-flex align-items-center gap-1">
-                                                        <input class="form-control form-control-sm text-end @Doel($"btw:{n}")" @bind:get="BtwTekst(regel)" @bind:set="v => ZetBtw(regel, v)" @bind:event="oninput" @onfocus='() => Kies($"btw:{n}", "Btw")' title="@(regel.BtwHandmatig ? $"Aangepast; berekend {BerekendeBtw(regel)}" : "Berekend uit het tarief")" aria-label="Btw" />
+                                                        <input class="form-control form-control-sm text-end @Doel($"btw:{n}")" @bind:get="BtwTekst(regel)" @bind:set="v => ZetBtw(regel, v)" @bind:event="oninput" @onfocus='() => Kies($"btw:{n}", "Btw")' title="@(regel.BtwHandmatig ? $"Aangepast; berekend {BerekendeBtw(regel)}" : IsVerlegd(regel) ? "Btw verlegd: het pakket berekent de btw bij het boeken (af te dragen en aftrekbaar)" : "Berekend uit het tarief")" placeholder="@(IsVerlegd(regel) ? "verlegd" : null)" aria-label="Btw" />
                                                         @if (regel.BtwHandmatig)
                                                         {
                                                             <button class="btn btn-sm btn-link text-secondary p-0" title="Terug naar de berekende btw (@BerekendeBtw(regel))" @onclick="() => regel.BtwHandmatig = false">↺</button>
@@ -474,7 +474,8 @@
 
             // Het verschil met het factuurtotaal staat onder de regels; hier de btw per regel en in totaal.
             var h = verwerking.Herkend;
-            var factuur = h is null ? null : new Factuurbedragen(null, h.Btwregels.Count > 0 ? h.TotaalBtw : null, h.Regels?.Count ?? 1);
+            // Het formulier toont een creditnota zonder minteken; vergelijk met de btw van de factuur zonder minteken.
+            var factuur = h is null ? null : new Factuurbedragen(null, h.Btwregels.Count > 0 ? (soort == Documentsoort.Creditnota ? Math.Abs(h.TotaalBtw) : h.TotaalBtw) : null, h.Regels?.Count ?? 1);
             return Bedragcontrole.Controleer([.. regels.Select(r => new Factuurregel("", r.Rekening, r.BtwCode, Getal(r.Bedrag)!.Value, Getal(BtwTekst(r))))], Codes, factuur);
         }
     }
@@ -500,17 +501,22 @@
         omschrijving = voorstel?.Advies.Omschrijving ?? herkend?.Omschrijving ?? "";
         kenmerk = herkend?.Betalingskenmerk;
         var rekening = voorstel?.Advies.Rekeningnummer ?? "";
+        // Btw verlegd ("reverse charge"): de verlegde code (binnenland, EU of buiten de EU), geen btw op de factuur.
+        var verlegd = herkend is null ? null : Inkoopverwerker.VerlegdeCode(herkend, Codes);
+        var standaardCode = voorstel?.Advies.BtwCode ?? verlegd?.Code ?? "I21";
         regels = voorstel?.Factuur is { } f
             ? [.. f.Regels.Select(r => new Invoerregel { Rekening = r.Rekeningnummer, BtwCode = r.BtwCode, Bedrag = Bedragen.Getal(r.Bedrag), Btw = r.Btw is { } b ? Bedragen.Getal(b) : null })]
-            : herkend?.Btwregels is { Count: > 0 } btw
-                ? [.. btw.Select(b => new Invoerregel
-                {
-                    Rekening = rekening,
-                    BtwCode = BtwCodes.Bij(Codes, BtwRichting.Inkoop, b.Percentage)?.Code ?? "I21",
-                    Bedrag = (b.Grondslag ?? (btw.Count == 1 ? herkend.TotaalExclusief : null)) is { } g2 ? Bedragen.Getal(g2) : null,
-                    Btw = Bedragen.Getal(b.Btw),
-                })]
-                : [new Invoerregel { Rekening = rekening, BtwCode = voorstel?.Advies.BtwCode ?? "I21", Bedrag = Exclusief(herkend, voorstel?.Advies.BtwCode ?? "I21") is { } e ? Bedragen.Getal(e) : null }];
+            : verlegd is not null
+                ? [new Invoerregel { Rekening = rekening, BtwCode = verlegd.Code, Bedrag = (herkend!.TotaalExclusief ?? herkend.TotaalInclusief) is { } v ? Bedragen.Getal(v) : null }]
+                : herkend?.Btwregels is { Count: > 0 } btw
+                    ? [.. btw.Select(b => new Invoerregel
+                    {
+                        Rekening = rekening,
+                        BtwCode = BtwCodes.Bij(Codes, BtwRichting.Inkoop, b.Percentage)?.Code ?? "I21",
+                        Bedrag = (b.Grondslag ?? (btw.Count == 1 ? herkend.TotaalExclusief : null)) is { } g2 ? Bedragen.Getal(g2) : null,
+                        Btw = Bedragen.Getal(b.Btw),
+                    })]
+                    : [new Invoerregel { Rekening = rekening, BtwCode = standaardCode, Bedrag = Exclusief(herkend, standaardCode) is { } e ? Bedragen.Getal(e) : null }];
 
         // Een creditnota (negatief totaal) staat in het formulier zonder minteken; het pakket boekt hem omgekeerd.
         soort = herkend?.TotaalInclusief < 0 ? Documentsoort.Creditnota : Documentsoort.Factuur;
@@ -1074,8 +1080,11 @@
         regel.BtwHandmatig = true;
     }
 
+    /// <summary>De btw uit bedrag en tarief; leeg bij verlegde btw (die staat niet op de factuur, het pakket berekent hem bij het boeken).</summary>
     private string? BerekendeBtw(Invoerregel regel) =>
-        BtwCodes.Zoek(Codes, regel.BtwCode) is { } code && Getal(regel.Bedrag) is { } bedrag ? Bedragen.Getal(code.Bereken(bedrag)) : null;
+        BtwCodes.Zoek(Codes, regel.BtwCode) is { Verlegd: false } code && Getal(regel.Bedrag) is { } bedrag ? Bedragen.Getal(code.Bereken(bedrag)) : null;
+
+    private bool IsVerlegd(Invoerregel regel) => BtwCodes.Zoek(Codes, regel.BtwCode) is { Verlegd: true };
 
     private static decimal? Getal(string? tekst) =>
         string.IsNullOrWhiteSpace(tekst) ? null : BedragParser.TryParse(tekst, out var b) ? b : null;

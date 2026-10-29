@@ -28,6 +28,9 @@ public sealed record HerkendeRegel(string Omschrijving, decimal Bedrag, decimal?
 /// Staat de naam van de onderneming op de factuur? Nodig voor de aftrek van btw. Leeg als dat niet is nagegaan.
 /// </param>
 /// <param name="Postcodes">De Nederlandse postcodes op de factuur (genormaliseerd), om een ander adres op te merken.</param>
+/// <param name="Verlegd">
+/// Op de factuur staat dat de btw is verlegd ("btw verlegd", "reverse charge"): de ondernemer berekent de btw zelf.
+/// </param>
 public sealed record HerkendeFactuur(
     Herkenningsbron Bron,
     string? Naam = null,
@@ -44,7 +47,8 @@ public sealed record HerkendeFactuur(
     string? Betalingskenmerk = null,
     string? Omschrijving = null,
     bool? OpEigenNaam = null,
-    IReadOnlyList<string>? Postcodes = null)
+    IReadOnlyList<string>? Postcodes = null,
+    bool Verlegd = false)
 {
     public IReadOnlyList<Btwregel> Btwregels => Btw ?? [];
 

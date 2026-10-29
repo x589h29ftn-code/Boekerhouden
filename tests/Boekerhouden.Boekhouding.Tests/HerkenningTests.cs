@@ -297,3 +297,91 @@ public sealed class InkoopverwerkerTests
         return UblFactuurLezer.Lees(stream);
     }
 }
+
+/// <summary>
+/// Facturen voor de administratie "Test BV": de eigen naam (het klantblok) is nooit de leverancier, ook niet in kolommen
+/// of na "Klant:" of "Bill to:"; een leverancier die alleen in de voettekst staat wordt gevonden.
+/// </summary>
+public sealed class EigenNaamEnVerleggingTests
+{
+    private static readonly string[] Eigen = ["Test BV"];
+
+    [Fact]
+    public void Klantblok_rechts_naast_de_leverancier()
+    {
+        var tekst = "Schoonmaakbedrijf Glans B.V.    Test BV\nPoetsweg 12    t.a.v. de administratie\n3511 AA Utrecht    Industrieweg 5\nFactuurnummer: GL-1\nTotaal € 121,00";
+
+        Assert.Equal("Schoonmaakbedrijf Glans B.V.", Factuurtekst.Analyseer(tekst, eigenNamen: Eigen).Naam);
+    }
+
+    [Fact]
+    public void Klant_bovenaan_en_de_leverancier_alleen_in_de_voettekst()
+    {
+        var tekst = "Test BV\nIndustrieweg 5\n1234 AB Amersfoort\nFACTUUR\nFactuurnummer: 2026-118\nDatum: 02-05-2026\nOnderhoud website mei    € 200,00\nTotaal incl. btw € 242,00\n"
+                    + "Webbureau Pixel V.O.F. · Kanaalstraat 3 · 2011 AA Haarlem · KvK 87654321";
+
+        var factuur = Factuurtekst.Analyseer(tekst, eigenNamen: Eigen);
+
+        Assert.Equal("Webbureau Pixel V.O.F.", factuur.Naam);
+        Assert.True(factuur.OpEigenNaam);
+    }
+
+    [Theory]
+    [InlineData("Klant: Test BV")]
+    [InlineData("Bill to: Test B.V.")]
+    [InlineData("TEST BV")]
+    public void Eigen_naam_met_label_of_andere_schrijfwijze_telt_niet(string klantregel)
+    {
+        var tekst = $"{klantregel}\nGroothandel Vers B.V.\nFactuurnr. 77812\nTotaal 89,60";
+
+        Assert.Equal("Groothandel Vers B.V.", Factuurtekst.Analyseer(tekst, eigenNamen: Eigen).Naam);
+    }
+
+    [Fact]
+    public void Een_leverancier_die_de_eigen_naam_alleen_bevat_blijft_herkend()
+    {
+        // Eigen naam "Bakkerij" (één woord): "Bakkerij Jansen B.V." is een andere onderneming.
+        Assert.Equal("Bakkerij Jansen B.V.", Factuurtekst.Analyseer("Bakkerij Jansen B.V.\nTotaal 10,00", eigenNamen: ["Bakkerij"]).Naam);
+    }
+
+    [Fact]
+    public void Engelse_factuur_uit_de_EU_met_verlegde_btw()
+    {
+        var tekst = "Cloudsoft Ltd    Bill to: Test BV\n12 Harbour Street, Dublin    VAT NL009876543B01\nVAT IE1234567T\nIBAN IE29AIBK93115212345678\n"
+                    + "Invoice number: INV-88123\nInvoice date: May 1, 2026\nDue date: May 31, 2026\nCloud hosting - May 2026    € 120.00\nSubtotal € 120.00\nVAT reverse charged (0%) € 0.00\nTotal € 120.00";
+
+        var factuur = Factuurtekst.Analyseer(tekst, eigenBtwNummers: ["NL009876543B01"], eigenNamen: Eigen);
+
+        Assert.Equal(("Cloudsoft Ltd", "IE1234567T"), (factuur.Naam, factuur.BtwNummer));
+        Assert.Equal((new DateOnly(2026, 5, 1), new DateOnly(2026, 5, 31)), (factuur.Factuurdatum, factuur.Vervaldatum));
+        Assert.True(factuur.Verlegd);
+        Assert.Equal("IEU", Inkoopverwerker.VerlegdeCode(factuur, Btw.BtwCodes.Standaard)?.Code);
+
+        // Met een regel voor deze leverancier: één regel, verlegd, zonder btw op de factuur.
+        var relatie = new Relatie("CLOUD", "Cloudsoft Ltd", ["IE29AIBK93115212345678"], "IE1234567T");
+        var voorstel = Inkoopverwerker.Verwerk(factuur, [relatie], [new Verwerkingsregel("Hosting", "4330", "I21", Relatie: "CLOUD")], new Leergeheugen(), Btw.BtwCodes.Standaard, []);
+        var regel = Assert.Single(voorstel.Factuur!.Regels);
+        Assert.Equal(("IEU", 120m, (decimal?)null), (regel.BtwCode, regel.Bedrag, regel.Btw));
+    }
+
+    [Theory]
+    [InlineData("Btw verlegd", "NL800000006B01", null, "IVL")]
+    [InlineData("Reverse charge", null, "US12BANK0000000001", "IEX")]
+    [InlineData("Steuerschuldnerschaft des Leistungsempfängers", "DE123456789", null, "IEU")]
+    [InlineData("Totaal", null, null, null)]
+    public void Verlegde_btw_naar_land_van_de_leverancier(string tekst, string? btw, string? iban, string? code)
+    {
+        var factuur = new HerkendeFactuur(Herkenningsbron.Tekst, BtwNummer: btw, Iban: iban, Verlegd: Factuurtekst.Analyseer(tekst).Verlegd);
+
+        Assert.Equal(code, Inkoopverwerker.VerlegdeCode(factuur, Btw.BtwCodes.Standaard)?.Code);
+    }
+
+    [Fact]
+    public void Ubl_met_btw_categorie_verlegd()
+    {
+        var xml = FactuurtekstTests.Lees("belnet-2026-0411.xml").Replace("<cbc:ID>S</cbc:ID>", "<cbc:ID>AE</cbc:ID>", StringComparison.Ordinal);
+
+        Assert.True(UblFactuurLezer.Lees(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(xml))).Verlegd);
+        Assert.False(UblFactuurLezer.Lees(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(FactuurtekstTests.Lees("belnet-2026-0411.xml")))).Verlegd);
+    }
+}

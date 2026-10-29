@@ -444,6 +444,27 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
     private static decimal Saldo(Boekhouding.Grootboek.Proefbalans proef, string rekening) =>
         proef.Regels.Single(r => r.Rekening.Nummer == rekening).Saldo;
 
+    [Fact]
+    public async Task De_eigen_naam_van_de_administratie_is_nooit_de_leverancier()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Test BV");
+        var builder = new UglyToad.PdfPig.Writer.PdfDocumentBuilder();
+        var pagina = builder.AddPage(UglyToad.PdfPig.Content.PageSize.A4);
+        var font = builder.AddStandard14Font(UglyToad.PdfPig.Fonts.Standard14Fonts.Standard14Font.Helvetica);
+        var y = 800.0;
+        foreach (var regel in new[] { "Test BV", "Industrieweg 5", "1234 AB Amersfoort", "FACTUUR", "Factuurnummer: 2026-118", "Datum: 02-05-2026", "Totaal incl. btw EUR 242,00", "Webbureau Pixel V.O.F. | Kanaalstraat 3 | 2011 AA Haarlem" })
+        {
+            pagina.AddText(regel, 10, new UglyToad.PdfPig.Core.PdfPoint(40, y), font);
+            y -= 30;
+        }
+
+        var gelezen = await app.Dienst<InkoopDienst>().Lees(wie, id, new MemoryStream(builder.Build()), "pixel.pdf", "application/pdf");
+
+        var herkend = (await app.Dienst<InkoopDienst>().Verwerking(wie, id, gelezen.DocumentId!.Value))!.Herkend!;
+        Assert.Equal(("Webbureau Pixel V.O.F.", true), (herkend.Naam, herkend.OpEigenNaam));
+    }
+
     /// <summary>Een verzonnen PDF-factuur met het factuurnummer achter "Ref." (dat herkent het pakket niet).</summary>
     private static byte[] Drukkerij(string nummer, string datum)
     {

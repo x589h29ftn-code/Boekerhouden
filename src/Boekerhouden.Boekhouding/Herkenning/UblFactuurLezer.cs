@@ -95,7 +95,11 @@ public static class UblFactuurLezer
             Postcodes: [.. new[] { Pad(partij, "PostalAddress"), Pad(wortel, "AccountingCustomerParty", "Party", "PostalAddress"), Pad(wortel, "Delivery", "DeliveryLocation", "Address") }
                 .Select(a => Tekst(Kind(a, "PostalZone")))
                 .SelectMany(p => p is null ? [] : Postcode.Zoek(p.ToUpperInvariant()))
-                .Distinct(StringComparer.Ordinal)]);
+                .Distinct(StringComparer.Ordinal)],
+
+            // Btw-categorie AE (verlegd) of K (intracommunautair): de afnemer berekent de btw.
+            Verlegd: Kinderen(wortel, "TaxTotal").SelectMany(t => Kinderen(t, "TaxSubtotal"))
+                .Any(t => Tekst(Pad(t, "TaxCategory", "ID")) is "AE" or "K"));
     }
 
     private static XmlReaderSettings Instellingen(bool sluiten) =>

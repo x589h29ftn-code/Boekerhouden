@@ -48,10 +48,11 @@ public static partial class Factuurtekst
         }
 
         var hoofdletters = tekst.ToUpperInvariant();
+        var namen = eigenNamen?.Where(n => Relaties.Namen.Normaliseer(n).Length > 0).ToList() ?? [];
         return new HerkendeFactuur(
             bron,
-            Naam: Naam(regels),
-            BtwNummer: BtwPatroon().Matches(hoofdletters).Select(m => BtwNummer.Normaliseer(m.Value)).FirstOrDefault(x => BtwNummer.IsGeldig(x) && !eigenBtw.Contains(x)),
+            Naam: Naam(regels, namen),
+            BtwNummer: BtwNummers(hoofdletters).FirstOrDefault(x => !eigenBtw.Contains(x)),
             KvkNummer: Kvk().Match(tekst) is { Success: true } kvk ? kvk.Groups[1].Value : null,
             Iban: IbanPatroon().Matches(hoofdletters).Select(m => Iban.Normaliseer(m.Value)).FirstOrDefault(x => Iban.IsGeldig(x) && !eigenIban.Contains(x)),
             Factuurnummer: Factuurnummer(regels),
@@ -62,8 +63,9 @@ public static partial class Factuurtekst
             Btw: btw,
             Betalingskenmerk: Kenmerk().Match(tekst) is { Success: true } kenmerk ? string.Concat(kenmerk.Groups[1].Value.Where(char.IsAsciiDigit)) : null,
             Omschrijving: Omschrijving(regels),
-            OpEigenNaam: eigenNamen?.ToList() is { Count: > 0 } namen ? regels.Any(r => namen.Any(n => Namen.LijktOp(n, r))) : null,
-            Postcodes: Postcode.Zoek(tekst));
+            OpEigenNaam: namen.Count > 0 ? regels.Any(r => namen.Any(n => Namen.LijktOp(n, r))) : null,
+            Postcodes: Postcode.Zoek(tekst),
+            Verlegd: VerlegdPatroon().IsMatch(tekst));
     }
 
     /// <summary>
@@ -126,6 +128,16 @@ public static partial class Factuurtekst
             if (maand > 0)
             {
                 Voegtoe(datums, m.Index, int.Parse(m.Groups[3].Value, CultureInfo.InvariantCulture), maand.ToString(CultureInfo.InvariantCulture), m.Groups[1].Value);
+            }
+        }
+
+        // Engelse volgorde: "May 1, 2026".
+        foreach (Match m in MaandEerst().Matches(regel))
+        {
+            var maand = Maand(m.Groups[1].Value);
+            if (maand > 0)
+            {
+                Voegtoe(datums, m.Index, int.Parse(m.Groups[3].Value, CultureInfo.InvariantCulture), maand.ToString(CultureInfo.InvariantCulture), m.Groups[2].Value);
             }
         }
 
@@ -264,20 +276,65 @@ public static partial class Factuurtekst
         return null;
     }
 
-    /// <summary>De naam van de leverancier: de eerste regel met een rechtsvorm, anders de eerste regel met letters.</summary>
-    private static string? Naam(List<string> regels)
+    /// <summary>
+    /// De naam van de leverancier. Elke regel wordt in kolommen gesplitst (en op "·" of "|", zoals in een voettekst); de
+    /// eigen naam van de administratie (de klant op de factuur), het klantblok ("Klant:", "Bill to", "t.a.v.") en
+    /// adressen tellen niet. Dan de eerste kolom met een rechtsvorm, eerst bovenaan en anders in de rest van de factuur
+    /// (een leverancier die alleen in de voettekst staat); anders de eerste kolom met letters bovenaan.
+    /// </summary>
+    private static string? Naam(List<string> regels, IReadOnlyList<string> eigenNamen)
     {
-        var bovenaan = regels.Take(15).ToList();
-        var metRechtsvorm = bovenaan.FirstOrDefault(r => Rechtsvormen.Any(v => Regex.IsMatch(r, $@"(^|\s){Regex.Escape(v)}($|\s|,)", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1)))
-                                                         && !FactuurnummerLabel().IsMatch(r));
-        return metRechtsvorm ?? bovenaan.FirstOrDefault(r => r.Count(char.IsLetter) >= 3 && !Regex.IsMatch(r, "^(factuur|invoice|nota|creditnota)\\b", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1)));
+        var stukken = regels.Select((r, i) => (Regel: i, Delen: Kolommen().Split(r).Select(d => d.Trim()).Where(d => d.Length > 0).ToList()))
+            .SelectMany(x => x.Delen.Select(d => (x.Regel, Tekst: d)))
+            .Where(x => !IsEigen(x.Tekst, eigenNamen) && !KlantLabel().IsMatch(x.Tekst) && !IsAdres(x.Tekst) && !FactuurnummerLabel().IsMatch(x.Tekst))
+            .ToList();
+        bool MetRechtsvorm(string t) => Rechtsvormen.Any(v => Regex.IsMatch(t, $@"(^|\s){Regex.Escape(v)}($|\s|,)", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1)));
+        return stukken.Where(x => x.Regel < 15).Select(x => x.Tekst).FirstOrDefault(MetRechtsvorm)
+               ?? stukken.Select(x => x.Tekst).FirstOrDefault(MetRechtsvorm)
+               ?? stukken.Where(x => x.Regel < 15).Select(x => x.Tekst).FirstOrDefault(t => t.Count(char.IsLetter) >= 3
+                   && !Regex.IsMatch(t, "^(factuur|invoice|nota|creditnota|credit note)\\b", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1))
+                   && Datums(t).Count == 0 && Bedragen(t).Count == 0);
     }
+
+    /// <summary>Is dit de eigen naam van de administratie (eventueel met rechtsvorm of een label als "Aan:")?</summary>
+    private static bool IsEigen(string tekst, IReadOnlyList<string> eigenNamen)
+    {
+        var zonderLabel = KlantLabel().Replace(tekst, string.Empty).Trim();
+        var genormaliseerd = Namen.Normaliseer(zonderLabel);
+        return eigenNamen.Any(n => Namen.Normaliseer(n) is { Length: > 0 } eigen
+                                   && (genormaliseerd == eigen || (eigen.Contains(' ', StringComparison.Ordinal) && genormaliseerd.Contains(eigen, StringComparison.Ordinal))));
+    }
+
+    /// <summary>Een adresregel: postcode met plaats, of straat met huisnummer.</summary>
+    private static bool IsAdres(string tekst) => Postcode.Zoek(tekst.ToUpperInvariant()).Count > 0 || Straat().IsMatch(tekst);
+
+    /// <summary>Btw-nummers: Nederlandse overal in de tekst, buitenlandse (EU) na een label als "VAT" of "BTW".</summary>
+    private static IEnumerable<string> BtwNummers(string hoofdletters) =>
+        BtwPatroon().Matches(hoofdletters).Select(m => BtwNummer.Normaliseer(m.Value))
+            .Concat(BuitenlandsBtw().Matches(hoofdletters).Select(m => BtwNummer.Normaliseer(m.Groups[1].Value)))
+            .Where(BtwNummer.IsGeldig)
+            .Where(n => n.StartsWith("NL", StringComparison.Ordinal) || BtwNummer.IsEuLand(n[..2]));
 
     [GeneratedRegex(@"\b[A-Z]{2}[0-9]{2}(?:\s?[A-Z0-9]{4}){2,7}(?:\s?[A-Z0-9]{1,3})?\b")]
     private static partial Regex IbanPatroon();
 
     [GeneratedRegex(@"\b[A-Z]{2}\s?[0-9]{9}\s?B\s?[0-9]{2}\b")]
     private static partial Regex BtwPatroon();
+
+    [GeneratedRegex(@"\b(?:VAT|BTW|TVA|IVA|UST-?IDNR\.?|USTID|MWST|VAT\s*(?:NO|NUMBER|REG\.?\s*NO)\.?)\s*(?:NR\.?|NUMMER|ID)?\s*:?\s*([A-Z]{2}\s?[0-9A-Z][0-9A-Z ]{6,13}[0-9A-Z])\b")]
+    private static partial Regex BuitenlandsBtw();
+
+    [GeneratedRegex(@"\s{3,}|\s+[·|]\s+")]
+    private static partial Regex Kolommen();
+
+    [GeneratedRegex(@"^(?:klant(?:nummer|nr\.?)?|debiteur(?:nummer)?|aan|t\.?\s?a\.?\s?v\.?|ter attentie van|factuuradres|afleveradres|leveradres|bill(?:ed)?\s*to|invoice\s*to|ship\s*to|sold\s*to|customer(?:\s*(?:no|number|id))?|deliver(?:ed)?\s*to)\b\s*:?", RegexOptions.IgnoreCase)]
+    private static partial Regex KlantLabel();
+
+    [GeneratedRegex(@"^[\p{L}][\p{L}'.\- ]{2,}\s[0-9]{1,5}\s?[a-zA-Z]?(?:[-/][0-9a-zA-Z]+)?(?:,|$)")]
+    private static partial Regex Straat();
+
+    [GeneratedRegex(@"btw\s*verlegd|verlegd\s*naar|verleggingsregeling|reverse[\s-]*charge|vat\s*reverse|art(?:icle|ikel)?\.?\s*196|autoliquidation|steuerschuldnerschaft", RegexOptions.IgnoreCase)]
+    private static partial Regex VerlegdPatroon();
 
     [GeneratedRegex(@"(?:kvk|k\.v\.k\.|kamer van koophandel|coc|handelsregister)[^0-9\n]{0,20}([0-9]{8})\b", RegexOptions.IgnoreCase)]
     private static partial Regex Kvk();
@@ -323,4 +380,7 @@ public static partial class Factuurtekst
 
     [GeneratedRegex(@"(?<![0-9])([0-9]{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december|january|february|march|may|june|july|august|october|jan|feb|mrt|mar|apr|jun|jul|aug|sept?|okt|oct|nov|dec)\.?\s+([0-9]{4})", RegexOptions.IgnoreCase)]
     private static partial Regex DatumMetMaand();
+
+    [GeneratedRegex(@"\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept?|oct|nov|dec)\.?\s+([0-9]{1,2}),?\s+([0-9]{4})", RegexOptions.IgnoreCase)]
+    private static partial Regex MaandEerst();
 }

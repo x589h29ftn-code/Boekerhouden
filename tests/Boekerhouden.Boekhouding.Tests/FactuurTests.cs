@@ -204,10 +204,12 @@ public sealed class BtwtabelTests
     [Theory]
     [InlineData("I21", "Hoog 21%")]
     [InlineData("I9", "Laag 9%")]
-    [InlineData("IVL", "Verlegd naar u 21%")]
-    [InlineData("IEU", "Inkoop binnen de EU (ICV) 21%")]
+    [InlineData("IVL", "Verlegd 21%")]
+    [InlineData("IEU", "ICV 21%")]
+    [InlineData("IEX", "Import 21%")]
+    [InlineData("I0", "0%")]
     [InlineData("GB", "Geen btw")]
-    [InlineData("VEU", "Levering binnen de EU (ICP)")]
+    [InlineData("VEU", "ICP")]
     public void Korte_naam_met_percentage(string code, string kort) =>
         Assert.Equal(kort, BtwCodes.Zoek(BtwCodes.Standaard, code)!.Kort);
 
