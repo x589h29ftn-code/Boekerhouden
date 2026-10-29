@@ -21,6 +21,7 @@ public sealed record DocumentRegel(
     Documentsoort Soort,
     string? Leverancier,
     string? Factuurnummer,
+    DateOnly? Factuurdatum,
     decimal? Totaal,
     string? Melding,
     DateTimeOffset IngelezenOp,
@@ -242,7 +243,30 @@ public sealed class InkoopDienst(
             query = query.Where(d => d.Status == s);
         }
 
-        return [.. (await query.OrderByDescending(d => d.IngelezenOp).Take(500).ToListAsync()).Select(Regel)];
+        var documenten = (await query.OrderByDescending(d => d.IngelezenOp).Take(500).ToListAsync()).Select(Regel).ToList();
+
+        // Bij een geboekt document geldt wat er geboekt is (leverancier, nummer, datum en totaal), niet wat er herkend was.
+        var geboekt = documenten.Where(d => d.Status == Documentstatus.Geboekt).Select(d => (Guid?)d.Id).ToList();
+        if (geboekt.Count > 0)
+        {
+            var posten = await db.OpenstaandePosten.AsNoTracking().Where(p => geboekt.Contains(p.DocumentId)).ToListAsync();
+            var namen = await db.Relaties.AsNoTracking().ToDictionaryAsync(r => r.Code, r => r.Naam);
+            for (var i = 0; i < documenten.Count; i++)
+            {
+                if (posten.FirstOrDefault(p => p.DocumentId == documenten[i].Id) is { } post)
+                {
+                    documenten[i] = documenten[i] with
+                    {
+                        Leverancier = namen.GetValueOrDefault(post.Relatie, post.Relatie),
+                        Factuurnummer = post.Factuurnummer,
+                        Factuurdatum = post.Datum,
+                        Totaal = -post.Bedrag,
+                    };
+                }
+            }
+        }
+
+        return documenten;
     }
 
     /// <summary>Het document met wat er herkend is en het (actuele) voorstel, om te verwerken.</summary>
@@ -779,7 +803,7 @@ public sealed class InkoopDienst(
     private static DocumentRegel Regel(Document d)
     {
         var herkend = Herkend(d);
-        return new DocumentRegel(d.Id, d.Bestandsnaam, d.Status, d.Soort, herkend?.Naam, herkend?.Factuurnummer, herkend?.TotaalInclusief, d.Melding, d.IngelezenOp, d.IngelezenDoor);
+        return new DocumentRegel(d.Id, d.Bestandsnaam, d.Status, d.Soort, herkend?.Naam, herkend?.Factuurnummer, herkend?.Factuurdatum, herkend?.TotaalInclusief, d.Melding, d.IngelezenOp, d.IngelezenDoor);
     }
 
     /// <summary>Een code voor een nieuwe relatie: de eerste letters van de naam, uniek gemaakt met een volgnummer.</summary>

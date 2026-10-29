@@ -67,6 +67,10 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
         Assert.Equal((Factuursoort.Inkoop, -24.99m, -24.99m, "BN-2026-0411"), (open.Soort, open.Bedrag, open.Openstaand, open.Factuurnummer));
         Assert.Equal(Documentstatus.Geboekt, (await db.Documenten.SingleAsync()).Status);
         Assert.Empty(await app.Dienst<GrootboekDienst>().ControleerKeten(wie, id));
+
+        // In de lijst onder Verwerkt staat wat er geboekt is.
+        var regel = (await inkoop.Lijst(wie, id)).Single();
+        Assert.Equal(("Belnet B.V.", "BN-2026-0411", new DateOnly(2026, 4, 1), 24.99m), (regel.Leverancier, regel.Factuurnummer, regel.Factuurdatum, regel.Totaal));
     }
 
     [Fact]

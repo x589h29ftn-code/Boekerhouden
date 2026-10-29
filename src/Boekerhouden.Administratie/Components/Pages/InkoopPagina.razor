@@ -5,13 +5,8 @@
 <AdministratieKader Id="Id" Titel="Inkoop" Actief="/inkoop" BijOpenen="Open">
     @if (context.Mag(Recht.Invoeren))
     {
-        <div class="card card-body mb-3 inlezen">
-            <label class="form-label fw-semibold mb-1" for="bestanden">Facturen inlezen</label>
-            <InputFile id="bestanden" class="form-control" multiple accept=".pdf,.xml,application/pdf,application/xml,text/xml" OnChange="LeesIn" disabled="@bezig" />
-            @if (bezig)
-            {
-                <div class="status mt-2">bezig met inlezen…</div>
-            }
+        <div class="mb-4 inlezen">
+            <Sleepvlak Id="bestanden" Tekst="Facturen hierheen slepen of kiezen" Soorten="PDF of e-factuur (UBL)" Accept=".pdf,.xml,application/pdf,application/xml,text/xml" OnChange="LeesIn" Bezig="bezig" />
             @foreach (var u in uitkomsten)
             {
                 <div class="small mt-1 @(u.Status == Documentstatus.Quarantaine || u.DocumentId is null ? "status let-op" : null)">@u.Melding</div>
@@ -39,7 +34,7 @@
         <div class="card mb-4">
             <table class="table table-hover align-middle mb-0">
                 <thead>
-                    <tr><th>Leverancier</th><th>Factuur</th><th class="text-end">Totaal</th><th>Waarom</th><th>Ingelezen</th></tr>
+                    <tr><th>Leverancier</th><th>Factuurnummer</th><th>Factuurdatum</th><th class="text-end">Bedrag</th><th>Waarom</th><th>Ingelezen</th></tr>
                 </thead>
                 <tbody>
                     @foreach (var d in teVerwerken)
@@ -47,6 +42,7 @@
                         <tr>
                             <td><a href="/a/@Id/inkoop/@d.Id">@(d.Leverancier ?? d.Bestandsnaam)</a></td>
                             <td>@d.Factuurnummer</td>
+                            <td class="text-nowrap">@(d.Factuurdatum is { } fd ? Weergave.Datum(fd) : null)</td>
                             <td class="bedrag text-end"><Euro Waarde="d.Totaal" /></td>
                             <td class="small text-secondary">@d.Melding</td>
                             <td class="small text-secondary text-nowrap" title="@d.IngelezenDoor">@Weergave.DatumTijd(d.IngelezenOp)</td>
@@ -61,7 +57,10 @@
     {
         <h2 class="h6 text-secondary">Verwerkt</h2>
         <div class="card">
-            <table class="table table-sm align-middle mb-0">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr><th>Leverancier</th><th>Factuurnummer</th><th>Factuurdatum</th><th class="text-end">Bedrag</th><th>Status</th><th>Ingelezen</th><th></th></tr>
+                </thead>
                 <tbody>
                     @foreach (var d in overig)
                     {
@@ -77,6 +76,7 @@
                                 }
                             </td>
                             <td>@d.Factuurnummer</td>
+                            <td class="text-nowrap">@(d.Factuurdatum is { } fd ? Weergave.Datum(fd) : null)</td>
                             <td class="bedrag text-end"><Euro Waarde="d.Totaal" /></td>
                             <td><span class="status @(d.Status == Documentstatus.Quarantaine ? "let-op" : null)" title="@d.Melding">@Status(d)</span></td>
                             <td class="small text-secondary text-nowrap">@Weergave.DatumTijd(d.IngelezenOp)</td>
@@ -95,7 +95,7 @@
 </AdministratieKader>
 
 @code {
-    private const int MaximumBestanden = 20;
+    private const int MaximumBestanden = 250;
 
     private Geopend? geopend;
     private IReadOnlyList<DocumentRegel>? teVerwerken;

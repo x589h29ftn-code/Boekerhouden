@@ -8,13 +8,8 @@
 <AdministratieKader Id="Id" Titel="Bank" Actief="/bank" BijOpenen="Open">
     @if (context.Mag(Recht.Invoeren))
     {
-        <div class="card card-body mb-3 inlezen">
-            <label class="form-label fw-semibold mb-1" for="afschriften">Afschriften inlezen</label>
-            <InputFile id="afschriften" class="form-control" multiple accept=".mt940,.940,.sta,.swi,.txt,.xml,.camt" OnChange="LeesIn" disabled="@bezig" />
-            @if (bezig)
-            {
-                <div class="status mt-2">bezig met inlezen…</div>
-            }
+        <div class="mb-4 inlezen">
+            <Sleepvlak Id="afschriften" Tekst="Afschriften hierheen slepen of kiezen" Soorten="MT940 of CAMT.053" Accept=".mt940,.940,.sta,.swi,.txt,.xml,.camt" OnChange="LeesIn" Bezig="bezig" />
             @foreach (var (bestand, uitkomst) in uitkomsten)
             {
                 @if (uitkomst.Waarde is { } w)

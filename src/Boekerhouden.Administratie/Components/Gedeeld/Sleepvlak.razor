@@ -1,0 +1,69 @@
+@* Een vlak om bestanden op te slepen of aan te klikken (het bestandsveld ligt er onzichtbaar over, zodat slepen en
+   kiezen gewoon werken). Tijdens het slepen licht het vlak op; tijdens het inlezen loopt er een balk. *@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<div @ref="vlak" class="sleepvlak @(Bezig ? "bezig" : null)">
+    <InputFile id="@Id" accept="@Accept" multiple="@Meerdere" OnChange="OnChange" disabled="@Bezig" aria-label="@Tekst" />
+    <div class="sleepvlak-tekst" aria-hidden="true">
+        <span class="sleepvlak-icoon">⇩</span>
+        <span class="fw-semibold">@Tekst</span>
+        @if (Soorten is not null)
+        {
+            <span class="small text-secondary">@Soorten</span>
+        }
+    </div>
+    <div class="sleepvlak-balk"></div>
+</div>
+
+@code {
+    private ElementReference vlak;
+    private IJSObjectReference? koppeling;
+
+    [Parameter, EditorRequired]
+    public string Id { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public string Tekst { get; set; } = "";
+
+    /// <summary>Welke bestanden, bijv. "PDF of e-factuur (UBL)".</summary>
+    [Parameter]
+    public string? Soorten { get; set; }
+
+    [Parameter]
+    public string? Accept { get; set; }
+
+    [Parameter]
+    public bool Meerdere { get; set; } = true;
+
+    [Parameter]
+    public bool Bezig { get; set; }
+
+    [Parameter]
+    public EventCallback<InputFileChangeEventArgs> OnChange { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "./sleepvlak.js");
+            koppeling = await module.InvokeAsync<IJSObjectReference>("koppel", vlak);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (koppeling is not null)
+            {
+                await koppeling.InvokeVoidAsync("los");
+                await koppeling.DisposeAsync();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // Het circuit is al weg.
+        }
+    }
+}

@@ -19,10 +19,59 @@
     padding: .5rem 0;
     border-right: 1px solid var(--bs-border-color);
     font-size: .9375rem;
+    overflow: hidden;
+    transition: flex-basis .25s ease;
 }
 
 .menu-ingeklapt .zijmenu {
     flex-basis: 2.25rem;
+}
+
+/* Inklappen: de naam en de groepen vervagen terwijl het menu smaller wordt; de knop draait om. */
+.zijmenu-naam, .zijmenu-groepen {
+    transition: opacity .2s ease, visibility .2s;
+}
+
+.menu-ingeklapt .zijmenu-naam, .menu-ingeklapt .zijmenu-groepen {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.zijmenu-groepen {
+    width: 12.5rem;
+}
+
+.zijmenu-knop {
+    transition: transform .25s ease, color .15s;
+}
+
+.menu-ingeklapt .zijmenu-knop {
+    transform: rotate(180deg);
+}
+
+/* Een groep klapt open en dicht met een overgang (grid van 0 naar de volle hoogte). */
+.zijmenu-items {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows .22s ease;
+}
+
+.zijmenu-groep.open .zijmenu-items {
+    grid-template-rows: 1fr;
+}
+
+.zijmenu-items > div {
+    overflow: hidden;
+}
+
+.zijmenu-groepkop .pijl {
+    display: inline-block;
+    transition: transform .22s ease;
+    transform: rotate(-90deg);
+}
+
+.zijmenu-groep.open .zijmenu-groepkop .pijl {
+    transform: rotate(0);
 }
 
 .zijmenu-kop {
@@ -75,11 +124,17 @@
 
 .zijmenu-link {
     display: block;
-    padding: .25rem .75rem .25rem .5rem;
+    padding: .3rem .75rem .3rem .5rem;
     margin-right: -1px;
     color: var(--bs-body-color);
     text-decoration: none;
     border-right: 2px solid transparent;
+    border-radius: var(--bs-border-radius) 0 0 var(--bs-border-radius);
+    transition: background-color .15s ease, border-color .15s ease, padding-left .15s ease;
+}
+
+.zijmenu-link:hover {
+    padding-left: .75rem;
 }
 
 .zijmenu-link:hover {
@@ -452,4 +507,109 @@ body.scheiding-slepen {
 .form-control.onzeker {
     border-style: dashed;
     border-color: var(--bs-secondary-color);
+}
+
+/* Sleepvlak: bestanden erop slepen of aanklikken. */
+.sleepvlak {
+    position: relative;
+    border: 2px dashed var(--bs-border-color);
+    border-radius: .75rem;
+    background: var(--bs-body-bg);
+    transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease, transform .2s ease;
+    overflow: hidden;
+}
+
+.sleepvlak input[type=file] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 2;
+}
+
+.sleepvlak-tekst {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .15rem;
+    padding: 1.4rem 1rem;
+    text-align: center;
+    color: var(--bs-body-color);
+}
+
+.sleepvlak-icoon {
+    font-size: 1.6rem;
+    line-height: 1;
+    color: var(--bs-primary);
+    transition: transform .25s ease;
+}
+
+.sleepvlak:hover, .sleepvlak:focus-within {
+    border-color: rgba(var(--bs-primary-rgb), .55);
+    background: rgba(var(--bs-primary-rgb), .03);
+}
+
+.sleepvlak.sleept {
+    border-color: var(--bs-primary);
+    border-style: solid;
+    background: rgba(var(--bs-primary-rgb), .07);
+    box-shadow: 0 0 0 .25rem rgba(var(--bs-primary-rgb), .12);
+    transform: scale(1.01);
+}
+
+.sleepvlak.sleept .sleepvlak-icoon, .sleepvlak:hover .sleepvlak-icoon {
+    transform: translateY(3px);
+}
+
+.sleepvlak-balk {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    width: 0;
+    background: var(--bs-primary);
+}
+
+.sleepvlak.bezig {
+    cursor: progress;
+}
+
+.sleepvlak.bezig .sleepvlak-balk {
+    width: 35%;
+    animation: sleepvlak-bezig 1.1s ease-in-out infinite;
+}
+
+@keyframes sleepvlak-bezig {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(300%); }
+}
+
+/* Rustige beweging: regels, kaarten en knoppen reageren zacht op aanwijzen. */
+.table > tbody > tr > * {
+    transition: background-color .15s ease;
+}
+
+.card {
+    transition: box-shadow .2s ease;
+}
+
+.btn {
+    transition: color .15s ease, background-color .15s ease, border-color .15s ease, box-shadow .15s ease, transform .1s ease;
+}
+
+.btn:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .zijmenu, .zijmenu-items, .zijmenu-knop, .zijmenu-groepkop .pijl, .sleepvlak, .sleepvlak-icoon, .btn {
+        transition: none;
+    }
+
+    .sleepvlak.bezig .sleepvlak-balk {
+        animation: none;
+        width: 100%;
+    }
 }

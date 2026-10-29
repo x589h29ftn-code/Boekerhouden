@@ -20,14 +20,10 @@ else
     <div class="administratie @(Staat.Ingeklapt ? "menu-ingeklapt" : null)">
         <nav class="zijmenu" aria-label="Administratie">
             <div class="zijmenu-kop">
-                @if (!Staat.Ingeklapt)
-                {
-                    <a class="zijmenu-naam" href="/a/@kop.Id" title="@kop.Naam">@kop.Naam</a>
-                }
-                <button type="button" class="zijmenu-knop" title="@(Staat.Ingeklapt ? "Menu uitklappen" : "Menu inklappen")" aria-expanded="@(!Staat.Ingeklapt)" @onclick="WisselMenu">@(Staat.Ingeklapt ? "»" : "«")</button>
+                <a class="zijmenu-naam" href="/a/@kop.Id" title="@kop.Naam" tabindex="@(Staat.Ingeklapt ? -1 : 0)">@kop.Naam</a>
+                <button type="button" class="zijmenu-knop" title="@(Staat.Ingeklapt ? "Menu uitklappen" : "Menu inklappen")" aria-expanded="@(!Staat.Ingeklapt)" @onclick="WisselMenu">«</button>
             </div>
-            @if (!Staat.Ingeklapt)
-            {
+            <div class="zijmenu-groepen" inert="@Staat.Ingeklapt">
                 @foreach (var (groep, items) in Menu)
                 {
                     var zichtbaar = items.Where(i => kop.Mag(i.Recht)).ToList();
@@ -37,20 +33,21 @@ else
                     }
 
                     var open = !Staat.Dicht.Contains(groep) || zichtbaar.Any(i => i.Pad == Actief);
-                    <div class="zijmenu-groep">
+                    <div class="zijmenu-groep @(open ? "open" : null)">
                         <button type="button" class="zijmenu-groepkop" aria-expanded="@open" @onclick="() => WisselGroep(groep)">
-                            @groep <span class="pijl" aria-hidden="true">@(open ? "▾" : "▸")</span>
+                            @groep <span class="pijl" aria-hidden="true">▾</span>
                         </button>
-                        @if (open)
-                        {
-                            @foreach (var (pad, naam, _) in zichtbaar)
-                            {
-                                <a class="zijmenu-link @(pad == Actief ? "actief" : null)" href="@($"/a/{kop.Id}{pad}")" aria-current="@(pad == Actief ? "page" : null)">@naam</a>
-                            }
-                        }
+                        <div class="zijmenu-items" inert="@(!open)">
+                            <div>
+                                @foreach (var (pad, naam, _) in zichtbaar)
+                                {
+                                    <a class="zijmenu-link @(pad == Actief ? "actief" : null)" href="@($"/a/{kop.Id}{pad}")" aria-current="@(pad == Actief ? "page" : null)">@naam</a>
+                                }
+                            </div>
+                        </div>
                     </div>
                 }
-            }
+            </div>
         </nav>
         <div class="administratie-inhoud">
             <nav aria-label="kruimelpad">
