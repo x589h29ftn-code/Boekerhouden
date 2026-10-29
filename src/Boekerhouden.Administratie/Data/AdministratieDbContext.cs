@@ -42,6 +42,8 @@ public sealed class AdministratieDbContext(DbContextOptions<AdministratieDbConte
 
     public DbSet<Automatiseringsregel> Regels => Set<Automatiseringsregel>();
 
+    public DbSet<Kantoorinstellingen> Kantoorinstellingen => Set<Kantoorinstellingen>();
+
     /// <summary>De sleutels van ASP.NET Core Data Protection (cookies, tokens).</summary>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
@@ -65,6 +67,17 @@ public sealed class AdministratieDbContext(DbContextOptions<AdministratieDbConte
             e.Property(a => a.BtwNummer).HasMaxLength(20);
             e.Property(a => a.AangemaaktDoor).HasMaxLength(200);
             e.Property(a => a.LimietAutomatisch).HasPrecision(18, 2);
+            e.Property(a => a.Bandbreedte).HasPrecision(6, 2);
+            e.Property(a => a.Documentmap).HasMaxLength(400);
+        });
+
+        builder.Entity<Kantoorinstellingen>(e =>
+        {
+            e.ToTable("Kantoorinstellingen");
+            e.Property(k => k.Id).ValueGeneratedNever();
+            e.Property(k => k.LimietAutomatisch).HasPrecision(18, 2);
+            e.Property(k => k.Bandbreedte).HasPrecision(6, 2);
+            e.Property(k => k.Documentmap).HasMaxLength(400);
         });
 
         builder.Entity<Lidmaatschap>(e =>

@@ -1,4 +1,5 @@
 @page "/a/{Id:guid}/instellingen"
+@using Boekerhouden.Boekhouding.Regels
 @inject InrichtingDienst Inrichting
 
 <AdministratieKader Id="Id" Titel="Instellingen" Actief="/instellingen" BijOpenen="Open">
@@ -6,22 +7,22 @@
     {
         <div class="alert alert-warning">De instellingen zijn voor het kantoor.</div>
     }
-    else if (invoer is not null)
+    else if (gegevens is not null && instellingen is not null)
     {
         <Foutmeldingen Fouten="fouten" />
         @if (bericht is not null)
         {
             <div class="bericht mb-2">@bericht</div>
         }
-        <div class="card card-body" style="max-width: 44rem">
+        <div class="card card-body" style="max-width: 52rem">
             <div class="row g-2 mb-3">
-                <div class="col-12"><label class="form-label" for="naam">Naam</label><input id="naam" class="form-control" @bind="invoer.Naam" /></div>
-                <div class="col-md-6"><label class="form-label" for="kvk">KvK-nummer</label><input id="kvk" class="form-control" @bind="invoer.KvkNummer" /></div>
-                <div class="col-md-6"><label class="form-label" for="btw">Btw-nummer</label><input id="btw" class="form-control" @bind="invoer.BtwNummer" /></div>
-                <div class="col-12"><label class="form-label" for="ibans">Eigen bankrekeningen (IBAN's, gescheiden door komma's)</label><input id="ibans" class="form-control" @bind="invoer.Ibans" /></div>
-                <div class="col-md-6"><label class="form-label" for="termijn">Betalingstermijn (dagen)</label><input id="termijn" type="number" min="0" max="365" class="form-control" @bind="invoer.Betalingstermijn" /></div>
-                <div class="col-md-6"><label class="form-label" for="limiet">Limiet automatisch boeken</label><input id="limiet" class="form-control" @bind="invoer.Limiet" placeholder="geen limiet" /></div>
-                <div class="col-md-6"><label class="form-label" for="drempel">Automatisch boeken na … gelijke keuzes</label><input id="drempel" type="number" min="1" max="10" class="form-control" @bind="invoer.Drempel" /></div>
+                <div class="col-12"><label class="form-label" for="naam">Naam</label><input id="naam" class="form-control" @bind="gegevens.Naam" /></div>
+                <div class="col-md-6"><label class="form-label" for="kvk">KvK-nummer</label><input id="kvk" class="form-control" @bind="gegevens.KvkNummer" /></div>
+                <div class="col-md-6"><label class="form-label" for="btw">Btw-nummer</label><input id="btw" class="form-control" @bind="gegevens.BtwNummer" /></div>
+                <div class="col-12"><label class="form-label" for="ibans">Eigen bankrekeningen (IBAN's, gescheiden door komma's)</label><input id="ibans" class="form-control" @bind="gegevens.Ibans" /></div>
+            </div>
+            <div class="mb-3">
+                <InstellingenVelden Invoer="instellingen" Kantoor="kantoor" />
             </div>
             <div><button class="btn btn-primary" @onclick="Bewaar">Opslaan</button></div>
         </div>
@@ -30,7 +31,9 @@
 
 @code {
     private Geopend? geopend;
-    private Invoer? invoer;
+    private Gegevens? gegevens;
+    private InstellingenInvoer? instellingen;
+    private Verwerkingsinstellingen? kantoor;
     private IReadOnlyList<string>? fouten;
     private string? bericht;
 
@@ -46,39 +49,29 @@
         }
 
         var i = await Inrichting.Instellingen(g.Wie, Id);
-        invoer = new Invoer
-        {
-            Naam = i.Naam,
-            KvkNummer = i.KvkNummer,
-            BtwNummer = i.BtwNummer,
-            Ibans = string.Join(", ", i.Ibans),
-            Betalingstermijn = i.Betalingstermijn,
-            Limiet = i.LimietAutomatisch is { } l ? Bedragen.Getal(l) : null,
-            Drempel = i.DrempelAutomatisch,
-        };
+        gegevens = new Gegevens { Naam = i.Naam, KvkNummer = i.KvkNummer, BtwNummer = i.BtwNummer, Ibans = string.Join(", ", i.Ibans) };
+        instellingen = InstellingenInvoer.Van(i.Afwijkend);
+        kantoor = i.Kantoor;
     }
 
     private async Task Bewaar()
     {
-        decimal? limiet = null;
-        if (!string.IsNullOrWhiteSpace(invoer!.Limiet))
+        var lijst = new List<string>();
+        var afwijkend = instellingen!.NaarAfwijkend(lijst);
+        if (lijst.Count > 0)
         {
-            if (!BedragParser.TryParse(invoer.Limiet, out var l))
-            {
-                fouten = ["De limiet is geen bedrag."];
-                return;
-            }
-
-            limiet = l;
+            fouten = lijst;
+            bericht = null;
+            return;
         }
 
-        var uitkomst = await Inrichting.WijzigInstellingen(geopend!.Wie, Id, new Instellingen(invoer.Naam, invoer.KvkNummer, invoer.BtwNummer,
-            [.. invoer.Ibans.Split(',', ';')], invoer.Betalingstermijn, limiet, invoer.Drempel));
+        var uitkomst = await Inrichting.WijzigInstellingen(geopend!.Wie, Id,
+            new Instellingen(gegevens!.Naam, gegevens.KvkNummer, gegevens.BtwNummer, [.. gegevens.Ibans.Split(',', ';')], afwijkend));
         fouten = uitkomst.Fouten;
         bericht = uitkomst.IsGelukt ? "Opgeslagen." : null;
     }
 
-    private sealed class Invoer
+    private sealed class Gegevens
     {
         public string Naam { get; set; } = "";
 
@@ -87,11 +80,5 @@
         public string? BtwNummer { get; set; }
 
         public string Ibans { get; set; } = "";
-
-        public int Betalingstermijn { get; set; }
-
-        public string? Limiet { get; set; }
-
-        public int Drempel { get; set; } = 2;
     }
 }

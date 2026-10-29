@@ -312,6 +312,16 @@ het moment waarop een klant of accountant erom vraagt.
 12. **Leren met herbevestiging**: een geleerde leverancier met een hoger bedrag (boven 1,25 keer het hoogste
     bevestigde), een ander IBAN of een nieuwe postcode komt ter controle naar boven, en daarna moet het patroon
     opnieuw worden bevestigd voordat het pakket weer zelf boekt.
+13. **Kantoorinstellingen**: alleen de beheerder; dat controleert de dienst zelf (rol uit de gebruikersopslag),
+    niet alleen de pagina. Elke wijziging komt met oud en nieuw in het log, ook bij een administratie.
+14. **Documentmap**: de map moet een volledig pad zijn zonder `..`; de variabelen (naam van de administratie,
+    leverancier) worden ontdaan van padtekens en verboden namen, zodat een naam nooit buiten de gekozen map kan
+    schrijven. Bestaande bestanden worden nooit overschreven. Online (F2) mag alleen de beheerder een map kiezen,
+    of verdwijnt de keuze: dan schrijft een server niet naar een map die een gebruiker opgeeft.
+15. **Windows-app voor de tests**: de eigen database luistert alleen op 127.0.0.1, met een willekeurig wachtwoord
+    in de map van de gebruiker en zonder socketbestand; de app zelf ook alleen op 127.0.0.1. Uploads gaan langs
+    Microsoft Defender, *fail closed*. Tweestapsverificatie blijft verplicht voor de beheerder. Bedoeld voor tests
+    op één pc, niet voor een kantoor met meerdere gebruikers (daarvoor de server, §4.11).
 
 Bekende beperking: de databaserol van de app is eigenaar van de tabellen en kan de triggers dus uitschakelen. De
 hash-keten maakt zo'n wijziging zichtbaar; aparte databaserollen (app zonder eigenaarschap) volgen vóór F2.

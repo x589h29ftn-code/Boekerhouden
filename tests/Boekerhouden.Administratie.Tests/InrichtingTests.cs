@@ -97,8 +97,8 @@ public sealed class InrichtingTests(AdministratieFixture app) : IClassFixture<Ad
         await dienst.VoegRegelToe(wie, id, Telefoon);
         var huidig = await dienst.Instellingen(wie, id);
 
-        var ongeldig = await dienst.WijzigInstellingen(wie, id, huidig with { Ibans = ["NL00FOUT"], Betalingstermijn = 400, LimietAutomatisch = -1 });
-        var gelukt = await dienst.WijzigInstellingen(wie, id, huidig with { Ibans = ["NL20INGB0001234567"], LimietAutomatisch = 20m });
+        var ongeldig = await dienst.WijzigInstellingen(wie, id, huidig with { Ibans = ["NL00FOUT"], Afwijkend = huidig.Afwijkend with { Betalingstermijn = 400, LimietAfwijkend = true, Limiet = -1 } });
+        var gelukt = await dienst.WijzigInstellingen(wie, id, huidig with { Ibans = ["NL20INGB0001234567"], Afwijkend = huidig.Afwijkend with { LimietAfwijkend = true, Limiet = 20m } });
         var gelezen = await app.Dienst<InkoopDienst>().Lees(wie, id, new MemoryStream(InkoopTests.Belnet()), "belnet.xml", null);
 
         Assert.Equal(3, ongeldig.Fouten.Count);
@@ -115,11 +115,12 @@ public sealed class InrichtingTests(AdministratieFixture app) : IClassFixture<Ad
         var id = await app.Administratie();
         var dienst = app.Dienst<InrichtingDienst>();
         var huidig = await dienst.Instellingen(wie, id);
-        Assert.Equal(2, huidig.DrempelAutomatisch);
+        Assert.Equal(2, huidig.Geldend.Drempel);
+        Assert.Null(huidig.Afwijkend.Drempel);
 
-        Assert.Equal(["Automatisch verwerken na 1 tot 10 gelijke keuzes."], (await dienst.WijzigInstellingen(wie, id, huidig with { DrempelAutomatisch = 0 })).Fouten);
-        Assert.True((await dienst.WijzigInstellingen(wie, id, huidig with { DrempelAutomatisch = 3 })).IsGelukt);
-        Assert.Equal(3, (await dienst.Instellingen(wie, id)).DrempelAutomatisch);
+        Assert.Equal(["Automatisch verwerken na 1 tot 10 gelijke keuzes."], (await dienst.WijzigInstellingen(wie, id, huidig with { Afwijkend = huidig.Afwijkend with { Drempel = 0 } })).Fouten);
+        Assert.True((await dienst.WijzigInstellingen(wie, id, huidig with { Afwijkend = huidig.Afwijkend with { Drempel = 3 } })).IsGelukt);
+        Assert.Equal(3, (await dienst.Instellingen(wie, id)).Geldend.Drempel);
 
         Assert.Equal(["Onbekende variabele in de omschrijving: #maandd."], (await dienst.VoegRegelToe(wie, id, Telefoon with { Omschrijving = "Telefoon #maandd" })).Fouten);
         await dienst.VoegRelatieToe(wie, id, new("Belnet B.V.", "NL123456782B01", null, "4310"), "NL63TRIO0212345678");
@@ -128,6 +129,34 @@ public sealed class InrichtingTests(AdministratieFixture app) : IClassFixture<Ad
 
         Assert.True(gelezen.IsGeboekt, gelezen.Melding);
         Assert.Equal("Telefoon april 2026 (BN-2026-0411)", (await app.Dienst<GrootboekDienst>().Posten(wie, id, "INK")).Single().Post.Omschrijving);
+    }
+
+    [Fact]
+    public async Task Kantoorinstellingen_gelden_tenzij_de_administratie_afwijkt()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var kantoor = app.Dienst<KantoorDienst>();
+        var inrichting = app.Dienst<InrichtingDienst>();
+        var medewerker = await app.Gebruiker("Mia Medewerker");
+
+        await Assert.ThrowsAsync<GeenToegangException>(() => kantoor.Wijzig(medewerker, Verwerkingsinstellingen.Standaard with { Drempel = 5 }));
+        Assert.Equal(["De bandbreedte ligt tussen 1 en 10 keer het hoogste bedrag."], (await kantoor.Wijzig(wie, Verwerkingsinstellingen.Standaard with { Bandbreedte = 0.5m })).Fouten);
+        Assert.True((await kantoor.Wijzig(wie, new Verwerkingsinstellingen(3, 1.5m, 250m, 14, false, "/data/#administratie"))).IsGelukt);
+
+        var volgt = await inrichting.Instellingen(wie, id);
+        Assert.Equal(new Verwerkingsinstellingen(3, 1.5m, 250m, 14, false, "/data/#administratie"), volgt.Geldend);
+
+        Assert.True((await inrichting.WijzigInstellingen(wie, id, volgt with { Afwijkend = new(Drempel: 1, LimietAfwijkend: true, Limiet: null, Adrescontrole: true) })).IsGelukt);
+        var eigen = (await inrichting.Instellingen(wie, id)).Geldend;
+        Assert.Equal(new Verwerkingsinstellingen(1, 1.5m, null, 14, true, "/data/#administratie"), eigen);
+
+        var log = await app.Dienst<AuditDienst>().Recent();
+        Assert.Contains(log, r => r.Actie == AuditActies.KantoorinstellingenGewijzigd && r.Details!.Contains("adrescontrole aan → uit", StringComparison.Ordinal));
+        Assert.Contains(log, r => r.Actie == AuditActies.InstellingenGewijzigd && r.Details!.Contains("drempel 3 → 1", StringComparison.Ordinal));
+
+        // Weer terug naar de standaard, zodat andere tests in deze klasse er geen last van hebben.
+        await kantoor.Wijzig(wie, Verwerkingsinstellingen.Standaard);
     }
 
     [Fact]
@@ -143,6 +172,6 @@ public sealed class InrichtingTests(AdministratieFixture app) : IClassFixture<Ad
         await Assert.ThrowsAsync<GeenToegangException>(() => dienst.ZetIbans(buiten, id, Guid.NewGuid(), [], AdministratieFixture.Wachtwoord));
         await Assert.ThrowsAsync<GeenToegangException>(() => dienst.Regels(buiten, id));
         await Assert.ThrowsAsync<GeenToegangException>(() => dienst.Instellingen(buiten, id));
-        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.WijzigInstellingen(buiten, id, new("X", null, null, [], 30, null)));
+        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.WijzigInstellingen(buiten, id, new("X", null, null, [], AfwijkendeInstellingen.Geen)));
     }
 }

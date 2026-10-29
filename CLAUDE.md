@@ -45,10 +45,14 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   migraties met triggers die boekingen en het log onwijzigbaar maken), `Diensten/` (`Toegang` = de enige weg naar de
   gegevens van een administratie, met rechten per lidmaatschap; administraties, grootboek en boeken met hash-keten,
   gebruikers, tweestapsverificatie en passkeys, wijzigingslog; `InkoopDienst` = inlezen met virusscan, voorstel en
-  (automatisch) boeken; `InrichtingDienst` = relaties, regels en instellingen), `Identiteit/` (inloggen, beveiligingsheaders,
+  (automatisch) boeken en de kopie in de documentmap; `InrichtingDienst` = relaties, regels en instellingen van een
+  administratie; `KantoorDienst` = kantoorinstellingen, alleen beheerder), `Bureaublad/` (Windows-app voor één pc: eigen
+  PostgreSQL, Edge-venster, Defender; aan met `bureaublad.json` naast de exe), `Identiteit/` (inloggen, beveiligingsheaders,
   tweestap verplicht voor de beheerder), `Components/` (schermen; accountpagina's statisch, de rest interactief).
   Negatieve toegangstests horen bij elke dienst. Geen inline scripts (CSP): JavaScript als los bestand in `wwwroot/`
   (`factuurviewer.js` = de PDF-viewer met gebied aanwijzen; pdf.js staat in `wwwroot/lib/pdfjs`, Apache-2.0).
+- `scripts/maak-windows-app.ps1` / `.sh` – de Windows-app als zip (met PostgreSQL voor Windows en
+  `scripts/windows/bureaublad.json`); de CI maakt hem ook en start hem op een Windows-runner.
 - `src/Boekerhouden.Huisstijl` – gedeelde huisstijl van beide apps (Bootstrap, `app.css`, logo) onder
   `_content/Boekerhouden.Huisstijl/`.
 - `src/Boekerhouden.Import` – importsjabloon (.xlsx/.csv) inlezen en controleren (I1–I6, I11), sjabloon genereren,

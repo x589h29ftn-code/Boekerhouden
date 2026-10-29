@@ -374,11 +374,71 @@ public sealed class InkoopDienst(
         await transactie.CommitAsync();
         await audit.Log(wie, automatisch ? AuditActies.AutomatischGeboekt : AuditActies.Geboekt,
             $"{dagboek.Code} {boekstuk}", $"{factuur.Relatie} {factuur.Factuurnummer}; {factuur.Totaal(BtwCodes):0.00}", administratie);
+        await ZetInDocumentmap(db, administratie, document, factuur, relatie?.Naam ?? nieuw?.Naam, wie);
         return Uitkomst.Gelukt;
+    }
+
+    /// <summary>
+    /// Een kopie van het geboekte document in de documentmap van de administratie (bijv. OneDrive per klant en
+    /// boekjaar). Het origineel blijft in de database; lukt de kopie niet, dan blijft de boeking staan en komt de reden
+    /// in het log en bij het document.
+    /// </summary>
+    private async Task ZetInDocumentmap(AdministratieDbContext db, Guid administratie, Document document, Factuur factuur, string? relatie, Uitvoerder wie)
+    {
+        var adm = await db.Administraties.AsNoTracking().SingleAsync(a => a.Id == administratie);
+        if (adm.Afwijkend().Op(await KantoorDienst.Lees(db)).Documentmap is not { Length: > 0 } sjabloon)
+        {
+            return;
+        }
+
+        var gegevens = new Documentgegevens(adm.Naam, "Inkoop", factuur.Datum, relatie, factuur.Factuurnummer, Path.GetExtension(document.Bestandsnaam));
+        string? pad = null;
+        try
+        {
+            var inhoud = await db.DocumentInhouden.AsNoTracking().Where(i => i.DocumentId == document.Id).Select(i => i.Inhoud).SingleAsync();
+            var map = Documentpad.Map(sjabloon, gegevens);
+            Directory.CreateDirectory(map);
+            pad = Path.Combine(map, Documentpad.Bestandsnaam(gegevens));
+            pad = await SchrijfNieuw(pad, inhoud);
+            await audit.Log(wie, AuditActies.DocumentOpgeslagen, document.Bestandsnaam, pad, administratie);
+        }
+        catch (Exception fout) when (fout is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            document.Melding = $"Geboekt, maar niet in de documentmap gezet: {fout.Message}";
+            db.Documenten.Update(document);
+            await db.SaveChangesAsync();
+            await audit.Log(wie, AuditActies.DocumentNietOpgeslagen, document.Bestandsnaam, $"{pad ?? sjabloon}: {fout.Message}", administratie);
+        }
+    }
+
+    /// <summary>Schrijft het bestand zonder iets te overschrijven: staat er al een ander bestand, dan "naam (2).pdf".</summary>
+    private static async Task<string> SchrijfNieuw(string pad, byte[] inhoud)
+    {
+        var map = Path.GetDirectoryName(pad)!;
+        var naam = Path.GetFileNameWithoutExtension(pad);
+        var extensie = Path.GetExtension(pad);
+        for (var n = 1; ; n++)
+        {
+            var poging = n == 1 ? pad : Path.Combine(map, $"{naam} ({n}){extensie}");
+            if (File.Exists(poging))
+            {
+                if ((await File.ReadAllBytesAsync(poging)).AsSpan().SequenceEqual(inhoud))
+                {
+                    return poging;
+                }
+
+                continue;
+            }
+
+            await using var bestand = new FileStream(poging, FileMode.CreateNew, FileAccess.Write);
+            await bestand.WriteAsync(inhoud);
+            return poging;
+        }
     }
 
     private sealed record Inkoopcontext(
         Data.Administratie Administratie,
+        Verwerkingsinstellingen Instellingen,
         IReadOnlyList<Relatie> Relaties,
         IReadOnlyList<Verwerkingsregel> Regels,
         Leergeheugen Geheugen,
@@ -389,7 +449,8 @@ public sealed class InkoopDienst(
         var gegevens = await db.Administraties.AsNoTracking().SingleAsync(a => a.Id == administratie);
         var relaties = (await db.Relaties.AsNoTracking().OrderBy(r => r.Naam).ToListAsync()).Select(r => r.NaarDomein()).ToList();
         var regels = (await db.Regels.AsNoTracking().OrderBy(r => r.Volgorde).ToListAsync()).Select(r => r.NaarDomein()).ToList();
-        var geheugen = new Leergeheugen(gegevens.DrempelAutomatisch);
+        var instellingen = gegevens.Afwijkend().Op(await KantoorDienst.Lees(db));
+        var geheugen = new Leergeheugen(instellingen);
         foreach (var keuze in await db.Leerkeuzes.AsNoTracking().OrderBy(k => k.Id).ToListAsync())
         {
             geheugen.Onthoud(keuze.Sleutel, keuze.NaarDomein());
@@ -397,12 +458,12 @@ public sealed class InkoopDienst(
 
         var bestaand = await db.OpenstaandePosten.AsNoTracking().Where(p => p.Soort == Factuursoort.Inkoop)
             .Select(p => new BestaandeFactuur(p.Relatie, p.Factuurnummer, p.Datum, -p.Bedrag)).ToListAsync();
-        return new Inkoopcontext(gegevens, relaties, regels, geheugen, bestaand);
+        return new Inkoopcontext(gegevens, instellingen, relaties, regels, geheugen, bestaand);
     }
 
     private static Inkoopvoorstel Voorstel(HerkendeFactuur herkend, Inkoopcontext context) =>
         Inkoopverwerker.Verwerk(herkend, context.Relaties, context.Regels, context.Geheugen, BtwCodes, context.Bestaand,
-            context.Administratie.Betalingstermijn, periodeOpen: null, context.Administratie.LimietAutomatisch);
+            context.Instellingen.Betalingstermijn, periodeOpen: null, context.Instellingen.Limiet);
 
     private static string Kort(string tekst) => tekst.Length > 200 ? tekst[..200] : tekst;
 

@@ -1,0 +1,14 @@
+{
+  "Bureaublad": {
+    "Database": "Lokaal"
+  },
+  "Virusscan": {
+    "Soort": "Defender"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Warning",
+      "Microsoft.Hosting.Lifetime": "Information"
+    }
+  }
+}

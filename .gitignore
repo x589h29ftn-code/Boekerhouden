@@ -13,3 +13,4 @@ TestResults/
 # Tijdelijke bestanden
 *.tmp
 ~$*.xlsx
+/publiceer/

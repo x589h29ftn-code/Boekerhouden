@@ -99,12 +99,18 @@ public static class Opstart
         services.AddSingleton<BeveiligingDienst>();
         services.AddSingleton<InkoopDienst>();
         services.AddSingleton<InrichtingDienst>();
+        services.AddSingleton<KantoorDienst>();
 
         // Virusscan vóór het openen van elk document (besluit B3). Zonder instelling: op de server fail closed, in
         // ontwikkeling (zonder ClamAV) zonder scan.
         if (builder.Configuration["Virusscan:Adres"] is { Length: > 0 } adres)
         {
             services.AddSingleton<IVirusscanner>(ClamAvScanner.Van(adres));
+        }
+        else if (string.Equals(builder.Configuration["Virusscan:Soort"], "Defender", StringComparison.OrdinalIgnoreCase))
+        {
+            // De Windows-app op één pc: de virusscanner van Windows zelf.
+            services.AddSingleton<IVirusscanner>(new DefenderScanner(builder.Configuration["Virusscan:Programma"]));
         }
         else if (!builder.Environment.IsDevelopment())
         {

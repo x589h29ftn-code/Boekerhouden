@@ -1,0 +1,27 @@
+Boekerhouden Administratie – Windows-app voor de tests
+=======================================================
+
+Starten
+  Dubbelklik op Boekerhouden.Administratie.exe. Er opent een zwart venster (het logboek) en daarna de app in een
+  eigen venster van Microsoft Edge. Sluit het app-venster (of het zwarte venster) om te stoppen.
+
+Eerste start
+  - De app maakt een eigen database aan in %LOCALAPPDATA%\Boekerhouden\Administratie (alleen bereikbaar op deze pc).
+  - Maak het eerste account aan; dat is de beheerder. Stel daarna tweestapsverificatie in (authenticator-app of
+    Windows Hello als passkey); voor de beheerder is dat verplicht.
+  - Zet onder Beheer > Kantoorinstellingen de documentmap, bijv.
+      C:\Users\<naam>\OneDrive\Klanten\#administratie\#jaar\#soort
+
+Virusscan
+  Elk bestand gaat eerst langs Microsoft Defender. Staat Defender uit of is hij niet te vinden, dan leest de app
+  geen bestanden in.
+
+Opnieuw beginnen
+  Sluit de app en verwijder de map %LOCALAPPDATA%\Boekerhouden\Administratie.
+
+Foutmelding over de Visual C++-runtime
+  Installeer die eenmalig: winget install Microsoft.VCRedist.2015+.x64
+
+Meegeleverd
+  PostgreSQL (PostgreSQL-licentie) in de map pgsql, met de bibliotheken die daarbij horen (o.a. OpenSSL, ICU,
+  libxml2, zlib, gettext); .NET (MIT). Alles open source.

@@ -121,6 +121,24 @@ public sealed class WebTests(AdministratieFixture app) : IClassFixture<Administr
     }
 
     [Fact]
+    public async Task Kantoorinstellingen_alleen_voor_de_beheerder()
+    {
+        var wie = await app.Beheerder();
+        using var beheerder = NieuweClient();
+        await Aanmelden.LogInMetCode(beheerder, "beheer@kantoor.test", AdministratieFixture.Wachtwoord, await app.Tweestap(wie), "/");
+        var pagina = await beheerder.GetStringAsync(new Uri("/beheer/instellingen", UriKind.Relative));
+        Assert.Contains("Documentmap", pagina, StringComparison.Ordinal);
+        Assert.Contains("Adrescontrole", pagina, StringComparison.Ordinal);
+
+        var medewerker = await app.Gebruiker("Max Medewerker");
+        using var client = NieuweClient();
+        await Aanmelden.LogIn(client, await app.Email(medewerker), AdministratieFixture.Wachtwoord, "/");
+        var geweigerd = await client.GetAsync(new Uri("/beheer/instellingen", UriKind.Relative));
+        Assert.NotEqual(HttpStatusCode.OK, geweigerd.StatusCode);
+        Assert.DoesNotContain("Documentmap", await geweigerd.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Inloggen_en_uitloggen_komen_in_het_log()
     {
         await app.Beheerder();

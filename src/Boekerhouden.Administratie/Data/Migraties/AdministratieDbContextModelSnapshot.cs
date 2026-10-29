@@ -37,14 +37,25 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.Property<DateTimeOffset>("AangemaaktOp")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int>("Betalingstermijn")
+                    b.Property<bool?>("Adrescontrole")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal?>("Bandbreedte")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)");
+
+                    b.Property<int?>("Betalingstermijn")
                         .HasColumnType("integer");
 
                     b.Property<string>("BtwNummer")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
-                    b.Property<int>("DrempelAutomatisch")
+                    b.Property<string>("Documentmap")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
+                    b.Property<int?>("DrempelAutomatisch")
                         .HasColumnType("integer");
 
                     b.PrimitiveCollection<List<string>>("Ibans")
@@ -54,6 +65,9 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.Property<string>("KvkNummer")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<bool>("LimietAfwijkend")
+                        .HasColumnType("boolean");
 
                     b.Property<decimal?>("LimietAutomatisch")
                         .HasPrecision(18, 2)
@@ -586,6 +600,37 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .IsUnique();
 
                     b.ToTable("Relaties", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Kantoorinstellingen", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("Adrescontrole")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("Bandbreedte")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)");
+
+                    b.Property<int>("Betalingstermijn")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Documentmap")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
+                    b.Property<int>("DrempelAutomatisch")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("LimietAutomatisch")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Kantoorinstellingen", (string)null);
                 });
 
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Leerkeuze", b =>

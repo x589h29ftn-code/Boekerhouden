@@ -142,6 +142,43 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
     }
 
     [Fact]
+    public async Task Geboekte_factuur_komt_in_de_documentmap_van_de_administratie()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Kopie Voorbeeld B.V.");
+        var inkoop = app.Dienst<InkoopDienst>();
+        var inrichting = app.Dienst<InrichtingDienst>();
+        var basis = Path.Combine(Path.GetTempPath(), "boekerhouden-tests", Guid.NewGuid().ToString("N"));
+        var huidig = await inrichting.Instellingen(wie, id);
+        await inrichting.WijzigInstellingen(wie, id, huidig with { Afwijkend = huidig.Afwijkend with { Documentmap = basis + "/#administratie/#jaar/#soort" } });
+        try
+        {
+            var gelezen = await inkoop.Lees(wie, id, new MemoryStream(Belnet()), "belnet.xml", null);
+            var herkend = (await inkoop.Verwerking(wie, id, gelezen.DocumentId!.Value))!.Herkend!;
+            Assert.True((await inkoop.Boek(wie, id, gelezen.DocumentId.Value, Invoer(null, new("Belnet B.V.", herkend.Iban, herkend.BtwNummer, null), "BN-2026-0411"))).IsGelukt);
+
+            var bestand = Path.Combine(basis, "Kopie Voorbeeld B.V", "2026", "Inkoop", "2026-04-01 Belnet B.V. BN-2026-0411.xml");
+            Assert.True(File.Exists(bestand), bestand);
+            Assert.Equal(Belnet(), await File.ReadAllBytesAsync(bestand));
+            Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.DocumentOpgeslagen && r.Details == bestand);
+
+            // Een map die niet te maken is (er staat een bestand op die plek): de boeking blijft staan, met een melding.
+            await File.WriteAllTextAsync(Path.Combine(basis, "bezet"), "");
+            await inrichting.WijzigInstellingen(wie, id, huidig with { Afwijkend = huidig.Afwijkend with { Documentmap = basis + "/bezet/#jaar" } });
+            var tweede = await inkoop.Lees(wie, id, new MemoryStream(Belnet("BN-2", "2026-05-01")), "2.xml", null);
+            Assert.True((await inkoop.Boek(wie, id, tweede.DocumentId!.Value, Invoer("BELNET", null, "BN-2"))).IsGelukt);
+            var document = (await inkoop.Lijst(wie, id)).Single(d => d.Id == tweede.DocumentId);
+            Assert.Equal(Documentstatus.Geboekt, document.Status);
+            Assert.StartsWith("Geboekt, maar niet in de documentmap gezet", document.Melding, StringComparison.Ordinal);
+            Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.DocumentNietOpgeslagen);
+        }
+        finally
+        {
+            Directory.Delete(basis, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Regel_boekt_de_eerste_factuur_van_een_bekende_leverancier_meteen()
     {
         var wie = await app.Beheerder();

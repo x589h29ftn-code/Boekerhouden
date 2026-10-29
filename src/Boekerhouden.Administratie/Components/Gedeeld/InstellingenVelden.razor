@@ -1,0 +1,70 @@
+@* De verwerkingsinstellingen. Met Kantoor erbij (in een administratie) betekent een leeg veld "zoals het kantoor";
+   de waarde van het kantoor staat dan grijs in het veld. *@
+@using Boekerhouden.Boekhouding.Facturen
+@using Boekerhouden.Boekhouding.Regels
+
+<div class="row g-2">
+    <div class="col-md-4">
+        <label class="form-label" for="drempel">Automatisch na … gelijke keuzes</label>
+        <input id="drempel" type="number" min="1" max="10" class="form-control" @bind="Invoer.Drempel" placeholder="@Grijs(Kantoor?.Drempel.ToString())" />
+    </div>
+    <div class="col-md-4">
+        <label class="form-label" for="bandbreedte">Bandbreedte bedrag</label>
+        <input id="bandbreedte" class="form-control" @bind="Invoer.Bandbreedte" placeholder="@Grijs(Kantoor?.Bandbreedte.ToString("0.##", Nl))" title="Automatisch tot zoveel keer het hoogste bevestigde bedrag" />
+    </div>
+    <div class="col-md-4">
+        <label class="form-label" for="termijn">Betalingstermijn (dagen)</label>
+        <input id="termijn" type="number" min="0" max="365" class="form-control" @bind="Invoer.Betalingstermijn" placeholder="@Grijs(Kantoor?.Betalingstermijn.ToString())" />
+    </div>
+    <div class="col-md-4">
+        <label class="form-label" for="limiet">Limiet automatisch boeken</label>
+        @if (Kantoor is null)
+        {
+            <input id="limiet" class="form-control" @bind="Invoer.Limiet" placeholder="geen limiet" />
+        }
+        else
+        {
+            <div class="input-group">
+                <select id="limiet" class="form-select" @bind="Invoer.LimietKeuze" aria-label="Limiet">
+                    <option value="@InstellingenInvoer.Kantoor">kantoor: @(Kantoor.Limiet is { } l ? Bedragen.Euro(l) : "geen limiet")</option>
+                    <option value="@InstellingenInvoer.GeenLimiet">geen limiet</option>
+                    <option value="@InstellingenInvoer.EigenLimiet">eigen limiet</option>
+                </select>
+                @if (Invoer.LimietKeuze == InstellingenInvoer.EigenLimiet)
+                {
+                    <input class="form-control" @bind="Invoer.Limiet" aria-label="Eigen limiet" />
+                }
+            </div>
+        }
+    </div>
+    <div class="col-md-4">
+        <label class="form-label" for="adrescontrole">Adrescontrole</label>
+        <select id="adrescontrole" class="form-select" @bind="Invoer.Adrescontrole" title="Een nieuwe postcode op de factuur van een bekende leverancier ter controle voorleggen">
+            @if (Kantoor is not null)
+            {
+                <option value="@InstellingenInvoer.Kantoor">kantoor: @(Kantoor.Adrescontrole ? "aan" : "uit")</option>
+            }
+            <option value="@InstellingenInvoer.Aan">aan</option>
+            <option value="@InstellingenInvoer.Uit">uit</option>
+        </select>
+    </div>
+    <div class="col-12">
+        <label class="form-label" for="documentmap">Documentmap</label>
+        <input id="documentmap" class="form-control" @bind="Invoer.Documentmap"
+               placeholder="@(Grijs(Kantoor?.Documentmap) ?? @"bijv. C:\Users\naam\OneDrive\Klanten\#administratie\#jaar\#soort")"
+               title="@string.Join(", ", Documentpad.Variabelen.Select(v => $"{v.Naam} = {v.Betekenis}"))" />
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public InstellingenInvoer Invoer { get; set; } = default!;
+
+    /// <summary>De instellingen van het kantoor, als de velden bij een administratie horen.</summary>
+    [Parameter]
+    public Verwerkingsinstellingen? Kantoor { get; set; }
+
+    private static readonly System.Globalization.CultureInfo Nl = System.Globalization.CultureInfo.GetCultureInfo("nl-NL");
+
+    private string? Grijs(string? kantoorwaarde) => Kantoor is null ? null : kantoorwaarde is null ? "kantoor: geen" : $"kantoor: {kantoorwaarde}";
+}

@@ -14,15 +14,20 @@ public sealed record RelatieRegel(Guid Id, string Code, string Naam, IReadOnlyLi
 
 public sealed record RegelRegel(Guid Id, int Volgorde, Verwerkingsregel Regel);
 
-/// <param name="DrempelAutomatisch">Na hoeveel gelijke bevestigingen op rij een leverancier automatisch wordt verwerkt.</param>
+/// <summary>De gegevens en instellingen van een administratie.</summary>
+/// <param name="Afwijkend">Waarin de administratie afwijkt van het kantoor; leeg = de kantoorinstelling.</param>
+/// <param name="Kantoor">De instellingen van het kantoor (alleen om te tonen; wijzigen gaat via <see cref="KantoorDienst"/>).</param>
 public sealed record Instellingen(
     string Naam,
     string? KvkNummer,
     string? BtwNummer,
     IReadOnlyList<string> Ibans,
-    int Betalingstermijn,
-    decimal? LimietAutomatisch,
-    int DrempelAutomatisch = 2);
+    AfwijkendeInstellingen Afwijkend,
+    Verwerkingsinstellingen? Kantoor = null)
+{
+    /// <summary>Wat er voor de administratie geldt.</summary>
+    public Verwerkingsinstellingen Geldend => Afwijkend.Op(Kantoor ?? Verwerkingsinstellingen.Standaard);
+}
 
 /// <summary>
 /// De inrichting van een administratie: relaties (leveranciers en klanten), regels voor automatisch verwerken en de
@@ -236,7 +241,7 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
         var a = await db.Administraties.AsNoTracking().SingleAsync(x => x.Id == administratie);
-        return new Instellingen(a.Naam, a.KvkNummer, a.BtwNummer, a.Ibans, a.Betalingstermijn, a.LimietAutomatisch, a.DrempelAutomatisch);
+        return new Instellingen(a.Naam, a.KvkNummer, a.BtwNummer, a.Ibans, a.Afwijkend(), await KantoorDienst.Lees(db));
     }
 
     public async Task<Uitkomst> WijzigInstellingen(Uitvoerder wie, Guid administratie, Instellingen invoer)
@@ -261,36 +266,27 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
 
         var ibans = invoer.Ibans.Where(i => !string.IsNullOrWhiteSpace(i)).Select(Iban.Normaliseer).Distinct().ToList();
         fouten.AddRange(ibans.Where(i => !Iban.IsGeldig(i)).Select(i => $"{i} is geen geldig IBAN."));
-        if (invoer.Betalingstermijn is < 0 or > 365)
-        {
-            fouten.Add("De betalingstermijn ligt tussen 0 en 365 dagen.");
-        }
-
-        if (invoer.LimietAutomatisch is < 0)
-        {
-            fouten.Add("De limiet kan niet negatief zijn.");
-        }
-
-        if (invoer.DrempelAutomatisch is < 1 or > 10)
-        {
-            fouten.Add("Automatisch verwerken na 1 tot 10 gelijke keuzes.");
-        }
-
+        var kantoor = await KantoorDienst.Lees(db);
+        var afwijkend = invoer.Afwijkend with { Documentmap = Leeg(invoer.Afwijkend.Documentmap) };
+        fouten.AddRange(afwijkend.Op(kantoor).Controleer());
         if (fouten.Count > 0)
         {
             return Uitkomst.Mislukt([.. fouten]);
         }
 
         var a = await db.Administraties.SingleAsync(x => x.Id == administratie);
-        var details = $"limiet {a.LimietAutomatisch?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) ?? "geen"} → {invoer.LimietAutomatisch?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) ?? "geen"}; " +
-                      $"IBAN's [{string.Join(", ", a.Ibans)}] → [{string.Join(", ", ibans)}]; drempel {a.DrempelAutomatisch} → {invoer.DrempelAutomatisch}";
+        var details = $"{KantoorDienst.Verschil(a.Afwijkend().Op(kantoor), afwijkend.Op(kantoor))}; IBAN's [{string.Join(", ", a.Ibans)}] → [{string.Join(", ", ibans)}]";
         a.Naam = invoer.Naam.Trim();
         a.KvkNummer = Leeg(invoer.KvkNummer);
         a.BtwNummer = string.IsNullOrWhiteSpace(invoer.BtwNummer) ? null : BtwNummer.Normaliseer(invoer.BtwNummer);
         a.Ibans = ibans;
-        a.Betalingstermijn = invoer.Betalingstermijn;
-        a.LimietAutomatisch = invoer.LimietAutomatisch;
-        a.DrempelAutomatisch = invoer.DrempelAutomatisch;
+        a.DrempelAutomatisch = afwijkend.Drempel;
+        a.Bandbreedte = afwijkend.Bandbreedte;
+        a.LimietAfwijkend = afwijkend.LimietAfwijkend;
+        a.LimietAutomatisch = afwijkend.LimietAfwijkend ? afwijkend.Limiet : null;
+        a.Betalingstermijn = afwijkend.Betalingstermijn;
+        a.Adrescontrole = afwijkend.Adrescontrole;
+        a.Documentmap = afwijkend.Documentmap;
         await db.SaveChangesAsync();
         await audit.Log(wie, AuditActies.InstellingenGewijzigd, a.Naam, details, administratie);
         return Uitkomst.Gelukt;

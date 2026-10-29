@@ -311,7 +311,21 @@ overzichten.
 | Viewer | pdf.js (lokaal in `wwwroot/lib/pdfjs`, Apache-2.0) tekent de PDF; `wwwroot/factuurviewer.js`. Klik een veld aan en sleep een gebied op de factuur (of klik op een woord): de server haalt de tekst uit dat gebied met PdfPig (`PdfTekst.InGebied`, `InkoopDienst.TekstInGebied`) en zet die in het veld; een bedrag of datum wordt eruit gelezen. *Extern* opent de viewer in een eigen venster (`/a/{id}/inkoop/{document}/document`) voor een tweede beeldscherm; dat venster stuurt het gebied via een `BroadcastChannel` naar het verwerkscherm |
 | Relaties | `/a/{id}/relaties`: toevoegen en de standaardrekening; het IBAN wijzigen vraagt het wachtwoord en logt oud en nieuw (`InrichtingDienst.ZetIbans`) |
 | Regels | `/a/{id}/regels`: automatiseringsregels toevoegen, volgorde en verwijderen; alleen het kantoor (recht Boekhouden) |
-| Instellingen | `/a/{id}/instellingen` (kantoor): naam, KvK, btw-nummer, eigen IBAN's, betalingstermijn, de limiet voor automatisch boeken (leeg = geen limiet, B2) en de drempel (na hoeveel gelijke keuzes) |
+| Instellingen | Twee niveaus. `/beheer/instellingen` (beheerder, `KantoorDienst`): de standaard van het kantoor. `/a/{id}/instellingen` (kantoor): naam, KvK, btw-nummer en eigen IBAN's, en per instelling afwijken van het kantoor; een leeg veld volgt het kantoor (de kantoorwaarde staat grijs in het veld). Instellingen: drempel (na hoeveel gelijke keuzes), bandbreedte (automatisch tot zoveel keer het hoogste bevestigde bedrag), limiet (geen, kantoor of eigen; B2), betalingstermijn, adrescontrole aan/uit en de documentmap (`Verwerkingsinstellingen`, `AfwijkendeInstellingen`) |
+| Documentmap | Na het boeken een kopie van het document in een map met variabelen (`Documentpad`): `#administratie`, `#jaar`, `#kwartaal`, `#maand`, `#soort`, `#leverancier`, bijv. `C:\Users\naam\OneDrive\Klanten\#administratie\#jaar\#soort`. Bestandsnaam: datum, relatie en factuurnummer. Nooit overschrijven (anders `(2)`); lukt het niet, dan blijft de boeking staan met de reden bij het document en in het log. Het origineel blijft in de database |
+
+#### Windows-app (bureaubladmodus)
+
+Dezelfde webapp, maar voor één pc (`Bureaublad/`): aan als er een `bureaublad.json` naast de exe staat (het
+publicatiescript zet die erbij) of met `--bureaublad`.
+
+| Onderdeel | Hoe |
+|---|---|
+| Database | `LokaleDatabase`: PostgreSQL uit `pgsql\bin` naast de exe. Bij de eerste start `initdb` in `%LOCALAPPDATA%\Boekerhouden\Administratie\database`, gebruiker `boekerhouden` met een willekeurig wachtwoord (scram-sha-256), alleen op 127.0.0.1 en zonder socketbestand, op een vrije poort. Draait hij nog (na hard afsluiten), dan gebruikt de app hem opnieuw; bij afsluiten `pg_ctl stop` |
+| Venster | `AppVenster`: Edge met `--app` en een eigen profiel; sluit de gebruiker het venster, dan stopt de app. Zonder Edge: de standaardbrowser |
+| Virusscan | `DefenderScanner`: Microsoft Defender (`MpCmdRun.exe -Scan -ScanType 3 -File`), *fail closed* |
+| Instellingen | Sectie `Bureaublad`: `Gegevensmap`, `PostgreSql`, `Database` (`Lokaal`/`Extern`), `Poort` (5090, anders een vrije), `Browser`, `Venster` (`Nee` voor de proef in CI) |
+| Bouwen | `scripts/maak-windows-app.ps1` of `.sh`: `dotnet publish -r win-x64 --self-contained`, PostgreSQL-binaries van EDB (alleen `bin`, `lib`, `share`), `scripts/windows/bureaublad.json` en `LEESMIJ.txt`, gezipt. De CI maakt de zip en start hem op een Windows-runner |
 
 Nog niet gebouwd: bank en verkoop in de app (A8–A9), OCR, btw-aangifte en periodes, het RGS-werkboek in de
 administratie (nu de RGS-code als tekst bij een nieuwe rekening), en de hulppagina.
@@ -320,9 +334,8 @@ administratie (nu de RGS-code als tekst bij een nieuwe rekening), en de hulppagi
 
 1. **Btw-tarieven en -rubrieken** zijn opgenomen zoals in 2026 (21%, 9%, 0%). Controleer de rubrieken van het
    aangifteformulier bij plakje A10.
-2. **Drempel voor automatisch verwerken**: standaard twee bevestigingen (de derde factuur gaat vanzelf), per
-   administratie in te stellen. Is drie bevestigingen (de vierde gaat vanzelf) een betere standaard? Ook de
-   bandbreedte (1,25 keer het hoogste bedrag) kan per administratie instelbaar worden.
+2. **Drempel voor automatisch verwerken**: standaard twee bevestigingen (de derde factuur gaat vanzelf), op
+   kantoorniveau en per administratie in te stellen, net als de bandbreedte en de adrescontrole.
 3. **Directe bankkoppeling**: welke aanbieder (kosten per rekening per maand), en wanneer?
 4. **Hosting voor ondernemers** (AD2): VPS in Nederland, tweestapsverificatie verplicht, back-up buiten de
    server. Een besluit is nodig vóór "later".

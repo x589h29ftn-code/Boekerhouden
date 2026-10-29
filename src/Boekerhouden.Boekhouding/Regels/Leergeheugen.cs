@@ -54,19 +54,34 @@ public sealed record Geleerd(
 /// </summary>
 public sealed class Leergeheugen
 {
-    /// <summary>Hoeveel ruimte boven het hoogste bevestigde bedrag nog automatisch gaat.</summary>
-    public const decimal Bandbreedte = 1.25m;
+    /// <summary>Standaard gaat automatisch tot 1,25 keer het hoogste bevestigde bedrag.</summary>
+    public const decimal StandaardBandbreedte = 1.25m;
 
     private readonly Dictionary<string, List<Bevestiging>> bevestigingen = new(StringComparer.Ordinal);
 
-    public Leergeheugen(int drempel = 2)
+    public Leergeheugen(int drempel = 2, decimal bandbreedte = StandaardBandbreedte, bool adrescontrole = true)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(drempel, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(bandbreedte, 1m);
         Drempel = drempel;
+        Bandbreedte = bandbreedte;
+        Adrescontrole = adrescontrole;
+    }
+
+    /// <summary>Het geheugen met de instellingen van het kantoor of de administratie.</summary>
+    public Leergeheugen(Verwerkingsinstellingen instellingen)
+        : this(instellingen?.Drempel ?? 2, instellingen?.Bandbreedte ?? StandaardBandbreedte, instellingen?.Adrescontrole ?? true)
+    {
     }
 
     /// <summary>Na hoeveel gelijke bevestigingen op rij het pakket zelf verwerkt.</summary>
     public int Drempel { get; }
+
+    /// <summary>Hoeveel ruimte boven het hoogste bevestigde bedrag nog automatisch gaat (1,25 = een kwart erboven).</summary>
+    public decimal Bandbreedte { get; }
+
+    /// <summary>Komt een nieuwe postcode op de factuur ter controle naar boven?</summary>
+    public bool Adrescontrole { get; }
 
     /// <summary>
     /// De sleutel waaronder een keuze wordt onthouden: de relatie, anders de tegenrekening, anders de naam. Leeg als
@@ -153,13 +168,13 @@ public sealed class Leergeheugen
         return reeks;
     }
 
-    private static decimal? Bovengrens(List<Bevestiging> reeks)
+    private decimal? Bovengrens(List<Bevestiging> reeks)
     {
         var hoogste = reeks.Where(b => b.Bedrag is not null).Select(b => Math.Abs(b.Bedrag!.Value)).DefaultIfEmpty().Max();
         return hoogste > 0 ? decimal.Round(hoogste * Bandbreedte, 2) : null;
     }
 
-    private static List<Afwijking> Afwijkingen(List<Bevestiging> reeks, Bevestiging nu, decimal? bovengrens)
+    private List<Afwijking> Afwijkingen(List<Bevestiging> reeks, Bevestiging nu, decimal? bovengrens)
     {
         var afwijkingen = new List<Afwijking>();
         if (bovengrens is { } grens && nu.Bedrag is { } bedrag && Math.Abs(bedrag) > grens)
@@ -173,7 +188,7 @@ public sealed class Leergeheugen
         }
 
         var bekendePostcodes = reeks.Where(b => b.Postcodes is not null).SelectMany(b => b.Postcodes!).ToHashSet(StringComparer.Ordinal);
-        if (bekendePostcodes.Count > 0 && nu.Postcodes?.Where(p => !bekendePostcodes.Contains(p)).ToList() is { Count: > 0 } nieuw)
+        if (Adrescontrole && bekendePostcodes.Count > 0 && nu.Postcodes?.Where(p => !bekendePostcodes.Contains(p)).ToList() is { Count: > 0 } nieuw)
         {
             afwijkingen.Add(new(Afwijkingssoort.Adres, $"Ander adres dan bij de eerdere facturen (postcode {string.Join(", ", nieuw.Select(Postcode.Toon))})."));
         }

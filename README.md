@@ -119,6 +119,17 @@ proefbalans en balans en W&V, en inloggen met tweestapsverificatie (authenticato
 dotnet run --project src/Boekerhouden.Administratie    # http://localhost:5090, eigen database boekerhouden_administratie
 ```
 
+### Windows-app voor de tests
+
+Een zip om op een Windows-pc te proberen, zonder iets te installeren: de app (met .NET erin), een eigen PostgreSQL
+en Microsoft Defender als virusscanner. Uitpakken en `Boekerhouden.Administratie.exe` starten; de app opent in een
+eigen venster van Edge en bewaart alles in `%LOCALAPPDATA%\Boekerhouden\Administratie` (zie `LEESMIJ.txt` in de zip).
+
+- Kant-en-klaar: de CI maakt bij elke push de zip *Boekerhouden-Administratie-win-x64* (GitHub, tabblad *Actions*,
+  de laatste run, onder *Artifacts*).
+- Zelf maken op Windows (met de .NET 10 SDK): `.\scripts\maak-windows-app.ps1`; op Linux of in Git Bash:
+  `scripts/maak-windows-app.sh`. Het resultaat staat in `publiceer\`.
+
 Ontwerp en roadmap: [`docs/administratie`](docs/administratie/README.md); beveiliging:
 [`docs/administratie/beveiliging.md`](docs/administratie/beveiliging.md).
 

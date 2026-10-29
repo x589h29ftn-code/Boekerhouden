@@ -56,14 +56,29 @@ public sealed class Administratie
     /// <summary>De eigen bankrekening(en); staan ook op facturen, maar zijn niet van de leverancier.</summary>
     public List<string> Ibans { get; set; } = [];
 
+    // Instellingen waarin de administratie afwijkt van het kantoor; leeg = de kantoorinstelling.
+
     /// <summary>Betalingstermijn in dagen als de factuur geen vervaldatum noemt.</summary>
-    public int Betalingstermijn { get; set; } = 30;
+    public int? Betalingstermijn { get; set; }
+
+    /// <summary>Heeft de administratie een eigen limiet (ook "geen limiet")? Anders geldt die van het kantoor.</summary>
+    public bool LimietAfwijkend { get; set; }
 
     /// <summary>Boven dit bedrag (inclusief btw) wordt nooit automatisch geboekt; leeg = geen limiet (besluit B2).</summary>
     public decimal? LimietAutomatisch { get; set; }
 
     /// <summary>Na hoeveel gelijke bevestigingen op rij een leverancier automatisch wordt verwerkt.</summary>
-    public int DrempelAutomatisch { get; set; } = 2;
+    public int? DrempelAutomatisch { get; set; }
+
+    public decimal? Bandbreedte { get; set; }
+
+    public bool? Adrescontrole { get; set; }
+
+    /// <summary>Waar een kopie van elk geboekt document komt (met variabelen).</summary>
+    public string? Documentmap { get; set; }
+
+    public Boekhouding.Regels.AfwijkendeInstellingen Afwijkend() =>
+        new(DrempelAutomatisch, Bandbreedte, LimietAfwijkend, LimietAutomatisch, Betalingstermijn, Adrescontrole, Documentmap);
 
     public DateTimeOffset AangemaaktOp { get; set; }
 
@@ -379,4 +394,27 @@ public sealed class Automatiseringsregel : IVanAdministratie
 
     public Boekhouding.Regels.Verwerkingsregel NaarDomein() =>
         new(Naam, Rekeningnummer, BtwCode, Automatisch, Soort, Relatie, NaamBevat, BedragVan, BedragTot, OmschrijvingBevat, TegenIban, Richting, Omschrijving);
+}
+
+/// <summary>De instellingen van het kantoor: de standaard voor elke administratie (één rij).</summary>
+public sealed class Kantoorinstellingen
+{
+    public const int EnigeId = 1;
+
+    public int Id { get; set; } = EnigeId;
+
+    public int DrempelAutomatisch { get; set; } = 2;
+
+    public decimal Bandbreedte { get; set; } = Boekhouding.Regels.Leergeheugen.StandaardBandbreedte;
+
+    public decimal? LimietAutomatisch { get; set; }
+
+    public int Betalingstermijn { get; set; } = 30;
+
+    public bool Adrescontrole { get; set; } = true;
+
+    public string? Documentmap { get; set; }
+
+    public Boekhouding.Regels.Verwerkingsinstellingen NaarDomein() =>
+        new(DrempelAutomatisch, Bandbreedte, LimietAutomatisch, Betalingstermijn, Adrescontrole, Documentmap);
 }

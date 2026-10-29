@@ -1,0 +1,50 @@
+@page "/beheer/instellingen"
+@layout BeheerLayout
+@attribute [Authorize(Roles = Rollen.Beheerder)]
+@inject KantoorDienst Kantoor
+
+<PageTitle>Kantoorinstellingen – Administratie</PageTitle>
+
+<h1 class="h3 mb-3">Kantoorinstellingen</h1>
+<Foutmeldingen Fouten="fouten" />
+@if (bericht is not null)
+{
+    <div class="bericht mb-2">@bericht</div>
+}
+@if (invoer is not null)
+{
+    <div class="card card-body" style="max-width: 52rem">
+        <div class="mb-3">
+            <InstellingenVelden Invoer="invoer" />
+        </div>
+        <div><button class="btn btn-primary" @onclick="Bewaar">Opslaan</button></div>
+    </div>
+}
+
+@code {
+    private InstellingenInvoer? invoer;
+    private IReadOnlyList<string>? fouten;
+    private string? bericht;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Status { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync() =>
+        invoer = InstellingenInvoer.Van(await Kantoor.Instellingen());
+
+    private async Task Bewaar()
+    {
+        var lijst = new List<string>();
+        var nieuw = invoer!.NaarKantoor(lijst);
+        if (lijst.Count > 0)
+        {
+            fouten = lijst;
+            bericht = null;
+            return;
+        }
+
+        var uitkomst = await Kantoor.Wijzig((await Status).User.AlsUitvoerder(), nieuw);
+        fouten = uitkomst.Fouten;
+        bericht = uitkomst.IsGelukt ? "Opgeslagen." : null;
+    }
+}

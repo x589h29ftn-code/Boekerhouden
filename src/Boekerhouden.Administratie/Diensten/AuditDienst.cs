@@ -63,6 +63,12 @@ public static class AuditActies
     public const string RegelVerwijderd = "Regel verwijderd";
     public const string RegelVerplaatst = "Regel verplaatst";
     public const string InstellingenGewijzigd = "Instellingen gewijzigd";
+
+    public const string KantoorinstellingenGewijzigd = "Kantoorinstellingen gewijzigd";
+
+    public const string DocumentOpgeslagen = "Document in de documentmap gezet";
+
+    public const string DocumentNietOpgeslagen = "Document niet in de documentmap gezet";
     public const string DocumentQuarantaine = "Document in quarantaine";
     public const string TweestapAan = "Tweestapsverificatie aangezet";
     public const string TweestapUit = "Tweestapsverificatie uitgezet";
