@@ -255,6 +255,26 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
     }
 
     [Fact]
+    public async Task Opnieuw_afletteren_boekt_wat_na_het_inlezen_zeker_is_geworden()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var bank = app.Dienst<BankDienst>();
+        await bank.Lees(wie, id, Afschrift(), "ing.mt940");
+        Assert.True((await app.Dienst<InrichtingDienst>().VoegRegelToe(wie, id,
+            new Verwerkingsregel("Jansen", "4300", "I21", Automatisch: true, Soort: Verwerkingssoort.Bankmutatie, TegenIban: "NL36INGB0007654321"))).IsGelukt);
+
+        var opnieuw = await bank.VerwerkOpnieuw(wie, id);
+
+        Assert.Equal(new Herverwerking(3, 1), opnieuw);
+        Assert.DoesNotContain(await bank.Lijst(wie, id), m => m.Bedrag == -199.65m);
+        Assert.Equal(new Herverwerking(2, 0), await bank.VerwerkOpnieuw(wie, id));
+        var inzien = await app.Gebruiker("Inzien");
+        await app.Dienst<AdministratieDienst>().ZetLid(id, inzien.Id!.Value, Lidmaatschapsrol.Inzien, wie);
+        await Assert.ThrowsAsync<GeenToegangException>(() => bank.VerwerkOpnieuw(inzien, id));
+    }
+
+    [Fact]
     public async Task Zonder_lidmaatschap_of_met_alleen_inzien_geen_bank()
     {
         var beheerder = await app.Beheerder();

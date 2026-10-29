@@ -253,6 +253,35 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
     }
 
     [Fact]
+    public async Task Opnieuw_herkennen_boekt_de_rest_van_de_stapel_na_twee_keer_zelf_boeken()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var inkoop = app.Dienst<InkoopDienst>();
+        var gelezen = new List<Guid>();
+        for (var i = 1; i <= 4; i++)
+        {
+            var uitkomst = await inkoop.Lees(wie, id, new MemoryStream(Belnet($"S-{i}", $"2026-04-0{i}")), $"s{i}.xml", null);
+            Assert.Equal(Documentstatus.TeVerwerken, uitkomst.Status);
+            gelezen.Add(uitkomst.DocumentId!.Value);
+        }
+
+        var herkend = (await inkoop.Verwerking(wie, id, gelezen[0]))!.Herkend!;
+        Assert.True((await inkoop.Boek(wie, id, gelezen[0], Invoer(null, new NieuweRelatie("Belnet B.V.", herkend.Iban, null, null), "S-1"))).IsGelukt);
+        Assert.True((await inkoop.Boek(wie, id, gelezen[1], Invoer("BELNET", null, "S-2") with { Datum = new(2026, 4, 2) })).IsGelukt);
+
+        var opnieuw = await inkoop.VerwerkOpnieuw(wie, id);
+
+        Assert.Equal(new Herverwerking(2, 2), opnieuw);
+        Assert.Empty(await inkoop.Lijst(wie, id, Documentstatus.TeVerwerken));
+        Assert.Equal(4 * 20.65m, (await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026)).Regels.Single(r => r.Rekening.Nummer == "4310").Saldo);
+        Assert.Equal(new Herverwerking(0, 0), await inkoop.VerwerkOpnieuw(wie, id));
+        var inzien = await app.Gebruiker("Inzien");
+        await app.Dienst<AdministratieDienst>().ZetLid(id, inzien.Id!.Value, Lidmaatschapsrol.Inzien, wie);
+        await Assert.ThrowsAsync<GeenToegangException>(() => inkoop.VerwerkOpnieuw(inzien, id));
+    }
+
+    [Fact]
     public async Task Creditnota_wordt_omgekeerd_geboekt_en_verrekend_met_de_factuur()
     {
         var wie = await app.Beheerder();

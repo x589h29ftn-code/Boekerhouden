@@ -19,7 +19,17 @@
         </div>
     }
 
-    <h2 class="h6 text-secondary">Te verwerken</h2>
+    <div class="d-flex align-items-center gap-3 mb-2">
+        <h2 class="h6 text-secondary mb-0">Te verwerken</h2>
+        @if (opnieuw is { } o)
+        {
+            <span class="small text-secondary">@Samenvatting(o)</span>
+        }
+        @if (context.Mag(Recht.Invoeren) && teVerwerken is { Count: > 0 })
+        {
+            <button class="btn btn-sm btn-outline-secondary ms-auto" disabled="@bezig" title="Opnieuw door de facturen in Te verwerken, met wat het pakket nu weet (relaties, regels, wat er geleerd is)" @onclick="VerwerkOpnieuw">Opnieuw herkennen</button>
+        }
+    </div>
     @if (teVerwerken is { Count: 0 })
     {
         <div class="card card-body text-center text-secondary py-4 mb-4">Niets te verwerken.</div>
@@ -92,6 +102,7 @@
     private IReadOnlyList<DocumentRegel>? overig;
     private List<Inleesuitkomst> uitkomsten = [];
     private bool bezig;
+    private Herverwerking? opnieuw;
 
     [Parameter]
     public Guid Id { get; set; }
@@ -117,6 +128,17 @@
         (Documentstatus.Gearchiveerd, _) => "geen boeking",
         _ => "quarantaine",
     };
+
+    private async Task VerwerkOpnieuw()
+    {
+        bezig = true;
+        opnieuw = await Inkoop.VerwerkOpnieuw(geopend!.Wie, Id);
+        bezig = false;
+        await Laad();
+    }
+
+    internal static string Samenvatting(Herverwerking h) =>
+        $"{h.Bekeken} bekeken, {(h.Geboekt == 0 ? "niets" : h.Geboekt.ToString(System.Globalization.CultureInfo.InvariantCulture))} automatisch geboekt";
 
     private async Task LeesIn(InputFileChangeEventArgs e)
     {

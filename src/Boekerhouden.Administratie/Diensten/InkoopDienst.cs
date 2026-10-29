@@ -187,6 +187,52 @@ public sealed class InkoopDienst(
         return new(document.Id, document.Status, $"{naam}: {document.Melding}");
     }
 
+    /// <summary>
+    /// Gaat opnieuw door alle facturen in Te verwerken, met wat het pakket nu weet: nieuwe relaties, regels, wat er
+    /// intussen geleerd is en het zoektemplate. Zo gaan na een paar keer zelf boeken de andere facturen van die
+    /// leverancier vanzelf. Wat nu automatisch kan, wordt geboekt (de oudste eerst); bij de rest komt de actuele reden.
+    /// </summary>
+    public async Task<Herverwerking> VerwerkOpnieuw(Uitvoerder wie, Guid administratie, CancellationToken annulering = default)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Invoeren);
+        var documenten = await db.Documenten.Where(d => d.Status == Documentstatus.TeVerwerken && d.Soort == Documentsoort.Factuur)
+            .OrderBy(d => d.IngelezenOp).ToListAsync(annulering);
+        var context = await Context(db, administratie);
+        var (bekeken, geboekt) = (0, 0);
+        foreach (var document in documenten)
+        {
+            if (Herkend(document) is not { } herkend)
+            {
+                continue;
+            }
+
+            bekeken++;
+            var inhoud = await db.DocumentInhouden.AsNoTracking().Where(i => i.DocumentId == document.Id).Select(i => i.Inhoud).FirstOrDefaultAsync(annulering);
+            (herkend, _) = await PasZoektemplateToe(db, herkend, inhoud, context.Relaties);
+            document.Herkend = JsonSerializer.Serialize(herkend, Json);
+            var voorstel = Voorstel(herkend, context);
+            if (voorstel.Automatisch)
+            {
+                var uitkomst = await BoekFactuur(db, administratie, document, voorstel.Factuur!, herkend, voorstel.Leverancier!.Relatie, nieuw: null, wie,
+                    automatisch: true, voorstel.Advies.Omschrijving);
+                if (uitkomst.IsGelukt)
+                {
+                    geboekt++;
+                    context = await Context(db, administratie);
+                    continue;
+                }
+
+                voorstel = voorstel with { Belemmeringen = [.. uitkomst.Fouten] };
+            }
+
+            document.Melding = Melding(voorstel);
+            await db.SaveChangesAsync(annulering);
+        }
+
+        await audit.Log(wie, AuditActies.OpnieuwVerwerkt, "Inkoop", $"{bekeken} bekeken, {geboekt} automatisch geboekt", administratie);
+        return new Herverwerking(bekeken, geboekt);
+    }
+
     public async Task<IReadOnlyList<DocumentRegel>> Lijst(Uitvoerder wie, Guid administratie, Documentstatus? status = null)
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);

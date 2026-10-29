@@ -16,6 +16,9 @@ namespace Boekerhouden.Administratie.Diensten;
 /// <param name="Meldingen">Bijv. dat een afschrift niet aansluit op het vorige.</param>
 public sealed record Bankinlezing(int Afschriften, int Nieuw, int Dubbel, int Automatisch, IReadOnlyList<string> Meldingen);
 
+/// <summary>Wat een nieuwe ronde automatisch verwerken opleverde: hoeveel er bekeken en hoeveel er geboekt zijn.</summary>
+public sealed record Herverwerking(int Bekeken, int Geboekt);
+
 /// <summary>Een bankmutatie in de lijst.</summary>
 public sealed record BankmutatieRegel(
     Guid Id,
@@ -185,9 +188,30 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
                 $"{naam}; {regels.Count} mutaties; eindsaldo {afschrift.Eindsaldo:0.00}", administratie);
         }
 
+        var automatisch = await VerwerkAutomatisch(db, administratie, nieuw, wie, annulering);
+        return Uitkomst<Bankinlezing>.Met(new Bankinlezing(afschriften.Count, nieuw.Count, dubbel, automatisch, meldingen));
+    }
+
+    /// <summary>
+    /// Gaat opnieuw door alle mutaties in Te verwerken, bijv. nadat er facturen bij zijn geboekt of een regel is
+    /// toegevoegd: wat nu zeker is (afletteren, of een regel of geleerde keuze), boekt het pakket; bij de rest komt de
+    /// actuele reden te staan.
+    /// </summary>
+    public async Task<Herverwerking> VerwerkOpnieuw(Uitvoerder wie, Guid administratie, CancellationToken annulering = default)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Invoeren);
+        var open = await db.Banktransacties.Where(t => t.Status == Banktransactiestatus.TeVerwerken).ToListAsync(annulering);
+        var geboekt = await VerwerkAutomatisch(db, administratie, open, wie, annulering);
+        await audit.Log(wie, AuditActies.OpnieuwVerwerkt, "Bank", $"{open.Count} bekeken, {geboekt} automatisch geboekt", administratie);
+        return new Herverwerking(open.Count, geboekt);
+    }
+
+    /// <summary>Boekt van de mutaties wat zeker is, de oudste eerst; bij de rest de reden. Geeft het aantal geboekte.</summary>
+    private async Task<int> VerwerkAutomatisch(AdministratieDbContext db, Guid administratie, IEnumerable<Banktransactie> transacties, Uitvoerder wie, CancellationToken annulering)
+    {
         var automatisch = 0;
         var context = await Context(db, administratie);
-        foreach (var transactie in nieuw.OrderBy(t => t.Datum).ThenBy(t => t.Volgorde))
+        foreach (var transactie in transacties.OrderBy(t => t.Datum).ThenBy(t => t.Volgorde))
         {
             var voorstel = Voorstel(transactie, context);
             var uitkomst = voorstel.Automatisch switch
@@ -209,7 +233,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             }
         }
 
-        return Uitkomst<Bankinlezing>.Met(new Bankinlezing(afschriften.Count, nieuw.Count, dubbel, automatisch, meldingen));
+        return automatisch;
     }
 
     public async Task<IReadOnlyList<BankmutatieRegel>> Lijst(Uitvoerder wie, Guid administratie, bool ookGeboekt = false)

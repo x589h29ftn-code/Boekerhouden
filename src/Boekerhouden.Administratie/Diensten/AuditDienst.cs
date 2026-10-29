@@ -93,5 +93,6 @@ public static class AuditActies
     public const string DocumentTeruggezet = "Document terug naar Te verwerken";
     public const string BoekingTeruggedraaid = "Boeking teruggedraaid";
     public const string CreditnotaVerrekend = "Creditnota verrekend";
+    public const string OpnieuwVerwerkt = "Opnieuw automatisch verwerkt";
     public const string KetenGecontroleerd = "Journaal gecontroleerd";
 }
