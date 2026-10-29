@@ -10,6 +10,9 @@ public sealed record RekeningInvoer(string Nummer, string Naam, Rekeningsoort So
 /// <summary>Een geboekte journaalpost met zijn plek in de keten.</summary>
 public sealed record GeboektePost(long Volgnummer, Journaalpost Post, DateTimeOffset GeboektOp, string GeboektDoor);
 
+/// <summary>Eén boeking om in te zien, met het document (de factuur) waar hij bij hoort, als dat er is.</summary>
+public sealed record Boekingsdetail(GeboektePost Boeking, Guid? Document, string? Documentnaam);
+
 /// <summary>
 /// Rekeningschema, boeken en de overzichten (grootboekkaart, proefbalans, balans en W&amp;V) van één administratie.
 /// Alles gaat via <see cref="Toegang"/>; boeken voegt toe aan de hash-keten en wijzigt of verwijdert nooit.
@@ -196,6 +199,25 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
 
     public async Task<Kolommenbalans> Kolommenbalans(Uitvoerder wie, Guid administratie, int boekjaar) =>
         (await Journaal(wie, administratie)).Kolommenbalans(boekjaar);
+
+    /// <summary>De kolommenbalans over een periode: alleen boekingen tussen de datums, balansrekeningen met hun beginstand.</summary>
+    public async Task<Kolommenbalans> Kolommenbalans(Uitvoerder wie, Guid administratie, DateOnly van, DateOnly tot) =>
+        (await Journaal(wie, administratie)).Kolommenbalans(van, tot);
+
+    /// <summary>Eén boeking (dagboek en boekstuk), met de factuur waar hij bij hoort; leeg als hij niet bestaat.</summary>
+    public async Task<Boekingsdetail?> Boeking(Uitvoerder wie, Guid administratie, string dagboek, string boekstuk)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
+        if (await db.Boekingen.AsNoTracking().Include(b => b.Regels).FirstOrDefaultAsync(b => b.Dagboek == dagboek && b.Boekstuk == boekstuk) is not { } boeking)
+        {
+            return null;
+        }
+
+        var document = await db.Documenten.AsNoTracking().Where(d => d.BoekingId == boeking.Id).Select(d => new { d.Id, d.Bestandsnaam }).FirstOrDefaultAsync()
+            ?? await db.OpenstaandePosten.AsNoTracking().Where(p => p.BoekingId == boeking.Id && p.DocumentId != null)
+                .Join(db.Documenten.AsNoTracking(), p => p.DocumentId, d => d.Id, (p, d) => new { d.Id, d.Bestandsnaam }).FirstOrDefaultAsync();
+        return new Boekingsdetail(new GeboektePost(boeking.Volgnummer, boeking.NaarDomein(), boeking.GeboektOp, boeking.GeboektDoor), document?.Id, document?.Bestandsnaam);
+    }
 
     public async Task<Jaaroverzicht> Jaaroverzicht(Uitvoerder wie, Guid administratie, int boekjaar) =>
         Boekhouding.Grootboek.Jaaroverzicht.Maak(await Proefbalans(wie, administratie, boekjaar), RgsHoofdposten.Schema);

@@ -393,6 +393,31 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
     }
 
     [Fact]
+    public async Task Inzoomen_van_kolommenbalans_via_boeking_naar_de_factuur()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var inkoop = app.Dienst<InkoopDienst>();
+        var gelezen = await inkoop.Lees(wie, id, new MemoryStream(Belnet("Z-1")), "z1.xml", null);
+        Assert.True((await inkoop.Boek(wie, id, gelezen.DocumentId!.Value, Invoer(null, new NieuweRelatie("Belnet B.V.", null, null, null), "Z-1"))).IsGelukt);
+        var grootboek = app.Dienst<GrootboekDienst>();
+
+        var april = await grootboek.Kolommenbalans(wie, id, new(2026, 4, 1), new(2026, 4, 30));
+        var maart = await grootboek.Kolommenbalans(wie, id, new(2026, 3, 1), new(2026, 3, 31));
+        var detail = await grootboek.Boeking(wie, id, "INK", "2026-0001");
+
+        Assert.Equal(20.65m, april.Regels.Single(r => r.Rekening.Nummer == "4310").Saldo);
+        Assert.Equal(-20.65m, april.Resultaat);
+        Assert.Equal(0m, maart.Regels.Sum(r => r.Debet + r.Credit));
+        Assert.Equal(gelezen.DocumentId, detail!.Document);
+        Assert.Equal("z1.xml", detail.Documentnaam);
+        Assert.Equal(-24.99m, detail.Boeking.Post.Regels.Single(r => r.Rekeningnummer == "1600").Bedrag);
+        Assert.Null(await grootboek.Boeking(wie, id, "INK", "2026-0099"));
+        var buiten = await app.Gebruiker("Buiten");
+        await Assert.ThrowsAsync<GeenToegangException>(() => grootboek.Boeking(buiten, id, "INK", "2026-0001"));
+    }
+
+    [Fact]
     public async Task Terugdraaien_kan_niet_als_de_factuur_al_betaald_is()
     {
         var wie = await app.Beheerder();

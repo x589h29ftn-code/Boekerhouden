@@ -80,7 +80,8 @@ public sealed class WebTests(AdministratieFixture app) : IClassFixture<Administr
         Assert.Contains("Boekhouden", koba, StringComparison.Ordinal);
         Assert.Contains("Rapportages", koba, StringComparison.Ordinal);
         Assert.Contains("Inrichting", koba, StringComparison.Ordinal);
-        Assert.Contains("Saldibalans", koba, StringComparison.Ordinal);
+        Assert.Contains("Debet balans", koba, StringComparison.Ordinal);
+        Assert.Contains("Totaal generaal", koba, StringComparison.Ordinal);
         Assert.Contains("1.234,56", koba, StringComparison.Ordinal);
         // Het verwerkscherm met de werkvoorraad: van factuur naar factuur zonder de lijst.
         var inkoop = app.Dienst<InkoopDienst>();

@@ -1,0 +1,30 @@
+@* Een periode kiezen: van en tot en met, met pijlen naar de vorige en volgende periode van dezelfde lengte. *@
+@using Boekerhouden.Boekhouding.Grootboek
+
+<div class="periodekeuze">
+    <input type="date" class="form-control form-control-sm" aria-label="Van" value="@Van.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)" @onchange="ZetVan" />
+    <span class="text-secondary" aria-hidden="true">→</span>
+    <input type="date" class="form-control form-control-sm" aria-label="Tot en met" value="@Tot.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)" @onchange="ZetTot" />
+    <button type="button" class="btn btn-sm btn-link text-secondary px-1" title="Vorige periode" @onclick="() => Schuif(-1)">‹</button>
+    <button type="button" class="btn btn-sm btn-link text-secondary px-1" title="Volgende periode" @onclick="() => Schuif(1)">›</button>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public DateOnly Van { get; set; }
+
+    [Parameter, EditorRequired]
+    public DateOnly Tot { get; set; }
+
+    /// <summary>De nieuwe periode (van, tot en met).</summary>
+    [Parameter]
+    public EventCallback<(DateOnly Van, DateOnly Tot)> Gewijzigd { get; set; }
+
+    private Task Schuif(int stappen) => Gewijzigd.InvokeAsync(Periode.Schuif(Van, Tot, stappen));
+
+    private Task ZetVan(ChangeEventArgs e) =>
+        DateOnly.TryParse(e.Value?.ToString(), System.Globalization.CultureInfo.InvariantCulture, out var van) ? Gewijzigd.InvokeAsync((van, van > Tot ? van : Tot)) : Task.CompletedTask;
+
+    private Task ZetTot(ChangeEventArgs e) =>
+        DateOnly.TryParse(e.Value?.ToString(), System.Globalization.CultureInfo.InvariantCulture, out var tot) ? Gewijzigd.InvokeAsync((tot < Van ? tot : Van, tot)) : Task.CompletedTask;
+}

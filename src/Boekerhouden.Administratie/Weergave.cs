@@ -40,4 +40,14 @@ public static class Weergave
         Rekeningfunctie.Vraagposten => "vraagposten",
         _ => "",
     };
+
+    /// <summary>Een periode uit de adresregel (<c>van=2026-01-01&amp;tot=2026-12-31</c>), of leeg als die er niet (goed) staat.</summary>
+    public static (DateOnly Van, DateOnly Tot)? Periode(string? van, string? tot) =>
+        DateOnly.TryParseExact(van, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var v)
+        && DateOnly.TryParseExact(tot, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var t) && v <= t
+            ? (v, t)
+            : null;
+
+    public static string Periodequery(DateOnly van, DateOnly tot) =>
+        $"van={van.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}&tot={tot.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
 }

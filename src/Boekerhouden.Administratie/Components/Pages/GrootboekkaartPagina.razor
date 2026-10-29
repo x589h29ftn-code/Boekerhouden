@@ -4,34 +4,41 @@
 
 <AdministratieKader Id="Id" Titel="Grootboekkaart" Actief="/grootboek" BijOpenen="Open">
     <Acties>
-        <select class="form-select w-auto" aria-label="Rekening" value="@Rekening" @onchange="KiesRekening">
+        <select class="form-select form-select-sm w-auto" aria-label="Rekening" value="@Rekening" @onchange="KiesRekening">
             @foreach (var r in rekeningen)
             {
                 <option value="@r.Nummer">@r.Nummer @r.Naam</option>
             }
         </select>
-        <JaarKeuze Jaren="jaren" Jaar="jaar" JaarChanged="KiesJaar" />
+        <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
     </Acties>
     <ChildContent>
         @if (kaart is not null)
         {
-            <div class="card">
-                <table class="table table-sm align-middle mb-0">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <a class="btn btn-sm btn-link text-secondary px-0" href="/a/@Id/kolommenbalans?@Weergave.Periodequery(van, tot)" title="Naar de kolommenbalans">←</a>
+                <span class="rekeningnummer">@kaart.Rekening.Nummer</span>
+                <span class="fw-semibold">@kaart.Rekening.Naam</span>
+                <span class="small text-secondary ms-2" title="RGS">@kaart.Rekening.RgsCode</span>
+            </div>
+            <div class="card overzichtskaart">
+                <table class="table align-middle mb-0 overzichtstabel">
                     <thead>
-                        <tr><th>Datum</th><th>Dagboek</th><th>Boekstuk</th><th>Omschrijving</th><th class="text-end">Debet</th><th class="text-end">Credit</th><th class="text-end">Saldo</th></tr>
+                        <tr><th>Datum</th><th>Dagboek</th><th>Boekstuk</th><th>Omschrijving</th><th>Factuur</th><th class="text-end">Debet</th><th class="text-end">Credit</th><th class="text-end">Saldo</th></tr>
                     </thead>
                     <tbody>
                         <tr class="text-secondary">
-                            <td>@Weergave.Datum(kaart.Van)</td><td colspan="3">Beginsaldo</td><td></td><td></td>
+                            <td>@Weergave.Datum(kaart.Van)</td><td colspan="4">Beginsaldo</td><td></td><td></td>
                             <td class="bedrag text-end">@Bedragen.Getal(kaart.Beginsaldo)</td>
                         </tr>
                         @foreach (var m in kaart.Mutaties)
                         {
-                            <tr>
-                                <td>@Weergave.Datum(m.Datum)</td>
+                            <tr class="klikbaar" @onclick="() => NaarBoeking(m.Dagboek, m.Boekstuk)">
+                                <td class="text-nowrap">@Weergave.Datum(m.Datum)</td>
                                 <td>@m.Dagboek</td>
-                                <td>@m.Boekstuk</td>
-                                <td title="@(m.Relatie is null ? null : $"{m.Relatie} {m.Factuurnummer}")">@m.Omschrijving</td>
+                                <td class="text-nowrap">@m.Boekstuk</td>
+                                <td>@m.Omschrijving</td>
+                                <td class="text-secondary" title="@m.Relatie">@m.Factuurnummer</td>
                                 <td class="bedrag text-end">@(m.Bedrag > 0 ? Bedragen.Getal(m.Bedrag) : null)</td>
                                 <td class="bedrag text-end">@(m.Bedrag < 0 ? Bedragen.Getal(-m.Bedrag) : null)</td>
                                 <td class="bedrag text-end">@Bedragen.Getal(m.Saldo)</td>
@@ -39,8 +46,8 @@
                         }
                     </tbody>
                     <tfoot>
-                        <tr class="fw-semibold">
-                            <td colspan="4">Totaal en eindsaldo</td>
+                        <tr class="generaal">
+                            <td colspan="5">Totaal en eindsaldo</td>
                             <td class="bedrag text-end">@Bedragen.Getal(kaart.TotaalDebet)</td>
                             <td class="bedrag text-end">@Bedragen.Getal(kaart.TotaalCredit)</td>
                             <td class="bedrag text-end">@Bedragen.Getal(kaart.Eindsaldo)</td>
@@ -54,8 +61,8 @@
 
 @code {
     private Geopend? geopend;
-    private IReadOnlyList<int> jaren = [];
-    private int jaar;
+    private DateOnly van;
+    private DateOnly tot;
     private IReadOnlyList<Boekhouding.Grootboek.Rekening> rekeningen = [];
     private Boekhouding.Grootboek.Grootboekkaart? kaart;
 
@@ -68,29 +75,43 @@
     [SupplyParameterFromQuery(Name = "jaar")]
     public int? Jaar { get; set; }
 
+    [SupplyParameterFromQuery(Name = "van")]
+    public string? VanTekst { get; set; }
+
+    [SupplyParameterFromQuery(Name = "tot")]
+    public string? TotTekst { get; set; }
+
     private async Task Open(Geopend g)
     {
         geopend = g;
-        jaren = await Grootboek.Boekjaren(g.Wie, Id);
+        var jaren = await Grootboek.Boekjaren(g.Wie, Id);
         rekeningen = [.. (await Grootboek.Schema(g.Wie, Id)).Alle];
-        jaar = Jaar is { } j && jaren.Contains(j) ? j : jaren[0];
+        (van, tot) = Weergave.Periode(VanTekst, TotTekst) ?? Boekhouding.Grootboek.Periode.Jaar(Jaar is { } j && jaren.Contains(j) ? j : jaren[0]);
         Rekening = rekeningen.Any(r => r.Nummer == Rekening) ? Rekening : rekeningen.FirstOrDefault(r => r.Functie == Rekeningfunctie.Bank)?.Nummer ?? rekeningen.FirstOrDefault()?.Nummer;
         await Laad();
     }
 
     private async Task Laad() =>
-        kaart = Rekening is null ? null : await Grootboek.Kaart(geopend!.Wie, Id, Rekening, new DateOnly(jaar, 1, 1), new DateOnly(jaar, 12, 31));
+        kaart = Rekening is null ? null : await Grootboek.Kaart(geopend!.Wie, Id, Rekening, van, tot);
+
+    private void Adres() =>
+        Navigatie.NavigateTo($"/a/{Id}/grootboek?rekening={Uri.EscapeDataString(Rekening ?? "")}&{Weergave.Periodequery(van, tot)}", replace: true);
 
     private async Task KiesRekening(ChangeEventArgs e)
     {
         Rekening = e.Value?.ToString();
-        Navigatie.NavigateTo($"/a/{Id}/grootboek?rekening={Uri.EscapeDataString(Rekening ?? "")}&jaar={jaar}", replace: true);
+        Adres();
         await Laad();
     }
 
-    private async Task KiesJaar(int j)
+    private async Task KiesPeriode((DateOnly Van, DateOnly Tot) periode)
     {
-        jaar = j;
+        (van, tot) = periode;
+        Adres();
         await Laad();
     }
+
+    /// <summary>Inzoomen op de boeking (en van daar naar de factuur).</summary>
+    private void NaarBoeking(string dagboek, string boekstuk) =>
+        Navigatie.NavigateTo($"/a/{Id}/boeking/{Uri.EscapeDataString(dagboek)}/{Uri.EscapeDataString(boekstuk)}");
 }

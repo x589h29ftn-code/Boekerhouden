@@ -1,3 +1,4 @@
+using System.Globalization;
 using Boekerhouden.Boekhouding.Grootboek;
 
 namespace Boekerhouden.Boekhouding.Tests;
@@ -263,4 +264,18 @@ public sealed class TegenboekingTests
         Assert.Equal(("I21", "BELNET", "BN-1"), (tegen.Regels[0].BtwCode, tegen.Regels[0].Relatie, tegen.Regels[0].Factuurnummer));
         Assert.All(post.Regels.Zip(tegen.Regels), p => Assert.Equal(0m, p.First.Bedrag + p.Second.Bedrag));
     }
+}
+
+public sealed class PeriodeTests
+{
+    [Theory]
+    [InlineData("2026-01-01", "2026-12-31", 1, "2027-01-01", "2027-12-31")]
+    [InlineData("2026-01-01", "2026-12-31", -1, "2025-01-01", "2025-12-31")]
+    [InlineData("2026-01-01", "2026-03-31", 1, "2026-04-01", "2026-06-30")]
+    [InlineData("2028-02-01", "2028-02-29", 1, "2028-03-01", "2028-03-31")]
+    [InlineData("2026-03-01", "2026-03-31", -1, "2026-02-01", "2026-02-28")]
+    [InlineData("2026-03-10", "2026-03-16", 1, "2026-03-17", "2026-03-23")]
+    public void Vorige_en_volgende_periode(string van, string tot, int stappen, string nieuwVan, string nieuwTot) =>
+        Assert.Equal((DateOnly.Parse(nieuwVan, CultureInfo.InvariantCulture), DateOnly.Parse(nieuwTot, CultureInfo.InvariantCulture)),
+            Periode.Schuif(DateOnly.Parse(van, CultureInfo.InvariantCulture), DateOnly.Parse(tot, CultureInfo.InvariantCulture), stappen));
 }

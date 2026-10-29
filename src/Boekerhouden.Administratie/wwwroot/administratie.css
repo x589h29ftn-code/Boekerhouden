@@ -695,3 +695,64 @@ body.scheiding-slepen {
     text-align: center;
     font-variant-numeric: tabular-nums;
 }
+
+/* Overzichten (kolommenbalans, grootboekkaart, boeking): ruime regels, rustige kopjes, totalen onderaan. */
+.periodekeuze {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+}
+
+.periodekeuze input {
+    width: 9.5rem;
+}
+
+.overzichtstabel {
+    font-size: .95rem;
+}
+
+.overzichtstabel > thead th {
+    padding: .7rem .75rem;
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    background: var(--bs-body-bg);
+    border-bottom: 1px solid var(--bs-primary);
+}
+
+.overzichtstabel > tbody td {
+    padding: .65rem .75rem;
+}
+
+.overzichtstabel tr.klikbaar {
+    cursor: pointer;
+}
+
+.overzichtstabel > tbody tr.klikbaar:hover > td {
+    background: rgba(var(--bs-primary-rgb), .06);
+}
+
+.overzichtstabel > tfoot td {
+    padding: .7rem .75rem;
+    font-weight: 600;
+    background: var(--bs-tertiary-bg);
+    border-bottom: 0;
+}
+
+.overzichtstabel > tfoot tr.generaal td {
+    border-top: 1px solid var(--bs-border-color);
+}
+
+/* De totalen blijven onderaan in beeld bij een lange kolommenbalans. */
+.kolommenbalans > tfoot {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    box-shadow: 0 -1px 0 var(--bs-border-color);
+}
+
+.overzichtskaart {
+    overflow: visible;
+}
