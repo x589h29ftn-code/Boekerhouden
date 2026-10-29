@@ -91,6 +91,32 @@ public sealed class AdministratieFixture : WebApplicationFactory<Program>, IAsyn
         return uitkomst.Waarde;
     }
 
+    public async Task<string> Email(Uitvoerder wie) =>
+        (await Dienst<GebruikerDienst>().Lijst()).Single(g => g.Id == wie.Id).Email;
+
+    public async Task MaakBeheerder(Uitvoerder wie)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<Gebruiker>>();
+        await users.AddToRoleAsync((await users.FindByIdAsync(wie.Id!.Value.ToString()))!, Rollen.Beheerder);
+    }
+
+    /// <summary>Zet (eenmalig) de authenticator-app aan voor een gebruiker en geeft de sleutel (voor <see cref="Totp"/>).</summary>
+    public async Task<string> Tweestap(Uitvoerder wie)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<Gebruiker>>();
+        var gebruiker = (await users.FindByIdAsync(wie.Id!.Value.ToString()))!;
+        if (!gebruiker.TwoFactorEnabled)
+        {
+            await Dienst<BeveiligingDienst>().Authenticator(gebruiker.Id);
+            var sleutel = (await users.GetAuthenticatorKeyAsync(gebruiker))!;
+            Assert.True((await Dienst<BeveiligingDienst>().ZetAan(gebruiker.Id, Totp.Code(sleutel))).IsGelukt);
+        }
+
+        return (await users.GetAuthenticatorKeyAsync(gebruiker))!;
+    }
+
     /// <summary>Een databaseverbinding buiten de app om, zoals iemand met toegang tot de server die zou hebben.</summary>
     public async Task<int> VoerSqlUit(string sql)
     {

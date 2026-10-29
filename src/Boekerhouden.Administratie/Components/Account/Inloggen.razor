@@ -14,7 +14,7 @@
 <EditForm Model="Invoer" method="post" OnSubmit="LogIn" FormName="inloggen">
     <div class="mb-3">
         <label for="email" class="form-label">E-mailadres</label>
-        <InputText id="email" @bind-Value="Invoer.Email" class="form-control" autocomplete="username" autofocus />
+        <InputText id="email" @bind-Value="Invoer.Email" class="form-control" autocomplete="username webauthn" autofocus />
     </div>
     <div class="mb-3">
         <label for="wachtwoord" class="form-label">Wachtwoord</label>
@@ -22,7 +22,13 @@
     </div>
     <button type="submit" class="btn btn-primary w-100">Inloggen</button>
 </EditForm>
+<EditForm Model="Passkey" method="post" OnSubmit="LogInMetPasskey" FormName="passkey" class="mt-2">
+    <InputText type="hidden" @bind-Value="Passkey.CredentialJson" />
+    <button type="button" class="btn btn-outline-secondary w-100" data-passkey="inloggen">Inloggen met een passkey</button>
+    <div class="small text-secondary mt-1" data-passkey-melding></div>
+</EditForm>
 <p class="text-secondary small mt-3 mb-0">Wachtwoord vergeten? Vraag de beheerder om een nieuw tijdelijk wachtwoord.</p>
+<script src="passkey.js"></script>
 
 @code {
     private IReadOnlyList<string>? fouten;
@@ -30,8 +36,11 @@
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
 
-    [SupplyParameterFromForm]
+    [SupplyParameterFromForm(FormName = "inloggen")]
     private InlogInvoer Invoer { get; set; } = default!;
+
+    [SupplyParameterFromForm(FormName = "passkey")]
+    private PasskeyInvoer Passkey { get; set; } = default!;
 
     [SupplyParameterFromQuery(Name = "ReturnUrl")]
     private string? TerugNaar { get; set; }
@@ -39,6 +48,7 @@
     protected override async Task OnInitializedAsync()
     {
         Invoer ??= new();
+        Passkey ??= new();
         if (HttpMethods.IsGet(HttpContext.Request.Method) && await GebruikerDienst.EersteBeheerderNodig())
         {
             Navigatie.NavigateTo("/eerste-gebruiker");
@@ -59,17 +69,54 @@
             ? Microsoft.AspNetCore.Identity.SignInResult.Failed
             : await SignIn.PasswordSignInAsync(gebruiker, Invoer.Wachtwoord, isPersistent: false, lockoutOnFailure: true);
         var wie = gebruiker is null ? new Uitvoerder(null, email) : new Uitvoerder(gebruiker.Id, gebruiker.Naam);
+        await Afronden(resultaat, wie, gebruiker, AuditActies.Ingelogd);
+    }
 
+    private async Task LogInMetPasskey()
+    {
+        if (string.IsNullOrEmpty(Passkey.CredentialJson))
+        {
+            fouten = ["Inloggen met een passkey is niet gelukt."];
+            return;
+        }
+
+        var resultaat = await SignIn.PasskeySignInAsync(Passkey.CredentialJson);
+        var gebruiker = await GebruikerVanPasskey(Passkey.CredentialJson);
+        await Afronden(resultaat, gebruiker is null ? new Uitvoerder(null, "onbekende passkey") : new Uitvoerder(gebruiker.Id, gebruiker.Naam), gebruiker, AuditActies.IngelogdMetPasskey);
+    }
+
+    /// <summary>De gebruiker bij de passkey (voor het wijzigingslog), via het id in het antwoord van de browser.</summary>
+    private async Task<Gebruiker?> GebruikerVanPasskey(string json)
+    {
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(json);
+            var id = document.RootElement.GetProperty("id").GetString() ?? "";
+            var bytes = Convert.FromBase64String(id.Replace('-', '+').Replace('_', '/').PadRight((id.Length + 3) / 4 * 4, '='));
+            return await Gebruikers.FindByPasskeyIdAsync(bytes);
+        }
+        catch (Exception fout) when (fout is System.Text.Json.JsonException or FormatException or KeyNotFoundException or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    private async Task Afronden(Microsoft.AspNetCore.Identity.SignInResult resultaat, Uitvoerder wie, Gebruiker? gebruiker, string actie)
+    {
         if (resultaat.Succeeded)
         {
-            await Audit.Log(wie, AuditActies.Ingelogd);
-            if (gebruiker!.MoetWachtwoordWijzigen)
+            await Audit.Log(wie, actie);
+            if (gebruiker?.MoetWachtwoordWijzigen == true)
             {
                 Navigatie.NavigateTo(WachtwoordWijzigenVerplicht.Pad);
                 return;
             }
 
             Doorverwijzer.NaarLokaal(TerugNaar);
+        }
+        else if (resultaat.RequiresTwoFactor)
+        {
+            Navigatie.NavigateTo($"/inloggen/tweede-stap?ReturnUrl={Uri.EscapeDataString(TerugNaar ?? "/")}");
         }
         else if (resultaat.IsLockedOut)
         {
@@ -88,5 +135,10 @@
         public string Email { get; set; } = "";
 
         public string Wachtwoord { get; set; } = "";
+    }
+
+    private sealed class PasskeyInvoer
+    {
+        public string? CredentialJson { get; set; }
     }
 }

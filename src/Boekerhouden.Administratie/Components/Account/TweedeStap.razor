@@ -1,0 +1,90 @@
+@page "/inloggen/tweede-stap"
+@attribute [AllowAnonymous]
+@inject SignInManager<Gebruiker> SignIn
+@inject AuditDienst Audit
+@inject Doorverwijzer Doorverwijzer
+@inject NavigationManager Navigatie
+
+<PageTitle>Tweede stap – Administratie</PageTitle>
+
+<h1 class="h5 mb-3">Code uit je app</h1>
+<Foutmeldingen Fouten="fouten" />
+<EditForm Model="Invoer" method="post" OnSubmit="Controleer" FormName="tweede-stap">
+    <div class="mb-3">
+        <label for="code" class="form-label">Code</label>
+        <InputText id="code" @bind-Value="Invoer.Code" class="form-control" autocomplete="one-time-code" inputmode="numeric" autofocus />
+    </div>
+    <details class="mb-3 small">
+        <summary class="text-secondary">Telefoon niet bij de hand?</summary>
+        <label for="herstelcode" class="form-label mt-2">Herstelcode</label>
+        <InputText id="herstelcode" @bind-Value="Invoer.Herstelcode" class="form-control" autocomplete="off" />
+    </details>
+    <button type="submit" class="btn btn-primary w-100">Verder</button>
+</EditForm>
+<p class="mt-3 mb-0 text-center small"><a href="/inloggen">Terug naar inloggen</a></p>
+
+@code {
+    private IReadOnlyList<string>? fouten;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm]
+    private CodeInvoer Invoer { get; set; } = default!;
+
+    [SupplyParameterFromQuery(Name = "ReturnUrl")]
+    private string? TerugNaar { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Invoer ??= new();
+        if (await SignIn.GetTwoFactorAuthenticationUserAsync() is null)
+        {
+            Navigatie.NavigateTo("/inloggen");
+        }
+    }
+
+    private async Task Controleer()
+    {
+        var gebruiker = await SignIn.GetTwoFactorAuthenticationUserAsync();
+        if (gebruiker is null)
+        {
+            Navigatie.NavigateTo("/inloggen");
+            return;
+        }
+
+        var wie = new Uitvoerder(gebruiker.Id, gebruiker.Naam);
+        var herstel = !string.IsNullOrWhiteSpace(Invoer.Herstelcode);
+        var resultaat = herstel
+            ? await SignIn.TwoFactorRecoveryCodeSignInAsync(Invoer.Herstelcode!.Replace(" ", string.Empty, StringComparison.Ordinal))
+            : await SignIn.TwoFactorAuthenticatorSignInAsync(new string(Invoer.Code.Where(char.IsAsciiDigit).ToArray()), isPersistent: false, rememberClient: false);
+        if (resultaat.Succeeded)
+        {
+            await Audit.Log(wie, herstel ? AuditActies.HerstelcodeGebruikt : AuditActies.Ingelogd);
+            if (gebruiker.MoetWachtwoordWijzigen)
+            {
+                Navigatie.NavigateTo(WachtwoordWijzigenVerplicht.Pad);
+                return;
+            }
+
+            Doorverwijzer.NaarLokaal(TerugNaar);
+        }
+        else if (resultaat.IsLockedOut)
+        {
+            await Audit.Log(wie, AuditActies.AccountGeblokkeerd);
+            Navigatie.NavigateTo("/geblokkeerd");
+        }
+        else
+        {
+            await Audit.Log(wie, AuditActies.TweedeStapMislukt);
+            fouten = [herstel ? "Deze herstelcode is ongeldig of al gebruikt." : "De code klopt niet. Probeer de volgende code uit je app."];
+        }
+    }
+
+    private sealed class CodeInvoer
+    {
+        public string Code { get; set; } = "";
+
+        public string? Herstelcode { get; set; }
+    }
+}

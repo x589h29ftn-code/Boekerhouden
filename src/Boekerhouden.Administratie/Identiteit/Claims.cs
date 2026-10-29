@@ -11,6 +11,7 @@ public static class AdministratieClaims
     public const string Naam = "naam";
     public const string Initialen = "initialen";
     public const string MoetWachtwoordWijzigen = "moet_wachtwoord_wijzigen";
+    public const string TweestapAan = "tweestap_aan";
 
     public static string WeergaveNaam(this ClaimsPrincipal gebruiker)
     {
@@ -55,6 +56,11 @@ public sealed class GebruikerClaimsFactory(
         if (user.MoetWachtwoordWijzigen)
         {
             identiteit.AddClaim(new Claim(AdministratieClaims.MoetWachtwoordWijzigen, "true"));
+        }
+
+        if (user.TwoFactorEnabled)
+        {
+            identiteit.AddClaim(new Claim(AdministratieClaims.TweestapAan, "true"));
         }
 
         return identiteit;

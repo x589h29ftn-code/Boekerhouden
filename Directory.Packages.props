@@ -10,6 +10,9 @@
     <PackageVersion Include="SixLabors.Fonts" Version="1.0.0" />
     <!-- Tekst uit PDF's halen voor de factuurherkenning (Apache-2.0, zonder afhankelijkheden). -->
     <PackageVersion Include="PdfPig" Version="0.1.16" />
+    <!-- QR-code voor het instellen van de authenticator-app (MIT). Versie 1.6.0: voor .NET 6+ zonder afhankelijkheden
+         (latere versies trekken System.Drawing.Common mee). -->
+    <PackageVersion Include="QRCoder" Version="1.6.0" />
     <!-- Database en inloggen (MIT; Npgsql: PostgreSQL-licentie). Versies gelijk aan de .NET-runtime. -->
     <PackageVersion Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.13" />
     <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.13" />

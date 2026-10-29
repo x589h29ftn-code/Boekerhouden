@@ -53,5 +53,13 @@ public static class AuditActies
     public const string LidToegevoegd = "Lid toegevoegd";
     public const string RekeningToegevoegd = "Grootboekrekening toegevoegd";
     public const string Geboekt = "Geboekt";
+    public const string TweestapAan = "Tweestapsverificatie aangezet";
+    public const string TweestapUit = "Tweestapsverificatie uitgezet";
+    public const string HerstelcodesVernieuwd = "Herstelcodes vernieuwd";
+    public const string HerstelcodeGebruikt = "Ingelogd met herstelcode";
+    public const string TweedeStapMislukt = "Tweede stap mislukt";
+    public const string PasskeyToegevoegd = "Passkey toegevoegd";
+    public const string PasskeyVerwijderd = "Passkey verwijderd";
+    public const string IngelogdMetPasskey = "Ingelogd met passkey";
     public const string KetenGecontroleerd = "Journaal gecontroleerd";
 }

@@ -66,7 +66,8 @@ public sealed class WebTests(AdministratieFixture app) : IClassFixture<Administr
         await app.Dienst<GrootboekDienst>().Boek(await app.Beheerder(), id,
             new("MEM", "2026-0001", new(2026, 1, 1), "Beginbalans", [new("1100", 1234.56m), new("0500", -1234.56m)]));
         using var beheerder = NieuweClient();
-        Assert.Equal(HttpStatusCode.Redirect, (await Aanmelden.LogIn(beheerder, "beheer@kantoor.test", AdministratieFixture.Wachtwoord, "/")).StatusCode);
+        var sleutel = await app.Tweestap(await app.Beheerder());
+        Assert.Equal("/", (await Aanmelden.LogInMetCode(beheerder, "beheer@kantoor.test", AdministratieFixture.Wachtwoord, sleutel, "/")).Doel());
 
         var lijst = await beheerder.GetStringAsync(new Uri("/", UriKind.Relative));
         var kaart = await beheerder.GetStringAsync(new Uri($"/a/{id}/grootboek?rekening=1100&jaar=2026", UriKind.Relative));

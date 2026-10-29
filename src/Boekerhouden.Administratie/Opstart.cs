@@ -2,6 +2,7 @@ using Boekerhouden.Administratie.Components;
 using Boekerhouden.Administratie.Data;
 using Boekerhouden.Administratie.Diensten;
 using Boekerhouden.Administratie.Identiteit;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -74,6 +75,7 @@ public static class Opstart
                 o.Lockout.MaxFailedAccessAttempts = 5;
                 o.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
                 o.Lockout.AllowedForNewUsers = true;
+                o.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
             })
             .AddRoles<IdentityRole<Guid>>()
             .AddEntityFrameworkStores<AdministratieDbContext>()
@@ -93,6 +95,7 @@ public static class Opstart
         services.AddSingleton<Toegang>();
         services.AddSingleton<AdministratieDienst>();
         services.AddSingleton<GrootboekDienst>();
+        services.AddSingleton<BeveiligingDienst>();
     }
 
     public static void ConfigureerPijplijn(WebApplication app)
@@ -109,6 +112,7 @@ public static class Opstart
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseMiddleware<WachtwoordWijzigenVerplicht>();
+        app.UseMiddleware<TweestapVerplicht>();
         app.UseAntiforgery();
 
         app.MapStaticAssets().AllowAnonymous();
@@ -124,6 +128,36 @@ public static class Opstart
             await signIn.SignOutAsync();
             return TypedResults.LocalRedirect("~/inloggen");
         });
+
+        // Passkeys: de opties voor de browser (navigator.credentials.create/get). De uitdaging staat in een cookie;
+        // het antwoord van de browser gaat met het formulier mee (Beveiliging en Inloggen).
+        app.MapPost("/account/passkey/opties-nieuw", async (HttpContext context, UserManager<Gebruiker> users, SignInManager<Gebruiker> signIn, IAntiforgery antiforgery) =>
+        {
+            if (!await antiforgery.IsRequestValidAsync(context))
+            {
+                return Results.BadRequest("Ongeldig verzoek.");
+            }
+
+            var gebruiker = await users.GetUserAsync(context.User);
+            if (gebruiker is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            var opties = await signIn.MakePasskeyCreationOptionsAsync(new PasskeyUserEntity { Id = gebruiker.Id.ToString(), Name = gebruiker.Email!, DisplayName = gebruiker.Naam });
+            return Results.Content(opties, "application/json");
+        });
+        app.MapPost("/account/passkey/opties-inloggen", async (HttpContext context, SignInManager<Gebruiker> signIn, IAntiforgery antiforgery) =>
+        {
+            if (!await antiforgery.IsRequestValidAsync(context))
+            {
+                return Results.BadRequest("Ongeldig verzoek.");
+            }
+
+            // Zonder gebruiker: de browser biedt de passkeys aan die bij deze site horen.
+            var opties = await signIn.MakePasskeyRequestOptionsAsync(null);
+            return Results.Content(opties, "application/json");
+        }).AllowAnonymous();
     }
 
     /// <summary>Werkt de database bij naar de laatste versie en zorgt dat de vaste rollen bestaan.</summary>

@@ -1,0 +1,216 @@
+@page "/account/beveiliging"
+@layout HoofdLayout
+@attribute [Authorize]
+@inject SignInManager<Gebruiker> SignIn
+@inject UserManager<Gebruiker> Gebruikers
+@inject AdministratieDbContext Db
+@inject BeveiligingDienst Dienst
+@inject NavigationManager Navigatie
+
+<PageTitle>Beveiliging – Administratie</PageTitle>
+
+<h1 class="h3 mb-3">Beveiliging</h1>
+@if (verplicht)
+{
+    <div class="alert alert-warning">Als beheerder stel je eerst tweestapsverificatie in.</div>
+}
+<Foutmeldingen Fouten="fouten" />
+@if (herstelcodes is not null)
+{
+    <div class="card card-body mb-3 herstelcodes">
+        <div class="fw-semibold mb-2">Je herstelcodes</div>
+        <div class="row row-cols-2 row-cols-sm-5 g-1 font-monospace mb-2">
+            @foreach (var herstel in herstelcodes)
+            {
+                <div class="col">@herstel</div>
+            }
+        </div>
+        <div class="small text-secondary">Bewaar ze op een veilige plek; ze worden maar één keer getoond en elke code werkt één keer.</div>
+    </div>
+}
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header fw-semibold">Authenticator-app</div>
+            <div class="card-body">
+                @if (status is null)
+                {
+                }
+                else if (status.Aan)
+                {
+                    <p class="mb-2"><span class="status">aan</span> · nog @status.HerstelcodesOver herstelcode(s)</p>
+                    <div class="d-flex gap-2">
+                        <form method="post" @formname="herstelcodes" @onsubmit="Herstelcodes">
+                            <AntiforgeryToken />
+                            <button class="btn btn-sm btn-outline-secondary" type="submit">Nieuwe herstelcodes</button>
+                        </form>
+                        @if (!isBeheerder)
+                        {
+                            <form method="post" @formname="authenticator-uit" @onsubmit="ZetUit">
+                                <AntiforgeryToken />
+                                <button class="btn btn-sm btn-outline-secondary" type="submit">Uitzetten</button>
+                            </form>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="d-flex gap-3 align-items-start mb-3">
+                        <div class="qr">@((MarkupString)BeveiligingDienst.QrSvg(status.Uri!))</div>
+                        <div class="small">
+                            <div class="text-secondary">Sleutel</div>
+                            <code class="fs-6">@status.Sleutel</code>
+                        </div>
+                    </div>
+                    <EditForm Model="Aanzetten" method="post" OnSubmit="ZetAan" FormName="authenticator-aan">
+                        <label for="code" class="form-label">Code uit de app</label>
+                        <div class="d-flex gap-2">
+                            <InputText id="code" @bind-Value="Aanzetten.Code" class="form-control w-auto" autocomplete="one-time-code" inputmode="numeric" />
+                            <button class="btn btn-primary" type="submit">Aanzetten</button>
+                        </div>
+                    </EditForm>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header fw-semibold">Passkeys</div>
+            <ul class="list-group list-group-flush">
+                @foreach (var p in passkeys)
+                {
+                    <li class="list-group-item d-flex align-items-center gap-2">
+                        <span class="me-auto" title="Aangemaakt op @Weergave.DatumTijd(p.Aangemaakt)">@p.Naam</span>
+                        <form method="post" @formname="@($"passkey-weg-{p.Id}")" @onsubmit="() => Verwijder(p.Id)">
+                            <AntiforgeryToken />
+                            <button class="btn btn-sm btn-link text-secondary p-0" type="submit">verwijderen</button>
+                        </form>
+                    </li>
+                }
+            </ul>
+            <div class="card-body">
+                <EditForm Model="Nieuw" method="post" OnSubmit="VoegPasskeyToe" FormName="passkey-nieuw">
+                    <InputText type="hidden" @bind-Value="Nieuw.CredentialJson" />
+                    <div class="d-flex gap-2">
+                        <InputText @bind-Value="Nieuw.Naam" class="form-control" placeholder="Naam, bijv. laptop kantoor" aria-label="Naam van de passkey" />
+                        <button type="button" class="btn btn-outline-primary text-nowrap" data-passkey="nieuw">Passkey toevoegen</button>
+                    </div>
+                    <div class="small text-secondary mt-1" data-passkey-melding></div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="passkey.js"></script>
+
+@code {
+    private IReadOnlyList<string>? fouten;
+    private IReadOnlyList<string>? herstelcodes;
+    private AuthenticatorStatus? status;
+    private IReadOnlyList<PasskeyRegel> passkeys = [];
+    private bool isBeheerder;
+    private bool verplicht;
+    private Gebruiker gebruiker = default!;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm(FormName = "authenticator-aan")]
+    private CodeInvoer Aanzetten { get; set; } = default!;
+
+    [SupplyParameterFromForm(FormName = "passkey-nieuw")]
+    private PasskeyInvoer Nieuw { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Aanzetten ??= new();
+        Nieuw ??= new();
+        gebruiker = (await Gebruikers.GetUserAsync(HttpContext.User))!;
+        isBeheerder = await Gebruikers.IsInRoleAsync(gebruiker, Rollen.Beheerder);
+        await Laad();
+    }
+
+    private async Task Laad()
+    {
+        status = await Dienst.Authenticator(gebruiker.Id);
+        passkeys = await Dienst.Passkeys(gebruiker.Id);
+        verplicht = isBeheerder && !status.Aan;
+    }
+
+    private async Task ZetAan()
+    {
+        var uitkomst = await Dienst.ZetAan(gebruiker.Id, Aanzetten.Code);
+        if (!uitkomst.IsGelukt)
+        {
+            fouten = uitkomst.Fouten;
+            return;
+        }
+
+        herstelcodes = uitkomst.Waarde;
+        await Ververs();
+    }
+
+    private async Task ZetUit()
+    {
+        var uitkomst = await Dienst.ZetUit(gebruiker.Id);
+        fouten = uitkomst.Fouten;
+        await Ververs();
+    }
+
+    private async Task Herstelcodes()
+    {
+        herstelcodes = await Dienst.NieuweHerstelcodes(gebruiker.Id);
+        await Laad();
+    }
+
+    private async Task VoegPasskeyToe()
+    {
+        if (string.IsNullOrEmpty(Nieuw.CredentialJson))
+        {
+            fouten = ["De passkey is niet aangemaakt."];
+            return;
+        }
+
+        var attestatie = await SignIn.PerformPasskeyAttestationAsync(Nieuw.CredentialJson);
+        if (!attestatie.Succeeded)
+        {
+            fouten = ["De passkey kon niet worden gecontroleerd. Probeer het opnieuw."];
+            return;
+        }
+
+        var uitkomst = await Dienst.VoegPasskeyToe(gebruiker.Id, attestatie.Passkey, Nieuw.Naam);
+        fouten = uitkomst.Fouten;
+        Nieuw = new();
+        await Laad();
+    }
+
+    private async Task Verwijder(string id)
+    {
+        fouten = (await Dienst.VerwijderPasskey(gebruiker.Id, id)).Fouten;
+        await Laad();
+    }
+
+    /// <summary>
+    /// Na een wijziging het cookie vernieuwen (claim "tweestap aan") en de gegevens opnieuw laden. De dienst werkt in een
+    /// eigen scope; de gebruiker van deze pagina eerst herladen, anders komt de oude stand in het cookie.
+    /// </summary>
+    private async Task Ververs()
+    {
+        await Db.Entry(gebruiker).ReloadAsync();
+        await SignIn.RefreshSignInAsync(gebruiker);
+        await Laad();
+    }
+
+    private sealed class CodeInvoer
+    {
+        public string Code { get; set; } = "";
+    }
+
+    private sealed class PasskeyInvoer
+    {
+        public string? CredentialJson { get; set; }
+
+        public string? Naam { get; set; }
+    }
+}
