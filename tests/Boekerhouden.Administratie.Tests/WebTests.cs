@@ -82,6 +82,14 @@ public sealed class WebTests(AdministratieFixture app) : IClassFixture<Administr
         Assert.Contains("Inrichting", koba, StringComparison.Ordinal);
         Assert.Contains("Saldibalans", koba, StringComparison.Ordinal);
         Assert.Contains("1.234,56", koba, StringComparison.Ordinal);
+        // Het verwerkscherm met de werkvoorraad: van factuur naar factuur zonder de lijst.
+        var inkoop = app.Dienst<InkoopDienst>();
+        var eerste = await inkoop.Lees(await app.Beheerder(), id, new MemoryStream(InkoopTests.Belnet("W-1")), "w1.xml", null);
+        await inkoop.Lees(await app.Beheerder(), id, new MemoryStream(InkoopTests.Belnet("W-2")), "w2.xml", null);
+        var verwerken = await beheerder.GetStringAsync(new Uri($"/a/{id}/inkoop/{eerste.DocumentId}", UriKind.Relative));
+        Assert.Equal(2, Regex.Count(verwerken, "werkvoorraad-item"));
+        Assert.Contains("2 van 2", verwerken, StringComparison.Ordinal);
+
         var bank = await beheerder.GetStringAsync(new Uri($"/a/{id}/bank", UriKind.Relative));
         Assert.Contains("Afschriften inlezen", bank, StringComparison.Ordinal);
         Assert.Contains($"href=\"/a/{id}/bank\"", koba, StringComparison.Ordinal);

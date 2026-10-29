@@ -19,4 +19,13 @@ internal sealed class ViewerVenster : Form
         });
         Controls.Add(webview);
     }
+
+    /// <summary>Gesloten omdat het volgende document in een nieuw venster op dezelfde plek staat (niet door de gebruiker).</summary>
+    public bool Vervangen { get; private set; }
+
+    public void Sluit()
+    {
+        Vervangen = true;
+        Close();
+    }
 }

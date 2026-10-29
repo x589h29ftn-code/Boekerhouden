@@ -243,7 +243,7 @@
 
 .verwerken-viewer {
     flex: 0 0 auto;
-    width: 46%;
+    width: 40%;
     min-width: 320px;
     position: sticky;
     top: 1rem;
@@ -314,3 +314,56 @@ body.scheiding-slepen {
 .bankmutaties .paneelkop { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--bs-secondary-color); margin-bottom: .25rem; }
 .bankmutaties .kandidaat + .kandidaat { border-top: 1px solid var(--bs-border-color-translucent); }
 .bankmutaties .openposten { max-height: 9rem; overflow-y: auto; flex: 1; }
+
+/* Werkvoorraad: de te verwerken facturen links van het formulier. */
+.werkvoorraad {
+    flex: 0 0 12rem;
+    max-height: calc(100vh - 8rem);
+    overflow-y: auto;
+    position: sticky;
+    top: 1rem;
+    margin-right: 1rem;
+    border-right: 1px solid var(--bs-border-color);
+}
+
+.werkvoorraad-item {
+    display: flex;
+    gap: .5rem;
+    padding: .3rem .5rem;
+    font-size: .85rem;
+    color: var(--bs-body-color);
+    text-decoration: none;
+    border-right: 2px solid transparent;
+}
+
+.werkvoorraad-item:hover {
+    background: var(--bs-tertiary-bg);
+}
+
+.werkvoorraad-item.actief {
+    font-weight: 600;
+    border-right-color: var(--bs-primary);
+}
+
+.werkvoorraad-naam {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.werkvoorraad-item .bedrag {
+    color: var(--bs-secondary-color);
+}
+
+.bladeren {
+    display: inline-flex;
+    align-items: center;
+    margin-right: .5rem;
+}
+
+@media (max-width: 1199.98px) {
+    .werkvoorraad {
+        display: none;
+    }
+}

@@ -171,7 +171,8 @@ export async function toon(container, bron, id, dotnet) {
             viewer.zetDoel(naam);
             verbinding.postMessage({ soort: 'doel', naam });
         },
-        extern: (adres) => window.open(adres, `factuur-${id}`, 'popup,width=900,height=1100'),
+        // Eén vast venster: bij de volgende factuur toont hetzelfde venster het nieuwe document.
+        extern: (adres) => window.open(adres, 'factuurviewer', 'popup,width=900,height=1100'),
         sluit: () => verbinding.close(),
     };
 }

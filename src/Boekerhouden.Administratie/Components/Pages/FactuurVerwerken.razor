@@ -10,6 +10,14 @@
 
 <AdministratieKader Id="Id" Titel="Factuur verwerken" Actief="/inkoop" BijOpenen="Open">
     <Acties>
+        @if (werkvoorraad is { Count: > 0 } && Positie is { } positie)
+        {
+            <span class="bladeren">
+                <button class="btn btn-sm btn-link text-secondary px-1" title="Vorige factuur (Alt+↑)" disabled="@(positie == 0)" @onclick="() => Ga(-1)">‹</button>
+                <span class="small text-secondary">@(positie + 1) van @werkvoorraad.Count</span>
+                <button class="btn btn-sm btn-link text-secondary px-1" title="Volgende factuur (Alt+↓)" disabled="@(positie == werkvoorraad.Count - 1)" @onclick="() => Ga(1)">›</button>
+            </span>
+        }
         <details class="uitklapmenu weergavemenu">
             <summary class="btn btn-sm btn-outline-secondary">Weergave</summary>
             <div class="menu">
@@ -39,7 +47,23 @@
         else
         {
             <div class="verwerken">
+                @if (Toon("werkvoorraad") && werkvoorraad is { Count: > 1 })
+                {
+                    <nav class="werkvoorraad" aria-label="Te verwerken">
+                        @foreach (var d in werkvoorraad)
+                        {
+                            <a class="werkvoorraad-item @(d.Id == DocumentId ? "actief" : null)" href="/a/@Id/inkoop/@d.Id" title="@($"{d.Factuurnummer} {d.Melding}".Trim())">
+                                <span class="werkvoorraad-naam">@(d.Leverancier ?? d.Bestandsnaam)</span>
+                                <span class="bedrag"><Euro Waarde="d.Totaal" /></span>
+                            </a>
+                        }
+                    </nav>
+                }
                 <div class="verwerken-formulier">
+                    @if (vorigeGeboekt is not null)
+                    {
+                        <div class="bericht small mb-2">@vorigeGeboekt</div>
+                    }
                     <Foutmeldingen Fouten="fouten" />
                     @if (verwerking.Voorstel is { } v)
                     {
@@ -223,7 +247,7 @@
                                 <div class="status let-op mb-1">@s</div>
                             }
                             <div class="d-flex align-items-center gap-3 mt-3">
-                                <button class="btn btn-primary" @onclick="Boek" disabled="@bezig">@(Signalen.Count > 0 || Verschil is not (null or 0) ? "Toch boeken" : "Boeken")</button>
+                                <button class="btn btn-primary" @onclick="Boek" disabled="@bezig" title="Ctrl+Enter">@(Signalen.Count > 0 || Verschil is not (null or 0) ? "Toch boeken" : "Boeken")</button>
                                 @if (overgenomen is not null)
                                 {
                                     <span class="small text-secondary text-truncate">@overgenomen</span>
@@ -257,6 +281,15 @@
     private bool bezig;
     private IReadOnlyList<string>? fouten;
 
+    // De werkvoorraad: de documenten in Te verwerken, om zonder de lijst van factuur naar factuur te gaan.
+    private IReadOnlyList<DocumentRegel>? werkvoorraad;
+    private Guid geladen;
+    private string? vorigeGeboekt;
+    private bool naBoeken;
+    private bool externVolgen;
+    private IJSObjectReference? sneltoetsen;
+    private bool scheidingGekoppeld;
+
     // De viewer: het veld dat een aangewezen gebied krijgt, en of de factuur in een apart venster staat.
     private ElementReference viewer;
     private ElementReference viewerPaneel;
@@ -277,13 +310,19 @@
     // Weergave: wat de gebruiker wil zien tijdens het verwerken; onthouden in de browser.
     private static readonly (string Sleutel, string Naam)[] Weergaveopties =
     [
+        ("werkvoorraad", "Werkvoorraad naast het formulier"),
         ("viewer", "Factuur naast het formulier"),
         ("btwbedrag", "Btw-bedrag per regel"),
         ("regelomschrijving", "Omschrijving per regel"),
         ("verval", "Vervaldatum en betalingskenmerk"),
     ];
 
-    private HashSet<string> weergave = ["viewer", "btwbedrag", "regelomschrijving", "verval"];
+    // De onderdelen van vóór de werkvoorraad: wie toen de weergave aanpaste, krijgt de werkvoorraad er standaard bij.
+    private static readonly string[] EerderBekend = ["viewer", "btwbedrag", "regelomschrijving", "verval"];
+
+    private static readonly string[] AlleWeergave = [.. Weergaveopties.Select(o => o.Sleutel)];
+
+    private HashSet<string> weergave = [.. AlleWeergave];
 
     [Parameter]
     public Guid Id { get; set; }
@@ -301,6 +340,9 @@
     private bool Toon(string sleutel) => weergave.Contains(sleutel);
 
     private bool ViewerZichtbaar => Toon("viewer") && !losVenster;
+
+    /// <summary>De plaats van dit document in de werkvoorraad, of leeg als het er niet (meer) in staat.</summary>
+    private int? Positie => werkvoorraad?.Select((d, i) => (d, i)).Where(x => x.d.Id == DocumentId).Select(x => (int?)x.i).FirstOrDefault();
 
     private Factuurvariabelen Variabelen => new(
         factuurnummer, verwerking?.Herkend?.Omschrijving,
@@ -327,6 +369,8 @@
     private async Task Open(Geopend g)
     {
         geopend = g;
+        geladen = DocumentId;
+        werkvoorraad = await Inkoop.Lijst(g.Wie, Id, Documentstatus.TeVerwerken);
         verwerking = await Inkoop.Verwerking(g.Wie, Id, DocumentId);
         if (verwerking is null)
         {
@@ -353,7 +397,7 @@
                     Bedrag = (b.Grondslag ?? (btw.Count == 1 ? herkend.TotaalExclusief : null)) is { } g2 ? Bedragen.Getal(g2) : null,
                     Btw = Bedragen.Getal(b.Btw),
                 })]
-                : [new Invoerregel { Rekening = rekening, BtwCode = voorstel?.Advies.BtwCode ?? "I21", Bedrag = herkend?.TotaalExclusief is { } e ? Bedragen.Getal(e) : null }];
+                : [new Invoerregel { Rekening = rekening, BtwCode = voorstel?.Advies.BtwCode ?? "I21", Bedrag = Exclusief(herkend, voorstel?.Advies.BtwCode ?? "I21") is { } e ? Bedragen.Getal(e) : null }];
 
         // Btw van de factuur die afwijkt van het tarief (afronding van de leverancier) geldt als aangepast.
         foreach (var r in regels)
@@ -362,16 +406,62 @@
         }
     }
 
+    /// <summary>
+    /// Naar een ander document (volgende, vorige of uit de werkvoorraad): dezelfde pagina blijft staan, dus de gegevens
+    /// en de viewer opnieuw laden.
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        if (geopend is null || geladen == DocumentId)
+        {
+            return;
+        }
+
+        await SluitViewer();
+        (fouten, overgenomen, doel, doelNaam) = (null, null, "omschrijving", "Omschrijving");
+        aanwijzingen.Clear();
+        if (!naBoeken)
+        {
+            vorigeGeboekt = null;
+        }
+
+        naBoeken = false;
+
+        // Staat de factuur in een eigen venster, dan toont dat venster straks dit document.
+        externVolgen = losVenster;
+        await Open(geopend);
+    }
+
+    private async Task SluitViewer()
+    {
+        if (viewerKoppeling is not null)
+        {
+            try
+            {
+                await viewerKoppeling.InvokeVoidAsync("sluit");
+                await viewerKoppeling.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // Het circuit is al weg.
+            }
+        }
+
+        viewerKoppeling = null;
+        viewerGestart = false;
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./factuurviewer.js");
-            if (await module.InvokeAsync<string?>("leesWeergave") is { } opgeslagen)
-            {
-                weergave = [.. opgeslagen.Split(',', StringSplitOptions.RemoveEmptyEntries)];
-                StateHasChanged();
-            }
+            zelf ??= DotNetObjectReference.Create(this);
+            var toetsen = await JS.InvokeAsync<IJSObjectReference>("import", "./sneltoetsen.js");
+            sneltoetsen = await toetsen.InvokeAsync<IJSObjectReference>("koppel", zelf);
+            await toetsen.DisposeAsync();
+            weergave = Weergavekeuze.Lees(await module.InvokeAsync<string?>("leesWeergave"), AlleWeergave, AlleWeergave, EerderBekend);
+            StateHasChanged();
         }
 
         // Eén keer: een volgende render tijdens het laden mag geen tweede viewer starten.
@@ -390,9 +480,19 @@
             bron = new DotNetStreamReference(new MemoryStream(inhoud.Inhoud));
         }
 
-        await module.InvokeVoidAsync("scheiding", scheiding, viewerPaneel);
+        if (!scheidingGekoppeld)
+        {
+            scheidingGekoppeld = true;
+            await module.InvokeVoidAsync("scheiding", scheiding, viewerPaneel);
+        }
+
         viewerKoppeling = await module.InvokeAsync<IJSObjectReference>("toon", viewer, bron, DocumentId.ToString(), zelf);
         await viewerKoppeling.InvokeVoidAsync("doel", doelNaam);
+        if (externVolgen)
+        {
+            externVolgen = false;
+            await NaarExtern();
+        }
     }
 
     private string? Doel(string veld) => doel == veld ? "doelveld" : null;
@@ -410,7 +510,7 @@
 
         if (module is not null)
         {
-            await module.InvokeVoidAsync("bewaarWeergave", string.Join(",", weergave));
+            await module.InvokeVoidAsync("bewaarWeergave", Weergavekeuze.Tekst(weergave, AlleWeergave));
         }
     }
 
@@ -605,6 +705,7 @@
             kenmerk,
             [.. aanwijzingen.Values]);
         bezig = true;
+        var positie = Positie ?? 0;
         var uitkomst = await Inkoop.Boek(geopend!.Wie, Id, DocumentId, invoer);
         bezig = false;
         if (!uitkomst.IsGelukt)
@@ -613,10 +714,60 @@
             return;
         }
 
-        // Door naar het volgende document in Te verwerken, of terug naar de lijst.
-        var volgende = (await Inkoop.Lijst(geopend.Wie, Id, Documentstatus.TeVerwerken)).FirstOrDefault();
-        Navigatie.NavigateTo(volgende is null ? $"/a/{Id}/inkoop" : $"/a/{Id}/inkoop/{volgende.Id}");
+        // Door naar het document dat nu op deze plaats in Te verwerken staat (het volgende), of terug naar de lijst.
+        vorigeGeboekt = $"{Variabelen.Leverancier} {factuurnummer} is geboekt.".Trim();
+        naBoeken = true;
+        var rest = await Inkoop.Lijst(geopend.Wie, Id, Documentstatus.TeVerwerken);
+        if (rest.Count == 0)
+        {
+            Navigatie.NavigateTo($"/a/{Id}/inkoop");
+            return;
+        }
+
+        Navigatie.NavigateTo($"/a/{Id}/inkoop/{rest[Math.Min(positie, rest.Count - 1)].Id}");
     }
+
+    /// <summary>Naar de vorige of volgende factuur in de werkvoorraad, zonder te boeken.</summary>
+    private void Ga(int stap)
+    {
+        if (werkvoorraad is not { Count: > 0 } || Positie is not { } positie || positie + stap < 0 || positie + stap >= werkvoorraad.Count)
+        {
+            return;
+        }
+
+        Navigatie.NavigateTo($"/a/{Id}/inkoop/{werkvoorraad[positie + stap].Id}");
+    }
+
+    [JSInvokable]
+    public async Task Sneltoets(string actie)
+    {
+        if (verwerking?.Document.Status != Documentstatus.TeVerwerken || bezig)
+        {
+            return;
+        }
+
+        switch (actie)
+        {
+            case "boeken":
+                await Boek();
+                break;
+            case "volgende":
+                Ga(1);
+                break;
+            case "vorige":
+                Ga(-1);
+                break;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>Het bedrag exclusief btw; staat alleen het totaal op de factuur, dan teruggerekend met het tarief.</summary>
+    private decimal? Exclusief(HerkendeFactuur? herkend, string btwCode) =>
+        herkend?.TotaalExclusief
+        ?? (herkend?.TotaalInclusief is { } inclusief && BtwCodes.Zoek(verwerking!.BtwCodes, btwCode) is { } code
+            ? (code.BtwOpFactuur ? BtwBerekening.UitInclusief(inclusief, code.Percentage).Grondslag : inclusief)
+            : null);
 
     private decimal BtwOpFactuur(Invoerregel regel)
     {
@@ -641,12 +792,13 @@
 
     public async ValueTask DisposeAsync()
     {
+        await SluitViewer();
         try
         {
-            if (viewerKoppeling is not null)
+            if (sneltoetsen is not null)
             {
-                await viewerKoppeling.InvokeVoidAsync("sluit");
-                await viewerKoppeling.DisposeAsync();
+                await sneltoetsen.InvokeVoidAsync("los");
+                await sneltoetsen.DisposeAsync();
             }
 
             if (module is not null)

@@ -31,10 +31,28 @@ internal sealed class Documentvenster(InkoopDienst inkoop, IServiceProvider dien
         Process.Start(new ProcessStartInfo(pad) { UseShellExecute = true })?.Dispose();
     }
 
+    private ViewerVenster? open;
+
+    /// <summary>Eén viewervenster: bij de volgende factuur komt het nieuwe document op dezelfde plek.</summary>
     public void OpenViewer(Guid administratie, Guid document, string titel, Action gesloten)
     {
         var venster = new ViewerVenster(diensten, administratie, document, titel);
-        venster.FormClosed += (_, _) => gesloten();
+        if (open is { IsDisposed: false } vorige)
+        {
+            venster.StartPosition = FormStartPosition.Manual;
+            venster.Bounds = vorige.Bounds;
+            venster.WindowState = vorige.WindowState;
+            vorige.Sluit();
+        }
+
+        open = venster;
+        venster.FormClosed += (_, _) =>
+        {
+            if (!venster.Vervangen)
+            {
+                gesloten();
+            }
+        };
         venster.Show();
     }
 }
