@@ -672,3 +672,26 @@ body.scheiding-slepen {
 .regeltabel td:first-child input {
     min-width: 7rem;
 }
+
+.boekformulier.geboekt .veld {
+    margin-bottom: .35rem;
+}
+
+.boekformulier .veldnaam {
+    color: var(--bs-secondary-color);
+    font-size: .9rem;
+}
+
+/* Een rekeningnummer als klein grijs label voor de naam. */
+.rekeningnummer {
+    display: inline-block;
+    min-width: 2.75rem;
+    padding: 0 .35rem;
+    margin-right: .35rem;
+    border-radius: .3rem;
+    background: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color);
+    font-size: .8rem;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}

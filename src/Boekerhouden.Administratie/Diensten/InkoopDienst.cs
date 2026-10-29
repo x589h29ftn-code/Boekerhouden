@@ -34,6 +34,24 @@ public sealed record DocumentRegel(
 /// <param name="Openstaand">Wat er nog openstaat, zoals in het grootboek (te betalen negatief).</param>
 public sealed record EerdereFactuur(DateOnly Datum, string Factuurnummer, decimal Totaal, string Rekening, string? BtwCode, bool Betaald, Guid Post, decimal Openstaand);
 
+/// <summary>
+/// Een geboekte factuur zoals hij in het formulier stond: uit de boeking en de openstaande post. De bedragen staan
+/// zonder minteken (ook bij een creditnota), zoals de gebruiker ze invult.
+/// </summary>
+/// <param name="Totaal">Het totaal inclusief btw.</param>
+public sealed record GeboekteFactuur(
+    string Relatie,
+    string Factuurnummer,
+    DateOnly Datum,
+    DateOnly Vervaldatum,
+    string Omschrijving,
+    string? Betalingskenmerk,
+    bool Creditnota,
+    decimal Totaal,
+    IReadOnlyList<Factuurregel> Regels,
+    string Dagboek,
+    string Boekstuk);
+
 /// <summary>Wat er met een ingelezen bestand gebeurd is.</summary>
 public sealed record Inleesuitkomst(Guid? DocumentId, Documentstatus? Status, string Melding)
 {
@@ -330,6 +348,59 @@ public sealed class InkoopDienst(
         await db.SaveChangesAsync();
         await audit.Log(wie, AuditActies.DocumentTeruggezet, d.Bestandsnaam, null, administratie);
         return Uitkomst.Gelukt;
+    }
+
+    /// <summary>Hoe een geboekt document geboekt is (om te tonen of te heropenen), of leeg als het niet geboekt is.</summary>
+    public async Task<GeboekteFactuur?> Geboekt(Uitvoerder wie, Guid administratie, Guid document)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
+        return await Geboekt(db, document);
+    }
+
+    /// <summary>
+    /// Heropent een geboekt document om het aan te passen: de boeking wordt teruggedraaid (<see cref="Terugdraaien"/>)
+    /// en geeft terug wat er geboekt was, zodat het formulier daarmee gevuld kan worden.
+    /// </summary>
+    public async Task<Uitkomst<GeboekteFactuur>> Heropen(Uitvoerder wie, Guid administratie, Guid document)
+    {
+        GeboekteFactuur? geboekt;
+        await using (var db = await toegang.Open(wie, administratie, Recht.Invoeren))
+        {
+            geboekt = await Geboekt(db, document);
+        }
+
+        if (geboekt is null)
+        {
+            return Uitkomst<GeboekteFactuur>.Mislukt("Dit document is niet geboekt.");
+        }
+
+        var uitkomst = await Terugdraaien(wie, administratie, document);
+        return uitkomst.IsGelukt ? Uitkomst<GeboekteFactuur>.Met(geboekt) : Uitkomst<GeboekteFactuur>.Mislukt([.. uitkomst.Fouten]);
+    }
+
+    private static async Task<GeboekteFactuur?> Geboekt(AdministratieDbContext db, Guid document)
+    {
+        if (await db.Documenten.AsNoTracking().FirstOrDefaultAsync(d => d.Id == document) is not { Status: Documentstatus.Geboekt, BoekingId: { } boekingId }
+            || await db.OpenstaandePosten.AsNoTracking().FirstOrDefaultAsync(p => p.BoekingId == boekingId) is not { } post)
+        {
+            return null;
+        }
+
+        var boeking = await db.Boekingen.AsNoTracking().Include(b => b.Regels).SingleAsync(b => b.Id == boekingId);
+        var (schema, _) = await GrootboekDienst.Inrichting(db);
+        var functies = boeking.Regels.ToDictionary(r => r, r => schema.Zoek(r.Rekeningnummer)?.Functie ?? Rekeningfunctie.Geen);
+        var kosten = boeking.Regels.Where(r => functies[r] is not (Rekeningfunctie.Crediteuren or Rekeningfunctie.Voorbelasting or Rekeningfunctie.AfTeDragenBtw))
+            .OrderBy(r => r.Regelnummer).ToList();
+        var btw = boeking.Regels.Where(r => functies[r] == Rekeningfunctie.Voorbelasting).ToList();
+        var regels = kosten.Select(r =>
+        {
+            // De btw per regel staat per btw-code in de boeking; bij één regel met die code is dat de btw van de regel.
+            var eigen = kosten.Count(k => k.BtwCode == r.BtwCode) == 1 ? btw.FirstOrDefault(b => b.BtwCode == r.BtwCode)?.Bedrag : null;
+            return new Factuurregel(r.Omschrijving == boeking.Omschrijving ? string.Empty : r.Omschrijving ?? string.Empty, r.Rekeningnummer, r.BtwCode ?? "I0",
+                Math.Abs(r.Bedrag), eigen is { } b ? Math.Abs(b) : null);
+        }).ToList();
+        return new GeboekteFactuur(post.Relatie, post.Factuurnummer, post.Datum, post.Vervaldatum, boeking.Omschrijving, post.Betalingskenmerk,
+            Creditnota: post.Bedrag > 0, Math.Abs(post.Bedrag), regels, boeking.Dagboek, boeking.Boekstuk);
     }
 
     /// <summary>

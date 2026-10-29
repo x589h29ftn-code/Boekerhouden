@@ -247,6 +247,9 @@ const breedteSleutel = 'boekerhouden.inkoop.viewerbreedte';
  * standaardbreedte terug. De breedte wordt per browser onthouden.
  */
 export function scheiding(handvat, paneel) {
+    // Eén keer per element: het scherm kan dit vaker vragen (bijv. na heropenen).
+    if (handvat.dataset.gekoppeld) return;
+    handvat.dataset.gekoppeld = '1';
     const zet = (breedte) => {
         if (breedte) paneel.style.width = `${breedte}px`;
         else paneel.style.removeProperty('width');

@@ -304,6 +304,7 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
         await using var db = await app.Dienst<Toegang>().Open(wie, id, Recht.Lezen);
         Assert.All(await db.OpenstaandePosten.ToListAsync(), p => Assert.Equal(0m, p.Openstaand));
         Assert.Equal(Documentsoort.Creditnota, (await db.Documenten.SingleAsync(d => d.Id == credit.DocumentId)).Soort);
+        Assert.True((await inkoop.Geboekt(wie, id, credit.DocumentId.Value))!.Creditnota);
         Assert.Single(await db.Leerkeuzes.ToListAsync());
     }
 
@@ -352,6 +353,43 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
         // Opnieuw boeken, nu op de goede rekening, met hetzelfde factuurnummer.
         Assert.True((await inkoop.Boek(wie, id, document, Invoer("BELNET", null, "T-1"))).IsGelukt);
         Assert.Equal(20.65m, Saldo(await grootboek.Proefbalans(wie, id, 2026), "4310"));
+    }
+
+    [Fact]
+    public async Task Heropenen_geeft_wat_er_geboekt_was_en_draait_de_boeking_terug()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var inkoop = app.Dienst<InkoopDienst>();
+        var gelezen = await inkoop.Lees(wie, id, new MemoryStream(Belnet("H-9")), "h9.xml", null);
+        var document = gelezen.DocumentId!.Value;
+        var invoer = Invoer(null, new NieuweRelatie("Belnet B.V.", null, null, null), "H-9") with
+        {
+            Omschrijving = "Abonnement april",
+            Betalingskenmerk = "1234567890123456",
+            Regels = [new Factuurregel("Abonnement", "4310", "I21", 20.65m, 4.34m), new Factuurregel("", "4300", "I9", 10m, null)],
+        };
+        Assert.True((await inkoop.Boek(wie, id, document, invoer)).IsGelukt);
+
+        var geboekt = (await inkoop.Geboekt(wie, id, document))!;
+        Assert.Equal(("BELNET", "H-9", new DateOnly(2026, 4, 1), new DateOnly(2026, 4, 15), "Abonnement april", "1234567890123456", false, 35.89m),
+            (geboekt.Relatie, geboekt.Factuurnummer, geboekt.Datum, geboekt.Vervaldatum, geboekt.Omschrijving, geboekt.Betalingskenmerk, geboekt.Creditnota, geboekt.Totaal));
+        Assert.Equal([new Factuurregel("Abonnement", "4310", "I21", 20.65m, 4.34m), new Factuurregel("", "4300", "I9", 10m, 0.90m)], geboekt.Regels);
+
+        var heropend = await inkoop.Heropen(wie, id, document);
+
+        Assert.True(heropend.IsGelukt, string.Join("; ", heropend.Fouten));
+        Assert.Equal((geboekt.Factuurnummer, geboekt.Totaal), (heropend.Waarde!.Factuurnummer, heropend.Waarde.Totaal));
+        Assert.Equal(geboekt.Regels, heropend.Waarde.Regels);
+        Assert.Null(await inkoop.Geboekt(wie, id, document));
+        Assert.Equal(0m, Saldo(await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026), "1600"));
+        Assert.False((await inkoop.Heropen(wie, id, document)).IsGelukt);
+
+        // Opnieuw boeken met de waarden van toen (aangepast) kan meteen.
+        var opnieuw = new Factuurinvoer(geboekt.Relatie, null, geboekt.Factuurnummer, geboekt.Datum, geboekt.Vervaldatum, geboekt.Omschrijving,
+            [geboekt.Regels[0] with { Rekeningnummer = "4330" }, geboekt.Regels[1]], geboekt.Betalingskenmerk);
+        Assert.True((await inkoop.Boek(wie, id, document, opnieuw)).IsGelukt);
+        Assert.Equal(20.65m, Saldo(await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026), "4330"));
     }
 
     [Fact]
