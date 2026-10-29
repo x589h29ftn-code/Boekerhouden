@@ -8,7 +8,6 @@ using Boekerhouden.Documenten;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Boekerhouden.Administratie.Tests;
 
@@ -54,6 +53,9 @@ public sealed class LokaleAppTests : IAsyncLifetime
         await LokaleApp.Start(opnieuw, "Piet Proef");
         Assert.Single(await opnieuw.GetRequiredService<GebruikerDienst>().Lijst());
         Assert.True(opnieuw.GetRequiredService<Werkomgeving>().Lokaal);
+
+        // Wat de gebruiker uploadt, is van hem zelf: geen virusscanner (dus ook geen valse meldingen).
+        Assert.Empty(opnieuw.GetServices<IVirusscanner>());
     }
 
     [Fact]
@@ -89,10 +91,6 @@ public sealed class LokaleAppTests : IAsyncLifetime
     {
         var services = new ServiceCollection();
         LokaleApp.ConfigureerDiensten(services, map);
-
-        // Geen Microsoft Defender op de testmachine: een scanner die alles goedkeurt.
-        services.RemoveAll<IVirusscanner>();
-        services.AddSingleton<IVirusscanner, SchoneScanner>();
         return services.BuildServiceProvider();
     }
 
@@ -100,10 +98,5 @@ public sealed class LokaleAppTests : IAsyncLifetime
     {
         await using var scope = diensten!.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<AuthenticationStateProvider>().GetAuthenticationStateAsync();
-    }
-
-    private sealed class SchoneScanner : IVirusscanner
-    {
-        public Task<Scanresultaat> ScanAsync(Stream inhoud, CancellationToken annulering = default) => Task.FromResult(new Scanresultaat(Scanuitslag.Schoon));
     }
 }

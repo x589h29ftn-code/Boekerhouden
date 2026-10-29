@@ -9,7 +9,8 @@ namespace Boekerhouden.Administratie.Lokaal;
 /// <summary>
 /// De samenstelling van de Windows-app: dezelfde schermen en diensten als de webapp, maar zonder webserver en zonder
 /// databaseserver. De gegevens staan in één SQLite-bestand in <c>gegevensmap</c>; wie de app start, is de lokale
-/// gebruiker (beheerder en kantoor), zonder inloggen of tweestapsverificatie. Uploads gaan langs Microsoft Defender.
+/// gebruiker (beheerder en kantoor), zonder inloggen of tweestapsverificatie. Geüploade bestanden zijn van de
+/// gebruiker zelf en worden niet door een virusscanner van het pakket gehaald.
 /// </summary>
 public static class LokaleApp
 {
@@ -27,7 +28,6 @@ public static class LokaleApp
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 [$"ConnectionStrings:{Opstart.Verbindingsnaam}"] = $"Data Source={Path.Combine(gegevensmap, Bestandsnaam)}",
-                ["Virusscan:Soort"] = "Defender",
             })
             .Build();
         services.AddLogging();

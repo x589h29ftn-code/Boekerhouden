@@ -321,7 +321,8 @@ het moment waarop een klant of accountant erom vraagt.
 15. **Windows-app voor de tests**: geen netwerk: geen webserver en geen databaseserver, alleen een SQLite-bestand
     in de map van de Windows-gebruiker. Er is geen inloggen; wie de pc-sessie heeft, is de gebruiker (de pc zelf
     beschermt met Windows-aanmelding en BitLocker). Boekingen en het log blijven onwijzigbaar (triggers, hash-keten),
-    uploads gaan langs Microsoft Defender (*fail closed*), en een document opent alleen als PDF of XML. Bedoeld
+    uploads worden niet door het pakket gescand (eigen bestanden op de eigen pc; de virusscanner van Windows doet
+    dat al), en een document opent alleen als PDF of XML. Bedoeld
     voor tests op één pc, niet voor een kantoor met meerdere gebruikers (daarvoor de server, §4.11).
 
 Bekende beperking: de databaserol van de app is eigenaar van de tabellen en kan de triggers dus uitschakelen. De

@@ -325,7 +325,7 @@ webapp in een eigen venster, zonder webserver, zonder databaseserver en zonder i
 | Database | Eén SQLite-bestand (`administratie.db`) in `%LOCALAPPDATA%\Boekerhouden\Administratie`. `SqliteAdministratieDbContext` met eigen migraties (`Data/MigratiesSqlite`): bedragen exact als geheel getal (× 10.000), tijdstippen sorteerbaar, triggers die boekingen en het log onwijzigbaar maken. De hele testsuite draait ook op SQLite (`BOEKERHOUDEN_TEST_SQLITE=1`, in CI) |
 | Gebruiker | `LokaleApp` en `LokaleGebruiker`: wie de app start, is de lokale gebruiker (beheerder en kantoor) met de naam van de Windows-gebruiker; geen wachtwoord, geen tweestapsverificatie. `Werkomgeving.Lokaal` laat uitloggen, beveiliging, wachtwoord en gebruikersbeheer weg; het IBAN van een relatie wijzigen vraagt geen wachtwoord (het log houdt oud en nieuw bij) |
 | Documenten | `IDocumentvenster`: het origineel opent in het standaardprogramma (alleen PDF of XML, op inhoud bepaald: `Bestandssoort`); de factuurviewer krijgt de inhoud mee in plaats van een adres; *Extern* opent een tweede venster (`LosseViewer`) dat via hetzelfde kanaal met het verwerkscherm praat |
-| Virusscan | `DefenderScanner`: Microsoft Defender (`MpCmdRun.exe -Scan -ScanType 3 -File`), *fail closed* |
+| Virusscan | Geen: wat de gebruiker op zijn eigen pc uploadt, is van hemzelf (Windows scant de bestanden op schijf al). De webapp op kantoor scant wel, met ClamAV |
 | Bouwen | `scripts/maak-windows-app.ps1` of `.sh`: `dotnet publish -r win-x64 --self-contained`, gezipt met `LEESMIJ.txt`. De CI maakt de zip en start hem op een Windows-runner met `--proef` (eerste scherm en proefbalans, met schermafdrukken) |
 
 Nog niet gebouwd: bank en verkoop in de app (A8–A9), OCR, btw-aangifte en periodes, het RGS-werkboek in de

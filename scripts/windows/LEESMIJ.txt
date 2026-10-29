@@ -10,10 +10,6 @@ Waar staan de gegevens?
   Zet onder Beheer > Kantoorinstellingen de documentmap, bijv.
     C:\Users\<naam>\OneDrive\Klanten\#administratie\#jaar\#soort
 
-Virusscan
-  Elk bestand gaat eerst langs Microsoft Defender. Staat Defender uit of is hij niet te vinden, dan leest de app
-  geen bestanden in.
-
 Melding over WebView2
   Het venster gebruikt Microsoft Edge WebView2 (standaard aanwezig op Windows 11). Ontbreekt die, installeer hem
   eenmalig: winget install Microsoft.EdgeWebView2Runtime
