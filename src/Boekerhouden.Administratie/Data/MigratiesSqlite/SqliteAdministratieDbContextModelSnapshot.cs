@@ -776,6 +776,9 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Verdeling")
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AdministratieId", "Sha256");

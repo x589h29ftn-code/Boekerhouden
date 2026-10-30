@@ -115,6 +115,10 @@
                                 <div class="veld"><span class="veldnaam">Omschrijving</span><span>@g.Omschrijving</span></div>
                                 <div class="veld"><span class="veldnaam">Bedrag</span><span class="bedrag">@Bedragen.Getal(g.Totaal)@(g.Creditnota ? " (creditnota)" : null)</span></div>
                                 <div class="veld"><span class="veldnaam">Boekstuk</span><span>@g.Dagboek @g.Boekstuk</span></div>
+                                @if (g.Verdeling is { } v)
+                                {
+                                    <div class="veld"><span class="veldnaam">Verdeeld</span><span title="@string.Join(", ", g.Verdeelboekstukken ?? [])">@v.Maanden.Count maanden, @Weergave.Datum(v.Van) t/m @Weergave.Datum(v.Tot), via @v.Rekening @verwerking.Schema.Zoek(v.Rekening)?.Naam</span></div>
+                                }
                                 <table class="table table-sm align-middle regeltabel mt-3 mb-0">
                                     <thead>
                                         <tr><th>Omschrijving</th><th>Grootboekrekening</th><th>Btw</th><th class="text-end">Excl. btw</th><th class="text-end">Btw-bedrag</th></tr>
@@ -337,6 +341,30 @@
                                     }
                                 </div>
                             </div>
+                            <div class="veld mt-3">
+                                <label for="verdelen">Periode verdelen</label>
+                                <div class="veld-rij">
+                                    <span class="form-check form-switch mb-0">
+                                        <input id="verdelen" class="form-check-input" type="checkbox" checked="@verdelen" @onchange="e => ZetVerdelen(e.Value is true)" title="Transitorisch boeken: via vooruitbetaalde kosten en per maand naar de kosten" />
+                                    </span>
+                                    @if (verdelen)
+                                    {
+                                        <input type="date" class="form-control veld-smal" @bind="verdeelVan" aria-label="Periode van" />
+                                        <span class="text-secondary">t/m</span>
+                                        <input type="date" class="form-control veld-smal" @bind="verdeelTot" aria-label="Periode tot en met" />
+                                    }
+                                </div>
+                            </div>
+                            @if (verdelen)
+                            {
+                                <div class="veld veld-boven">
+                                    <label for="verdeelrekening">Via rekening</label>
+                                    <div>
+                                        <RekeningKeuze Id="verdeelrekening" Label="Rekening voor de verdeling" Klasse="form-control" @bind-Waarde:get="verdeelRekening" @bind-Waarde:set='v => verdeelRekening = v ?? ""' Schema="verwerking.Schema" Voorkeur="Verdeelrekeningen" />
+                                        <div class="small text-secondary mt-1" title="Elke maand een gelijk deel naar de kostenrekening (memoriaal); de btw blijft bij de factuur">@Verdeeltekst</div>
+                                    </div>
+                                </div>
+                            }
                             @foreach (var s in Signalen)
                             {
                                 <div class="status let-op mb-1">@s</div>
@@ -385,6 +413,12 @@
     private Guid? verrekenMet;
     private string? factuurbedrag;
     private bool bevestigHeropenen;
+
+    // Periodeverdeling (transitorisch): van, tot en met, en de balansrekening ertussen (bijv. vooruitbetaalde kosten).
+    private bool verdelen;
+    private DateOnly verdeelVan;
+    private DateOnly verdeelTot;
+    private string verdeelRekening = "";
 
     // Een geboekte factuur: hoe hij geboekt is; na heropenen vult dat het formulier (in plaats van wat herkend was).
     private GeboekteFactuur? geboekteFactuur;
@@ -528,7 +562,7 @@
 
         // Een creditnota (negatief totaal) staat in het formulier zonder minteken; het pakket boekt hem omgekeerd.
         soort = herkend?.TotaalInclusief < 0 ? Documentsoort.Creditnota : Documentsoort.Factuur;
-        (verrekenMet, bevestigHeropenen) = (null, false);
+        (verrekenMet, bevestigHeropenen, verdelen) = (null, false, false);
         factuurbedrag = herkend?.TotaalInclusief is { } totaal ? Bedragen.Getal(Math.Abs(totaal)) : null;
         if (soort == Documentsoort.Creditnota)
         {
@@ -960,7 +994,8 @@
             kenmerk,
             [.. aanwijzingen.Values],
             soort == Documentsoort.Creditnota,
-            soort == Documentsoort.Creditnota ? verrekenMet : null);
+            soort == Documentsoort.Creditnota ? verrekenMet : null,
+            verdelen ? new Periodeverdeling(verdeelVan, verdeelTot, verdeelRekening.Trim()) : null);
         bezig = true;
         var positie = Positie ?? 0;
         var uitkomst = await Inkoop.Boek(geopend!.Wie, Id, DocumentId, invoer);
@@ -974,6 +1009,47 @@
         // Door naar het document dat nu op deze plaats in Te verwerken staat (het volgende), of terug naar de lijst.
         vorigeGeboekt = $"{(soort == Documentsoort.Creditnota ? "Creditnota " : null)}{Variabelen.Leverancier} {factuurnummer} is geboekt.".Trim();
         await NaarVolgende(positie);
+    }
+
+    /// <summary>De rekening voor vooruitbetaalde kosten (RGS BVorOvaVan) bovenaan bij het kiezen.</summary>
+    private IReadOnlyList<string> Verdeelrekeningen => verwerking?.Schema.Alle.Where(r => r.RgsCode == VooruitbetaaldeKosten).Select(r => r.Nummer).ToList() ?? [];
+
+    private const string VooruitbetaaldeKosten = "BVorOvaVan";
+
+    /// <summary>Aan: de periode van de factuur (herkend) of anders een jaar vanaf de maand van de factuurdatum.</summary>
+    private void ZetVerdelen(bool aan)
+    {
+        verdelen = aan;
+        if (!aan)
+        {
+            return;
+        }
+
+        (verdeelVan, verdeelTot) = verwerking?.Herkend?.Periode is { } p
+            ? (p.Van, p.Tot)
+            : (new DateOnly(datum.Year, datum.Month, 1), new DateOnly(datum.Year, datum.Month, 1).AddYears(1).AddDays(-1));
+        if (verdeelRekening.Length == 0)
+        {
+            verdeelRekening = Verdeelrekeningen.FirstOrDefault() ?? "";
+        }
+    }
+
+    /// <summary>"12 maanden (sep 2026 t/m aug 2027) · 11,77 per maand", of wat er niet klopt.</summary>
+    private string Verdeeltekst
+    {
+        get
+        {
+            var verdeling = new Periodeverdeling(verdeelVan, verdeelTot, verdeelRekening);
+            if (verdeling.Controleer() is [var fout, ..])
+            {
+                return fout;
+            }
+
+            var nl = System.Globalization.CultureInfo.GetCultureInfo("nl-NL");
+            var maanden = verdeling.Maanden;
+            var bedrag = regels.Sum(r => Getal(r.Bedrag) ?? 0);
+            return $"{maanden.Count} {(maanden.Count == 1 ? "maand" : "maanden")} ({maanden[0].ToString("MMM yyyy", nl)} t/m {maanden[^1].ToString("MMM yyyy", nl)}) · {Bedragen.Getal(Periodeverdeling.Verdeel(bedrag, maanden.Count)[0])} per maand";
+        }
     }
 
     private async Task LaadHistorie()
@@ -1007,6 +1083,11 @@
         kenmerk = g.Betalingskenmerk;
         soort = g.Creditnota ? Documentsoort.Creditnota : Documentsoort.Factuur;
         factuurbedrag = Bedragen.Getal(g.Totaal);
+        if (g.Verdeling is { } v)
+        {
+            (verdelen, verdeelVan, verdeelTot, verdeelRekening) = (true, v.Van, v.Tot, v.Rekening);
+        }
+
         regels =
         [
             .. g.Regels.Select(r => new Invoerregel

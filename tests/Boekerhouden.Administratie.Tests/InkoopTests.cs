@@ -385,6 +385,39 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
     }
 
     [Fact]
+    public async Task Periode_verdelen_boekt_transitorisch_en_per_maand_naar_de_kosten()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var inkoop = app.Dienst<InkoopDienst>();
+        var grootboek = app.Dienst<GrootboekDienst>();
+        var document = (await inkoop.Lees(wie, id, new MemoryStream(Belnet("P-1")), "p1.xml", null)).DocumentId!.Value;
+        var verdeling = new Periodeverdeling(new(2026, 4, 1), new(2027, 3, 31), "1410");
+        Assert.Contains("geen balansrekening", Assert.Single((await inkoop.Boek(wie, id, document,
+            Invoer(null, new NieuweRelatie("Belnet B.V.", null, null, null), "P-1") with { Verdeling = verdeling with { Rekening = "4300" } })).Fouten), StringComparison.Ordinal);
+
+        var uitkomst = await inkoop.Boek(wie, id, document, Invoer(null, new NieuweRelatie("Belnet B.V.", null, null, null), "P-1") with { Verdeling = verdeling });
+
+        Assert.True(uitkomst.IsGelukt, string.Join("; ", uitkomst.Fouten));
+        var proef2026 = await grootboek.Proefbalans(wie, id, 2026);
+        Assert.Equal((15.48m, 5.17m, 4.34m), (Saldo(proef2026, "4310"), Saldo(proef2026, "1410"), Saldo(proef2026, "1500")));
+        Assert.Equal(12, (await grootboek.Posten(wie, id, "MEM")).Count);
+        var geboekt = (await inkoop.Geboekt(wie, id, document))!;
+        Assert.Equal(verdeling, geboekt.Verdeling);
+        Assert.Equal(12, geboekt.Verdeelboekstukken!.Count);
+        Assert.Equal("4310", Assert.Single(geboekt.Regels).Rekeningnummer);
+        Assert.Equal("4310", Assert.Single(await inkoop.Historie(wie, id, "BELNET")).Rekening);
+
+        // Terugdraaien neemt de verdeling mee: alles weer op nul, de keten klopt.
+        Assert.True((await inkoop.Terugdraaien(wie, id, document)).IsGelukt);
+        var terug = await grootboek.Proefbalans(wie, id, 2026);
+        Assert.Equal((0m, 0m, 0m), (Saldo(terug, "4310"), Saldo(terug, "1410"), Saldo(terug, "1600")));
+        Assert.Equal(0m, Saldo(await grootboek.Proefbalans(wie, id, 2027), "4310"));
+        Assert.Equal(24, (await grootboek.Posten(wie, id, "MEM")).Count);
+        Assert.Empty(await grootboek.ControleerKeten(wie, id));
+    }
+
+    [Fact]
     public async Task Heropenen_geeft_wat_er_geboekt_was_en_draait_de_boeking_terug()
     {
         var wie = await app.Beheerder();

@@ -50,7 +50,12 @@ public sealed record GeboekteFactuur(
     decimal Totaal,
     IReadOnlyList<Factuurregel> Regels,
     string Dagboek,
-    string Boekstuk);
+    string Boekstuk,
+    Periodeverdeling? Verdeling = null,
+    IReadOnlyList<string>? Verdeelboekstukken = null);
+
+/// <summary>De periodeverdeling van een geboekt document, zoals bewaard bij het document (JSON).</summary>
+internal sealed record Verdelingsgegevens(DateOnly Van, DateOnly Tot, string Rekening, List<string> Kostenrekeningen, List<string> Boekstukken);
 
 /// <summary>Wat er met een ingelezen bestand gebeurd is.</summary>
 public sealed record Inleesuitkomst(Guid? DocumentId, Documentstatus? Status, string Melding)
@@ -77,7 +82,8 @@ public sealed record Factuurinvoer(
     string? Betalingskenmerk = null,
     IReadOnlyList<Zoekgebied>? Aanwijzingen = null,
     bool Creditnota = false,
-    Guid? VerrekenMet = null);
+    Guid? VerrekenMet = null,
+    Periodeverdeling? Verdeling = null);
 
 /// <summary>Alles wat het scherm nodig heeft om een document te verwerken.</summary>
 public sealed record Verwerking(
@@ -380,7 +386,7 @@ public sealed class InkoopDienst(
 
     private static async Task<GeboekteFactuur?> Geboekt(AdministratieDbContext db, Guid document)
     {
-        if (await db.Documenten.AsNoTracking().FirstOrDefaultAsync(d => d.Id == document) is not { Status: Documentstatus.Geboekt, BoekingId: { } boekingId }
+        if (await db.Documenten.AsNoTracking().FirstOrDefaultAsync(d => d.Id == document) is not { Status: Documentstatus.Geboekt, BoekingId: { } boekingId } doc
             || await db.OpenstaandePosten.AsNoTracking().FirstOrDefaultAsync(p => p.BoekingId == boekingId) is not { } post)
         {
             return null;
@@ -399,8 +405,17 @@ public sealed class InkoopDienst(
             return new Factuurregel(r.Omschrijving == boeking.Omschrijving ? string.Empty : r.Omschrijving ?? string.Empty, r.Rekeningnummer, r.BtwCode ?? "I0",
                 Math.Abs(r.Bedrag), eigen is { } b ? Math.Abs(b) : null);
         }).ToList();
+
+        // Met een periodeverdeling staan de kosten op de verdeelrekening; de kostenrekeningen per regel zijn bewaard.
+        var verdeling = doc.Verdeling is { } json ? JsonSerializer.Deserialize<Verdelingsgegevens>(json, Json) : null;
+        if (verdeling is not null && verdeling.Kostenrekeningen.Count == regels.Count)
+        {
+            regels = [.. regels.Select((r, i) => r with { Rekeningnummer = verdeling.Kostenrekeningen[i] })];
+        }
+
         return new GeboekteFactuur(post.Relatie, post.Factuurnummer, post.Datum, post.Vervaldatum, boeking.Omschrijving, post.Betalingskenmerk,
-            Creditnota: post.Bedrag > 0, Math.Abs(post.Bedrag), regels, boeking.Dagboek, boeking.Boekstuk);
+            Creditnota: post.Bedrag > 0, Math.Abs(post.Bedrag), regels, boeking.Dagboek, boeking.Boekstuk,
+            verdeling is null ? null : new Periodeverdeling(verdeling.Van, verdeling.Tot, verdeling.Rekening), verdeling?.Boekstukken);
     }
 
     /// <summary>
@@ -428,6 +443,22 @@ public sealed class InkoopDienst(
         var boekstuk = await GrootboekDienst.VolgendBoekstuk(db, boeking.Dagboek, boeking.Datum.Year);
         var tegen = boeking.NaarDomein().Tegenboeking(boekstuk, boeking.Datum, Kort($"Terugdraaien {boeking.Dagboek} {boeking.Boekstuk}: {boeking.Omschrijving}"));
         await grootboek.VoegToeAanKeten(db, administratie, tegen, wie);
+
+        // Een periodeverdeling gaat mee terug: elke maandboeking krijgt een tegenboeking op dezelfde datum.
+        if (d.Verdeling is { } json && JsonSerializer.Deserialize<Verdelingsgegevens>(json, Json) is { } verdeling)
+        {
+            foreach (var stuk in verdeling.Boekstukken)
+            {
+                await db.SaveChangesAsync();
+                var (dagboekcode, nummer) = (stuk.Split(' ', 2)[0], stuk.Split(' ', 2)[1]);
+                var maand = await db.Boekingen.AsNoTracking().Include(b => b.Regels).SingleAsync(b => b.Dagboek == dagboekcode && b.Boekstuk == nummer);
+                var terug = maand.NaarDomein().Tegenboeking(await GrootboekDienst.VolgendBoekstuk(db, dagboekcode, maand.Datum.Year), maand.Datum,
+                    Kort($"Terugdraaien {stuk}: {maand.Omschrijving}"));
+                await grootboek.VoegToeAanKeten(db, administratie, terug, wie);
+            }
+
+            d.Verdeling = null;
+        }
         if (post is not null)
         {
             db.OpenstaandePosten.Remove(post);
@@ -489,11 +520,17 @@ public sealed class InkoopDienst(
         var regels = await db.Boekingsregels.AsNoTracking().Where(r => boekingen.Contains(r.BoekingId)).ToListAsync();
         var (schema, _) = await GrootboekDienst.Inrichting(db);
         bool IsKosten(Boekingsregel r) => schema.Zoek(r.Rekeningnummer)?.Functie is not (Rekeningfunctie.Crediteuren or Rekeningfunctie.Voorbelasting or Rekeningfunctie.AfTeDragenBtw);
+
+        // Met een periodeverdeling staat de factuur op de verdeelrekening; de kostenrekening staat bij het document.
+        var documenten = posten.Where(p => p.DocumentId is not null).Select(p => p.DocumentId!.Value).ToList();
+        var verdeeld = (await db.Documenten.AsNoTracking().Where(d => documenten.Contains(d.Id) && d.Verdeling != null).Select(d => new { d.Id, d.Verdeling }).ToListAsync())
+            .ToDictionary(d => d.Id, d => JsonSerializer.Deserialize<Verdelingsgegevens>(d.Verdeling!, Json)?.Kostenrekeningen.FirstOrDefault());
+        string Rekening(OpenstaandePost p, Boekingsregel r) => p.DocumentId is { } doc && verdeeld.GetValueOrDefault(doc) is { } kosten ? kosten : r.Rekeningnummer;
         return
         [
             .. posten.Select(p => (Post: p, Regel: regels.Where(r => r.BoekingId == p.BoekingId && IsKosten(r)).MaxBy(r => Math.Abs(r.Bedrag))))
                 .Where(x => x.Regel is not null)
-                .Select(x => new EerdereFactuur(x.Post.Datum, x.Post.Factuurnummer, -x.Post.Bedrag, x.Regel!.Rekeningnummer, x.Regel.BtwCode, x.Post.Openstaand == 0, x.Post.Id, x.Post.Openstaand)),
+                .Select(x => new EerdereFactuur(x.Post.Datum, x.Post.Factuurnummer, -x.Post.Bedrag, Rekening(x.Post, x.Regel!), x.Regel!.BtwCode, x.Post.Openstaand == 0, x.Post.Id, x.Post.Openstaand)),
         ];
     }
 
@@ -544,7 +581,7 @@ public sealed class InkoopDienst(
             })],
             kenmerk);
         d.Soort = invoer.Creditnota ? Documentsoort.Creditnota : Documentsoort.Factuur;
-        var uitkomst = await BoekFactuur(db, administratie, d, factuur, herkend, relatie, invoer.Nieuw, wie, automatisch: false, sjabloon, invoer.VerrekenMet);
+        var uitkomst = await BoekFactuur(db, administratie, d, factuur, herkend, relatie, invoer.Nieuw, wie, automatisch: false, sjabloon, invoer.VerrekenMet, invoer.Verdeling);
         if (uitkomst.IsGelukt && invoer.Aanwijzingen is { Count: > 0 } aanwijzingen)
         {
             await BewaarZoektemplate(db, administratie, code, aanwijzingen, herkend, wie);
@@ -779,13 +816,34 @@ public sealed class InkoopDienst(
 
     private async Task<Uitkomst> BoekFactuur(
         AdministratieDbContext db, Guid administratie, Document document, Factuur factuur, HerkendeFactuur? herkend,
-        Relatie? relatie, NieuweRelatie? nieuw, Uitvoerder wie, bool automatisch, string? sjabloon, Guid? verrekenMet = null)
+        Relatie? relatie, NieuweRelatie? nieuw, Uitvoerder wie, bool automatisch, string? sjabloon, Guid? verrekenMet = null, Periodeverdeling? verdeling = null)
     {
         var (schema, dagboeken) = await GrootboekDienst.Inrichting(db);
         var dagboek = dagboeken.FirstOrDefault(x => x.Soort == Dagboeksoort.Inkoop);
         if (dagboek is null)
         {
             return Uitkomst.Mislukt("Deze administratie heeft geen inkoopboek.");
+        }
+
+        // Transitorisch: de kosten eerst op de verdeelrekening (balans), daarna per maand in het memoriaal naar de kosten.
+        var memoriaal = dagboeken.FirstOrDefault(x => x.Soort == Dagboeksoort.Memoriaal);
+        if (verdeling is not null)
+        {
+            var verdeelfouten = verdeling.Controleer().ToList();
+            if (schema.Zoek(verdeling.Rekening) is not { IsBalans: true })
+            {
+                verdeelfouten.Add($"Rekening {verdeling.Rekening} is geen balansrekening; kies bijv. vooruitbetaalde kosten.");
+            }
+
+            if (memoriaal is null)
+            {
+                verdeelfouten.Add("Deze administratie heeft geen memoriaal voor de verdeling.");
+            }
+
+            if (verdeelfouten.Count > 0)
+            {
+                return Uitkomst.Mislukt([.. verdeelfouten]);
+            }
         }
 
         // De btw-codes met de tarieven op de factuurdatum (een nieuw tarief geldt vanaf zijn ingangsdatum).
@@ -828,7 +886,8 @@ public sealed class InkoopDienst(
         OpenPost open;
         try
         {
-            (post, open) = Factuurboeker.Boek(factuur, dagboek, boekstuk, schema, codes);
+            var teBoeken = verdeling is null ? factuur : factuur with { Regels = [.. factuur.Regels.Select(r => r with { Rekeningnummer = verdeling.Rekening })] };
+            (post, open) = Factuurboeker.Boek(teBoeken, dagboek, boekstuk, schema, codes);
         }
         catch (Exception fout) when (fout is ArgumentException or InvalidOperationException)
         {
@@ -842,6 +901,18 @@ public sealed class InkoopDienst(
         }
 
         var boeking = await grootboek.VoegToeAanKeten(db, administratie, post, wie);
+        if (verdeling is not null)
+        {
+            var verdeeld = await BoekVerdeling(db, administratie, verdeling, memoriaal!, factuur, schema, dagboeken, wie);
+            if (!verdeeld.IsGelukt)
+            {
+                return Uitkomst.Mislukt([.. verdeeld.Fouten]);
+            }
+
+            document.Verdeling = JsonSerializer.Serialize(new Verdelingsgegevens(verdeling.Van, verdeling.Tot, verdeling.Rekening,
+                [.. factuur.Regels.Select(r => r.Rekeningnummer)], [.. verdeeld.Waarde!]), Json);
+        }
+
         var credit = open.Openstaand > 0;
         string? verrekend = null;
         if (verrekenMet is { } metId)
@@ -913,6 +984,36 @@ public sealed class InkoopDienst(
         await ZetInDocumentmap(db, administratie, document, factuur, relatie?.Naam ?? nieuw?.Naam, wie);
         await bank.NaFactuur(wie, administratie, open.Id, document.BanktransactieId);
         return Uitkomst.Gelukt;
+    }
+
+    /// <summary>
+    /// De boekingen van de verdeling in het memoriaal: per maand (op de eerste dag) een gelijk deel van elke kostenregel
+    /// naar zijn kostenrekening, af van de verdeelrekening. Binnen de transactie van de factuur; geeft de boekstukken.
+    /// </summary>
+    private async Task<Uitkomst<IReadOnlyList<string>>> BoekVerdeling(
+        AdministratieDbContext db, Guid administratie, Periodeverdeling verdeling, Dagboek memoriaal, Factuur factuur,
+        Rekeningschema schema, IReadOnlyList<Dagboek> dagboeken, Uitvoerder wie)
+    {
+        var maanden = verdeling.PerMaand([.. factuur.Regels.Select(r => new Verdeelregel(r.Rekeningnummer, r.Bedrag, r.Omschrijving))]);
+        var boekstukken = new List<string>();
+        await db.SaveChangesAsync();
+        for (var i = 0; i < maanden.Count; i++)
+        {
+            var (maand, regels) = maanden[i];
+            var boekstuk = await GrootboekDienst.VolgendBoekstuk(db, memoriaal.Code, maand.Year);
+            var post = new Journaalpost(memoriaal.Code, boekstuk, maand, Kort($"Verdeling {factuur.Factuurnummer} {maand:MM-yyyy} ({i + 1}/{maanden.Count}): {factuur.Omschrijving}"),
+                [.. regels.Select(r => new Journaalregel(r.Rekeningnummer, r.Bedrag, r.Omschrijving ?? factuur.Omschrijving, null, factuur.Relatie, factuur.Factuurnummer))]);
+            if (Journaalcontrole.Controleer(post, schema, dagboeken) is { Count: > 0 } fouten)
+            {
+                return Uitkomst<IReadOnlyList<string>>.Mislukt([.. fouten]);
+            }
+
+            await grootboek.VoegToeAanKeten(db, administratie, post, wie);
+            await db.SaveChangesAsync();
+            boekstukken.Add($"{memoriaal.Code} {boekstuk}");
+        }
+
+        return Uitkomst<IReadOnlyList<string>>.Met(boekstukken);
     }
 
     /// <summary>

@@ -307,6 +307,12 @@ public sealed class Document : IVanAdministratie
 
     /// <summary>De bankmutatie waarbij de gebruiker deze factuur uploadde; na het boeken worden ze aan elkaar gekoppeld.</summary>
     public Guid? BanktransactieId { get; set; }
+
+    /// <summary>
+    /// De periodeverdeling als de factuur transitorisch geboekt is, als JSON (periode, verdeelrekening, de
+    /// kostenrekeningen per regel en de boekstukken per maand); leeg zonder verdeling.
+    /// </summary>
+    public string? Verdeling { get; set; }
 }
 
 public sealed class DocumentInhoud : IVanAdministratie

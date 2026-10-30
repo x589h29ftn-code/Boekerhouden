@@ -79,8 +79,40 @@ public static partial class Factuurtekst
             Omschrijving: Omschrijving(regels),
             OpEigenNaam: namen.Count > 0 ? regels.Any(r => namen.Any(n => Namen.LijktOp(n, r))) : null,
             Postcodes: Postcode.Zoek(tekst),
-            Verlegd: VerlegdPatroon().IsMatch(tekst));
+            Verlegd: VerlegdPatroon().IsMatch(tekst),
+            Periode: Periode(regels));
     }
+
+    /// <summary>
+    /// De periode van de factuur: twee datums op één regel met "t/m", "tot en met", "tot", "until", "to" of een
+    /// streepje ertussen ("Periode 01-09-2026 t/m 31-08-2027", "1 september 2026 - 31 augustus 2027"). Een regel met
+    /// "periode" of "looptijd" gaat voor. De tweede datum ligt na de eerste en hoogstens vijf jaar later.
+    /// </summary>
+    private static Factuurperiode? Periode(List<string> regels)
+    {
+        Factuurperiode? Lees(string regel)
+        {
+            foreach (Match m in PeriodeScheiding().Matches(regel))
+            {
+                if (Datums(regel[..m.Index]) is [.., var van] && Datums(regel[(m.Index + m.Length)..]) is [var tot, ..]
+                    && tot > van && tot <= van.AddYears(5))
+                {
+                    return new Factuurperiode(van, tot);
+                }
+            }
+
+            return null;
+        }
+
+        return regels.Where(r => PeriodeLabel().IsMatch(r)).Select(Lees).FirstOrDefault(p => p is not null)
+               ?? regels.Select(Lees).FirstOrDefault(p => p is not null);
+    }
+
+    [GeneratedRegex(@"\s(?:t/m|t\.m\.|tot\s+en\s+met|tot|until|to|[-–])\s", RegexOptions.IgnoreCase)]
+    private static partial Regex PeriodeScheiding();
+
+    [GeneratedRegex(@"periode|looptijd|abonnementsperiode|contractperiode|period\b", RegexOptions.IgnoreCase)]
+    private static partial Regex PeriodeLabel();
 
     /// <summary>
     /// De omschrijving van de eerste factuurregel: onder de kopregel met "Omschrijving" (of "Artikel", "Description")

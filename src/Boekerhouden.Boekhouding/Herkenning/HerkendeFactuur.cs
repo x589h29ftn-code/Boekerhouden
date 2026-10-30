@@ -17,6 +17,9 @@ public enum Herkenningsbron
 /// <summary>Btw per tarief zoals op de factuur.</summary>
 public sealed record Btwregel(decimal Percentage, decimal? Grondslag, decimal Btw);
 
+/// <summary>De periode waarover gefactureerd wordt, bijv. "periode 01-09-2026 t/m 31-08-2027".</summary>
+public sealed record Factuurperiode(DateOnly Van, DateOnly Tot);
+
 /// <summary>Een regel van de factuur (alleen bij e-facturen betrouwbaar).</summary>
 public sealed record HerkendeRegel(string Omschrijving, decimal Bedrag, decimal? Percentage);
 
@@ -48,7 +51,8 @@ public sealed record HerkendeFactuur(
     string? Omschrijving = null,
     bool? OpEigenNaam = null,
     IReadOnlyList<string>? Postcodes = null,
-    bool Verlegd = false)
+    bool Verlegd = false,
+    Factuurperiode? Periode = null)
 {
     public IReadOnlyList<Btwregel> Btwregels => Btw ?? [];
 

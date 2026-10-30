@@ -788,6 +788,9 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<string>("Verdeling")
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AdministratieId", "Sha256");
