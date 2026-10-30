@@ -204,7 +204,7 @@
                             <div class="veld">
                                 <label for="datum">Factuurdatum</label>
                                 <div class="veld-rij">
-                                    <input id="datum" type="date" class="form-control veld-smal @Doel("datum") @Onzeker("datum")" title="@Waarom("datum")" @bind="datum" @bind:after='() => onzeker.Remove("datum")' data-doel="datum" data-doelnaam="Factuurdatum" @onfocus='() => Kies("datum", "Factuurdatum")' />
+                                    <DatumVeld Id="datum" Klasse="@($"form-control {Doel("datum")} {Onzeker("datum")}")" title="@Waarom("datum")" @bind-Waarde="datum" @bind-Waarde:after='() => onzeker.Remove("datum")' data-doel="datum" data-doelnaam="Factuurdatum" @onfocus='() => Kies("datum", "Factuurdatum")' />
                                 </div>
                             </div>
                             @if (Toon("verval"))
@@ -212,7 +212,7 @@
                                 <div class="veld">
                                     <label for="verval">Vervaldatum</label>
                                     <div class="veld-rij">
-                                        <input id="verval" type="date" class="form-control veld-smal @Doel("verval")" @bind="vervaldatum" data-doel="verval" data-doelnaam="Vervaldatum" @onfocus='() => Kies("verval", "Vervaldatum")' />
+                                        <DatumVeld Id="verval" Klasse="@($"form-control {Doel("verval")}")" @bind-Waarde="vervaldatum" data-doel="verval" data-doelnaam="Vervaldatum" @onfocus='() => Kies("verval", "Vervaldatum")' />
                                     </div>
                                 </div>
                                 <div class="veld">
@@ -341,9 +341,9 @@
                                     </span>
                                     @if (verdelen)
                                     {
-                                        <input type="date" class="form-control periode-datum" @bind="verdeelVan" aria-label="Periode van" />
+                                        <DatumVeld Klasse="form-control" @bind-Waarde="verdeelVan" Label="Periode van" />
                                         <span class="text-secondary">t/m</span>
-                                        <input type="date" class="form-control periode-datum" @bind="verdeelTot" aria-label="Periode tot en met" />
+                                        <DatumVeld Klasse="form-control" @bind-Waarde="verdeelTot" Label="Periode tot en met" />
                                     }
                                 </div>
                             </div>

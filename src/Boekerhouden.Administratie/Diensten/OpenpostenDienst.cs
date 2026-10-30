@@ -85,7 +85,12 @@ public sealed class OpenpostenDienst(Toegang toegang, PdfDienst pdf)
         var regels = posten.Select(p =>
         {
             var alle = perFactuur[(p.Relatie, p.Factuurnummer)].ToList();
-            var verrekend = (p.Openstaand - p.Bedrag) - alle.Sum(b => b.Bedrag);
+            // Wat de post zelf al vereffend is (afletteren, verrekenen) min de betalingen in het journaal is de verrekening
+            // met een creditnota. Een betaling die niet via afletteren liep (bijv. in het memoriaal) staat niet bij de post:
+            // die maakt het verschil kleiner of tegengesteld, en dan is er geen verrekening.
+            var vereffend = p.Openstaand - p.Bedrag;
+            var verschil = vereffend - alle.Sum(b => b.Bedrag);
+            var verrekend = Math.Sign(verschil) == Math.Sign(vereffend) && Math.Abs(vereffend) > Math.Abs(vereffend - verschil) ? verschil : 0m;
             var betaald = alle.Where(b => b.Datum <= peildatum).Sum(b => b.Bedrag) + verrekend;
             var boeking = boekingen.GetValueOrDefault(p.BoekingId);
             return (p.Relatie, Post: new Openpost(p.Id, p.Datum, p.Vervaldatum, boeking?.Omschrijving ?? "", p.Factuurnummer, -p.Bedrag, betaald,

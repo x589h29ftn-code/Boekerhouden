@@ -17,7 +17,7 @@
         {
             <span class="fw-semibold text-nowrap">@Post.Dagboek @Post.Boekstuk</span>
         }
-        <input type="date" class="form-control form-control-sm veld-datum" @bind="invoer.Datum" disabled="@VasteDatum" aria-label="Datum" title="@(VasteDatum ? "De datum hoort bij het bankafschrift of de openstaande posten" : null)" />
+        <DatumVeld @bind-Waarde="invoer.Datum" Uit="@VasteDatum" Label="Datum" title="@(VasteDatum ? "De datum hoort bij het bankafschrift of de openstaande posten" : null)" />
         <input class="form-control form-control-sm flex-grow-1 w-auto" @bind="invoer.Omschrijving" placeholder="Omschrijving" aria-label="Omschrijving" />
     </div>
     <div class="card overzichtskaart">

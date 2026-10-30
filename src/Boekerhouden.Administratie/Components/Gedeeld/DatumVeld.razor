@@ -1,0 +1,81 @@
+@* Een datum in Nederlandse notatie (dd-mm-jjjj), wat de taal van de browser ook is. Typen mag kort: 30-10, 301026,
+   30/10/26. De knop opent de kalender van de browser (een verborgen datumveld); wat daar gekozen wordt, verschijnt
+   weer als dd-mm-jjjj. *@
+@inject IJSRuntime JS
+@inject TimeProvider Tijd
+
+<span class="datumveld">
+    <input id="@Id" class="@Klasse @(ongeldig ? "ongeldig" : null)" value="@tekst" placeholder="dd-mm-jjjj" autocomplete="off" aria-label="@Label"
+           disabled="@Uit" title="@(ongeldig ? "Geen geldige datum (dd-mm-jjjj)" : null)" @onchange="Wijzig" @attributes="Extra" />
+    <input @ref="kiezer" type="date" class="datumveld-kiezer" tabindex="-1" aria-hidden="true" value="@Waarde.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)"
+           disabled="@Uit" @onchange="Gekozen" />
+    <button type="button" class="datumveld-knop" tabindex="-1" title="Kalender" aria-label="Kalender" disabled="@Uit" @onclick="OpenKalender">
+        <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M4 0h1v2h6V0h1v2h2.5A1.5 1.5 0 0 1 16 3.5v11a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 0 14.5v-11A1.5 1.5 0 0 1 1.5 2H4V0zM1 6v8.5a.5.5 0 0 0 .5.5h13a.5.5 0 0 0 .5-.5V6H1zm0-1h14V3.5a.5.5 0 0 0-.5-.5h-13a.5.5 0 0 0-.5.5V5z" /></svg>
+    </button>
+</span>
+
+@code {
+    private ElementReference kiezer;
+    private string tekst = "";
+    private DateOnly getoond;
+    private bool ongeldig;
+
+    [Parameter]
+    public DateOnly Waarde { get; set; }
+
+    [Parameter]
+    public EventCallback<DateOnly> WaardeChanged { get; set; }
+
+    [Parameter]
+    public string? Id { get; set; }
+
+    [Parameter]
+    public string? Label { get; set; }
+
+    [Parameter]
+    public string Klasse { get; set; } = "form-control form-control-sm";
+
+    [Parameter]
+    public bool Uit { get; set; }
+
+    /// <summary>Andere attributen (title, data-*, @onfocus) gaan naar het tekstveld.</summary>
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? Extra { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (Waarde != getoond || tekst.Length == 0)
+        {
+            (getoond, tekst, ongeldig) = (Waarde, Weergave.Datum(Waarde), false);
+        }
+    }
+
+    private async Task Wijzig(ChangeEventArgs e)
+    {
+        var invoer = e.Value?.ToString() ?? "";
+        if (Weergave.LeesDatum(invoer, Tijd.GetLocalNow().Year) is not { } datum)
+        {
+            // Laten staan wat er getypt is (anders verschilt het scherm van wat Blazor denkt), rustig gemarkeerd.
+            (tekst, ongeldig) = (invoer, true);
+            return;
+        }
+
+        (getoond, tekst, ongeldig) = (datum, Weergave.Datum(datum), false);
+        await WaardeChanged.InvokeAsync(datum);
+    }
+
+    private async Task Gekozen(ChangeEventArgs e)
+    {
+        if (DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var datum))
+        {
+            (getoond, tekst, ongeldig) = (datum, Weergave.Datum(datum), false);
+            await WaardeChanged.InvokeAsync(datum);
+        }
+    }
+
+    private async Task OpenKalender()
+    {
+        await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "./datumveld.js");
+        await module.InvokeVoidAsync("kies", kiezer);
+    }
+}

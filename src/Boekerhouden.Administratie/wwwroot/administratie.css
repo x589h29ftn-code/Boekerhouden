@@ -737,8 +737,8 @@ body.scheiding-slepen {
     gap: .4rem;
 }
 
-.periodekeuze input {
-    width: 9.5rem;
+.periodekeuze .datumveld > input:first-child {
+    width: 8.25rem;
 }
 
 .overzichtstabel {
@@ -974,4 +974,48 @@ body.scheiding-slepen {
 
 .overzichtstabel.openposten {
     table-layout: fixed;
+}
+
+/* Datumveld: tekst in dd-mm-jjjj met een kalenderknop; het datumveld van de browser is onzichtbaar. */
+.datumveld {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.datumveld > input:first-child {
+    width: 8.25rem;
+    padding-right: 1.6rem;
+}
+
+.datumveld > input:first-child.ongeldig {
+    border-color: var(--bs-warning-border-subtle);
+}
+
+.datumveld > .datumveld-kiezer {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.datumveld-knop {
+    position: absolute;
+    right: .35rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--bs-secondary-color);
+    line-height: 1;
+}
+
+.datumveld-knop:hover {
+    color: var(--bs-body-color);
+}
+
+.overzichtstabel.openposten th {
+    white-space: nowrap;
 }

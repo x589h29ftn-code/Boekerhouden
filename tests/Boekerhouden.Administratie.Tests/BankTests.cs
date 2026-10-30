@@ -303,6 +303,23 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
     }
 
     [Fact]
+    public async Task Te_veel_betaald_via_de_bank_gaat_naar_vraagposten_en_de_factuur_is_niet_meer_open()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Overbetaling B.V.");
+        var bank = app.Dienst<BankDienst>();
+        await BoekBelnet(wie, id);
+        await bank.Lees(wie, id, Afschrift(belnet: "30,00"), "ing.mt940");
+        var mutatie = (await bank.Lijst(wie, id)).Single(m => m.Bedrag == -30m);
+
+        Assert.True((await bank.Afletteren(wie, id, mutatie.Id, [(await bank.OpenPosten(wie, id)).Single().Id])).IsGelukt);
+
+        Assert.Empty((await app.Dienst<OpenpostenDienst>().Crediteuren(wie, id, new(2026, 3, 31))).Relaties);
+        Assert.Equal(("2000", 5.01m), await bank.Vraagposten(wie, id));
+        Assert.Equal(24.99m, (await app.Dienst<OpenpostenDienst>().Crediteuren(wie, id, new(2026, 3, 1))).Openstaand);
+    }
+
+    [Fact]
     public async Task Opnieuw_afletteren_boekt_wat_na_het_inlezen_zeker_is_geworden()
     {
         var wie = await app.Beheerder();

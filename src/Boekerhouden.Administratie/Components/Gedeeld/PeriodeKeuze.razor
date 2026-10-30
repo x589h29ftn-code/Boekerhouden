@@ -2,9 +2,9 @@
 @using Boekerhouden.Boekhouding.Grootboek
 
 <div class="periodekeuze">
-    <input type="date" class="form-control form-control-sm" aria-label="Van" value="@Van.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)" @onchange="ZetVan" />
+    <DatumVeld Label="Van" Waarde="Van" WaardeChanged="ZetVan" />
     <span class="text-secondary" aria-hidden="true">→</span>
-    <input type="date" class="form-control form-control-sm" aria-label="Tot en met" value="@Tot.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)" @onchange="ZetTot" />
+    <DatumVeld Label="Tot en met" Waarde="Tot" WaardeChanged="ZetTot" />
     <button type="button" class="btn btn-sm btn-link text-secondary px-1" title="Vorige periode" @onclick="() => Schuif(-1)">‹</button>
     <button type="button" class="btn btn-sm btn-link text-secondary px-1" title="Volgende periode" @onclick="() => Schuif(1)">›</button>
 </div>
@@ -22,9 +22,7 @@
 
     private Task Schuif(int stappen) => Gewijzigd.InvokeAsync(Periode.Schuif(Van, Tot, stappen));
 
-    private Task ZetVan(ChangeEventArgs e) =>
-        DateOnly.TryParse(e.Value?.ToString(), System.Globalization.CultureInfo.InvariantCulture, out var van) ? Gewijzigd.InvokeAsync((van, van > Tot ? van : Tot)) : Task.CompletedTask;
+    private Task ZetVan(DateOnly van) => Gewijzigd.InvokeAsync((van, van > Tot ? van : Tot));
 
-    private Task ZetTot(ChangeEventArgs e) =>
-        DateOnly.TryParse(e.Value?.ToString(), System.Globalization.CultureInfo.InvariantCulture, out var tot) ? Gewijzigd.InvokeAsync((tot < Van ? tot : Van, tot)) : Task.CompletedTask;
+    private Task ZetTot(DateOnly tot) => Gewijzigd.InvokeAsync((tot < Van ? tot : Van, tot));
 }

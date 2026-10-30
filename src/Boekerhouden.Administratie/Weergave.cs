@@ -15,6 +15,51 @@ public static class Weergave
 
     public static string Datum(DateOnly datum) => datum.ToString("dd-MM-yyyy", Nederlands);
 
+    /// <summary>
+    /// Een datum zoals een Nederlander hem typt: dag-maand-jaar (<c>30-10-2026</c>, <c>30/10/26</c>, <c>30.10</c> = dit
+    /// jaar, <c>301026</c>, <c>30102026</c>, <c>3010</c>); ook <c>2026-10-30</c>. Een jaar van twee cijfers is 20xx.
+    /// </summary>
+    public static DateOnly? LeesDatum(string? tekst, int ditJaar)
+    {
+        var t = (tekst ?? "").Trim();
+        if (t.Length == 0)
+        {
+            return null;
+        }
+
+        if (DateOnly.TryParseExact(t, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var iso))
+        {
+            return iso;
+        }
+
+        var delen = t.Split(['-', '/', '.', ' '], StringSplitOptions.RemoveEmptyEntries);
+        if (delen.Length == 1 && delen[0].All(char.IsAsciiDigit))
+        {
+            delen = delen[0].Length switch
+            {
+                4 => [delen[0][..2], delen[0][2..]],
+                6 => [delen[0][..2], delen[0][2..4], delen[0][4..]],
+                8 => [delen[0][..2], delen[0][2..4], delen[0][4..]],
+                _ => [],
+            };
+        }
+
+        if (delen.Length is < 2 or > 3 || !delen.All(d => d.All(char.IsAsciiDigit) && d.Length is > 0 and <= 4)
+            || !int.TryParse(delen[0], CultureInfo.InvariantCulture, out var dag) || !int.TryParse(delen[1], CultureInfo.InvariantCulture, out var maand))
+        {
+            return null;
+        }
+
+        var jaar = ditJaar;
+        if (delen.Length == 3 && (!int.TryParse(delen[2], CultureInfo.InvariantCulture, out jaar) || delen[2].Length is not (2 or 4)))
+        {
+            return null;
+        }
+
+        jaar = jaar < 100 ? 2000 + jaar : jaar;
+        return maand is >= 1 and <= 12 && jaar is >= 1900 and <= 2999 && dag >= 1 && dag <= DateTime.DaysInMonth(jaar, maand) ? new DateOnly(jaar, maand, dag) : null;
+    }
+
     public static string Tekst(Ondernemingsvorm vorm) => vorm switch
     {
         Ondernemingsvorm.BV => "BV",
