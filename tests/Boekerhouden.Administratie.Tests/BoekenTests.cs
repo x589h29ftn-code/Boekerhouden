@@ -210,6 +210,37 @@ public sealed class BoekenTests(AdministratieFixture app) : IClassFixture<Admini
         await Assert.ThrowsAsync<GeenToegangException>(() => grootboek.PasAan(buitenstaander, id, "MEM", "2026-0001", nieuw));
     }
 
+    [Fact]
+    public async Task Meerdere_memorialen_voor_lonen_en_accountant()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var grootboek = app.Dienst<GrootboekDienst>();
+
+        Assert.True((await grootboek.VoegMemoriaalToe(wie, id, " mlon ", "Memoriaal lonen")).IsGelukt);
+        Assert.True((await grootboek.VoegMemoriaalToe(wie, id, "MACC", "Memoriaal accountant")).IsGelukt);
+        Assert.Equal(["Dagboek MLON bestaat al."], (await grootboek.VoegMemoriaalToe(wie, id, "MLON", "Nog eens")).Fouten);
+        Assert.Equal(["Een dagboekcode is 2 tot 10 letters of cijfers, bijv. MLON."], (await grootboek.VoegMemoriaalToe(wie, id, "M LON", "X")).Fouten);
+        Assert.Equal(["Geef het dagboek een naam, bijv. Memoriaal lonen."], (await grootboek.VoegMemoriaalToe(wie, id, "MX", " ")).Fouten);
+        var memorialen = (await grootboek.Dagboeken(wie, id)).Where(d => d.Soort == Dagboeksoort.Memoriaal).Select(d => d.Code).ToList();
+        Assert.Equal(["MACC", "MEM", "MLON"], memorialen);
+        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.DagboekToegevoegd && r.Onderwerp == "MLON Memoriaal lonen");
+
+        // Elk memoriaal nummert zelf; boeken en aanpassen werkt er net zo.
+        var loon = Post("2026-0001", new(2026, 1, 31), ("4000", 3000m), ("1100", -3000m)) with { Dagboek = "MLON", Omschrijving = "Lonen januari" };
+        Assert.True((await grootboek.Boek(wie, id, loon)).IsGelukt);
+        Assert.Equal("2026-0002", await grootboek.VolgendBoekstuk(wie, id, "MLON", 2026));
+        Assert.Equal("2026-0001", await grootboek.VolgendBoekstuk(wie, id, "MACC", 2026));
+        Assert.Equal(2, (await grootboek.PasAan(wie, id, "MLON", "2026-0001", loon with { Regels = [new("4000", 3000m), new("4010", 500m), new("1100", -3000m), new("1400", -500m)] })).Waarde);
+        Assert.Equal(500m, Saldo(await grootboek.Proefbalans(wie, id, 2026), "4010"));
+        Assert.Single(await grootboek.Posten(wie, id, "MLON"));
+
+        // Een ondernemer of buitenstaander voegt geen dagboek toe.
+        var ondernemer = await app.Gebruiker("Otto Ondernemer");
+        await app.Dienst<AdministratieDienst>().ZetLid(id, ondernemer.Id!.Value, Data.Lidmaatschapsrol.Ondernemer, wie);
+        await Assert.ThrowsAsync<GeenToegangException>(() => grootboek.VoegMemoriaalToe(ondernemer, id, "MOND", "Van de ondernemer"));
+    }
+
     private static decimal Saldo(Proefbalans proef, string rekening) => proef.Regels.Single(r => r.Rekening.Nummer == rekening).Saldo;
 
     private static Journaalpost Post(string boekstuk, DateOnly datum, params (string Rekening, decimal Bedrag)[] regels) =>

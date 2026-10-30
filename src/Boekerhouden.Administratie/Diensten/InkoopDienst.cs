@@ -876,6 +876,9 @@ public sealed class InkoopDienst(
             : velden.ToDictionary(v => v.Key, _ => (IReadOnlyList<PdfPlek>)[]);
     }
 
+    /// <summary>Het memoriaal van het standaardschema; daar komt een periodeverdeling in (ook als er meer memorialen zijn).</summary>
+    private static readonly string StandaardMemoriaal = StandaardRekeningschema.Dagboeken.First(d => d.Soort == Dagboeksoort.Memoriaal).Code;
+
     private async Task<Uitkomst> BoekFactuur(
         AdministratieDbContext db, Guid administratie, Document document, Factuur factuur, HerkendeFactuur? herkend,
         Relatie? relatie, NieuweRelatie? nieuw, Uitvoerder wie, bool automatisch, string? sjabloon, Guid? verrekenMet = null, Periodeverdeling? verdeling = null,
@@ -889,7 +892,7 @@ public sealed class InkoopDienst(
         }
 
         // Transitorisch: de kosten eerst op de verdeelrekening (balans), daarna per maand in het memoriaal naar de kosten.
-        var memoriaal = dagboeken.FirstOrDefault(x => x.Soort == Dagboeksoort.Memoriaal);
+        var memoriaal = dagboeken.Where(x => x.Soort == Dagboeksoort.Memoriaal).OrderBy(x => x.Code != StandaardMemoriaal).FirstOrDefault();
         if (verdeling is not null)
         {
             var verdeelfouten = verdeling.Controleer().ToList();

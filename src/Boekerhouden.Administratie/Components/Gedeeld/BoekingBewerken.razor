@@ -1,0 +1,256 @@
+@* Een boeking invoeren of aanpassen: datum, omschrijving en regels (rekening, omschrijving, btw-code, debet, credit).
+   Zonder Post is het een nieuwe boeking (GrootboekDienst.Boek); met Post een aanpassing, een nieuwe versie van
+   dezelfde boeking (GrootboekDienst.PasAan). Regels op bank, debiteuren en crediteuren staan bij een aanpassing vast. *@
+@using Boekerhouden.Boekhouding.Grootboek
+@inject GrootboekDienst Grootboek
+@inject BtwDienst Btw
+
+<div class="boeking-bewerken">
+    <Foutmeldingen Fouten="fouten" />
+    <div class="d-flex align-items-center flex-wrap gap-2 mb-2 boeking-aanpassen">
+        @if (Post is null)
+        {
+            <span class="fw-semibold text-nowrap">@Dagboek</span>
+            <input class="form-control form-control-sm veld-boekstuk" @bind="boekstuk" aria-label="Boekstuk" title="Boekstuk" />
+        }
+        else
+        {
+            <span class="fw-semibold text-nowrap">@Post.Dagboek @Post.Boekstuk</span>
+        }
+        <input type="date" class="form-control form-control-sm veld-datum" @bind="invoer.Datum" disabled="@VasteDatum" aria-label="Datum" title="@(VasteDatum ? "De datum hoort bij het bankafschrift of de openstaande posten" : null)" />
+        <input class="form-control form-control-sm flex-grow-1 w-auto" @bind="invoer.Omschrijving" placeholder="Omschrijving" aria-label="Omschrijving" />
+    </div>
+    <div class="card overzichtskaart">
+        <table class="table table-sm align-middle mb-0 overzichtstabel regeltabel">
+            <thead>
+                <tr><th style="width:30%">Grootboek</th><th>Omschrijving</th><th style="width:7rem">Btw</th><th class="text-end" style="width:8rem">Debet</th><th class="text-end" style="width:8rem">Credit</th><th style="width:1.75rem"></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var regel in invoer.Regels)
+                {
+                    @if (regel.Vast)
+                    {
+                        <tr title="Hoort bij het bankafschrift of de openstaande posten en blijft gelijk">
+                            <td><span class="rekeningnummer">@regel.Rekening</span> @Schema.Zoek(regel.Rekening)?.Naam</td>
+                            <td class="text-secondary">@string.Join(" ", new[] { regel.Omschrijving, regel.Relatie, regel.Factuurnummer }.Where(x => !string.IsNullOrEmpty(x)))</td>
+                            <td class="text-secondary">@regel.BtwCode</td>
+                            <td class="bedrag text-end">@regel.Debet</td>
+                            <td class="bedrag text-end">@regel.Credit</td>
+                            <td></td>
+                        </tr>
+                    }
+                    else
+                    {
+                        <tr>
+                            <td><RekeningKeuze @bind-Waarde:get="regel.Rekening" @bind-Waarde:set="v => KiesRekening(regel, v)" Schema="Schema" Kader="Kader" /></td>
+                            <td><input class="form-control form-control-sm" @bind="regel.Omschrijving" placeholder="@invoer.Omschrijving" aria-label="Omschrijving regel" /></td>
+                            <td>
+                                <select class="form-select form-select-sm" @bind="regel.BtwCode" aria-label="Btw-code">
+                                    <option value=""></option>
+                                    @foreach (var c in codes.Where(c => c.Actief || c.Code == regel.BtwCode))
+                                    {
+                                        <option value="@c.Code" title="@c.Omschrijving">@c.Code</option>
+                                    }
+                                </select>
+                            </td>
+                            <td><input class="form-control form-control-sm text-end" @bind="regel.Debet" @bind:event="oninput" aria-label="Debet" /></td>
+                            <td><input class="form-control form-control-sm text-end" @bind="regel.Credit" @bind:event="oninput" aria-label="Credit" /></td>
+                            <td><button class="btn btn-sm btn-link text-secondary p-0 regel-weg" title="Regel verwijderen" @onclick="() => invoer.Regels.Remove(regel)" disabled="@(invoer.Regels.Count <= 2)">×</button></td>
+                        </tr>
+                    }
+                }
+            </tbody>
+            <tfoot>
+                <tr class="generaal">
+                    <td colspan="3"><button class="btn btn-sm btn-link nog-een-regel p-0" @onclick="RegelErbij">+ Nog een regel</button></td>
+                    <td class="bedrag text-end">@Bedragen.Getal(invoer.TotaalDebet)</td>
+                    <td class="bedrag text-end">@Bedragen.Getal(invoer.TotaalCredit)</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    <div class="d-flex align-items-center gap-2 mt-3">
+        <button class="btn btn-primary" @onclick="Opslaan" disabled="@bezig" title="@(Post is null ? null : "Dezelfde boeking krijgt een nieuwe versie; de vorige blijft bewaard")">@(Post is null ? "Boeken" : "Opslaan")</button>
+        @if (Geannuleerd.HasDelegate)
+        {
+            <button class="btn btn-link text-secondary" @onclick="() => Geannuleerd.InvokeAsync()">Annuleren</button>
+        }
+        @if (invoer.TotaalDebet != invoer.TotaalCredit)
+        {
+            <span class="status let-op ms-2">verschil @Bedragen.Getal(invoer.TotaalDebet - invoer.TotaalCredit)</span>
+        }
+    </div>
+</div>
+
+@code {
+    private Invoer invoer = new();
+    private string boekstuk = "";
+    private IReadOnlyList<Boekhouding.Btw.BtwCode> codes = [];
+    private IReadOnlyList<string>? fouten;
+    private bool bezig;
+
+    [Parameter, EditorRequired]
+    public Geopend Kader { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public Rekeningschema Schema { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public string Dagboek { get; set; } = "";
+
+    /// <summary>De boeking die wordt aangepast; leeg = een nieuwe boeking.</summary>
+    [Parameter]
+    public Journaalpost? Post { get; set; }
+
+    /// <summary>Bij een nieuwe boeking: de datum waarmee het formulier begint.</summary>
+    [Parameter]
+    public DateOnly Datum { get; set; }
+
+    /// <summary>Na het boeken of opslaan, met een korte melding.</summary>
+    [Parameter]
+    public EventCallback<string> Opgeslagen { get; set; }
+
+    [Parameter]
+    public EventCallback Geannuleerd { get; set; }
+
+    private bool VasteDatum => invoer.Regels.Any(r => r.Vast);
+
+    /// <summary>Het formulier wordt één keer gevuld; een andere boeking krijgt een nieuw exemplaar (via @key).</summary>
+    protected override async Task OnInitializedAsync()
+    {
+        var datum = Post?.Datum ?? Datum;
+        codes = (await Btw.Tabel()).Op(datum);
+        if (Post is null)
+        {
+            invoer = new Invoer { Datum = datum, Regels = [new(), new()] };
+            boekstuk = await Grootboek.VolgendBoekstuk(Kader.Wie, Kader.Kop.Id, Dagboek, datum.Year);
+            return;
+        }
+
+        invoer = new Invoer
+        {
+            Datum = Post.Datum,
+            Omschrijving = Post.Omschrijving,
+            Regels =
+            [
+                .. Post.Regels.Select(r => new Invoerregel
+                {
+                    Rekening = r.Rekeningnummer,
+                    Omschrijving = r.Omschrijving == Post.Omschrijving ? null : r.Omschrijving,
+                    BtwCode = r.BtwCode,
+                    Relatie = r.Relatie,
+                    Factuurnummer = r.Factuurnummer,
+                    Debet = r.Bedrag > 0 ? Bedragen.Getal(r.Bedrag) : null,
+                    Credit = r.Bedrag < 0 ? Bedragen.Getal(-r.Bedrag) : null,
+                    Vast = Boekingscorrectie.IsVast(Schema.Zoek(r.Rekeningnummer)),
+                }),
+            ],
+        };
+    }
+
+    private void RegelErbij()
+    {
+        var verschil = invoer.TotaalDebet - invoer.TotaalCredit;
+        invoer.Regels.Add(new Invoerregel
+        {
+            Debet = verschil < 0 ? Bedragen.Getal(-verschil) : null,
+            Credit = verschil > 0 ? Bedragen.Getal(verschil) : null,
+        });
+    }
+
+    /// <summary>Een rekening voor de regel; hoort er een btw-code bij de rekening, dan komt die mee.</summary>
+    private void KiesRekening(Invoerregel regel, string? rekening)
+    {
+        var nieuw = regel.Rekening != rekening;
+        regel.Rekening = rekening ?? "";
+        if (nieuw && Schema.Zoek(rekening)?.BtwCode is { } code)
+        {
+            regel.BtwCode = code;
+        }
+    }
+
+    private async Task Opslaan()
+    {
+        var onleesbaar = invoer.Regels.Select((r, i) => (r, i)).Where(x => !x.r.Leesbaar).Select(x => $"Regel {x.i + 1}: het bedrag is niet te lezen.").ToList();
+        if (onleesbaar.Count > 0)
+        {
+            fouten = onleesbaar;
+            return;
+        }
+
+        var regels = invoer.Regels.Where(r => r.Vast || r.Rekening.Trim().Length > 0 || r.Bedrag != 0)
+            .Select(r => new Journaalregel(r.Rekening.Trim(), r.Bedrag, Leeg(r.Omschrijving), Leeg(r.BtwCode), Leeg(r.Relatie), Leeg(r.Factuurnummer)))
+            .ToList();
+        bezig = true;
+        try
+        {
+            if (Post is null)
+            {
+                var post = new Journaalpost(Dagboek, boekstuk.Trim(), invoer.Datum, invoer.Omschrijving.Trim(), regels);
+                var uitkomst = await Grootboek.Boek(Kader.Wie, Kader.Kop.Id, post);
+                fouten = uitkomst.Fouten;
+                if (uitkomst.IsGelukt)
+                {
+                    await Opgeslagen.InvokeAsync($"{Dagboek} {post.Boekstuk} is geboekt.");
+                }
+            }
+            else
+            {
+                var post = new Journaalpost(Post.Dagboek, Post.Boekstuk, invoer.Datum, invoer.Omschrijving, regels);
+                var uitkomst = await Grootboek.PasAan(Kader.Wie, Kader.Kop.Id, Post.Dagboek, Post.Boekstuk, post);
+                fouten = uitkomst.Fouten;
+                if (uitkomst.IsGelukt)
+                {
+                    await Opgeslagen.InvokeAsync($"{Post.Dagboek} {Post.Boekstuk} is aangepast (versie {uitkomst.Waarde}).");
+                }
+            }
+        }
+        finally
+        {
+            bezig = false;
+        }
+    }
+
+    private static string? Leeg(string? tekst) => string.IsNullOrWhiteSpace(tekst) ? null : tekst.Trim();
+
+    private static decimal? Getal(string? tekst) =>
+        string.IsNullOrWhiteSpace(tekst) ? 0m : BedragParser.TryParse(tekst, out var b) ? b : null;
+
+    private sealed class Invoer
+    {
+        public DateOnly Datum { get; set; }
+
+        public string Omschrijving { get; set; } = "";
+
+        public List<Invoerregel> Regels { get; set; } = [];
+
+        public decimal TotaalDebet => Regels.Sum(r => Math.Max(r.Bedrag, 0));
+
+        public decimal TotaalCredit => Regels.Sum(r => Math.Max(-r.Bedrag, 0));
+    }
+
+    private sealed class Invoerregel
+    {
+        public string Rekening { get; set; } = "";
+
+        public string? Omschrijving { get; set; }
+
+        public string? BtwCode { get; set; }
+
+        public string? Relatie { get; set; }
+
+        public string? Factuurnummer { get; set; }
+
+        public string? Debet { get; set; }
+
+        public string? Credit { get; set; }
+
+        public bool Vast { get; init; }
+
+        public bool Leesbaar => Getal(Debet) is not null && Getal(Credit) is not null;
+
+        /// <summary>Debet positief, credit negatief.</summary>
+        public decimal Bedrag => (Getal(Debet) ?? 0) - (Getal(Credit) ?? 0);
+    }
+}

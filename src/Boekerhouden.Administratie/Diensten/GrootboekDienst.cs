@@ -93,6 +93,37 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
         return Uitkomst.Gelukt;
     }
 
+    /// <summary>
+    /// Een extra memoriaal, bijv. <c>MLON</c> "Memoriaal lonen" of <c>MACC</c> "Memoriaal accountant": om de boekingen
+    /// van het kantoor te ordenen. Een code van 2 tot 10 letters of cijfers; alleen met het recht Boekhouden.
+    /// </summary>
+    public async Task<Uitkomst> VoegMemoriaalToe(Uitvoerder wie, Guid administratie, string code, string naam)
+    {
+        ArgumentNullException.ThrowIfNull(code);
+        ArgumentNullException.ThrowIfNull(naam);
+        await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
+        var dagboek = new Dagboek(code.Trim().ToUpperInvariant(), naam.Trim(), Dagboeksoort.Memoriaal);
+        if (!DagboekcodeVorm().IsMatch(dagboek.Code))
+        {
+            return Uitkomst.Mislukt("Een dagboekcode is 2 tot 10 letters of cijfers, bijv. MLON.");
+        }
+
+        if (dagboek.Naam.Length == 0)
+        {
+            return Uitkomst.Mislukt("Geef het dagboek een naam, bijv. Memoriaal lonen.");
+        }
+
+        if (await db.Dagboeken.AnyAsync(d => d.Code == dagboek.Code))
+        {
+            return Uitkomst.Mislukt($"Dagboek {dagboek.Code} bestaat al.");
+        }
+
+        db.Dagboeken.Add(new Dagboekdefinitie { Id = Guid.NewGuid(), AdministratieId = administratie, Code = dagboek.Code, Naam = dagboek.Naam, Soort = dagboek.Soort });
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.DagboekToegevoegd, $"{dagboek.Code} {dagboek.Naam}", "memoriaal", administratie);
+        return Uitkomst.Gelukt;
+    }
+
     /// <summary>Het volgende boekstuknummer in een dagboek, bijv. <c>2026-0007</c>.</summary>
     public async Task<string> VolgendBoekstuk(Uitvoerder wie, Guid administratie, string dagboek, int jaar)
     {
@@ -418,4 +449,7 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
 
     [GeneratedRegex("^[BW][A-Z][a-z]{2}([A-Z][a-z]{2}){0,4}$")]
     private static partial Regex RgsVorm();
+
+    [GeneratedRegex("^[A-Z0-9]{2,10}$")]
+    private static partial Regex DagboekcodeVorm();
 }

@@ -178,7 +178,7 @@
     margin-right: .25rem;
 }
 
-.memoriaal-regels input.text-end {
+.boeking-bewerken input.text-end {
     font-variant-numeric: tabular-nums;
 }
 
@@ -922,4 +922,13 @@ body.scheiding-slepen {
 /* Boeking aanpassen: datum en omschrijving op één regel. */
 .boeking-aanpassen .veld-datum {
     width: 10rem;
+}
+
+.boeking-aanpassen .veld-boekstuk, .veld-boekstuk {
+    width: 8rem;
+}
+
+/* Memoriaal: de gekozen boeking in de lijst. */
+.memoriaal-lijst tr.gemarkeerd > td {
+    background: var(--bs-tertiary-bg);
 }
