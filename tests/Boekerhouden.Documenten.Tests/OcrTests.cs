@@ -77,6 +77,18 @@ public sealed class OcrTests
         Assert.InRange(totaal.X0, 400, 595);
     }
 
+    [OcrFact]
+    public async Task Vier_scans_tegelijk_blijven_snel()
+    {
+        var lezer = new OcrLezer(OcrFactAttribute.Tesseract);
+        var klok = System.Diagnostics.Stopwatch.StartNew();
+
+        var lagen = await Task.WhenAll(Enumerable.Range(0, 4).Select(_ => lezer.LeesAsync(Scan())));
+
+        Assert.All(lagen, l => Assert.Contains(l!.Woorden, w => w.Tekst == "KV-2026-0815"));
+        Assert.True(klok.Elapsed < TimeSpan.FromSeconds(60), $"Vier scans duurden {klok.Elapsed.TotalSeconds:0} seconden.");
+    }
+
     [Fact]
     public async Task Zonder_ocr_blijft_een_foto_liggen_met_een_melding()
     {

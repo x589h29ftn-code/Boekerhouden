@@ -29,6 +29,9 @@ public sealed class TesseractOcr : IOcrMotor
 
     private static readonly string[] Talen = ["nld", "eng"];
 
+    /// <summary>Hoogstens zoveel OCR-processen tegelijk als er kernen zijn; de rest wacht even.</summary>
+    private static readonly SemaphoreSlim Tegelijk = new(Math.Max(1, Environment.ProcessorCount));
+
     private readonly string programma;
     private readonly string? talen;
 
@@ -91,7 +94,18 @@ public sealed class TesseractOcr : IOcrMotor
         }
 
         argumenten.Add("tsv");
-        var (code, tsv) = await Draai(programma, argumenten, afbeelding, Tijdslimiet, annulering).ConfigureAwait(false);
+        await Tegelijk.WaitAsync(annulering).ConfigureAwait(false);
+        (int Code, string Uitvoer) uitkomst;
+        try
+        {
+            uitkomst = await Draai(programma, argumenten, afbeelding, Tijdslimiet, annulering).ConfigureAwait(false);
+        }
+        finally
+        {
+            Tegelijk.Release();
+        }
+
+        var (code, tsv) = uitkomst;
         if (code != 0)
         {
             throw new DocumentException("De tekstherkenning (OCR) kon deze afbeelding niet lezen.");
@@ -143,6 +157,10 @@ public sealed class TesseractOcr : IOcrMotor
         {
             start.ArgumentList.Add(argument);
         }
+
+        // Eén rekenthread per proces: Tesseract gebruikt standaard alle kernen (OpenMP), en met meer gebruikers of
+        // facturen tegelijk wordt dat juist veel trager (tientallen seconden in plaats van één of twee).
+        start.Environment["OMP_THREAD_LIMIT"] = "1";
 
         using var proces = Process.Start(start) ?? throw new InvalidOperationException($"{programma} start niet.");
         using var tijd = CancellationTokenSource.CreateLinkedTokenSource(annulering);
