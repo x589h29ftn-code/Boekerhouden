@@ -121,7 +121,12 @@ samenstelpakket.
    controle), KvK, het totaal, het btw-bedrag per tarief en het bedrag exclusief btw. Ze controleert ook of
    het geheel klopt: excl + btw = totaal, en btw = tarief × grondslag (met een afrondingsmarge). Staan er meer
    "totalen" op de factuur (bijv. een specificatie met een kolom *Totaal* op pagina 2), dan kiest ze de combinatie
-   die sluit. De **naam** van de leverancier: de eerste naam met een rechtsvorm (niet de eigen naam, het klantblok,
+   die sluit. Heeft maar één van de twee totalen een bekend label, dan zoekt ze het andere terug op de factuur:
+   exclusief plus btw (of totaal min btw) moet er als bedrag op staan, en bij één tarief moet de btw dat percentage
+   van het exclusieve bedrag zijn. Zonder bruikbaar label nemen ze twee bedragen die met de btw sluiten (het grootste
+   totaal). Is er geen btw-regel herkend, dan geldt een drietal als exclusief, btw en totaal als het grootste bedrag
+   min een ander bedrag een derde bedrag op de factuur is dat 21% of 9% daarvan is (200,00 + 42,00 = 242,00); niet
+   bij vrijgesteld, KOR of verlegd. Drie bedragen die zo bij elkaar passen, zijn zelden toeval. De **naam** van de leverancier: de eerste naam met een rechtsvorm (niet de eigen naam, het klantblok,
    een regel boven *t.a.v.*, adressen, postbussen of contactgegevens); staat de naam alleen in het logo (een
    plaatje, zonder tekst), dan uit het domein van een e-mailadres of website op de factuur (`info@q4-adviseurs.nl`
    wordt *Q4 Adviseurs*; niet van maildiensten als gmail of van de eigen administratie). Na de eerste keer boeken

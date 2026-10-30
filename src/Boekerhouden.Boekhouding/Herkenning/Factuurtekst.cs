@@ -37,6 +37,14 @@ public static partial class Factuurtekst
         var btw = Btwregels(regels);
         var (exclusief, inclusief) = Totalen(regels, btw);
 
+        // Geen btw-regel herkend (een onbekend label), maar wel drie bedragen die als exclusief, btw en totaal sluiten.
+        if (btw.Count == 0 && !GeenBtwPatroon().IsMatch(tekst) && !VerlegdPatroon().IsMatch(tekst) && BtwUitDrietal(regels) is { } drietal
+            && (inclusief is null || inclusief == drietal.Exclusief + drietal.Btw.Btw))
+        {
+            btw = [drietal.Btw];
+            (exclusief, inclusief) = (drietal.Exclusief, drietal.Exclusief + drietal.Btw.Btw);
+        }
+
         // Geen btw op de factuur (vrijgesteld, kleineondernemersregeling): 0% over het hele bedrag.
         if (btw.Count == 0 && GeenBtwPatroon().IsMatch(tekst) && (inclusief ?? exclusief) is { } zonderBtw)
         {
@@ -206,10 +214,17 @@ public static partial class Factuurtekst
     }
 
     /// <summary>
-    /// Het totaal exclusief en inclusief btw. Een factuur kan meer "totalen" hebben (bijv. een specificatie op een
-    /// volgende pagina met een kolom "Totaal"), dus eerst de combinatie die sluit: exclusief plus de btw is inclusief.
-    /// Anders het onderste bedrag na een label, waarbij een bedrag op dezelfde regel als het label voorgaat op een
-    /// bedrag op de regel eronder (dat is vaak een kolomkop met de eerste rij van een tabel).
+    /// Het totaal exclusief en inclusief btw, met de btw als controle. Een factuur kan meer "totalen" hebben (bijv. een
+    /// specificatie met een kolom "Totaal" op een volgende pagina); daarom in deze volgorde:
+    /// <list type="number">
+    /// <item>een exclusief en inclusief bedrag na een label die sluiten (exclusief plus btw is inclusief);</item>
+    /// <item>een totaal dat bij de btw-tabel past (grondslagen plus btw);</item>
+    /// <item>een exclusief bedrag na een label waarvan exclusief plus btw ergens op de factuur staat (dat is het totaal),
+    /// of een totaal na een label waarvan totaal min btw ergens op de factuur staat;</item>
+    /// <item>zonder bruikbaar label: twee bedragen op de factuur die met de btw sluiten (het grootste totaal);</item>
+    /// <item>anders het onderste bedrag na een label (een bedrag op dezelfde regel als het label gaat voor).</item>
+    /// </list>
+    /// Bij één tarief moet de btw ook dat percentage van het exclusieve bedrag zijn.
     /// </summary>
     private static (decimal? Exclusief, decimal? Inclusief) Totalen(List<string> regels, List<Btwregel> btw)
     {
@@ -219,9 +234,11 @@ public static partial class Factuurtekst
         {
             var totaalBtw = btw.Sum(b => b.Btw);
             var marge = 0.01m * btw.Count;
+            bool Past(decimal e) => btw is not [var enige] || Btw.BtwBerekening.Klopt(e, enige.Btw, enige.Percentage, 2);
+            bool Sluit(decimal e, decimal i) => Math.Abs(e + totaalBtw - i) <= marge && Past(e);
             foreach (var i in inclusief)
             {
-                if (exclusief.FirstOrDefault(e => Math.Abs(e + totaalBtw - i) <= marge) is var e && e != 0m)
+                if (exclusief.Where(e => Sluit(e, i)).Select(e => (decimal?)e).FirstOrDefault() is { } e)
                 {
                     return (e, i);
                 }
@@ -229,14 +246,61 @@ public static partial class Factuurtekst
 
             // Alleen het totaal past bij de btw-tabel (grondslagen plus btw).
             if (btw.All(b => b.Grondslag is not null) && btw.Sum(b => b.Grondslag!.Value) + totaalBtw is var somTabel
-                && inclusief.FirstOrDefault(i => Math.Abs(i - somTabel) <= marge) is var passend && passend != 0m)
+                && inclusief.Where(i => Math.Abs(i - somTabel) <= marge).Select(i => (decimal?)i).FirstOrDefault() is { } passend)
             {
-                return (exclusief.FirstOrDefault(e => Math.Abs(e + totaalBtw - passend) <= marge) is var x && x != 0m ? x : null, passend);
+                return (exclusief.Where(e => Sluit(e, passend)).Select(e => (decimal?)e).FirstOrDefault(), passend);
+            }
+
+            // Een label klopt, het andere bedrag staat (zonder herkend label) ergens op de factuur.
+            var alle = AlleBedragen(regels);
+            if (exclusief.Where(e => Past(e) && alle.Contains(e + totaalBtw)).Select(e => (decimal?)e).FirstOrDefault() is { } bevestigd)
+            {
+                return (bevestigd, bevestigd + totaalBtw);
+            }
+
+            if (inclusief.Where(i => Past(i - totaalBtw) && alle.Contains(i - totaalBtw)).Select(i => (decimal?)i).FirstOrDefault() is { } totaal)
+            {
+                return (totaal - totaalBtw, totaal);
+            }
+
+            // Geen label klopt: twee bedragen op de factuur die met de btw sluiten, het grootste totaal.
+            if (alle.Where(i => i != totaalBtw && alle.Contains(i - totaalBtw) && Past(i - totaalBtw)).OrderByDescending(Math.Abs).Select(i => (decimal?)i).FirstOrDefault() is { } gevonden)
+            {
+                return (gevonden - totaalBtw, gevonden);
             }
         }
 
         return (exclusief.Count > 0 ? exclusief[0] : null, inclusief.Count > 0 ? inclusief[0] : null);
     }
+
+    /// <summary>
+    /// Zonder herkende btw-regel: staat er een drietal op de factuur dat sluit, met het grootste bedrag als totaal? Het
+    /// totaal min een ander bedrag is een derde bedrag op de factuur, en dat is 21% of 9% van het andere (bijv. 200,00,
+    /// 42,00 en 242,00). Drie bedragen die zo bij elkaar passen, zijn zelden toeval.
+    /// </summary>
+    private static (decimal Exclusief, Btwregel Btw)? BtwUitDrietal(List<string> regels)
+    {
+        var alle = AlleBedragen(regels);
+        if (alle.Count < 3 || alle.MaxBy(Math.Abs) is var totaal && totaal == 0)
+        {
+            return null;
+        }
+
+        foreach (var e in alle.Where(e => e != totaal && Math.Sign(e) == Math.Sign(totaal)).OrderByDescending(Math.Abs))
+        {
+            var btw = totaal - e;
+            if (btw != e && alle.Contains(btw) && Tarieven.Where(p => Btw.BtwBerekening.Klopt(e, btw, p)).Select(p => (decimal?)p).FirstOrDefault() is { } percentage)
+            {
+                return (e, new Btwregel(percentage, e, btw));
+            }
+        }
+
+        return null;
+    }
+
+    private static readonly decimal[] Tarieven = [21m, 9m];
+
+    private static HashSet<decimal> AlleBedragen(List<string> regels) => [.. regels.SelectMany(Bedragen)];
 
     /// <summary>
     /// De bedragen na een label, van onder naar boven (totalen staan onderaan): eerst die op dezelfde regel als het

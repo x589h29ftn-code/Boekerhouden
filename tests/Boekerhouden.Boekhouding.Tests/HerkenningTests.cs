@@ -520,6 +520,56 @@ public sealed class SpecificatieEnLogoTests
         Assert.Equal(naam, Factuurtekst.Analyseer(tekst).Naam);
 
     [Fact]
+    public void Exclusief_plus_btw_wordt_teruggezocht_op_de_factuur_als_het_totaal_geen_bekend_label_heeft()
+    {
+        // "Eindbedrag" is geen bekend label; onderaan staat een specificatie met "Totaal".
+        var tekst = "Werkplaats Oost B.V.\nSubtotaal 141,28\nBTW 21% 29,67\nEindbedrag 170,95\nSpecificatie\nDocumenten   Prijs   Totaal\n22   0,18   3,96";
+
+        var factuur = Factuurtekst.Analyseer(tekst);
+
+        Assert.Equal((141.28m, 170.95m), (factuur.TotaalExclusief, factuur.TotaalInclusief));
+    }
+
+    [Fact]
+    public void Totaal_min_btw_wordt_teruggezocht_als_het_exclusieve_bedrag_geen_bekend_label_heeft()
+    {
+        // Het onderste "Totaal" (3,96) is van de specificatie; 170,95 min 29,67 staat op de factuur, 3,96 min 29,67 niet.
+        var tekst = "Werkplaats Oost B.V.\nNetto 141,28\nBTW 21% 29,67\nTotaal 170,95\nSpecificatie\nDocumenten   Totaal\n22   0,18   3,96";
+
+        var factuur = Factuurtekst.Analyseer(tekst);
+
+        Assert.Equal((141.28m, 170.95m), (factuur.TotaalExclusief, factuur.TotaalInclusief));
+    }
+
+    [Fact]
+    public void Zonder_enig_bekend_totaal_twee_bedragen_die_met_de_btw_sluiten()
+    {
+        var tekst = "Werkplaats Oost B.V.\nOnderhoud bus   2 uur   100,00   200,00\nNetto 200,00\nBTW 21% 42,00\nEindbedrag 242,00";
+
+        var factuur = Factuurtekst.Analyseer(tekst);
+
+        Assert.Equal((200m, 242m), (factuur.TotaalExclusief, factuur.TotaalInclusief));
+    }
+
+    [Fact]
+    public void Btw_zonder_herkend_label_uit_drie_bedragen_die_sluiten()
+    {
+        var tekst = "Werkplaats Oost B.V.\nOnderhoud bus   200,00\nBelasting   42,00\nEindbedrag   242,00";
+
+        var factuur = Factuurtekst.Analyseer(tekst);
+
+        Assert.Equal((200m, 242m), (factuur.TotaalExclusief, factuur.TotaalInclusief));
+        Assert.Equal(new Btwregel(21m, 200m, 42m), Assert.Single(factuur.Btwregels));
+    }
+
+    [Theory]
+    [InlineData("Lunch B.V.\nBroodjes   10,00\nSoep   5,00\nTotaal   15,00")]
+    [InlineData("Fotografie Lens\nVrijgesteld van btw (KOR)\nShoot   200,00\nReiskosten   42,00\nTotaal   242,00")]
+    [InlineData("Lunch B.V.\nBroodjes   200,00\nKoffie   42,00\nTaart   18,00\nTotaal   260,00")]
+    public void Geen_btw_uit_een_toevallig_drietal(string tekst) =>
+        Assert.DoesNotContain(Factuurtekst.Analyseer(tekst).Btwregels, b => b.Percentage > 0);
+
+    [Fact]
     public void Eigen_domein_is_geen_leverancier()
     {
         var tekst = "Mail jan@marktvoorbeeld.nl\nTotaal 10,00";

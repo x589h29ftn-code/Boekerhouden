@@ -116,7 +116,10 @@ public sealed class InkoopOpmaakTests(AdministratieFixture app) : IClassFixture<
         Assert.Equal((454.79m, 550.30m), (h.TotaalExclusief, h.TotaalInclusief));
     }
 
-    /// <summary>Totalen met labels die het pakket niet kent ("Eindbedrag", "Netto").</summary>
+    /// <summary>
+    /// Een totaal met een label dat het pakket niet kent ("Eindbedrag"), zonder btw-regel: de btw (21%) staat alleen in de
+    /// tekst onderaan, zonder bedrag. Daar valt niets na te rekenen.
+    /// </summary>
     private static byte[] Werkplaats(string nummer, decimal netto) => Pdf(p =>
     {
         var btw = Math.Round(netto * 0.21m, 2, MidpointRounding.AwayFromZero);
@@ -125,8 +128,8 @@ public sealed class InkoopOpmaakTests(AdministratieFixture app) : IClassFixture<
         p.Regel((40, $"Factuurnummer: {nummer}"));
         p.Regel((40, "Factuurdatum: 01-05-2026"));
         p.Regel((40, "Onderhoud bus"), (300, "Netto"), (480, $"{netto:0.00}".Replace('.', ',')));
-        p.Regel((300, "BTW 21%"), (480, $"{btw:0.00}".Replace('.', ',')));
         p.Regel((300, "Eindbedrag"), (480, $"{netto + btw:0.00}".Replace('.', ',')));
+        p.Regel((40, "Alle bedragen zijn inclusief 21 procent omzetbelasting."));
     });
 
     [Fact]
@@ -138,8 +141,8 @@ public sealed class InkoopOpmaakTests(AdministratieFixture app) : IClassFixture<
         var eerste = await inkoop.Lees(wie, id, new MemoryStream(Werkplaats("W-1", 200m)), "w1.pdf", "application/pdf");
         Assert.Null((await inkoop.Verwerking(wie, id, eerste.DocumentId!.Value))!.Herkend!.TotaalInclusief);
 
-        // De gebruiker wijst het eindbedrag aan (regel 7: y = 800 - 6 × 14 = 716).
-        var plek = new Zoekgebied(Factuurveld.Totaal, 1, 290, 712, 560, 726);
+        // De gebruiker wijst het eindbedrag aan (regel 6: y = 800 - 5 × 14 = 730).
+        var plek = new Zoekgebied(Factuurveld.Totaal, 1, 290, 726, 560, 740);
         Assert.Equal(["Eindbedrag    242,00"], await inkoop.TekstInGebied(wie, id, eerste.DocumentId.Value, plek.Pagina, plek.X0, plek.Y0, plek.X1, plek.Y1));
         var boeken = await inkoop.Boek(wie, id, eerste.DocumentId.Value, new Factuurinvoer(null, new("Werkplaats Oost B.V.", "NL20INGB0001234567", null, null),
             "W-1", new(2026, 5, 1), new(2026, 5, 31), "Onderhoud", [new Factuurregel("", "4500", "I21", 200m, 42m)], Aanwijzingen: [plek]));
@@ -148,6 +151,6 @@ public sealed class InkoopOpmaakTests(AdministratieFixture app) : IClassFixture<
         var tweede = await inkoop.Lees(wie, id, new MemoryStream(Werkplaats("W-2", 300m)), "w2.pdf", "application/pdf");
 
         var volgende = (await inkoop.Verwerking(wie, id, tweede.DocumentId!.Value))!;
-        Assert.Equal((300m, 363m), (volgende.Herkend!.TotaalExclusief, volgende.Herkend.TotaalInclusief));
+        Assert.Equal(363m, volgende.Herkend!.TotaalInclusief);
     }
 }
