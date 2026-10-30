@@ -115,7 +115,10 @@ samenstelpakket.
 2. **Herkennen** (`IFactuurHerkenner`, AD3), in volgorde van betrouwbaarheid:
    1. **UBL/e-factuur** (los of als bijlage in de PDF): exacte gegevens, geen OCR nodig;
    2. **PDF met tekstlaag**: tekst eruit, dan tekstanalyse;
-   3. **scan of foto**: Tesseract (Nederlands), dan dezelfde tekstanalyse.
+   3. **scan of foto**: Tesseract (Nederlands en Engels), dan dezelfde tekstanalyse. Een foto (JPEG, PNG) wordt
+      bewaard als PDF met de foto als pagina; van een gescande PDF gaat per pagina de grootste afbeelding door de OCR.
+      De woorden met hun plek (`DocumentInhoud.Tekstlaag`) maken aanwijzen, oplichten en het zoektemplate mogelijk,
+      net als bij een PDF met tekst. Zonder Tesseract blijft een scan in Te verwerken met een melding.
    
    De **tekstanalyse** zoekt het factuurnummer, de factuur- en vervaldatum, IBAN, btw-nummer (met
    controle), KvK, het totaal, het btw-bedrag per tarief en het bedrag exclusief btw. Ze controleert ook of
@@ -286,7 +289,7 @@ gedaan.
 | A8 ✅ | **Bank in de app**: inlezen, afletteren (automatisch en met voorstellen), handmatig boeken, werklijsten met *factuur uploaden* | Bank bijna vanzelf bij |
 | A9 | **Verkoop**: factuur maken, nummeren, PDF, debiteurenlijst, ouderdomsanalyse | Factureren |
 | A10 | **Btw-aangifte en periodes**: aangifte per rubriek, afdrachtboeking, periodes afsluiten | Aangifte klaarzetten |
-| A11 | **Scans**: Tesseract voor scans en foto's | Ook papieren bonnen |
+| A11 ✅ | **Scans**: Tesseract voor scans en foto's (`TesseractOcr`, `OcrLezer`); in de Windows-app als Tesseract op de pc staat | Ook papieren bonnen |
 | A12 | **Saldibalans naar het samenstelpakket** | Jaarrekening zonder export |
 | gepland | **Regels splitsen per leverancier** (wens gebruiker, oktober 2026): de factuurregels uitlezen en per leverancier een vaste verdeling over rekeningen leren (energie: levering en netbeheer; telefoon: abonnement en toestel; groothandel: 9% en 21%), en die de volgende keer voorstellen | Ook gesplitste facturen vanzelf |
 | later | Online voor ondernemers (AD2), facturen per e-mail, directe bankkoppeling (PSD2), herinneringen, terugkerende facturen, kas, AI-herkenning als extra motor, e-facturen verzenden (Peppol) | |
@@ -353,6 +356,7 @@ overzichten.
 | Formulier | Labels links, velden rechts: factuurnummer, leverancier, factuurdatum, vervaldatum en kenmerk, omschrijving en het *bedrag* van de factuur (inclusief btw; ook aan te wijzen op de factuur). Daaronder de regels (omschrijving, grootboekrekening, btw, bedrag) met *+ Nog een regel*, het totaal en het verschil met het bedrag. De reden van het voorstel, de signalen en waar het document vandaan komt staan achter de knop *Info* (met het aantal signalen) |
 | Creditnota | Schakelaar naast het bedrag. Een creditnota (herkend aan een negatief totaal, of zelf aangezet) staat in het formulier zonder minteken en wordt omgekeerd geboekt; *Verrekenen met* kiest een openstaande factuur van dezelfde leverancier en verlaagt beide posten (*Creditnota verrekend* in het log). Een creditnota leert niets. Eerder zonder boeking bewaarde documenten (privé of geen boeking) zijn terug te zetten naar Te verwerken |
 | Heropenen | Een geboekt document (aanklikken onder *Verwerkt*) toont de boeking (factuur, regels, boekstuk) met de factuur ernaast. *Heropenen* draait de boeking terug (zie hieronder) en zet het formulier vol met wat er geboekt was (`InkoopDienst.Geboekt` en `Heropen`), om aan te passen en opnieuw te boeken |
+| OCR | Scans en foto's (`TesseractOcr` als eigen proces, `OcrLezer`). Tesseract wordt gezocht via `Ocr:Tesseract`, het zoekpad en (Windows) `C:\Program Files\Tesseract-OCR`; `Ocr:Aan` = false zet het uit. Op Windows: Tesseract installeren met Nederlands (de installer van UB Mannheim, Apache-2.0). Inkoop en *factuur uploaden* bij de bank nemen ook JPEG en PNG aan |
 | Periode verdelen | Schakelaar onder de regels (niet automatisch). Aan: van en tot en met (herkend uit de factuur, bijv. "periode 01-09-2026 t/m 31-08-2027" of "1 september 2026 tot en met 31 augustus 2027", anders een jaar vanaf de maand van de factuurdatum) en de rekening ertussen (standaard vooruitbetaalde kosten, RGS `BVorOvaVan`). De factuur gaat met de kosten op die balansrekening; per maand die de periode raakt (op de eerste dag) boekt het pakket in het memoriaal een gelijk deel naar de kostenrekening, op de cent met het restje in de laatste maand (`Periodeverdeling`). De btw blijft bij de factuur. Bewaard bij het document (`Document.Verdeling`); de geboekte factuur toont de verdeling, heropenen zet hem terug in het formulier, en terugdraaien of verwijderen draait ook elke maandboeking terug. Leren en de historie gebruiken de kostenrekening |
 | Verwijderen | *Verwijderen* op het verwerkscherm, met *Zeker weten? Ja, verwijderen* (`VerwijderKnop`, `InkoopDienst.Verwijder`): het document en zijn inhoud verdwijnen. Is het geboekt, dan wordt eerst de boeking teruggedraaid (zie hieronder): het journaal wijzigt nooit, dus de boeking en de tegenboeking blijven samen staan. Niet als de factuur al (deels) betaald of verrekend is. Een kopie in de documentmap blijft staan. In het log als *Document verwijderd* |
 | Terugdraaien | Op een geboekt document: een tegenboeking in hetzelfde dagboek (`Journaalpost.Tegenboeking`; de boeking en de keten blijven staan), de openstaande post vervalt en het document staat weer in Te verwerken, om opnieuw te boeken. Niet als de factuur al (deels) betaald of verrekend is |

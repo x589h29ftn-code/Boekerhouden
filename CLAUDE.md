@@ -22,7 +22,7 @@ BOEKERHOUDEN_TEST_SQLITE=1 dotnet test tests/Boekerhouden.Administratie.Tests   
 ```
 
 Warnings zijn errors (`TreatWarningsAsErrors`). In cloudsessies installeert `.claude/hooks/session-start.sh`
-de .NET 10 SDK en PostgreSQL, met rol en database `boekerhouden` (wachtwoord `boekerhouden-dev`).
+de .NET 10 SDK, Tesseract (OCR; zonder Tesseract slaan de OCR-tests over) en PostgreSQL, met rol en database `boekerhouden` (wachtwoord `boekerhouden-dev`).
 `Boekerhouden.Server.Tests` en `Boekerhouden.Administratie.Tests` maken per testklasse een eigen database aan en ruimen die op; een andere
 server kies je met `BOEKERHOUDEN_TEST_DB` (bijv. `Host=...;Username=...;Password=...`). De server past
 migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien alleen als
@@ -39,8 +39,8 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   `Btw/` (btw-codes met soort en tarief, koppeling met de aangifterubrieken, tarieven per datum, aangifte berekenen), `Relaties/` (IBAN, btw-nummer, namen vergelijken), `Facturen/` (facturen boeken,
   openstaande posten), `Bank/` (MT940, CAMT.053, bankboekingen), `Afletteren/`, `Regels/` (verwerkingsregels, leergeheugen,
   advies) en `Herkenning/` (factuurtekst, UBL, leverancier herkennen, inkoopvoorstel).
-- `src/Boekerhouden.Documenten` – documenten van buiten lezen voor de herkenning: tekst uit PDF (PdfPig), UBL als los
-  bestand of als bijlage; begrensd (grootte, pagina's), XML altijd zonder DTD; vooraf een virusscan met ClamAV (clamd),
+- `src/Boekerhouden.Documenten` – documenten van buiten lezen voor de herkenning: tekst uit PDF (PdfPig, als `Tekstwoord`en
+  met hun plek), UBL als los bestand of als bijlage, OCR van scans en foto's (`TesseractOcr` als eigen proces, `OcrLezer`); begrensd (grootte, pagina's), XML altijd zonder DTD; vooraf een virusscan met ClamAV (clamd),
   *fail closed*. Beveiliging en besluiten B1–B5: `docs/administratie/beveiliging.md`.
 - `src/Boekerhouden.Administratie` – Blazor Server-app van het **administratiepakket** (eigen database
   `boekerhouden_administratie`): `Data/` (entiteiten, `AdministratieDbContext` met query filter per administratie,

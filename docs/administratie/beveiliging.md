@@ -157,7 +157,8 @@ Documenten van buiten zijn de grootste technische aanvalsroute.
 | **XML zonder DTD** (`DtdProcessing.Prohibit`, geen resolver) bij UBL, CAMT.053 en elke andere XML: geen XXE of *billion laughs* | ✅ |
 | **Grenzen**: een PDF hoogstens 20 MB en 50 pagina's, en bijlagen in een PDF hoogstens 5 MB. Een bestand wordt begrensd ingelezen, dus nooit eerst helemaal in het geheugen | ✅ |
 | Een onleesbare of beveiligde PDF geeft een nette melding (`DocumentException`) en laat de app nooit vallen | ✅ |
-| **Type op inhoud, niet op extensie**: PDF aan `%PDF-`, XML aan de root, en afbeeldingen aan hun *magic bytes*. Al het andere wordt geweigerd | ✅ PDF/XML, F1 afbeeldingen |
+| **Type op inhoud, niet op extensie**: PDF aan `%PDF-`, XML aan de root, en afbeeldingen (JPEG, PNG) aan hun *magic bytes*. Al het andere wordt geweigerd | ✅ |
+| **OCR (Tesseract) als eigen proces**: alleen na de virusscan; de afbeelding gaat via stdin, zonder shell en zonder bestandsnamen van de gebruiker; tijdslimiet 90 seconden, daarna wordt het proces gestopt. Een foto wordt bewaard als PDF met de foto als pagina (de foto zelf ongewijzigd erin), zodat de viewer alleen PDF toont | ✅ |
 | **Herkennen in een apart proces** met een tijd- en geheugenlimiet (bijv. 30 seconden en 512 MB), zodat een kwaadaardige PDF de app niet kan raken. Online in een aparte container zonder netwerk | F2 |
 | Uploads buiten de webmap (in de database, met de SHA-256 als sleutel). Downloaden met `X-Content-Type-Options: nosniff` en een CSP-sandbox; alleen een PDF wordt getoond, al het andere is `Content-Disposition: attachment`. Nooit HTML of SVG van een gebruiker in de app tonen | ✅ |
 | **Virusscan** (B3) met ClamAV (open source) op de server, **vóórdat** het pakket een bestand opent. Een besmet bestand gaat in quarantaine en wordt niet verwerkt. Is de scanner niet bereikbaar, dan wacht het bestand tot een geslaagde scan (*fail closed*). Elke upload in de app gaat eerst langs de scanner; zonder ingestelde scanner weigert de app buiten Development elke upload | ✅ koppeling en upload, F1 installatie op de server-pc |
@@ -165,7 +166,7 @@ Documenten van buiten zijn de grootste technische aanvalsroute.
 
 ### 4.6 Herkenning, AI en bankkoppeling
 
-- **Herkenning gebeurt lokaal** (UBL, PdfPig en straks Tesseract): er gaat geen factuur naar buiten.
+- **Herkenning gebeurt lokaal** (UBL, PdfPig en Tesseract): er gaat geen factuur naar buiten.
 - **Een AI-model als extra motor** (besluit AD3) kan alleen met:
   - een verwerkersovereenkomst;
   - verwerking in de EU;

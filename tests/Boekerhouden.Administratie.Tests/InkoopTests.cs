@@ -591,7 +591,7 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
         var nep = await app.Dienst<InkoopDienst>().Lees(wie, id, new MemoryStream("geen pdf"u8.ToArray()), "nep.pdf", "application/pdf");
 
         Assert.Equal(Documentstatus.TeVerwerken, foto.Status);
-        Assert.Contains("niet herkend", foto.Melding, StringComparison.Ordinal);
+        Assert.Contains("tekstherkenning", foto.Melding, StringComparison.Ordinal);
         Assert.Contains("Het bestand is geen PDF.", nep.Melding, StringComparison.Ordinal);
         Assert.Equal(2, (await app.Dienst<InkoopDienst>().Lijst(wie, id, Documentstatus.TeVerwerken)).Count);
     }

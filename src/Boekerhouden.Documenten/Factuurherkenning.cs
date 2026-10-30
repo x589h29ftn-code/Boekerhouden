@@ -51,29 +51,35 @@ public sealed class PdfFactuurHerkenner(EigenGegevens eigen) : IFactuurHerkenner
 
 /// <summary>Het resultaat van de herkenning: de factuur, of waarom er niets herkend is.</summary>
 /// <param name="Geweigerd">De virusscan heeft iets gevonden: het bestand gaat in quarantaine en wordt niet verwerkt.</param>
-public sealed record Herkenningsresultaat(HerkendeFactuur? Factuur, string? Melding, bool Geweigerd = false);
+/// <param name="Ocr">Bij een scan of foto: de woorden die de OCR vond (en bij een foto de PDF om te bewaren).</param>
+public sealed record Herkenningsresultaat(HerkendeFactuur? Factuur, string? Melding, bool Geweigerd = false, Ocrlaag? Ocr = null);
 
 /// <summary>
 /// Scant het bestand eerst op virussen (als er een scanner is) en probeert dan de motoren op volgorde; de eerste die
 /// iets herkent, wint. Is de scanner niet bereikbaar, dan wordt het bestand niet geopend: liever later verwerken dan
 /// een ongescand bestand lezen.
 /// </summary>
-public sealed class Factuurherkenning(IEnumerable<IFactuurHerkenner> motoren, IVirusscanner? virusscanner = null)
+/// <remarks>
+/// Een scan of foto (een PDF zonder tekst, of een JPEG of PNG) gaat daarna door de OCR, als die er is; de tekst gaat door
+/// dezelfde tekstanalyse als een PDF.
+/// </remarks>
+public sealed class Factuurherkenning(IEnumerable<IFactuurHerkenner> motoren, IVirusscanner? virusscanner = null, OcrLezer? ocr = null, EigenGegevens? eigen = null)
 {
-    public static Factuurherkenning Standaard(EigenGegevens eigen, IVirusscanner? virusscanner = null) =>
-        new([new UblHerkenner(), new PdfFactuurHerkenner(eigen)], virusscanner);
+    public static Factuurherkenning Standaard(EigenGegevens eigen, IVirusscanner? virusscanner = null, OcrLezer? ocr = null) =>
+        new([new UblHerkenner(), new PdfFactuurHerkenner(eigen)], virusscanner, ocr, eigen);
 
     public async Task<Herkenningsresultaat> HerkenAsync(Stream inhoud, string bestandsnaam, string? inhoudstype = null, CancellationToken annulering = default)
     {
         ArgumentNullException.ThrowIfNull(inhoud);
-        var geschikt = motoren.Where(m => m.Kan(bestandsnaam, inhoudstype)).ToList();
-        if (geschikt.Count == 0)
-        {
-            return new(null, "Dit soort bestand wordt (nog) niet herkend; lever een PDF of e-factuur (XML) aan.");
-        }
-
         using var kopie = new MemoryStream();
         await inhoud.CopyToAsync(kopie, annulering).ConfigureAwait(false);
+        var afbeelding = OcrLezer.Afbeeldingssoort(kopie.GetBuffer().AsSpan(0, (int)kopie.Length)) is not null;
+        var geschikt = afbeelding ? [] : motoren.Where(m => m.Kan(bestandsnaam, inhoudstype)).ToList();
+        if (geschikt.Count == 0 && !afbeelding)
+        {
+            return new(null, "Dit soort bestand wordt (nog) niet herkend; lever een PDF, e-factuur (XML) of foto (JPEG, PNG) aan.");
+        }
+
         if (virusscanner is not null)
         {
             kopie.Position = 0;
@@ -103,6 +109,28 @@ public sealed class Factuurherkenning(IEnumerable<IFactuurHerkenner> motoren, IV
             }
         }
 
-        return new(null, "Geen tekst gevonden: dit lijkt een scan. Scans worden herkend zodra de OCR-motor er is.");
+        if (ocr is null)
+        {
+            return new(null, "Geen tekst gevonden: dit lijkt een scan of foto. Daarvoor is tekstherkenning (Tesseract) nodig, en die is hier niet geïnstalleerd.");
+        }
+
+        Ocrlaag? laag;
+        try
+        {
+            laag = await ocr.LeesAsync(kopie.ToArray(), annulering).ConfigureAwait(false);
+        }
+        catch (Exception fout) when (fout is DocumentException or TimeoutException)
+        {
+            return new(null, fout.Message);
+        }
+
+        if (laag is null || laag.Woorden.Count == 0)
+        {
+            return new(null, "Geen tekst gevonden, ook niet met tekstherkenning (OCR).");
+        }
+
+        var tekst = string.Join('\n', PdfTekst.Regels(laag.Woorden));
+        var e = eigen ?? EigenGegevens.Geen;
+        return new(Factuurtekst.Analyseer(tekst, Herkenningsbron.Ocr, e.Ibans, e.BtwNummers, e.Namen), null, Ocr: laag);
     }
 }

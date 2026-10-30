@@ -812,6 +812,9 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .IsRequired()
                         .HasColumnType("bytea");
 
+                    b.Property<string>("Tekstlaag")
+                        .HasColumnType("text");
+
                     b.HasKey("DocumentId");
 
                     b.ToTable("DocumentInhouden", (string)null);

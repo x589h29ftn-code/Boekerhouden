@@ -2,6 +2,8 @@ using Boekerhouden.Administratie.Data;
 using Boekerhouden.Administratie.Diensten;
 using Boekerhouden.Boekhouding.Facturen;
 using Boekerhouden.Boekhouding.Herkenning;
+using Boekerhouden.Documenten;
+using Boekerhouden.Documenten.Tests;
 using UglyToad.PdfPig.Content;
 using UglyToad.PdfPig.Core;
 using UglyToad.PdfPig.Fonts.Standard14Fonts;
@@ -222,5 +224,28 @@ public sealed class InkoopOpmaakTests(AdministratieFixture app) : IClassFixture<
         Assert.DoesNotContain(leeg.Plekken, p => p.Veld == Factuurveld.Factuurnummer);
         Assert.False((await inrichting.VergeetGeleerd(wie, id, code)).IsGelukt);
         Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.GeleerdVergeten && r.Onderwerp == code);
+    }
+
+    [OcrFact]
+    public async Task Foto_van_een_bon_wordt_met_ocr_herkend_en_als_pdf_bewaard()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Test BV");
+        var inkoop = app.Dienst<InkoopDienst>();
+        var foto = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fictief", "administratie", "scan-kantoorvakhandel.png"));
+
+        var gelezen = await inkoop.Lees(wie, id, new MemoryStream(foto), "bon.png", "image/png");
+
+        var verwerking = (await inkoop.Verwerking(wie, id, gelezen.DocumentId!.Value))!;
+        Assert.Equal(("KV-2026-0815", 484m, Herkenningsbron.Ocr), (verwerking.Herkend!.Factuurnummer, verwerking.Herkend.TotaalInclusief, verwerking.Herkend.Bron));
+        var bewaard = (await inkoop.Inhoud(wie, id, gelezen.DocumentId.Value))!.Value;
+        Assert.Equal((".pdf", "application/pdf", "bon.pdf"), (Bestandssoort.Extensie(bewaard.Inhoud), bewaard.Inhoudstype, bewaard.Bestandsnaam));
+
+        // Aanwijzen en oplichten werken op de woorden van de OCR.
+        var plek = Assert.Single((await inkoop.Vindplaatsen(wie, id, gelezen.DocumentId.Value, new Dictionary<string, IReadOnlyList<string>> { ["nummer"] = Tekstvormen.Tekst("KV-2026-0815") }))["nummer"]);
+        Assert.Equal(["KV-2026-0815"], await inkoop.TekstInGebied(wie, id, gelezen.DocumentId.Value, 1, plek.X0 - 1, plek.Y0 - 1, plek.X1 + 1, plek.Y1 + 1));
+
+        // Dezelfde foto nog eens: herkend als al ingelezen (op de inhoud van het origineel).
+        Assert.Contains("al ingelezen", (await inkoop.Lees(wie, id, new MemoryStream(foto), "bon (2).png", "image/png")).Melding, StringComparison.Ordinal);
     }
 }

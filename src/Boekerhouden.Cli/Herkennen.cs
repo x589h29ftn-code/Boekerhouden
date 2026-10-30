@@ -71,7 +71,8 @@ internal static class Herkennen
         }
 
         await using var stream = File.OpenRead(pad);
-        var resultaat = await Factuurherkenning.Standaard(eigen, scanner).HerkenAsync(stream, Path.GetFileName(pad));
+        var ocr = TesseractOcr.Zoek() is { } tesseract ? new OcrLezer(tesseract) : null;
+        var resultaat = await Factuurherkenning.Standaard(eigen, scanner, ocr).HerkenAsync(stream, Path.GetFileName(pad));
         if (resultaat.Factuur is not { } herkend)
         {
             Console.WriteLine($"{(resultaat.Geweigerd ? "Geweigerd" : "Niet herkend")}: {resultaat.Melding}");

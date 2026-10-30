@@ -23,6 +23,10 @@ fi
 if ! command -v pg_ctlcluster >/dev/null 2>&1; then
   PAKKETTEN+=(postgresql)
 fi
+# Tekstherkenning (OCR) voor scans en foto's; zonder Tesseract slaan de OCR-tests over.
+if ! command -v tesseract >/dev/null 2>&1; then
+  PAKKETTEN+=(tesseract-ocr tesseract-ocr-nld tesseract-ocr-eng)
+fi
 if [ ${#PAKKETTEN[@]} -gt 0 ]; then
   $SUDO apt-get update -qq >&2
   DEBIAN_FRONTEND=noninteractive $SUDO apt-get install -y -qq "${PAKKETTEN[@]}" >&2

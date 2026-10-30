@@ -812,3 +812,10 @@ body.scheiding-slepen {
     color: var(--bs-secondary-color);
     margin-bottom: .5rem;
 }
+
+/* De periode van een verdeling: beide datums naast elkaar, ook in een smal formulier. */
+.veld-rij > .periode-datum {
+    flex: 1 1 8.5rem;
+    min-width: 8.5rem;
+    max-width: 11rem;
+}

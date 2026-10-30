@@ -24,4 +24,7 @@
     <ProjectReference Include="..\..\src\Boekerhouden.Administratie\Boekerhouden.Administratie.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\Boekerhouden.Documenten.Tests\OcrFactAttribute.cs" Link="OcrFactAttribute.cs" />
+  </ItemGroup>
 </Project>

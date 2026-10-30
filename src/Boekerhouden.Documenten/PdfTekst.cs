@@ -9,6 +9,19 @@ public sealed record PdfBijlage(string Naam, byte[] Inhoud);
 /// <summary>Een plek op een pagina, in PDF-punten (oorsprong linksonder), zoals pdf.js die kan tekenen.</summary>
 public sealed record PdfPlek(int Pagina, double X0, double Y0, double X1, double Y1);
 
+/// <summary>
+/// Een woord op een pagina met zijn plek in PDF-punten (oorsprong linksonder): uit de tekstlaag van de PDF of uit de
+/// OCR van een scan. Daarmee werken regels, aanwijzen en oplichten voor beide op dezelfde manier.
+/// </summary>
+public sealed record Tekstwoord(int Pagina, string Tekst, double X0, double Y0, double X1, double Y1)
+{
+    internal double Breedte => X1 - X0;
+
+    internal double Hoogte => Y1 - Y0;
+
+    internal double Midden => (Y0 + Y1) / 2;
+}
+
 /// <summary>De tekst van een PDF als regels (per pagina van boven naar beneden), en de ingesloten bestanden.</summary>
 public sealed record PdfInhoud(int Paginas, IReadOnlyList<string> Regels, IReadOnlyList<PdfBijlage> Bijlagen)
 {
@@ -37,7 +50,7 @@ public static class PdfTekst
             var regels = new List<string>();
             foreach (var pagina in document.GetPages())
             {
-                regels.AddRange(Regels(pagina));
+                regels.AddRange(Regels(Woorden(pagina)));
             }
 
             var bijlagen = new List<PdfBijlage>();
@@ -50,6 +63,18 @@ public static class PdfTekst
 
             return new PdfInhoud(document.NumberOfPages, regels, bijlagen);
         });
+    }
+
+    /// <summary>Alle woorden van een PDF met hun plek (uit de tekstlaag); leeg bij een scan.</summary>
+    public static IReadOnlyList<Tekstwoord> Woorden(byte[] pdf)
+    {
+        ArgumentNullException.ThrowIfNull(pdf);
+        if (pdf.Length > MaximumBytes)
+        {
+            throw new DocumentException($"Het bestand is groter dan {MaximumBytes / 1024 / 1024} MB.");
+        }
+
+        return Open(pdf, document => (IReadOnlyList<Tekstwoord>)[.. document.GetPages().SelectMany(Woorden)]);
     }
 
     /// <summary>
@@ -66,9 +91,6 @@ public static class PdfTekst
             throw new DocumentException($"Het bestand is groter dan {MaximumBytes / 1024 / 1024} MB.");
         }
 
-        var (links, rechts, onder, boven) = (Math.Min(x0, x1), Math.Max(x0, x1), Math.Min(y0, y1), Math.Max(y0, y1));
-        var klik = rechts - links < 4 && boven - onder < 4;
-        var (mx, my) = ((links + rechts) / 2, (onder + boven) / 2);
         return Open(pdf, document =>
         {
             if (pagina < 1 || pagina > document.NumberOfPages)
@@ -76,16 +98,20 @@ public static class PdfTekst
                 throw new DocumentException($"Pagina {pagina} bestaat niet.");
             }
 
-            var woorden = document.GetPage(pagina).GetWords().Where(w =>
-            {
-                var b = w.BoundingBox;
-                var (cx, cy) = ((b.Left + b.Right) / 2, (b.Bottom + b.Top) / 2);
-                return klik
-                    ? mx >= b.Left - 1 && mx <= b.Right + 1 && my >= b.Bottom - 1 && my <= b.Top + 1
-                    : cx >= links && cx <= rechts && cy >= onder && cy <= boven;
-            });
-            return (IReadOnlyList<string>)[.. Regels(woorden)];
+            return InGebied(Woorden(document.GetPage(pagina)), pagina, x0, y0, x1, y1);
         });
+    }
+
+    /// <summary>De tekst in een gebied, uit losse woorden (bijv. de OCR van een scan); zie de andere overload.</summary>
+    public static IReadOnlyList<string> InGebied(IEnumerable<Tekstwoord> woorden, int pagina, double x0, double y0, double x1, double y1)
+    {
+        ArgumentNullException.ThrowIfNull(woorden);
+        var (links, rechts, onder, boven) = (Math.Min(x0, x1), Math.Max(x0, x1), Math.Min(y0, y1), Math.Max(y0, y1));
+        var klik = rechts - links < 4 && boven - onder < 4;
+        var (mx, my) = ((links + rechts) / 2, (onder + boven) / 2);
+        return [.. Regels(woorden.Where(w => w.Pagina == pagina && (klik
+            ? mx >= w.X0 - 1 && mx <= w.X1 + 1 && my >= w.Y0 - 1 && my <= w.Y1 + 1
+            : (w.X0 + w.X1) / 2 >= links && (w.X0 + w.X1) / 2 <= rechts && w.Midden >= onder && w.Midden <= boven)))];
     }
 
     /// <summary>
@@ -102,6 +128,14 @@ public static class PdfTekst
             throw new DocumentException($"Het bestand is groter dan {MaximumBytes / 1024 / 1024} MB.");
         }
 
+        return Zoek(Open(pdf, document => Enumerable.Range(1, document.NumberOfPages).SelectMany(n => Woorden(document.GetPage(n))).ToList()), velden, maximum);
+    }
+
+    /// <summary>Waar de waarden van de velden staan, in losse woorden (bijv. de OCR van een scan); zie de andere overload.</summary>
+    public static IReadOnlyDictionary<string, IReadOnlyList<PdfPlek>> Zoek(IEnumerable<Tekstwoord> alleWoorden, IReadOnlyDictionary<string, IReadOnlyList<string>> velden, int maximum = 3)
+    {
+        ArgumentNullException.ThrowIfNull(alleWoorden);
+        ArgumentNullException.ThrowIfNull(velden);
         var gezocht = velden.ToDictionary(v => v.Key, v => v.Value.Select(Boekhouding.Herkenning.Tekstvormen.Compact).Where(c => c.Length > 0).ToHashSet(StringComparer.Ordinal));
         var langste = gezocht.Values.SelectMany(v => v).Select(v => v.Length).DefaultIfEmpty(0).Max();
         var gevonden = velden.Keys.ToDictionary(k => k, _ => new List<PdfPlek>());
@@ -110,41 +144,35 @@ public static class PdfTekst
             return gevonden.ToDictionary(v => v.Key, v => (IReadOnlyList<PdfPlek>)v.Value);
         }
 
-        Open(pdf, document =>
+        foreach (var perPagina in alleWoorden.GroupBy(w => w.Pagina).OrderBy(g => g.Key))
         {
-            for (var nummer = 1; nummer <= document.NumberOfPages; nummer++)
+            foreach (var regel in RegelsMetWoorden(perPagina))
             {
-                foreach (var regel in RegelsMetWoorden(document.GetPage(nummer).GetWords()))
+                for (var i = 0; i < regel.Count; i++)
                 {
-                    for (var i = 0; i < regel.Count; i++)
+                    var tekst = string.Empty;
+                    for (var j = i; j < regel.Count && j < i + 10; j++)
                     {
-                        var tekst = string.Empty;
-                        for (var j = i; j < regel.Count && j < i + 10; j++)
+                        tekst += regel[j].Tekst;
+                        var compact = Boekhouding.Herkenning.Tekstvormen.Compact(tekst);
+                        if (compact.Length > langste + 2)
                         {
-                            tekst += regel[j].Text;
-                            var compact = Boekhouding.Herkenning.Tekstvormen.Compact(tekst);
-                            if (compact.Length > langste + 2)
-                            {
-                                break;
-                            }
+                            break;
+                        }
 
-                            foreach (var (veld, vormen) in gezocht)
+                        foreach (var (veld, vormen) in gezocht)
+                        {
+                            if (gevonden[veld].Count < maximum && vormen.Contains(compact))
                             {
-                                if (gevonden[veld].Count < maximum && vormen.Contains(compact))
-                                {
-                                    var woorden = regel.Skip(i).Take(j - i + 1).ToList();
-                                    gevonden[veld].Add(new PdfPlek(nummer,
-                                        woorden.Min(w => w.BoundingBox.Left), woorden.Min(w => w.BoundingBox.Bottom),
-                                        woorden.Max(w => w.BoundingBox.Right), woorden.Max(w => w.BoundingBox.Top)));
-                                }
+                                var woorden = regel.Skip(i).Take(j - i + 1).ToList();
+                                gevonden[veld].Add(new PdfPlek(perPagina.Key, woorden.Min(w => w.X0), woorden.Min(w => w.Y0), woorden.Max(w => w.X1), woorden.Max(w => w.Y1)));
                             }
                         }
                     }
                 }
             }
+        }
 
-            return 0;
-        });
         return gevonden.ToDictionary(v => v.Key, v => (IReadOnlyList<PdfPlek>)v.Value);
     }
 
@@ -176,38 +204,49 @@ public static class PdfTekst
         }
     }
 
-    /// <summary>De woorden van een pagina, gegroepeerd tot regels van boven naar beneden.</summary>
-    internal static IEnumerable<string> Regels(Page pagina) => Regels(pagina.GetWords());
+    /// <summary>De woorden van een pagina uit de tekstlaag (alleen horizontale tekst).</summary>
+    internal static IEnumerable<Tekstwoord> Woorden(Page pagina) =>
+        pagina.GetWords()
+            .Where(w => !string.IsNullOrWhiteSpace(w.Text) && w.TextOrientation == TextOrientation.Horizontal)
+            .Select(w => new Tekstwoord(pagina.Number, w.Text, w.BoundingBox.Left, w.BoundingBox.Bottom, w.BoundingBox.Right, w.BoundingBox.Top));
 
-    private static IEnumerable<string> Regels(IEnumerable<Word> alleWoorden)
+    /// <summary>
+    /// De woorden als regels: per pagina van boven naar beneden, en binnen een regel met een grotere tussenruimte als er
+    /// een kolom tussen zit (zoals de tekstanalyse dat verwacht).
+    /// </summary>
+    public static IReadOnlyList<string> Regels(IEnumerable<Tekstwoord> alleWoorden)
     {
-        foreach (var gesorteerd in RegelsMetWoorden(alleWoorden))
+        ArgumentNullException.ThrowIfNull(alleWoorden);
+        var regels = new List<string>();
+        foreach (var perPagina in alleWoorden.GroupBy(w => w.Pagina).OrderBy(g => g.Key))
         {
-            var tekst = new System.Text.StringBuilder(gesorteerd[0].Text);
-            for (var i = 1; i < gesorteerd.Count; i++)
+            foreach (var gesorteerd in RegelsMetWoorden(perPagina))
             {
-                var vorige = gesorteerd[i - 1];
-                var tekenbreedte = vorige.BoundingBox.Width / Math.Max(1, vorige.Text.Length);
-                var ruimte = gesorteerd[i].BoundingBox.Left - vorige.BoundingBox.Right;
-                tekst.Append(ruimte > 3 * tekenbreedte ? "    " : " ").Append(gesorteerd[i].Text);
-            }
+                var tekst = new System.Text.StringBuilder(gesorteerd[0].Tekst);
+                for (var i = 1; i < gesorteerd.Count; i++)
+                {
+                    var vorige = gesorteerd[i - 1];
+                    var tekenbreedte = vorige.Breedte / Math.Max(1, vorige.Tekst.Length);
+                    var ruimte = gesorteerd[i].X0 - vorige.X1;
+                    tekst.Append(ruimte > 3 * tekenbreedte ? "    " : " ").Append(gesorteerd[i].Tekst);
+                }
 
-            yield return tekst.ToString();
+                regels.Add(tekst.ToString());
+            }
         }
+
+        return regels;
     }
 
-    /// <summary>De woorden gegroepeerd tot regels (van boven naar beneden), elke regel van links naar rechts.</summary>
-    private static IEnumerable<List<Word>> RegelsMetWoorden(IEnumerable<Word> alleWoorden)
+    /// <summary>De woorden van één pagina gegroepeerd tot regels (van boven naar beneden), elke regel van links naar rechts.</summary>
+    private static IEnumerable<List<Tekstwoord>> RegelsMetWoorden(IEnumerable<Tekstwoord> alleWoorden)
     {
-        var woorden = alleWoorden
-            .Where(w => !string.IsNullOrWhiteSpace(w.Text) && w.TextOrientation == TextOrientation.Horizontal)
-            .OrderByDescending(w => w.BoundingBox.Bottom)
-            .ToList();
-        var regels = new List<List<Word>>();
+        var woorden = alleWoorden.Where(w => !string.IsNullOrWhiteSpace(w.Tekst)).OrderByDescending(w => w.Y0).ToList();
+        var regels = new List<List<Tekstwoord>>();
         foreach (var woord in woorden)
         {
-            var hoogte = Math.Max(1, woord.BoundingBox.Height);
-            var regel = regels.FirstOrDefault(r => Math.Abs(Midden(r[0]) - Midden(woord)) < 0.5 * Math.Max(hoogte, r[0].BoundingBox.Height));
+            var hoogte = Math.Max(1, woord.Hoogte);
+            var regel = regels.FirstOrDefault(r => Math.Abs(r[0].Midden - woord.Midden) < 0.5 * Math.Max(hoogte, r[0].Hoogte));
             if (regel is null)
             {
                 regels.Add([woord]);
@@ -218,13 +257,11 @@ public static class PdfTekst
             }
         }
 
-        foreach (var regel in regels.OrderByDescending(r => r.Average(Midden)))
+        foreach (var regel in regels.OrderByDescending(r => r.Average(w => w.Midden)))
         {
-            yield return regel.OrderBy(w => w.BoundingBox.Left).ToList();
+            yield return regel.OrderBy(w => w.X0).ToList();
         }
     }
-
-    private static double Midden(Word woord) => (woord.BoundingBox.Top + woord.BoundingBox.Bottom) / 2;
 
     private static byte[] LeesBegrensd(Stream stream)
     {

@@ -6,7 +6,7 @@
     @if (context.Mag(Recht.Invoeren))
     {
         <div class="mb-4 inlezen">
-            <Sleepvlak Id="bestanden" Tekst="Facturen hierheen slepen of kiezen" Soorten="PDF of e-factuur (UBL)" Accept=".pdf,.xml,application/pdf,application/xml,text/xml" OnChange="LeesIn" Bezig="bezig" />
+            <Sleepvlak Id="bestanden" Tekst="Facturen hierheen slepen of kiezen" Soorten="PDF, e-factuur (UBL) of foto" Accept=".pdf,.xml,.jpg,.jpeg,.png,application/pdf,application/xml,text/xml,image/jpeg,image/png" OnChange="LeesIn" Bezig="bezig" />
             @foreach (var u in uitkomsten)
             {
                 <div class="small mt-1 @(u.Status == Documentstatus.Quarantaine || u.DocumentId is null ? "status let-op" : null)">@u.Melding</div>

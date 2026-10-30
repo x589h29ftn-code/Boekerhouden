@@ -181,7 +181,7 @@
                                     {
                                         <div class="mb-3">
                                             <label class="paneelkop d-block" for="factuur">Factuur uploaden</label>
-                                            <InputFile id="factuur" class="form-control form-control-sm" accept=".pdf,.xml,application/pdf,application/xml,text/xml" OnChange="UploadFactuur" disabled="@bezig" />
+                                            <InputFile id="factuur" class="form-control form-control-sm" accept=".pdf,.xml,.jpg,.jpeg,.png,application/pdf,application/xml,text/xml,image/jpeg,image/png" OnChange="UploadFactuur" disabled="@bezig" />
                                             @if (factuurUitkomst is { } fu)
                                             {
                                                 <div class="small mt-1 @(fu.DocumentId is null || fu.Status == Documentstatus.Quarantaine ? "status let-op" : null)">

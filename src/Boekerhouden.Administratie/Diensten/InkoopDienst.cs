@@ -107,7 +107,8 @@ public sealed class InkoopDienst(
     AuditDienst audit,
     TimeProvider tijd,
     IEnumerable<IVirusscanner> virusscanners,
-    BankDienst bank)
+    BankDienst bank,
+    IEnumerable<IOcrMotor> ocrMotoren)
 {
     private static readonly JsonSerializerOptions Json = new();
 
@@ -174,18 +175,31 @@ public sealed class InkoopDienst(
 
         var gegevens = await db.Administraties.AsNoTracking().SingleAsync(a => a.Id == administratie, annulering);
         var eigen = new EigenGegevens(gegevens.Ibans, gegevens.BtwNummer is null ? [] : [gegevens.BtwNummer], [gegevens.Naam]);
-        var herkenning = await Factuurherkenning.Standaard(eigen).HerkenAsync(new MemoryStream(bytes), naam, inhoudstype, annulering);
+        var ocr = ocrMotoren.FirstOrDefault() is { } motor ? new OcrLezer(motor) : null;
+        var herkenning = await Factuurherkenning.Standaard(eigen, ocr: ocr).HerkenAsync(new MemoryStream(bytes), naam, inhoudstype, annulering);
+
+        // Een foto wordt bewaard als PDF (de foto als pagina), zodat de viewer en het aanwijzen werken.
+        string? tekstlaag = null;
+        if (herkenning.Ocr is { } laag)
+        {
+            tekstlaag = JsonSerializer.Serialize(laag.Woorden, Json);
+            if (laag.Pdf is { } pdf)
+            {
+                (bytes, document.Inhoudstype, document.Bestandsnaam) = (pdf, "application/pdf", Path.ChangeExtension(document.Bestandsnaam, ".pdf"));
+            }
+        }
+
         var context = await Context(db, administratie);
         if (herkenning.Factuur is { } eerst)
         {
-            herkenning = herkenning with { Factuur = (await PasZoektemplateToe(db, eerst, bytes, context.Relaties)).Factuur };
+            herkenning = herkenning with { Factuur = (await PasZoektemplateToe(db, eerst, Woorden(bytes, tekstlaag), context.Relaties)).Factuur };
         }
 
         document.Herkend = herkenning.Factuur is null ? null : JsonSerializer.Serialize(herkenning.Factuur, Json);
         document.Status = Documentstatus.TeVerwerken;
         document.Melding = herkenning.Melding;
         db.Documenten.Add(document);
-        db.DocumentInhouden.Add(new DocumentInhoud { DocumentId = document.Id, AdministratieId = administratie, Inhoud = bytes });
+        db.DocumentInhouden.Add(new DocumentInhoud { DocumentId = document.Id, AdministratieId = administratie, Inhoud = bytes, Tekstlaag = tekstlaag });
         await db.SaveChangesAsync(annulering);
         await audit.Log(wie, AuditActies.DocumentIngelezen, naam, null, administratie);
 
@@ -232,8 +246,7 @@ public sealed class InkoopDienst(
             }
 
             bekeken++;
-            var inhoud = await db.DocumentInhouden.AsNoTracking().Where(i => i.DocumentId == document.Id).Select(i => i.Inhoud).FirstOrDefaultAsync(annulering);
-            (herkend, _) = await PasZoektemplateToe(db, herkend, inhoud, context.Relaties);
+            (herkend, _) = await PasZoektemplateToe(db, herkend, await Woorden(db, document.Id), context.Relaties);
             document.Herkend = JsonSerializer.Serialize(herkend, Json);
             var voorstel = Voorstel(herkend, context);
             if (voorstel.Automatisch)
@@ -308,8 +321,7 @@ public sealed class InkoopDienst(
         if (herkend is not null && d.Status == Documentstatus.TeVerwerken)
         {
             // Een plek die na het inlezen is aangewezen, telt ook voor facturen die al klaarstaan.
-            var inhoud = await db.DocumentInhouden.AsNoTracking().Where(i => i.DocumentId == d.Id).Select(i => i.Inhoud).FirstOrDefaultAsync();
-            (herkend, uitTemplate) = await PasZoektemplateToe(db, herkend, inhoud, context.Relaties);
+            (herkend, uitTemplate) = await PasZoektemplateToe(db, herkend, await Woorden(db, d.Id), context.Relaties);
         }
 
         var voorstel = herkend is null ? null : Voorstel(herkend, context);
@@ -604,8 +616,7 @@ public sealed class InkoopDienst(
     /// </summary>
     private async Task LeerPlekken(AdministratieDbContext db, Guid administratie, string relatie, Guid document, Factuurinvoer invoer, HerkendeFactuur herkend, Uitvoerder wie)
     {
-        var inhoud = await db.DocumentInhouden.AsNoTracking().Where(x => x.DocumentId == document).Select(x => x.Inhoud).FirstOrDefaultAsync();
-        if (inhoud is null || Bestandssoort.Extensie(inhoud) != ".pdf")
+        if (await Woorden(db, document) is not { Count: > 0 } woorden)
         {
             return;
         }
@@ -631,15 +642,7 @@ public sealed class InkoopDienst(
             return;
         }
 
-        IReadOnlyDictionary<string, IReadOnlyList<PdfPlek>> plekken;
-        try
-        {
-            plekken = PdfTekst.Zoek(inhoud, velden.ToDictionary(v => v.Veld.ToString(), v => v.Vormen));
-        }
-        catch (DocumentException)
-        {
-            return;
-        }
+        var plekken = PdfTekst.Zoek(woorden, velden.ToDictionary(v => v.Veld.ToString(), v => v.Vormen));
 
         var bestaand = await db.Zoekplekken.Where(z => z.Relatie == relatie).ToListAsync();
         var geleerd = new List<Factuurveld>();
@@ -693,9 +696,9 @@ public sealed class InkoopDienst(
     /// gaat voor, als de gebruiker de herkenning toen corrigeerde). Alleen bij een PDF van een herkende leverancier.
     /// </summary>
     private static async Task<(HerkendeFactuur Factuur, IReadOnlyList<Factuurveld> Ingevuld)> PasZoektemplateToe(
-        AdministratieDbContext db, HerkendeFactuur herkend, byte[]? pdf, IReadOnlyList<Relatie> relaties)
+        AdministratieDbContext db, HerkendeFactuur herkend, IReadOnlyList<Tekstwoord>? woorden, IReadOnlyList<Relatie> relaties)
     {
-        if (pdf is null || Bestandssoort.Extensie(pdf) != ".pdf" || Leverancierherkenning.Zoek(herkend, relaties) is not { } leverancier)
+        if (woorden is not { Count: > 0 } || Leverancierherkenning.Zoek(herkend, relaties) is not { } leverancier)
         {
             return (herkend, []);
         }
@@ -706,20 +709,8 @@ public sealed class InkoopDienst(
             return (herkend, []);
         }
 
-        var teksten = new List<(Zoekgebied, string)>();
-        foreach (var plek in plekken)
-        {
-            try
-            {
-                teksten.Add((plek.NaarDomein(), string.Join(" ", PdfTekst.InGebied(pdf, plek.Pagina, plek.X0, plek.Y0, plek.X1, plek.Y1))));
-            }
-            catch (DocumentException)
-            {
-                // Bijv. een pagina die deze factuur niet heeft: dan dit gebied overslaan.
-            }
-        }
-
-        return Zoektemplate.Pas(herkend, teksten);
+        // Een pagina die deze factuur niet heeft, levert geen tekst op (en dus niets in te vullen).
+        return Zoektemplate.Pas(herkend, plekken.Select(p => (p.NaarDomein(), string.Join(" ", PdfTekst.InGebied(woorden, p.Pagina, p.X0, p.Y0, p.X1, p.Y1)))));
     }
 
     /// <summary>
@@ -773,19 +764,33 @@ public sealed class InkoopDienst(
     public async Task<IReadOnlyList<string>> TekstInGebied(Uitvoerder wie, Guid administratie, Guid document, int pagina, double x0, double y0, double x1, double y1)
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
-        var inhoud = await db.DocumentInhouden.AsNoTracking().Where(x => x.DocumentId == document).Select(x => x.Inhoud).FirstOrDefaultAsync();
-        if (inhoud is null)
+        return await Woorden(db, document) is { } woorden ? PdfTekst.InGebied(woorden, pagina, x0, y0, x1, y1) : [];
+    }
+
+    /// <summary>
+    /// De woorden van een document met hun plek: van de OCR bij een scan of foto, anders uit de PDF. Leeg als het
+    /// document geen PDF is of niet te lezen.
+    /// </summary>
+    private static async Task<IReadOnlyList<Tekstwoord>?> Woorden(AdministratieDbContext db, Guid document)
+    {
+        var inhoud = await db.DocumentInhouden.AsNoTracking().Where(x => x.DocumentId == document).Select(x => new { x.Inhoud, x.Tekstlaag }).FirstOrDefaultAsync();
+        return inhoud is null ? null : Woorden(inhoud.Inhoud, inhoud.Tekstlaag);
+    }
+
+    private static IReadOnlyList<Tekstwoord>? Woorden(byte[] inhoud, string? tekstlaag)
+    {
+        if (tekstlaag is not null)
         {
-            return [];
+            return JsonSerializer.Deserialize<List<Tekstwoord>>(tekstlaag, Json);
         }
 
         try
         {
-            return PdfTekst.InGebied(inhoud, pagina, x0, y0, x1, y1);
+            return Bestandssoort.Extensie(inhoud) == ".pdf" ? PdfTekst.Woorden(inhoud) : null;
         }
         catch (DocumentException)
         {
-            return [];
+            return null;
         }
     }
 
@@ -798,20 +803,9 @@ public sealed class InkoopDienst(
     {
         ArgumentNullException.ThrowIfNull(velden);
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
-        var inhoud = await db.DocumentInhouden.AsNoTracking().Where(x => x.DocumentId == document).Select(x => x.Inhoud).FirstOrDefaultAsync();
-        if (inhoud is null || Bestandssoort.Extensie(inhoud) != ".pdf")
-        {
-            return velden.ToDictionary(v => v.Key, _ => (IReadOnlyList<PdfPlek>)[]);
-        }
-
-        try
-        {
-            return PdfTekst.Zoek(inhoud, velden);
-        }
-        catch (DocumentException)
-        {
-            return velden.ToDictionary(v => v.Key, _ => (IReadOnlyList<PdfPlek>)[]);
-        }
+        return await Woorden(db, document) is { } woorden
+            ? PdfTekst.Zoek(woorden, velden)
+            : velden.ToDictionary(v => v.Key, _ => (IReadOnlyList<PdfPlek>)[]);
     }
 
     private async Task<Uitkomst> BoekFactuur(
@@ -1002,7 +996,7 @@ public sealed class InkoopDienst(
             var (maand, regels) = maanden[i];
             var boekstuk = await GrootboekDienst.VolgendBoekstuk(db, memoriaal.Code, maand.Year);
             var post = new Journaalpost(memoriaal.Code, boekstuk, maand, Kort($"Verdeling {factuur.Factuurnummer} {maand:MM-yyyy} ({i + 1}/{maanden.Count}): {factuur.Omschrijving}"),
-                [.. regels.Select(r => new Journaalregel(r.Rekeningnummer, r.Bedrag, r.Omschrijving ?? factuur.Omschrijving, null, factuur.Relatie, factuur.Factuurnummer))]);
+                [.. regels.Select(r => new Journaalregel(r.Rekeningnummer, r.Bedrag, Kort($"Verdeling {i + 1}/{maanden.Count}: {r.Omschrijving ?? factuur.Omschrijving}"), null, factuur.Relatie, factuur.Factuurnummer))]);
             if (Journaalcontrole.Controleer(post, schema, dagboeken) is { Count: > 0 } fouten)
             {
                 return Uitkomst<IReadOnlyList<string>>.Mislukt([.. fouten]);

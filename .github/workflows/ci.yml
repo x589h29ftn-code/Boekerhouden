@@ -33,6 +33,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+      # Tekstherkenning (OCR) voor de tests met scans en foto's.
+      - run: sudo apt-get update -q && sudo apt-get install -y -q tesseract-ocr tesseract-ocr-nld tesseract-ocr-eng
       - run: dotnet restore Boekerhouden.slnx
       - run: dotnet build Boekerhouden.slnx --no-restore
       - run: dotnet format Boekerhouden.slnx --verify-no-changes --no-restore

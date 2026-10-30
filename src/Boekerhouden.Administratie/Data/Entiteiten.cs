@@ -322,6 +322,12 @@ public sealed class DocumentInhoud : IVanAdministratie
     public Guid AdministratieId { get; set; }
 
     public byte[] Inhoud { get; set; } = [];
+
+    /// <summary>
+    /// Bij een scan of foto: de woorden die de OCR vond, met hun plek in PDF-punten (JSON). Leeg bij een PDF met tekst;
+    /// die tekst komt uit de PDF zelf.
+    /// </summary>
+    public string? Tekstlaag { get; set; }
 }
 
 /// <summary>

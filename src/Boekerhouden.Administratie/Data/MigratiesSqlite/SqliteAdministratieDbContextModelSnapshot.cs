@@ -800,6 +800,9 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .IsRequired()
                         .HasColumnType("BLOB");
 
+                    b.Property<string>("Tekstlaag")
+                        .HasColumnType("TEXT");
+
                     b.HasKey("DocumentId");
 
                     b.ToTable("DocumentInhouden", (string)null);

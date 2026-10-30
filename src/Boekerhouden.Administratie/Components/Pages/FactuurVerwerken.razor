@@ -343,15 +343,15 @@
                             </div>
                             <div class="veld mt-3">
                                 <label for="verdelen">Periode verdelen</label>
-                                <div class="veld-rij">
+                                <div class="veld-rij flex-nowrap">
                                     <span class="form-check form-switch mb-0">
                                         <input id="verdelen" class="form-check-input" type="checkbox" checked="@verdelen" @onchange="e => ZetVerdelen(e.Value is true)" title="Transitorisch boeken: via vooruitbetaalde kosten en per maand naar de kosten" />
                                     </span>
                                     @if (verdelen)
                                     {
-                                        <input type="date" class="form-control veld-smal" @bind="verdeelVan" aria-label="Periode van" />
+                                        <input type="date" class="form-control periode-datum" @bind="verdeelVan" aria-label="Periode van" />
                                         <span class="text-secondary">t/m</span>
-                                        <input type="date" class="form-control veld-smal" @bind="verdeelTot" aria-label="Periode tot en met" />
+                                        <input type="date" class="form-control periode-datum" @bind="verdeelTot" aria-label="Periode tot en met" />
                                     }
                                 </div>
                             </div>
