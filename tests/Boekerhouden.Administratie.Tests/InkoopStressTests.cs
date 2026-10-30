@@ -43,7 +43,7 @@ public sealed class InkoopStressTests(AdministratieFixture app, ITestOutputHelpe
     ];
 
     /// <summary>Een maandfactuur als PDF, in de opmaak van de leverancier (de kolommen schuiven per leverancier).</summary>
-    private static byte[] Factuur(int leverancier, int maand)
+    internal static byte[] Factuur(int leverancier, int maand)
     {
         var netto = 40m + leverancier * 7.5m + (maand % 3);
         var btw = Math.Round(netto * 0.21m, 2, MidpointRounding.AwayFromZero);
@@ -80,7 +80,7 @@ public sealed class InkoopStressTests(AdministratieFixture app, ITestOutputHelpe
     }
 
     /// <summary>Een geldig IBAN per leverancier (verzonnen, met kloppend controlegetal).</summary>
-    private static string StressIban(int leverancier)
+    internal static string StressIban(int leverancier)
     {
         var bban = $"INGB{(1000000 + leverancier * 13579):0000000000}";
         var getal = string.Concat((bban + "NL00").Select(c => char.IsLetter(c) ? (c - 'A' + 10).ToString(CultureInfo.InvariantCulture) : c.ToString()));

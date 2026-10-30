@@ -31,6 +31,40 @@ public sealed class BoekenTests(AdministratieFixture app) : IClassFixture<Admini
     }
 
     [Fact]
+    public async Task Overzichten_over_een_periode_zijn_gelijk_aan_die_uit_het_hele_journaal()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var grootboek = app.Dienst<GrootboekDienst>();
+        var nummer = 0;
+        foreach (var jaar in new[] { 2024, 2025, 2026 })
+        {
+            for (var maand = 1; maand <= 12; maand++)
+            {
+                var d = new DateOnly(jaar, maand, 10);
+                Assert.True((await grootboek.Boek(wie, id, Post($"{jaar}-{++nummer:0000}", d, ("1100", 1210m + maand), ("8000", -1000m - maand), ("1510", -210m)))).IsGelukt);
+                Assert.True((await grootboek.Boek(wie, id, Post($"{jaar}-{++nummer:0000}", d, ("4310", 30.25m * maand), ("1100", -30.25m * maand)))).IsGelukt);
+            }
+        }
+
+        // Het hele journaal, zoals het domein het rekent.
+        var alles = (await grootboek.Posten(wie, id)).OrderBy(p => p.Volgnummer).Select(p => p.Post);
+        var journaal = Journaal.Herstel(await grootboek.Schema(wie, id), await grootboek.Dagboeken(wie, id), alles);
+
+        Assert.Equal(journaal.Proefbalans(2026).Regels, (await grootboek.Proefbalans(wie, id, 2026)).Regels);
+        Assert.Equal(journaal.Kolommenbalans(new(2025, 4, 1), new(2025, 9, 30)).Regels, (await grootboek.Kolommenbalans(wie, id, new(2025, 4, 1), new(2025, 9, 30))).Regels);
+        foreach (var rekening in new[] { "1100", "4310", "8000" })
+        {
+            var verwacht = journaal.Kaart(rekening, new(2025, 7, 1), new(2026, 2, 28));
+            var kaart = await grootboek.Kaart(wie, id, rekening, new(2025, 7, 1), new(2026, 2, 28));
+            Assert.Equal((verwacht.Beginsaldo, verwacht.Mutaties.Count), (kaart.Beginsaldo, kaart.Mutaties.Count));
+            Assert.Equal(verwacht.Mutaties, kaart.Mutaties);
+        }
+
+        Assert.Equal(24, (await grootboek.Posten(wie, id, van: new(2026, 1, 1), tot: new(2026, 12, 31))).Count);
+    }
+
+    [Fact]
     public async Task Fouten_worden_gemeld_en_er_wordt_niets_geboekt()
     {
         var wie = await app.Beheerder();

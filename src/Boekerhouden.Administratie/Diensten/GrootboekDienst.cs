@@ -178,7 +178,8 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
         return [.. jaren.Append(tijd.GetLocalNow().Year).Distinct().OrderDescending()];
     }
 
-    public async Task<IReadOnlyList<GeboektePost>> Posten(Uitvoerder wie, Guid administratie, string? dagboek = null)
+    /// <summary>De boekingen, de nieuwste eerst; eventueel van één dagboek en binnen een periode (op boekingsdatum).</summary>
+    public async Task<IReadOnlyList<GeboektePost>> Posten(Uitvoerder wie, Guid administratie, string? dagboek = null, DateOnly? van = null, DateOnly? tot = null)
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
         var query = db.Boekingen.AsNoTracking().Include(b => b.Regels).AsQueryable();
@@ -187,22 +188,32 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
             query = query.Where(b => b.Dagboek == dagboek);
         }
 
+        if (van is { } begin)
+        {
+            query = query.Where(b => b.Datum >= begin);
+        }
+
+        if (tot is { } eind)
+        {
+            query = query.Where(b => b.Datum <= eind);
+        }
+
         var boekingen = await query.OrderByDescending(b => b.Volgnummer).ToListAsync();
         return [.. boekingen.Select(b => new GeboektePost(b.Volgnummer, b.NaarDomein(), b.GeboektOp, b.GeboektDoor))];
     }
 
     public async Task<Grootboekkaart> Kaart(Uitvoerder wie, Guid administratie, string rekening, DateOnly van, DateOnly tot) =>
-        (await Journaal(wie, administratie)).Kaart(rekening, van, tot);
+        (await Journaal(wie, administratie, van, tot)).Kaart(rekening, van, tot);
 
     public async Task<Proefbalans> Proefbalans(Uitvoerder wie, Guid administratie, int boekjaar) =>
-        (await Journaal(wie, administratie)).Proefbalans(boekjaar);
+        (await Journaal(wie, administratie, new DateOnly(boekjaar, 1, 1), new DateOnly(boekjaar, 12, 31))).Proefbalans(boekjaar);
 
     public async Task<Kolommenbalans> Kolommenbalans(Uitvoerder wie, Guid administratie, int boekjaar) =>
-        (await Journaal(wie, administratie)).Kolommenbalans(boekjaar);
+        (await Journaal(wie, administratie, new DateOnly(boekjaar, 1, 1), new DateOnly(boekjaar, 12, 31))).Kolommenbalans(boekjaar);
 
     /// <summary>De kolommenbalans over een periode: alleen boekingen tussen de datums, balansrekeningen met hun beginstand.</summary>
     public async Task<Kolommenbalans> Kolommenbalans(Uitvoerder wie, Guid administratie, DateOnly van, DateOnly tot) =>
-        (await Journaal(wie, administratie)).Kolommenbalans(van, tot);
+        (await Journaal(wie, administratie, van, tot)).Kolommenbalans(van, tot);
 
     /// <summary>Eén boeking (dagboek en boekstuk), met de factuur waar hij bij hoort; leeg als hij niet bestaat.</summary>
     public async Task<Boekingsdetail?> Boeking(Uitvoerder wie, Guid administratie, string dagboek, string boekstuk)
@@ -235,11 +246,29 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
         return fout;
     }
 
-    private async Task<Journaal> Journaal(Uitvoerder wie, Guid administratie)
+    /// <summary>
+    /// Het journaal voor een periode, zonder alle jaren in te lezen: de boekingen in de periode helemaal, en wat ervóór
+    /// ligt per rekening opgeteld door de database, als twee beginposten: vóór het boekjaar van <paramref name="van"/>, en
+    /// in dat boekjaar vóór <paramref name="van"/>. Proefbalans, kolommenbalans en grootboekkaart komen zo precies uit
+    /// als met het hele journaal (balansrekeningen nemen hun stand mee, resultaat van eerder gaat naar het onverdeelde
+    /// resultaat), maar de tijd hangt af van de periode en niet van het aantal jaren.
+    /// </summary>
+    private async Task<Journaal> Journaal(Uitvoerder wie, Guid administratie, DateOnly van, DateOnly tot)
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
-        var boekingen = await db.Boekingen.AsNoTracking().Include(b => b.Regels).OrderBy(b => b.Volgnummer).ToListAsync();
-        return Boekhouding.Grootboek.Journaal.Herstel(await LaadSchema(db), await LaadDagboeken(db), boekingen.Select(b => b.NaarDomein()));
+        var boekjaar = new DateOnly(van.Year, 1, 1);
+        var eerder = await (from r in db.Boekingsregels
+                            join b in db.Boekingen on r.BoekingId equals b.Id
+                            where b.Datum < van
+                            group r.Bedrag by new { VoorBoekjaar = b.Datum < boekjaar, r.Rekeningnummer } into g
+                            select new { g.Key.VoorBoekjaar, g.Key.Rekeningnummer, Saldo = g.Sum() }).ToListAsync();
+        var begin = new[] { (true, boekjaar.AddDays(-1)), (false, van.AddDays(-1)) }
+            .Select(x => new Journaalpost(string.Empty, "begin", x.Item2, "Beginstand",
+                [.. eerder.Where(e => e.VoorBoekjaar == x.Item1 && e.Saldo != 0).OrderBy(e => e.Rekeningnummer, StringComparer.Ordinal).Select(e => new Journaalregel(e.Rekeningnummer, e.Saldo))]))
+            .Where(p => p.Regels.Count > 0);
+        var boekingen = await db.Boekingen.AsNoTracking().Include(b => b.Regels).Where(b => b.Datum >= van && b.Datum <= tot)
+            .OrderBy(b => b.Volgnummer).ToListAsync();
+        return Boekhouding.Grootboek.Journaal.Herstel(await LaadSchema(db), await LaadDagboeken(db), begin.Concat(boekingen.Select(b => b.NaarDomein())));
     }
 
     private static async Task<Rekeningschema> LaadSchema(AdministratieDbContext db) =>

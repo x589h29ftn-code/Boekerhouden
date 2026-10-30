@@ -1,9 +1,14 @@
 @page "/a/{Id:guid}/journaal"
 @inject GrootboekDienst Grootboek
+@inject NavigationManager Navigatie
 
 <AdministratieKader Id="Id" Titel="Journaal" Actief="/journaal" BijOpenen="Open">
     <Acties>
         <button class="btn btn-outline-secondary btn-sm" @onclick="Controleer" title="Is er buiten de app iets gewijzigd?">Keten controleren</button>
+        @if (geopend is not null)
+        {
+            <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
+        }
     </Acties>
     <ChildContent>
         @if (keten is not null)
@@ -21,7 +26,7 @@
         }
         @if (posten is { Count: 0 })
         {
-            <div class="card card-body text-center text-secondary py-5">Er is nog niets geboekt.</div>
+            <div class="card card-body text-center text-secondary py-5">Geen boekingen in deze periode.</div>
         }
         else if (posten is not null)
         {
@@ -66,14 +71,34 @@
     private IReadOnlyList<GeboektePost>? posten;
     private IReadOnlyList<long>? keten;
     private readonly HashSet<long> open = [];
+    private DateOnly van;
+    private DateOnly tot;
 
     [Parameter]
     public Guid Id { get; set; }
 
+    [SupplyParameterFromQuery(Name = "van")]
+    public string? VanTekst { get; set; }
+
+    [SupplyParameterFromQuery(Name = "tot")]
+    public string? TotTekst { get; set; }
+
+    /// <summary>Standaard het laatste boekjaar: na jaren boeken staan er tienduizenden boekingen in het journaal.</summary>
     private async Task Open(Geopend g)
     {
         geopend = g;
-        posten = await Grootboek.Posten(g.Wie, Id);
+        (van, tot) = Weergave.Periode(VanTekst, TotTekst) ?? Boekhouding.Grootboek.Periode.Jaar((await Grootboek.Boekjaren(g.Wie, Id))[0]);
+        await Laad();
+    }
+
+    private async Task Laad() => posten = await Grootboek.Posten(geopend!.Wie, Id, van: van, tot: tot);
+
+    private async Task KiesPeriode((DateOnly Van, DateOnly Tot) periode)
+    {
+        (van, tot) = periode;
+        Navigatie.NavigateTo($"/a/{Id}/journaal?{Weergave.Periodequery(van, tot)}", replace: true);
+        open.Clear();
+        await Laad();
     }
 
     private async Task Controleer() => keten = await Grootboek.ControleerKeten(geopend!.Wie, Id);
