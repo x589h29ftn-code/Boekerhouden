@@ -1,0 +1,72 @@
+@* De factuur naast een overzicht (bijv. een boeking), alleen om te bekijken; met dezelfde versleepbare scheiding als
+   het verwerkscherm. In de webapp haalt de viewer de PDF bij de server, in de Windows-app krijgt hij de inhoud mee. *@
+@implements IAsyncDisposable
+@inject InkoopDienst Inkoop
+@inject IJSRuntime JS
+@inject IServiceProvider Diensten
+
+<div @ref="scheiding" class="verwerken-scheiding" title="Sleep om de factuur breder of smaller te maken; dubbelklik voor de standaardbreedte"></div>
+<div @ref="paneel" class="verwerken-viewer">
+    <div @ref="viewer" class="factuurviewer"></div>
+</div>
+
+@code {
+    private ElementReference scheiding;
+    private ElementReference paneel;
+    private ElementReference viewer;
+    private IJSObjectReference? module;
+    private IJSObjectReference? koppeling;
+
+    [Parameter, EditorRequired]
+    public Uitvoerder Wie { get; set; } = default!;
+
+    [Parameter]
+    public Guid Administratie { get; set; }
+
+    [Parameter]
+    public Guid Document { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        object bron = $"/a/{Administratie}/documenten/{Document}";
+        if (Diensten.GetService<IDocumentvenster>() is not null)
+        {
+            if (await Inkoop.Inhoud(Wie, Administratie, Document) is not { } inhoud)
+            {
+                return;
+            }
+
+            bron = new DotNetStreamReference(new MemoryStream(inhoud.Inhoud));
+        }
+
+        module = await JS.InvokeAsync<IJSObjectReference>("import", "./factuurviewer.js");
+        await module.InvokeVoidAsync("scheiding", scheiding, paneel);
+        koppeling = await module.InvokeAsync<IJSObjectReference>("bekijk", viewer, bron);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (koppeling is not null)
+            {
+                await koppeling.InvokeVoidAsync("sluit");
+                await koppeling.DisposeAsync();
+            }
+
+            if (module is not null)
+            {
+                await module.DisposeAsync();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // Het circuit is al weg.
+        }
+    }
+}

@@ -16,4 +16,7 @@ public interface IDocumentvenster
 
     /// <param name="gesloten">Volgt als de gebruiker het venster sluit.</param>
     void OpenViewer(Guid administratie, Guid document, string titel, Action gesloten);
+
+    /// <summary>Staat het viewervenster open? Dan toont een volgende factuur zich daar.</summary>
+    bool ViewerOpen { get; }
 }

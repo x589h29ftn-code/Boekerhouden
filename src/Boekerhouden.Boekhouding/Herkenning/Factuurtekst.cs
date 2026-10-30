@@ -35,8 +35,7 @@ public static partial class Factuurtekst
         }
 
         var btw = Btwregels(regels);
-        var exclusief = BedragNaLabel(regels, ExclusiefLabel());
-        var inclusief = BedragNaLabel(regels, InclusiefLabel());
+        var (exclusief, inclusief) = Totalen(regels, btw);
 
         // Geen btw op de factuur (vrijgesteld, kleineondernemersregeling): 0% over het hele bedrag.
         if (btw.Count == 0 && GeenBtwPatroon().IsMatch(tekst) && (inclusief ?? exclusief) is { } zonderBtw)
@@ -206,27 +205,66 @@ public static partial class Factuurtekst
         return null;
     }
 
-    /// <summary>Het bedrag na het laatste label dat past (totalen staan onderaan).</summary>
-    private static decimal? BedragNaLabel(List<string> regels, Regex label)
+    /// <summary>
+    /// Het totaal exclusief en inclusief btw. Een factuur kan meer "totalen" hebben (bijv. een specificatie op een
+    /// volgende pagina met een kolom "Totaal"), dus eerst de combinatie die sluit: exclusief plus de btw is inclusief.
+    /// Anders het onderste bedrag na een label, waarbij een bedrag op dezelfde regel als het label voorgaat op een
+    /// bedrag op de regel eronder (dat is vaak een kolomkop met de eerste rij van een tabel).
+    /// </summary>
+    private static (decimal? Exclusief, decimal? Inclusief) Totalen(List<string> regels, List<Btwregel> btw)
     {
-        for (var i = regels.Count - 1; i >= 0; i--)
+        var exclusief = BedragenNaLabel(regels, ExclusiefLabel());
+        var inclusief = BedragenNaLabel(regels, InclusiefLabel());
+        if (btw.Count > 0)
         {
-            if (label.Match(regels[i]) is { Success: true } m)
+            var totaalBtw = btw.Sum(b => b.Btw);
+            var marge = 0.01m * btw.Count;
+            foreach (var i in inclusief)
             {
-                var bedragen = Bedragen(regels[i][(m.Index + m.Length)..]);
-                if (bedragen.Count == 0 && i + 1 < regels.Count && regels[i][(m.Index + m.Length)..].Trim(' ', ':', '€', '\t').Length == 0)
+                if (exclusief.FirstOrDefault(e => Math.Abs(e + totaalBtw - i) <= marge) is var e && e != 0m)
                 {
-                    bedragen = Bedragen(regels[i + 1]);
+                    return (e, i);
                 }
+            }
 
-                if (bedragen.Count > 0)
-                {
-                    return bedragen[^1];
-                }
+            // Alleen het totaal past bij de btw-tabel (grondslagen plus btw).
+            if (btw.All(b => b.Grondslag is not null) && btw.Sum(b => b.Grondslag!.Value) + totaalBtw is var somTabel
+                && inclusief.FirstOrDefault(i => Math.Abs(i - somTabel) <= marge) is var passend && passend != 0m)
+            {
+                return (exclusief.FirstOrDefault(e => Math.Abs(e + totaalBtw - passend) <= marge) is var x && x != 0m ? x : null, passend);
             }
         }
 
-        return null;
+        return (exclusief.Count > 0 ? exclusief[0] : null, inclusief.Count > 0 ? inclusief[0] : null);
+    }
+
+    /// <summary>
+    /// De bedragen na een label, van onder naar boven (totalen staan onderaan): eerst die op dezelfde regel als het
+    /// label, daarna die op de regel eronder (als het label achteraan de regel staat).
+    /// </summary>
+    private static List<decimal> BedragenNaLabel(List<string> regels, Regex label)
+    {
+        var zelfdeRegel = new List<decimal>();
+        var regelEronder = new List<decimal>();
+        for (var i = regels.Count - 1; i >= 0; i--)
+        {
+            if (label.Match(regels[i]) is not { Success: true } m)
+            {
+                continue;
+            }
+
+            var rest = regels[i][(m.Index + m.Length)..];
+            if (Bedragen(rest) is [.., var bedrag])
+            {
+                zelfdeRegel.Add(bedrag);
+            }
+            else if (i + 1 < regels.Count && rest.Trim(' ', ':', '€', '\t', ')', '(').Length == 0 && Bedragen(regels[i + 1]) is [.., var onder])
+            {
+                regelEronder.Add(onder);
+            }
+        }
+
+        return [.. zelfdeRegel, .. regelEronder];
     }
 
     /// <summary>
@@ -304,6 +342,17 @@ public static partial class Factuurtekst
             }
         }
 
+        // Alleen "Factuur" als label ("Faktuur   2026-10-01"), in de bovenste helft van de factuur.
+        foreach (var regel in regels.Take(Math.Max(20, regels.Count / 2)))
+        {
+            if (KaalFactuurLabel().Match(regel) is { Success: true } m
+                && regel[(m.Index + m.Length)..].Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.TrimEnd('.', ',', ';') is { Length: > 0 and <= 30 } waarde
+                && waarde.Any(char.IsDigit))
+            {
+                return waarde;
+            }
+        }
+
         return null;
     }
 
@@ -315,17 +364,62 @@ public static partial class Factuurtekst
     /// </summary>
     private static string? Naam(List<string> regels, IReadOnlyList<string> eigenNamen)
     {
+        // Een regel direct boven "t.a.v." is de geadresseerde (de klant), niet de leverancier.
+        bool BovenTav(int i) => i + 1 < regels.Count && TerAttentieVan().IsMatch(regels[i + 1]);
         var stukken = regels.Select((r, i) => (Regel: i, Delen: Kolommen().Split(r).Select(d => d.Trim()).Where(d => d.Length > 0).ToList()))
+            .Where(x => !(x.Delen.Count == 1 && BovenTav(x.Regel)))
             .SelectMany(x => x.Delen.Select(d => (x.Regel, Tekst: d)))
-            .Where(x => !IsEigen(x.Tekst, eigenNamen) && !KlantLabel().IsMatch(x.Tekst) && !IsAdres(x.Tekst) && !FactuurnummerLabel().IsMatch(x.Tekst))
+            .Where(x => !IsEigen(x.Tekst, eigenNamen) && !KlantLabel().IsMatch(x.Tekst) && !IsAdres(x.Tekst) && !FactuurnummerLabel().IsMatch(x.Tekst)
+                        && !ContactLabel().IsMatch(x.Tekst))
             .ToList();
         bool MetRechtsvorm(string t) => Rechtsvormen.Any(v => Regex.IsMatch(t, $@"(^|\s){Regex.Escape(v)}($|\s|,)", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1)));
         return stukken.Where(x => x.Regel < 15).Select(x => x.Tekst).FirstOrDefault(MetRechtsvorm)
                ?? stukken.Select(x => x.Tekst).FirstOrDefault(MetRechtsvorm)
+               ?? NaamUitDomein(regels, stukken.Select(x => x.Tekst), eigenNamen)
                ?? stukken.Where(x => x.Regel < 15).Select(x => x.Tekst).FirstOrDefault(t => t.Count(char.IsLetter) >= 3
-                   && !Regex.IsMatch(t, "^(factuur|invoice|nota|creditnota|credit note)\\b", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1))
+                   && !Regex.IsMatch(t, "^(fa[ck]tuur|invoice|nota|creditnota|credit note)\\b", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1))
                    && Datums(t).Count == 0 && Bedragen(t).Count == 0);
     }
+
+    private static readonly string[] Maildiensten =
+    [
+        "gmail", "googlemail", "hotmail", "outlook", "live", "msn", "icloud", "me", "yahoo", "ziggo", "kpnmail", "kpnplanet", "planet",
+        "home", "xs4all", "hetnet", "chello", "quicknet", "telfort", "online", "upcmail", "tele2", "caiway", "zeelandnet", "proton", "protonmail",
+    ];
+
+    private static readonly string[] AlgemeneAfzenders =
+        ["info", "sales", "administratie", "factuur", "facturen", "billing", "invoice", "invoices", "contact", "office", "kantoor", "finance", "debiteuren", "boekhouding", "noreply", "no-reply", "mail", "service", "support"];
+
+    /// <summary>
+    /// De naam uit het domein van de leverancier, voor facturen waarop de naam alleen in het logo (een plaatje) staat:
+    /// het domein van een e-mailadres of website op de factuur (liefst van een algemeen adres als info@), niet van een
+    /// maildienst en niet van de eigen administratie. Staat de naam ergens als tekst (bijv. in de voettekst), dan die
+    /// tekst; anders de naam uit het domein zelf ("p2-projecten.nl" wordt "P2 Projecten").
+    /// </summary>
+    private static string? NaamUitDomein(List<string> regels, IEnumerable<string> stukken, IReadOnlyList<string> eigenNamen)
+    {
+        var eigen = eigenNamen.Select(Compact).Where(n => n.Length >= 3).ToList();
+        var domeinen = regels.SelectMany(r => Domein().Matches(r))
+            .Select(m => (Afzender: m.Groups[1].Value.ToLowerInvariant(), Naam: m.Groups[2].Value.ToLowerInvariant()))
+            .Where(d => d.Naam.Length >= 2 && !Maildiensten.Contains(d.Naam) && !eigen.Any(e => e.Contains(Compact(d.Naam), StringComparison.Ordinal) || Compact(d.Naam).Contains(e, StringComparison.Ordinal)))
+            .ToList();
+        if (domeinen.Count == 0)
+        {
+            return null;
+        }
+
+        var domein = (domeinen.FirstOrDefault(d => AlgemeneAfzenders.Contains(d.Afzender)) is { Naam: not null } algemeen ? algemeen : domeinen[0]).Naam;
+        var kern = Compact(domein);
+        if (stukken.FirstOrDefault(t => t.Length <= 60 && Compact(t).StartsWith(kern, StringComparison.Ordinal) && Compact(t).Length <= kern.Length + 12
+                                        && !t.Contains('@', StringComparison.Ordinal) && !t.Contains("www", StringComparison.OrdinalIgnoreCase)) is { } tekst)
+        {
+            return tekst.Trim(' ', ',', '.', '-', '–', '|');
+        }
+
+        return string.Join(' ', domein.Split('-', StringSplitOptions.RemoveEmptyEntries).Select(d => char.ToUpperInvariant(d[0]) + d[1..]));
+    }
+
+    private static string Compact(string tekst) => string.Concat(tekst.Where(char.IsLetterOrDigit)).ToLowerInvariant();
 
     /// <summary>Is dit de eigen naam van de administratie (eventueel met rechtsvorm of een label als "Aan:")?</summary>
     private static bool IsEigen(string tekst, IReadOnlyList<string> eigenNamen)
@@ -336,8 +430,22 @@ public static partial class Factuurtekst
                                    && (genormaliseerd == eigen || (eigen.Contains(' ', StringComparison.Ordinal) && genormaliseerd.Contains(eigen, StringComparison.Ordinal))));
     }
 
-    /// <summary>Een adresregel: postcode met plaats, of straat met huisnummer.</summary>
-    private static bool IsAdres(string tekst) => Postcode.Zoek(tekst.ToUpperInvariant()).Count > 0 || Straat().IsMatch(tekst);
+    /// <summary>Een adresregel: postcode met plaats, straat met huisnummer, of een postbus.</summary>
+    private static bool IsAdres(string tekst) => Postcode.Zoek(tekst.ToUpperInvariant()).Count > 0 || Straat().IsMatch(tekst) || Postbus().IsMatch(tekst);
+
+    [GeneratedRegex(@"^(?:postbus|p\.?\s?o\.?\s?box|antwoordnummer)\s*[0-9]+", RegexOptions.IgnoreCase)]
+    private static partial Regex Postbus();
+
+    [GeneratedRegex(@"^(?:t\.?\s?a\.?\s?v\.?|ter attentie van|attn\.?)\s", RegexOptions.IgnoreCase)]
+    private static partial Regex TerAttentieVan();
+
+    /// <summary>Contactgegevens met een label: "Telefoon 0612...", "Mail info@...", "KvK 1234...", "IBAN NL..."; geen naam.</summary>
+    [GeneratedRegex(@"^(?:tel(?:efoon|\.)?|fax|mob(?:iel)?|gsm|e-?mail|mail|web(?:site)?|www\.|https?:|kvk|k\.v\.k|coc|iban|bic|swift|btw|vat|bank|rek(?:ening)?(?:nummer|nr)?)\b|@", RegexOptions.IgnoreCase)]
+    private static partial Regex ContactLabel();
+
+    /// <summary>Een e-mailadres (afzender en domein) of website (domein), bijv. info@p2-projecten.nl of www.p2-projecten.nl.</summary>
+    [GeneratedRegex(@"(?:([a-z0-9._%+\-]+)@|www\.|https?://)(?:[a-z0-9\-]+\.)*?([a-z0-9][a-z0-9\-]*[a-z0-9])\.(?:[a-z]{2,6})(?![a-z0-9\-])", RegexOptions.IgnoreCase)]
+    private static partial Regex Domein();
 
     /// <summary>Btw-nummers: Nederlandse overal in de tekst, buitenlandse (EU) na een label als "VAT" of "BTW".</summary>
     private static IEnumerable<string> BtwNummers(string hoofdletters) =>
@@ -385,19 +493,23 @@ public static partial class Factuurtekst
     [GeneratedRegex(@"(?:betalingstermijn|betaaltermijn|binnen|payment terms?)\D{0,15}([0-9]{1,3})\s*dagen", RegexOptions.IgnoreCase)]
     private static partial Regex Termijn();
 
-    [GeneratedRegex(@"(?:factuurnummer|factuurnr\.?|factuur\s*nr\.?|factuur\s*#|notanummer|nota\s*nr\.?|invoice\s*(?:number|no\.?|nr\.?|#)|creditnotanummer)", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"(?:fa[ck]tuurnummer|fa[ck]tuurnr\.?|fa[ck]tuur\s*nr\.?|fa[ck]tuur\s*#|notanummer|nota\s*nr\.?|invoice\s*(?:number|no\.?|nr\.?|#)|creditnotanummer)", RegexOptions.IgnoreCase)]
     private static partial Regex FactuurnummerLabel();
 
-    [GeneratedRegex(@"\b(?:factuurdatum|datum\s*factuur|notadatum|invoice\s*date|datum)\b\s*:?", RegexOptions.IgnoreCase)]
+    /// <summary>Alleen "Factuur" als label vooraan een regel, met erachter een waarde met cijfers ("Factuur: 2026-117").</summary>
+    [GeneratedRegex(@"^(?:fa[ck]tuur|invoice)\s*:?\s+(?=\S*[0-9])", RegexOptions.IgnoreCase)]
+    private static partial Regex KaalFactuurLabel();
+
+    [GeneratedRegex(@"\b(?:fa[ck]tuurdatum|datum\s*fa[ck]tuur|notadatum|invoice\s*date|datum)\b\s*:?", RegexOptions.IgnoreCase)]
     private static partial Regex FactuurdatumLabel();
 
     [GeneratedRegex(@"(?:vervaldatum|uiterste\s*betaaldatum|te\s*betalen\s*v[oó]{2}r|betalen\s*v[oó]{2}r|due\s*date)\s*:?", RegexOptions.IgnoreCase)]
     private static partial Regex VervaldatumLabel();
 
-    [GeneratedRegex(@"(?:totaal\s*(?:excl\.?|exclusief|ex\.?)\s*(?:btw)?|subtotaal|sub\s*total|total\s*excl\.?\s*vat|netto\s*bedrag)", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"(?:totaal\s*\(?\s*(?:excl\.?|exclusief|ex\.?)\s*(?:btw)?\)?|subtotaal|sub\s*total|total\s*\(?\s*excl\.?\s*vat\)?|netto\s*bedrag)", RegexOptions.IgnoreCase)]
     private static partial Regex ExclusiefLabel();
 
-    [GeneratedRegex(@"\b(?:totaal\s*(?:incl\.?|inclusief)\s*(?:btw)?|te\s*betalen|totaalbedrag|total\s*(?:amount|due|incl\.?\s*vat)?|totaal)(?!\s*(?:excl|exclusief|ex\b|btw\b|v[oó]{2}r))", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(?:totaal\s*\(?\s*(?:incl\.?|inclusief)\s*(?:btw)?\)?|te\s*betalen|totaalbedrag|fa[ck]tuurbedrag|total\s*\(?\s*(?:amount|due|incl\.?\s*vat)?\)?|totaal)(?!\s*\(?\s*(?:excl|exclusief|ex\b|btw\b|v[oó]{2}r))", RegexOptions.IgnoreCase)]
     private static partial Regex InclusiefLabel();
 
     [GeneratedRegex(@"(?:(?:btw|omzetbelasting|vat|b\.t\.w\.)\s*(?:hoog|laag)?\s*\(?\s*([0-9]{1,2}(?:[.,][0-9]+)?)\s*%\)?|([0-9]{1,2}(?:[.,][0-9]+)?)\s*%\s*(?:btw|vat|omzetbelasting))", RegexOptions.IgnoreCase)]

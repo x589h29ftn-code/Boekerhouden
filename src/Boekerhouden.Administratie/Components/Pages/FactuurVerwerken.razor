@@ -100,6 +100,10 @@
                         {
                             <button class="btn btn-sm btn-outline-secondary ms-auto" @onclick="Terugzetten">Terug naar Te verwerken</button>
                         }
+                        @if (context.Mag(Recht.Invoeren) && !bevestigHeropenen)
+                        {
+                            <VerwijderKnop Geboekt="verwerking.Document.Status == Documentstatus.Geboekt" Bezig="bezig" Bevestigd="Verwijderen" Klasse="@(verwerking.Document.Status == Documentstatus.Quarantaine ? "ms-auto" : null)" />
+                        }
                     </div>
                     @if (geboekteFactuur is { } g)
                     {
@@ -342,6 +346,10 @@
                                 @if (overgenomen is not null)
                                 {
                                     <span class="small text-secondary text-truncate">@overgenomen</span>
+                                }
+                                @if (context.Mag(Recht.Invoeren))
+                                {
+                                    <VerwijderKnop Bezig="bezig" Bevestigd="Verwijderen" />
                                 }
                             </div>
                         </div>
@@ -629,7 +637,10 @@
 
         viewerKoppeling = await module.InvokeAsync<IJSObjectReference>("toon", viewer, bron, DocumentId.ToString(), zelf);
         await viewerKoppeling.InvokeVoidAsync("doel", doelNaam);
-        if (externVolgen)
+
+        // Staat de factuur (van een vorig scherm) nog in een apart venster, dan toont dat venster nu dit document.
+        var documentvenster = Diensten.GetService<IDocumentvenster>();
+        if (externVolgen || (documentvenster is not null ? documentvenster.ViewerOpen : await module.InvokeAsync<bool>("externOpen")))
         {
             externVolgen = false;
             await NaarExtern();
@@ -737,10 +748,16 @@
         Factuurveld.Factuurdatum => "factuurdatum",
         Factuurveld.Vervaldatum => "vervaldatum",
         Factuurveld.Betalingskenmerk => "betalingskenmerk",
+        Factuurveld.Totaal => "bedrag",
+        Factuurveld.Exclusief => "bedrag exclusief btw",
+        Factuurveld.Btw => "btw",
         _ => "omschrijving",
     };
 
-    /// <summary>Het veld van het zoektemplate bij het gekozen doel, of leeg (bedragen en relatiegegevens niet).</summary>
+    /// <summary>
+    /// Het veld van het zoektemplate bij het gekozen doel, of leeg (relatiegegevens niet). Bedragen van een regel alleen
+    /// bij één regel: dan zijn ze het totaal exclusief btw en de btw van de factuur.
+    /// </summary>
     private Factuurveld? Templateveld => doel switch
     {
         "nummer" => Factuurveld.Factuurnummer,
@@ -748,6 +765,9 @@
         "verval" => Factuurveld.Vervaldatum,
         "kenmerk" => Factuurveld.Betalingskenmerk,
         "omschrijving" => Factuurveld.Omschrijving,
+        "totaal" => Factuurveld.Totaal,
+        "bedrag:0" when regels.Count == 1 => Factuurveld.Exclusief,
+        "btw:0" when regels.Count == 1 => Factuurveld.Btw,
         _ => null,
     };
 
@@ -1001,6 +1021,31 @@
         foreach (var r in regels)
         {
             r.BtwHandmatig = Getal(r.Btw) is { } btw && Getal(BerekendeBtw(r)) is { } berekend && btw != berekend;
+        }
+    }
+
+    /// <summary>Verwijdert het document (en draait een boeking eerst terug); daarna door naar de volgende of de lijst.</summary>
+    private async Task Verwijderen()
+    {
+        bezig = true;
+        var teVerwerken = verwerking?.Document.Status == Documentstatus.TeVerwerken;
+        var positie = Positie ?? 0;
+        var uitkomst = await Inkoop.Verwijder(geopend!.Wie, Id, DocumentId);
+        bezig = false;
+        fouten = uitkomst.Fouten;
+        if (!uitkomst.IsGelukt)
+        {
+            return;
+        }
+
+        if (teVerwerken)
+        {
+            vorigeGeboekt = $"{verwerking!.Document.Bestandsnaam} is verwijderd.";
+            await NaarVolgende(positie);
+        }
+        else
+        {
+            Navigatie.NavigateTo($"/a/{Id}/inkoop");
         }
     }
 

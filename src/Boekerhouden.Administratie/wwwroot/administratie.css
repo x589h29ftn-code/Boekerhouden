@@ -281,6 +281,15 @@
     margin: .25rem 0;
 }
 
+/* Brede (en gebogen) schermen: de app gebruikt de hele breedte; met factuur ernaast telt elke centimeter. */
+.hoofdinhoud {
+    max-width: 2400px;
+}
+
+.hoofdinhoud:has(.verwerken) {
+    max-width: none;
+}
+
 /* Verwerkscherm: het formulier links, de factuur rechts, met een versleepbare scheiding ertussen. */
 .verwerken {
     display: flex;
@@ -331,6 +340,13 @@
 body.scheiding-slepen {
     cursor: col-resize;
     user-select: none;
+}
+
+/* Heel breed scherm: de factuur krijgt de helft, zodat het formulier niet onnodig uitrekt. */
+@media (min-width: 1800px) {
+    .verwerken-viewer {
+        width: 50%;
+    }
 }
 
 /* De hoogte van de factuur: met de hoek rechtsonder te vergroten of te verkleinen. */
@@ -762,9 +778,15 @@ body.scheiding-slepen {
     table-layout: fixed;
 }
 
-.boekformulier .regeltabel th:nth-last-child(1) {
+.boekformulier:not(.geboekt) .regeltabel th:nth-last-child(1) {
     width: 1.75rem !important;
 }
+
+/* Een geboekte factuur: alleen lezen, dus geen knoppenkolom; bedragen houden hun ruimte. */
+.boekformulier.geboekt .regeltabel th:nth-child(2) { width: 32%; }
+.boekformulier.geboekt .regeltabel th:nth-child(3) { width: 14%; }
+.boekformulier.geboekt .regeltabel th:nth-child(4), .boekformulier.geboekt .regeltabel th:nth-child(5) { width: 7.5rem; }
+.boekformulier.geboekt .regeltabel td { overflow-wrap: anywhere; }
 
 .boekformulier .regeltabel input, .boekformulier .regeltabel select {
     min-width: 0;

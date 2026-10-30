@@ -443,6 +443,42 @@ public sealed class InkoopDienst(
         return Uitkomst.Gelukt;
     }
 
+    /// <summary>
+    /// Verwijdert een document. Is het geboekt, dan wordt eerst de boeking teruggedraaid (<see cref="Terugdraaien"/>):
+    /// het journaal wijzigt nooit, dus de boeking en de tegenboeking blijven er samen in staan en heffen elkaar op.
+    /// Daarna verdwijnen het document en zijn inhoud uit de administratie.
+    /// </summary>
+    public async Task<Uitkomst> Verwijder(Uitvoerder wie, Guid administratie, Guid document)
+    {
+        string? teruggedraaid = null;
+        await using (var db = await toegang.Open(wie, administratie, Recht.Invoeren))
+        {
+            if (await db.Documenten.AsNoTracking().FirstOrDefaultAsync(d => d.Id == document) is not { } d)
+            {
+                return Uitkomst.Mislukt("Dit document bestaat niet (meer).");
+            }
+
+            if (d.Status == Documentstatus.Geboekt)
+            {
+                var terug = await Terugdraaien(wie, administratie, document);
+                if (!terug.IsGelukt)
+                {
+                    return terug;
+                }
+
+                teruggedraaid = "boeking teruggedraaid";
+            }
+        }
+
+        await using var context = await toegang.Open(wie, administratie, Recht.Invoeren);
+        var weg = await context.Documenten.SingleAsync(d => d.Id == document);
+        context.DocumentInhouden.RemoveRange(await context.DocumentInhouden.Where(i => i.DocumentId == document).ToListAsync());
+        context.Documenten.Remove(weg);
+        await context.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.DocumentVerwijderd, weg.Bestandsnaam, teruggedraaid, administratie);
+        return Uitkomst.Gelukt;
+    }
+
     /// <summary>De laatste facturen van een leverancier, de nieuwste eerst, met de rekening en btw-code van toen.</summary>
     public async Task<IReadOnlyList<EerdereFactuur>> Historie(Uitvoerder wie, Guid administratie, string relatie, int aantal = 5)
     {
@@ -566,6 +602,9 @@ public sealed class InkoopDienst(
                 Factuurveld.Factuurdatum => herkend?.Factuurdatum is not null,
                 Factuurveld.Vervaldatum => herkend?.Vervaldatum is not null,
                 Factuurveld.Betalingskenmerk => herkend?.Betalingskenmerk is not null,
+                Factuurveld.Totaal => herkend?.TotaalInclusief is not null,
+                Factuurveld.Exclusief => herkend?.TotaalExclusief is not null,
+                Factuurveld.Btw => herkend?.Btwregels.Count > 0,
                 _ => herkend?.Omschrijving is not null,
             };
             var plek = bestaand.FirstOrDefault(z => z.Veld == aanwijzing.Veld);

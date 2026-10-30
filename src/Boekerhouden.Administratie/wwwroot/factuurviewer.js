@@ -66,7 +66,7 @@ class Viewer {
             this.vlak.append(vak);
             const item = { nummer: n, pagina, vak, canvas, viewport: null };
             this.paginas.push(item);
-            this.selecteerbaar(item);
+            if (this.opties.opGebied) this.selecteerbaar(item);
         }
         await this.teken();
         this.waarneming.observe(this.vlak);
@@ -176,6 +176,22 @@ class Viewer {
 
 const kanaal = (id) => new BroadcastChannel(`factuur-${id}`);
 
+// Het externe venster van het verwerkscherm. De module blijft bestaan zolang de app open is, dus ook een volgende
+// factuur (een nieuw scherm) weet dat het venster er nog is en toont daar zijn eigen document.
+let externVenster = null;
+
+/** Staat de factuurviewer in een apart venster (en is dat venster nog open)? */
+export function externOpen() {
+    return externVenster !== null && !externVenster.closed;
+}
+
+/** Alleen bekijken (bijv. bij een boeking): geen gebied aanwijzen, geen apart venster. */
+export async function bekijk(container, bron) {
+    const viewer = new Viewer(container, bron, {});
+    await viewer.laad();
+    return { sluit: () => viewer.waarneming.disconnect() };
+}
+
 /** De viewer op het verwerkscherm; een gebied gaat naar .NET (Gebied), ook als het in het externe venster is aangewezen. */
 export async function toon(container, bron, id, dotnet) {
     const verbinding = kanaal(id);
@@ -201,7 +217,10 @@ export async function toon(container, bron, id, dotnet) {
             verbinding.postMessage({ soort: 'markeer', plekken });
         },
         // Eén vast venster: bij de volgende factuur toont hetzelfde venster het nieuwe document.
-        extern: (adres) => window.open(adres, 'factuurviewer', 'popup,width=900,height=1100'),
+        extern: (adres) => {
+            if (externOpen()) externVenster.location.replace(adres);
+            else externVenster = window.open(adres, 'factuurviewer', 'popup,width=900,height=1100');
+        },
         sluit: () => verbinding.close(),
     };
 }

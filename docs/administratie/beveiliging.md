@@ -64,7 +64,7 @@ rapport later vooral een kwestie van laten toetsen.
 |---|---|
 | **AVG** | Bij het voeren van de administratie van een klant is het kantoor meestal **verwerker** en de ondernemer **verwerkingsverantwoordelijke**, dus een verwerkersovereenkomst per klant. Verder: verwerkingsregister, dataminimalisatie (geen BSN, geen kopie-ID), beveiliging "passend bij het risico" (art. 32), en een **datalek binnen 72 uur melden** bij de Autoriteit Persoonsgegevens (art. 33) |
 | **Fiscale bewaarplicht** (art. 52 AWR) | **7 jaar** bewaren, in een vorm die binnen redelijke tijd te controleren is. Boekingen mogen daarom niet ongemerkt veranderen, en de administratie moet te exporteren zijn (XAF-auditfile) |
-| **Btw-aftrek** | Alleen met een factuur **op naam van de onderneming**, met de verplichte gegevens. Het pakket signaleert een factuur op een andere naam (zie §5.4) |
+| **Btw-aftrek** | Alleen met een factuur **op naam van de onderneming**, met de verplichte gegevens. Het pakket gaat na of de naam van de onderneming op de factuur staat (`OpEigenNaam`), maar houdt automatisch verwerken daarom niet tegen: de naam op de factuur wijkt in de praktijk vaak af (handelsnaam, afkorting) zonder dat er iets mis is (besluit gebruiker, oktober 2026) |
 | **Wwft en de NVKS** (kantoor) | De beroepsregels van het kantoor: toegangsbeheer, vertrouwelijkheid en dossiervorming. Dezelfde maatregelen dekken dit |
 | **NIS2 / Cyberbeveiligingswet** | Niet van toepassing op een kantoor van deze omvang. Gebruik het wel als checklist |
 
@@ -142,7 +142,7 @@ Bij gangbare pakketten zijn dit de signalen die het meeste schade voorkomen:
 | **Afwijkend IBAN**: een bekende leverancier (herkend op btw-nummer, KvK of naam) met een ander IBAN op de factuur wordt nooit automatisch verwerkt. De melding vraagt om navraag via een bekend telefoonnummer (`Inkoopverwerker`) | ✅ |
 | **Dubbele factuur**: zelfde leverancier en factuurnummer (ongeacht leestekens), of zelfde datum en bedrag | ✅ |
 | **Onbekende leverancier**: wordt nooit automatisch verwerkt. De gebruiker bevestigt eerst de nieuwe relatie | ✅ |
-| **Niet op naam van de onderneming**: wordt niet automatisch verwerkt, met de melding dat de btw dan niet aftrekbaar is | ✅ |
+| **Niet op naam van de onderneming**: geen belemmering voor automatisch verwerken (zie hierboven) | ✅ |
 | **Bedraglimiet voor automatisch verwerken** (B2): standaard **geen** limiet. Per administratie is er een limiet in te stellen; daarboven bevestigt altijd een mens | ✅ |
 | **IBAN van een relatie wijzigen**: alleen met opnieuw bevestigen (wachtwoord), met oud en nieuw IBAN in het log. Een melding aan de andere gebruikers van de administratie, en online vier ogen | ✅ bevestigen en log, F2 melding en vier ogen |
 | **Afwijkend bedrag**: na minstens drie facturen van een leverancier is een bedrag van meer dan twee keer het hoogste eerdere bedrag een signaal in Te verwerken | ✅ |
@@ -290,7 +290,6 @@ het moment waarop een klant of accountant erom vraagt.
    - afwijkend IBAN bij een bekende leverancier;
    - dubbele factuur;
    - onbekende leverancier;
-   - factuur niet op naam van de onderneming;
    - bedrag boven de limiet (als die is ingesteld);
    - gesloten periode.
 

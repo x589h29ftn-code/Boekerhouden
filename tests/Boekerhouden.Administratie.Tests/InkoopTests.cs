@@ -356,6 +356,35 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
     }
 
     [Fact]
+    public async Task Verwijderen_haalt_het_document_weg_en_draait_een_boeking_eerst_terug()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var inkoop = app.Dienst<InkoopDienst>();
+        var open = (await inkoop.Lees(wie, id, new MemoryStream(Belnet("V-1")), "v1.xml", null)).DocumentId!.Value;
+        var geboekt = (await inkoop.Lees(wie, id, new MemoryStream(Belnet("V-2", "2026-04-02")), "v2.xml", null)).DocumentId!.Value;
+        Assert.True((await inkoop.Boek(wie, id, geboekt, Invoer(null, new NieuweRelatie("Belnet B.V.", null, null, null), "V-2"))).IsGelukt);
+        var inzien = await app.Gebruiker("InzienVerwijderen");
+        await app.Dienst<AdministratieDienst>().ZetLid(id, inzien.Id!.Value, Lidmaatschapsrol.Inzien, wie);
+        await Assert.ThrowsAsync<GeenToegangException>(() => inkoop.Verwijder(inzien, id, open));
+
+        Assert.True((await inkoop.Verwijder(wie, id, open)).IsGelukt);
+        var uitkomst = await inkoop.Verwijder(wie, id, geboekt);
+
+        Assert.True(uitkomst.IsGelukt, string.Join("; ", uitkomst.Fouten));
+        Assert.Empty(await inkoop.Lijst(wie, id));
+        Assert.Null(await inkoop.Inhoud(wie, id, geboekt));
+        var grootboek = app.Dienst<GrootboekDienst>();
+        Assert.Equal(0m, Saldo(await grootboek.Proefbalans(wie, id, 2026), "1600"));
+        Assert.Equal(2, (await grootboek.Posten(wie, id, "INK")).Count);
+        Assert.Empty(await grootboek.ControleerKeten(wie, id));
+        Assert.False((await inkoop.Verwijder(wie, id, geboekt)).IsGelukt);
+
+        // Hetzelfde bestand kan daarna gewoon opnieuw worden ingelezen.
+        Assert.NotNull((await inkoop.Lees(wie, id, new MemoryStream(Belnet("V-1")), "v1.xml", null)).DocumentId);
+    }
+
+    [Fact]
     public async Task Heropenen_geeft_wat_er_geboekt_was_en_draait_de_boeking_terug()
     {
         var wie = await app.Beheerder();
@@ -439,6 +468,8 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
         await Assert.ThrowsAsync<GeenToegangException>(() => inkoop.Terugdraaien(inzien, id, gelezen.DocumentId.Value));
         await Assert.ThrowsAsync<GeenToegangException>(() => inkoop.Archiveer(inzien, id, gelezen.DocumentId.Value, Documentsoort.Prive, null));
         await Assert.ThrowsAsync<GeenToegangException>(() => inkoop.Terugzetten(inzien, id, gelezen.DocumentId.Value));
+        Assert.Contains("al (deels) betaald", Assert.Single((await inkoop.Verwijder(wie, id, gelezen.DocumentId.Value)).Fouten), StringComparison.Ordinal);
+        Assert.NotNull(await inkoop.Geboekt(wie, id, gelezen.DocumentId.Value));
     }
 
     private static decimal Saldo(Boekhouding.Grootboek.Proefbalans proef, string rekening) =>

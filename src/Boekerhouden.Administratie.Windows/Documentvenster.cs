@@ -33,6 +33,8 @@ internal sealed class Documentvenster(InkoopDienst inkoop, IServiceProvider dien
 
     private ViewerVenster? open;
 
+    public bool ViewerOpen => open is { IsDisposed: false };
+
     /// <summary>Eén viewervenster: bij de volgende factuur komt het nieuwe document op dezelfde plek.</summary>
     public void OpenViewer(Guid administratie, Guid document, string titel, Action gesloten)
     {

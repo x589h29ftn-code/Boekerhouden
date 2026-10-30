@@ -15,9 +15,11 @@
         }
         else if (detail is { Boeking: var b })
         {
-            <div class="d-flex align-items-center gap-2 mb-2">
-                <span class="fw-semibold">@b.Post.Dagboek @b.Post.Boekstuk</span>
-                <span class="text-secondary">@Weergave.Datum(b.Post.Datum)</span>
+            <div class="verwerken">
+            <div class="verwerken-formulier">
+            <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+                <span class="fw-semibold text-nowrap">@b.Post.Dagboek @b.Post.Boekstuk</span>
+                <span class="text-secondary text-nowrap">@Weergave.Datum(b.Post.Datum)</span>
                 <span class="ms-2">@b.Post.Omschrijving</span>
                 <span class="small text-secondary ms-auto" title="Volgnummer @b.Volgnummer in de keten">geboekt door @b.GeboektDoor, @Weergave.DatumTijd(b.GeboektOp)</span>
             </div>
@@ -49,6 +51,12 @@
                     </tfoot>
                 </table>
             </div>
+            </div>
+            @if (detail.Document is { } document && wie is not null)
+            {
+                <Factuurbeeld @key="document" Wie="wie" Administratie="Id" Document="document" />
+            }
+            </div>
         }
     </ChildContent>
 </AdministratieKader>
@@ -56,6 +64,7 @@
 @code {
     private bool geladen;
     private Boekingsdetail? detail;
+    private Uitvoerder? wie;
     private Boekhouding.Grootboek.Rekeningschema? schema;
 
     [Parameter]
@@ -69,6 +78,7 @@
 
     private async Task Open(Geopend g)
     {
+        wie = g.Wie;
         detail = await Grootboek.Boeking(g.Wie, Id, Dagboek, Boekstuk);
         schema = await Grootboek.Schema(g.Wie, Id);
         geladen = true;

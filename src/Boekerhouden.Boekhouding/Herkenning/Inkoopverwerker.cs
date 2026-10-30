@@ -90,10 +90,8 @@ public static class Inkoopverwerker
             belemmeringen.Add($"Het bedrag is hoger dan de limiet voor automatisch verwerken ({Domain.Bedragen.Euro(limiet)}).");
         }
 
-        if (herkend.OpEigenNaam is false)
-        {
-            belemmeringen.Add("De factuur staat niet op naam van de onderneming; zonder dat is de btw niet aftrekbaar.");
-        }
+        // Of de factuur op naam van de onderneming staat, houdt automatisch verwerken niet tegen: de naam op de factuur
+        // wijkt in de praktijk vaak af (handelsnaam, ander kantoor, afkorting) zonder dat er iets mis is.
 
         if (herkend.Factuurdatum is { } datum && periodeOpen is not null && !periodeOpen(datum))
         {

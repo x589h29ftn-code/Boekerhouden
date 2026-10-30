@@ -255,12 +255,11 @@ public sealed class InkoopverwerkerTests
     }
 
     [Fact]
-    public void Factuur_niet_op_naam_van_de_onderneming_wordt_niet_automatisch_verwerkt()
+    public void Factuur_niet_op_naam_van_de_onderneming_houdt_automatisch_verwerken_niet_tegen()
     {
         var voorstel = Inkoopverwerker.Verwerk(Ubl() with { OpEigenNaam = false }, Relaties, [Telefoon], new Leergeheugen(), Testadministratie.Btw, []);
 
-        Assert.False(voorstel.Automatisch);
-        Assert.Contains("De factuur staat niet op naam van de onderneming; zonder dat is de btw niet aftrekbaar.", voorstel.Belemmeringen);
+        Assert.DoesNotContain(voorstel.Belemmeringen, b => b.Contains("op naam", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -427,5 +426,104 @@ public sealed class BtwVormenTests
         var factuur = Factuurtekst.Analyseer("Fotografie Lens\nFactuur nr. 2026/0042\nFactuurdatum: 15-4-26\nProductfoto's website    €350,00\nTotaal €350,00");
 
         Assert.Equal(("Productfoto's website", "2026/0042", new DateOnly(2026, 4, 15)), (factuur.Omschrijving, factuur.Factuurnummer, factuur.Factuurdatum!.Value));
+    }
+}
+
+/// <summary>
+/// Facturen met een ongewone opmaak (verzonnen): een specificatie met eigen "totalen" op een volgende pagina, een naam
+/// die alleen in het logo staat, en een geadresseerde met rechtsvorm boven "t.a.v.".
+/// </summary>
+public sealed class SpecificatieEnLogoTests
+{
+    private const string MetSpecificatie = """
+        Tel:       +31 30 000 0000
+        Kantoor Voorbeeld                                   IBAN:  NL91 ABNA 0417 1643 00
+        Dorpsstraat 7                                        BTW:   NL800000006B01
+        8601 AB Sneek
+        FACTUUR
+        Factuurnummer:  202617576
+        Factuurdatum:   01-10-2026
+        Vervaldatum:    15-10-2026
+        Betreft:        Verleende diensten in periode 01-09-2026 t/m 30-09-2026
+        Omschrijving                    Aantal     Prijs     Bedrag
+        Standaard abonnement               1      € 10,00    € 10,00
+        Administraties extra              15       € 3,15    € 47,25
+        Gebruikers extra                  23       € 1,65    € 37,95
+        Documenten                       256       € 0,18    € 46,08
+        Totaal (excl. BTW)                                   €141,28
+        BTW 21 %                                              €29,67
+        Totaal (incl. BTW)                                   €170,95
+        Softwarehuis Delta B.V. · Havenstraat 10 · 3811 AB Amersfoort
+        SPECIFICATIE Kantoor Voorbeeld
+        Administraties                               Prijs     Totaal
+        1      Administraties inbegrepen            € 0,00     € 0,00
+        15     Administraties extra                 € 3,15    € 47,25
+        Documenten per administratie                 Prijs     Totaal
+        22     Documenten                           € 0,18     € 3,96
+        """;
+
+    [Fact]
+    public void Totalen_van_de_factuur_en_niet_van_de_specificatie_op_de_volgende_pagina()
+    {
+        var factuur = Factuurtekst.Analyseer(MetSpecificatie, eigenNamen: ["Kantoor Voorbeeld"]);
+
+        Assert.Equal((141.28m, 170.95m, 29.67m), (factuur.TotaalExclusief, factuur.TotaalInclusief, factuur.TotaalBtw));
+        Assert.Equal("Softwarehuis Delta B.V.", factuur.Naam);
+        Assert.Empty(factuur.Controleer());
+    }
+
+    private const string NaamInLogo = """
+        Van Sminialaan 2 – 8731 BE Wommels
+        Telefoon 0612-345678
+        Mail info@q4-adviseurs.nl
+        KvK 01180433
+        NL22 RABO 0119 9157 15
+        BTW NL001145148B88
+        Faktuur
+        Markt Voorbeeld B.V.
+        t.a.v. de heren J. Jansen en P. Pietersen
+        jan@marktvoorbeeld.nl
+        Faktuur          2026-10-01
+        Datum:           28 oktober 2026
+        Betreft:         Overeenkomst van opdracht
+        Hiermee declareren wij de in de maand oktober gemaakte kosten.
+        Zie onderstaande     €     454,79     Excl. BTW
+        BTW 21%                     95,51
+        Faktuurbedrag        €     550,30     Incl. BTW
+        Wij verzoeken u vriendelijk uw betaling binnen 14 dagen te voldoen.
+        """;
+
+    [Fact]
+    public void Naam_alleen_in_het_logo_komt_uit_het_domein_en_de_geadresseerde_is_geen_leverancier()
+    {
+        var factuur = Factuurtekst.Analyseer(NaamInLogo);
+
+        Assert.Equal("Q4 Adviseurs", factuur.Naam);
+        Assert.Equal("2026-10-01", factuur.Factuurnummer);
+        Assert.Equal(new DateOnly(2026, 10, 28), factuur.Factuurdatum);
+        Assert.Equal((454.79m, 550.30m), (factuur.TotaalExclusief, factuur.TotaalInclusief));
+    }
+
+    [Fact]
+    public void Naam_uit_het_domein_als_tekst_in_de_voettekst()
+    {
+        var tekst = NaamInLogo + "\nQ4 Adviseurs   ·   Van Sminialaan 2   ·   www.q4-adviseurs.nl";
+
+        Assert.Equal("Q4 Adviseurs", Factuurtekst.Analyseer(tekst).Naam);
+    }
+
+    [Theory]
+    [InlineData("Postbus 30, 8600 AD Sneek\nTotaal 10,00", null)]
+    [InlineData("Postbus 30\nE-mail facturen@gmail.com\nTotaal 10,00", null)]
+    [InlineData("Postbus 30\nE-mail administratie@bouw-en-zo.nl\nTotaal 10,00", "Bouw En Zo")]
+    public void Postbus_en_maildienst_zijn_geen_naam(string tekst, string? naam) =>
+        Assert.Equal(naam, Factuurtekst.Analyseer(tekst).Naam);
+
+    [Fact]
+    public void Eigen_domein_is_geen_leverancier()
+    {
+        var tekst = "Mail jan@marktvoorbeeld.nl\nTotaal 10,00";
+
+        Assert.Null(Factuurtekst.Analyseer(tekst, eigenNamen: ["Markt Voorbeeld B.V."]).Naam);
     }
 }
