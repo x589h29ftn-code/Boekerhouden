@@ -1,6 +1,7 @@
 @page "/a/{Id:guid}/kolommenbalans"
 @using Boekerhouden.Boekhouding.Grootboek
 @inject GrootboekDienst Grootboek
+@inject KantoorDienst Kantoor
 @inject NavigationManager Navigatie
 
 <AdministratieKader Id="Id" Titel="Kolommenbalans" Actief="/kolommenbalans" BijOpenen="Open">
@@ -27,7 +28,7 @@
         else if (!perMaand && koba is not null)
         {
             <div class="card overzichtskaart">
-                <table class="table align-middle mb-0 overzichtstabel kolommenbalans">
+                <table class="table align-middle mb-0 overzichtstabel kolommenbalans" style="@Letter">
                     <thead>
                         <tr>
                             <th>Grootboek</th>
@@ -44,10 +45,10 @@
                             {
                                 <tr class="klikbaar" title="@r.Rekening.RgsCode" @onclick="() => NaarKaart(r.Rekening.Nummer, van, tot)">
                                     <td class="@(uitgebreid ? "ingesprongen" : null)"><span class="rekeningnummer">@r.Rekening.Nummer</span> @r.Rekening.Naam</td>
-                                    <td class="bedrag text-end">@Getal(r.WinstEnVerliesDebet)</td>
-                                    <td class="bedrag text-end">@Getal(r.WinstEnVerliesCredit)</td>
-                                    <td class="bedrag text-end">@Getal(r.BalansDebet)</td>
-                                    <td class="bedrag text-end">@Getal(r.BalansCredit)</td>
+                                    @for (var k = 0; k < 4; k++)
+                                    {
+                                        <td class="bedrag text-end">@Getal(W(r.Rekening, k))</td>
+                                    }
                                 </tr>
                             }
                             else if (p.Soort == Presentatiesoort.Kop)
@@ -58,10 +59,11 @@
                             {
                                 <tr class="indeling-subtotaal niveau-@p.Niveau">
                                     <td>@p.Tekst</td>
-                                    <td class="bedrag text-end">@Getal(p.Onder.Sum(x => x.WinstEnVerliesDebet))</td>
-                                    <td class="bedrag text-end">@Getal(p.Onder.Sum(x => x.WinstEnVerliesCredit))</td>
-                                    <td class="bedrag text-end">@Getal(p.Onder.Sum(x => x.BalansDebet))</td>
-                                    <td class="bedrag text-end">@Getal(p.Onder.Sum(x => x.BalansCredit))</td>
+                                    @for (var k = 0; k < 4; k++)
+                                    {
+                                        var kolom = k;
+                                        <td class="bedrag text-end">@Getal(p.Onder.Sum(x => W(x.Rekening, kolom)))</td>
+                                    }
                                 </tr>
                             }
                         }
@@ -69,24 +71,24 @@
                     <tfoot>
                         <tr>
                             <td>Totaal</td>
-                            <td class="bedrag text-end">@Bedragen.Getal(koba.WinstEnVerliesDebet)</td>
-                            <td class="bedrag text-end">@Bedragen.Getal(koba.WinstEnVerliesCredit)</td>
-                            <td class="bedrag text-end">@Bedragen.Getal(koba.BalansDebet)</td>
-                            <td class="bedrag text-end">@Bedragen.Getal(koba.BalansCredit)</td>
+                            @for (var k = 0; k < 4; k++)
+                            {
+                                <td class="bedrag text-end">@Bedrag(Kolomtotaal(k))</td>
+                            }
                         </tr>
                         <tr>
                             <td>Resultaat</td>
-                            <td class="bedrag text-end">@Bedragen.Getal(Math.Max(koba.Resultaat, 0))</td>
-                            <td class="bedrag text-end">@Bedragen.Getal(Math.Max(-koba.Resultaat, 0))</td>
-                            <td class="bedrag text-end">@Bedragen.Getal(Math.Max(-koba.Resultaat, 0))</td>
-                            <td class="bedrag text-end">@Bedragen.Getal(Math.Max(koba.Resultaat, 0))</td>
+                            <td class="bedrag text-end">@Bedrag(Math.Max(Resultaat, 0))</td>
+                            <td class="bedrag text-end">@Bedrag(Math.Max(-Resultaat, 0))</td>
+                            <td class="bedrag text-end">@Bedrag(Math.Max(-Resultaat, 0))</td>
+                            <td class="bedrag text-end">@Bedrag(Math.Max(Resultaat, 0))</td>
                         </tr>
                         <tr class="generaal">
                             <td>Totaal generaal</td>
-                            <td class="bedrag text-end">@Bedragen.Getal(koba.WinstEnVerliesDebet + Math.Max(koba.Resultaat, 0))</td>
-                            <td class="bedrag text-end">@Bedragen.Getal(koba.WinstEnVerliesCredit + Math.Max(-koba.Resultaat, 0))</td>
-                            <td class="bedrag text-end">@Bedragen.Getal(koba.BalansDebet + Math.Max(-koba.Resultaat, 0))</td>
-                            <td class="bedrag text-end">@Bedragen.Getal(koba.BalansCredit + Math.Max(koba.Resultaat, 0))</td>
+                            <td class="bedrag text-end">@Bedrag(Kolomtotaal(0) + Math.Max(Resultaat, 0))</td>
+                            <td class="bedrag text-end">@Bedrag(Kolomtotaal(1) + Math.Max(-Resultaat, 0))</td>
+                            <td class="bedrag text-end">@Bedrag(Kolomtotaal(2) + Math.Max(-Resultaat, 0))</td>
+                            <td class="bedrag text-end">@Bedrag(Kolomtotaal(3) + Math.Max(Resultaat, 0))</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -95,16 +97,16 @@
         else if (perMaand && maanden is not null)
         {
             <div class="card overzichtskaart maandoverzicht-kaart">
-                <table class="table align-middle mb-0 overzichtstabel maandoverzicht">
+                <table class="table align-middle mb-0 overzichtstabel maandoverzicht" style="@Letter">
                     <thead>
                         <tr>
                             <th>Grootboek</th>
-                            <th class="text-end">Begin</th>
+                            <th class="text-end">Beginbalans</th>
                             @foreach (var m in maanden.Maanden)
                             {
                                 <th class="text-end">@m.ToString("MMM yy", Nederlands)</th>
                             }
-                            <th class="text-end">Eind</th>
+                            <th class="text-end">Eindbalans</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -114,13 +116,13 @@
                             {
                                 <tr title="@r.Rekening.RgsCode">
                                     <td class="klikbaar @(uitgebreid ? "ingesprongen" : null)" @onclick="() => NaarKaart(r.Rekening.Nummer, van, tot)"><span class="rekeningnummer">@r.Rekening.Nummer</span> @r.Rekening.Naam</td>
-                                    <td class="bedrag text-end text-secondary">@Getal(r.Begin)</td>
+                                    <td class="bedrag text-end text-secondary">@Getal(W(r.Rekening, 0))</td>
                                     @for (var i = 0; i < maanden.Maanden.Count; i++)
                                     {
                                         var n = i;
-                                        <td class="bedrag text-end klikbaar" title="@r.Rekening.Naam, @maanden.Maanden[n].ToString("MMMM yyyy", Nederlands)" @onclick="() => NaarMaand(r.Rekening.Nummer, n)">@Getal(r.PerMaand[n])</td>
+                                        <td class="bedrag text-end klikbaar" title="@r.Rekening.Naam, @maanden.Maanden[n].ToString("MMMM yyyy", Nederlands)" @onclick="() => NaarMaand(r.Rekening.Nummer, n)">@Getal(W(r.Rekening, n + 1))</td>
                                     }
-                                    <td class="bedrag text-end fw-semibold">@Getal(r.Eind)</td>
+                                    <td class="bedrag text-end fw-semibold">@Getal(W(r.Rekening, maanden.Maanden.Count + 1))</td>
                                 </tr>
                             }
                             else if (p.Soort == Presentatiesoort.Kop)
@@ -131,13 +133,11 @@
                             {
                                 <tr class="indeling-subtotaal niveau-@p.Niveau">
                                     <td>@p.Tekst</td>
-                                    <td class="bedrag text-end">@Getal(p.Onder.Sum(x => x.Begin))</td>
-                                    @for (var i = 0; i < maanden.Maanden.Count; i++)
+                                    @for (var k = 0; k < maanden.Maanden.Count + 2; k++)
                                     {
-                                        var n = i;
-                                        <td class="bedrag text-end">@Getal(p.Onder.Sum(x => x.PerMaand[n]))</td>
+                                        var kolom = k;
+                                        <td class="bedrag text-end">@Getal(p.Onder.Sum(x => W(x.Rekening, kolom)))</td>
                                     }
-                                    <td class="bedrag text-end">@Getal(p.Onder.Sum(x => x.Eind))</td>
                                 </tr>
                             }
                         }
@@ -146,11 +146,11 @@
                         <tr class="generaal">
                             <td title="Winst positief">Resultaat</td>
                             <td></td>
-                            @foreach (var resultaat in maanden.ResultaatPerMaand)
+                            @for (var k = 1; k <= maanden.Maanden.Count + 1; k++)
                             {
-                                <td class="bedrag text-end">@Getal(resultaat)</td>
+                                var kolom = k;
+                                <td class="bedrag text-end">@Getal(-maanden.Regels.Where(r => !r.Rekening.IsBalans).Sum(r => W(r.Rekening, kolom)))</td>
                             }
-                            <td class="bedrag text-end">@Bedragen.Getal(maanden.ResultaatPerMaand.Sum())</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -171,6 +171,10 @@
     private string? melding;
     private Boekhouding.Grootboek.Kolommenbalans? koba;
     private Maandoverzicht? maanden;
+    private Overzichtsweergave weergave = Overzichtsweergave.Standaard;
+
+    /// <summary>Per rekening de bedragen per kolom zoals getoond: exact, of per kolom afgerond op hele euro's zodat de totalen sluiten.</summary>
+    private Dictionary<string, decimal[]> waarden = new(StringComparer.Ordinal);
 
     [Parameter]
     public Guid Id { get; set; }
@@ -194,6 +198,7 @@
         geopend = g;
         (van, tot) = Weergave.Periode(VanTekst, TotTekst) ?? Periode.Jaar((await Grootboek.Boekjaren(g.Wie, Id))[0]);
         (uitgebreid, perMaand) = (Indeling == "rgs", WeergaveKeuze == "maand");
+        weergave = await Kantoor.Weergave();
         await Laad();
     }
 
@@ -203,12 +208,14 @@
         if (!perMaand)
         {
             koba = await Grootboek.Kolommenbalans(geopend!.Wie, Id, van, tot);
+            Bereken(koba.Regels.Select(r => (r.Rekening, new[] { r.WinstEnVerliesDebet, r.WinstEnVerliesCredit, r.BalansDebet, r.BalansCredit })));
             return;
         }
 
         try
         {
             maanden = await Grootboek.Maandoverzicht(geopend!.Wie, Id, van, tot);
+            Bereken(maanden.Regels.Select(r => (r.Rekening, (decimal[])[r.Begin, .. r.PerMaand, r.Eind])));
         }
         catch (ArgumentException)
         {
@@ -243,7 +250,37 @@
         NaarKaart(rekening, maandVan, maandTot);
     }
 
-    private static string? Getal(decimal bedrag) => bedrag == 0 ? null : Bedragen.Getal(bedrag);
+    private string Letter => $"font-size: {weergave.Lettergrootte * 0.95m / 100:0.###}rem".Replace(',', '.');
+
+    private void Bereken(IEnumerable<(Rekening Rekening, decimal[] Kolommen)> regels)
+    {
+        var lijst = regels.ToList();
+        waarden = lijst.ToDictionary(r => r.Rekening.Nummer, r => r.Kolommen.ToArray(), StringComparer.Ordinal);
+        if (!weergave.HeleEuros || lijst.Count == 0)
+        {
+            return;
+        }
+
+        for (var k = 0; k < lijst[0].Kolommen.Length; k++)
+        {
+            var kolom = k;
+            foreach (var (nummer, bedrag) in Afronding.OpHeleEuros(lijst.Select(r => KeyValuePair.Create(r.Rekening.Nummer, r.Kolommen[kolom]))))
+            {
+                waarden[nummer][kolom] = bedrag;
+            }
+        }
+    }
+
+    private decimal W(Rekening rekening, int kolom) => waarden.TryGetValue(rekening.Nummer, out var k) ? k[kolom] : 0m;
+
+    private decimal Kolomtotaal(int kolom) => koba!.Regels.Sum(r => W(r.Rekening, kolom));
+
+    /// <summary>Het resultaat zoals getoond: credit min debet in de W&amp;V-kolommen.</summary>
+    private decimal Resultaat => Kolomtotaal(1) - Kolomtotaal(0);
+
+    private string Bedrag(decimal bedrag) => weergave.HeleEuros ? Bedragen.Heel(bedrag) : Bedragen.Getal(bedrag);
+
+    private string? Getal(decimal bedrag) => bedrag == 0 ? null : Bedrag(bedrag);
 
     private enum Presentatiesoort
     {

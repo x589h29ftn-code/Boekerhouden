@@ -37,14 +37,36 @@ public static class Rekeningindeling
         ["WAfs"] = "Afschrijvingen",
     };
 
+    /// <summary>
+    /// De overige bedrijfskosten apart per soort (RGS niveau 3), onder de tussenkop "Overige bedrijfskosten"; wat daar
+    /// niet onder valt, komt bij "Andere bedrijfskosten".
+    /// </summary>
+    private static readonly (string Code, string Naam)[] Bedrijfskosten =
+    [
+        ("WBedHui", "Huisvestingskosten"),
+        ("WBedEem", "Exploitatie- en machinekosten"),
+        ("WBedVkk", "Verkoopkosten"),
+        ("WBedAut", "Autokosten"),
+        ("WBedKan", "Kantoorkosten"),
+        ("WBedAss", "Assurantiekosten"),
+        ("WBedAea", "Accountants- en advieskosten"),
+        ("WBedAlk", "Algemene kosten"),
+    ];
+
+    private const string OverigeBedrijfskosten = "WBed";
+
     private static readonly List<Indelingsgroep> Groepen =
     [
-        .. RgsHoofdposten.Posten.Select((p, i) => new Indelingsgroep(
-            i,
-            p.Code[0] == 'W' ? WinstEnVerlies : p.Kant == Saldokant.Debet ? Activa : Passiva,
-            Tussenkoppen.GetValueOrDefault(p.Code),
-            p.Code,
-            Namen.GetValueOrDefault(p.Code) ?? p.Naam)),
+        .. RgsHoofdposten.Posten
+            .SelectMany(p => p.Code == OverigeBedrijfskosten
+                ? [.. Bedrijfskosten.Select(b => (b.Code, b.Naam, p.Kant)), (p.Code, "Andere bedrijfskosten", p.Kant)]
+                : new[] { (p.Code, Naam: Namen.GetValueOrDefault(p.Code) ?? p.Naam, p.Kant) })
+            .Select((p, i) => new Indelingsgroep(
+                i,
+                p.Code[0] == 'W' ? WinstEnVerlies : p.Kant == Saldokant.Debet ? Activa : Passiva,
+                p.Code.StartsWith(OverigeBedrijfskosten, StringComparison.Ordinal) ? "Overige bedrijfskosten" : Tussenkoppen.GetValueOrDefault(p.Code),
+                p.Code,
+                p.Naam)),
     ];
 
     private static readonly Indelingsgroep NietIngedeeldBalans = new(Groepen.Count(g => g.Sectie != WinstEnVerlies), Passiva, null, "B?", "Niet ingedeeld (balans)");

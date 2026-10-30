@@ -474,6 +474,12 @@ public sealed class Kantoorinstellingen
 
     public string? Documentmap { get; set; }
 
+    /// <summary>Lettergrootte van de overzichten (kolommenbalans) in procenten; 100 = normaal.</summary>
+    public int OverzichtLetter { get; set; } = 100;
+
+    /// <summary>Bedragen in de overzichten afgerond op hele euro's (1.200 in plaats van 1.200,45).</summary>
+    public bool OverzichtHeleEuros { get; set; }
+
     public Boekhouding.Regels.Verwerkingsinstellingen NaarDomein() =>
         new(DrempelAutomatisch, Bandbreedte, LimietAutomatisch, Betalingstermijn, Adrescontrole, Documentmap);
 }

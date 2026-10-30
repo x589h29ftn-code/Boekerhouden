@@ -1030,6 +1030,14 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasPrecision(18, 2)
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("OverzichtHeleEuros")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("OverzichtLetter")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(100);
+
                     b.HasKey("Id");
 
                     b.ToTable("Kantoorinstellingen", (string)null);

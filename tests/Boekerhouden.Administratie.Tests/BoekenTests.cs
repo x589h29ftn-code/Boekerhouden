@@ -225,7 +225,7 @@ public sealed class BoekenTests(AdministratieFixture app) : IClassFixture<Admini
         Assert.True((await grootboek.WijzigRekening(wie, id, "4390", "Diverse kosten", "WBedKanKan", "I21")).IsGelukt);
 
         var rekening = (await grootboek.Schema(wie, id)).Zoek("4390")!;
-        Assert.Equal(("Diverse kosten", "WBedKanKan", "I21", "Overige bedrijfskosten"), (rekening.Naam, rekening.RgsCode, rekening.BtwCode, Rekeningindeling.Groep(rekening).Naam));
+        Assert.Equal(("Diverse kosten", "WBedKanKan", "I21", "Kantoorkosten"), (rekening.Naam, rekening.RgsCode, rekening.BtwCode, Rekeningindeling.Groep(rekening).Naam));
         Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.RekeningGewijzigd && r.Onderwerp == "4390"
             && r.Details == "Diversen; -; btw variabel → Diverse kosten; WBedKanKan; btw I21");
         Assert.Contains("resultaatrekening", (await grootboek.WijzigRekening(wie, id, "4390", "X", "BLimBanRba", null)).Fouten[0], StringComparison.Ordinal);

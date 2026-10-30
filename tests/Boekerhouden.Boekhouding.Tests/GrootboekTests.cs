@@ -198,14 +198,15 @@ public sealed class JournaalTests
         Assert.Equal(("Activa", "Vlottende activa", "Liquide middelen"), Indeling(schema, "1100"));
         Assert.Equal(("Passiva", null, "Eigen vermogen"), Indeling(schema, "0500"));
         Assert.Equal(("Passiva", null, "Kortlopende schulden"), Indeling(schema, "1600"));
-        Assert.Equal(("Winst- en verliesrekening", null, "Overige bedrijfskosten"), Indeling(schema, "4200"));
+        Assert.Equal(("Winst- en verliesrekening", "Overige bedrijfskosten", "Kantoorkosten"), Indeling(schema, "4200"));
         Assert.Equal(("Passiva", null, "Niet ingedeeld (balans)"), Indeling(schema, "2000"));
         Assert.Equal(("Winst- en verliesrekening", null, "Niet ingedeeld (W&V)"), Indeling(schema, "8100"));
 
         var groepen = Rekeningindeling.Deel(schema.Alle, r => r);
         Assert.Equal(["Materiële vaste activa", "Vorderingen", "Liquide middelen", "Eigen vermogen", "Kortlopende schulden", "Niet ingedeeld (balans)",
-            "Netto-omzet", "Overige bedrijfskosten", "Financiële baten en lasten", "Niet ingedeeld (W&V)"], groepen.Select(g => g.Groep.Naam));
-        Assert.Equal(["4100", "4200"], groepen.Single(g => g.Groep.Code == "WBed").Regels.Select(r => r.Nummer));
+            "Netto-omzet", "Kantoorkosten", "Financiële baten en lasten", "Niet ingedeeld (W&V)"], groepen.Select(g => g.Groep.Naam));
+        Assert.Equal(["4100", "4200"], groepen.Single(g => g.Groep.Code == "WBedKan").Regels.Select(r => r.Nummer));
+        Assert.Equal("Andere bedrijfskosten", Rekeningindeling.Groep(new Rekening("4999", "X", Rekeningsoort.Resultaat, "WBed")).Naam);
     }
 
     private static (string, string?, string) Indeling(Rekeningschema schema, string nummer) =>

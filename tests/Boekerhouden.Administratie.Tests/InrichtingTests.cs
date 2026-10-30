@@ -11,6 +11,23 @@ public sealed class InrichtingTests(AdministratieFixture app) : IClassFixture<Ad
         Soort: Verwerkingssoort.Inkoopfactuur, NaamBevat: "Belnet", BedragVan: 10, BedragTot: 30);
 
     [Fact]
+    public async Task Weergave_van_de_overzichten_wijzigt_alleen_de_beheerder()
+    {
+        var wie = await app.Beheerder();
+        var kantoor = app.Dienst<KantoorDienst>();
+        Assert.Equal(Overzichtsweergave.Standaard, await kantoor.Weergave());
+
+        Assert.True((await kantoor.WijzigWeergave(wie, new Overzichtsweergave(90, true))).IsGelukt);
+
+        Assert.Equal(new Overzichtsweergave(90, true), await kantoor.Weergave());
+        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Onderwerp == "Weergave overzichten" && r.Details == "letter 100%, hele euro's uit → letter 90%, hele euro's aan");
+        Assert.False((await kantoor.WijzigWeergave(wie, new Overzichtsweergave(73, false))).IsGelukt);
+        var medewerker = await app.Gebruiker("Mila Medewerker");
+        await Assert.ThrowsAsync<GeenToegangException>(() => kantoor.WijzigWeergave(medewerker, Overzichtsweergave.Standaard));
+        Assert.True((await kantoor.WijzigWeergave(wie, Overzichtsweergave.Standaard)).IsGelukt);
+    }
+
+    [Fact]
     public async Task Relatie_toevoegen_en_wijzigen_met_controles()
     {
         var wie = await app.Beheerder();

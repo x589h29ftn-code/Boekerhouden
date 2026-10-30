@@ -1042,6 +1042,14 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<bool>("OverzichtHeleEuros")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("OverzichtLetter")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(100);
+
                     b.HasKey("Id");
 
                     b.ToTable("Kantoorinstellingen", (string)null);

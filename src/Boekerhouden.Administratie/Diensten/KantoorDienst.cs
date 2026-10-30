@@ -6,6 +6,17 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Boekerhouden.Administratie.Diensten;
 
+/// <summary>Hoe de overzichten (kolommenbalans) getoond worden: lettergrootte en afronding.</summary>
+/// <param name="Lettergrootte">In procenten van normaal, bijv. 85 (klein) of 115 (groot).</param>
+/// <param name="HeleEuros">Afgerond op hele euro's (1.200 in plaats van 1.200,45), zonder euroteken.</param>
+public sealed record Overzichtsweergave(int Lettergrootte, bool HeleEuros)
+{
+    public static Overzichtsweergave Standaard { get; } = new(100, false);
+
+    /// <summary>De lettergroottes om uit te kiezen.</summary>
+    public static IReadOnlyList<(int Procent, string Naam)> Groottes { get; } = [(80, "Kleiner"), (90, "Klein"), (100, "Normaal"), (115, "Groot")];
+}
+
 /// <summary>
 /// De instellingen van het kantoor: de standaard voor elke administratie, die daarin per instelling kan afwijken.
 /// Alleen de beheerder wijzigt ze; dat controleert de dienst zelf, niet alleen de pagina.
@@ -49,6 +60,44 @@ public sealed class KantoorDienst(IDbContextFactory<AdministratieDbContext> dbFa
         rij.Documentmap = string.IsNullOrWhiteSpace(nieuw.Documentmap) ? null : nieuw.Documentmap.Trim();
         await db.SaveChangesAsync();
         await audit.Log(wie, AuditActies.KantoorinstellingenGewijzigd, "Kantoor", Verschil(oud, rij.NaarDomein()));
+        return Uitkomst.Gelukt;
+    }
+
+    public async Task<Overzichtsweergave> Weergave()
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+        return await db.Kantoorinstellingen.AsNoTracking().Where(k => k.Id == Kantoorinstellingen.EnigeId)
+            .Select(k => new Overzichtsweergave(k.OverzichtLetter, k.OverzichtHeleEuros)).FirstOrDefaultAsync() ?? Overzichtsweergave.Standaard;
+    }
+
+    /// <summary>De weergave van de overzichten voor het hele kantoor; alleen de beheerder.</summary>
+    public async Task<Uitkomst> WijzigWeergave(Uitvoerder wie, Overzichtsweergave nieuw)
+    {
+        ArgumentNullException.ThrowIfNull(wie);
+        ArgumentNullException.ThrowIfNull(nieuw);
+        if (!await IsBeheerder(wie))
+        {
+            throw new GeenToegangException();
+        }
+
+        if (Overzichtsweergave.Groottes.All(g => g.Procent != nieuw.Lettergrootte))
+        {
+            return Uitkomst.Mislukt("Kies een van de lettergroottes.");
+        }
+
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var rij = await db.Kantoorinstellingen.FirstOrDefaultAsync(k => k.Id == Kantoorinstellingen.EnigeId);
+        if (rij is null)
+        {
+            rij = new Kantoorinstellingen();
+            db.Kantoorinstellingen.Add(rij);
+        }
+
+        var oud = $"letter {rij.OverzichtLetter}%, hele euro's {(rij.OverzichtHeleEuros ? "aan" : "uit")}";
+        (rij.OverzichtLetter, rij.OverzichtHeleEuros) = (nieuw.Lettergrootte, nieuw.HeleEuros);
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.KantoorinstellingenGewijzigd, "Weergave overzichten",
+            $"{oud} → letter {nieuw.Lettergrootte}%, hele euro's {(nieuw.HeleEuros ? "aan" : "uit")}");
         return Uitkomst.Gelukt;
     }
 
