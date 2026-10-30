@@ -945,3 +945,21 @@ body.scheiding-slepen {
 .zoekbalk .zoek-bedrag {
     width: 6.5rem;
 }
+
+/* Sorteren door op de kolomkop te klikken. */
+.overzichtstabel th.sorteerbaar {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.overzichtstabel th.sorteerbaar:hover {
+    color: var(--bs-body-color);
+}
+
+.overzichtstabel .sorteerpijl {
+    display: inline-block;
+    width: .9em;
+    margin-left: .2em;
+    font-size: .8em;
+}
