@@ -69,9 +69,9 @@
                             {
                                 <tr class="klikbaar @(p.Post.Boekstuk == gekozen?.Post.Boekstuk ? "gemarkeerd" : null)" @onclick="() => Kies(p)" title="Geboekt door @p.GeboektDoor op @Weergave.DatumTijd(p.GeboektOp)">
                                     <td class="text-nowrap">@Weergave.Datum(p.Post.Datum)</td>
-                                    <td>@p.Post.Boekstuk</td>
+                                    <td class="text-nowrap">@p.Post.Boekstuk</td>
                                     <td>@p.Post.Omschrijving</td>
-                                    <td class="bedrag text-end">@Bedragen.Getal(p.Post.TotaalDebet)</td>
+                                    <td class="bedrag text-end text-nowrap">@Bedragen.Getal(p.Post.TotaalDebet)</td>
                                 </tr>
                             }
                         </tbody>

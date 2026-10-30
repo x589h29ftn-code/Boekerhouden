@@ -824,6 +824,16 @@ body.scheiding-slepen {
     padding: .65rem .75rem;
 }
 
+/* Compacte overzichten (table-sm): meer regels onder elkaar, bijv. het memoriaal en het boekingsformulier. */
+.overzichtstabel.table-sm > thead th {
+    padding: .45rem .6rem;
+}
+
+.overzichtstabel.table-sm > tbody td,
+.overzichtstabel.table-sm > tfoot td {
+    padding: .25rem .6rem;
+}
+
 .overzichtstabel tr.klikbaar {
     cursor: pointer;
 }
