@@ -935,3 +935,13 @@ body.scheiding-slepen {
 .maandoverzicht > tfoot > tr > :first-child {
     background: var(--bs-tertiary-bg);
 }
+
+/* Inkopen: zoekbalk boven de lijst. */
+.zoekbalk .zoek-tekst {
+    flex: 1 1 18rem;
+    max-width: 30rem;
+}
+
+.zoekbalk .zoek-bedrag {
+    width: 6.5rem;
+}

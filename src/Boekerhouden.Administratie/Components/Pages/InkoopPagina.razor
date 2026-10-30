@@ -57,48 +57,6 @@
         </div>
     }
 
-    @if (overig is { Count: > 0 })
-    {
-        <div class="d-flex align-items-center gap-3 mb-2">
-            <h2 class="h6 text-secondary mb-0">Verwerkt</h2>
-            <a class="small ms-auto" href="/a/@Id/inkoopboek">Alles in het inkoopboek</a>
-        </div>
-        <div class="card">
-            <table class="table table-sm table-hover align-middle mb-0">
-                <thead>
-                    <tr><th>Leverancier</th><th>Factuurnummer</th><th>Factuurdatum</th><th class="text-end">Bedrag</th><th>Status</th><th>Ingelezen</th><th></th></tr>
-                </thead>
-                <tbody>
-                    @foreach (var d in overig)
-                    {
-                        <tr>
-                            <td>
-                                @if (d.Status == Documentstatus.Quarantaine)
-                                {
-                                    @(d.Leverancier ?? d.Bestandsnaam)
-                                }
-                                else
-                                {
-                                    <a href="/a/@Id/inkoop/@d.Id">@(d.Leverancier ?? d.Bestandsnaam)</a>
-                                }
-                            </td>
-                            <td>@d.Factuurnummer</td>
-                            <td class="text-nowrap">@(d.Factuurdatum is { } fd ? Weergave.Datum(fd) : null)</td>
-                            <td class="bedrag text-end"><Euro Waarde="d.Totaal" /></td>
-                            <td><span class="status @(d.Status == Documentstatus.Quarantaine ? "let-op" : null)" title="@d.Melding">@Status(d)</span></td>
-                            <td class="small text-secondary text-nowrap">@Weergave.DatumTijd(d.IngelezenOp)</td>
-                            <td class="text-end">
-                                @if (d.Status is Documentstatus.Geboekt or Documentstatus.Gearchiveerd)
-                                {
-                                    <DocumentOpenen Wie="geopend!.Wie" Administratie="Id" Document="d.Id" Klasse="btn btn-link btn-sm p-0" />
-                                }
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    }
 </AdministratieKader>
 
 @code {
@@ -106,7 +64,6 @@
 
     private Geopend? geopend;
     private IReadOnlyList<DocumentRegel>? teVerwerken;
-    private IReadOnlyList<DocumentRegel>? overig;
     private List<Inleesuitkomst> uitkomsten = [];
     private bool bezig;
     private Herverwerking? opnieuw;
@@ -123,19 +80,8 @@
 
     private async Task Laad()
     {
-        var alle = await Inkoop.Lijst(geopend!.Wie, Id);
-        teVerwerken = [.. alle.Where(d => d.Status == Documentstatus.TeVerwerken)];
-        overig = [.. alle.Where(d => d.Status != Documentstatus.TeVerwerken)];
+        teVerwerken = [.. (await Inkoop.Lijst(geopend!.Wie, Id)).Where(d => d.Status == Documentstatus.TeVerwerken)];
     }
-
-    private static string Status(DocumentRegel d) => (d.Status, d.Soort) switch
-    {
-        (Documentstatus.Geboekt, Documentsoort.Creditnota) => "creditnota",
-        (Documentstatus.Geboekt, _) => "geboekt",
-        (Documentstatus.Gearchiveerd, Documentsoort.Prive) => "privé",
-        (Documentstatus.Gearchiveerd, _) => "geen boeking",
-        _ => "quarantaine",
-    };
 
     private async Task VerwerkOpnieuw()
     {

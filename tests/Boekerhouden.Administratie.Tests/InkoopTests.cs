@@ -439,6 +439,17 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
         Assert.Equal(("Belnet B.V.", "INK", 20.65m, 4.34m, 24.99m, 24.99m, april), (factuur.Leverancier, factuur.Dagboek, factuur.Exclusief, factuur.Btw, factuur.Totaal, factuur.Openstaand, factuur.Document!.Value));
         Assert.Equal((-20.65m, -4.34m, -24.99m), (boek[1].Exclusief, boek[1].Btw, boek[1].Totaal));
         Assert.Single(await inkoop.Inkoopboek(wie, id, new(2026, 3, 1), new(2026, 3, 31)));
+
+        // Zoeken: tekst (alle woorden), leverancier, bedrag van–tot (creditnota zonder minteken), alleen open; alle jaren.
+        var alles = await inkoop.Inkoopboek(wie, id, DateOnly.MinValue, DateOnly.MaxValue);
+        Assert.Equal(3, alles.Count);
+        Assert.Equal(["IB-2"], alles.Where(new Inkoopboekfilter("belnet ib-2").Past).Select(r => r.Factuurnummer));
+        Assert.Equal(3, alles.Count(new Inkoopboekfilter(Relatie: "BELNET").Past));
+        Assert.DoesNotContain(alles, new Inkoopboekfilter(Relatie: "ANDERE").Past);
+        Assert.Equal(3, alles.Count(new Inkoopboekfilter(BedragVan: 0m, BedragTot: 50m).Past));
+        Assert.DoesNotContain(alles, new Inkoopboekfilter(BedragVan: 25m).Past);
+        Assert.Equal(3, alles.Count(new Inkoopboekfilter(AlleenOpen: true).Past));
+        Assert.Equal(["IB-1"], alles.Where(new Inkoopboekfilter(alles.Single(r => r.Factuurnummer == "IB-1").Boekstuk).Past).Select(r => r.Factuurnummer));
         Assert.Equal(2026, await inkoop.LaatsteFactuurjaar(wie, id));
         var buiten = await app.Gebruiker("BuitenInkoopboek");
         await Assert.ThrowsAsync<GeenToegangException>(() => inkoop.Inkoopboek(buiten, id, new(2026, 1, 1), new(2026, 12, 31)));

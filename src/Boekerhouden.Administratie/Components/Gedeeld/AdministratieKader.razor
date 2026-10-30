@@ -51,15 +51,18 @@ else
 }
 
 @code {
-    /// <summary>Het menu per groep: boekhouden, rapportages en inrichting.</summary>
+    /// <summary>Het menu per groep: boekhouden (verwerken), dagboeken (terugvinden), rapportages en inrichting.</summary>
     private static readonly (string Groep, (string Pad, string Naam, Recht Recht)[] Items)[] Menu =
     [
         ("Boekhouden",
         [
             ("/inkoop", "Inkoop", Recht.Lezen),
-            ("/inkoopboek", "Inkoopboek", Recht.Lezen),
             ("/bank", "Bank", Recht.Lezen),
             ("/memoriaal", "Memoriaal", Recht.Boekhouden),
+        ]),
+        ("Dagboeken",
+        [
+            ("/inkoopboek", "Inkopen", Recht.Lezen),
             ("/journaal", "Journaal", Recht.Lezen),
         ]),
         ("Rapportages",
