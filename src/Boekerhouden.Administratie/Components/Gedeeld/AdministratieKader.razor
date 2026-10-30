@@ -1,10 +1,8 @@
-@* Kop, zijmenu en toegangscontrole van een pagina binnen een administratie. Pas na de controle laadt de pagina haar
-   gegevens (BijOpenen); zonder lidmaatschap dezelfde melding als bij een administratie die niet bestaat. Het zijmenu
-   is gegroepeerd en in te klappen (het hele menu en per groep); die stand onthoudt de browser. *@
-@implements IAsyncDisposable
+@* Kop, menu en toegangscontrole van een pagina binnen een administratie. Pas na de controle laadt de pagina haar
+   gegevens (BijOpenen); zonder lidmaatschap dezelfde melding als bij een administratie die niet bestaat. Het menu staat
+   horizontaal boven de inhoud (zo blijft de volle breedte voor de gegevens); de onderdelen van een groep verschijnen
+   bij aanwijzen of aanklikken. *@
 @inject AdministratieDienst AdministratieDienst
-@inject Menustaat Staat
-@inject IJSRuntime JS
 
 @if (!geladen)
 {
@@ -17,46 +15,32 @@ else if (kop is null)
 else
 {
     <PageTitle>@Titel – @kop.Naam</PageTitle>
-    <div class="administratie @(Staat.Ingeklapt ? "menu-ingeklapt" : null)">
-        <nav class="zijmenu" aria-label="Administratie">
-            <div class="zijmenu-kop">
-                <a class="zijmenu-naam" href="/a/@kop.Id" title="@kop.Naam" tabindex="@(Staat.Ingeklapt ? -1 : 0)">@kop.Naam</a>
-                <button type="button" class="zijmenu-knop" title="@(Staat.Ingeklapt ? "Menu uitklappen" : "Menu inklappen")" aria-expanded="@(!Staat.Ingeklapt)" @onclick="WisselMenu">«</button>
-            </div>
-            <div class="zijmenu-groepen" inert="@Staat.Ingeklapt">
-                @foreach (var (groep, items) in Menu)
+    <div class="administratie">
+        <nav class="admmenu" aria-label="Administratie">
+            <a class="admmenu-naam" href="/a/@kop.Id" title="@kop.Naam">@kop.Naam</a>
+            @foreach (var (groep, items) in Menu)
+            {
+                var zichtbaar = items.Where(i => kop.Mag(i.Recht)).ToList();
+                if (zichtbaar.Count == 0)
                 {
-                    var zichtbaar = items.Where(i => kop.Mag(i.Recht)).ToList();
-                    if (zichtbaar.Count == 0)
-                    {
-                        continue;
-                    }
-
-                    var open = !Staat.Dicht.Contains(groep) || zichtbaar.Any(i => i.Pad == Actief);
-                    <div class="zijmenu-groep @(open ? "open" : null)">
-                        <button type="button" class="zijmenu-groepkop" aria-expanded="@open" @onclick="() => WisselGroep(groep)">
-                            @groep <span class="pijl" aria-hidden="true">▾</span>
-                        </button>
-                        <div class="zijmenu-items" inert="@(!open)">
-                            <div>
-                                @foreach (var (pad, naam, _) in zichtbaar)
-                                {
-                                    <a class="zijmenu-link @(pad == Actief ? "actief" : null)" href="@($"/a/{kop.Id}{pad}")" aria-current="@(pad == Actief ? "page" : null)">@naam</a>
-                                }
-                            </div>
-                        </div>
-                    </div>
+                    continue;
                 }
-            </div>
+
+                var actief = zichtbaar.Any(i => i.Pad == Actief);
+                <div class="admmenu-groep @(actief ? "actief" : null) @(open == groep ? "open" : null)" @onmouseleave="() => Sluit(groep)">
+                    <button type="button" class="admmenu-kop" aria-haspopup="true" aria-expanded="@(open == groep)" @onclick="() => Wissel(groep)">
+                        @groep <span class="pijl" aria-hidden="true">▾</span>
+                    </button>
+                    <div class="admmenu-items">
+                        @foreach (var (pad, naam, _) in zichtbaar)
+                        {
+                            <a class="admmenu-link @(pad == Actief ? "actief" : null)" href="@($"/a/{kop.Id}{pad}")" aria-current="@(pad == Actief ? "page" : null)" @onclick="() => open = null">@naam</a>
+                        }
+                    </div>
+                </div>
+            }
         </nav>
         <div class="administratie-inhoud">
-            <nav aria-label="kruimelpad">
-                <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="/">Administraties</a></li>
-                    <li class="breadcrumb-item"><a href="/a/@kop.Id">@kop.Naam</a></li>
-                    <li class="breadcrumb-item active" aria-current="page">@Titel</li>
-                </ol>
-            </nav>
             <div class="d-flex align-items-center flex-wrap gap-3 mb-3">
                 <h1 class="h3 mb-0 me-auto">@Titel</h1>
                 @Acties
@@ -94,7 +78,8 @@ else
         ]),
     ];
 
-    private IJSObjectReference? module;
+    /// <summary>De groep die is opengeklikt (aanwijzen opent hem ook, via CSS).</summary>
+    private string? open;
 
     private bool geladen;
     private AdministratieKop? kop;
@@ -139,55 +124,13 @@ else
         geladen = true;
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private void Wissel(string groep) => open = open == groep ? null : groep;
+
+    private void Sluit(string groep)
     {
-        // De stand van het menu staat in de browser; één keer per sessie inlezen.
-        if (!firstRender || Staat.Gelezen)
+        if (open == groep)
         {
-            return;
-        }
-
-        module = await JS.InvokeAsync<IJSObjectReference>("import", "./menu.js");
-        if (Staat.Lees(await module.InvokeAsync<string?>("lees")))
-        {
-            StateHasChanged();
-        }
-    }
-
-    private async Task WisselMenu()
-    {
-        Staat.Ingeklapt = !Staat.Ingeklapt;
-        await Bewaar();
-    }
-
-    private async Task WisselGroep(string groep)
-    {
-        if (!Staat.Dicht.Remove(groep))
-        {
-            Staat.Dicht.Add(groep);
-        }
-
-        await Bewaar();
-    }
-
-    private async Task Bewaar()
-    {
-        module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./menu.js");
-        await module.InvokeVoidAsync("bewaar", Staat.Tekst());
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        try
-        {
-            if (module is not null)
-            {
-                await module.DisposeAsync();
-            }
-        }
-        catch (JSDisconnectedException)
-        {
-            // Het circuit is al weg.
+            open = null;
         }
     }
 }

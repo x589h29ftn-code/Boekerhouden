@@ -117,7 +117,6 @@ public static class Opstart
         services.AddSingleton<BtwDienst>();
         services.AddSingleton<InrichtingDienst>();
         services.AddSingleton<KantoorDienst>();
-        services.AddScoped<Components.Gedeeld.Menustaat>();
 
         // Virusscan vóór het openen van elk document (besluit B3). Zonder instelling: op de server fail closed; in
         // ontwikkeling (zonder ClamAV) en in de Windows-app (eigen bestanden van de gebruiker, op één pc) zonder scan.

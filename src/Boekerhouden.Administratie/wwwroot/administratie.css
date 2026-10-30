@@ -1,89 +1,21 @@
 /* Aanvullingen op app.css (gedeeld met de samenstel-app) voor het administratiepakket. */
 
-/* Administratie: zijmenu links (gegroepeerd, in te klappen), inhoud rechts. */
-.administratie {
-    display: flex;
-    align-items: flex-start;
-    gap: 1.5rem;
-}
-
-.administratie-inhoud {
-    flex: 1 1 auto;
-    min-width: 0;
-}
-
-.zijmenu {
-    flex: 0 0 13rem;
-    position: sticky;
-    top: 1rem;
-    padding: .5rem 0;
-    border-right: 1px solid var(--bs-border-color);
-    font-size: .9375rem;
-    overflow: hidden;
-    transition: flex-basis .25s ease;
-}
-
-.menu-ingeklapt .zijmenu {
-    flex-basis: 2.25rem;
-}
-
-/* Inklappen: de naam en de groepen vervagen terwijl het menu smaller wordt; de knop draait om. */
-.zijmenu-naam, .zijmenu-groepen {
-    transition: opacity .2s ease, visibility .2s;
-}
-
-.menu-ingeklapt .zijmenu-naam, .menu-ingeklapt .zijmenu-groepen {
-    opacity: 0;
-    visibility: hidden;
-}
-
-.zijmenu-groepen {
-    width: 12.5rem;
-}
-
-.zijmenu-knop {
-    transition: transform .25s ease, color .15s;
-}
-
-.menu-ingeklapt .zijmenu-knop {
-    transform: rotate(180deg);
-}
-
-/* Een groep klapt open en dicht met een overgang (grid van 0 naar de volle hoogte). */
-.zijmenu-items {
-    display: grid;
-    grid-template-rows: 0fr;
-    transition: grid-template-rows .22s ease;
-}
-
-.zijmenu-groep.open .zijmenu-items {
-    grid-template-rows: 1fr;
-}
-
-.zijmenu-items > div {
-    overflow: hidden;
-}
-
-.zijmenu-groepkop .pijl {
-    display: inline-block;
-    transition: transform .22s ease;
-    transform: rotate(-90deg);
-}
-
-.zijmenu-groep.open .zijmenu-groepkop .pijl {
-    transform: rotate(0);
-}
-
-.zijmenu-kop {
+/* Administratie: het menu horizontaal boven de inhoud, zodat de gegevens de volle breedte hebben. De onderdelen van
+   een groep verschijnen bij aanwijzen, aanklikken (.open) of met het toetsenbord (:focus-within). */
+.admmenu {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: .25rem;
-    padding: 0 .5rem .5rem 0;
+    margin-bottom: 1rem;
+    padding-bottom: .25rem;
+    border-bottom: 1px solid var(--bs-border-color);
+    font-size: .9375rem;
 }
 
-.zijmenu-naam {
-    flex: 1;
-    min-width: 0;
+.admmenu-naam {
+    max-width: 18rem;
+    margin-right: 1rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -92,74 +24,78 @@
     text-decoration: none;
 }
 
-.zijmenu-knop, .zijmenu-groepkop {
+.admmenu-groep {
+    position: relative;
+}
+
+.admmenu-kop {
+    padding: .35rem .75rem;
     border: 0;
+    border-bottom: 2px solid transparent;
     background: none;
     color: var(--bs-secondary-color);
+    transition: color .15s ease, border-color .15s ease;
 }
 
-.zijmenu-knop {
-    padding: 0 .375rem;
-    border-radius: var(--bs-border-radius);
+.admmenu-kop .pijl {
+    display: inline-block;
+    font-size: .75em;
+    transition: transform .2s ease;
 }
 
-.zijmenu-knop:hover, .zijmenu-groepkop:hover {
+.admmenu-groep.actief > .admmenu-kop {
+    color: var(--bs-body-color);
+    border-bottom-color: var(--bs-primary);
+}
+
+.admmenu-groep:is(:hover, :focus-within, .open) > .admmenu-kop {
     color: var(--bs-body-color);
 }
 
-.zijmenu-groep {
-    margin-bottom: .5rem;
+.admmenu-groep:is(:hover, :focus-within, .open) .pijl {
+    transform: rotate(180deg);
 }
 
-.zijmenu-groepkop {
-    display: flex;
-    justify-content: space-between;
-    width: 100%;
-    padding: .25rem .75rem .25rem 0;
-    font-size: .75rem;
-    font-weight: 600;
-    letter-spacing: .04em;
-    text-transform: uppercase;
+.admmenu-items {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 30;
+    min-width: 12rem;
+    padding: .35rem 0;
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+    box-shadow: 0 .4rem 1rem rgba(0, 0, 0, .08);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-.25rem);
+    transition: opacity .15s ease, transform .15s ease, visibility .15s;
 }
 
-.zijmenu-link {
+.admmenu-groep:is(:hover, :focus-within, .open) > .admmenu-items {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+}
+
+.admmenu-link {
     display: block;
-    padding: .3rem .75rem .3rem .5rem;
-    margin-right: -1px;
+    padding: .3rem .9rem;
     color: var(--bs-body-color);
     text-decoration: none;
-    border-right: 2px solid transparent;
-    border-radius: var(--bs-border-radius) 0 0 var(--bs-border-radius);
-    transition: background-color .15s ease, border-color .15s ease, padding-left .15s ease;
+    white-space: nowrap;
 }
 
-.zijmenu-link:hover {
-    padding-left: .75rem;
-}
-
-.zijmenu-link:hover {
+.admmenu-link:hover, .admmenu-link:focus {
     background: var(--bs-tertiary-bg);
 }
 
-.zijmenu-link.actief {
+.admmenu-link.actief {
     font-weight: 600;
-    border-right-color: var(--bs-primary);
+    box-shadow: inset 2px 0 0 var(--bs-primary);
 }
 
-/* Smal scherm: het menu boven de inhoud. */
-@media (max-width: 767.98px) {
-    .administratie {
-        flex-direction: column;
-    }
-
-    .zijmenu {
-        position: static;
-        flex-basis: auto;
-        width: 100%;
-        border-right: 0;
-        border-bottom: 1px solid var(--bs-border-color);
-    }
-}
 
 .overzicht tr.rekening td:first-child {
     padding-left: 1.6rem;
@@ -675,7 +611,7 @@ body.scheiding-slepen {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .zijmenu, .zijmenu-items, .zijmenu-knop, .zijmenu-groepkop .pijl, .sleepvlak, .sleepvlak-icoon, .btn {
+    .admmenu-kop, .admmenu-kop .pijl, .admmenu-items, .sleepvlak, .sleepvlak-icoon, .btn {
         transition: none;
     }
 
