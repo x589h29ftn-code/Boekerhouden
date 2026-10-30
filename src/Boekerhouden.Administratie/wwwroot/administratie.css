@@ -963,3 +963,15 @@ body.scheiding-slepen {
     margin-left: .2em;
     font-size: .8em;
 }
+
+/* Openstaande posten: per relatie een kop met code en naam. */
+.openposten-code {
+    display: inline-block;
+    min-width: 6rem;
+    color: var(--bs-secondary-color);
+    font-weight: 600;
+}
+
+.overzichtstabel.openposten {
+    table-layout: fixed;
+}

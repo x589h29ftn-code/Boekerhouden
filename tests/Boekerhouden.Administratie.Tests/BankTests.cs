@@ -270,6 +270,39 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
     }
 
     [Fact]
+    public async Task Openstaande_posten_crediteuren_op_een_peildatum_met_pdf_opmaak()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Voorbeeld Crediteuren B.V.");
+        var bank = app.Dienst<BankDienst>();
+        await BoekBelnet(wie, id);
+        await bank.Lees(wie, id, Afschrift(belnet: "20,00"), "ing.mt940");
+        var deel = (await bank.Lijst(wie, id)).Single(m => m.Bedrag == -20m);
+        Assert.True((await bank.Afletteren(wie, id, deel.Id, [(await bank.OpenPosten(wie, id)).Single().Id])).IsGelukt);
+        var openposten = app.Dienst<OpenpostenDienst>();
+
+        var voor = await openposten.Crediteuren(wie, id, new(2026, 3, 1));
+        var na = await openposten.Crediteuren(wie, id, new(2026, 3, 31));
+
+        var post = Assert.Single(Assert.Single(voor.Relaties).Posten);
+        Assert.Equal(("Belnet B.V.", "BN-2026-0311", 24.99m, 0m, 24.99m, 0), (voor.Relaties[0].Naam, post.Factuurnummer, post.Factuurbedrag, post.Betaald, post.Openstaand, post.Ouderdom));
+        Assert.Equal(("INK", true), (post.Dagboek, post.Document is not null));
+        var later = Assert.Single(Assert.Single(na.Relaties).Posten);
+        Assert.Equal((20m, 4.99m, 30), (later.Betaald, later.Openstaand, later.Ouderdom));
+        Assert.Equal((24.99m, 20m, 4.99m), (na.Factuurbedrag, na.Betaald, na.Openstaand));
+        Assert.Empty((await openposten.Crediteuren(wie, id, new(2026, 2, 28))).Relaties);
+        Assert.Empty((await openposten.Crediteuren(wie, id, new(2026, 3, 31), "ANDERE")).Relaties);
+
+        var html = Export.OpenpostenHtml.Maak(na);
+        Assert.Contains("Voorbeeld Crediteuren B.V.", html, StringComparison.Ordinal);
+        Assert.Contains("31-03-2026", html, StringComparison.Ordinal);
+        Assert.Contains("Totaal generaal", html, StringComparison.Ordinal);
+        Assert.Contains("4,99", html, StringComparison.Ordinal);
+        var buiten = await app.Gebruiker("Buiten Crediteuren");
+        await Assert.ThrowsAsync<GeenToegangException>(() => openposten.Crediteuren(buiten, id, new(2026, 3, 31)));
+    }
+
+    [Fact]
     public async Task Opnieuw_afletteren_boekt_wat_na_het_inlezen_zeker_is_geworden()
     {
         var wie = await app.Beheerder();

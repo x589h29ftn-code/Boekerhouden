@@ -1,0 +1,147 @@
+@page "/a/{Id:guid}/crediteuren"
+@inject OpenpostenDienst Openposten
+@inject NavigationManager Navigatie
+@inject TimeProvider Tijd
+@inject IJSRuntime JS
+
+<AdministratieKader Id="Id" Titel="Openstaande posten crediteuren" Actief="/crediteuren" BijOpenen="Open">
+    <Acties>
+        @if (lijst is not null)
+        {
+            <select class="form-select form-select-sm w-auto" aria-label="Leverancier" @bind="relatie" @bind:after="Laad">
+                <option value="">Alle leveranciers</option>
+                @foreach (var r in leveranciers)
+                {
+                    <option value="@r.Relatie">@r.Naam</option>
+                }
+            </select>
+        }
+        <label class="small text-secondary" for="peildatum">Peildatum</label>
+        <input id="peildatum" type="date" class="form-control form-control-sm w-auto" @bind="peildatum" @bind:after="KiesPeildatum" />
+        <button class="btn btn-sm btn-outline-secondary" @onclick="Pdf" disabled="@bezig" title="De lijst als PDF (A4 liggend)">PDF</button>
+    </Acties>
+    <ChildContent>
+        <Foutmeldingen Fouten="fouten" />
+        @if (lijst is { Relaties.Count: 0 })
+        {
+            <div class="card card-body text-center text-secondary py-4">Geen openstaande posten op @Weergave.Datum(peildatum).</div>
+        }
+        else if (lijst is not null)
+        {
+            @foreach (var r in lijst.Relaties)
+            {
+                <div class="openposten-relatie">
+                    <h2 class="h6 mb-1"><span class="openposten-code">@r.Relatie</span>@r.Naam</h2>
+                    <div class="card overzichtskaart mb-3">
+                        <table class="table align-middle mb-0 overzichtstabel openposten">
+                            <colgroup><col style="width:8rem" /><col style="width:8rem" /><col /><col style="width:11rem" /><col style="width:9rem" /><col style="width:9rem" /><col style="width:9rem" /><col style="width:4rem" /></colgroup>
+                            <thead>
+                                <tr><th>Boekdatum</th><th>Vervaldatum</th><th>Omschrijving</th><th>Factuurnr.</th><th class="text-end">Factuurbedrag</th><th class="text-end">Betaald</th><th class="text-end">Openstaand</th><th class="text-end" title="Dagen sinds de factuurdatum">Oud</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var p in r.Posten)
+                                {
+                                    <tr class="klikbaar" title="@(p.Document is null ? "Naar de boeking" : "Naar de factuur met de boeking") (@p.Dagboek @p.Boekstuk)" @onclick="() => NaarBron(p)">
+                                        <td class="text-nowrap">@Weergave.Datum(p.Datum)</td>
+                                        <td class="text-nowrap">@Weergave.Datum(p.Vervaldatum)</td>
+                                        <td>@p.Omschrijving</td>
+                                        <td>@p.Factuurnummer</td>
+                                        <td class="bedrag text-end">@Bedragen.Getal(p.Factuurbedrag)</td>
+                                        <td class="bedrag text-end">@Bedragen.Getal(p.Betaald)</td>
+                                        <td class="bedrag text-end">@Bedragen.Getal(p.Openstaand)</td>
+                                        <td class="text-end text-secondary">@p.Ouderdom</td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="4">Totaal</td>
+                                    <td class="bedrag text-end">@Bedragen.Getal(r.Factuurbedrag)</td>
+                                    <td class="bedrag text-end">@Bedragen.Getal(r.Betaald)</td>
+                                    <td class="bedrag text-end">@Bedragen.Getal(r.Openstaand)</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            }
+            <div class="card overzichtskaart">
+                <table class="table align-middle mb-0 overzichtstabel openposten">
+                    <colgroup><col style="width:8rem" /><col style="width:8rem" /><col /><col style="width:11rem" /><col style="width:9rem" /><col style="width:9rem" /><col style="width:9rem" /><col style="width:4rem" /></colgroup>
+                    <tfoot>
+                        <tr class="generaal">
+                            <td colspan="4">Totaal generaal (@lijst.Relaties.Count @(lijst.Relaties.Count == 1 ? "leverancier" : "leveranciers"), @lijst.Relaties.Sum(r => r.Posten.Count) posten)</td>
+                            <td class="bedrag text-end">@Bedragen.Getal(lijst.Factuurbedrag)</td>
+                            <td class="bedrag text-end">@Bedragen.Getal(lijst.Betaald)</td>
+                            <td class="bedrag text-end">@Bedragen.Getal(lijst.Openstaand)</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        }
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private DateOnly peildatum;
+    private string relatie = "";
+    private Openpostenlijst? lijst;
+    private IReadOnlyList<(string Relatie, string Naam)> leveranciers = [];
+    private IReadOnlyList<string>? fouten;
+    private bool bezig;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "peildatum")]
+    public string? PeildatumTekst { get; set; }
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        peildatum = DateOnly.TryParseExact(PeildatumTekst, "yyyy-MM-dd", out var d) ? d : DateOnly.FromDateTime(Tijd.GetLocalNow().Date);
+        await Laad();
+    }
+
+    private async Task Laad()
+    {
+        lijst = await Openposten.Crediteuren(geopend!.Wie, Id, peildatum, relatie.Length == 0 ? null : relatie);
+        if (relatie.Length == 0)
+        {
+            leveranciers = [.. lijst.Relaties.Select(r => (r.Relatie, r.Naam))];
+        }
+    }
+
+    private async Task KiesPeildatum()
+    {
+        Navigatie.NavigateTo($"/a/{Id}/crediteuren?peildatum={peildatum:yyyy-MM-dd}", replace: true);
+        await Laad();
+    }
+
+    /// <summary>Naar de bron: de factuur met de boeking (verwerkscherm), of de boeking als er geen document bij hoort.</summary>
+    private void NaarBron(Openpost post) =>
+        Navigatie.NavigateTo(post.Document is { } document ? $"/a/{Id}/inkoop/{document}" : $"/a/{Id}/boeking/{Uri.EscapeDataString(post.Dagboek)}/{Uri.EscapeDataString(post.Boekstuk)}");
+
+    private async Task Pdf()
+    {
+        bezig = true;
+        try
+        {
+            var uitkomst = await Openposten.CrediteurenPdf(geopend!.Wie, Id, peildatum, relatie.Length == 0 ? null : relatie);
+            fouten = uitkomst.Fouten;
+            if (uitkomst.IsGelukt)
+            {
+                await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "./download.js");
+                using var stroom = new DotNetStreamReference(new MemoryStream(uitkomst.Waarde!));
+                await module.InvokeVoidAsync("bewaar", $"Openstaande posten crediteuren {peildatum:yyyy-MM-dd}.pdf", "application/pdf", stroom);
+            }
+        }
+        finally
+        {
+            bezig = false;
+        }
+    }
+}
