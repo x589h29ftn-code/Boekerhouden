@@ -16,7 +16,11 @@
 
     <div class="d-flex align-items-center gap-3 mb-2">
         <h2 class="h6 text-secondary mb-0">Te verwerken</h2>
-        @if (opnieuw is { } o)
+        @if (stand is { } st)
+        {
+            <span class="small text-secondary">Bezig: @st.Gedaan van @st.Totaal</span>
+        }
+        else if (opnieuw is { } o)
         {
             <span class="small text-secondary">@Samenvatting(o)</span>
         }
@@ -103,6 +107,7 @@
     private List<Inleesuitkomst> uitkomsten = [];
     private bool bezig;
     private Herverwerking? opnieuw;
+    private (int Gedaan, int Totaal)? stand;
 
     [Parameter]
     public Guid Id { get; set; }
@@ -132,8 +137,18 @@
     private async Task VerwerkOpnieuw()
     {
         bezig = true;
-        opnieuw = await Inkoop.VerwerkOpnieuw(geopend!.Wie, Id);
-        bezig = false;
+
+        // De stand op het scherm, niet bij elk document (dat zou bij honderden facturen alleen het scherm bezighouden).
+        var voortgang = new Progress<(int Gedaan, int Totaal)>(v =>
+        {
+            if (v.Gedaan % 10 == 0)
+            {
+                stand = v;
+                _ = InvokeAsync(StateHasChanged);
+            }
+        });
+        opnieuw = await Inkoop.VerwerkOpnieuw(geopend!.Wie, Id, voortgang);
+        (bezig, stand) = (false, null);
         await Laad();
     }
 

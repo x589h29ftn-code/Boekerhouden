@@ -231,15 +231,18 @@ public sealed class InkoopDienst(
     /// intussen geleerd is en het zoektemplate. Zo gaan na een paar keer zelf boeken de andere facturen van die
     /// leverancier vanzelf. Wat nu automatisch kan, wordt geboekt (de oudste eerst); bij de rest komt de actuele reden.
     /// </summary>
-    public async Task<Herverwerking> VerwerkOpnieuw(Uitvoerder wie, Guid administratie, CancellationToken annulering = default)
+    /// <param name="voortgang">Na elk document: hoeveel er gedaan zijn van hoeveel (voor een stand op het scherm).</param>
+    public async Task<Herverwerking> VerwerkOpnieuw(Uitvoerder wie, Guid administratie, IProgress<(int Gedaan, int Totaal)>? voortgang = null, CancellationToken annulering = default)
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Invoeren);
         var documenten = await db.Documenten.Where(d => d.Status == Documentstatus.TeVerwerken && d.Soort == Documentsoort.Factuur)
             .OrderBy(d => d.IngelezenOp).ToListAsync(annulering);
         var context = await Context(db, administratie);
         var (bekeken, geboekt) = (0, 0);
-        foreach (var document in documenten)
+        for (var i = 0; i < documenten.Count; i++)
         {
+            var document = documenten[i];
+            voortgang?.Report((i, documenten.Count));
             if (Herkend(document) is not { } herkend)
             {
                 continue;
@@ -280,7 +283,14 @@ public sealed class InkoopDienst(
             query = query.Where(d => d.Status == s);
         }
 
-        var documenten = (await query.OrderByDescending(d => d.IngelezenOp).Take(500).ToListAsync()).Select(Regel).ToList();
+        // Te verwerken altijd helemaal (niets mag uit beeld raken); van de rest de laatste 500.
+        var teVerwerken = status is null or Documentstatus.TeVerwerken
+            ? await query.Where(d => d.Status == Documentstatus.TeVerwerken).OrderByDescending(d => d.IngelezenOp).ToListAsync()
+            : [];
+        var overig = status is Documentstatus.TeVerwerken
+            ? []
+            : await query.Where(d => d.Status != Documentstatus.TeVerwerken).OrderByDescending(d => d.IngelezenOp).Take(500).ToListAsync();
+        var documenten = teVerwerken.Concat(overig).Select(Regel).ToList();
 
         // Bij een geboekt document geldt wat er geboekt is (leverancier, nummer, datum en totaal), niet wat er herkend was.
         var geboekt = documenten.Where(d => d.Status == Documentstatus.Geboekt).Select(d => (Guid?)d.Id).ToList();
