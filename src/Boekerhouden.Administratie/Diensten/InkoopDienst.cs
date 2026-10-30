@@ -54,6 +54,24 @@ public sealed record GeboekteFactuur(
     Periodeverdeling? Verdeling = null,
     IReadOnlyList<string>? Verdeelboekstukken = null);
 
+/// <summary>
+/// Een factuur in het inkoopboek: wanneer en onder welk boekstuk geboekt, van wie, en de bedragen zoals op de factuur
+/// (een creditnota negatief). <paramref name="Openstaand"/> is wat er nog betaald moet worden.
+/// </summary>
+public sealed record Inkoopboekregel(
+    DateOnly Datum,
+    string Dagboek,
+    string Boekstuk,
+    string Relatie,
+    string Leverancier,
+    string Factuurnummer,
+    string Omschrijving,
+    decimal Exclusief,
+    decimal Btw,
+    decimal Totaal,
+    decimal Openstaand,
+    Guid? Document);
+
 /// <summary>De periodeverdeling van een geboekt document, zoals bewaard bij het document (JSON).</summary>
 internal sealed record Verdelingsgegevens(DateOnly Van, DateOnly Tot, string Rekening, List<string> Kostenrekeningen, List<string> Boekstukken);
 
@@ -111,6 +129,46 @@ public sealed class InkoopDienst(
     IEnumerable<IOcrMotor> ocrMotoren)
 {
     private static readonly JsonSerializerOptions Json = new();
+
+    /// <summary>Hoeveel verwerkte documenten de inkooplijst toont; alles staat in het inkoopboek.</summary>
+    public const int RecentVerwerkt = 100;
+
+    /// <summary>Het jaar van de laatste geboekte inkoopfactuur (voor het inkoopboek), of leeg als er nog geen is.</summary>
+    public async Task<int?> LaatsteFactuurjaar(Uitvoerder wie, Guid administratie)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
+        return await db.OpenstaandePosten.AsNoTracking().Where(p => p.Soort == Factuursoort.Inkoop)
+            .OrderByDescending(p => p.Datum).Select(p => (int?)p.Datum.Year).FirstOrDefaultAsync();
+    }
+
+    /// <summary>
+    /// Het inkoopboek over een periode (op factuurdatum): elke geboekte inkoopfactuur en creditnota met de bedragen en
+    /// wat er nog openstaat, op datum en boekstuk. Een teruggedraaide factuur staat er niet meer in.
+    /// </summary>
+    public async Task<IReadOnlyList<Inkoopboekregel>> Inkoopboek(Uitvoerder wie, Guid administratie, DateOnly van, DateOnly tot)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
+        var posten = await db.OpenstaandePosten.AsNoTracking()
+            .Where(p => p.Soort == Factuursoort.Inkoop && p.Datum >= van && p.Datum <= tot)
+            .ToListAsync();
+        var boekingIds = posten.Select(p => p.BoekingId).ToList();
+        var boekingen = await db.Boekingen.AsNoTracking().Include(b => b.Regels).Where(b => boekingIds.Contains(b.Id)).ToDictionaryAsync(b => b.Id);
+        var namen = await db.Relaties.AsNoTracking().ToDictionaryAsync(r => r.Code, r => r.Naam);
+        var (schema, _) = await GrootboekDienst.Inrichting(db);
+        bool IsBtw(Boekingsregel r) => schema.Zoek(r.Rekeningnummer)?.Functie is Rekeningfunctie.Voorbelasting or Rekeningfunctie.AfTeDragenBtw;
+        return
+        [
+            .. posten.Select(p =>
+            {
+                var boeking = boekingen[p.BoekingId];
+                var totaal = -p.Bedrag;
+                var btw = boeking.Regels.Where(IsBtw).Sum(r => r.Bedrag);
+                return new Inkoopboekregel(p.Datum, boeking.Dagboek, boeking.Boekstuk, p.Relatie, namen.GetValueOrDefault(p.Relatie, p.Relatie),
+                    p.Factuurnummer, boeking.Omschrijving, totaal - btw, btw, totaal, -p.Openstaand, p.DocumentId);
+            })
+            .OrderBy(r => r.Datum).ThenBy(r => r.Boekstuk, StringComparer.Ordinal),
+        ];
+    }
 
 
     /// <summary>
@@ -283,13 +341,13 @@ public sealed class InkoopDienst(
             query = query.Where(d => d.Status == s);
         }
 
-        // Te verwerken altijd helemaal (niets mag uit beeld raken); van de rest de laatste 500.
+        // Te verwerken altijd helemaal (niets mag uit beeld raken); van de rest de laatste honderd (de rest staat in het inkoopboek).
         var teVerwerken = status is null or Documentstatus.TeVerwerken
             ? await query.Where(d => d.Status == Documentstatus.TeVerwerken).OrderByDescending(d => d.IngelezenOp).ToListAsync()
             : [];
         var overig = status is Documentstatus.TeVerwerken
             ? []
-            : await query.Where(d => d.Status != Documentstatus.TeVerwerken).OrderByDescending(d => d.IngelezenOp).Take(500).ToListAsync();
+            : await query.Where(d => d.Status != Documentstatus.TeVerwerken).OrderByDescending(d => d.IngelezenOp).Take(RecentVerwerkt).ToListAsync();
         var documenten = teVerwerken.Concat(overig).Select(Regel).ToList();
 
         // Bij een geboekt document geldt wat er geboekt is (leverancier, nummer, datum en totaal), niet wat er herkend was.

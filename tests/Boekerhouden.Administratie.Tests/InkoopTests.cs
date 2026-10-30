@@ -418,6 +418,33 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
     }
 
     [Fact]
+    public async Task Inkoopboek_toont_de_geboekte_facturen_van_de_periode_met_bedragen_en_openstaand()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var inkoop = app.Dienst<InkoopDienst>();
+        var april = (await inkoop.Lees(wie, id, new MemoryStream(Belnet("IB-1")), "ib1.xml", null)).DocumentId!.Value;
+        var credit = (await inkoop.Lees(wie, id, new MemoryStream(Belnet("IB-2", "2026-04-20")), "ib2.xml", null)).DocumentId!.Value;
+        var maart = (await inkoop.Lees(wie, id, new MemoryStream(Belnet("IB-3", "2026-03-01")), "ib3.xml", null)).DocumentId!.Value;
+        Assert.True((await inkoop.Boek(wie, id, april, Invoer(null, new NieuweRelatie("Belnet B.V.", null, null, null), "IB-1"))).IsGelukt);
+        var c = await inkoop.Boek(wie, id, credit, Invoer("BELNET", null, "IB-2") with { Datum = new(2026, 4, 20), Vervaldatum = new(2026, 5, 20), Creditnota = true });
+        Assert.True(c.IsGelukt, string.Join("; ", c.Fouten));
+        var m = await inkoop.Boek(wie, id, maart, Invoer("BELNET", null, "IB-3") with { Datum = new(2026, 3, 1) });
+        Assert.True(m.IsGelukt, string.Join("; ", m.Fouten));
+
+        var boek = await inkoop.Inkoopboek(wie, id, new(2026, 4, 1), new(2026, 4, 30));
+
+        Assert.Equal(["IB-1", "IB-2"], boek.Select(r => r.Factuurnummer));
+        var factuur = boek[0];
+        Assert.Equal(("Belnet B.V.", "INK", 20.65m, 4.34m, 24.99m, 24.99m, april), (factuur.Leverancier, factuur.Dagboek, factuur.Exclusief, factuur.Btw, factuur.Totaal, factuur.Openstaand, factuur.Document!.Value));
+        Assert.Equal((-20.65m, -4.34m, -24.99m), (boek[1].Exclusief, boek[1].Btw, boek[1].Totaal));
+        Assert.Single(await inkoop.Inkoopboek(wie, id, new(2026, 3, 1), new(2026, 3, 31)));
+        Assert.Equal(2026, await inkoop.LaatsteFactuurjaar(wie, id));
+        var buiten = await app.Gebruiker("BuitenInkoopboek");
+        await Assert.ThrowsAsync<GeenToegangException>(() => inkoop.Inkoopboek(buiten, id, new(2026, 1, 1), new(2026, 12, 31)));
+    }
+
+    [Fact]
     public async Task Heropenen_geeft_wat_er_geboekt_was_en_draait_de_boeking_terug()
     {
         var wie = await app.Beheerder();

@@ -819,3 +819,11 @@ body.scheiding-slepen {
     min-width: 8.5rem;
     max-width: 11rem;
 }
+
+/* Inkoopboek: een lange omschrijving op één regel, de rest in de tooltip. */
+.overzichtstabel td.omschrijving {
+    max-width: 24rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

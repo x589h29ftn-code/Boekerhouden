@@ -1,0 +1,105 @@
+@page "/a/{Id:guid}/inkoopboek"
+@inject InkoopDienst Inkoop
+@inject NavigationManager Navigatie
+
+<AdministratieKader Id="Id" Titel="Inkoopboek" Actief="/inkoopboek" BijOpenen="Open">
+    <Acties>
+        <input class="form-control form-control-sm w-auto" type="search" placeholder="Zoek" aria-label="Zoek op leverancier, factuurnummer of omschrijving" @bind="zoek" @bind:event="oninput" />
+        <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
+    </Acties>
+    <ChildContent>
+        @if (regels is { Count: 0 })
+        {
+            <div class="card card-body text-center text-secondary py-4">Geen inkoopfacturen in deze periode.</div>
+        }
+        else if (regels is not null)
+        {
+            var zichtbaar = Gefilterd.ToList();
+            <div class="card overzichtskaart">
+                <table class="table align-middle mb-0 overzichtstabel">
+                    <thead>
+                        <tr>
+                            <th>Datum</th>
+                            <th>Boekstuk</th>
+                            <th>Leverancier</th>
+                            <th>Factuur</th>
+                            <th>Omschrijving</th>
+                            <th class="text-end">Excl. btw</th>
+                            <th class="text-end">Btw</th>
+                            <th class="text-end">Totaal</th>
+                            <th class="text-end">Open</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in zichtbaar)
+                        {
+                            <tr class="klikbaar" title="@(r.Document is null ? "Naar de boeking" : "Naar de factuur")" @onclick="() => Open(r)">
+                                <td class="text-nowrap">@Weergave.Datum(r.Datum)</td>
+                                <td class="text-nowrap text-secondary">@r.Dagboek @r.Boekstuk</td>
+                                <td title="@r.Relatie">@r.Leverancier</td>
+                                <td>@r.Factuurnummer</td>
+                                <td class="omschrijving" title="@r.Omschrijving">@r.Omschrijving</td>
+                                <td class="bedrag text-end">@Bedragen.Getal(r.Exclusief)</td>
+                                <td class="bedrag text-end">@Bedragen.Getal(r.Btw)</td>
+                                <td class="bedrag text-end">@Bedragen.Getal(r.Totaal)</td>
+                                <td class="bedrag text-end text-secondary">@(r.Openstaand == 0 ? null : Bedragen.Getal(r.Openstaand))</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr class="generaal">
+                            <td colspan="5">Totaal (@zichtbaar.Count @(zichtbaar.Count == 1 ? "factuur" : "facturen"))</td>
+                            <td class="bedrag text-end">@Bedragen.Getal(zichtbaar.Sum(r => r.Exclusief))</td>
+                            <td class="bedrag text-end">@Bedragen.Getal(zichtbaar.Sum(r => r.Btw))</td>
+                            <td class="bedrag text-end">@Bedragen.Getal(zichtbaar.Sum(r => r.Totaal))</td>
+                            <td class="bedrag text-end">@Bedragen.Getal(zichtbaar.Sum(r => r.Openstaand))</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        }
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private DateOnly van;
+    private DateOnly tot;
+    private string zoek = "";
+    private IReadOnlyList<Inkoopboekregel>? regels;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "van")]
+    public string? VanTekst { get; set; }
+
+    [SupplyParameterFromQuery(Name = "tot")]
+    public string? TotTekst { get; set; }
+
+    /// <summary>De regels die passen bij het zoeken (leverancier, factuurnummer, omschrijving of boekstuk).</summary>
+    private IEnumerable<Inkoopboekregel> Gefilterd => string.IsNullOrWhiteSpace(zoek)
+        ? regels ?? []
+        : (regels ?? []).Where(r => new[] { r.Leverancier, r.Factuurnummer, r.Omschrijving, r.Boekstuk }.Any(t => t.Contains(zoek.Trim(), StringComparison.OrdinalIgnoreCase)));
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        // Standaard het jaar van de laatste factuur (niet van de laatste boeking: een verdeling loopt soms door in een later jaar).
+        (van, tot) = Weergave.Periode(VanTekst, TotTekst) ?? Boekhouding.Grootboek.Periode.Jaar(await Inkoop.LaatsteFactuurjaar(g.Wie, Id) ?? DateTime.Today.Year);
+        await Laad();
+    }
+
+    private async Task Laad() => regels = await Inkoop.Inkoopboek(geopend!.Wie, Id, van, tot);
+
+    private async Task KiesPeriode((DateOnly Van, DateOnly Tot) periode)
+    {
+        (van, tot) = periode;
+        Navigatie.NavigateTo($"/a/{Id}/inkoopboek?{Weergave.Periodequery(van, tot)}", replace: true);
+        await Laad();
+    }
+
+    /// <summary>Inzoomen: de factuur (met de boeking), of de boeking als er geen document bij hoort.</summary>
+    private void Open(Inkoopboekregel r) =>
+        Navigatie.NavigateTo(r.Document is { } document ? $"/a/{Id}/inkoop/{document}" : $"/a/{Id}/boeking/{r.Dagboek}/{r.Boekstuk}");
+}
