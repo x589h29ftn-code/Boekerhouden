@@ -810,7 +810,7 @@ body.scheiding-slepen {
 }
 
 .overzichtstabel > thead th {
-    padding: .7rem .75rem;
+    padding: .45rem .6rem;
     font-size: .72rem;
     font-weight: 600;
     letter-spacing: .05em;
@@ -820,17 +820,8 @@ body.scheiding-slepen {
     border-bottom: 1px solid var(--bs-primary);
 }
 
+/* Compact: veel regels onder elkaar. */
 .overzichtstabel > tbody td {
-    padding: .65rem .75rem;
-}
-
-/* Compacte overzichten (table-sm): meer regels onder elkaar, bijv. het memoriaal en het boekingsformulier. */
-.overzichtstabel.table-sm > thead th {
-    padding: .45rem .6rem;
-}
-
-.overzichtstabel.table-sm > tbody td,
-.overzichtstabel.table-sm > tfoot td {
     padding: .25rem .6rem;
 }
 
@@ -843,7 +834,7 @@ body.scheiding-slepen {
 }
 
 .overzichtstabel > tfoot td {
-    padding: .7rem .75rem;
+    padding: .35rem .6rem;
     font-weight: 600;
     background: var(--bs-tertiary-bg);
     border-bottom: 0;
@@ -940,5 +931,71 @@ body.scheiding-slepen {
 
 /* Memoriaal: de gekozen boeking in de lijst. */
 .memoriaal-lijst tr.gemarkeerd > td {
+    background: var(--bs-tertiary-bg);
+}
+
+/* Kolommenbalans uitgebreid: koppen en subtotalen per RGS-indeling. */
+.overzichtstabel tr.indeling-kop > td {
+    padding-top: .6rem;
+    font-weight: 600;
+    border-bottom: 0;
+}
+
+.overzichtstabel tr.indeling-kop.niveau-0 > td {
+    font-size: .78rem;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    background: var(--bs-tertiary-bg);
+}
+
+.overzichtstabel tr.indeling-kop.niveau-2 > td {
+    padding-left: 1rem;
+}
+
+.overzichtstabel td.ingesprongen {
+    padding-left: 1.75rem;
+}
+
+.overzichtstabel tr.indeling-subtotaal > td {
+    font-weight: 600;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.overzichtstabel tr.indeling-subtotaal.niveau-2 > td:first-child {
+    padding-left: 1rem;
+    font-weight: 500;
+    color: var(--bs-secondary-color);
+}
+
+.overzichtstabel tr.indeling-subtotaal.niveau-0 > td {
+    border-top: 2px solid var(--bs-border-color);
+}
+
+/* Kolommenbalans per maand: veel kolommen, horizontaal schuiven met de rekening vast links. */
+.maandoverzicht-kaart {
+    overflow-x: auto;
+}
+
+.maandoverzicht th, .maandoverzicht td {
+    white-space: nowrap;
+}
+
+.maandoverzicht > :is(thead, tbody, tfoot) > tr > :first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--bs-body-bg);
+}
+
+.maandoverzicht td.klikbaar {
+    cursor: pointer;
+}
+
+.maandoverzicht td.klikbaar:hover {
+    background: rgba(var(--bs-primary-rgb), .08);
+}
+
+.maandoverzicht > tfoot > tr > :first-child {
     background: var(--bs-tertiary-bg);
 }

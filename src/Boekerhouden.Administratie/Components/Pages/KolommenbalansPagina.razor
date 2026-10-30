@@ -1,9 +1,18 @@
 @page "/a/{Id:guid}/kolommenbalans"
+@using Boekerhouden.Boekhouding.Grootboek
 @inject GrootboekDienst Grootboek
 @inject NavigationManager Navigatie
 
 <AdministratieKader Id="Id" Titel="Kolommenbalans" Actief="/kolommenbalans" BijOpenen="Open">
     <Acties>
+        <div class="btn-group btn-group-sm" role="group" aria-label="Presentatie">
+            <button class="btn btn-outline-secondary @(uitgebreid ? null : "active")" title="De grootboekrekeningen onder elkaar" @onclick="() => Zet(false, perMaand)">Grootboek</button>
+            <button class="btn btn-outline-secondary @(uitgebreid ? "active" : null)" title="Ingedeeld naar RGS (materiële vaste activa, vlottende activa, …) met subtotalen" @onclick="() => Zet(true, perMaand)">Uitgebreid</button>
+        </div>
+        <div class="btn-group btn-group-sm" role="group" aria-label="Weergave">
+            <button class="btn btn-outline-secondary @(perMaand ? null : "active")" @onclick="() => Zet(uitgebreid, false)">Totaal</button>
+            <button class="btn btn-outline-secondary @(perMaand ? "active" : null)" title="Begin, de mutaties per maand en het eind" @onclick="() => Zet(uitgebreid, true)">Per maand</button>
+        </div>
         <span class="form-check form-switch mb-0 small text-nowrap">
             <input class="form-check-input" type="checkbox" id="met-nul" @bind="metNul" />
             <label class="form-check-label text-secondary" for="met-nul">ook zonder saldo</label>
@@ -11,7 +20,11 @@
         <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
     </Acties>
     <ChildContent>
-        @if (koba is not null)
+        @if (melding is not null)
+        {
+            <div class="bericht">@melding</div>
+        }
+        else if (!perMaand && koba is not null)
         {
             <div class="card overzichtskaart">
                 <table class="table align-middle mb-0 overzichtstabel kolommenbalans">
@@ -25,15 +38,32 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var r in koba.Regels.Where(r => metNul || r.Saldo != 0))
+                        @foreach (var p in Presentatie(koba.Regels.Where(r => metNul || r.Saldo != 0), r => r.Rekening))
                         {
-                            <tr class="klikbaar" title="@r.Rekening.RgsCode" @onclick="() => NaarKaart(r.Rekening.Nummer)">
-                                <td><span class="rekeningnummer">@r.Rekening.Nummer</span> @r.Rekening.Naam</td>
-                                <td class="bedrag text-end">@Getal(r.WinstEnVerliesDebet)</td>
-                                <td class="bedrag text-end">@Getal(r.WinstEnVerliesCredit)</td>
-                                <td class="bedrag text-end">@Getal(r.BalansDebet)</td>
-                                <td class="bedrag text-end">@Getal(r.BalansCredit)</td>
-                            </tr>
+                            @if (p.Regel is { } r)
+                            {
+                                <tr class="klikbaar" title="@r.Rekening.RgsCode" @onclick="() => NaarKaart(r.Rekening.Nummer, van, tot)">
+                                    <td class="@(uitgebreid ? "ingesprongen" : null)"><span class="rekeningnummer">@r.Rekening.Nummer</span> @r.Rekening.Naam</td>
+                                    <td class="bedrag text-end">@Getal(r.WinstEnVerliesDebet)</td>
+                                    <td class="bedrag text-end">@Getal(r.WinstEnVerliesCredit)</td>
+                                    <td class="bedrag text-end">@Getal(r.BalansDebet)</td>
+                                    <td class="bedrag text-end">@Getal(r.BalansCredit)</td>
+                                </tr>
+                            }
+                            else if (p.Soort == Presentatiesoort.Kop)
+                            {
+                                <tr class="indeling-kop niveau-@p.Niveau"><td colspan="5">@p.Tekst</td></tr>
+                            }
+                            else
+                            {
+                                <tr class="indeling-subtotaal niveau-@p.Niveau">
+                                    <td>@p.Tekst</td>
+                                    <td class="bedrag text-end">@Getal(p.Onder.Sum(x => x.WinstEnVerliesDebet))</td>
+                                    <td class="bedrag text-end">@Getal(p.Onder.Sum(x => x.WinstEnVerliesCredit))</td>
+                                    <td class="bedrag text-end">@Getal(p.Onder.Sum(x => x.BalansDebet))</td>
+                                    <td class="bedrag text-end">@Getal(p.Onder.Sum(x => x.BalansCredit))</td>
+                                </tr>
+                            }
                         }
                     </tbody>
                     <tfoot>
@@ -62,15 +92,85 @@
                 </table>
             </div>
         }
+        else if (perMaand && maanden is not null)
+        {
+            <div class="card overzichtskaart maandoverzicht-kaart">
+                <table class="table align-middle mb-0 overzichtstabel maandoverzicht">
+                    <thead>
+                        <tr>
+                            <th>Grootboek</th>
+                            <th class="text-end">Begin</th>
+                            @foreach (var m in maanden.Maanden)
+                            {
+                                <th class="text-end">@m.ToString("MMM yy", Nederlands)</th>
+                            }
+                            <th class="text-end">Eind</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in Presentatie(maanden.Regels.Where(r => metNul || !r.Leeg), r => r.Rekening))
+                        {
+                            @if (p.Regel is { } r)
+                            {
+                                <tr title="@r.Rekening.RgsCode">
+                                    <td class="klikbaar @(uitgebreid ? "ingesprongen" : null)" @onclick="() => NaarKaart(r.Rekening.Nummer, van, tot)"><span class="rekeningnummer">@r.Rekening.Nummer</span> @r.Rekening.Naam</td>
+                                    <td class="bedrag text-end text-secondary">@Getal(r.Begin)</td>
+                                    @for (var i = 0; i < maanden.Maanden.Count; i++)
+                                    {
+                                        var n = i;
+                                        <td class="bedrag text-end klikbaar" title="@r.Rekening.Naam, @maanden.Maanden[n].ToString("MMMM yyyy", Nederlands)" @onclick="() => NaarMaand(r.Rekening.Nummer, n)">@Getal(r.PerMaand[n])</td>
+                                    }
+                                    <td class="bedrag text-end fw-semibold">@Getal(r.Eind)</td>
+                                </tr>
+                            }
+                            else if (p.Soort == Presentatiesoort.Kop)
+                            {
+                                <tr class="indeling-kop niveau-@p.Niveau"><td colspan="@(maanden.Maanden.Count + 3)">@p.Tekst</td></tr>
+                            }
+                            else
+                            {
+                                <tr class="indeling-subtotaal niveau-@p.Niveau">
+                                    <td>@p.Tekst</td>
+                                    <td class="bedrag text-end">@Getal(p.Onder.Sum(x => x.Begin))</td>
+                                    @for (var i = 0; i < maanden.Maanden.Count; i++)
+                                    {
+                                        var n = i;
+                                        <td class="bedrag text-end">@Getal(p.Onder.Sum(x => x.PerMaand[n]))</td>
+                                    }
+                                    <td class="bedrag text-end">@Getal(p.Onder.Sum(x => x.Eind))</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr class="generaal">
+                            <td title="Winst positief">Resultaat</td>
+                            <td></td>
+                            @foreach (var resultaat in maanden.ResultaatPerMaand)
+                            {
+                                <td class="bedrag text-end">@Getal(resultaat)</td>
+                            }
+                            <td class="bedrag text-end">@Bedragen.Getal(maanden.ResultaatPerMaand.Sum())</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        }
     </ChildContent>
 </AdministratieKader>
 
 @code {
+    private static readonly System.Globalization.CultureInfo Nederlands = System.Globalization.CultureInfo.GetCultureInfo("nl-NL");
+
     private Geopend? geopend;
     private DateOnly van;
     private DateOnly tot;
     private bool metNul;
+    private bool uitgebreid;
+    private bool perMaand;
+    private string? melding;
     private Boekhouding.Grootboek.Kolommenbalans? koba;
+    private Maandoverzicht? maanden;
 
     [Parameter]
     public Guid Id { get; set; }
@@ -81,25 +181,127 @@
     [SupplyParameterFromQuery(Name = "tot")]
     public string? TotTekst { get; set; }
 
+    /// <summary><c>rgs</c> = uitgebreid (ingedeeld naar RGS); anders de grootboekrekeningen onder elkaar.</summary>
+    [SupplyParameterFromQuery(Name = "indeling")]
+    public string? Indeling { get; set; }
+
+    /// <summary><c>maand</c> = per maand; anders het totaal over de periode.</summary>
+    [SupplyParameterFromQuery(Name = "weergave")]
+    public string? WeergaveKeuze { get; set; }
+
     private async Task Open(Geopend g)
     {
         geopend = g;
-        (van, tot) = Weergave.Periode(VanTekst, TotTekst) ?? Boekhouding.Grootboek.Periode.Jaar((await Grootboek.Boekjaren(g.Wie, Id))[0]);
+        (van, tot) = Weergave.Periode(VanTekst, TotTekst) ?? Periode.Jaar((await Grootboek.Boekjaren(g.Wie, Id))[0]);
+        (uitgebreid, perMaand) = (Indeling == "rgs", WeergaveKeuze == "maand");
         await Laad();
     }
 
-    private async Task Laad() => koba = await Grootboek.Kolommenbalans(geopend!.Wie, Id, van, tot);
+    private async Task Laad()
+    {
+        melding = null;
+        if (!perMaand)
+        {
+            koba = await Grootboek.Kolommenbalans(geopend!.Wie, Id, van, tot);
+            return;
+        }
+
+        try
+        {
+            maanden = await Grootboek.Maandoverzicht(geopend!.Wie, Id, van, tot);
+        }
+        catch (ArgumentException)
+        {
+            (maanden, melding) = (null, $"Per maand kan over hoogstens {Maandoverzicht.MaximumMaanden} maanden; kies een kortere periode.");
+        }
+    }
+
+    private async Task Zet(bool rgs, bool maand)
+    {
+        (uitgebreid, perMaand) = (rgs, maand);
+        Navigatie.NavigateTo(Adres(), replace: true);
+        await Laad();
+    }
 
     private async Task KiesPeriode((DateOnly Van, DateOnly Tot) periode)
     {
         (van, tot) = periode;
-        Navigatie.NavigateTo($"/a/{Id}/kolommenbalans?{Weergave.Periodequery(van, tot)}", replace: true);
+        Navigatie.NavigateTo(Adres(), replace: true);
         await Laad();
     }
 
-    /// <summary>Inzoomen: de grootboekkaart van de rekening over dezelfde periode.</summary>
-    private void NaarKaart(string rekening) =>
-        Navigatie.NavigateTo($"/a/{Id}/grootboek?rekening={Uri.EscapeDataString(rekening)}&{Weergave.Periodequery(van, tot)}");
+    private string Adres() =>
+        $"/a/{Id}/kolommenbalans?{Weergave.Periodequery(van, tot)}{(uitgebreid ? "&indeling=rgs" : null)}{(perMaand ? "&weergave=maand" : null)}";
+
+    /// <summary>Inzoomen: de grootboekkaart van de rekening over de periode (daar is de periode weer te wijzigen).</summary>
+    private void NaarKaart(string rekening, DateOnly kaartVan, DateOnly kaartTot) =>
+        Navigatie.NavigateTo($"/a/{Id}/grootboek?rekening={Uri.EscapeDataString(rekening)}&{Weergave.Periodequery(kaartVan, kaartTot)}");
+
+    private void NaarMaand(string rekening, int maand)
+    {
+        var (maandVan, maandTot) = maanden!.Periode(maand);
+        NaarKaart(rekening, maandVan, maandTot);
+    }
 
     private static string? Getal(decimal bedrag) => bedrag == 0 ? null : Bedragen.Getal(bedrag);
+
+    private enum Presentatiesoort
+    {
+        Kop,
+        Rekening,
+        Subtotaal,
+    }
+
+    /// <summary>Een regel in de tabel: een kop, een rekening of een subtotaal (over <see cref="Onder"/>).</summary>
+    private sealed record Presentatieregel<T>(Presentatiesoort Soort, string Tekst, int Niveau, T? Regel, IReadOnlyList<T> Onder)
+        where T : class;
+
+    /// <summary>
+    /// De regels zoals ze getoond worden: bij Grootboek de rekeningen onder elkaar, bij Uitgebreid ingedeeld naar RGS
+    /// (sectie, tussenkop, groep) met een subtotaal onder elke groep, tussenkop en sectie.
+    /// </summary>
+    private IReadOnlyList<Presentatieregel<T>> Presentatie<T>(IEnumerable<T> regels, Func<T, Rekening> rekening)
+        where T : class
+    {
+        if (!uitgebreid)
+        {
+            return [.. regels.Select(r => new Presentatieregel<T>(Presentatiesoort.Rekening, "", 0, r, []))];
+        }
+
+        var uit = new List<Presentatieregel<T>>();
+        foreach (var sectie in Rekeningindeling.Deel(regels, rekening).GroupBy(g => g.Groep.Sectie))
+        {
+            uit.Add(new(Presentatiesoort.Kop, sectie.Key, 0, null, []));
+            var inSectie = new List<T>();
+            foreach (var tussen in sectie.GroupBy(g => g.Groep.Tussenkop))
+            {
+                if (tussen.Key is not null)
+                {
+                    uit.Add(new(Presentatiesoort.Kop, tussen.Key, 1, null, []));
+                }
+
+                var inTussen = new List<T>();
+                foreach (var (groep, onder) in tussen)
+                {
+                    uit.Add(new(Presentatiesoort.Kop, groep.Naam, 2, null, []));
+                    uit.AddRange(onder.Select(r => new Presentatieregel<T>(Presentatiesoort.Rekening, "", 2, r, [])));
+                    uit.Add(new(Presentatiesoort.Subtotaal, $"Totaal {Klein(groep.Naam)}", 2, null, onder));
+                    inTussen.AddRange(onder);
+                }
+
+                if (tussen.Key is not null)
+                {
+                    uit.Add(new(Presentatiesoort.Subtotaal, $"Totaal {Klein(tussen.Key)}", 1, null, inTussen));
+                }
+
+                inSectie.AddRange(inTussen);
+            }
+
+            uit.Add(new(Presentatiesoort.Subtotaal, $"Totaal {Klein(sectie.Key)}", 0, null, inSectie));
+        }
+
+        return uit;
+    }
+
+    private static string Klein(string tekst) => tekst.Length > 1 && char.IsLower(tekst[1]) ? char.ToLowerInvariant(tekst[0]) + tekst[1..] : tekst;
 }

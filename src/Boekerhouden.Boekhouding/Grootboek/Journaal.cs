@@ -215,6 +215,62 @@ public sealed class Journaal
             credit[r.Nummer] + Math.Max(-begin[r.Nummer], 0))).ToList());
     }
 
+    /// <summary>
+    /// De kolommenbalans per maand over een periode (hoogstens <see cref="Maandoverzicht.MaximumMaanden"/> maanden):
+    /// begin, mutaties per maand en eind per rekening. Het eind is gelijk aan het saldo in de
+    /// <see cref="Kolommenbalans(DateOnly, DateOnly)"/>.
+    /// </summary>
+    public Maandoverzicht Maandoverzicht(DateOnly van, DateOnly tot)
+    {
+        if (tot < van)
+        {
+            throw new ArgumentException("De periode eindigt vóór het begin.", nameof(tot));
+        }
+
+        var maanden = new List<DateOnly>();
+        for (var m = new DateOnly(van.Year, van.Month, 1); m <= tot; m = m.AddMonths(1))
+        {
+            maanden.Add(m);
+        }
+
+        if (maanden.Count > Grootboek.Maandoverzicht.MaximumMaanden)
+        {
+            throw new ArgumentException($"Per maand kan over hoogstens {Grootboek.Maandoverzicht.MaximumMaanden} maanden.", nameof(tot));
+        }
+
+        var begin = Schema.Alle.ToDictionary(r => r.Nummer, _ => 0m, StringComparer.Ordinal);
+        var perMaand = Schema.Alle.ToDictionary(r => r.Nummer, _ => new decimal[maanden.Count], StringComparer.Ordinal);
+        var eerder = 0m;
+        foreach (var post in posten.Where(p => p.Datum <= tot))
+        {
+            foreach (var regel in post.Regels)
+            {
+                var rekening = Schema.Zoek(regel.Rekeningnummer)!;
+                if (post.Datum >= van)
+                {
+                    perMaand[rekening.Nummer][((post.Datum.Year - van.Year) * 12) + post.Datum.Month - van.Month] += regel.Bedrag;
+                }
+                else if (rekening.IsBalans)
+                {
+                    begin[rekening.Nummer] += regel.Bedrag;
+                }
+                else
+                {
+                    eerder += regel.Bedrag;
+                }
+            }
+        }
+
+        if (eerder != 0)
+        {
+            var onverdeeld = Schema.MetFunctie(Rekeningfunctie.OnverdeeldResultaat).FirstOrDefault()
+                ?? throw new InvalidOperationException("Er is resultaat van vóór de periode, maar geen rekening voor het onverdeelde resultaat.");
+            begin[onverdeeld.Nummer] += eerder;
+        }
+
+        return new Maandoverzicht(van, tot, maanden, [.. Schema.Alle.Select(r => new Maandoverzichtregel(r, begin[r.Nummer], perMaand[r.Nummer]))]);
+    }
+
     /// <summary>De kolommenbalans van een kalenderjaar.</summary>
     public Kolommenbalans Kolommenbalans(int boekjaar) => Kolommenbalans(new DateOnly(boekjaar, 1, 1), new DateOnly(boekjaar, 12, 31));
 

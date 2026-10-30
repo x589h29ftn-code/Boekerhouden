@@ -53,6 +53,9 @@ public sealed class BoekenTests(AdministratieFixture app) : IClassFixture<Admini
 
         Assert.Equal(journaal.Proefbalans(2026).Regels, (await grootboek.Proefbalans(wie, id, 2026)).Regels);
         Assert.Equal(journaal.Kolommenbalans(new(2025, 4, 1), new(2025, 9, 30)).Regels, (await grootboek.Kolommenbalans(wie, id, new(2025, 4, 1), new(2025, 9, 30))).Regels);
+        var maandenVerwacht = journaal.Maandoverzicht(new(2025, 4, 1), new(2026, 3, 31));
+        var maanden = await grootboek.Maandoverzicht(wie, id, new(2025, 4, 1), new(2026, 3, 31));
+        Assert.Equal(maandenVerwacht.Regels.Select(r => (r.Rekening, r.Begin, r.Eind, string.Join(";", r.PerMaand))), maanden.Regels.Select(r => (r.Rekening, r.Begin, r.Eind, string.Join(";", r.PerMaand))));
         foreach (var rekening in new[] { "1100", "4310", "8000" })
         {
             var verwacht = journaal.Kaart(rekening, new(2025, 7, 1), new(2026, 2, 28));
@@ -208,6 +211,29 @@ public sealed class BoekenTests(AdministratieFixture app) : IClassFixture<Admini
         Assert.Equal(["Je hebt in deze administratie niet het recht om hier te boeken."], (await grootboek.PasAan(ondernemer, id, "MEM", "2026-0001", nieuw)).Fouten);
         var buitenstaander = await app.Gebruiker("Bart Buiten");
         await Assert.ThrowsAsync<GeenToegangException>(() => grootboek.PasAan(buitenstaander, id, "MEM", "2026-0001", nieuw));
+    }
+
+    [Fact]
+    public async Task Rekening_wijzigen_koppelt_aan_de_uitgebreide_indeling()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var grootboek = app.Dienst<GrootboekDienst>();
+        Assert.True((await grootboek.VoegRekeningToe(wie, id, new("4390", "Diversen", Rekeningsoort.Resultaat, null))).IsGelukt);
+        Assert.Equal("Niet ingedeeld (W&V)", Rekeningindeling.Groep((await grootboek.Schema(wie, id)).Zoek("4390")!).Naam);
+
+        Assert.True((await grootboek.WijzigRekening(wie, id, "4390", "Diverse kosten", "WBedKanKan", "I21")).IsGelukt);
+
+        var rekening = (await grootboek.Schema(wie, id)).Zoek("4390")!;
+        Assert.Equal(("Diverse kosten", "WBedKanKan", "I21", "Overige bedrijfskosten"), (rekening.Naam, rekening.RgsCode, rekening.BtwCode, Rekeningindeling.Groep(rekening).Naam));
+        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.RekeningGewijzigd && r.Onderwerp == "4390"
+            && r.Details == "Diversen; -; btw variabel → Diverse kosten; WBedKanKan; btw I21");
+        Assert.Contains("resultaatrekening", (await grootboek.WijzigRekening(wie, id, "4390", "X", "BLimBanRba", null)).Fouten[0], StringComparison.Ordinal);
+        Assert.Equal(["Btw-code X99 bestaat niet."], (await grootboek.WijzigRekening(wie, id, "4390", "X", null, "X99")).Fouten);
+        Assert.Equal(["Rekening 9999 bestaat niet."], (await grootboek.WijzigRekening(wie, id, "9999", "X", null, null)).Fouten);
+        var ondernemer = await app.Gebruiker("Oscar Ondernemer");
+        await app.Dienst<AdministratieDienst>().ZetLid(id, ondernemer.Id!.Value, Data.Lidmaatschapsrol.Ondernemer, wie);
+        await Assert.ThrowsAsync<GeenToegangException>(() => grootboek.WijzigRekening(ondernemer, id, "4390", "X", null, null));
     }
 
     [Fact]

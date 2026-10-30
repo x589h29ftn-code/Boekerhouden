@@ -94,6 +94,53 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
     }
 
     /// <summary>
+    /// Naam, RGS-code (de koppeling voor de uitgebreide presentatie en de saldibalans) en btw-code van een rekening
+    /// wijzigen. Nummer en soort blijven: een balansrekening houdt een B-code, een resultaatrekening een W-code.
+    /// </summary>
+    public async Task<Uitkomst> WijzigRekening(Uitvoerder wie, Guid administratie, string nummer, string naam, string? rgsCode, string? btwCode)
+    {
+        ArgumentNullException.ThrowIfNull(naam);
+        await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
+        if (await db.Rekeningen.FirstOrDefaultAsync(r => r.Nummer == nummer) is not { } rekening)
+        {
+            return Uitkomst.Mislukt($"Rekening {nummer} bestaat niet.");
+        }
+
+        var rgs = Leeg(rgsCode);
+        var btw = Leeg(btwCode);
+        var fouten = new List<string>();
+        if (naam.Trim().Length == 0)
+        {
+            fouten.Add("Vul de naam in.");
+        }
+
+        if (rgs is not null && !RgsVorm().IsMatch(rgs))
+        {
+            fouten.Add("Een RGS-code begint met B of W, gevolgd door letters, bijv. WBedKanTef.");
+        }
+        else if (rgs is not null && (rgs[0] == 'B') != (rekening.Soort == Rekeningsoort.Balans))
+        {
+            fouten.Add($"Rekening {nummer} is een {(rekening.Soort == Rekeningsoort.Balans ? "balans" : "resultaat")}rekening, maar RGS-code {rgs} niet.");
+        }
+
+        if (btw is not null && Boekhouding.Btw.BtwCodes.Zoek((await BtwDienst.Lees(db)).Codes, btw) is null)
+        {
+            fouten.Add($"Btw-code {btw} bestaat niet.");
+        }
+
+        if (fouten.Count > 0)
+        {
+            return Uitkomst.Mislukt([.. fouten]);
+        }
+
+        var oud = $"{rekening.Naam}; {rekening.RgsCode ?? "-"}; btw {rekening.BtwCode ?? "variabel"}";
+        (rekening.Naam, rekening.RgsCode, rekening.BtwCode) = (naam.Trim(), rgs, btw);
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.RekeningGewijzigd, nummer, $"{oud} → {rekening.Naam}; {rgs ?? "-"}; btw {btw ?? "variabel"}", administratie);
+        return Uitkomst.Gelukt;
+    }
+
+    /// <summary>
     /// Een extra memoriaal, bijv. <c>MLON</c> "Memoriaal lonen" of <c>MACC</c> "Memoriaal accountant": om de boekingen
     /// van het kantoor te ordenen. Een code van 2 tot 10 letters of cijfers; alleen met het recht Boekhouden.
     /// </summary>
@@ -268,6 +315,10 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
     /// <summary>De kolommenbalans over een periode: alleen boekingen tussen de datums, balansrekeningen met hun beginstand.</summary>
     public async Task<Kolommenbalans> Kolommenbalans(Uitvoerder wie, Guid administratie, DateOnly van, DateOnly tot) =>
         (await Journaal(wie, administratie, van, tot)).Kolommenbalans(van, tot);
+
+    /// <summary>De kolommenbalans per maand over een periode: begin, mutaties per maand en eind per rekening.</summary>
+    public async Task<Maandoverzicht> Maandoverzicht(Uitvoerder wie, Guid administratie, DateOnly van, DateOnly tot) =>
+        (await Journaal(wie, administratie, van, tot)).Maandoverzicht(van, tot);
 
     /// <summary>Eén boeking (dagboek en boekstuk, de geldende versie), met de factuur waar hij bij hoort; leeg als hij niet bestaat.</summary>
     public async Task<Boekingsdetail?> Boeking(Uitvoerder wie, Guid administratie, string dagboek, string boekstuk)

@@ -57,6 +57,7 @@ public static class AuditActies
     public const string AdministratieAangemaakt = "Administratie aangemaakt";
     public const string LidToegevoegd = "Lid toegevoegd";
     public const string RekeningToegevoegd = "Grootboekrekening toegevoegd";
+    public const string RekeningGewijzigd = "Grootboekrekening gewijzigd";
     public const string DagboekToegevoegd = "Dagboek toegevoegd";
     public const string Geboekt = "Geboekt";
     public const string AutomatischGeboekt = "Automatisch geboekt";

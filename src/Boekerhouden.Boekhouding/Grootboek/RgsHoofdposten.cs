@@ -31,6 +31,10 @@ public static class RgsHoofdposten
         ("WMfo", "W", "Mutatie fiscale oudedagsreserve", Saldokant.Debet),
     ];
 
+    /// <summary>De hoofdposten van niveau 2 (bijv. <c>BMva</c> materiële vaste activa), in de volgorde van balans en W&amp;V.</summary>
+    public static IReadOnlyList<(string Code, string Naam, Saldokant Kant)> Posten { get; } =
+        [.. Codes.Where(c => c.Ouder is not null).Select(c => (c.Code, c.Naam, c.Kant!.Value))];
+
     public static RgsSchema Schema { get; } = new("3.8 (hoofdposten)", Codes.Select((c, i) =>
         new RgsCode(c.Code, c.Ouder is null ? 1 : 2, c.Ouder, c.Naam, c.Naam, c.Kant, null, i, null, false, new HashSet<string>(), new HashSet<string>())));
 }

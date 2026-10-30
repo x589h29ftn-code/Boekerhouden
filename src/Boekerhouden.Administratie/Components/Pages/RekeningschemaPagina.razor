@@ -1,4 +1,5 @@
 @page "/a/{Id:guid}/rekeningschema"
+@using Boekerhouden.Boekhouding.Grootboek
 @inject GrootboekDienst Grootboek
 @inject BtwDienst Btw
 @inject TimeProvider Tijd
@@ -47,21 +48,48 @@
     @if (schema is not null)
     {
         <div class="card">
-            <table class="table table-sm align-middle mb-0">
+            <table class="table table-sm align-middle mb-0 overzichtstabel rekeningschema">
                 <thead>
-                    <tr><th>Nummer</th><th>Naam</th><th>Btw</th><th>Soort</th><th>RGS</th><th>Functie</th></tr>
+                    <tr><th>Nummer</th><th>Naam</th><th>Btw</th><th>Soort</th><th>RGS</th><th>Indeling</th><th>Functie</th></tr>
                 </thead>
                 <tbody>
                     @foreach (var r in schema.Alle)
                     {
-                        <tr>
-                            <td><a href="/a/@Id/grootboek?rekening=@r.Nummer">@r.Nummer</a></td>
-                            <td>@r.Naam</td>
-                            <td class="text-secondary">@r.BtwCode</td>
-                            <td class="text-secondary">@(r.IsBalans ? "balans" : "resultaat")</td>
-                            <td class="small">@r.RgsCode</td>
-                            <td class="small text-secondary">@Weergave.Tekst(r.Functie)</td>
-                        </tr>
+                        @if (bewerk?.Nummer == r.Nummer)
+                        {
+                            <tr class="bewerken">
+                                <td><a href="/a/@Id/grootboek?rekening=@r.Nummer">@r.Nummer</a></td>
+                                <td><input class="form-control form-control-sm" @bind="bewerk.Naam" aria-label="Naam" /></td>
+                                <td>
+                                    <select class="form-select form-select-sm" @bind="bewerk.Btw" aria-label="Btw-code">
+                                        <option value="">variabel</option>
+                                        @foreach (var c in codes.Where(c => c.Actief || c.Code == bewerk.Btw))
+                                        {
+                                            <option value="@c.Code" title="@c.Omschrijving">@c.Code</option>
+                                        }
+                                    </select>
+                                </td>
+                                <td class="text-secondary">@(r.IsBalans ? "balans" : "resultaat")</td>
+                                <td><input class="form-control form-control-sm" @bind="bewerk.Rgs" @bind:event="oninput" aria-label="RGS-code" placeholder="@(r.IsBalans ? "BLimBanRba" : "WBedKanKan")" /></td>
+                                <td class="small text-secondary">@Rekeningindeling.Groep(r with { RgsCode = string.IsNullOrWhiteSpace(bewerk.Rgs) ? null : bewerk.Rgs.Trim() }).Naam</td>
+                                <td class="text-nowrap">
+                                    <button class="btn btn-sm btn-primary" @onclick="Bewaar">Opslaan</button>
+                                    <button class="btn btn-sm btn-link text-secondary" @onclick="() => (bewerk, fouten) = (null, null)">annuleren</button>
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            <tr class="@(magWijzigen ? "klikbaar" : null)" @onclick="() => Bewerk(r)" title="@(magWijzigen ? "Naam, btw-code en RGS-code wijzigen" : null)">
+                                <td><a href="/a/@Id/grootboek?rekening=@r.Nummer" @onclick:stopPropagation>@r.Nummer</a></td>
+                                <td>@r.Naam</td>
+                                <td class="text-secondary">@r.BtwCode</td>
+                                <td class="text-secondary">@(r.IsBalans ? "balans" : "resultaat")</td>
+                                <td class="small">@r.RgsCode</td>
+                                <td class="small text-secondary">@Rekeningindeling.Groep(r).Naam</td>
+                                <td class="small text-secondary">@Weergave.Tekst(r.Functie)</td>
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
@@ -77,6 +105,8 @@
     private Rekeningsoort soort = Rekeningsoort.Resultaat;
     private string? rgs;
     private string? btw;
+    private bool magWijzigen;
+    private Bewerking? bewerk;
     private IReadOnlyList<Boekhouding.Btw.BtwCode> codes = [];
     private IReadOnlyList<string>? fouten;
 
@@ -86,6 +116,7 @@
     private async Task Open(Geopend g)
     {
         geopend = g;
+        magWijzigen = g.Kop.Mag(Recht.Boekhouden);
         schema = await Grootboek.Schema(g.Wie, Id);
         codes = (await Btw.Tabel()).Op(DateOnly.FromDateTime(Tijd.GetLocalNow().DateTime));
     }
@@ -100,5 +131,35 @@
             rgs = btw = null;
             schema = await Grootboek.Schema(geopend.Wie, Id);
         }
+    }
+
+    private void Bewerk(Rekening rekening)
+    {
+        if (magWijzigen)
+        {
+            (bewerk, fouten) = (new Bewerking { Nummer = rekening.Nummer, Naam = rekening.Naam, Rgs = rekening.RgsCode, Btw = rekening.BtwCode }, null);
+        }
+    }
+
+    private async Task Bewaar()
+    {
+        var uitkomst = await Grootboek.WijzigRekening(geopend!.Wie, Id, bewerk!.Nummer, bewerk.Naam, bewerk.Rgs, bewerk.Btw);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            bewerk = null;
+            schema = await Grootboek.Schema(geopend.Wie, Id);
+        }
+    }
+
+    private sealed class Bewerking
+    {
+        public string Nummer { get; set; } = "";
+
+        public string Naam { get; set; } = "";
+
+        public string? Rgs { get; set; }
+
+        public string? Btw { get; set; }
     }
 }
