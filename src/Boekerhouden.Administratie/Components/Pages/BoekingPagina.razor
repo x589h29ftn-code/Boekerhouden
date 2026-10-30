@@ -2,16 +2,15 @@
 @using Boekerhouden.Boekhouding.Grootboek
 @inject GrootboekDienst Grootboek
 @inject BtwDienst Btw
-@inject NavigationManager Navigatie
 
 <AdministratieKader Id="Id" Titel="Boeking" Actief="/journaal" BijOpenen="Open">
     <Acties>
         @if (detail?.Document is { } document)
         {
             <a class="btn btn-sm btn-outline-primary" href="/a/@Id/inkoop/@document" title="@detail.Documentnaam">Factuur</a>
-            @if (geopend?.Kop.Mag(Recht.Invoeren) == true && detail.AangepastIn is null)
+            @if (geopend?.Kop.Mag(Recht.Invoeren) == true && detail.Herstelt is null)
             {
-                <a class="btn btn-sm btn-outline-secondary" href="/a/@Id/inkoop/@document?heropenen=true" title="De factuur heropenen om de boeking aan te passen">Aanpassen</a>
+                <a class="btn btn-sm btn-outline-secondary" href="/a/@Id/inkoop/@document?aanpassen=true" title="De boeking aanpassen via de factuur">Aanpassen</a>
             }
         }
         else if (detail is { Vast: null } && invoer is null && geopend is not null && MagAanpassen(geopend.Kop))
@@ -29,27 +28,25 @@
             <div class="verwerken">
             <div class="verwerken-formulier">
             <Foutmeldingen Fouten="fouten" />
+            @if (bericht is not null)
+            {
+                <div class="bericht small mb-2">@bericht</div>
+            }
             @if (invoer is null)
             {
                 <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
                     <span class="fw-semibold text-nowrap">@b.Post.Dagboek @b.Post.Boekstuk</span>
                     <span class="text-secondary text-nowrap">@Weergave.Datum(b.Post.Datum)</span>
                     <span class="ms-2">@b.Post.Omschrijving</span>
-                    <span class="small text-secondary ms-auto" title="Volgnummer @b.Volgnummer in de keten">geboekt door @b.GeboektDoor, @Weergave.DatumTijd(b.GeboektOp)</span>
+                    <span class="small text-secondary ms-auto" title="Volgnummer @b.Volgnummer in de keten">
+                        @(detail.Versie > 1 ? $"versie {detail.Versie}, aangepast door" : "geboekt door") @b.GeboektDoor, @Weergave.DatumTijd(b.GeboektOp)
+                    </span>
                 </div>
-                @if (detail.AangepastIn is { } nieuw)
-                {
-                    <div class="status mb-2">Aangepast in <a href="@Adres(nieuw)">@nieuw</a></div>
-                }
-                @if (detail.Vervangt is { } oud)
-                {
-                    <div class="status mb-2">Vervangt <a href="@Adres(oud)">@oud</a></div>
-                }
                 @if (detail.Herstelt is { } hersteld)
                 {
                     <div class="status mb-2">Tegenboeking van <a href="@Adres(hersteld)">@hersteld</a></div>
                 }
-                else if (detail is { Vast: { } vast, Document: null, AangepastIn: null })
+                else if (detail is { Vast: { } vast, Document: null })
                 {
                     <div class="status mb-2">@vast</div>
                 }
@@ -81,6 +78,43 @@
                         </tfoot>
                     </table>
                 </div>
+                @if (detail.Eerder is { Count: > 0 } eerder)
+                {
+                    <div class="form-check form-switch mt-3 small">
+                        <input id="eerder" class="form-check-input" type="checkbox" @bind="toonEerder" />
+                        <label class="form-check-label text-secondary" for="eerder">Eerdere versies (@eerder.Count)</label>
+                    </div>
+                    @if (toonEerder)
+                    {
+                        @foreach (var v in eerder)
+                        {
+                            <div class="small text-secondary mt-3 mb-1">
+                                Versie @v.Versie · @Weergave.Datum(v.Boeking.Post.Datum) · @v.Boeking.Post.Omschrijving
+                                <span class="ms-2" title="Volgnummer @v.Boeking.Volgnummer in de keten">@v.Boeking.GeboektDoor, @Weergave.DatumTijd(v.Boeking.GeboektOp)</span>
+                            </div>
+                            <div class="card eerdere-versie">
+                                <table class="table table-sm align-middle mb-0 overzichtstabel">
+                                    <tbody>
+                                        @foreach (var r in v.Boeking.Post.Regels)
+                                        {
+                                            <tr>
+                                                <td><span class="rekeningnummer">@r.Rekeningnummer</span> @schema?.Zoek(r.Rekeningnummer)?.Naam</td>
+                                                <td>@(r.Omschrijving ?? v.Boeking.Post.Omschrijving)</td>
+                                                <td class="text-secondary">@r.BtwCode</td>
+                                                <td class="bedrag text-end">@(r.Bedrag > 0 ? Bedragen.Getal(r.Bedrag) : null)</td>
+                                                <td class="bedrag text-end">@(r.Bedrag < 0 ? Bedragen.Getal(-r.Bedrag) : null)</td>
+                                            </tr>
+                                        }
+                                        @if (v.Boeking.Post.Regels.Count == 0)
+                                        {
+                                            <tr><td class="text-secondary">Vervallen</td></tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    }
+                }
             }
             else
             {
@@ -167,6 +201,8 @@
     private Rekeningschema? schema;
     private IReadOnlyList<Boekhouding.Grootboek.Dagboek> dagboeken = [];
     private Invoer? invoer;
+    private bool toonEerder;
+    private string? bericht;
     private IReadOnlyList<Boekhouding.Btw.BtwCode> codes = [];
     private IReadOnlyList<string>? fouten;
 
@@ -189,7 +225,7 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        // Na het opslaan naar de nieuwe boeking: dezelfde pagina, andere parameters.
+        // Naar een andere boeking (bijv. via een link): dezelfde pagina, andere parameters.
         if (geopend is not null && detail is not null && (detail.Boeking.Post.Dagboek, detail.Boeking.Post.Boekstuk) != (Dagboek, Boekstuk))
         {
             await Laad();
@@ -239,7 +275,7 @@
                 }),
             ],
         };
-        fouten = null;
+        (fouten, bericht) = (null, null);
     }
 
     private void Annuleren() => (invoer, fouten) = (null, null);
@@ -283,7 +319,8 @@
             fouten = uitkomst.Fouten;
             if (uitkomst.IsGelukt)
             {
-                Navigatie.NavigateTo(Adres(uitkomst.Waarde!));
+                await Laad();
+                bericht = $"Aangepast: versie {uitkomst.Waarde}.";
             }
         }
         finally

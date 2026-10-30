@@ -66,11 +66,15 @@
         {
             <div class="alert alert-warning">Dit document bestaat niet (meer). <a href="/a/@Id/inkoop">Naar inkoop</a></div>
         }
-        else if (verwerking.Document.Status != Documentstatus.TeVerwerken)
+        else if (verwerking.Document.Status != Documentstatus.TeVerwerken && !aanpassen)
         {
             <div class="verwerken">
                 <div class="verwerken-formulier">
                     <Foutmeldingen Fouten="fouten" />
+                    @if (vorigeGeboekt is not null)
+                    {
+                        <div class="bericht small mb-2">@vorigeGeboekt</div>
+                    }
                     <div class="bericht d-flex align-items-center gap-3 mb-3">
                         <span>
                             @(verwerking.Document.Status switch
@@ -86,21 +90,13 @@
                         </span>
                         @if (context.Mag(Recht.Invoeren) && verwerking.Document.Status == Documentstatus.Geboekt)
                         {
-                            @if (bevestigHeropenen)
-                            {
-                                <button class="btn btn-sm btn-primary ms-auto" @onclick="Heropenen" disabled="@bezig">Ja, heropenen</button>
-                                <button class="btn btn-sm btn-link text-secondary" @onclick="() => bevestigHeropenen = false">annuleren</button>
-                            }
-                            else
-                            {
-                                <button class="btn btn-sm btn-outline-primary ms-auto" title="De boeking wordt teruggedraaid (tegenboeking) en de factuur staat weer open om aan te passen" @onclick="() => bevestigHeropenen = true">Heropenen</button>
-                            }
+                            <button class="btn btn-sm btn-outline-primary ms-auto" title="Het formulier met wat er geboekt is; opslaan past dezelfde boeking aan (een nieuwe versie)" @onclick="BeginAanpassen" disabled="@bezig">Aanpassen</button>
                         }
                         @if (context.Mag(Recht.Invoeren) && verwerking.Document.Status == Documentstatus.Gearchiveerd)
                         {
                             <button class="btn btn-sm btn-outline-secondary ms-auto" @onclick="Terugzetten">Terug naar Te verwerken</button>
                         }
-                        @if (context.Mag(Recht.Invoeren) && !bevestigHeropenen)
+                        @if (context.Mag(Recht.Invoeren))
                         {
                             <VerwijderKnop Geboekt="verwerking.Document.Status == Documentstatus.Geboekt" Bezig="bezig" Bevestigd="Verwijderen" Klasse="@(verwerking.Document.Status == Documentstatus.Quarantaine ? "ms-auto" : null)" />
                         }
@@ -366,12 +362,16 @@
                                 <div class="status let-op mb-1">@s</div>
                             }
                             <div class="d-flex align-items-center gap-3 mt-3">
-                                <button class="btn btn-primary" @onclick="Boek" disabled="@bezig" title="Ctrl+Enter">@(Signalen.Count > 0 || Verschil is not (null or 0) ? "Toch boeken" : "Boeken")</button>
+                                <button class="btn btn-primary" @onclick="Boek" disabled="@bezig" title="Ctrl+Enter">@(aanpassen ? "Opslaan" : Signalen.Count > 0 || Verschil is not (null or 0) ? "Toch boeken" : "Boeken")</button>
+                                @if (aanpassen)
+                                {
+                                    <button class="btn btn-link text-secondary" @onclick="StopAanpassen" disabled="@bezig">Annuleren</button>
+                                }
                                 @if (overgenomen is not null)
                                 {
                                     <span class="small text-secondary text-truncate">@overgenomen</span>
                                 }
-                                @if (context.Mag(Recht.Invoeren))
+                                @if (context.Mag(Recht.Invoeren) && !aanpassen)
                                 {
                                     <VerwijderKnop Bezig="bezig" Bevestigd="Verwijderen" />
                                 }
@@ -408,7 +408,8 @@
     private Documentsoort soort;
     private Guid? verrekenMet;
     private string? factuurbedrag;
-    private bool bevestigHeropenen;
+    /// <summary>Een geboekte factuur aanpassen: het formulier met wat er geboekt is; opslaan maakt een nieuwe versie.</summary>
+    private bool aanpassen;
 
     // Periodeverdeling (transitorisch): van, tot en met, en de balansrekening ertussen (bijv. vooruitbetaalde kosten).
     private bool verdelen;
@@ -419,6 +420,7 @@
     // Een geboekte factuur: hoe hij geboekt is; na heropenen vult dat het formulier (in plaats van wat herkend was).
     private GeboekteFactuur? geboekteFactuur;
     private GeboekteFactuur? heropend;
+    private bool aanpassenUitAdres;
 
     // De werkvoorraad: de documenten in Te verwerken, om zonder de lijst van factuur naar factuur te gaan.
     private IReadOnlyList<DocumentRegel>? werkvoorraad;
@@ -475,9 +477,9 @@
     [Parameter]
     public Guid DocumentId { get; set; }
 
-    /// <summary>Vanuit de boeking op Aanpassen geklikt: meteen de vraag of de factuur heropend moet worden.</summary>
-    [SupplyParameterFromQuery(Name = "heropenen")]
-    public bool HeropenenGevraagd { get; set; }
+    /// <summary>Vanuit de boeking op Aanpassen geklikt: meteen het formulier om aan te passen.</summary>
+    [SupplyParameterFromQuery(Name = "aanpassen")]
+    public bool AanpassenGevraagd { get; set; }
 
     private decimal? Totaal => regels.All(r => Getal(r.Bedrag) is not null)
         ? regels.Sum(r => Getal(r.Bedrag)!.Value + BtwOpFactuur(r))
@@ -562,7 +564,7 @@
 
         // Een creditnota (negatief totaal) staat in het formulier zonder minteken; het pakket boekt hem omgekeerd.
         soort = herkend?.TotaalInclusief < 0 ? Documentsoort.Creditnota : Documentsoort.Factuur;
-        (verrekenMet, bevestigHeropenen, verdelen) = (null, HeropenenGevraagd, false);
+        (verrekenMet, verdelen) = (null, false);
         factuurbedrag = herkend?.TotaalInclusief is { } totaal ? Bedragen.Getal(Math.Abs(totaal)) : null;
         if (soort == Documentsoort.Creditnota)
         {
@@ -574,7 +576,13 @@
         }
 
         geboekteFactuur = verwerking.Document.Status == Documentstatus.Geboekt ? await Inkoop.Geboekt(g.Wie, Id, DocumentId) : null;
-        if (heropend is { } h && verwerking.Document.Status == Documentstatus.TeVerwerken)
+        if (AanpassenGevraagd && !aanpassenUitAdres && geboekteFactuur is { } gevraagd && g.Kop.Mag(Recht.Invoeren))
+        {
+            (aanpassen, aanpassenUitAdres, heropend) = (true, true, gevraagd);
+        }
+
+        aanpassen &= geboekteFactuur is not null;
+        if (heropend is { } h && (verwerking.Document.Status == Documentstatus.TeVerwerken || aanpassen))
         {
             VulMet(h);
             heropend = null;
@@ -605,7 +613,7 @@
         }
 
         await SluitViewer();
-        (fouten, overgenomen, doel, doelNaam) = (null, null, "omschrijving", "Omschrijving");
+        (fouten, overgenomen, doel, doelNaam, aanpassen) = (null, null, "omschrijving", "Omschrijving", false);
         aanwijzingen.Clear();
         if (!naBoeken)
         {
@@ -1024,6 +1032,15 @@
             return;
         }
 
+        if (aanpassen)
+        {
+            // Aangepast: dezelfde factuur blijft staan, nu met de nieuwe versie van de boeking.
+            var melding = $"{Variabelen.Leverancier} {factuurnummer} is aangepast.".Trim();
+            await StopAanpassen();
+            (overgenomen, vorigeGeboekt) = (null, melding);
+            return;
+        }
+
         // Door naar het document dat nu op deze plaats in Te verwerken staat (het volgende), of terug naar de lijst.
         vorigeGeboekt = $"{(soort == Documentsoort.Creditnota ? "Creditnota " : null)}{Variabelen.Leverancier} {factuurnummer} is geboekt.".Trim();
         await NaarVolgende(positie);
@@ -1076,20 +1093,27 @@
         voorkeur = [.. historie.GroupBy(h => h.Rekening).OrderByDescending(g => g.Count()).Select(g => g.Key)];
     }
 
-    /// <summary>Heropent een geboekte factuur: de boeking gaat terug en het formulier staat vol met wat er geboekt was.</summary>
-    private async Task Heropenen()
+    /// <summary>
+    /// Een geboekte factuur aanpassen: het formulier met wat er geboekt is. Er verandert pas iets bij Opslaan: dan krijgt
+    /// dezelfde boeking een nieuwe versie (zelfde boekstuk) en gaat de openstaande post mee.
+    /// </summary>
+    private async Task BeginAanpassen()
     {
-        bezig = true;
-        var uitkomst = await Inkoop.Heropen(geopend!.Wie, Id, DocumentId);
-        bezig = false;
-        fouten = uitkomst.Fouten;
-        bevestigHeropenen = false;
-        if (uitkomst.IsGelukt)
+        if (geboekteFactuur is null)
         {
-            heropend = uitkomst.Waarde;
-            await SluitViewer();
-            await Open(geopend);
+            return;
         }
+
+        (aanpassen, heropend, fouten, vorigeGeboekt) = (true, geboekteFactuur, null, null);
+        await SluitViewer();
+        await Open(geopend!);
+    }
+
+    private async Task StopAanpassen()
+    {
+        (aanpassen, heropend, fouten) = (false, null, null);
+        await SluitViewer();
+        await Open(geopend!);
     }
 
     private void VulMet(GeboekteFactuur g)

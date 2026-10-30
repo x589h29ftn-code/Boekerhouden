@@ -443,27 +443,6 @@ public sealed class InkoopDienst(
         return await Geboekt(db, document);
     }
 
-    /// <summary>
-    /// Heropent een geboekt document om het aan te passen: de boeking wordt teruggedraaid (<see cref="Terugdraaien"/>)
-    /// en geeft terug wat er geboekt was, zodat het formulier daarmee gevuld kan worden.
-    /// </summary>
-    public async Task<Uitkomst<GeboekteFactuur>> Heropen(Uitvoerder wie, Guid administratie, Guid document)
-    {
-        GeboekteFactuur? geboekt;
-        await using (var db = await toegang.Open(wie, administratie, Recht.Invoeren))
-        {
-            geboekt = await Geboekt(db, document);
-        }
-
-        if (geboekt is null)
-        {
-            return Uitkomst<GeboekteFactuur>.Mislukt("Dit document is niet geboekt.");
-        }
-
-        var uitkomst = await Terugdraaien(wie, administratie, document);
-        return uitkomst.IsGelukt ? Uitkomst<GeboekteFactuur>.Met(geboekt) : Uitkomst<GeboekteFactuur>.Mislukt([.. uitkomst.Fouten]);
-    }
-
     private static async Task<GeboekteFactuur?> Geboekt(AdministratieDbContext db, Guid document)
     {
         if (await db.Documenten.AsNoTracking().FirstOrDefaultAsync(d => d.Id == document) is not { Status: Documentstatus.Geboekt, BoekingId: { } boekingId } doc
@@ -522,7 +501,7 @@ public sealed class InkoopDienst(
         var boeking = await db.Boekingen.AsNoTracking().Include(b => b.Regels).SingleAsync(b => b.Id == boekingId);
         var boekstuk = await GrootboekDienst.VolgendBoekstuk(db, boeking.Dagboek, boeking.Datum.Year);
         var tegen = boeking.NaarDomein().Tegenboeking(boekstuk, boeking.Datum, Kort($"Terugdraaien {boeking.Dagboek} {boeking.Boekstuk}: {boeking.Omschrijving}"));
-        await grootboek.VoegToeAanKeten(db, administratie, tegen, wie);
+        (await grootboek.VoegToeAanKeten(db, administratie, tegen, wie)).Herstelt = boeking.Id;
 
         // Een periodeverdeling gaat mee terug: elke maandboeking krijgt een tegenboeking op dezelfde datum.
         if (d.Verdeling is { } json && JsonSerializer.Deserialize<Verdelingsgegevens>(json, Json) is { } verdeling)
@@ -530,11 +509,14 @@ public sealed class InkoopDienst(
             foreach (var stuk in verdeling.Boekstukken)
             {
                 await db.SaveChangesAsync();
-                var (dagboekcode, nummer) = (stuk.Split(' ', 2)[0], stuk.Split(' ', 2)[1]);
-                var maand = await db.Boekingen.AsNoTracking().Include(b => b.Regels).SingleAsync(b => b.Dagboek == dagboekcode && b.Boekstuk == nummer);
-                var terug = maand.NaarDomein().Tegenboeking(await GrootboekDienst.VolgendBoekstuk(db, dagboekcode, maand.Datum.Year), maand.Datum,
+                if (await GeldendeBoeking(db, stuk) is not { Regels.Count: > 0 } maand)
+                {
+                    continue;
+                }
+
+                var terug = maand.NaarDomein().Tegenboeking(await GrootboekDienst.VolgendBoekstuk(db, maand.Dagboek, maand.Datum.Year), maand.Datum,
                     Kort($"Terugdraaien {stuk}: {maand.Omschrijving}"));
-                await grootboek.VoegToeAanKeten(db, administratie, terug, wie);
+                (await grootboek.VoegToeAanKeten(db, administratie, terug, wie)).Herstelt = maand.Id;
             }
 
             d.Verdeling = null;
@@ -624,9 +606,27 @@ public sealed class InkoopDienst(
             return Uitkomst.Mislukt("Dit document bestaat niet (meer).");
         }
 
-        if (d.Status != Documentstatus.TeVerwerken)
+        if (d.Status is not (Documentstatus.TeVerwerken or Documentstatus.Geboekt))
         {
-            return Uitkomst.Mislukt(d.Status == Documentstatus.Geboekt ? "Dit document is al geboekt." : "Dit document staat in quarantaine.");
+            return Uitkomst.Mislukt(d.Status == Documentstatus.Quarantaine ? "Dit document staat in quarantaine." : "Dit document is bewaard zonder boeking.");
+        }
+
+        // Een geboekte factuur aanpassen: een nieuwe versie van dezelfde boeking, en de openstaande post gaat mee.
+        Boeking? vorige = null;
+        OpenstaandePost? vorigePost = null;
+        if (d.Status == Documentstatus.Geboekt)
+        {
+            vorige = d.BoekingId is { } boekingId ? await db.Boekingen.AsNoTracking().Include(b => b.Regels).SingleOrDefaultAsync(b => b.Id == boekingId) : null;
+            vorigePost = vorige is null ? null : await db.OpenstaandePosten.FirstOrDefaultAsync(p => p.BoekingId == vorige.Id);
+            if (vorige is null || vorigePost is null)
+            {
+                return Uitkomst.Mislukt("De boeking van dit document is niet aan te passen.");
+            }
+
+            if (vorigePost.Openstaand != vorigePost.Bedrag)
+            {
+                return Uitkomst.Mislukt($"Factuur {vorigePost.Factuurnummer} is al (deels) betaald of verrekend; draai eerst die betaling of verrekening terug.");
+            }
         }
 
         var context = await Context(db, administratie);
@@ -661,7 +661,7 @@ public sealed class InkoopDienst(
             })],
             kenmerk);
         d.Soort = invoer.Creditnota ? Documentsoort.Creditnota : Documentsoort.Factuur;
-        var uitkomst = await BoekFactuur(db, administratie, d, factuur, herkend, relatie, invoer.Nieuw, wie, automatisch: false, sjabloon, invoer.VerrekenMet, invoer.Verdeling);
+        var uitkomst = await BoekFactuur(db, administratie, d, factuur, herkend, relatie, invoer.Nieuw, wie, automatisch: false, sjabloon, invoer.VerrekenMet, invoer.Verdeling, vorige, vorigePost);
         if (uitkomst.IsGelukt && invoer.Aanwijzingen is { Count: > 0 } aanwijzingen)
         {
             await BewaarZoektemplate(db, administratie, code, aanwijzingen, herkend, wie);
@@ -878,7 +878,8 @@ public sealed class InkoopDienst(
 
     private async Task<Uitkomst> BoekFactuur(
         AdministratieDbContext db, Guid administratie, Document document, Factuur factuur, HerkendeFactuur? herkend,
-        Relatie? relatie, NieuweRelatie? nieuw, Uitvoerder wie, bool automatisch, string? sjabloon, Guid? verrekenMet = null, Periodeverdeling? verdeling = null)
+        Relatie? relatie, NieuweRelatie? nieuw, Uitvoerder wie, bool automatisch, string? sjabloon, Guid? verrekenMet = null, Periodeverdeling? verdeling = null,
+        Boeking? vorige = null, OpenstaandePost? vorigePost = null)
     {
         var (schema, dagboeken) = await GrootboekDienst.Inrichting(db);
         var dagboek = dagboeken.FirstOrDefault(x => x.Soort == Dagboeksoort.Inkoop);
@@ -912,8 +913,10 @@ public sealed class InkoopDienst(
         var codes = (await BtwDienst.Lees(db)).Op(factuur.Datum);
         var fouten = Factuurboeker.Controleer(factuur, dagboek, codes).ToList();
         var nummer = Factuurnummers.Normaliseer(factuur.Factuurnummer);
+        var zelf = vorigePost?.Id;
+        var (vorigeRelatie, vorigBedrag) = (vorigePost?.Relatie, vorigePost?.Bedrag);
         var eerder = await db.OpenstaandePosten.AsNoTracking()
-            .Where(p => p.Soort == Factuursoort.Inkoop && p.Relatie == factuur.Relatie).Select(p => p.Factuurnummer).ToListAsync();
+            .Where(p => p.Soort == Factuursoort.Inkoop && p.Relatie == factuur.Relatie && p.Id != zelf).Select(p => p.Factuurnummer).ToListAsync();
         if (nummer.Length > 0 && eerder.Any(f => Factuurnummers.Normaliseer(f) == nummer))
         {
             fouten.Add($"Factuur {factuur.Factuurnummer} van deze leverancier is al geboekt.");
@@ -943,7 +946,8 @@ public sealed class InkoopDienst(
             });
         }
 
-        var boekstuk = await GrootboekDienst.VolgendBoekstuk(db, dagboek.Code, factuur.Datum.Year);
+        var boekstuk = vorige?.Boekstuk ?? await GrootboekDienst.VolgendBoekstuk(db, dagboek.Code, factuur.Datum.Year);
+        var oudeVerdeling = document.Verdeling is { } oudeJson ? JsonSerializer.Deserialize<Verdelingsgegevens>(oudeJson, Json) : null;
         Journaalpost post;
         OpenPost open;
         try
@@ -962,10 +966,13 @@ public sealed class InkoopDienst(
             return Uitkomst.Mislukt([.. controle]);
         }
 
-        var boeking = await grootboek.VoegToeAanKeten(db, administratie, post, wie);
+        var boeking = vorige is null
+            ? await grootboek.VoegToeAanKeten(db, administratie, post, wie)
+            : await grootboek.NieuweVersie(db, administratie, vorige, post, wie);
+        var oudeStukken = oudeVerdeling?.Boekstukken ?? [];
         if (verdeling is not null)
         {
-            var verdeeld = await BoekVerdeling(db, administratie, verdeling, memoriaal!, factuur, schema, dagboeken, wie);
+            var verdeeld = await BoekVerdeling(db, administratie, verdeling, memoriaal!, factuur, schema, dagboeken, wie, oudeStukken);
             if (!verdeeld.IsGelukt)
             {
                 return Uitkomst.Mislukt([.. verdeeld.Fouten]);
@@ -973,6 +980,12 @@ public sealed class InkoopDienst(
 
             document.Verdeling = JsonSerializer.Serialize(new Verdelingsgegevens(verdeling.Van, verdeling.Tot, verdeling.Rekening,
                 [.. factuur.Regels.Select(r => r.Rekeningnummer)], [.. verdeeld.Waarde!]), Json);
+        }
+        else if (oudeStukken.Count > 0)
+        {
+            // Niet meer verdeeld: de maandboekingen van toen vervallen (een lege nieuwe versie).
+            await LaatVervallen(db, administratie, oudeStukken, wie);
+            document.Verdeling = null;
         }
 
         var credit = open.Openstaand > 0;
@@ -992,21 +1005,31 @@ public sealed class InkoopDienst(
             verrekend = $"{met.Factuurnummer} ({deel:0.00})";
         }
 
-        db.OpenstaandePosten.Add(new OpenstaandePost
+        if (vorigePost is null)
         {
-            Id = open.Id,
-            AdministratieId = administratie,
-            Soort = open.Soort,
-            Relatie = open.Relatie,
-            Factuurnummer = open.Factuurnummer,
-            Datum = open.Datum,
-            Vervaldatum = open.Vervaldatum,
-            Bedrag = open.Bedrag,
-            Openstaand = open.Openstaand,
-            Betalingskenmerk = open.Betalingskenmerk,
-            BoekingId = boeking.Id,
-            DocumentId = document.Id,
-        });
+            db.OpenstaandePosten.Add(new OpenstaandePost
+            {
+                Id = open.Id,
+                AdministratieId = administratie,
+                Soort = open.Soort,
+                Relatie = open.Relatie,
+                Factuurnummer = open.Factuurnummer,
+                Datum = open.Datum,
+                Vervaldatum = open.Vervaldatum,
+                Bedrag = open.Bedrag,
+                Openstaand = open.Openstaand,
+                Betalingskenmerk = open.Betalingskenmerk,
+                BoekingId = boeking.Id,
+                DocumentId = document.Id,
+            });
+        }
+        else
+        {
+            // Dezelfde openstaande post (met zijn koppelingen), met de gegevens van de aangepaste factuur.
+            (vorigePost.Relatie, vorigePost.Factuurnummer, vorigePost.Datum, vorigePost.Vervaldatum) = (open.Relatie, open.Factuurnummer, open.Datum, open.Vervaldatum);
+            (vorigePost.Bedrag, vorigePost.Openstaand, vorigePost.Betalingskenmerk, vorigePost.BoekingId) = (open.Bedrag, open.Openstaand, open.Betalingskenmerk, boeking.Id);
+        }
+
         document.Status = Documentstatus.Geboekt;
         document.BoekingId = boeking.Id;
         document.Melding = automatisch ? "Automatisch geboekt." : null;
@@ -1018,6 +1041,16 @@ public sealed class InkoopDienst(
             ? new Verwerkingsgegevens(Verwerkingssoort.Inkoopfactuur, factuur.Relatie, relatie?.Naam ?? nieuw?.Naam, 0m)
             : Inkoopverwerker.Gegevens(herkend, relatie ?? new Relatie(factuur.Relatie, nieuw!.Naam, []))) with
         { Relatie = factuur.Relatie, Bedrag = factuur.Totaal(codes) };
+        if (vorigBedrag < 0 && Leergeheugen.Sleutel(new Verwerkingsgegevens(Verwerkingssoort.Inkoopfactuur, vorigeRelatie, null, 0m)) is { } vorigeSleutel)
+        {
+            // Aangepast: de bevestiging van toen wordt vervangen door deze, zodat de factuur maar één keer meetelt.
+            var oudBedrag = -vorigBedrag.Value;
+            if (await db.Leerkeuzes.Where(k => k.Sleutel == vorigeSleutel && k.Bedrag == oudBedrag).OrderByDescending(k => k.Id).FirstOrDefaultAsync() is { } oudeKeuze)
+            {
+                db.Leerkeuzes.Remove(oudeKeuze);
+            }
+        }
+
         if (!credit && Leergeheugen.Sleutel(gegevens) is { } sleutel)
         {
             var bevestiging = Leergeheugen.Bij(gegevens, new Keuze(factuur.Regels[0].Rekeningnummer, factuur.Regels[0].BtwCode), sjabloon);
@@ -1037,6 +1070,13 @@ public sealed class InkoopDienst(
 
         await db.SaveChangesAsync();
         await transactie.CommitAsync();
+        if (vorige is not null)
+        {
+            await audit.Log(wie, AuditActies.BoekingAangepast, $"{dagboek.Code} {boekstuk}",
+                $"versie {boeking.Versie}; {(credit ? "creditnota " : null)}{factuur.Relatie} {factuur.Factuurnummer}; {factuur.Totaal(codes):0.00}", administratie);
+            return Uitkomst.Gelukt;
+        }
+
         await audit.Log(wie, automatisch ? AuditActies.AutomatischGeboekt : AuditActies.Geboekt,
             $"{dagboek.Code} {boekstuk}", $"{(credit ? "creditnota " : null)}{factuur.Relatie} {factuur.Factuurnummer}; {factuur.Totaal(codes):0.00}", administratie);
         if (verrekend is not null)
@@ -1052,9 +1092,11 @@ public sealed class InkoopDienst(
     /// De boekingen van de verdeling in het memoriaal: per maand (op de eerste dag) een gelijk deel van elke kostenregel
     /// naar zijn kostenrekening, af van de verdeelrekening. Binnen de transactie van de factuur; geeft de boekstukken.
     /// </summary>
+    /// <param name="vorige">Bij een aangepaste factuur de maandboekingen van toen: die krijgen een nieuwe versie (en
+    /// vervallen als er nu minder maanden zijn).</param>
     private async Task<Uitkomst<IReadOnlyList<string>>> BoekVerdeling(
         AdministratieDbContext db, Guid administratie, Periodeverdeling verdeling, Dagboek memoriaal, Factuur factuur,
-        Rekeningschema schema, IReadOnlyList<Dagboek> dagboeken, Uitvoerder wie)
+        Rekeningschema schema, IReadOnlyList<Dagboek> dagboeken, Uitvoerder wie, List<string> vorige)
     {
         var maanden = verdeling.PerMaand([.. factuur.Regels.Select(r => new Verdeelregel(r.Rekeningnummer, r.Bedrag, r.Omschrijving))]);
         var boekstukken = new List<string>();
@@ -1062,21 +1104,51 @@ public sealed class InkoopDienst(
         for (var i = 0; i < maanden.Count; i++)
         {
             var (maand, regels) = maanden[i];
-            var boekstuk = await GrootboekDienst.VolgendBoekstuk(db, memoriaal.Code, maand.Year);
-            var post = new Journaalpost(memoriaal.Code, boekstuk, maand, Kort($"Verdeling {factuur.Factuurnummer} {maand:MM-yyyy} ({i + 1}/{maanden.Count}): {factuur.Omschrijving}"),
+            var eerder = i < vorige.Count ? await GeldendeBoeking(db, vorige[i]) : null;
+            var boekstuk = eerder?.Boekstuk ?? await GrootboekDienst.VolgendBoekstuk(db, memoriaal.Code, maand.Year);
+            var post = new Journaalpost(eerder?.Dagboek ?? memoriaal.Code, boekstuk, maand, Kort($"Verdeling {factuur.Factuurnummer} {maand:MM-yyyy} ({i + 1}/{maanden.Count}): {factuur.Omschrijving}"),
                 [.. regels.Select(r => new Journaalregel(r.Rekeningnummer, r.Bedrag, Kort($"Verdeling {i + 1}/{maanden.Count}: {r.Omschrijving ?? factuur.Omschrijving}"), null, factuur.Relatie, factuur.Factuurnummer))]);
             if (Journaalcontrole.Controleer(post, schema, dagboeken) is { Count: > 0 } fouten)
             {
                 return Uitkomst<IReadOnlyList<string>>.Mislukt([.. fouten]);
             }
 
-            await grootboek.VoegToeAanKeten(db, administratie, post, wie);
+            if (eerder is null)
+            {
+                await grootboek.VoegToeAanKeten(db, administratie, post, wie);
+            }
+            else
+            {
+                await grootboek.NieuweVersie(db, administratie, eerder, post, wie);
+            }
+
             await db.SaveChangesAsync();
-            boekstukken.Add($"{memoriaal.Code} {boekstuk}");
+            boekstukken.Add($"{post.Dagboek} {boekstuk}");
         }
 
+        await LaatVervallen(db, administratie, vorige.Skip(maanden.Count), wie);
         return Uitkomst<IReadOnlyList<string>>.Met(boekstukken);
     }
+
+    /// <summary>Maandboekingen die niet meer nodig zijn, vervallen: een nieuwe versie zonder regels.</summary>
+    private async Task LaatVervallen(AdministratieDbContext db, Guid administratie, IEnumerable<string> stukken, Uitvoerder wie)
+    {
+        await db.SaveChangesAsync();
+        foreach (var stuk in stukken)
+        {
+            if (await GeldendeBoeking(db, stuk) is { Regels.Count: > 0 } eerder)
+            {
+                await grootboek.NieuweVersie(db, administratie, eerder, new Journaalpost(eerder.Dagboek, eerder.Boekstuk, eerder.Datum, Kort($"Vervallen: {eerder.Omschrijving}"), []), wie);
+                await db.SaveChangesAsync();
+            }
+        }
+    }
+
+    /// <summary>De geldende versie van een boeking, op "dagboek boekstuk".</summary>
+    private static async Task<Boeking?> GeldendeBoeking(AdministratieDbContext db, string stuk) =>
+        stuk.Split(' ', 2) is [var dagboek, var boekstuk]
+            ? await db.Geldend.AsNoTracking().Include(b => b.Regels).SingleOrDefaultAsync(b => b.Dagboek == dagboek && b.Boekstuk == boekstuk)
+            : null;
 
     /// <summary>
     /// Een kopie van het geboekte document in de documentmap van de administratie (bijv. OneDrive per klant en

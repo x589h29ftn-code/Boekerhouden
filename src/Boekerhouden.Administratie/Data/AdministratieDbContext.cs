@@ -52,6 +52,12 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
 
     public DbSet<AuditRegel> AuditRegels => Set<AuditRegel>();
 
+    /// <summary>De boekingen die gelden: van elke boeking de laatste versie (niet vervangen door een nieuwere).</summary>
+    public IQueryable<Boeking> Geldend => Boekingen.Where(b => !Boekingen.Any(v => v.Vervangt == b.Id));
+
+    /// <summary>De regels van de boekingen die gelden.</summary>
+    public IQueryable<Boekingsregel> GeldendeRegels => Boekingsregels.Where(r => !Boekingen.Any(v => v.Vervangt == r.BoekingId));
+
     public DbSet<Handelsrelatie> Relaties => Set<Handelsrelatie>();
 
     public DbSet<Document> Documenten => Set<Document>();
@@ -151,7 +157,8 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
         {
             e.ToTable("Boekingen");
             e.HasIndex(b => new { b.AdministratieId, b.Volgnummer }).IsUnique();
-            e.HasIndex(b => new { b.AdministratieId, b.Dagboek, b.Boekstuk }).IsUnique();
+            e.HasIndex(b => new { b.AdministratieId, b.Dagboek, b.Boekstuk, b.Versie }).IsUnique();
+            e.Property(b => b.Versie).HasDefaultValue(1);
             e.Property(b => b.Dagboek).HasMaxLength(10);
             e.Property(b => b.Boekstuk).HasMaxLength(30);
             e.Property(b => b.Omschrijving).HasMaxLength(500);

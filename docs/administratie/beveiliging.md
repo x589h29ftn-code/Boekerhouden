@@ -126,7 +126,7 @@ geen cijfers zonder lidmaatschap), punt 4 (`ToegangTests`) en punt 5. Row Level 
 | Maatregel | Fase |
 |---|---|
 | Een journaalpost is altijd in evenwicht en heeft een uniek boekstuknummer per dagboek (`Journaalcontrole`) | ✅ |
-| **Geboekt is geboekt**: een journaalpost wordt nooit gewijzigd of verwijderd (✅ A6a: de app kan het niet en de database weigert het), maar gecorrigeerd met een tegenboeking (memoriaal of creditfactuur). Verkoopfacturen hebben een doorlopende nummering zonder gaten | F1 |
+| **Geboekt is geboekt**: een journaalpost wordt nooit gewijzigd of verwijderd (✅ A6a: de app kan het niet en de database weigert het). Aanpassen is een nieuwe versie van dezelfde boeking achteraan in de keten; alleen de laatste versie telt en de vorige blijven bewaard (✅ oktober 2026, op verzoek van de gebruiker: hetzelfde boekstuk blijft staan). Terugdraaien is een tegenboeking. Verkoopfacturen hebben een doorlopende nummering zonder gaten | F1 |
 | **Afgesloten periodes** (na de btw-aangifte) zijn niet meer te bebouwen. Heropenen kan alleen door het kantoor, met een reden in het log | F1 |
 | **Hash-keten** over het journaal: elke post krijgt een SHA-256 over de inhoud plus de hash van de vorige post. Een controle in Beheer laat zien of er buiten de app iets in de database is veranderd | ✅ (A6a; ketencontrole op de pagina Journaal) |
 | **Wijzigingslog alleen toevoegen**: de databaserol van de app mag in de logtabel alleen `INSERT` (geen `UPDATE` of `DELETE`) | ✅ (A6a, met een trigger die `UPDATE` en `DELETE` weigert; aparte databaserollen F2) |

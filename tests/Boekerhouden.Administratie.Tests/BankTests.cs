@@ -196,8 +196,8 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
         Assert.Equal((0m, 165m, -199.65m), (Saldo(await grootboek.Proefbalans(wie, id, 2026), "4300"), Saldo(await grootboek.Proefbalans(wie, id, 2026), "4320"), Saldo(await grootboek.Proefbalans(wie, id, 2026), "1100")));
         await using (var db = await app.Dienst<Toegang>().Open(wie, id, Recht.Lezen))
         {
-            var nieuweBoeking = await db.Boekingen.SingleAsync(b => b.Dagboek + " " + b.Boekstuk == aangepast.Waarde);
-            Assert.Equal(nieuweBoeking.Id, (await db.Banktransacties.SingleAsync(t => t.Id == jansen.Id)).BoekingId);
+            var nieuweBoeking = await db.Geldend.SingleAsync(b => b.Dagboek == "BNK" && b.Boekstuk == boeking.Boekstuk);
+            Assert.Equal((2, nieuweBoeking.Id), (nieuweBoeking.Versie, (await db.Banktransacties.SingleAsync(t => t.Id == jansen.Id)).BoekingId));
         }
 
         var regel = await app.Dienst<InrichtingDienst>().VoegRegelToe(wie, id,

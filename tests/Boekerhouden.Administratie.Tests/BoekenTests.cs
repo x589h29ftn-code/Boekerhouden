@@ -170,7 +170,7 @@ public sealed class BoekenTests(AdministratieFixture app) : IClassFixture<Admini
     }
 
     [Fact]
-    public async Task Boeking_aanpassen_is_een_tegenboeking_en_een_nieuwe_boeking()
+    public async Task Boeking_aanpassen_is_een_nieuwe_versie_met_hetzelfde_boekstuk()
     {
         var wie = await app.Beheerder();
         var id = await app.Administratie();
@@ -181,32 +181,33 @@ public sealed class BoekenTests(AdministratieFixture app) : IClassFixture<Admini
         var uitkomst = await grootboek.PasAan(wie, id, "MEM", "2026-0001", nieuw);
 
         Assert.True(uitkomst.IsGelukt, string.Join("; ", uitkomst.Fouten));
-        Assert.Equal("MEM 2026-0003", uitkomst.Waarde);
+        Assert.Equal(2, uitkomst.Waarde);
         var proef = await grootboek.Proefbalans(wie, id, 2026);
         Assert.Equal((20m, 80m, -100m), (Saldo(proef, "4300"), Saldo(proef, "4320"), Saldo(proef, "1400")));
-        var tegen = (await grootboek.Boeking(wie, id, "MEM", "2026-0002"))!;
-        Assert.Equal((-100m, "MEM 2026-0001", new DateOnly(2026, 3, 31)), (tegen.Boeking.Post.Regels[0].Bedrag, tegen.Herstelt, tegen.Boeking.Post.Datum));
-        Assert.Equal("Dit is de tegenboeking van een aanpassing.", tegen.Vast);
-        var origineel = (await grootboek.Boeking(wie, id, "MEM", "2026-0001"))!;
-        Assert.Equal(("MEM 2026-0003", "Deze boeking is al aangepast."), (origineel.AangepastIn, origineel.Vast));
-        var vervanging = (await grootboek.Boeking(wie, id, "MEM", "2026-0003"))!;
-        Assert.Equal(("MEM 2026-0001", (string?)null, "Kleine aanschaffing"), (vervanging.Vervangt, vervanging.Vast, vervanging.Boeking.Post.Omschrijving));
+        var posten = await grootboek.Posten(wie, id);
+        Assert.Equal(("2026-0001", "Kleine aanschaffing", new DateOnly(2026, 4, 30)), (Assert.Single(posten).Post.Boekstuk, posten[0].Post.Omschrijving, posten[0].Post.Datum));
+        var detail = (await grootboek.Boeking(wie, id, "MEM", "2026-0001"))!;
+        Assert.Equal((2, "Kleine aanschaffing", (string?)null), (detail.Versie, detail.Boeking.Post.Omschrijving, detail.Vast));
+        var eerder = Assert.Single(detail.Eerder!);
+        Assert.Equal((1, 100m), (eerder.Versie, eerder.Boeking.Post.Regels[0].Bedrag));
+        Assert.Equal("2026-0002", await grootboek.VolgendBoekstuk(wie, id, "MEM", 2026));
         Assert.Empty(await grootboek.ControleerKeten(wie, id));
         Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.BoekingAangepast && r.Onderwerp == "MEM 2026-0001"
-            && r.Details!.StartsWith("tegenboeking MEM 2026-0002, nieuw MEM 2026-0003", StringComparison.Ordinal));
+            && r.Details!.StartsWith("versie 2; Kleine aanschaffing; 100.00", StringComparison.Ordinal));
 
-        // Nog eens aanpassen gaat via de nieuwe boeking; een onevenwichtige of ongewijzigde aanpassing niet.
-        Assert.Equal(["Deze boeking is al aangepast."], (await grootboek.PasAan(wie, id, "MEM", "2026-0001", nieuw)).Fouten);
-        Assert.Equal(["Er is niets gewijzigd."], (await grootboek.PasAan(wie, id, "MEM", "2026-0003", vervanging.Boeking.Post)).Fouten);
-        Assert.Contains("niet in evenwicht", (await grootboek.PasAan(wie, id, "MEM", "2026-0003", Post("x", new(2026, 4, 30), ("4320", 80m), ("1400", -100m)))).Fouten[0], StringComparison.Ordinal);
+        // Nog eens aanpassen geeft versie 3; een ongewijzigde of onevenwichtige aanpassing niet.
+        Assert.Equal(["Er is niets gewijzigd."], (await grootboek.PasAan(wie, id, "MEM", "2026-0001", detail.Boeking.Post)).Fouten);
+        Assert.Contains("niet in evenwicht", (await grootboek.PasAan(wie, id, "MEM", "2026-0001", Post("x", new(2026, 4, 30), ("4320", 80m), ("1400", -100m)))).Fouten[0], StringComparison.Ordinal);
+        Assert.Equal(3, (await grootboek.PasAan(wie, id, "MEM", "2026-0001", nieuw with { Omschrijving = "Toch anders" })).Waarde);
+        Assert.Equal(2, (await grootboek.Boeking(wie, id, "MEM", "2026-0001"))!.Eerder!.Count);
         Assert.False((await grootboek.PasAan(wie, id, "MEM", "2099-0001", nieuw)).IsGelukt);
 
         // Het memoriaal is voor het kantoor; buiten de administratie geen toegang.
         var ondernemer = await app.Gebruiker("Olga Ondernemer");
         await app.Dienst<AdministratieDienst>().ZetLid(id, ondernemer.Id!.Value, Data.Lidmaatschapsrol.Ondernemer, wie);
-        Assert.Equal(["Je hebt in deze administratie niet het recht om hier te boeken."], (await grootboek.PasAan(ondernemer, id, "MEM", "2026-0003", nieuw)).Fouten);
+        Assert.Equal(["Je hebt in deze administratie niet het recht om hier te boeken."], (await grootboek.PasAan(ondernemer, id, "MEM", "2026-0001", nieuw)).Fouten);
         var buitenstaander = await app.Gebruiker("Bart Buiten");
-        await Assert.ThrowsAsync<GeenToegangException>(() => grootboek.PasAan(buitenstaander, id, "MEM", "2026-0003", nieuw));
+        await Assert.ThrowsAsync<GeenToegangException>(() => grootboek.PasAan(buitenstaander, id, "MEM", "2026-0001", nieuw));
     }
 
     private static decimal Saldo(Proefbalans proef, string rekening) => proef.Regels.Single(r => r.Rekening.Nummer == rekening).Saldo;

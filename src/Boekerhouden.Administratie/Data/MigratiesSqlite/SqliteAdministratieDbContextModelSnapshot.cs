@@ -388,6 +388,11 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("Versie")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(1);
+
                     b.Property<Guid?>("Vervangt")
                         .HasColumnType("TEXT");
 
@@ -409,7 +414,7 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.HasIndex("AdministratieId", "Volgnummer")
                         .IsUnique();
 
-                    b.HasIndex("AdministratieId", "Dagboek", "Boekstuk")
+                    b.HasIndex("AdministratieId", "Dagboek", "Boekstuk", "Versie")
                         .IsUnique();
 
                     b.ToTable("Boekingen", (string)null);

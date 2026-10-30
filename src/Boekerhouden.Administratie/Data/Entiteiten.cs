@@ -172,11 +172,17 @@ public sealed class Boeking : IVanAdministratie
 
     public string VorigeHash { get; set; } = string.Empty;
 
-    /// <summary>Bij een aanpassing: de tegenboeking verwijst naar de boeking die hij ongedaan maakt.</summary>
-    public Guid? Herstelt { get; set; }
+    /// <summary>
+    /// De versie van de boeking: een aanpassing is een nieuwe versie met hetzelfde dagboek en boekstuk, achteraan in de
+    /// keten. Alleen de laatste versie telt (<see cref="AdministratieDbContext.Geldend"/>); de vorige blijven bewaard.
+    /// </summary>
+    public int Versie { get; set; } = 1;
 
-    /// <summary>Bij een aanpassing: de nieuwe boeking verwijst naar de boeking die hij vervangt.</summary>
+    /// <summary>Bij een nieuwe versie: de versie die hij vervangt.</summary>
     public Guid? Vervangt { get; set; }
+
+    /// <summary>Bij een tegenboeking (terugdraaien): de boeking die hij ongedaan maakt.</summary>
+    public Guid? Herstelt { get; set; }
 
     public List<Boekingsregel> Regels { get; set; } = [];
 

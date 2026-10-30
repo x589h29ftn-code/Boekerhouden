@@ -445,7 +445,7 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
     }
 
     [Fact]
-    public async Task Heropenen_geeft_wat_er_geboekt_was_en_draait_de_boeking_terug()
+    public async Task Aanpassen_geeft_wat_er_geboekt_was_en_maakt_een_nieuwe_versie_van_dezelfde_boeking()
     {
         var wie = await app.Beheerder();
         var id = await app.Administratie();
@@ -465,20 +465,73 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
             (geboekt.Relatie, geboekt.Factuurnummer, geboekt.Datum, geboekt.Vervaldatum, geboekt.Omschrijving, geboekt.Betalingskenmerk, geboekt.Creditnota, geboekt.Totaal));
         Assert.Equal([new Factuurregel("Abonnement", "4310", "I21", 20.65m, 4.34m), new Factuurregel("", "4300", "I9", 10m, 0.90m)], geboekt.Regels);
 
-        var heropend = await inkoop.Heropen(wie, id, document);
+        // Aanpassen met de waarden van toen: dezelfde boeking (zelfde boekstuk) krijgt een nieuwe versie.
+        var grootboek = app.Dienst<GrootboekDienst>();
+        var postVoor = (await app.Dienst<BankDienst>().OpenPosten(wie, id)).Single();
+        var aangepast = new Factuurinvoer(geboekt.Relatie, null, geboekt.Factuurnummer, geboekt.Datum.AddDays(1), geboekt.Vervaldatum, geboekt.Omschrijving,
+            [geboekt.Regels[0] with { Rekeningnummer = "4330" }, geboekt.Regels[1] with { Bedrag = 20m, Btw = null }], geboekt.Betalingskenmerk);
+        var uitkomst = await inkoop.Boek(wie, id, document, aangepast);
 
-        Assert.True(heropend.IsGelukt, string.Join("; ", heropend.Fouten));
-        Assert.Equal((geboekt.Factuurnummer, geboekt.Totaal), (heropend.Waarde!.Factuurnummer, heropend.Waarde.Totaal));
-        Assert.Equal(geboekt.Regels, heropend.Waarde.Regels);
-        Assert.Null(await inkoop.Geboekt(wie, id, document));
-        Assert.Equal(0m, Saldo(await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026), "1600"));
-        Assert.False((await inkoop.Heropen(wie, id, document)).IsGelukt);
+        Assert.True(uitkomst.IsGelukt, string.Join("; ", uitkomst.Fouten));
+        var proef = await grootboek.Proefbalans(wie, id, 2026);
+        Assert.Equal((20.65m, 0m, 20m, -46.79m), (Saldo(proef, "4330"), Saldo(proef, "4310"), Saldo(proef, "4300"), Saldo(proef, "1600")));
+        var inkoopboek = await grootboek.Posten(wie, id, "INK");
+        Assert.Equal(geboekt.Boekstuk, Assert.Single(inkoopboek).Post.Boekstuk);
+        var detail = (await grootboek.Boeking(wie, id, "INK", geboekt.Boekstuk))!;
+        Assert.Equal((2, document), (detail.Versie, detail.Document));
+        var nu = (await inkoop.Geboekt(wie, id, document))!;
+        Assert.Equal((geboekt.Boekstuk, 46.79m, new DateOnly(2026, 4, 2)), (nu.Boekstuk, nu.Totaal, nu.Datum));
+        var postNa = (await app.Dienst<BankDienst>().OpenPosten(wie, id)).Single();
+        Assert.Equal(postVoor.Id, postNa.Id);
+        Assert.Empty(await grootboek.ControleerKeten(wie, id));
+        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.BoekingAangepast && r.Onderwerp == $"INK {geboekt.Boekstuk}");
+        await using (var db = await app.Dienst<Toegang>().Open(wie, id, Recht.Lezen))
+        {
+            // De factuur telt één keer in het leergeheugen, met de keuze van nu.
+            Assert.Equal(("4330", 46.79m), (await db.Leerkeuzes.SingleAsync() is var k ? (k.Rekeningnummer, k.Bedrag) : default));
+        }
 
-        // Opnieuw boeken met de waarden van toen (aangepast) kan meteen.
-        var opnieuw = new Factuurinvoer(geboekt.Relatie, null, geboekt.Factuurnummer, geboekt.Datum, geboekt.Vervaldatum, geboekt.Omschrijving,
-            [geboekt.Regels[0] with { Rekeningnummer = "4330" }, geboekt.Regels[1]], geboekt.Betalingskenmerk);
-        Assert.True((await inkoop.Boek(wie, id, document, opnieuw)).IsGelukt);
-        Assert.Equal(20.65m, Saldo(await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026), "4330"));
+        // Is de factuur (deels) betaald, dan niet meer.
+        await using (var db = await app.Dienst<Toegang>().Open(wie, id, Recht.Boekhouden))
+        {
+            (await db.OpenstaandePosten.SingleAsync()).Openstaand = -10m;
+            await db.SaveChangesAsync();
+        }
+
+        Assert.Contains("al (deels) betaald", Assert.Single((await inkoop.Boek(wie, id, document, aangepast with { Omschrijving = "Anders" })).Fouten), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Aanpassen_van_een_verdeelde_factuur_past_de_maandboekingen_aan()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var inkoop = app.Dienst<InkoopDienst>();
+        var grootboek = app.Dienst<GrootboekDienst>();
+        var document = (await inkoop.Lees(wie, id, new MemoryStream(Belnet("PV-1")), "pv1.xml", null)).DocumentId!.Value;
+        var invoer = Invoer(null, new NieuweRelatie("Belnet B.V.", null, null, null), "PV-1") with { Verdeling = new(new(2026, 4, 1), new(2026, 6, 30), "1410") };
+        Assert.True((await inkoop.Boek(wie, id, document, invoer)).IsGelukt);
+        var stukken = (await inkoop.Geboekt(wie, id, document))!.Verdeelboekstukken!;
+
+        // Twee maanden in plaats van drie, op een andere kostenrekening.
+        var korter = invoer with { Relatie = "BELNET", Nieuw = null, Regels = [invoer.Regels[0] with { Rekeningnummer = "4330" }], Verdeling = new(new(2026, 4, 1), new(2026, 5, 31), "1410") };
+        var uitkomst = await inkoop.Boek(wie, id, document, korter);
+
+        Assert.True(uitkomst.IsGelukt, string.Join("; ", uitkomst.Fouten));
+        var proef = await grootboek.Proefbalans(wie, id, 2026);
+        Assert.Equal((20.65m, 0m, 0m), (Saldo(proef, "4330"), Saldo(proef, "4310"), Saldo(proef, "1410")));
+        var nu = (await inkoop.Geboekt(wie, id, document))!;
+        Assert.Equal(stukken.Take(2), nu.Verdeelboekstukken!);
+        Assert.Equal(2, (await grootboek.Posten(wie, id, "MEM")).Count);
+        var vervallen = stukken[2].Split(' ');
+        Assert.Equal(("Deze boeking is vervallen.", 0), ((await grootboek.Boeking(wie, id, vervallen[0], vervallen[1]))!.Vast, (await grootboek.Boeking(wie, id, vervallen[0], vervallen[1]))!.Boeking.Post.Regels.Count));
+
+        // Niet meer verdelen: alle maandboekingen vervallen, de kosten staan op de factuur.
+        Assert.True((await inkoop.Boek(wie, id, document, korter with { Verdeling = null })).IsGelukt);
+        Assert.Empty(await grootboek.Posten(wie, id, "MEM"));
+        Assert.Equal(20.65m, Saldo(await grootboek.Proefbalans(wie, id, 2026), "4330"));
+        Assert.Null((await inkoop.Geboekt(wie, id, document))!.Verdeling);
+        Assert.Empty(await grootboek.ControleerKeten(wie, id));
     }
 
     [Fact]

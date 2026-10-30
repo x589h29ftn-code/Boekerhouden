@@ -11,17 +11,20 @@ public sealed record RekeningInvoer(string Nummer, string Naam, Rekeningsoort So
 /// <summary>Een geboekte journaalpost met zijn plek in de keten.</summary>
 public sealed record GeboektePost(long Volgnummer, Journaalpost Post, DateTimeOffset GeboektOp, string GeboektDoor);
 
-/// <summary>Eén boeking om in te zien, met het document (de factuur) waar hij bij hoort, als dat er is.</summary>
-/// <param name="AangepastIn">Is de boeking aangepast: de nieuwe boeking (dagboek en boekstuk).</param>
-/// <param name="Vervangt">Is dit de nieuwe boeking van een aanpassing: de boeking die hij vervangt.</param>
-/// <param name="Herstelt">Is dit de tegenboeking van een aanpassing: de boeking die hij ongedaan maakt.</param>
+/// <summary>Een eerdere versie van een aangepaste boeking.</summary>
+public sealed record Boekingsversie(int Versie, GeboektePost Boeking);
+
+/// <summary>Eén boeking om in te zien (de geldende versie), met het document (de factuur) waar hij bij hoort, als dat er is.</summary>
+/// <param name="Versie">De versie: 1 = nooit aangepast.</param>
+/// <param name="Eerder">De eerdere versies, de nieuwste eerst.</param>
+/// <param name="Herstelt">Is dit een tegenboeking (terugdraaien): de boeking die hij ongedaan maakt.</param>
 /// <param name="Vast">Waarom de boeking hier niet aan te passen is (bijv. via de factuur); leeg = wel.</param>
 public sealed record Boekingsdetail(
     GeboektePost Boeking,
     Guid? Document,
     string? Documentnaam,
-    string? AangepastIn = null,
-    string? Vervangt = null,
+    int Versie = 1,
+    IReadOnlyList<Boekingsversie>? Eerder = null,
     string? Herstelt = null,
     string? Vast = null);
 
@@ -194,7 +197,7 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
     public async Task<IReadOnlyList<int>> Boekjaren(Uitvoerder wie, Guid administratie)
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
-        var jaren = await db.Boekingen.Select(b => b.Datum.Year).Distinct().ToListAsync();
+        var jaren = await db.Geldend.Select(b => b.Datum.Year).Distinct().ToListAsync();
         return [.. jaren.Append(tijd.GetLocalNow().Year).Distinct().OrderDescending()];
     }
 
@@ -202,7 +205,7 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
     public async Task<IReadOnlyList<GeboektePost>> Posten(Uitvoerder wie, Guid administratie, string? dagboek = null, DateOnly? van = null, DateOnly? tot = null)
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
-        var query = db.Boekingen.AsNoTracking().Include(b => b.Regels).AsQueryable();
+        var query = db.Geldend.AsNoTracking().Include(b => b.Regels).Where(b => b.Regels.Any());
         if (dagboek is not null)
         {
             query = query.Where(b => b.Dagboek == dagboek);
@@ -235,11 +238,11 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
     public async Task<Kolommenbalans> Kolommenbalans(Uitvoerder wie, Guid administratie, DateOnly van, DateOnly tot) =>
         (await Journaal(wie, administratie, van, tot)).Kolommenbalans(van, tot);
 
-    /// <summary>Eén boeking (dagboek en boekstuk), met de factuur waar hij bij hoort; leeg als hij niet bestaat.</summary>
+    /// <summary>Eén boeking (dagboek en boekstuk, de geldende versie), met de factuur waar hij bij hoort; leeg als hij niet bestaat.</summary>
     public async Task<Boekingsdetail?> Boeking(Uitvoerder wie, Guid administratie, string dagboek, string boekstuk)
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
-        if (await db.Boekingen.AsNoTracking().Include(b => b.Regels).FirstOrDefaultAsync(b => b.Dagboek == dagboek && b.Boekstuk == boekstuk) is not { } boeking)
+        if (await db.Geldend.AsNoTracking().Include(b => b.Regels).FirstOrDefaultAsync(b => b.Dagboek == dagboek && b.Boekstuk == boekstuk) is not { } boeking)
         {
             return null;
         }
@@ -247,48 +250,50 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
         var document = await db.Documenten.AsNoTracking().Where(d => d.BoekingId == boeking.Id).Select(d => new { d.Id, d.Bestandsnaam }).FirstOrDefaultAsync()
             ?? await db.OpenstaandePosten.AsNoTracking().Where(p => p.BoekingId == boeking.Id && p.DocumentId != null)
                 .Join(db.Documenten.AsNoTracking(), p => p.DocumentId, d => d.Id, (p, d) => new { d.Id, d.Bestandsnaam }).FirstOrDefaultAsync();
-        var aangepastIn = await db.Boekingen.AsNoTracking().Where(b => b.Vervangt == boeking.Id).Select(b => b.Dagboek + " " + b.Boekstuk).FirstOrDefaultAsync();
-        return new Boekingsdetail(new GeboektePost(boeking.Volgnummer, boeking.NaarDomein(), boeking.GeboektOp, boeking.GeboektDoor), document?.Id, document?.Bestandsnaam,
-            aangepastIn, await Boekstuk(db, boeking.Vervangt), await Boekstuk(db, boeking.Herstelt), await NietAanpasbaar(db, boeking));
+        var eerder = await db.Boekingen.AsNoTracking().Include(b => b.Regels).Where(b => b.Dagboek == dagboek && b.Boekstuk == boekstuk && b.Id != boeking.Id)
+            .OrderByDescending(b => b.Versie).ToListAsync();
+        var hersteld = boeking.Herstelt is { } id
+            ? await db.Boekingen.AsNoTracking().Where(b => b.Id == id).Select(b => b.Dagboek + " " + b.Boekstuk).FirstOrDefaultAsync()
+            : null;
+        return new Boekingsdetail(Geboekt(boeking), document?.Id, document?.Bestandsnaam, boeking.Versie,
+            [.. eerder.Select(b => new Boekingsversie(b.Versie, Geboekt(b)))], hersteld, await NietAanpasbaar(db, boeking));
     }
 
-    private static async Task<string?> Boekstuk(AdministratieDbContext db, Guid? boeking) =>
-        boeking is { } id ? await db.Boekingen.AsNoTracking().Where(b => b.Id == id).Select(b => b.Dagboek + " " + b.Boekstuk).FirstOrDefaultAsync() : null;
+    private static GeboektePost Geboekt(Boeking b) => new(b.Volgnummer, b.NaarDomein(), b.GeboektOp, b.GeboektDoor);
 
     /// <summary>Waarom een boeking niet via <see cref="PasAan"/> aan te passen is, of leeg als dat wel kan.</summary>
     private static async Task<string?> NietAanpasbaar(AdministratieDbContext db, Boeking boeking)
     {
-        if (await db.Boekingen.AnyAsync(b => b.Herstelt == boeking.Id))
+        if (boeking.Regels.Count == 0)
         {
-            return "Deze boeking is al aangepast.";
+            return "Deze boeking is vervallen.";
         }
 
-        if (boeking.Herstelt is not null)
+        if (boeking.Herstelt is not null || await db.Boekingen.AnyAsync(b => b.Herstelt == boeking.Id))
         {
-            return "Dit is de tegenboeking van een aanpassing.";
+            return "Deze boeking is teruggedraaid met een tegenboeking.";
         }
 
         if (await db.Documenten.AnyAsync(d => d.BoekingId == boeking.Id) || await db.OpenstaandePosten.AnyAsync(p => p.BoekingId == boeking.Id))
         {
-            return "Deze boeking hoort bij een factuur: pas hem aan door de factuur te heropenen.";
+            return "Deze boeking hoort bij een factuur: pas hem aan via de factuur.";
         }
 
         var stuk = $"\"{boeking.Dagboek} {boeking.Boekstuk}\"";
         if (await db.Documenten.AnyAsync(d => d.Verdeling != null && d.Verdeling.Contains(stuk)))
         {
-            return "Deze boeking hoort bij de periodeverdeling van een factuur: pas hem aan door de factuur te heropenen.";
+            return "Deze boeking hoort bij de periodeverdeling van een factuur: pas hem aan via de factuur.";
         }
 
         return null;
     }
 
     /// <summary>
-    /// Past een boeking aan. Het journaal wijzigt nooit: er komt een tegenboeking (alles terug) en een nieuwe boeking,
-    /// beide in hetzelfde dagboek en verwezen naar de oorspronkelijke. Regels op bank, debiteuren en crediteuren blijven
-    /// gelijk (<see cref="Boekingscorrectie"/>); een boeking bij een factuur gaat via het heropenen van de factuur.
-    /// Geeft de nieuwe boeking (dagboek en boekstuk).
+    /// Past een boeking aan: een nieuwe versie met hetzelfde dagboek en boekstuk, achteraan in de keten
+    /// (<see cref="NieuweVersie"/>). De vorige versie blijft bewaard maar telt niet meer mee. Regels op bank, debiteuren
+    /// en crediteuren blijven gelijk (<see cref="Boekingscorrectie"/>); een boeking bij een factuur gaat via de factuur.
     /// </summary>
-    public async Task<Uitkomst<string>> PasAan(Uitvoerder wie, Guid administratie, string dagboek, string boekstuk, Journaalpost nieuw)
+    public async Task<Uitkomst<int>> PasAan(Uitvoerder wie, Guid administratie, string dagboek, string boekstuk, Journaalpost nieuw)
     {
         ArgumentNullException.ThrowIfNull(wie);
         ArgumentNullException.ThrowIfNull(nieuw);
@@ -297,52 +302,67 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
         var nodig = dagboeken.FirstOrDefault(d => d.Code == dagboek)?.Soort == Dagboeksoort.Memoriaal ? Recht.Boekhouden : Recht.Invoeren;
         if (!Toegang.Mag((await toegang.Rol(wie, administratie))!.Value, nodig))
         {
-            return Uitkomst<string>.Mislukt("Je hebt in deze administratie niet het recht om hier te boeken.");
+            return Uitkomst<int>.Mislukt("Je hebt in deze administratie niet het recht om hier te boeken.");
         }
 
         await using var transactie = await db.Database.BeginTransactionAsync();
         await db.Vergrendel(administratie);
-        if (await db.Boekingen.AsNoTracking().Include(b => b.Regels).FirstOrDefaultAsync(b => b.Dagboek == dagboek && b.Boekstuk == boekstuk) is not { } oud)
+        if (await db.Geldend.AsNoTracking().Include(b => b.Regels).FirstOrDefaultAsync(b => b.Dagboek == dagboek && b.Boekstuk == boekstuk) is not { } oud)
         {
-            return Uitkomst<string>.Mislukt($"Boeking {dagboek} {boekstuk} bestaat niet.");
+            return Uitkomst<int>.Mislukt($"Boeking {dagboek} {boekstuk} bestaat niet.");
         }
 
         if (await NietAanpasbaar(db, oud) is { } reden)
         {
-            return Uitkomst<string>.Mislukt(reden);
+            return Uitkomst<int>.Mislukt(reden);
         }
 
         var schema = await LaadSchema(db);
         var post = nieuw with
         {
             Dagboek = dagboek,
-            Boekstuk = "?",
+            Boekstuk = boekstuk,
             Omschrijving = nieuw.Omschrijving.Trim(),
             Regels = [.. nieuw.Regels.Where(r => r.Bedrag != 0 || !string.IsNullOrWhiteSpace(r.Rekeningnummer))],
         };
         var fouten = Boekingscorrectie.Controleer(oud.NaarDomein(), post, schema).Concat(Journaalcontrole.Controleer(post, schema, dagboeken)).Distinct().ToList();
         if (fouten.Count > 0)
         {
-            return Uitkomst<string>.Mislukt([.. fouten]);
+            return Uitkomst<int>.Mislukt([.. fouten]);
         }
 
-        var tegen = oud.NaarDomein().Tegenboeking(await VolgendBoekstuk(db, dagboek, oud.Datum.Year), oud.Datum, Kort($"Aanpassing {dagboek} {boekstuk}: terug ({oud.Omschrijving})"));
-        (await VoegToeAanKeten(db, administratie, tegen, wie)).Herstelt = oud.Id;
-        await db.SaveChangesAsync();
-        var vervanging = await VoegToeAanKeten(db, administratie, post with { Boekstuk = await VolgendBoekstuk(db, dagboek, post.Datum.Year) }, wie);
-        vervanging.Vervangt = oud.Id;
-
-        // De bankmutatie wijst voortaan naar de nieuwe boeking.
-        foreach (var mutatie in await db.Banktransacties.Where(t => t.BoekingId == oud.Id).ToListAsync())
-        {
-            mutatie.BoekingId = vervanging.Id;
-        }
-
+        var versie = await NieuweVersie(db, administratie, oud, post, wie);
         await db.SaveChangesAsync();
         await transactie.CommitAsync();
-        await audit.Log(wie, AuditActies.BoekingAangepast, $"{dagboek} {boekstuk}",
-            $"tegenboeking {dagboek} {tegen.Boekstuk}, nieuw {dagboek} {vervanging.Boekstuk}; {vervanging.Omschrijving}; {post.TotaalDebet:0.00}", administratie);
-        return Uitkomst<string>.Met($"{dagboek} {vervanging.Boekstuk}");
+        await audit.Log(wie, AuditActies.BoekingAangepast, $"{dagboek} {boekstuk}", $"versie {versie.Versie}; {versie.Omschrijving}; {post.TotaalDebet:0.00}", administratie);
+        return Uitkomst<int>.Met(versie.Versie);
+    }
+
+    /// <summary>
+    /// Een nieuwe versie van een boeking achteraan in de keten: hetzelfde dagboek en boekstuk, versie plus één, met een
+    /// verwijzing naar de vorige. Wat naar de vorige versie wees (bankmutatie, document, openstaande post), wijst daarna
+    /// naar de nieuwe. Zonder regels is de boeking vervallen. Alleen binnen een transactie; slaat niet op.
+    /// </summary>
+    internal async Task<Boeking> NieuweVersie(AdministratieDbContext db, Guid administratie, Boeking vorige, Journaalpost post, Uitvoerder wie)
+    {
+        var boeking = await VoegToeAanKeten(db, administratie, post with { Dagboek = vorige.Dagboek, Boekstuk = vorige.Boekstuk }, wie);
+        (boeking.Versie, boeking.Vervangt) = (vorige.Versie + 1, vorige.Id);
+        foreach (var mutatie in await db.Banktransacties.Where(t => t.BoekingId == vorige.Id).ToListAsync())
+        {
+            mutatie.BoekingId = boeking.Id;
+        }
+
+        foreach (var document in await db.Documenten.Where(d => d.BoekingId == vorige.Id).ToListAsync())
+        {
+            document.BoekingId = boeking.Id;
+        }
+
+        foreach (var open in await db.OpenstaandePosten.Where(p => p.BoekingId == vorige.Id).ToListAsync())
+        {
+            open.BoekingId = boeking.Id;
+        }
+
+        return boeking;
     }
 
     private static string Kort(string tekst) => tekst.Length > 200 ? tekst[..200] : tekst;
@@ -374,7 +394,7 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
         var boekjaar = new DateOnly(van.Year, 1, 1);
-        var eerder = await (from r in db.Boekingsregels
+        var eerder = await (from r in db.GeldendeRegels
                             join b in db.Boekingen on r.BoekingId equals b.Id
                             where b.Datum < van
                             group r.Bedrag by new { VoorBoekjaar = b.Datum < boekjaar, r.Rekeningnummer } into g
@@ -383,7 +403,7 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
             .Select(x => new Journaalpost(string.Empty, "begin", x.Item2, "Beginstand",
                 [.. eerder.Where(e => e.VoorBoekjaar == x.Item1 && e.Saldo != 0).OrderBy(e => e.Rekeningnummer, StringComparer.Ordinal).Select(e => new Journaalregel(e.Rekeningnummer, e.Saldo))]))
             .Where(p => p.Regels.Count > 0);
-        var boekingen = await db.Boekingen.AsNoTracking().Include(b => b.Regels).Where(b => b.Datum >= van && b.Datum <= tot)
+        var boekingen = await db.Geldend.AsNoTracking().Include(b => b.Regels).Where(b => b.Datum >= van && b.Datum <= tot)
             .OrderBy(b => b.Volgnummer).ToListAsync();
         return Boekhouding.Grootboek.Journaal.Herstel(await LaadSchema(db), await LaadDagboeken(db), begin.Concat(boekingen.Select(b => b.NaarDomein())));
     }

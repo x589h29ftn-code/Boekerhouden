@@ -396,6 +396,11 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<int>("Versie")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
                     b.Property<Guid?>("Vervangt")
                         .HasColumnType("uuid");
 
@@ -417,7 +422,7 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.HasIndex("AdministratieId", "Volgnummer")
                         .IsUnique();
 
-                    b.HasIndex("AdministratieId", "Dagboek", "Boekstuk")
+                    b.HasIndex("AdministratieId", "Dagboek", "Boekstuk", "Versie")
                         .IsUnique();
 
                     b.ToTable("Boekingen", (string)null);

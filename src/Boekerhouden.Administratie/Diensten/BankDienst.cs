@@ -374,7 +374,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             return (null, 0m);
         }
 
-        var bedragen = await db.Boekingsregels.AsNoTracking().Where(r => r.Rekeningnummer == rekening.Nummer).Select(r => r.Bedrag).ToListAsync();
+        var bedragen = await db.GeldendeRegels.AsNoTracking().Where(r => r.Rekeningnummer == rekening.Nummer).Select(r => r.Bedrag).ToListAsync();
         return (rekening.Nummer, bedragen.Sum());
     }
 
