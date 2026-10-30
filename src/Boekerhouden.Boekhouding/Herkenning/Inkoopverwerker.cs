@@ -65,6 +65,10 @@ public static class Inkoopverwerker
         {
             belemmeringen.Add($"Lijkt al geboekt: factuur {dubbel.Factuurnummer} van {dubbel.Datum:dd-MM-yyyy}.");
         }
+        else if (leverancier is not null && Gelijkend(herkend, leverancier.Relatie.Code, bestaand) is { } gelijkend)
+        {
+            belemmeringen.Add($"Zelfde bedrag als factuur {gelijkend.Factuurnummer} van {gelijkend.Datum:dd-MM-yyyy}, met een ander nummer: een herinnering of kopie?");
+        }
 
         // Geleerd, maar deze factuur past niet in het patroon. Het IBAN controleert de relatie al (hieronder) als die er een kent.
         var afwijkingen = advies.Afwijkingen ?? [];
@@ -236,6 +240,16 @@ public static class Inkoopverwerker
         bestaand.FirstOrDefault(b => b.Relatie == relatie
                                      && ((herkend.Factuurnummer is { } nummer && Factuurnummers.Normaliseer(nummer) == Factuurnummers.Normaliseer(b.Factuurnummer))
                                          || (herkend.Factuurdatum == b.Datum && herkend.TotaalInclusief == b.Totaal)));
+
+    /// <summary>
+    /// De tweede controle: dezelfde leverancier en hetzelfde bedrag, binnen zes dagen, maar een ander factuurnummer (een
+    /// herinnering, een kopie of een opnieuw verstuurde factuur). Een maand- of weekfactuur valt daar buiten.
+    /// </summary>
+    private static BestaandeFactuur? Gelijkend(HerkendeFactuur herkend, string relatie, IEnumerable<BestaandeFactuur> bestaand) =>
+        herkend is { TotaalInclusief: { } totaal, Factuurdatum: { } datum } && totaal != 0
+            ? bestaand.Where(b => b.Relatie == relatie && b.Totaal == totaal && Math.Abs(b.Datum.DayNumber - datum.DayNumber) <= 6)
+                .OrderBy(b => Math.Abs(b.Datum.DayNumber - datum.DayNumber)).FirstOrDefault()
+            : null;
 
     private static string Omschrijving(HerkendeFactuur herkend, Relatie relatie, string? sjabloon, int betalingstermijn)
     {

@@ -265,14 +265,14 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
         var gelezen = new List<Guid>();
         for (var i = 1; i <= 4; i++)
         {
-            var uitkomst = await inkoop.Lees(wie, id, new MemoryStream(Belnet($"S-{i}", $"2026-04-0{i}")), $"s{i}.xml", null);
+            var uitkomst = await inkoop.Lees(wie, id, new MemoryStream(Belnet($"S-{i}", $"2026-0{i}-01")), $"s{i}.xml", null);
             Assert.Equal(Documentstatus.TeVerwerken, uitkomst.Status);
             gelezen.Add(uitkomst.DocumentId!.Value);
         }
 
         var herkend = (await inkoop.Verwerking(wie, id, gelezen[0]))!.Herkend!;
-        Assert.True((await inkoop.Boek(wie, id, gelezen[0], Invoer(null, new NieuweRelatie("Belnet B.V.", herkend.Iban, null, null), "S-1"))).IsGelukt);
-        Assert.True((await inkoop.Boek(wie, id, gelezen[1], Invoer("BELNET", null, "S-2") with { Datum = new(2026, 4, 2) })).IsGelukt);
+        Assert.True((await inkoop.Boek(wie, id, gelezen[0], Invoer(null, new NieuweRelatie("Belnet B.V.", herkend.Iban, null, null), "S-1") with { Datum = new(2026, 1, 1) })).IsGelukt);
+        Assert.True((await inkoop.Boek(wie, id, gelezen[1], Invoer("BELNET", null, "S-2") with { Datum = new(2026, 2, 1) })).IsGelukt);
 
         var opnieuw = await inkoop.VerwerkOpnieuw(wie, id);
 

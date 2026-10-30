@@ -802,3 +802,13 @@ body.scheiding-slepen {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+/* Een kopje boven een kaart, rustig zoals de kopjes van een tabel. */
+.sectiekop {
+    font-size: .75rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    margin-bottom: .5rem;
+}

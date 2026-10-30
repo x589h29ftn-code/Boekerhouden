@@ -35,7 +35,7 @@
                     @foreach (var r in relaties)
                     {
                         <tr class="regel-met-acties">
-                            <td title="@r.Code">@r.Naam</td>
+                            <td title="@r.Code"><a class="text-reset" href="/a/@Id/relaties/@Uri.EscapeDataString(r.Code)">@r.Naam</a></td>
                             <td class="small">@string.Join(", ", r.Ibans.Select(Boekhouding.Relaties.Iban.Toon))</td>
                             <td class="small">@r.BtwNummer</td>
                             <td class="small">@r.KvkNummer</td>

@@ -46,7 +46,7 @@
 
         module = await JS.InvokeAsync<IJSObjectReference>("import", "./factuurviewer.js");
         await module.InvokeVoidAsync("scheiding", scheiding, paneel);
-        koppeling = await module.InvokeAsync<IJSObjectReference>("bekijk", viewer, bron);
+        koppeling = await module.InvokeAsync<IJSObjectReference>("bekijk", viewer, bron, Document.ToString());
     }
 
     public async ValueTask DisposeAsync()

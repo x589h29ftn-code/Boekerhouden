@@ -194,6 +194,20 @@ public sealed class InkoopverwerkerTests
         Assert.Contains("De periode van 01-04-2026 is afgesloten.", voorstel.Belemmeringen);
     }
 
+    [Theory]
+    [InlineData("2026-03-29", true)]
+    [InlineData("2026-04-07", true)]
+    [InlineData("2026-03-01", false)]
+    [InlineData("2026-04-08", false)]
+    public void Zelfde_bedrag_kort_erna_met_een_ander_nummer_is_verdacht(string eerder, bool verdacht)
+    {
+        var voorstel = Inkoopverwerker.Verwerk(Ubl(), Relaties, [Telefoon], new Leergeheugen(), Testadministratie.Btw,
+            [new BestaandeFactuur("BELNET", "BN2026-0399", DateOnly.Parse(eerder, System.Globalization.CultureInfo.InvariantCulture), 24.99m)]);
+
+        Assert.Equal(verdacht, voorstel.Belemmeringen.Any(b => b.StartsWith("Zelfde bedrag als factuur BN2026-0399", StringComparison.Ordinal)));
+        Assert.Equal(!verdacht, voorstel.Automatisch);
+    }
+
     [Fact]
     public void Tekstfactuur_met_twee_tarieven_eerst_kiezen_daarna_leren()
     {

@@ -550,8 +550,106 @@ public sealed class InkoopDienst(
             await BewaarZoektemplate(db, administratie, code, aanwijzingen, herkend, wie);
         }
 
+        if (uitkomst.IsGelukt && herkend is { Bron: not Herkenningsbron.EFactuur })
+        {
+            await LeerPlekken(db, administratie, code, d.Id, invoer, herkend, wie);
+        }
+
         return uitkomst;
     }
+
+    /// <summary>
+    /// Leert na het boeken zelf waar de waarden staan, zonder dat de gebruiker ze aanwijst: elke geboekte waarde die op
+    /// precies één plek op de PDF staat (factuurnummer, datums, kenmerk, totaal; bij één regel ook exclusief en btw),
+    /// wordt een plek in het zoektemplate van de leverancier. Een bestaande plek blijft, tenzij de herkenning (met het
+    /// template) iets anders gaf dan er geboekt is: dan verhuist hij naar de plek van de geboekte waarde en gaat hij
+    /// voortaan voor. Wat de gebruiker deze keer aanwees, gaat altijd voor.
+    /// </summary>
+    private async Task LeerPlekken(AdministratieDbContext db, Guid administratie, string relatie, Guid document, Factuurinvoer invoer, HerkendeFactuur herkend, Uitvoerder wie)
+    {
+        var inhoud = await db.DocumentInhouden.AsNoTracking().Where(x => x.DocumentId == document).Select(x => x.Inhoud).FirstOrDefaultAsync();
+        if (inhoud is null || Bestandssoort.Extensie(inhoud) != ".pdf")
+        {
+            return;
+        }
+
+        var aangewezen = (invoer.Aanwijzingen ?? []).Select(a => a.Veld).ToHashSet();
+        var totaal = invoer.Regels.Sum(r => Math.Abs(r.Bedrag) + Math.Abs(r.Btw ?? 0));
+        var enige = invoer.Regels.Count == 1 ? invoer.Regels[0] : null;
+        decimal? exclusief = enige is null ? null : Math.Abs(enige.Bedrag);
+        decimal? btw = enige?.Btw is { } b ? Math.Abs(b) : null;
+        var velden = new List<(Factuurveld Veld, IReadOnlyList<string> Vormen, bool Gelijk, bool Bedrag)>
+        {
+            (Factuurveld.Factuurnummer, Tekstvormen.Tekst(invoer.Factuurnummer), herkend.Factuurnummer is { } n && Factuurnummers.Normaliseer(n) == Factuurnummers.Normaliseer(invoer.Factuurnummer), false),
+            (Factuurveld.Factuurdatum, Tekstvormen.Datum(invoer.Datum), herkend.Factuurdatum == invoer.Datum, false),
+            (Factuurveld.Vervaldatum, herkend.Vervaldatum is null ? [] : Tekstvormen.Datum(invoer.Vervaldatum), herkend.Vervaldatum == invoer.Vervaldatum, false),
+            (Factuurveld.Betalingskenmerk, Tekstvormen.Tekst(invoer.Betalingskenmerk), herkend.Betalingskenmerk == invoer.Betalingskenmerk?.Replace(" ", "", StringComparison.Ordinal), false),
+            (Factuurveld.Totaal, Tekstvormen.Bedrag(totaal), herkend.TotaalInclusief is { } i && Math.Abs(i) == totaal, true),
+            (Factuurveld.Exclusief, Tekstvormen.Bedrag(exclusief), herkend.TotaalExclusief is { } e && Math.Abs(e) == exclusief, true),
+            (Factuurveld.Btw, btw is > 0 ? Tekstvormen.Bedrag(btw) : [], herkend.Btwregels.Count > 0 && Math.Abs(herkend.TotaalBtw) == btw, true),
+        };
+        velden.RemoveAll(v => aangewezen.Contains(v.Veld) || v.Vormen.Count == 0);
+        if (velden.Count == 0)
+        {
+            return;
+        }
+
+        IReadOnlyDictionary<string, IReadOnlyList<PdfPlek>> plekken;
+        try
+        {
+            plekken = PdfTekst.Zoek(inhoud, velden.ToDictionary(v => v.Veld.ToString(), v => v.Vormen));
+        }
+        catch (DocumentException)
+        {
+            return;
+        }
+
+        var bestaand = await db.Zoekplekken.Where(z => z.Relatie == relatie).ToListAsync();
+        var geleerd = new List<Factuurveld>();
+        foreach (var (veld, _, gelijk, bedrag) in velden)
+        {
+            var plek = bestaand.FirstOrDefault(z => z.Veld == veld);
+            if (plekken[veld.ToString()] is not [var gevonden] || (plek is not null && gelijk))
+            {
+                continue;
+            }
+
+            if (plek is null)
+            {
+                plek = new Zoekplek { AdministratieId = administratie, Relatie = relatie, Veld = veld };
+                db.Zoekplekken.Add(plek);
+            }
+
+            // Wat ruimte rondom: een volgend nummer of bedrag kan langer zijn. Bedragen staan meestal rechts uitgelijnd
+            // (ze groeien naar links), nummers en datums links uitgelijnd (ze groeien naar rechts).
+            var (x0, x1) = (Math.Min(gevonden.X0, gevonden.X1), Math.Max(gevonden.X0, gevonden.X1));
+            var (y0, y1) = (Math.Min(gevonden.Y0, gevonden.Y1), Math.Max(gevonden.Y0, gevonden.Y1));
+            (plek.Pagina, plek.X0, plek.Y0, plek.X1, plek.Y1) = bedrag
+                ? (gevonden.Pagina, x0 - 25, y0 - 1.5, x1 + 4, y1 + 1.5)
+                : (gevonden.Pagina, x0 - 2, y0 - 1.5, x1 + 15, y1 + 1.5);
+            (plek.Voorrang, plek.Tijdstip) = (!gelijk && Heeft(herkend, veld), tijd.GetUtcNow());
+            geleerd.Add(veld);
+        }
+
+        if (geleerd.Count > 0)
+        {
+            await db.SaveChangesAsync();
+            await audit.Log(wie, AuditActies.ZoektemplateBijgewerkt, relatie, $"zelf geleerd: {string.Join(", ", geleerd)}", administratie);
+        }
+    }
+
+    /// <summary>Vond de herkenning dit veld (dan was hij fout, als hij afwijkt van wat er geboekt is)?</summary>
+    private static bool Heeft(HerkendeFactuur h, Factuurveld veld) => veld switch
+    {
+        Factuurveld.Factuurnummer => h.Factuurnummer is not null,
+        Factuurveld.Factuurdatum => h.Factuurdatum is not null,
+        Factuurveld.Vervaldatum => h.Vervaldatum is not null,
+        Factuurveld.Betalingskenmerk => h.Betalingskenmerk is not null,
+        Factuurveld.Totaal => h.TotaalInclusief is not null,
+        Factuurveld.Exclusief => h.TotaalExclusief is not null,
+        Factuurveld.Btw => h.Btwregels.Count > 0,
+        _ => h.Omschrijving is not null,
+    };
 
     /// <summary>
     /// De tekst op de plekken die de gebruiker eerder bij deze leverancier aanwees, vult aan wat de herkenning mist (of

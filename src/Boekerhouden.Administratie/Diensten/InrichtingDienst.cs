@@ -1,6 +1,7 @@
 using Boekerhouden.Administratie.Data;
 using Boekerhouden.Boekhouding.Btw;
 using Boekerhouden.Boekhouding.Facturen;
+using Boekerhouden.Boekhouding.Herkenning;
 using Boekerhouden.Boekhouding.Regels;
 using Boekerhouden.Boekhouding.Relaties;
 using Microsoft.AspNetCore.Identity;
@@ -13,6 +14,22 @@ public sealed record RelatieInvoer(string Naam, string? BtwNummer, string? KvkNu
 public sealed record RelatieRegel(Guid Id, string Code, string Naam, IReadOnlyList<string> Ibans, string? BtwNummer, string? KvkNummer, string? Tegenrekening);
 
 public sealed record RegelRegel(Guid Id, int Volgorde, Verwerkingsregel Regel);
+
+/// <summary>Een bevestigde verwerking met het moment waarop.</summary>
+public sealed record Bevestigd(DateTimeOffset Tijdstip, Bevestiging Bevestiging);
+
+/// <summary>
+/// Wat het pakket van een leverancier geleerd heeft: de keuze (rekening, btw, omschrijving) met hoe vaak op rij
+/// bevestigd en tot welk bedrag automatisch, de bevestigingen zelf, de plekken op de factuur en de regels die gelden.
+/// </summary>
+/// <param name="Drempel">Na hoeveel keer op rij het pakket zelf verwerkt (instelling van de administratie).</param>
+public sealed record GeleerdeLeverancier(
+    RelatieRegel Relatie,
+    Geleerd? Inkoop,
+    int Drempel,
+    IReadOnlyList<Bevestigd> Bevestigingen,
+    IReadOnlyList<Zoekgebied> Plekken,
+    IReadOnlyList<RegelRegel> Regels);
 
 /// <summary>De gegevens en instellingen van een administratie.</summary>
 /// <param name="Afwijkend">Waarin de administratie afwijkt van het kantoor; leeg = de kantoorinstelling.</param>
@@ -42,6 +59,74 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
         return [.. (await db.Relaties.AsNoTracking().OrderBy(r => r.Naam).ToListAsync())
             .Select(r => new RelatieRegel(r.Id, r.Code, r.Naam, r.Ibans, r.BtwNummer, r.KvkNummer, r.Tegenrekening))];
     }
+
+    /// <summary>Wat het pakket van deze leverancier geleerd heeft (inkoopfacturen), of leeg als de relatie niet bestaat.</summary>
+    public async Task<GeleerdeLeverancier?> Geleerd(Uitvoerder wie, Guid administratie, string relatie)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
+        if (await db.Relaties.AsNoTracking().FirstOrDefaultAsync(r => r.Code == relatie) is not { } r)
+        {
+            return null;
+        }
+
+        var adm = await db.Administraties.AsNoTracking().SingleAsync(a => a.Id == administratie);
+        var geheugen = new Leergeheugen(adm.Afwijkend().Op(await KantoorDienst.Lees(db)));
+        var sleutel = Leersleutel(relatie);
+        var keuzes = await db.Leerkeuzes.AsNoTracking().Where(k => k.Sleutel == sleutel).OrderBy(k => k.Id).ToListAsync();
+        foreach (var keuze in keuzes)
+        {
+            geheugen.Onthoud(keuze.Sleutel, keuze.NaarDomein());
+        }
+
+        var voorstel = geheugen.Voorstel(new Verwerkingsgegevens(Verwerkingssoort.Inkoopfactuur, relatie, r.Naam, 0m));
+        var plekken = await db.Zoekplekken.AsNoTracking().Where(z => z.Relatie == relatie).OrderBy(z => z.Veld).ToListAsync();
+        var regels = (await Regels(wie, administratie))
+            .Where(x => x.Regel.Relatie == relatie || (x.Regel.NaamBevat is { Length: > 0 } deel && r.Naam.Contains(deel, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+        return new GeleerdeLeverancier(
+            new RelatieRegel(r.Id, r.Code, r.Naam, r.Ibans, r.BtwNummer, r.KvkNummer, r.Tegenrekening),
+            voorstel,
+            geheugen.Drempel,
+            [.. keuzes.Select(k => new Bevestigd(k.Tijdstip, k.NaarDomein()))],
+            [.. plekken.Select(z => z.NaarDomein())],
+            regels);
+    }
+
+    /// <summary>Vergeet de geleerde keuzes bij deze leverancier: het pakket begint weer bij nul (eerst zelf kiezen).</summary>
+    public async Task<Uitkomst> VergeetGeleerd(Uitvoerder wie, Guid administratie, string relatie)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
+        var sleutel = Leersleutel(relatie);
+        var keuzes = await db.Leerkeuzes.Where(k => k.Sleutel == sleutel).ToListAsync();
+        if (keuzes.Count == 0)
+        {
+            return Uitkomst.Mislukt("Er is bij deze leverancier niets geleerd.");
+        }
+
+        db.Leerkeuzes.RemoveRange(keuzes);
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.GeleerdVergeten, relatie, $"{keuzes.Count} bevestiging(en)", administratie);
+        return Uitkomst.Gelukt;
+    }
+
+    /// <summary>Vergeet de plek van een veld op de factuur van deze leverancier.</summary>
+    public async Task<Uitkomst> VergeetPlek(Uitvoerder wie, Guid administratie, string relatie, Factuurveld veld)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
+        if (await db.Zoekplekken.FirstOrDefaultAsync(z => z.Relatie == relatie && z.Veld == veld) is not { } plek)
+        {
+            return Uitkomst.Mislukt("Deze plek bestaat niet (meer).");
+        }
+
+        db.Zoekplekken.Remove(plek);
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.ZoekplekVergeten, relatie, veld.ToString(), administratie);
+        return Uitkomst.Gelukt;
+    }
+
+    /// <summary>De sleutel van het leergeheugen voor inkoopfacturen van een relatie.</summary>
+    private static string Leersleutel(string relatie) =>
+        Leergeheugen.Sleutel(new Verwerkingsgegevens(Verwerkingssoort.Inkoopfactuur, relatie, null, 0m))!;
 
     public async Task<Uitkomst<Guid>> VoegRelatieToe(Uitvoerder wie, Guid administratie, RelatieInvoer invoer, string? iban)
     {

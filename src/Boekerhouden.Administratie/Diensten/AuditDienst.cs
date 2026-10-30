@@ -72,6 +72,8 @@ public static class AuditActies
     public const string KantoorinstellingenGewijzigd = "Kantoorinstellingen gewijzigd";
 
     public const string ZoektemplateBijgewerkt = "Zoektemplate van leverancier bijgewerkt";
+    public const string GeleerdVergeten = "Geleerde keuzes vergeten";
+    public const string ZoekplekVergeten = "Plek op de factuur vergeten";
 
     public const string DocumentOpgeslagen = "Document in de documentmap gezet";
 

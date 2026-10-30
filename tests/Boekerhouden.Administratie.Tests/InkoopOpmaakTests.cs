@@ -1,3 +1,4 @@
+using Boekerhouden.Administratie.Data;
 using Boekerhouden.Administratie.Diensten;
 using Boekerhouden.Boekhouding.Facturen;
 using Boekerhouden.Boekhouding.Herkenning;
@@ -152,5 +153,74 @@ public sealed class InkoopOpmaakTests(AdministratieFixture app) : IClassFixture<
 
         var volgende = (await inkoop.Verwerking(wie, id, tweede.DocumentId!.Value))!;
         Assert.Equal(363m, volgende.Herkend!.TotaalInclusief);
+    }
+
+    /// <summary>Het nummer staat achter "Ref." (geen bekend label) rechtsboven; de rest is gewoon.</summary>
+    private static byte[] Bouwmarkt(string nummer, string datum, decimal netto) => Pdf(p =>
+    {
+        var btw = Math.Round(netto * 0.21m, 2, MidpointRounding.AwayFromZero);
+        p.Regel((40, "Bouwmarkt Noord B.V."), (380, "Ref."), (420, nummer));
+        p.Regel((40, "IBAN NL20 INGB 0001 2345 67"));
+        p.Regel((40, $"Factuurdatum: {datum}"));
+        p.Regel((40, "Omschrijving"), (480, "Bedrag"));
+        p.Regel((40, "Schroeven en pluggen"), (480, $"{netto:0.00}".Replace('.', ',')));
+        p.Regel((300, "Subtotaal"), (480, $"{netto:0.00}".Replace('.', ',')));
+        p.Regel((300, "BTW 21%"), (480, $"{btw:0.00}".Replace('.', ',')));
+        p.Regel((300, "Te betalen"), (480, $"{netto + btw:0.00}".Replace('.', ',')));
+    });
+
+    [Fact]
+    public async Task Na_het_boeken_leert_het_pakket_zelf_waar_het_nummer_staat()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Kantoor Voorbeeld");
+        var inkoop = app.Dienst<InkoopDienst>();
+        var eerste = await inkoop.Lees(wie, id, new MemoryStream(Bouwmarkt("BM-77", "01-05-2026", 50m)), "bm77.pdf", "application/pdf");
+        Assert.Null((await inkoop.Verwerking(wie, id, eerste.DocumentId!.Value))!.Herkend!.Factuurnummer);
+
+        // De gebruiker typt het nummer over (zonder aan te wijzen) en boekt.
+        var boeken = await inkoop.Boek(wie, id, eerste.DocumentId.Value, new Factuurinvoer(null, new("Bouwmarkt Noord B.V.", "NL20INGB0001234567", null, null),
+            "BM-77", new(2026, 5, 1), new(2026, 5, 31), "Materiaal", [new Factuurregel("", "4500", "I21", 50m, 10.50m)]));
+        Assert.True(boeken.IsGelukt, string.Join("; ", boeken.Fouten));
+        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.ZoektemplateBijgewerkt && r.Details?.Contains("zelf geleerd: Factuurnummer", StringComparison.Ordinal) == true);
+
+        var tweede = await inkoop.Lees(wie, id, new MemoryStream(Bouwmarkt("BM-1043", "01-06-2026", 75m)), "bm1043.pdf", "application/pdf");
+
+        var volgende = (await inkoop.Verwerking(wie, id, tweede.DocumentId!.Value))!;
+        Assert.Equal(("BM-1043", 90.75m), (volgende.Herkend!.Factuurnummer, volgende.Herkend.TotaalInclusief));
+    }
+
+    [Fact]
+    public async Task Overzicht_van_wat_het_pakket_bij_een_leverancier_geleerd_heeft_en_vergeten()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Kantoor Voorbeeld");
+        var inkoop = app.Dienst<InkoopDienst>();
+        var inrichting = app.Dienst<InrichtingDienst>();
+        var gelezen = await inkoop.Lees(wie, id, new MemoryStream(Bouwmarkt("BM-5", "01-05-2026", 50m)), "bm5.pdf", "application/pdf");
+        Assert.True((await inkoop.Boek(wie, id, gelezen.DocumentId!.Value, new Factuurinvoer(null, new("Bouwmarkt Noord B.V.", "NL20INGB0001234567", null, null),
+            "BM-5", new(2026, 5, 1), new(2026, 5, 31), "Materiaal", [new Factuurregel("", "4500", "I21", 50m, 10.50m)]))).IsGelukt);
+        var code = (await inrichting.Relaties(wie, id)).Single(r => r.Naam == "Bouwmarkt Noord B.V.").Code;
+
+        var geleerd = (await inrichting.Geleerd(wie, id, code))!;
+
+        Assert.Equal(("4500", "I21", 1), (geleerd.Inkoop!.Keuze.Rekeningnummer, geleerd.Inkoop.Keuze.BtwCode, geleerd.Inkoop.OpRij));
+        Assert.Equal(60.50m, Assert.Single(geleerd.Bevestigingen).Bevestiging.Bedrag);
+        Assert.Contains(geleerd.Plekken, p => p.Veld == Factuurveld.Factuurnummer && !p.Voorrang);
+        Assert.Null(await inrichting.Geleerd(wie, id, "ONBEKEND"));
+
+        var inzien = await app.Gebruiker("InzienGeleerd");
+        await app.Dienst<AdministratieDienst>().ZetLid(id, inzien.Id!.Value, Lidmaatschapsrol.Inzien, wie);
+        Assert.NotNull(await inrichting.Geleerd(inzien, id, code));
+        await Assert.ThrowsAsync<GeenToegangException>(() => inrichting.VergeetGeleerd(inzien, id, code));
+        await Assert.ThrowsAsync<GeenToegangException>(() => inrichting.VergeetPlek(inzien, id, code, Factuurveld.Factuurnummer));
+
+        Assert.True((await inrichting.VergeetPlek(wie, id, code, Factuurveld.Factuurnummer)).IsGelukt);
+        Assert.True((await inrichting.VergeetGeleerd(wie, id, code)).IsGelukt);
+        var leeg = (await inrichting.Geleerd(wie, id, code))!;
+        Assert.Null(leeg.Inkoop);
+        Assert.DoesNotContain(leeg.Plekken, p => p.Veld == Factuurveld.Factuurnummer);
+        Assert.False((await inrichting.VergeetGeleerd(wie, id, code)).IsGelukt);
+        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.GeleerdVergeten && r.Onderwerp == code);
     }
 }

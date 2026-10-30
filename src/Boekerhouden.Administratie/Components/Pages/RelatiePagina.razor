@@ -1,0 +1,188 @@
+@page "/a/{Id:guid}/relaties/{Code}"
+@using Boekerhouden.Boekhouding.Herkenning
+@inject InrichtingDienst Inrichting
+@inject GrootboekDienst Grootboek
+
+<AdministratieKader Id="Id" Titel="@(geleerd?.Relatie.Naam ?? "Relatie")" Actief="/relaties" BijOpenen="Open">
+    <Foutmeldingen Fouten="fouten" />
+    @if (bericht is not null)
+    {
+        <div class="bericht mb-2">@bericht</div>
+    }
+    @if (geladen && geleerd is null)
+    {
+        <div class="alert alert-warning">Deze relatie bestaat niet. <a href="/a/@Id/relaties">Naar relaties</a></div>
+    }
+    else if (geleerd is { Relatie: var r } g)
+    {
+        <div class="small text-secondary mb-3">
+            @string.Join(" · ", new[] { string.Join(", ", r.Ibans.Select(Boekhouding.Relaties.Iban.Toon)), r.BtwNummer, r.KvkNummer is null ? null : $"KvK {r.KvkNummer}" }.Where(x => !string.IsNullOrEmpty(x)))
+        </div>
+
+        <h2 class="h6 sectiekop">Geleerd bij inkoopfacturen</h2>
+        <div class="card mb-4">
+            <div class="card-body">
+                @if (g.Inkoop is { } i)
+                {
+                    <div class="d-flex align-items-start gap-3 regel-met-acties">
+                        <div>
+                            <div><span class="rekeningnummer">@i.Keuze.Rekeningnummer</span> @schema?.Zoek(i.Keuze.Rekeningnummer)?.Naam <span class="text-secondary ms-2">@i.Keuze.BtwCode</span></div>
+                            <div class="small text-secondary mt-1">
+                                @(i.OpRij == 1 ? "1 keer" : $"{i.OpRij} keer op rij") bevestigd ·
+                                @(i.OpRij >= g.Drempel
+                                    ? i.Bovengrens is { } grens ? $"automatisch tot {Bedragen.Euro(grens)}" : "automatisch"
+                                    : $"automatisch na nog {g.Drempel - i.OpRij} keer")
+                                @if (i.Omschrijving is { } o)
+                                {
+                                    <span> · omschrijving ‘@o’</span>
+                                }
+                            </div>
+                        </div>
+                        @if (context.Mag(Recht.Boekhouden))
+                        {
+                            @if (bevestigVergeten)
+                            {
+                                <span class="ms-auto d-inline-flex align-items-center gap-2">
+                                    <span class="small">Zeker weten?</span>
+                                    <button class="btn btn-sm btn-danger" @onclick="Vergeet">Ja, vergeten</button>
+                                    <button class="btn btn-sm btn-link text-secondary px-1" @onclick="() => bevestigVergeten = false">annuleren</button>
+                                </span>
+                            }
+                            else
+                            {
+                                <button class="btn btn-sm btn-link text-secondary ms-auto acties" title="Het pakket begint weer bij nul: eerst zelf kiezen, dan een voorstel" @onclick="() => bevestigVergeten = true">Vergeten</button>
+                            }
+                        }
+                    </div>
+                }
+                else
+                {
+                    <span class="text-secondary">Nog niets geleerd.</span>
+                }
+            </div>
+            @if (g.Bevestigingen.Count > 0)
+            {
+                <table class="table table-sm align-middle mb-0 overzichtstabel">
+                    <thead>
+                        <tr><th>Bevestigd</th><th>Rekening</th><th>Btw</th><th class="text-end">Bedrag</th><th>IBAN</th><th>Postcodes</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var b in g.Bevestigingen.Reverse())
+                        {
+                            <tr>
+                                <td>@Weergave.DatumTijd(b.Tijdstip)</td>
+                                <td title="@schema?.Zoek(b.Bevestiging.Keuze.Rekeningnummer)?.Naam">@b.Bevestiging.Keuze.Rekeningnummer</td>
+                                <td>@b.Bevestiging.Keuze.BtwCode</td>
+                                <td class="bedrag text-end">@(b.Bevestiging.Bedrag is { } bedrag ? Bedragen.Getal(bedrag) : null)</td>
+                                <td class="small">@(b.Bevestiging.Iban is { } iban ? Boekhouding.Relaties.Iban.Toon(iban) : null)</td>
+                                <td class="small">@string.Join(", ", (b.Bevestiging.Postcodes ?? []).Select(Boekhouding.Relaties.Postcode.Toon))</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+
+        <h2 class="h6 sectiekop">Plekken op de factuur</h2>
+        <div class="card mb-4">
+            @if (g.Plekken.Count == 0)
+            {
+                <div class="card-body text-secondary">Nog geen plekken.</div>
+            }
+            else
+            {
+                <table class="table table-sm align-middle mb-0 overzichtstabel">
+                    <tbody>
+                        @foreach (var p in g.Plekken)
+                        {
+                            <tr class="regel-met-acties">
+                                <td>@Veldnaam(p.Veld)</td>
+                                <td class="text-secondary" title="@($"{p.X0:0}, {p.Y0:0} – {p.X1:0}, {p.Y1:0} (PDF-punten)")">pagina @p.Pagina</td>
+                                <td class="text-secondary">@(p.Voorrang ? "gaat voor" : "vult aan")</td>
+                                <td class="text-end">
+                                    @if (context.Mag(Recht.Boekhouden))
+                                    {
+                                        <button class="btn btn-sm btn-link text-secondary p-0 acties" @onclick="() => VergeetPlek(p.Veld)">Vergeten</button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+
+        @if (g.Regels.Count > 0)
+        {
+            <h2 class="h6 sectiekop">Regels</h2>
+            <div class="card mb-4">
+                <ul class="list-unstyled mb-0 card-body">
+                    @foreach (var regel in g.Regels)
+                    {
+                        <li><a href="/a/@Id/regels">@regel.Regel.Naam</a> <span class="text-secondary small ms-2">@regel.Regel.Rekeningnummer @regel.Regel.BtwCode@(regel.Regel.Automatisch ? " · automatisch" : null)</span></li>
+                    }
+                </ul>
+            </div>
+        }
+
+        <a class="small" href="/a/@Id/relaties">Naar relaties</a>
+    }
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private bool geladen;
+    private GeleerdeLeverancier? geleerd;
+    private Boekhouding.Grootboek.Rekeningschema? schema;
+    private bool bevestigVergeten;
+    private IReadOnlyList<string>? fouten;
+    private string? bericht;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [Parameter]
+    public string Code { get; set; } = "";
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        geleerd = await Inrichting.Geleerd(g.Wie, Id, Code);
+        schema = await Grootboek.Schema(g.Wie, Id);
+        geladen = true;
+    }
+
+    private static string Veldnaam(Factuurveld veld) => veld switch
+    {
+        Factuurveld.Factuurnummer => "Factuurnummer",
+        Factuurveld.Factuurdatum => "Factuurdatum",
+        Factuurveld.Vervaldatum => "Vervaldatum",
+        Factuurveld.Betalingskenmerk => "Betalingskenmerk",
+        Factuurveld.Totaal => "Bedrag (inclusief btw)",
+        Factuurveld.Exclusief => "Bedrag exclusief btw",
+        Factuurveld.Btw => "Btw",
+        _ => "Omschrijving",
+    };
+
+    private async Task Vergeet()
+    {
+        var uitkomst = await Inrichting.VergeetGeleerd(geopend!.Wie, Id, Code);
+        (fouten, bevestigVergeten) = (uitkomst.Fouten, false);
+        if (uitkomst.IsGelukt)
+        {
+            bericht = "Vergeten; het pakket begint weer bij nul.";
+            await Open(geopend);
+        }
+    }
+
+    private async Task VergeetPlek(Factuurveld veld)
+    {
+        var uitkomst = await Inrichting.VergeetPlek(geopend!.Wie, Id, Code, veld);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            bericht = $"Plek van {Veldnaam(veld).ToLowerInvariant()} vergeten.";
+            await Open(geopend);
+        }
+    }
+}

@@ -20,7 +20,9 @@ class Viewer {
         this.container = container;
         this.bron = bron;
         this.opties = opties;
-        this.zoom = 1;
+        // De zoom geldt voor alle facturen (per browser onthouden); het draaien per document.
+        this.zoom = lees(zoomSleutel, 1);
+        this.draai = opties.id ? lees(draaiSleutel + opties.id, 0) : 0;
         this.paginas = [];
         this.container.replaceChildren();
         this.container.classList.add('factuurviewer');
@@ -37,6 +39,7 @@ class Viewer {
         knop('−', 'Kleiner', () => this.zoomNaar(this.zoom / 1.2));
         knop('+', 'Groter', () => this.zoomNaar(this.zoom * 1.2));
         knop('↔', 'Passend', () => this.zoomNaar(1));
+        knop('⟳', 'Draaien (een kwartslag met de klok mee)', () => this.draaiKwart());
         this.doel = maak('span', 'viewerdoel small text-secondary ms-2');
         balk.append(this.doel);
         if (opties.extern) {
@@ -81,8 +84,8 @@ class Viewer {
         this.getekendBij = breedte;
         const dpr = window.devicePixelRatio || 1;
         for (const item of this.paginas) {
-            const basis = item.pagina.getViewport({ scale: 1 });
-            const viewport = item.pagina.getViewport({ scale: (breedte / basis.width) * this.zoom });
+            const basis = item.pagina.getViewport({ scale: 1, rotation: this.draai });
+            const viewport = item.pagina.getViewport({ scale: (breedte / basis.width) * this.zoom, rotation: this.draai });
             item.viewport = viewport;
             const { canvas } = item;
             canvas.width = Math.floor(viewport.width * dpr);
@@ -128,6 +131,13 @@ class Viewer {
 
     zoomNaar(zoom) {
         this.zoom = Math.min(4, Math.max(0.4, zoom));
+        bewaar(zoomSleutel, this.zoom);
+        this.teken();
+    }
+
+    draaiKwart() {
+        this.draai = (this.draai + 90) % 360;
+        if (this.opties.id) bewaar(draaiSleutel + this.opties.id, this.draai || null);
         this.teken();
     }
 
@@ -176,6 +186,27 @@ class Viewer {
 
 const kanaal = (id) => new BroadcastChannel(`factuur-${id}`);
 
+const zoomSleutel = 'boekerhouden.viewer.zoom';
+const draaiSleutel = 'boekerhouden.viewer.draai.';
+
+function lees(sleutel, standaard) {
+    try {
+        const waarde = Number(localStorage.getItem(sleutel));
+        return Number.isFinite(waarde) && waarde > 0 ? waarde : standaard;
+    } catch {
+        return standaard;
+    }
+}
+
+function bewaar(sleutel, waarde) {
+    try {
+        if (waarde === null) localStorage.removeItem(sleutel);
+        else localStorage.setItem(sleutel, String(waarde));
+    } catch {
+        // Geen opslag: dan geldt het alleen nu.
+    }
+}
+
 // Het externe venster van het verwerkscherm. De module blijft bestaan zolang de app open is, dus ook een volgende
 // factuur (een nieuw scherm) weet dat het venster er nog is en toont daar zijn eigen document.
 let externVenster = null;
@@ -186,8 +217,8 @@ export function externOpen() {
 }
 
 /** Alleen bekijken (bijv. bij een boeking): geen gebied aanwijzen, geen apart venster. */
-export async function bekijk(container, bron) {
-    const viewer = new Viewer(container, bron, {});
+export async function bekijk(container, bron, id) {
+    const viewer = new Viewer(container, bron, { id });
     await viewer.laad();
     return { sluit: () => viewer.waarneming.disconnect() };
 }
@@ -196,6 +227,7 @@ export async function bekijk(container, bron) {
 export async function toon(container, bron, id, dotnet) {
     const verbinding = kanaal(id);
     const viewer = new Viewer(container, bron, {
+        id,
         opGebied: (pagina, x0, y0, x1, y1) => dotnet.invokeMethodAsync('Gebied', pagina, x0, y0, x1, y1),
         extern: () => dotnet.invokeMethodAsync('NaarExtern'),
     });
@@ -229,6 +261,7 @@ export async function toon(container, bron, id, dotnet) {
 export async function extern(container, bron, id) {
     const verbinding = kanaal(id ?? container.dataset.document);
     const viewer = new Viewer(container, bron ?? container.dataset.url, {
+        id: id ?? container.dataset.document,
         opGebied: (pagina, x0, y0, x1, y1) => verbinding.postMessage({ soort: 'gebied', pagina, x0, y0, x1, y1 }),
     });
     verbinding.onmessage = (e) => {
