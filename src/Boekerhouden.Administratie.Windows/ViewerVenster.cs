@@ -17,6 +17,8 @@ internal sealed class ViewerVenster : Form
             [nameof(LosseViewer.Administratie)] = administratie,
             [nameof(LosseViewer.Document)] = document,
         });
+        // Zoomen (Ctrl+wiel, Ctrl+/-) doet de viewer zelf, op de factuur; het venster zelf zoomt dus niet mee.
+        webview.BlazorWebViewInitialized += (_, e) => e.WebView.CoreWebView2.Settings.IsZoomControlEnabled = false;
         Controls.Add(webview);
     }
 

@@ -226,6 +226,40 @@ public sealed class InkoopOpmaakTests(AdministratieFixture app) : IClassFixture<
         Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.GeleerdVergeten && r.Onderwerp == code);
     }
 
+    [Fact]
+    public async Task Eigen_grens_bij_een_leverancier_houdt_de_factuur_ter_controle()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Kantoor Voorbeeld");
+        var inkoop = app.Dienst<InkoopDienst>();
+        var inrichting = app.Dienst<InrichtingDienst>();
+        var gelezen = await inkoop.Lees(wie, id, new MemoryStream(Bouwmarkt("BM-50", "01-05-2026", 50m)), "bm50.pdf", "application/pdf");
+        Assert.True((await inkoop.Boek(wie, id, gelezen.DocumentId!.Value, new Factuurinvoer(null, new("Bouwmarkt Noord B.V.", "NL20INGB0001234567", null, null),
+            "BM-50", new(2026, 5, 1), new(2026, 5, 31), "Materiaal", [new Factuurregel("", "4500", "I21", 50m, 10.50m)]))).IsGelukt);
+        var code = (await inrichting.Relaties(wie, id)).Single(r => r.Naam == "Bouwmarkt Noord B.V.").Code;
+
+        var inzien = await app.Gebruiker("InzienControle");
+        await app.Dienst<AdministratieDienst>().ZetLid(id, inzien.Id!.Value, Lidmaatschapsrol.Inzien, wie);
+        await Assert.ThrowsAsync<GeenToegangException>(() => inrichting.ZetControle(inzien, id, code, 100m, null));
+        Assert.False((await inrichting.ZetControle(wie, id, code, -1m, null)).IsGelukt);
+        Assert.False((await inrichting.ZetControle(wie, id, "ONBEKEND", 100m, null)).IsGelukt);
+
+        Assert.True((await inrichting.ZetControle(wie, id, code, 500m, 50m)).IsGelukt);
+        var relatie = (await inrichting.Geleerd(wie, id, code))!.Relatie;
+        Assert.Equal((500m, 50m), (relatie.ControleVanaf, relatie.ControleAfwijking));
+        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.ControleIngesteld && r.Onderwerp == code && r.Details == "geen eigen grens → vanaf 500.00, afwijking 50%");
+
+        // 60,50 eerder; 96,80 is meer dan 50% hoger.
+        var hoger = await inkoop.Lees(wie, id, new MemoryStream(Bouwmarkt("BM-51", "01-06-2026", 80m)), "bm51.pdf", "application/pdf");
+        var voorstel = (await inkoop.Verwerking(wie, id, hoger.DocumentId!.Value))!.Voorstel!;
+        Assert.Contains("Het bedrag wijkt meer dan 50% af van de vorige factuur van Bouwmarkt Noord B.V. (€ 60,50).", voorstel.Belemmeringen);
+        Assert.False(voorstel.Automatisch);
+
+        Assert.True((await inrichting.ZetControle(wie, id, code, null, null)).IsGelukt);
+        var nu = (await inkoop.Verwerking(wie, id, hoger.DocumentId.Value))!.Voorstel!;
+        Assert.DoesNotContain(nu.Belemmeringen, b => b.StartsWith("Het bedrag wijkt", StringComparison.Ordinal));
+    }
+
     [OcrFact]
     public async Task Foto_van_een_bon_wordt_met_ocr_herkend_en_als_pdf_bewaard()
     {

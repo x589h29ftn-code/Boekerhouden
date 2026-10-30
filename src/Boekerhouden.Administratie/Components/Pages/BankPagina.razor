@@ -196,9 +196,9 @@
                                         <div>
                                             <div class="paneelkop" title="@gekozen.Voorstel.Advies.Reden">Op rekening</div>
                                             <div class="row g-2 align-items-end">
-                                                <div class="col-md-3">
+                                                <div class="col-md-4">
                                                     <label class="form-label small mb-0" for="rekening">Rekening</label>
-                                                    <RekeningKeuze Id="rekening" @bind-Waarde="rekening" Schema="gekozen.Schema" />
+                                                    <RekeningKeuze Id="rekening" @bind-Waarde:get="rekening" @bind-Waarde:set="KiesRekening" Schema="gekozen.Schema" Kader="geopend" />
                                                 </div>
                                                 <div class="col-md-2">
                                                     <label class="form-label small mb-0" for="btw">Btw</label>
@@ -210,7 +210,7 @@
                                                         }
                                                     </select>
                                                 </div>
-                                                <div class="col-md-5">
+                                                <div class="col-md-4">
                                                     <label class="form-label small mb-0" for="omschrijving">Omschrijving</label>
                                                     <input id="omschrijving" class="form-control form-control-sm" @bind="omschrijving" placeholder="@Standaardomschrijving(gekozen.Mutatie)" />
                                                 </div>
@@ -415,4 +415,15 @@
 
     private static string Standaardomschrijving(BankmutatieRegel m) =>
         string.Join(" – ", new[] { m.TegenNaam, m.Omschrijving }.Where(t => !string.IsNullOrWhiteSpace(t)));
+
+    /// <summary>Een rekening voor de mutatie; hoort er een btw-code bij de rekening, dan komt die mee.</summary>
+    private void KiesRekening(string? waarde)
+    {
+        var nieuw = rekening != waarde;
+        rekening = waarde;
+        if (nieuw && gekozen?.Schema.Zoek(waarde)?.BtwCode is { } code && gekozen.BtwCodes.Any(c => c.Code == code))
+        {
+            btwCode = code;
+        }
+    }
 }

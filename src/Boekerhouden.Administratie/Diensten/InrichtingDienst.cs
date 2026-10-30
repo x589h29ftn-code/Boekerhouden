@@ -11,7 +11,18 @@ namespace Boekerhouden.Administratie.Diensten;
 
 public sealed record RelatieInvoer(string Naam, string? BtwNummer, string? KvkNummer, string? Tegenrekening);
 
-public sealed record RelatieRegel(Guid Id, string Code, string Naam, IReadOnlyList<string> Ibans, string? BtwNummer, string? KvkNummer, string? Tegenrekening);
+/// <param name="ControleVanaf">Facturen vanaf dit bedrag altijd zelf controleren.</param>
+/// <param name="ControleAfwijking">Facturen die meer dan dit percentage afwijken van de vorige altijd zelf controleren.</param>
+public sealed record RelatieRegel(
+    Guid Id,
+    string Code,
+    string Naam,
+    IReadOnlyList<string> Ibans,
+    string? BtwNummer,
+    string? KvkNummer,
+    string? Tegenrekening,
+    decimal? ControleVanaf = null,
+    decimal? ControleAfwijking = null);
 
 public sealed record RegelRegel(Guid Id, int Volgorde, Verwerkingsregel Regel);
 
@@ -57,7 +68,7 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
         return [.. (await db.Relaties.AsNoTracking().OrderBy(r => r.Naam).ToListAsync())
-            .Select(r => new RelatieRegel(r.Id, r.Code, r.Naam, r.Ibans, r.BtwNummer, r.KvkNummer, r.Tegenrekening))];
+            .Select(r => new RelatieRegel(r.Id, r.Code, r.Naam, r.Ibans, r.BtwNummer, r.KvkNummer, r.Tegenrekening, r.ControleVanaf, r.ControleAfwijking))];
     }
 
     /// <summary>Wat het pakket van deze leverancier geleerd heeft (inkoopfacturen), of leeg als de relatie niet bestaat.</summary>
@@ -84,7 +95,7 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
             .Where(x => x.Regel.Relatie == relatie || (x.Regel.NaamBevat is { Length: > 0 } deel && r.Naam.Contains(deel, StringComparison.OrdinalIgnoreCase)))
             .ToList();
         return new GeleerdeLeverancier(
-            new RelatieRegel(r.Id, r.Code, r.Naam, r.Ibans, r.BtwNummer, r.KvkNummer, r.Tegenrekening),
+            new RelatieRegel(r.Id, r.Code, r.Naam, r.Ibans, r.BtwNummer, r.KvkNummer, r.Tegenrekening, r.ControleVanaf, r.ControleAfwijking),
             voorstel,
             geheugen.Drempel,
             [.. keuzes.Select(k => new Bevestigd(k.Tijdstip, k.NaarDomein()))],
@@ -123,6 +134,45 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
         await audit.Log(wie, AuditActies.ZoekplekVergeten, relatie, veld.ToString(), administratie);
         return Uitkomst.Gelukt;
     }
+
+    /// <summary>
+    /// Wanneer facturen van deze leverancier altijd ter controle komen, ook als ze herkend en geleerd zijn: vanaf een
+    /// bedrag (inclusief btw) en/of bij een afwijking van meer dan een percentage ten opzichte van de vorige factuur.
+    /// Leeg = geen eigen grens.
+    /// </summary>
+    public async Task<Uitkomst> ZetControle(Uitvoerder wie, Guid administratie, string relatie, decimal? vanaf, decimal? afwijking)
+    {
+        if (vanaf is < 0 || afwijking is < 0)
+        {
+            return Uitkomst.Mislukt("Een grens kan niet negatief zijn.");
+        }
+
+        if (afwijking is > 1000)
+        {
+            return Uitkomst.Mislukt("Een afwijking van meer dan 1000% heeft geen zin.");
+        }
+
+        await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
+        if (await db.Relaties.FirstOrDefaultAsync(r => r.Code == relatie) is not { } r)
+        {
+            return Uitkomst.Mislukt("Deze relatie bestaat niet (meer).");
+        }
+
+        var oud = Controletekst(r.ControleVanaf, r.ControleAfwijking);
+        (r.ControleVanaf, r.ControleAfwijking) = (vanaf is { } v ? decimal.Round(v, 2) : null, afwijking is { } a ? decimal.Round(a, 2) : null);
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.ControleIngesteld, relatie, $"{oud} → {Controletekst(r.ControleVanaf, r.ControleAfwijking)}", administratie);
+        return Uitkomst.Gelukt;
+    }
+
+    private static string Controletekst(decimal? vanaf, decimal? afwijking) =>
+        vanaf is null && afwijking is null
+            ? "geen eigen grens"
+            : string.Join(", ", new[]
+            {
+                vanaf is { } v ? string.Create(System.Globalization.CultureInfo.InvariantCulture, $"vanaf {v:0.00}") : null,
+                afwijking is { } a ? string.Create(System.Globalization.CultureInfo.InvariantCulture, $"afwijking {a:0.##}%") : null,
+            }.Where(x => x is not null));
 
     /// <summary>De sleutel van het leergeheugen voor inkoopfacturen van een relatie.</summary>
     private static string Leersleutel(string relatie) =>

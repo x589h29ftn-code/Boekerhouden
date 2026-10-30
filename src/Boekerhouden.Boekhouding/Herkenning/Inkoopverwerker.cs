@@ -94,6 +94,11 @@ public static class Inkoopverwerker
             belemmeringen.Add($"Het bedrag is hoger dan de limiet voor automatisch verwerken ({Domain.Bedragen.Euro(limiet)}).");
         }
 
+        if (leverancier is not null && herkend.TotaalInclusief is { } totaalNu)
+        {
+            belemmeringen.AddRange(EigenControle(totaalNu, herkend.Factuurnummer, leverancier.Relatie, bestaand));
+        }
+
         // Of de factuur op naam van de onderneming staat, houdt automatisch verwerken niet tegen: de naam op de factuur
         // wijkt in de praktijk vaak af (handelsnaam, ander kantoor, afkorting) zonder dat er iets mis is.
 
@@ -129,6 +134,28 @@ public static class Inkoopverwerker
         }
 
         return new Inkoopvoorstel(herkend, leverancier, advies, factuur, belemmeringen);
+    }
+
+    /// <summary>
+    /// De grenzen die de gebruiker bij de leverancier zelf heeft ingesteld: vanaf een bedrag, of bij een afwijking van
+    /// meer dan een percentage ten opzichte van de vorige factuur, komt de factuur altijd ter controle naar boven.
+    /// </summary>
+    public static IEnumerable<string> EigenControle(decimal bedrag, string? factuurnummer, Relatie relatie, IEnumerable<BestaandeFactuur> bestaand)
+    {
+        ArgumentNullException.ThrowIfNull(relatie);
+        ArgumentNullException.ThrowIfNull(bestaand);
+        if (relatie.ControleVanaf is { } grens && Math.Abs(bedrag) >= grens)
+        {
+            yield return $"Facturen van {relatie.Naam} vanaf {Domain.Bedragen.Euro(grens)} controleer je zelf.";
+        }
+
+        if (relatie.ControleAfwijking is { } procent
+            && bestaand.Where(f => f.Relatie == relatie.Code && f.Factuurnummer != factuurnummer && f.Totaal != 0)
+                .OrderByDescending(f => f.Datum).FirstOrDefault() is { } vorige
+            && Math.Abs(Math.Abs(bedrag) - Math.Abs(vorige.Totaal)) * 100 > procent * Math.Abs(vorige.Totaal))
+        {
+            yield return $"Het bedrag wijkt meer dan {procent:0.##}% af van de vorige factuur van {relatie.Naam} ({Domain.Bedragen.Euro(Math.Abs(vorige.Totaal))}).";
+        }
     }
 
     /// <summary>Minstens zoveel eerdere facturen van de leverancier voordat een bedrag "ongebruikelijk" kan zijn.</summary>

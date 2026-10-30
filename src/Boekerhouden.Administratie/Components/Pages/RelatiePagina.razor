@@ -83,6 +83,25 @@
             }
         </div>
 
+        <h2 class="h6 sectiekop">Zelf controleren</h2>
+        <div class="card card-body mb-4 zelf-controleren">
+            @if (context.Mag(Recht.Boekhouden))
+            {
+                <div class="d-flex align-items-center flex-wrap gap-2">
+                    <label for="vanaf">Vanaf</label>
+                    <input id="vanaf" class="form-control form-control-sm text-end veld-smal" @bind="vanaf" placeholder="bedrag" title="Facturen vanaf dit bedrag (inclusief btw) komen altijd ter controle" />
+                    <label for="afwijking" class="ms-3">of bij meer dan</label>
+                    <input id="afwijking" class="form-control form-control-sm text-end veld-procent" @bind="afwijking" placeholder="%" title="Afwijking ten opzichte van de vorige factuur, hoger of lager" />
+                    <span>% verschil met de vorige factuur</span>
+                    <button class="btn btn-sm btn-outline-primary ms-3" @onclick="BewaarControle">Opslaan</button>
+                </div>
+            }
+            else
+            {
+                <span class="text-secondary">@(r.ControleVanaf is null && r.ControleAfwijking is null ? "Geen eigen grens." : Controle(r))</span>
+            }
+        </div>
+
         <h2 class="h6 sectiekop">Plekken op de factuur</h2>
         <div class="card mb-4">
             @if (g.Plekken.Count == 0)
@@ -144,10 +163,15 @@
     [Parameter]
     public string Code { get; set; } = "";
 
+    private string? vanaf;
+    private string? afwijking;
+
     private async Task Open(Geopend g)
     {
         geopend = g;
         geleerd = await Inrichting.Geleerd(g.Wie, Id, Code);
+        vanaf = geleerd?.Relatie.ControleVanaf is { } v ? Bedragen.Getal(v) : null;
+        afwijking = geleerd?.Relatie.ControleAfwijking is { } a ? a.ToString("0.##", System.Globalization.CultureInfo.GetCultureInfo("nl-NL")) : null;
         schema = await Grootboek.Schema(g.Wie, Id);
         geladen = true;
     }
@@ -173,6 +197,45 @@
             bericht = "Vergeten; het pakket begint weer bij nul.";
             await Open(geopend);
         }
+    }
+
+    private static string Controle(RelatieRegel r) =>
+        string.Join(" of ", new[] { r.ControleVanaf is { } v ? $"vanaf {Bedragen.Euro(v)}" : null, r.ControleAfwijking is { } a ? $"bij meer dan {a:0.##}% verschil met de vorige factuur" : null }.Where(x => x is not null));
+
+    private async Task BewaarControle()
+    {
+        var invoerfouten = new List<string>();
+        var grens = Lees(vanaf, "Het bedrag", invoerfouten);
+        var procent = Lees(afwijking?.TrimEnd('%', ' '), "Het percentage", invoerfouten);
+        if (invoerfouten.Count > 0)
+        {
+            fouten = invoerfouten;
+            return;
+        }
+
+        var uitkomst = await Inrichting.ZetControle(geopend!.Wie, Id, Code, grens, procent);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            await Open(geopend);
+            bericht = geleerd?.Relatie is { ControleVanaf: null, ControleAfwijking: null } ? "Geen eigen grens meer." : $"Facturen {Controle(geleerd!.Relatie)} controleer je voortaan zelf.";
+        }
+    }
+
+    private static decimal? Lees(string? tekst, string naam, List<string> fouten)
+    {
+        if (string.IsNullOrWhiteSpace(tekst))
+        {
+            return null;
+        }
+
+        if (BedragParser.TryParse(tekst, out var getal))
+        {
+            return getal;
+        }
+
+        fouten.Add($"{naam} ‘{tekst}’ is niet te lezen.");
+        return null;
     }
 
     private async Task VergeetPlek(Factuurveld veld)

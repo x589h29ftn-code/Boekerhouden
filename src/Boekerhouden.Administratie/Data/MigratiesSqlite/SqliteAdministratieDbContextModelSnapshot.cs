@@ -380,9 +380,15 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasColumnType("TEXT")
                         .IsFixedLength();
 
+                    b.Property<Guid?>("Herstelt")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Omschrijving")
                         .IsRequired()
                         .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("Vervangt")
                         .HasColumnType("TEXT");
 
                     b.Property<long>("Volgnummer")
@@ -395,6 +401,10 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .IsFixedLength();
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Herstelt");
+
+                    b.HasIndex("Vervangt");
 
                     b.HasIndex("AdministratieId", "Volgnummer")
                         .IsUnique();
@@ -899,6 +909,10 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.Property<Guid>("AdministratieId")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("BtwCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Functie")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -951,6 +965,14 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("TEXT");
+
+                    b.Property<long?>("ControleAfwijking")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("ControleVanaf")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("INTEGER");
 
                     b.PrimitiveCollection<string>("Ibans")
                         .IsRequired()

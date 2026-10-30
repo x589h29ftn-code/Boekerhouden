@@ -444,6 +444,92 @@ body.scheiding-slepen {
     position: relative;
 }
 
+/* Nummer en naam van de gekozen rekening op één regel, als één invoerveld. */
+.rekeningkeuze-rij {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    cursor: text;
+}
+
+.rekeningkeuze-rij:focus-within {
+    border-color: rgba(var(--bs-primary-rgb), .5);
+    box-shadow: 0 0 0 .25rem rgba(var(--bs-primary-rgb), .25);
+}
+
+.rekeningkeuze-invoer {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+}
+
+.rekeningkeuze-naam {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--bs-secondary-color);
+}
+
+.rekeningkeuze-alle {
+    position: absolute;
+    right: .25rem;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 0 .25rem;
+    border: 0;
+    border-radius: var(--bs-border-radius-sm);
+    background: var(--bs-body-bg);
+    color: var(--bs-secondary-color);
+    line-height: 1;
+    opacity: 0;
+}
+
+.rekeningkeuze-rij:is(:hover, :focus-within) .rekeningkeuze-alle {
+    opacity: 1;
+}
+
+.rekeningkeuze-lijst li.rekeningkeuze-meer {
+    border-top: 1px solid var(--bs-border-color);
+    color: var(--bs-link-color);
+}
+
+/* Een venster boven het scherm (bijv. alle rekeningen). */
+.venster-achtergrond {
+    position: fixed;
+    inset: 0;
+    z-index: 1050;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 6vh 1rem 1rem;
+    background: rgba(0, 0, 0, .25);
+}
+
+.venster {
+    width: min(56rem, 100%);
+    max-height: 86vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 .5rem 2rem rgba(0, 0, 0, .2);
+}
+
+.venster-inhoud {
+    overflow-y: auto;
+}
+
+.rekeningvenster tr.gemarkeerd > td {
+    background: var(--bs-tertiary-bg);
+}
+
 .rekeningkeuze-lijst {
     position: absolute;
     z-index: 20;
@@ -647,10 +733,6 @@ body.scheiding-slepen {
     border-bottom-width: 1px;
 }
 
-.regeltabel .rekeningnaam {
-    max-width: 14rem;
-    margin-top: .1rem;
-}
 
 .regeltabel .regel-weg {
     opacity: 0;
@@ -685,7 +767,7 @@ body.scheiding-slepen {
     min-width: 4.75rem;
 }
 
-.regeltabel td:first-child input {
+.regeltabel td:first-child input:not(.rekeningkeuze-invoer) {
     min-width: 7rem;
 }
 
@@ -826,4 +908,18 @@ body.scheiding-slepen {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* Relatie: grens voor zelf controleren op één regel. */
+.zelf-controleren .veld-smal {
+    width: 8rem;
+}
+
+.zelf-controleren .veld-procent {
+    width: 4.5rem;
+}
+
+/* Boeking aanpassen: datum en omschrijving op één regel. */
+.boeking-aanpassen .veld-datum {
+    width: 10rem;
 }

@@ -185,13 +185,28 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
             Assert.Equal(("B|iban|NL36INGB0007654321", "4300", "I21", -199.65m), (keuze.Sleutel, keuze.Rekeningnummer, keuze.BtwCode, keuze.Bedrag));
         }
 
+        // Aanpassen: de kostenrekening mag anders, de bankregel en de datum niet; de mutatie wijst naar de nieuwe boeking.
+        var grootboek = app.Dienst<GrootboekDienst>();
+        var boeking = (await grootboek.Posten(wie, id, "BNK")).Single().Post;
+        var anders = boeking with { Regels = [.. boeking.Regels.Select(r => r.Rekeningnummer == "4300" ? r with { Rekeningnummer = "4320" } : r)] };
+        var bankAnders = anders with { Regels = [.. anders.Regels.Select(r => r.Rekeningnummer == "1100" ? r with { Bedrag = -199m } : r.Rekeningnummer == "4320" ? r with { Bedrag = r.Bedrag - 0.65m } : r)] };
+        Assert.Equal(["De regels op 1100 horen bij het bankafschrift of de openstaande posten en blijven gelijk."], (await grootboek.PasAan(wie, id, "BNK", boeking.Boekstuk, bankAnders)).Fouten);
+        var aangepast = await grootboek.PasAan(wie, id, "BNK", boeking.Boekstuk, anders);
+        Assert.True(aangepast.IsGelukt, string.Join("; ", aangepast.Fouten));
+        Assert.Equal((0m, 165m, -199.65m), (Saldo(await grootboek.Proefbalans(wie, id, 2026), "4300"), Saldo(await grootboek.Proefbalans(wie, id, 2026), "4320"), Saldo(await grootboek.Proefbalans(wie, id, 2026), "1100")));
+        await using (var db = await app.Dienst<Toegang>().Open(wie, id, Recht.Lezen))
+        {
+            var nieuweBoeking = await db.Boekingen.SingleAsync(b => b.Dagboek + " " + b.Boekstuk == aangepast.Waarde);
+            Assert.Equal(nieuweBoeking.Id, (await db.Banktransacties.SingleAsync(t => t.Id == jansen.Id)).BoekingId);
+        }
+
         var regel = await app.Dienst<InrichtingDienst>().VoegRegelToe(wie, id,
             new Verwerkingsregel("Jansen", "4300", "I21", Automatisch: true, Soort: Verwerkingssoort.Bankmutatie, TegenIban: "NL36INGB0007654321"));
         Assert.True(regel.IsGelukt, string.Join("; ", regel.Fouten));
         var april = await bank.Lees(wie, id, Afschrift(april: true), "april.mt940");
 
         Assert.Equal(1, april.Waarde!.Automatisch);
-        Assert.Equal(330m, Saldo(await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026), "4300"));
+        Assert.Equal(165m, Saldo(await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026), "4300"));
     }
 
     [Fact]

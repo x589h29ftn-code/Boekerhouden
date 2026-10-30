@@ -388,10 +388,16 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasColumnType("character(64)")
                         .IsFixedLength();
 
+                    b.Property<Guid?>("Herstelt")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Omschrijving")
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<Guid?>("Vervangt")
+                        .HasColumnType("uuid");
 
                     b.Property<long>("Volgnummer")
                         .HasColumnType("bigint");
@@ -403,6 +409,10 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .IsFixedLength();
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Herstelt");
+
+                    b.HasIndex("Vervangt");
 
                     b.HasIndex("AdministratieId", "Volgnummer")
                         .IsUnique();
@@ -911,6 +921,10 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.Property<Guid>("AdministratieId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("BtwCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
                     b.Property<string>("Functie")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -963,6 +977,14 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<decimal?>("ControleAfwijking")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)");
+
+                    b.Property<decimal?>("ControleVanaf")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
 
                     b.PrimitiveCollection<List<string>>("Ibans")
                         .IsRequired()

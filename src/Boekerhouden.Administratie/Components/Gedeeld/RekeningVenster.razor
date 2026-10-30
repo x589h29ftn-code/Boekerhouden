@@ -1,0 +1,242 @@
+@* Alle rekeningen in een venster (F2 of de knop bij de rekeningkeuze): zoeken op nummer of naam, kiezen met een klik of
+   met de pijltjes en Enter. Met het recht Boekhouden kan hier ook een rekening bij: nummer, naam, soort, RGS-code en de
+   btw-code die erbij hoort (of variabel). *@
+@using Boekerhouden.Boekhouding.Btw
+@using Boekerhouden.Boekhouding.Grootboek
+@inject GrootboekDienst Grootboek
+@inject BtwDienst Btw
+@inject TimeProvider Tijd
+
+<div class="venster-achtergrond" @onclick="Sluit">
+    <div class="venster card" role="dialog" aria-modal="true" aria-label="Rekeningen" @onclick:stopPropagation>
+        <div class="card-header d-flex align-items-center gap-2">
+            <input @ref="zoekveld" class="form-control form-control-sm" placeholder="Zoeken op nummer of naam" aria-label="Rekening zoeken"
+                   @bind="zoek" @bind:event="oninput" @bind:after="Zoek" @onkeydown="Toets" />
+            @if (MagToevoegen && nieuw is null)
+            {
+                <button class="btn btn-sm btn-outline-primary text-nowrap" @onclick="NieuweRekening">Rekening toevoegen</button>
+            }
+            <button class="btn-close ms-1" title="Sluiten (Esc)" aria-label="Sluiten" @onclick="Sluit"></button>
+        </div>
+        @if (nieuw is not null)
+        {
+            <div class="card-body border-bottom rekening-nieuw" @onkeydown="ToetsNieuw">
+                <Foutmeldingen Fouten="fouten" />
+                <div class="row g-2 align-items-end">
+                    <div class="col-sm-2">
+                        <label class="form-label small" for="nieuw-nummer">Nummer</label>
+                        <input id="nieuw-nummer" @ref="nummerveld" class="form-control form-control-sm" @bind="nieuw.Nummer" />
+                    </div>
+                    <div class="col-sm-4">
+                        <label class="form-label small" for="nieuw-naam">Omschrijving</label>
+                        <input id="nieuw-naam" class="form-control form-control-sm" @bind="nieuw.Naam" />
+                    </div>
+                    <div class="col-sm-2">
+                        <label class="form-label small" for="nieuw-btw">Btw-code</label>
+                        <select id="nieuw-btw" class="form-select form-select-sm" @bind="nieuw.BtwCode">
+                            <option value="">variabel</option>
+                            @foreach (var c in codes.Where(c => c.Actief))
+                            {
+                                <option value="@c.Code" title="@c.Omschrijving">@c.Code · @c.Kort</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-sm-2">
+                        <label class="form-label small" for="nieuw-rgs">RGS-code</label>
+                        <input id="nieuw-rgs" class="form-control form-control-sm" placeholder="WBedKanKan" @bind="nieuw.RgsCode" @bind:after="SoortUitRgs" />
+                    </div>
+                    <div class="col-sm-2">
+                        <label class="form-label small" for="nieuw-soort">Soort</label>
+                        <select id="nieuw-soort" class="form-select form-select-sm" @bind="nieuw.Soort">
+                            <option value="@Rekeningsoort.Resultaat">resultaat</option>
+                            <option value="@Rekeningsoort.Balans">balans</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="d-flex gap-2 mt-2">
+                    <button class="btn btn-sm btn-primary" @onclick="VoegToe" disabled="@bezig">Toevoegen en kiezen</button>
+                    <button class="btn btn-sm btn-link text-secondary" @onclick="() => nieuw = null">annuleren</button>
+                </div>
+            </div>
+        }
+        <div class="venster-inhoud">
+            <table class="table table-sm align-middle mb-0 overzichtstabel rekeningvenster">
+                <thead>
+                    <tr><th>Nummer</th><th>Omschrijving</th><th>Btw</th><th>Soort</th><th>RGS</th></tr>
+                </thead>
+                <tbody>
+                    @for (var i = 0; i < treffers.Count; i++)
+                    {
+                        var r = treffers[i];
+                        var n = i;
+                        <tr class="klikbaar @(n == gemarkeerd ? "gemarkeerd" : null)" @onclick="() => Kies(r)">
+                            <td>@r.Nummer</td>
+                            <td>@r.Naam@(Voorkeur.Contains(r.Nummer) ? " ·" : null)</td>
+                            <td class="text-secondary">@(r.BtwCode ?? "")</td>
+                            <td class="text-secondary">@(r.IsBalans ? "balans" : "resultaat")</td>
+                            <td class="small text-secondary">@r.RgsCode</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            @if (treffers.Count == 0)
+            {
+                <div class="text-secondary text-center py-4">Geen rekening gevonden.</div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private ElementReference zoekveld;
+    private ElementReference nummerveld;
+    private string? zoek;
+    private IReadOnlyList<Rekening> treffers = [];
+    private int gemarkeerd;
+    private Nieuw? nieuw;
+    private IReadOnlyList<BtwCode> codes = [];
+    private IReadOnlyList<string>? fouten;
+    private bool bezig;
+    private bool nummerFocus;
+
+    [Parameter, EditorRequired]
+    public Rekeningschema Schema { get; set; } = default!;
+
+    [Parameter]
+    public IReadOnlyList<string> Voorkeur { get; set; } = [];
+
+    /// <summary>Wat de gebruiker al typte in de rekeningkeuze.</summary>
+    [Parameter]
+    public string? Zoektekst { get; set; }
+
+    /// <summary>De geopende administratie: nodig om een rekening toe te voegen.</summary>
+    [Parameter]
+    public Geopend? Kader { get; set; }
+
+    [Parameter]
+    public EventCallback<Rekening> Gekozen { get; set; }
+
+    [Parameter]
+    public EventCallback Gesloten { get; set; }
+
+    private bool MagToevoegen => Kader?.Kop.Mag(Recht.Boekhouden) == true;
+
+    protected override void OnInitialized()
+    {
+        zoek = Schema.Zoek(Zoektekst) is null ? Zoektekst : null;
+        Zoek();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await zoekveld.FocusAsync();
+        }
+        else if (nummerFocus)
+        {
+            nummerFocus = false;
+            await nummerveld.FocusAsync();
+        }
+    }
+
+    private void Zoek()
+    {
+        treffers = string.IsNullOrWhiteSpace(zoek) ? [.. Schema.Alle] : Rekeningzoeker.Zoek(zoek, Schema.Alle, Voorkeur, int.MaxValue);
+        gemarkeerd = 0;
+    }
+
+    private async Task Toets(KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "ArrowDown":
+                gemarkeerd = Math.Min(treffers.Count - 1, gemarkeerd + 1);
+                break;
+            case "ArrowUp":
+                gemarkeerd = Math.Max(0, gemarkeerd - 1);
+                break;
+            case "Enter" when gemarkeerd >= 0 && gemarkeerd < treffers.Count:
+                await Kies(treffers[gemarkeerd]);
+                break;
+            case "Escape":
+                await Sluit();
+                break;
+        }
+    }
+
+    private async Task ToetsNieuw(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            nieuw = null;
+            await zoekveld.FocusAsync();
+        }
+    }
+
+    private async Task Kies(Rekening rekening) => await Gekozen.InvokeAsync(rekening);
+
+    private async Task Sluit() => await Gesloten.InvokeAsync();
+
+    private async Task NieuweRekening()
+    {
+        codes = (await Btw.Tabel()).Op(DateOnly.FromDateTime(Tijd.GetLocalNow().DateTime));
+        var nummer = zoek?.Trim() is { Length: > 0 } t && t.All(char.IsAsciiDigit) && Schema.Zoek(t) is null ? t : "";
+        nieuw = new Nieuw { Nummer = nummer, Naam = nummer.Length == 0 ? zoek?.Trim() ?? "" : "" };
+        (fouten, nummerFocus) = (null, true);
+    }
+
+    private void SoortUitRgs()
+    {
+        if (nieuw?.RgsCode?.Trim() is { Length: > 0 } rgs)
+        {
+            nieuw.Soort = rgs[0] is 'B' or 'b' ? Rekeningsoort.Balans : Rekeningsoort.Resultaat;
+        }
+    }
+
+    private async Task VoegToe()
+    {
+        if (nieuw is null || Kader is null)
+        {
+            return;
+        }
+
+        bezig = true;
+        try
+        {
+            var invoer = new RekeningInvoer(nieuw.Nummer, nieuw.Naam, nieuw.Soort, nieuw.RgsCode, nieuw.BtwCode);
+            var uitkomst = await Grootboek.VoegRekeningToe(Kader.Wie, Kader.Kop.Id, invoer);
+            fouten = uitkomst.Fouten;
+            if (!uitkomst.IsGelukt)
+            {
+                return;
+            }
+
+            // Het schema van het scherm meteen bijwerken, zodat de nieuwe rekening te kiezen en te tonen is.
+            var rekening = (await Grootboek.Schema(Kader.Wie, Kader.Kop.Id)).Zoek(invoer.Nummer.Trim())!;
+            if (Schema.Zoek(rekening.Nummer) is null)
+            {
+                Schema.Voegtoe(rekening);
+            }
+
+            await Kies(rekening);
+        }
+        finally
+        {
+            bezig = false;
+        }
+    }
+
+    private sealed class Nieuw
+    {
+        public string Nummer { get; set; } = "";
+
+        public string Naam { get; set; } = "";
+
+        public Rekeningsoort Soort { get; set; } = Rekeningsoort.Resultaat;
+
+        public string? RgsCode { get; set; }
+
+        public string? BtwCode { get; set; }
+    }
+}

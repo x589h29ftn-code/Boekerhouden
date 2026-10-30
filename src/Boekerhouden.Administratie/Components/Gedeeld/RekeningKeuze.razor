@@ -1,11 +1,20 @@
 @* Een rekening kiezen op nummer of naam (Rekeningzoeker), met de voorkeur bovenaan. Typen houdt de waarde bij; een
    keuze uit de lijst (klik, of Enter na pijl omlaag) zet het nummer. Bij het verlaten van het veld wordt de enige
-   passende rekening gekozen. *@
+   passende rekening gekozen. De naam van de gekozen rekening staat achter het nummer. F2 of de knop opent een venster
+   met alle rekeningen, waar (met het recht Boekhouden) ook een rekening bij kan. *@
 @using Boekerhouden.Boekhouding.Grootboek
 
 <div class="rekeningkeuze">
-    <input id="@Id" class="@Klasse" value="@Waarde" aria-label="@Label" autocomplete="off" title="@Schema?.Zoek(Waarde ?? "")?.Naam"
-           @oninput="Typ" @onkeydown="Toets" @onfocus="Open" @onblur="Verlaat" />
+    <div class="rekeningkeuze-rij @Klasse">
+        <input @ref="invoer" id="@Id" class="rekeningkeuze-invoer" value="@Waarde" aria-label="@Label" autocomplete="off" title="@Gekozen?.Naam"
+               style="@(Gekozen is null ? null : $"width:{Math.Max(4, Waarde!.Length) + 1}ch;flex:none")"
+               @oninput="Typ" @onkeydown="Toets" @onfocus="Open" @onblur="Verlaat" />
+        @if (Gekozen is { } gekozen)
+        {
+            <span class="rekeningkeuze-naam" title="@gekozen.Naam">@gekozen.Naam</span>
+        }
+        <button type="button" class="rekeningkeuze-alle" tabindex="-1" title="Alle rekeningen (F2)" aria-label="Alle rekeningen" @onmousedown:preventDefault @onclick="OpenVenster">⋯</button>
+    </div>
     @if (open && treffers.Count > 0)
     {
         <ul class="rekeningkeuze-lijst" role="listbox">
@@ -17,12 +26,20 @@
                     <span class="nummer">@r.Nummer</span> @r.Naam@(Voorkeur.Contains(r.Nummer) ? " ·" : null)
                 </li>
             }
+            <li class="rekeningkeuze-meer" @onmousedown="OpenVenster" @onmousedown:preventDefault>Alle rekeningen… <span class="text-secondary">F2</span></li>
         </ul>
     }
 </div>
+@if (venster)
+{
+    <RekeningVenster Schema="Schema!" Voorkeur="Voorkeur" Zoektekst="@Waarde" Kader="Kader" Gekozen="KiesUitVenster" Gesloten="SluitVenster" />
+}
 
 @code {
+    private ElementReference invoer;
     private bool open;
+    private bool venster;
+    private bool stil;
     private int gemarkeerd = -1;
     private IReadOnlyList<Rekening> treffers = [];
 
@@ -48,10 +65,23 @@
     [Parameter]
     public string Klasse { get; set; } = "form-control form-control-sm";
 
+    /// <summary>De geopende administratie; daarmee kan in het venster een rekening worden toegevoegd.</summary>
+    [Parameter]
+    public Geopend? Kader { get; set; }
+
+    private Rekening? Gekozen => Schema?.Zoek(Waarde);
+
     private void Open()
     {
+        if (stil)
+        {
+            // Terug uit het venster: de keuze is gemaakt, dus geen lijst.
+            stil = false;
+            return;
+        }
+
         open = true;
-        Zoek(Schema?.Zoek(Waarde ?? "") is null ? Waarde : null);
+        Zoek(Gekozen is null ? Waarde : null);
     }
 
     private async Task Typ(ChangeEventArgs e)
@@ -85,6 +115,9 @@
             case "Escape":
                 open = false;
                 break;
+            case "F2":
+                OpenVenster();
+                break;
         }
     }
 
@@ -94,10 +127,37 @@
         await WaardeChanged.InvokeAsync(rekening.Nummer);
     }
 
+    private void OpenVenster()
+    {
+        if (Schema is not null)
+        {
+            (open, venster) = (false, true);
+        }
+    }
+
+    private async Task KiesUitVenster(Rekening rekening)
+    {
+        venster = false;
+        await Kies(rekening);
+        await TerugNaarVeld();
+    }
+
+    private async Task SluitVenster()
+    {
+        venster = false;
+        await TerugNaarVeld();
+    }
+
+    private async Task TerugNaarVeld()
+    {
+        stil = true;
+        await invoer.FocusAsync();
+    }
+
     private async Task Verlaat()
     {
         open = false;
-        if (Schema is not null && Schema.Zoek(Waarde ?? "") is null && Rekeningzoeker.Enige(Waarde, Schema.Alle) is { } enige)
+        if (!venster && Schema is not null && Gekozen is null && Rekeningzoeker.Enige(Waarde, Schema.Alle) is { } enige)
         {
             await WaardeChanged.InvokeAsync(enige.Nummer);
         }

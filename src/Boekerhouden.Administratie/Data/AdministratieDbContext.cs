@@ -131,6 +131,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(r => r.Soort).HasConversion<string>().HasMaxLength(20);
             e.Property(r => r.RgsCode).HasMaxLength(30);
             e.Property(r => r.Functie).HasConversion<string>().HasMaxLength(30);
+            e.Property(r => r.BtwCode).HasMaxLength(10);
             e.HasOne<Administratie>().WithMany().HasForeignKey(r => r.AdministratieId);
         });
 
@@ -157,6 +158,8 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(b => b.GeboektDoor).HasMaxLength(200);
             e.Property(b => b.Hash).HasMaxLength(64).IsFixedLength();
             e.Property(b => b.VorigeHash).HasMaxLength(64).IsFixedLength();
+            e.HasIndex(b => b.Herstelt);
+            e.HasIndex(b => b.Vervangt);
             e.HasMany(b => b.Regels).WithOne().HasForeignKey(r => r.BoekingId);
             e.HasOne<Administratie>().WithMany().HasForeignKey(b => b.AdministratieId);
         });
@@ -193,6 +196,8 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(r => r.BtwNummer).HasMaxLength(20);
             e.Property(r => r.KvkNummer).HasMaxLength(20);
             e.Property(r => r.Tegenrekening).HasMaxLength(20);
+            e.Property(r => r.ControleVanaf).HasPrecision(18, 2);
+            e.Property(r => r.ControleAfwijking).HasPrecision(6, 2);
             e.HasOne<Administratie>().WithMany().HasForeignKey(r => r.AdministratieId);
         });
 

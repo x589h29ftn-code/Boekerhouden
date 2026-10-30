@@ -175,7 +175,7 @@
                         <div class="card-body">
                             <div class="veld">
                                 <label for="nummer">Factuurnummer</label>
-                                <input id="nummer" class="form-control @Doel("nummer") @Onzeker("nummer")" title="@Waarom("nummer")" @bind="factuurnummer" @bind:event="oninput" @bind:after='() => onzeker.Remove("nummer")' @onfocus='() => Kies("nummer", "Factuurnummer")' />
+                                <input id="nummer" class="form-control @Doel("nummer") @Onzeker("nummer")" title="@Waarom("nummer")" @bind="factuurnummer" @bind:event="oninput" @bind:after='() => onzeker.Remove("nummer")' data-doel="nummer" data-doelnaam="Factuurnummer" @onfocus='() => Kies("nummer", "Factuurnummer")' />
                             </div>
                             <div class="veld">
                                 <label for="leverancier">Leverancier</label>
@@ -191,24 +191,24 @@
                             {
                                 <div class="veld">
                                     <label for="naam">Naam</label>
-                                    <input id="naam" class="form-control @Doel("naam")" @bind="nieuw.Naam" @onfocus='() => Kies("naam", "Naam")' />
+                                    <input id="naam" class="form-control @Doel("naam")" @bind="nieuw.Naam" data-doel="naam" data-doelnaam="Naam" @onfocus='() => Kies("naam", "Naam")' />
                                 </div>
                                 <div class="veld">
                                     <label for="iban">IBAN</label>
-                                    <input id="iban" class="form-control @Doel("iban") @Onzeker("iban")" title="@Waarom("iban")" @bind="nieuw.Iban" @bind:after='() => onzeker.Remove("iban")' @onfocus='() => Kies("iban", "IBAN")' />
+                                    <input id="iban" class="form-control @Doel("iban") @Onzeker("iban")" title="@Waarom("iban")" @bind="nieuw.Iban" @bind:after='() => onzeker.Remove("iban")' data-doel="iban" data-doelnaam="IBAN" @onfocus='() => Kies("iban", "IBAN")' />
                                 </div>
                                 <div class="veld">
                                     <label for="btwnr">Btw- en KvK-nummer</label>
                                     <div class="veld-rij">
-                                        <input id="btwnr" class="form-control @Doel("btwnr") @Onzeker("btwnr")" title="@Waarom("btwnr")" placeholder="btw-nummer" @bind="nieuw.BtwNummer" @bind:after='() => onzeker.Remove("btwnr")' @onfocus='() => Kies("btwnr", "Btw-nummer")' />
-                                        <input id="kvk" class="form-control @Doel("kvk") @Onzeker("kvk")" title="@Waarom("kvk")" placeholder="KvK-nummer" aria-label="KvK-nummer" @bind="nieuw.KvkNummer" @bind:after='() => onzeker.Remove("kvk")' @onfocus='() => Kies("kvk", "KvK-nummer")' />
+                                        <input id="btwnr" class="form-control @Doel("btwnr") @Onzeker("btwnr")" title="@Waarom("btwnr")" placeholder="btw-nummer" @bind="nieuw.BtwNummer" @bind:after='() => onzeker.Remove("btwnr")' data-doel="btwnr" data-doelnaam="Btw-nummer" @onfocus='() => Kies("btwnr", "Btw-nummer")' />
+                                        <input id="kvk" class="form-control @Doel("kvk") @Onzeker("kvk")" title="@Waarom("kvk")" placeholder="KvK-nummer" aria-label="KvK-nummer" @bind="nieuw.KvkNummer" @bind:after='() => onzeker.Remove("kvk")' data-doel="kvk" data-doelnaam="KvK-nummer" @onfocus='() => Kies("kvk", "KvK-nummer")' />
                                     </div>
                                 </div>
                             }
                             <div class="veld">
                                 <label for="datum">Factuurdatum</label>
                                 <div class="veld-rij">
-                                    <input id="datum" type="date" class="form-control veld-smal @Doel("datum") @Onzeker("datum")" title="@Waarom("datum")" @bind="datum" @bind:after='() => onzeker.Remove("datum")' @onfocus='() => Kies("datum", "Factuurdatum")' />
+                                    <input id="datum" type="date" class="form-control veld-smal @Doel("datum") @Onzeker("datum")" title="@Waarom("datum")" @bind="datum" @bind:after='() => onzeker.Remove("datum")' data-doel="datum" data-doelnaam="Factuurdatum" @onfocus='() => Kies("datum", "Factuurdatum")' />
                                 </div>
                             </div>
                             @if (Toon("verval"))
@@ -216,19 +216,19 @@
                                 <div class="veld">
                                     <label for="verval">Vervaldatum</label>
                                     <div class="veld-rij">
-                                        <input id="verval" type="date" class="form-control veld-smal @Doel("verval")" @bind="vervaldatum" @onfocus='() => Kies("verval", "Vervaldatum")' />
+                                        <input id="verval" type="date" class="form-control veld-smal @Doel("verval")" @bind="vervaldatum" data-doel="verval" data-doelnaam="Vervaldatum" @onfocus='() => Kies("verval", "Vervaldatum")' />
                                     </div>
                                 </div>
                                 <div class="veld">
                                     <label for="kenmerk">Betalingskenmerk</label>
-                                    <input id="kenmerk" class="form-control @Doel("kenmerk") @Onzeker("kenmerk")" title="@Waarom("kenmerk")" @bind="kenmerk" @bind:event="oninput" @bind:after='() => onzeker.Remove("kenmerk")' @onfocus='() => Kies("kenmerk", "Betalingskenmerk")' />
+                                    <input id="kenmerk" class="form-control @Doel("kenmerk") @Onzeker("kenmerk")" title="@Waarom("kenmerk")" @bind="kenmerk" @bind:event="oninput" @bind:after='() => onzeker.Remove("kenmerk")' data-doel="kenmerk" data-doelnaam="Betalingskenmerk" @onfocus='() => Kies("kenmerk", "Betalingskenmerk")' />
                                 </div>
                             }
                             <div class="veld veld-boven">
                                 <label for="omschrijving">Omschrijving</label>
                                 <div>
                                     <div class="input-group">
-                                        <input id="omschrijving" class="form-control @Doel("omschrijving")" @bind="omschrijving" @bind:event="oninput" @onfocus='() => Kies("omschrijving", "Omschrijving")' />
+                                        <input id="omschrijving" class="form-control @Doel("omschrijving")" @bind="omschrijving" @bind:event="oninput" data-doel="omschrijving" data-doelnaam="Omschrijving" @onfocus='() => Kies("omschrijving", "Omschrijving")' />
                                         <select @key="variabeleKeuze" class="form-select flex-grow-0 variabelekeuze" aria-label="Variabele invoegen" title="Variabele invoegen" @onchange="VoegVariabeleToe">
                                             <option value="">#</option>
                                             @foreach (var (naam, betekenis) in Omschrijvingssjabloon.Variabelen)
@@ -250,7 +250,7 @@
                             <div class="veld">
                                 <label for="totaal">Bedrag</label>
                                 <div class="veld-rij">
-                                    <input id="totaal" class="form-control veld-smal text-end @Doel("totaal")" title="Het totaal van de factuur, inclusief btw" @bind="factuurbedrag" @bind:event="oninput" @onfocus='() => Kies("totaal", "Bedrag inclusief btw")' />
+                                    <input id="totaal" class="form-control veld-smal text-end @Doel("totaal")" title="Het totaal van de factuur, inclusief btw" @bind="factuurbedrag" @bind:event="oninput" data-doel="totaal" data-doelnaam="Bedrag inclusief btw" @onfocus='() => Kies("totaal", "Bedrag inclusief btw")' />
                                     <span class="form-check form-switch mb-0">
                                         <input id="creditnota" class="form-check-input" type="checkbox" checked="@(soort == Documentsoort.Creditnota)" @onchange="e => soort = e.Value is true ? Documentsoort.Creditnota : Documentsoort.Factuur" />
                                         <label class="form-check-label" for="creditnota">Creditnota</label>
@@ -296,14 +296,10 @@
                                         <tr>
                                             @if (Toon("regelomschrijving"))
                                             {
-                                                <td><input class="form-control form-control-sm @Doel($"regel:{n}")" @bind="regel.Omschrijving" @bind:event="oninput" @onfocus='() => Kies($"regel:{n}", $"Omschrijving regel {n + 1}")' placeholder="@(Omschrijvingssjabloon.IsSjabloon(omschrijving) ? Omschrijvingssjabloon.Vul(omschrijving, Variabelen) : omschrijving)" aria-label="Omschrijving regel" /></td>
+                                                <td><input class="form-control form-control-sm @Doel($"regel:{n}")" @bind="regel.Omschrijving" @bind:event="oninput" data-doel="regel:@n" data-doelnaam="Omschrijving regel @(n + 1)" @onfocus='() => Kies($"regel:{n}", $"Omschrijving regel {n + 1}")' placeholder="@(Omschrijvingssjabloon.IsSjabloon(omschrijving) ? Omschrijvingssjabloon.Vul(omschrijving, Variabelen) : omschrijving)" aria-label="Omschrijving regel" /></td>
                                             }
                                             <td>
-                                                <RekeningKeuze @bind-Waarde:get="regel.Rekening" @bind-Waarde:set='v => regel.Rekening = v ?? ""' Schema="verwerking.Schema" Voorkeur="voorkeur" />
-                                                @if (verwerking.Schema.Zoek(regel.Rekening) is { } gekozen)
-                                                {
-                                                    <div class="small text-secondary text-truncate rekeningnaam">@gekozen.Naam</div>
-                                                }
+                                                <RekeningKeuze @bind-Waarde:get="regel.Rekening" @bind-Waarde:set="v => KiesRekening(regel, v)" Schema="verwerking.Schema" Voorkeur="voorkeur" Kader="geopend" />
                                             </td>
                                             <td>
                                                 <select class="form-select form-select-sm" @bind="regel.BtwCode" aria-label="Btw-code">
@@ -313,12 +309,12 @@
                                                     }
                                                 </select>
                                             </td>
-                                            <td><input class="form-control form-control-sm text-end @Doel($"bedrag:{n}")" @bind="regel.Bedrag" @bind:event="oninput" @onfocus='() => Kies($"bedrag:{n}", "Bedrag exclusief btw")' aria-label="Bedrag exclusief btw" /></td>
+                                            <td><input class="form-control form-control-sm text-end @Doel($"bedrag:{n}")" @bind="regel.Bedrag" @bind:event="oninput" data-doel="bedrag:@n" data-doelnaam="Bedrag exclusief btw" @onfocus='() => Kies($"bedrag:{n}", "Bedrag exclusief btw")' aria-label="Bedrag exclusief btw" /></td>
                                             @if (Toon("btwbedrag"))
                                             {
                                                 <td>
                                                     <div class="d-flex align-items-center gap-1">
-                                                        <input class="form-control form-control-sm text-end @Doel($"btw:{n}")" @bind:get="BtwTekst(regel)" @bind:set="v => ZetBtw(regel, v)" @bind:event="oninput" @onfocus='() => Kies($"btw:{n}", "Btw")' title="@(regel.BtwHandmatig ? $"Aangepast; berekend {BerekendeBtw(regel)}" : IsVerlegd(regel) ? "Btw verlegd: het pakket berekent de btw bij het boeken (af te dragen en aftrekbaar)" : "Berekend uit het tarief")" placeholder="@(IsVerlegd(regel) ? "verlegd" : null)" aria-label="Btw" />
+                                                        <input class="form-control form-control-sm text-end @Doel($"btw:{n}")" @bind:get="BtwTekst(regel)" @bind:set="v => ZetBtw(regel, v)" @bind:event="oninput" data-doel="btw:@n" data-doelnaam="Btw" @onfocus='() => Kies($"btw:{n}", "Btw")' title="@(regel.BtwHandmatig ? $"Aangepast; berekend {BerekendeBtw(regel)}" : IsVerlegd(regel) ? "Btw verlegd: het pakket berekent de btw bij het boeken (af te dragen en aftrekbaar)" : "Berekend uit het tarief")" placeholder="@(IsVerlegd(regel) ? "verlegd" : null)" aria-label="Btw" />
                                                         @if (regel.BtwHandmatig)
                                                         {
                                                             <button class="btn btn-sm btn-link text-secondary p-0" title="Terug naar de berekende btw (@BerekendeBtw(regel))" @onclick="() => regel.BtwHandmatig = false">↺</button>
@@ -360,7 +356,7 @@
                                 <div class="veld veld-boven">
                                     <label for="verdeelrekening">Via rekening</label>
                                     <div>
-                                        <RekeningKeuze Id="verdeelrekening" Label="Rekening voor de verdeling" Klasse="form-control" @bind-Waarde:get="verdeelRekening" @bind-Waarde:set='v => verdeelRekening = v ?? ""' Schema="verwerking.Schema" Voorkeur="Verdeelrekeningen" />
+                                        <RekeningKeuze Id="verdeelrekening" Label="Rekening voor de verdeling" Klasse="form-control" @bind-Waarde:get="verdeelRekening" @bind-Waarde:set='v => verdeelRekening = v ?? ""' Schema="verwerking.Schema" Voorkeur="Verdeelrekeningen" Kader="geopend" />
                                         <div class="small text-secondary mt-1" title="Elke maand een gelijk deel naar de kostenrekening (memoriaal); de btw blijft bij de factuur">@Verdeeltekst</div>
                                     </div>
                                 </div>
@@ -479,6 +475,10 @@
     [Parameter]
     public Guid DocumentId { get; set; }
 
+    /// <summary>Vanuit de boeking op Aanpassen geklikt: meteen de vraag of de factuur heropend moet worden.</summary>
+    [SupplyParameterFromQuery(Name = "heropenen")]
+    public bool HeropenenGevraagd { get; set; }
+
     private decimal? Totaal => regels.All(r => Getal(r.Bedrag) is not null)
         ? regels.Sum(r => Getal(r.Bedrag)!.Value + BtwOpFactuur(r))
         : null;
@@ -562,7 +562,7 @@
 
         // Een creditnota (negatief totaal) staat in het formulier zonder minteken; het pakket boekt hem omgekeerd.
         soort = herkend?.TotaalInclusief < 0 ? Documentsoort.Creditnota : Documentsoort.Factuur;
-        (verrekenMet, bevestigHeropenen, verdelen) = (null, false, false);
+        (verrekenMet, bevestigHeropenen, verdelen) = (null, HeropenenGevraagd, false);
         factuurbedrag = herkend?.TotaalInclusief is { } totaal ? Bedragen.Getal(Math.Abs(totaal)) : null;
         if (soort == Documentsoort.Creditnota)
         {
@@ -817,9 +817,16 @@
     }
 
     /// <summary>De gebruiker wees een gebied op de factuur aan: de tekst daaruit gaat naar het gekozen veld.</summary>
+    /// <param name="focusveld">Het veld dat in de browser het laatst de focus had (data-doel), zodat het gebied altijd daar
+    /// terechtkomt; leeg = het doel zoals de server het kent.</param>
     [JSInvokable]
-    public async Task Gebied(int pagina, double x0, double y0, double x1, double y1)
+    public async Task Gebied(string? focusveld, string? focusnaam, int pagina, double x0, double y0, double x1, double y1)
     {
+        if (!string.IsNullOrEmpty(focusveld) && focusveld != doel && (focusveld.Split(':') is not [_, var index] || RegelBij(index) is not null))
+        {
+            (doel, doelNaam) = (focusveld, focusnaam ?? focusveld);
+        }
+
         var tekst = string.Join(" ", await Inkoop.TekstInGebied(geopend!.Wie, Id, DocumentId, pagina, x0, y0, x1, y1)).Trim();
         var gelukt = tekst.Length > 0 && Vul(tekst);
         overgenomen = tekst.Length == 0 ? "Geen tekst in dit gebied." : gelukt ? $"{doelNaam}: {tekst}" : $"Geen {(doel.StartsWith("bedrag", StringComparison.Ordinal) || doel.StartsWith("btw", StringComparison.Ordinal) || doel == "totaal" ? "bedrag" : "datum")} in ‘{tekst}’.";
@@ -965,6 +972,17 @@
         }
 
         regels.Add(regel);
+    }
+
+    /// <summary>Een rekening voor de regel; hoort er een (inkoop)btw-code bij de rekening, dan komt die mee.</summary>
+    private void KiesRekening(Invoerregel regel, string? rekening)
+    {
+        var nieuw = regel.Rekening != rekening;
+        regel.Rekening = rekening ?? "";
+        if (nieuw && verwerking?.Schema.Zoek(rekening)?.BtwCode is { } code && BtwCodes.Zoek(Codes, code) is { Richting: BtwRichting.Inkoop })
+        {
+            regel.BtwCode = code;
+        }
     }
 
     private void Verwijder(Invoerregel regel)

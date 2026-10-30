@@ -1,5 +1,7 @@
 @page "/a/{Id:guid}/rekeningschema"
 @inject GrootboekDienst Grootboek
+@inject BtwDienst Btw
+@inject TimeProvider Tijd
 
 <AdministratieKader Id="Id" Titel="Rekeningschema" Actief="/rekeningschema" BijOpenen="Open">
     @if (context.Mag(Recht.Boekhouden))
@@ -11,9 +13,19 @@
                     <label class="form-label" for="nummer">Nummer</label>
                     <input id="nummer" class="form-control" @bind="nummer" />
                 </div>
-                <div class="col-sm-4">
+                <div class="col-sm-3">
                     <label class="form-label" for="naam">Naam</label>
                     <input id="naam" class="form-control" @bind="naam" />
+                </div>
+                <div class="col-sm-1">
+                    <label class="form-label" for="btw">Btw</label>
+                    <select id="btw" class="form-select" @bind="btw" title="De btw-code die bij de rekening hoort, of variabel">
+                        <option value="">variabel</option>
+                        @foreach (var c in codes.Where(c => c.Actief))
+                        {
+                            <option value="@c.Code" title="@c.Omschrijving">@c.Code</option>
+                        }
+                    </select>
                 </div>
                 <div class="col-sm-2">
                     <label class="form-label" for="soort">Soort</label>
@@ -37,7 +49,7 @@
         <div class="card">
             <table class="table table-sm align-middle mb-0">
                 <thead>
-                    <tr><th>Nummer</th><th>Naam</th><th>Soort</th><th>RGS</th><th>Functie</th></tr>
+                    <tr><th>Nummer</th><th>Naam</th><th>Btw</th><th>Soort</th><th>RGS</th><th>Functie</th></tr>
                 </thead>
                 <tbody>
                     @foreach (var r in schema.Alle)
@@ -45,6 +57,7 @@
                         <tr>
                             <td><a href="/a/@Id/grootboek?rekening=@r.Nummer">@r.Nummer</a></td>
                             <td>@r.Naam</td>
+                            <td class="text-secondary">@r.BtwCode</td>
                             <td class="text-secondary">@(r.IsBalans ? "balans" : "resultaat")</td>
                             <td class="small">@r.RgsCode</td>
                             <td class="small text-secondary">@Weergave.Tekst(r.Functie)</td>
@@ -63,6 +76,8 @@
     private string naam = "";
     private Rekeningsoort soort = Rekeningsoort.Resultaat;
     private string? rgs;
+    private string? btw;
+    private IReadOnlyList<Boekhouding.Btw.BtwCode> codes = [];
     private IReadOnlyList<string>? fouten;
 
     [Parameter]
@@ -72,16 +87,17 @@
     {
         geopend = g;
         schema = await Grootboek.Schema(g.Wie, Id);
+        codes = (await Btw.Tabel()).Op(DateOnly.FromDateTime(Tijd.GetLocalNow().DateTime));
     }
 
     private async Task VoegToe()
     {
-        var uitkomst = await Grootboek.VoegRekeningToe(geopend!.Wie, Id, new RekeningInvoer(nummer, naam, soort, rgs));
+        var uitkomst = await Grootboek.VoegRekeningToe(geopend!.Wie, Id, new RekeningInvoer(nummer, naam, soort, rgs, btw));
         fouten = uitkomst.Fouten;
         if (uitkomst.IsGelukt)
         {
             nummer = naam = "";
-            rgs = null;
+            rgs = btw = null;
             schema = await Grootboek.Schema(geopend.Wie, Id);
         }
     }

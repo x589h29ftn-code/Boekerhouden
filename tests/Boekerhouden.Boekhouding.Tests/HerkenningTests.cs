@@ -208,6 +208,50 @@ public sealed class InkoopverwerkerTests
         Assert.Equal(!verdacht, voorstel.Automatisch);
     }
 
+    [Theory]
+    [InlineData("20", true)]
+    [InlineData("24.99", true)]
+    [InlineData("25", false)]
+    public void Leverancier_met_eigen_bedraggrens_komt_vanaf_dat_bedrag_ter_controle(string tekst, bool verwacht)
+    {
+        var grens = decimal.Parse(tekst, System.Globalization.CultureInfo.InvariantCulture);
+        Relatie[] relaties = [Relaties[0] with { ControleVanaf = grens }, Relaties[1]];
+
+        var voorstel = Inkoopverwerker.Verwerk(Ubl(), relaties, [Telefoon], new Leergeheugen(), Testadministratie.Btw, []);
+
+        Assert.Equal(verwacht, voorstel.Belemmeringen.Contains($"Facturen van Belnet B.V. vanaf {Domain.Bedragen.Euro(grens)} controleer je zelf."));
+        Assert.Equal(!verwacht, voorstel.Automatisch);
+    }
+
+    [Theory]
+    [InlineData(20, 50, false)]
+    [InlineData(10, 50, true)]
+    [InlineData(40, 30, true)]
+    [InlineData(30, 30, false)]
+    public void Leverancier_met_eigen_afwijking_vergelijkt_met_de_vorige_factuur(int vorigeEuro, int procentGetal, bool afwijkend)
+    {
+        var (vorige, procent) = ((decimal)vorigeEuro, (decimal)procentGetal);
+        Relatie[] relaties = [Relaties[0] with { ControleAfwijking = procent }, Relaties[1]];
+        BestaandeFactuur[] bestaand =
+        [
+            new("BELNET", "BN2026-0100", new(2025, 1, 1), 24.99m),
+            new("BELNET", "BN2026-0300", new(2026, 2, 1), vorige),
+        ];
+
+        var voorstel = Inkoopverwerker.Verwerk(Ubl(), relaties, [Telefoon], new Leergeheugen(), Testadministratie.Btw, bestaand);
+
+        Assert.Equal(afwijkend, voorstel.Belemmeringen.Any(b => b.StartsWith($"Het bedrag wijkt meer dan {procent}% af van de vorige factuur van Belnet B.V. ({Domain.Bedragen.Euro(vorige)})", StringComparison.Ordinal)));
+        Assert.Equal(!afwijkend, voorstel.Automatisch);
+    }
+
+    [Fact]
+    public void Zonder_vorige_factuur_geldt_de_afwijking_niet()
+    {
+        Assert.Empty(Inkoopverwerker.EigenControle(5000m, "X-1", new Relatie("A", "A", [], ControleAfwijking: 10m), []));
+        Assert.Empty(Inkoopverwerker.EigenControle(5000m, "X-1", new Relatie("A", "A", [], ControleAfwijking: 10m), [new BestaandeFactuur("A", "X-1", new(2026, 1, 1), 100m)]));
+        Assert.Single(Inkoopverwerker.EigenControle(-5000m, "X-2", new Relatie("A", "A", [], ControleVanaf: 1000m), []));
+    }
+
     [Fact]
     public void Tekstfactuur_met_twee_tarieven_eerst_kiezen_daarna_leren()
     {

@@ -49,6 +49,23 @@ class Viewer {
         this.vlak = maak('div', 'viewervlak');
         this.container.append(balk, this.vlak);
         this.waarneming = new ResizeObserver(() => this.tekenOpnieuw());
+        // Ctrl+wiel (of knijpen op een touchpad) zoomt de factuur, niet de pagina.
+        this.container.addEventListener('wheel', (e) => {
+            if (!e.ctrlKey && !e.metaKey) return;
+            e.preventDefault();
+            this.zoomNaar(this.zoom * Math.exp(-e.deltaY / 500), true);
+        }, { passive: false });
+    }
+
+    /** Ctrl+plus, Ctrl+min en Ctrl+0 zoomen de factuur (in het externe venster, waar alleen de viewer staat). */
+    toetsen(doel) {
+        doel.addEventListener('keydown', (e) => {
+            if (!e.ctrlKey && !e.metaKey) return;
+            const zoom = { '+': this.zoom * 1.2, '=': this.zoom * 1.2, '-': this.zoom / 1.2, '0': 1 }[e.key];
+            if (zoom === undefined) return;
+            e.preventDefault();
+            this.zoomNaar(zoom);
+        });
     }
 
     async laad() {
@@ -80,10 +97,14 @@ class Viewer {
     }
 
     async teken() {
+        // Een nieuwe ronde (bijv. bij snel zoomen) breekt de vorige af: één tekening per canvas tegelijk.
+        const ronde = (this.ronde = (this.ronde ?? 0) + 1);
         const breedte = this.breedte();
         this.getekendBij = breedte;
         const dpr = window.devicePixelRatio || 1;
         for (const item of this.paginas) {
+            if (ronde !== this.ronde) return;
+            item.taak?.cancel();
             const basis = item.pagina.getViewport({ scale: 1, rotation: this.draai });
             const viewport = item.pagina.getViewport({ scale: (breedte / basis.width) * this.zoom, rotation: this.draai });
             item.viewport = viewport;
@@ -94,9 +115,14 @@ class Viewer {
             canvas.style.height = `${Math.floor(viewport.height)}px`;
             item.vak.style.width = canvas.style.width;
             item.vak.querySelector('.selectie')?.remove();
-            await item.pagina.render({ canvasContext: canvas.getContext('2d'), canvas, viewport, transform: dpr === 1 ? null : [dpr, 0, 0, dpr, 0, 0] }).promise;
+            item.taak = item.pagina.render({ canvasContext: canvas.getContext('2d'), canvas, viewport, transform: dpr === 1 ? null : [dpr, 0, 0, dpr, 0, 0] });
+            try {
+                await item.taak.promise;
+            } catch {
+                return; // afgebroken door een nieuwere ronde
+            }
         }
-        this.tekenMarkering(false);
+        if (ronde === this.ronde) this.tekenMarkering(false);
     }
 
     /** Laat de plekken (PDF-punten) oplichten waar het gekozen veld op de factuur staat, en scrolt naar de eerste. */
@@ -129,10 +155,13 @@ class Viewer {
         this.wachten = setTimeout(() => this.teken(), 150);
     }
 
-    zoomNaar(zoom) {
+    /** @param geleidelijk bij het wiel: pas tekenen als het even stil is (anders tekent elke wielstap alle pagina's). */
+    zoomNaar(zoom, geleidelijk = false) {
         this.zoom = Math.min(4, Math.max(0.4, zoom));
         bewaar(zoomSleutel, this.zoom);
-        this.teken();
+        clearTimeout(this.zoomWacht);
+        if (geleidelijk) this.zoomWacht = setTimeout(() => this.teken(), 120);
+        else this.teken();
     }
 
     draaiKwart() {
@@ -226,14 +255,22 @@ export async function bekijk(container, bron, id) {
 /** De viewer op het verwerkscherm; een gebied gaat naar .NET (Gebied), ook als het in het externe venster is aangewezen. */
 export async function toon(container, bron, id, dotnet) {
     const verbinding = kanaal(id);
+    // Het veld met de focus (data-doel) bepaalt hier, in de browser, waar een aangewezen gebied heen gaat.
+    let veld = null;
+    const focus = (e) => {
+        const d = e.target?.dataset;
+        if (d?.doel) veld = { doel: d.doel, naam: d.doelnaam ?? d.doel };
+    };
+    document.addEventListener('focusin', focus);
+    const gebied = (pagina, x0, y0, x1, y1) => dotnet.invokeMethodAsync('Gebied', veld?.doel ?? null, veld?.naam ?? null, pagina, x0, y0, x1, y1);
     const viewer = new Viewer(container, bron, {
         id,
-        opGebied: (pagina, x0, y0, x1, y1) => dotnet.invokeMethodAsync('Gebied', pagina, x0, y0, x1, y1),
+        opGebied: gebied,
         extern: () => dotnet.invokeMethodAsync('NaarExtern'),
     });
     verbinding.onmessage = (e) => {
         const m = e.data;
-        if (m?.soort === 'gebied') dotnet.invokeMethodAsync('Gebied', m.pagina, m.x0, m.y0, m.x1, m.y1);
+        if (m?.soort === 'gebied') gebied(m.pagina, m.x0, m.y0, m.x1, m.y1);
         else if (m?.soort === 'gesloten') dotnet.invokeMethodAsync('ExternGesloten');
         else if (m?.soort === 'geopend') verbinding.postMessage({ soort: 'doel', naam: viewer.laatsteDoel ?? '' });
     };
@@ -253,7 +290,10 @@ export async function toon(container, bron, id, dotnet) {
             if (externOpen()) externVenster.location.replace(adres);
             else externVenster = window.open(adres, 'factuurviewer', 'popup,width=900,height=1100');
         },
-        sluit: () => verbinding.close(),
+        sluit: () => {
+            verbinding.close();
+            document.removeEventListener('focusin', focus);
+        },
     };
 }
 
@@ -269,6 +309,7 @@ export async function extern(container, bron, id) {
         else if (e.data?.soort === 'markeer') viewer.markeer(e.data.plekken);
     };
     window.addEventListener('pagehide', () => verbinding.postMessage({ soort: 'gesloten' }));
+    viewer.toetsen(window);
     await viewer.laad();
     verbinding.postMessage({ soort: 'geopend' });
 }

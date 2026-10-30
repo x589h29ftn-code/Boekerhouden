@@ -116,7 +116,10 @@ public sealed class Grootboekrekening : IVanAdministratie
 
     public Rekeningfunctie Functie { get; set; }
 
-    public Rekening NaarDomein() => new(Nummer, Naam, Soort, RgsCode, Functie);
+    /// <summary>De btw-code die bij de rekening hoort; leeg = variabel.</summary>
+    public string? BtwCode { get; set; }
+
+    public Rekening NaarDomein() => new(Nummer, Naam, Soort, RgsCode, Functie, BtwCode);
 }
 
 public sealed class Dagboekdefinitie : IVanAdministratie
@@ -168,6 +171,12 @@ public sealed class Boeking : IVanAdministratie
     public string Hash { get; set; } = string.Empty;
 
     public string VorigeHash { get; set; } = string.Empty;
+
+    /// <summary>Bij een aanpassing: de tegenboeking verwijst naar de boeking die hij ongedaan maakt.</summary>
+    public Guid? Herstelt { get; set; }
+
+    /// <summary>Bij een aanpassing: de nieuwe boeking verwijst naar de boeking die hij vervangt.</summary>
+    public Guid? Vervangt { get; set; }
 
     public List<Boekingsregel> Regels { get; set; } = [];
 
@@ -239,9 +248,15 @@ public sealed class Handelsrelatie : IVanAdministratie
     /// <summary>De standaard grootboekrekening (bijv. telefoonkosten).</summary>
     public string? Tegenrekening { get; set; }
 
+    /// <summary>Facturen vanaf dit bedrag (inclusief btw) altijd zelf controleren.</summary>
+    public decimal? ControleVanaf { get; set; }
+
+    /// <summary>Facturen die meer dan dit percentage afwijken van de vorige altijd zelf controleren.</summary>
+    public decimal? ControleAfwijking { get; set; }
+
     public DateTimeOffset AangemaaktOp { get; set; }
 
-    public Boekhouding.Relaties.Relatie NaarDomein() => new(Code, Naam, [.. Ibans], BtwNummer, KvkNummer, Tegenrekening);
+    public Boekhouding.Relaties.Relatie NaarDomein() => new(Code, Naam, [.. Ibans], BtwNummer, KvkNummer, Tegenrekening, ControleVanaf, ControleAfwijking);
 }
 
 public enum Documentstatus

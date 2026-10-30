@@ -74,6 +74,7 @@ public static class AuditActies
     public const string ZoektemplateBijgewerkt = "Zoektemplate van leverancier bijgewerkt";
     public const string GeleerdVergeten = "Geleerde keuzes vergeten";
     public const string ZoekplekVergeten = "Plek op de factuur vergeten";
+    public const string ControleIngesteld = "Grens voor zelf controleren ingesteld";
 
     public const string DocumentOpgeslagen = "Document in de documentmap gezet";
 
@@ -95,6 +96,7 @@ public static class AuditActies
     public const string DocumentTeruggezet = "Document terug naar Te verwerken";
     public const string DocumentVerwijderd = "Document verwijderd";
     public const string BoekingTeruggedraaid = "Boeking teruggedraaid";
+    public const string BoekingAangepast = "Boeking aangepast";
     public const string CreditnotaVerrekend = "Creditnota verrekend";
     public const string OpnieuwVerwerkt = "Opnieuw automatisch verwerkt";
     public const string BtwtariefToegevoegd = "Btw-tarief toegevoegd";
