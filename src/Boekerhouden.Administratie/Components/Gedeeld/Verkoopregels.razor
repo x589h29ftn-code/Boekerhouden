@@ -24,14 +24,14 @@
             @foreach (var regel in Regels)
             {
                 <tr>
-                    <td><input class="form-control form-control-sm" @bind="regel.Omschrijving" @bind:event="oninput" aria-label="Omschrijving" placeholder="@Placeholder" /></td>
-                    <td><input class="form-control form-control-sm text-end" @bind="regel.Aantal" @bind:event="oninput" aria-label="Aantal" /></td>
-                    <td><input class="form-control form-control-sm" @bind="regel.Eenheid" aria-label="Eenheid" placeholder="uur, stuk" /></td>
-                    <td><input class="form-control form-control-sm text-end" @bind="regel.Prijs" @bind:event="oninput" aria-label="Prijs per eenheid exclusief btw" /></td>
-                    <td><input class="form-control form-control-sm text-end" @bind="regel.Korting" @bind:event="oninput" aria-label="Korting in procenten" placeholder="0" /></td>
-                    <td><RekeningKeuze @bind-Waarde="regel.Rekening" Schema="Schema" Kader="Kader" Label="Omzetrekening" /></td>
+                    <td><input class="form-control form-control-sm" @bind="regel.Omschrijving" @bind:event="oninput" @bind:after="Meld" aria-label="Omschrijving" placeholder="@Placeholder" /></td>
+                    <td><input class="form-control form-control-sm text-end" @bind="regel.Aantal" @bind:event="oninput" @bind:after="Meld" aria-label="Aantal" /></td>
+                    <td><input class="form-control form-control-sm" @bind="regel.Eenheid" @bind:event="oninput" @bind:after="Meld" aria-label="Eenheid" placeholder="uur, stuk" /></td>
+                    <td><input class="form-control form-control-sm text-end" @bind="regel.Prijs" @bind:event="oninput" @bind:after="Meld" aria-label="Prijs per eenheid exclusief btw" /></td>
+                    <td><input class="form-control form-control-sm text-end" @bind="regel.Korting" @bind:event="oninput" @bind:after="Meld" aria-label="Korting in procenten" placeholder="0" /></td>
+                    <td><RekeningKeuze @bind-Waarde="regel.Rekening" @bind-Waarde:after="Meld" Schema="Schema" Kader="Kader" Label="Omzetrekening" /></td>
                     <td>
-                        <select class="form-select form-select-sm" @bind="regel.BtwCode" aria-label="Btw-code">
+                        <select class="form-select form-select-sm" @bind="regel.BtwCode" @bind:after="Meld" aria-label="Btw-code">
                             @foreach (var c in Codes.Where(c => c.Richting == BtwRichting.Verkoop && (c.Actief || c.Code == regel.BtwCode)))
                             {
                                 <option value="@c.Code" title="@c.Omschrijving">@c.Kort</option>
@@ -39,7 +39,7 @@
                         </select>
                     </td>
                     <td class="bedrag text-end">@(regel.Domein() is { } d ? Weergave.Bedrag(d.Bedrag) : null)</td>
-                    <td><button class="btn btn-sm btn-link text-secondary p-0 regel-weg" title="Regel verwijderen" @onclick="() => Regels.Remove(regel)" disabled="@(Regels.Count <= 1)"><Icoon Naam="x" /></button></td>
+                    <td><button class="btn btn-sm btn-link text-secondary p-0 regel-weg" title="Regel verwijderen" @onclick="() => Verwijder(regel)" disabled="@(Regels.Count <= 1)"><Icoon Naam="x" /></button></td>
                 </tr>
             }
         </tbody>
@@ -106,9 +106,22 @@
         }
     }
 
-    private void RegelErbij()
+    /// <summary>Volgt bij elke wijziging van een regel (bijv. om een voorbeeld bij te werken).</summary>
+    [Parameter]
+    public EventCallback Gewijzigd { get; set; }
+
+    private Task Meld() => Gewijzigd.InvokeAsync();
+
+    private async Task Verwijder(Verkoopregelinvoer regel)
+    {
+        Regels.Remove(regel);
+        await Meld();
+    }
+
+    private async Task RegelErbij()
     {
         var vorige = Regels.LastOrDefault();
         Regels.Add(new Verkoopregelinvoer { Aantal = "1", Rekening = vorige?.Rekening ?? Omzetrekening, BtwCode = vorige?.BtwCode ?? BtwCode ?? "V21" });
+        await Meld();
     }
 }

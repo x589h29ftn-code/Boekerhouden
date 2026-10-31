@@ -109,6 +109,7 @@
         else
         {
             var codes = Codes;
+            <div class="verkoop-maken">
             <div class="verkoopformulier">
                 <div class="formulier-rij">
                     <label for="klant">Klant</label>
@@ -160,25 +161,25 @@
                         <label class="small text-secondary" for="verval">Vervaldatum</label>
                         <DatumVeld Id="verval" Waarde="invoer.Vervaldatum" WaardeChanged="KiesVervaldatum" />
                         <label class="small text-secondary" for="referentie">Uw referentie</label>
-                        <input id="referentie" class="form-control form-control-sm w-auto" @bind="invoer.Referentie" placeholder="bijv. inkoopordernummer" />
+                        <input id="referentie" class="form-control form-control-sm w-auto" @bind="invoer.Referentie" @bind:event="oninput" placeholder="bijv. inkoopordernummer" />
                     </div>
                 </div>
                 <div class="formulier-rij">
                     <label for="omschrijving">Omschrijving</label>
-                    <input id="omschrijving" class="form-control form-control-sm" @bind="invoer.Omschrijving" placeholder="bijv. Werkzaamheden maart 2026" />
+                    <input id="omschrijving" class="form-control form-control-sm" @bind="invoer.Omschrijving" @bind:event="oninput" placeholder="bijv. Werkzaamheden maart 2026" />
                 </div>
                 @if (weergave is { Ingelezen: true })
                 {
                     <div class="formulier-rij">
                         <label for="nummer">Factuurnummer</label>
-                        <input id="nummer" class="form-control form-control-sm" style="max-width:14rem" @bind="invoer.Factuurnummer" title="Het nummer uit het andere pakket" />
+                        <input id="nummer" class="form-control form-control-sm" style="max-width:14rem" @bind="invoer.Factuurnummer" @bind:event="oninput" title="Het nummer uit het andere pakket" />
                     </div>
                 }
                 else if (layouts.Count > 1)
                 {
                     <div class="formulier-rij">
                         <label for="layout">Lay-out</label>
-                        <select id="layout" class="form-select form-select-sm w-auto" @bind="invoer.LayoutId">
+                        <select id="layout" class="form-select form-select-sm w-auto" @bind="invoer.LayoutId" @bind:after="LaadLayout">
                             <option value="">standaard</option>
                             @foreach (var l in layouts)
                             {
@@ -189,12 +190,12 @@
                 }
 
                 <div class="mt-3">
-                    <Verkoopregels Regels="invoer.Regels" Schema="Schema" Codes="codes" Kader="geopend" Omzetrekening="@(Gekozen?.Omzetrekening ?? verkoop.Omzetrekening)" BtwCode="@(Gekozen?.Verkoopbtwcode)" />
+                    <Verkoopregels Regels="invoer.Regels" Schema="Schema" Codes="codes" Kader="geopend" Omzetrekening="@(Gekozen?.Omzetrekening ?? verkoop.Omzetrekening)" BtwCode="@(Gekozen?.Verkoopbtwcode)" Gewijzigd="StateHasChanged" />
                 </div>
 
                 <div class="formulier-rij mt-3">
                     <label for="tekst">Tekst</label>
-                    <textarea id="tekst" class="form-control form-control-sm" rows="2" @bind="invoer.Tekst" placeholder="Een eigen tekst onder de regels (optioneel)"></textarea>
+                    <textarea id="tekst" class="form-control form-control-sm" rows="2" @bind="invoer.Tekst" @bind:event="oninput" placeholder="Een eigen tekst onder de regels (optioneel)"></textarea>
                 </div>
                 <div class="formulier-rij">
                     <span></span>
@@ -227,6 +228,22 @@
                     </div>
                 }
             </div>
+            @if (layoutVoorbeeld is { } lay)
+            {
+                <aside class="verkoop-voorbeeld" aria-label="Voorbeeld van de factuur">
+                    <style>@((MarkupString)Export.FactuurHtml.Css(lay.Ontwerp))</style>
+                    <div class="factuurvoorbeeld-pagina klein">
+                        <div class="voorbeeld-schaal">
+                            @((MarkupString)Voorbeeldpagina(lay, codes))
+                            @if (logoBron is not null && lay.Ontwerp.Blok(Bloksoort.Logo) is { Zichtbaar: true } logoblok)
+                            {
+                                <img class="voorbeeld-logo" src="@logoBron" alt="" style="@LogoStijl(logoblok)" />
+                            }
+                        </div>
+                    </div>
+                </aside>
+            }
+            </div>
         }
     </ChildContent>
 </AdministratieKader>
@@ -239,6 +256,9 @@
     private Verkoopweergave? weergave;
     private (Export.Verkoopbeeld Beeld, Factuurontwerp Ontwerp, Export.Logo? Logo)? voorbeeld;
     private IReadOnlyList<Layoutregel> layouts = [];
+    private Layoutgegevens? layoutVoorbeeld;
+    private string? logoBron;
+    private string voorbeeldHtml = "";
     private Formulier invoer = new();
     private Klantformulier? nieuweKlant;
     private bool vervaldatumZelf;
@@ -295,6 +315,10 @@
         weergave = Factuur is { } id ? await Verkoop.Open(geopend.Wie, Id, id) : null;
         voorbeeld = weergave is { Status: Verkoopstatus.Definitief, Ingelezen: false } ? await Opmaak.Beeld(geopend.Wie, Id, weergave.Id) : null;
         layouts = await Opmaak.Layouts(geopend.Wie, Id);
+        if (weergave is not { Status: Verkoopstatus.Definitief })
+        {
+            await LaadLayout();
+        }
         if (weergave is not null)
         {
             invoer = Formulier.Van(weergave.Invoer);
@@ -525,6 +549,34 @@
             bezig = false;
         }
     }
+
+    /// <summary>De lay-out van het voorbeeld (de gekozen, anders de standaard); het logo als losse afbeelding.</summary>
+    private async Task LaadLayout()
+    {
+        layoutVoorbeeld = await Opmaak.Layout(geopend!.Wie, Id, invoer.LayoutId);
+        logoBron = layoutVoorbeeld.Logo is { } logo ? $"data:{logo.Inhoudstype};base64,{Convert.ToBase64String(logo.Inhoud)}" : null;
+    }
+
+    /// <summary>De factuur zoals hij nu is ingevuld, in de lay-out (zonder logo: dat staat er als losse afbeelding over).</summary>
+    private string Voorbeeldpagina(Layoutgegevens layout, IReadOnlyList<BtwCode> codes)
+    {
+        var klant = Gekozen?.Gegevens ?? (weergave is { Ingelezen: true } w ? w.Factuur.Klant : new Partij("", new()));
+        var factuur = new Verkoopfactuur(invoer.Relatie, klant, weergave?.Ingelezen == true ? invoer.Factuurnummer : null, invoer.Datum, invoer.Vervaldatum,
+            invoer.Omschrijving ?? "", [.. invoer.Regels.Select(r => r.Domein()).OfType<Verkoopregel>()]);
+        try
+        {
+            voorbeeldHtml = Export.FactuurHtml.Pagina(new Export.Verkoopbeeld(factuur, verkoop!.Afzender, codes, invoer.Referentie, invoer.Tekst, Concept: true), layout.Ontwerp, null, ontwerper: false);
+        }
+        catch (ArgumentException)
+        {
+            // Halverwege het typen kan een regel nog niet kloppen: dan blijft het vorige voorbeeld staan.
+        }
+
+        return voorbeeldHtml;
+    }
+
+    private static string LogoStijl(Ontwerpblok b) =>
+        string.Create(CultureInfo.InvariantCulture, $"left:{b.X}mm;top:{b.Y}mm;width:{b.Breedte}mm;height:{b.Hoogte ?? 20m}mm;object-position:{(b.Uitlijning == Uitlijning.Rechts ? "right" : "left")} top");
 
     private async Task Origineel()
     {
