@@ -145,6 +145,19 @@ public sealed class AfletteraarTests
         Assert.Equal(("Factuurnummer", Zekerheid.Voorstel), (Assert.Single(advies.Kandidaten).Reden, advies.Kandidaten[0].Zekerheid));
     }
 
+    [Fact]
+    public void Iban_en_bedrag_met_een_ander_factuurnummer_uit_de_reeks_is_een_voorstel()
+    {
+        var post = Crediteur("BELNET", "9100234601", 99.99m);
+
+        var ander = Afletteraar.Zoek(Betaling(-99.99m, "Betaling factuur 9100234603", IbanBelnet), [post], Relaties);
+        var zonder = Afletteraar.Zoek(Betaling(-99.99m, "Abonnement september", IbanBelnet), [post], Relaties);
+
+        Assert.Null(ander.Automatisch);
+        Assert.Equal("IBAN en bedrag, maar een ander factuurnummer", Assert.Single(ander.Kandidaten).Reden);
+        Assert.Equal("IBAN en bedrag", zonder.Automatisch!.Reden);
+    }
+
     [Theory]
     [InlineData("INV-2026-0087", "inv 2026 87 installatie kantoor", true)]
     [InlineData("INV-2026-0087", "inv 2026 88", false)]

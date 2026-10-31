@@ -121,9 +121,14 @@
         await Laad();
     }
 
-    /// <summary>Naar de bron: de factuur met de boeking (verwerkscherm), of de boeking als er geen document bij hoort.</summary>
-    private void NaarBron(Openpost post) =>
-        Navigatie.NavigateTo(post.Document is { } document ? $"/a/{Id}/inkoop/{document}" : $"/a/{Id}/boeking/{Uri.EscapeDataString(post.Dagboek)}/{Uri.EscapeDataString(post.Boekstuk)}");
+    /// <summary>Naar de factuur met de boeking (of de boeking), met de pijl terug naar deze lijst op dezelfde peildatum.</summary>
+    private void NaarBron(Openpost post)
+    {
+        var terug = Uri.EscapeDataString($"/a/{Id}/crediteuren?peildatum={peildatum:yyyy-MM-dd}");
+        Navigatie.NavigateTo(post.Document is { } document
+            ? $"/a/{Id}/inkoop/{document}?terug={terug}"
+            : $"/a/{Id}/boeking/{Uri.EscapeDataString(post.Dagboek)}/{Uri.EscapeDataString(post.Boekstuk)}?terug={terug}");
+    }
 
     private async Task Pdf()
     {

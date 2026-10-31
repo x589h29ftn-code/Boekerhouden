@@ -320,6 +320,36 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
     }
 
     [Fact]
+    public async Task Een_mutatie_verdelen_over_regels_met_btw_en_een_openstaande_post()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Verdelen B.V.");
+        var bank = app.Dienst<BankDienst>();
+        await BoekBelnet(wie, id);
+        await bank.Lees(wie, id, Afschrift(belnet: "30,00"), "ing.mt940");
+        var lijst = await bank.Lijst(wie, id);
+        var jansen = lijst.Single(m => m.Bedrag == -199.65m);
+        var belnet = lijst.Single(m => m.Bedrag == -30m);
+
+        Assert.Contains("sluiten niet", (await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("4300", "I21", 150m)])).Fouten[0], StringComparison.Ordinal);
+        Assert.Contains("openstaande post", (await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("1600", null, 199.65m)])).Fouten[0], StringComparison.Ordinal);
+        var verdeeld = await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("4300", "I21", 150m, "Papier"), new Bankregelinvoer("4330", null, 49.65m, "Contributie")]);
+        Assert.True(verdeeld.IsGelukt, string.Join("; ", verdeeld.Fouten));
+
+        var post = (await bank.OpenPosten(wie, id)).Single();
+        var metPost = await bank.Verdeel(wie, id, belnet.Id, [post.Id], [new Bankregelinvoer("9000", null, 5.01m, "Verschil")]);
+        Assert.True(metPost.IsGelukt, string.Join("; ", metPost.Fouten));
+
+        Assert.Empty(await bank.OpenPosten(wie, id));
+        Assert.DoesNotContain(await bank.Lijst(wie, id), m => m.Id == jansen.Id || m.Id == belnet.Id);
+        var proef = await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026);
+        Assert.Equal((123.97m, 49.65m, 5.01m, 0m), (Saldo(proef, "4300"), Saldo(proef, "4330"), Saldo(proef, "9000"), Saldo(proef, "1600")));
+        Assert.Empty(await app.Dienst<GrootboekDienst>().ControleerKeten(wie, id));
+        var buiten = await app.Gebruiker("Buiten Verdelen");
+        await Assert.ThrowsAsync<GeenToegangException>(() => bank.Verdeel(buiten, id, jansen.Id, [], []));
+    }
+
+    [Fact]
     public async Task Opnieuw_afletteren_boekt_wat_na_het_inlezen_zeker_is_geworden()
     {
         var wie = await app.Beheerder();

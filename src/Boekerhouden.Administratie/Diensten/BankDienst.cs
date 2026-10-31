@@ -19,6 +19,9 @@ public sealed record Bankinlezing(int Afschriften, int Nieuw, int Dubbel, int Au
 /// <summary>Wat een nieuwe ronde automatisch verwerken opleverde: hoeveel er bekeken en hoeveel er geboekt zijn.</summary>
 public sealed record Herverwerking(int Bekeken, int Geboekt);
 
+/// <summary>Een deel van een bankmutatie op een grootboekrekening: het bedrag inclusief btw, zoals op het afschrift (zonder teken).</summary>
+public sealed record Bankregelinvoer(string Rekening, string? BtwCode, decimal Bedrag, string? Omschrijving = null);
+
 /// <summary>Het verschil bij afletteren op een rekening boeken in plaats van open te laten staan (bijv. betalingskorting).</summary>
 public sealed record Verschilafboeking(string Rekening, string? BtwCode, string? Omschrijving = null);
 
@@ -296,6 +299,106 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         }
 
         return uitkomst;
+    }
+
+    /// <summary>
+    /// Verdeelt een mutatie: de gekozen openstaande posten helemaal, de rest over regels op grootboekrekeningen (elk met
+    /// btw-code en omschrijving). Posten en regels samen zijn precies het bedrag van de mutatie.
+    /// </summary>
+    public async Task<Uitkomst> Verdeel(Uitvoerder wie, Guid administratie, Guid mutatie, IReadOnlyList<Guid> posten, IReadOnlyList<Bankregelinvoer> regels)
+    {
+        ArgumentNullException.ThrowIfNull(posten);
+        ArgumentNullException.ThrowIfNull(regels);
+        await using var db = await toegang.Open(wie, administratie, Recht.Invoeren);
+        if (await TeVerwerken(db, mutatie) is not { } t)
+        {
+            return Uitkomst.Mislukt("Deze mutatie bestaat niet (meer) of is al geboekt.");
+        }
+
+        var (schema, dagboeken) = await GrootboekDienst.Inrichting(db);
+        if (dagboeken.FirstOrDefault(d => d.Code == t.Dagboek) is not { } dagboek)
+        {
+            return Uitkomst.Mislukt($"Dagboek {t.Dagboek} bestaat niet meer.");
+        }
+
+        var codes = (await BtwDienst.Lees(db)).Op(t.Datum);
+        var fouten = new List<string>();
+        var verdeling = new List<(decimal, Afboeking)>();
+        foreach (var r in regels.Where(r => r.Bedrag != 0 || !string.IsNullOrWhiteSpace(r.Rekening)))
+        {
+            if (schema.Zoek(r.Rekening?.Trim()) is not { } rekening)
+            {
+                fouten.Add(string.IsNullOrWhiteSpace(r.Rekening) ? "Kies bij elke regel een rekening." : $"Rekening {r.Rekening} bestaat niet.");
+                continue;
+            }
+
+            if (rekening.Functie is Rekeningfunctie.Bank or Rekeningfunctie.Debiteuren or Rekeningfunctie.Crediteuren)
+            {
+                fouten.Add($"Op {rekening.Nummer} boek je niet met een regel: kies daarvoor de openstaande post.");
+                continue;
+            }
+
+            var btw = Boekhouding.Btw.BtwCodes.Zoek(codes, r.BtwCode);
+            if (!string.IsNullOrWhiteSpace(r.BtwCode) && btw is null)
+            {
+                fouten.Add($"Btw-code {r.BtwCode} bestaat niet.");
+                continue;
+            }
+
+            verdeling.Add((Math.Sign(t.Bedrag) * r.Bedrag, new Afboeking(rekening.Nummer, btw, string.IsNullOrWhiteSpace(r.Omschrijving) ? null : Kort(r.Omschrijving.Trim(), 200))));
+        }
+
+        var ids = posten.Distinct().ToList();
+        var open = await db.OpenstaandePosten.Where(p => ids.Contains(p.Id)).ToListAsync();
+        if (open.Count != ids.Count || open.Any(p => p.Openstaand == 0))
+        {
+            fouten.Add("Een van de openstaande posten is intussen betaald.");
+        }
+
+        if (verdeling.Count == 0 && open.Count == 0)
+        {
+            fouten.Add("Kies een openstaande post of vul een regel in.");
+        }
+
+        if (fouten.Count == 0 && open.Sum(p => p.Openstaand) + verdeling.Sum(v => v.Item1) is var totaal && totaal != t.Bedrag)
+        {
+            fouten.Add($"De posten en regels ({Domain.Bedragen.Getal(Math.Abs(totaal))}) sluiten niet op de mutatie ({Domain.Bedragen.Getal(Math.Abs(t.Bedrag))}).");
+        }
+
+        if (fouten.Count > 0)
+        {
+            return Uitkomst.Mislukt([.. fouten.Distinct()]);
+        }
+
+        await using var transactie = await db.Database.BeginTransactionAsync();
+        await db.Vergrendel(administratie);
+        var boekstuk = await GrootboekDienst.VolgendBoekstuk(db, dagboek.Code, t.Datum.Year);
+        var (post, bijgewerkt) = Bankboeker.Verdeeld(t.NaarDomein(), [.. open.Select(p => p.NaarDomein())], verdeling, dagboek, boekstuk, schema);
+        if (Journaalcontrole.Controleer(post, schema, dagboeken) is { Count: > 0 } controle)
+        {
+            return Uitkomst.Mislukt([.. controle]);
+        }
+
+        var boeking = await grootboek.VoegToeAanKeten(db, administratie, post, wie);
+        foreach (var p in bijgewerkt)
+        {
+            open.Single(o => o.Id == p.Id).Openstaand = p.Openstaand;
+        }
+
+        t.Status = Banktransactiestatus.Geboekt;
+        t.BoekingId = boeking.Id;
+        t.Melding = null;
+        db.Banktransacties.Update(t);
+        await db.SaveChangesAsync();
+        await transactie.CommitAsync();
+        await audit.Log(wie, AuditActies.Geboekt, $"{dagboek.Code} {boekstuk}",
+            $"{t.Bedrag:0.00} verdeeld: {string.Join(", ", open.Select(p => $"{p.Relatie} {p.Factuurnummer}").Concat(verdeling.Select(v => $"{v.Item2.Rekeningnummer} {v.Item1:0.00}")))}", administratie);
+        if (open.Count > 0)
+        {
+            await LeerIban(db, administratie, t, ids, wie);
+        }
+
+        return Uitkomst.Gelukt;
     }
 
     /// <summary>Boekt een mutatie op een grootboekrekening (met btw-code), en onthoudt de keuze.</summary>

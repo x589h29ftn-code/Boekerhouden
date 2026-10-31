@@ -8,7 +8,7 @@
 @inject IJSRuntime JS
 @inject IServiceProvider Diensten
 
-<AdministratieKader Id="Id" Titel="Factuur verwerken" Actief="/inkoop" BijOpenen="Open">
+<AdministratieKader Id="Id" Titel="Factuur verwerken" Actief="/inkoop" BijOpenen="Open" Terug="@Terug">
     <Acties>
         @if (werkvoorraad is { Count: > 0 } && Positie is { } positie)
         {
@@ -478,6 +478,10 @@
     public Guid DocumentId { get; set; }
 
     /// <summary>Vanuit de boeking op Aanpassen geklikt: meteen het formulier om aan te passen.</summary>
+    /// <summary>De lijst waar de gebruiker vandaan kwam (bijv. openstaande crediteuren): de pijl linksboven.</summary>
+    [SupplyParameterFromQuery(Name = "terug")]
+    public string? Terug { get; set; }
+
     [SupplyParameterFromQuery(Name = "aanpassen")]
     public bool AanpassenGevraagd { get; set; }
 

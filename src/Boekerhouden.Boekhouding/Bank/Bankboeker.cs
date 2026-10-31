@@ -75,6 +75,41 @@ public static class Bankboeker
         return (new Journaalpost(dagboek!.Code, boekstuk, mutatie.Datum, Omschrijving(mutatie), regels), bijgewerkt);
     }
 
+    /// <summary>
+    /// Een mutatie verdeeld: de gekozen openstaande posten helemaal, en de rest over regels op grootboekrekeningen
+    /// (elk met een eigen bedrag, btw-code en omschrijving). Posten en regels samen moeten precies de mutatie zijn.
+    /// </summary>
+    /// <param name="regels">Per regel het deel van de mutatie, met hetzelfde teken als de mutatie (een betaling negatief).</param>
+    public static (Journaalpost Post, IReadOnlyList<OpenPost> Bijgewerkt) Verdeeld(
+        Bankmutatie mutatie, IReadOnlyList<OpenPost> posten, IReadOnlyList<(decimal Bedrag, Afboeking Rekening)> regels, Dagboek dagboek, string boekstuk, Rekeningschema schema)
+    {
+        ArgumentNullException.ThrowIfNull(mutatie);
+        ArgumentNullException.ThrowIfNull(posten);
+        ArgumentNullException.ThrowIfNull(regels);
+        ArgumentNullException.ThrowIfNull(schema);
+        var totaal = posten.Sum(p => p.Openstaand) + regels.Sum(r => r.Bedrag);
+        if (totaal != mutatie.Bedrag)
+        {
+            throw new InvalidOperationException($"Posten en regels ({totaal:0.00}) sluiten niet op de mutatie ({mutatie.Bedrag:0.00}).");
+        }
+
+        var journaal = new List<Journaalregel> { new(BankRekening(dagboek), mutatie.Bedrag, mutatie.Omschrijving) };
+        var bijgewerkt = new List<OpenPost>();
+        foreach (var post in posten.OrderBy(p => p.Datum))
+        {
+            var rekening = schema.Enige(post.Soort == Factuursoort.Verkoop ? Rekeningfunctie.Debiteuren : Rekeningfunctie.Crediteuren).Nummer;
+            journaal.Add(new Journaalregel(rekening, -post.Openstaand, $"Betaling {post.Factuurnummer}", null, post.Relatie, post.Factuurnummer));
+            bijgewerkt.Add(post with { Openstaand = 0m });
+        }
+
+        foreach (var (bedrag, rekening) in regels.Where(r => r.Bedrag != 0))
+        {
+            journaal.AddRange(Verschilregels(-bedrag, rekening with { Omschrijving = rekening.Omschrijving ?? Omschrijving(mutatie) }, schema, mutatie.TegenNaam ?? ""));
+        }
+
+        return (new Journaalpost(dagboek!.Code, boekstuk, mutatie.Datum, Omschrijving(mutatie), journaal), bijgewerkt);
+    }
+
     /// <summary>Het verschil (zoals het journaal het nodig heeft) op de rekening, met de btw eruit als er een btw-code is.</summary>
     private static IEnumerable<Journaalregel> Verschilregels(decimal bedrag, Afboeking afboeking, Rekeningschema schema, string relatie)
     {

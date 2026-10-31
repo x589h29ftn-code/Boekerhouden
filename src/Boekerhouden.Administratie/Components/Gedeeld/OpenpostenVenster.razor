@@ -48,16 +48,16 @@
                 <span>Gekozen <strong><Euro Waarde="Totaal" /></strong></span>
                 <span>Mutatie <strong><Euro Waarde="Verwerking.Mutatie.Bedrag" /></strong></span>
                 <span class="@(Verschil != 0 && gekozen.Count > 0 ? "status let-op" : "text-secondary")" title="Het verschil blijft openstaan op de laatste post, tenzij je het afboekt.">Verschil <Euro Waarde="Verschil" /></span>
-                @if (Verschil != 0 && gekozen.Count > 0)
+                @if (!Kiezen && Verschil != 0 && gekozen.Count > 0)
                 {
                     <label class="form-check form-switch mb-0">
                         <input class="form-check-input" type="checkbox" @bind="afboeken" />
                         <span class="form-check-label">verschil afboeken</span>
                     </label>
                 }
-                <button class="btn btn-sm btn-primary ms-auto" disabled="@(gekozen.Count == 0 || bezig)" @onclick="Bevestig">Afletteren</button>
+                <button class="btn btn-sm btn-primary ms-auto" disabled="@((gekozen.Count == 0 && !Kiezen) || bezig)" @onclick="Bevestig">@(Kiezen ? "Kiezen" : "Afletteren")</button>
             </div>
-            @if (afboeken && Verschil != 0 && gekozen.Count > 0)
+            @if (!Kiezen && afboeken && Verschil != 0 && gekozen.Count > 0)
             {
                 <div class="row g-2 align-items-end mt-1 verschil-afboeken">
                     <div class="col-md-4">
@@ -96,6 +96,10 @@
 
     [Parameter, EditorRequired]
     public Bankverwerking Verwerking { get; set; } = default!;
+
+    /// <summary>Alleen kiezen (voor het verwerkpaneel, waar je de rest over regels verdeelt); niet zelf afletteren.</summary>
+    [Parameter]
+    public bool Kiezen { get; set; }
 
     [Parameter]
     public Geopend? Kader { get; set; }
@@ -186,7 +190,7 @@
     private async Task Bevestig()
     {
         bezig = true;
-        var verschil = afboeken && Verschil != 0 ? new Verschilafboeking(rekening ?? "", btwCode, omschrijving) : null;
+        var verschil = !Kiezen && afboeken && Verschil != 0 ? new Verschilafboeking(rekening ?? "", btwCode, omschrijving) : null;
         await Afletteren.InvokeAsync(([.. gekozen], verschil));
         bezig = false;
     }

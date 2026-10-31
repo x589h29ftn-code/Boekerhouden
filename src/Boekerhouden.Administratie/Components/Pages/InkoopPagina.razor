@@ -3,59 +3,62 @@
 @inject InkoopDienst Inkoop
 
 <AdministratieKader Id="Id" Titel="Inkoop" Actief="/inkoop" BijOpenen="Open">
-    @if (context.Mag(Recht.Invoeren))
-    {
-        <div class="mb-4 inlezen">
-            <Sleepvlak Id="bestanden" Tekst="Facturen hierheen slepen of kiezen" Soorten="PDF, e-factuur (UBL) of foto" Accept=".pdf,.xml,.jpg,.jpeg,.png,application/pdf,application/xml,text/xml,image/jpeg,image/png" OnChange="LeesIn" Bezig="bezig" />
-            @foreach (var u in uitkomsten)
+    <div class="row g-4">
+        <div class="@(context.Mag(Recht.Invoeren) ? "col-lg-8" : "col-12")">
+            <div class="d-flex align-items-center gap-3 mb-2">
+                <h2 class="h6 text-secondary mb-0">Te verwerken</h2>
+                @if (stand is { } st)
+                {
+                    <span class="small text-secondary">Bezig: @st.Gedaan van @st.Totaal</span>
+                }
+                else if (opnieuw is { } o)
+                {
+                    <span class="small text-secondary">@Samenvatting(o)</span>
+                }
+                @if (context.Mag(Recht.Invoeren) && teVerwerken is { Count: > 0 })
+                {
+                    <button class="btn btn-sm btn-outline-secondary ms-auto" disabled="@bezig" title="Opnieuw door de facturen in Te verwerken, met wat het pakket nu weet (relaties, regels, wat er geleerd is)" @onclick="VerwerkOpnieuw">Opnieuw herkennen</button>
+                }
+            </div>
+            @if (teVerwerken is { Count: 0 })
             {
-                <div class="small mt-1 @(u.Status == Documentstatus.Quarantaine || u.DocumentId is null ? "status let-op" : null)">@u.Melding</div>
+                <div class="card card-body text-center text-secondary py-4 mb-4">Niets te verwerken.</div>
+            }
+            else if (teVerwerken is not null)
+            {
+                <div class="card mb-4">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead>
+                            <tr><th>Leverancier</th><th>Factuurnummer</th><th>Factuurdatum</th><th class="text-end">Bedrag</th><th>Waarom</th><th>Ingelezen</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var d in teVerwerken)
+                            {
+                                <tr>
+                                    <td><a href="/a/@Id/inkoop/@d.Id">@(d.Leverancier ?? d.Bestandsnaam)</a></td>
+                                    <td>@d.Factuurnummer</td>
+                                    <td class="text-nowrap">@(d.Factuurdatum is { } fd ? Weergave.Datum(fd) : null)</td>
+                                    <td class="bedrag text-end"><Euro Waarde="d.Totaal" /></td>
+                                    <td class="small text-secondary">@d.Melding</td>
+                                    <td class="small text-secondary text-nowrap" title="@d.IngelezenDoor">@Weergave.DatumTijd(d.IngelezenOp)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
             }
         </div>
-    }
-
-    <div class="d-flex align-items-center gap-3 mb-2">
-        <h2 class="h6 text-secondary mb-0">Te verwerken</h2>
-        @if (stand is { } st)
+        @if (context.Mag(Recht.Invoeren))
         {
-            <span class="small text-secondary">Bezig: @st.Gedaan van @st.Totaal</span>
-        }
-        else if (opnieuw is { } o)
-        {
-            <span class="small text-secondary">@Samenvatting(o)</span>
-        }
-        @if (context.Mag(Recht.Invoeren) && teVerwerken is { Count: > 0 })
-        {
-            <button class="btn btn-sm btn-outline-secondary ms-auto" disabled="@bezig" title="Opnieuw door de facturen in Te verwerken, met wat het pakket nu weet (relaties, regels, wat er geleerd is)" @onclick="VerwerkOpnieuw">Opnieuw herkennen</button>
+            <div class="col-lg-4 inlezen">
+                <Sleepvlak Id="bestanden" Tekst="Facturen hierheen slepen of kiezen" Soorten="PDF, e-factuur (UBL) of foto" Accept=".pdf,.xml,.jpg,.jpeg,.png,application/pdf,application/xml,text/xml,image/jpeg,image/png" OnChange="LeesIn" Bezig="bezig" />
+                @foreach (var u in uitkomsten.Where(u => u.Status == Documentstatus.Quarantaine || u.DocumentId is null))
+                {
+                    <div class="small mt-1 status let-op">@u.Melding</div>
+                }
+            </div>
         }
     </div>
-    @if (teVerwerken is { Count: 0 })
-    {
-        <div class="card card-body text-center text-secondary py-4 mb-4">Niets te verwerken.</div>
-    }
-    else if (teVerwerken is not null)
-    {
-        <div class="card mb-4">
-            <table class="table table-sm table-hover align-middle mb-0">
-                <thead>
-                    <tr><th>Leverancier</th><th>Factuurnummer</th><th>Factuurdatum</th><th class="text-end">Bedrag</th><th>Waarom</th><th>Ingelezen</th></tr>
-                </thead>
-                <tbody>
-                    @foreach (var d in teVerwerken)
-                    {
-                        <tr>
-                            <td><a href="/a/@Id/inkoop/@d.Id">@(d.Leverancier ?? d.Bestandsnaam)</a></td>
-                            <td>@d.Factuurnummer</td>
-                            <td class="text-nowrap">@(d.Factuurdatum is { } fd ? Weergave.Datum(fd) : null)</td>
-                            <td class="bedrag text-end"><Euro Waarde="d.Totaal" /></td>
-                            <td class="small text-secondary">@d.Melding</td>
-                            <td class="small text-secondary text-nowrap" title="@d.IngelezenDoor">@Weergave.DatumTijd(d.IngelezenOp)</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    }
 
 </AdministratieKader>
 

@@ -146,12 +146,15 @@ public static partial class Afletteraar
             Voegtoe([post], Zekerheid.Voorstel, "Factuur is al betaald: dubbele betaling?");
         }
 
-        // 3. IBAN en bedrag.
+        // 3. IBAN en bedrag; noemt de mutatie een ander nummer in dezelfde reeks ("9100234603" bij post 9100234601), dan
+        // is het waarschijnlijk een andere factuur: alleen een voorstel.
         var vanRelatie = posten.Where(p => viaIban.Contains(p.Relatie)).ToList();
         var gelijk = vanRelatie.Where(p => p.Openstaand == mutatie.Bedrag).ToList();
         foreach (var post in gelijk)
         {
-            Voegtoe([post], gelijk.Count == 1 ? Zekerheid.Zeker : Zekerheid.Voorstel, gelijk.Count == 1 ? "IBAN en bedrag" : "IBAN en bedrag, meerdere facturen");
+            var ander = Factuurnummers.AnderNummerUitReeks(post.Factuurnummer, tekst);
+            Voegtoe([post], gelijk.Count == 1 && !ander ? Zekerheid.Zeker : Zekerheid.Voorstel,
+                ander ? "IBAN en bedrag, maar een ander factuurnummer" : gelijk.Count == 1 ? "IBAN en bedrag" : "IBAN en bedrag, meerdere facturen");
         }
 
         // 4. Verzamelbetaling: de som van enkele posten van de relatie (ook met een creditnota).

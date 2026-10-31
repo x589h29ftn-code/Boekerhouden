@@ -69,6 +69,24 @@ public static partial class Factuurnummers
         return laatste is { Length: >= 3 } && Delen(tekst).Contains(laatste);
     }
 
+    /// <summary>
+    /// Noemt de tekst een ander nummer uit dezelfde reeks als het factuurnummer: even lang (zonder leestekens), met
+    /// dezelfde eerste vier tekens, maar niet gelijk ("9100234603" naast factuur 9100234601, "GB-2026-1105" naast
+    /// GB-2026-1104)?
+    /// </summary>
+    public static bool AnderNummerUitReeks(string? factuurnummer, string? tekst)
+    {
+        if (string.IsNullOrWhiteSpace(factuurnummer) || string.IsNullOrWhiteSpace(tekst) || KomtVoor(factuurnummer, tekst))
+        {
+            return false;
+        }
+
+        var nummer = Normaliseer(factuurnummer);
+        return nummer.Length >= 6 && nummer.Any(char.IsDigit)
+               && tekst.Split(Scheidingen, StringSplitOptions.RemoveEmptyEntries).Select(Normaliseer)
+                   .Any(w => w.Length == nummer.Length && w != nummer && w.AsSpan(0, 4).SequenceEqual(nummer.AsSpan(0, 4)));
+    }
+
     /// <summary>De letter- en cijfergroepen, zonder voorloopnullen ("INV-2026-0087" → INV, 2026, 87).</summary>
     private static List<string> Delen(string tekst) =>
         [.. GroepPatroon().Matches(tekst.ToUpperInvariant()).Select(m => IsGetal(m.Value) ? m.Value.TrimStart('0') is { Length: > 0 } g ? g : "0" : m.Value)];

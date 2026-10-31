@@ -2,7 +2,7 @@
 @using Boekerhouden.Boekhouding.Grootboek
 @inject GrootboekDienst Grootboek
 
-<AdministratieKader Id="Id" Titel="Boeking" Actief="/journaal" BijOpenen="Open">
+<AdministratieKader Id="Id" Titel="Boeking" Actief="/journaal" BijOpenen="Open" Terug="@Terug">
     <Acties>
         @if (detail?.Document is { } document)
         {
@@ -147,6 +147,10 @@
 
     [Parameter]
     public string Boekstuk { get; set; } = "";
+
+    /// <summary>De lijst waar de gebruiker vandaan kwam (bijv. openstaande crediteuren): de pijl linksboven.</summary>
+    [SupplyParameterFromQuery(Name = "terug")]
+    public string? Terug { get; set; }
 
     private async Task Open(Geopend g)
     {

@@ -42,6 +42,10 @@ else
         </nav>
         <div class="administratie-inhoud">
             <div class="d-flex align-items-center flex-wrap gap-3 mb-3">
+                @if (TerugAdres is { } terug)
+                {
+                    <a class="terug" href="@terug" title="Terug" aria-label="Terug">&larr;</a>
+                }
                 <h1 class="h3 mb-0 me-auto">@Titel</h1>
                 @Acties
             </div>
@@ -103,6 +107,12 @@ else
 
     [Parameter]
     public RenderFragment? Acties { get; set; }
+
+    /// <summary>Waar de pijl linksboven naartoe gaat (bijv. terug naar de lijst waaruit je kwam); alleen binnen deze administratie.</summary>
+    [Parameter]
+    public string? Terug { get; set; }
+
+    private string? TerugAdres => Terug is { } t && t.StartsWith($"/a/{Id}/", StringComparison.OrdinalIgnoreCase) && !t.Contains("//", StringComparison.Ordinal) ? t : null;
 
     [Parameter, EditorRequired]
     public RenderFragment<AdministratieKop> ChildContent { get; set; } = default!;
