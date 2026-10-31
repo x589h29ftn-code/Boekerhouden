@@ -15,17 +15,27 @@ public enum Zekerheid
 
 /// <summary>Een of meer openstaande posten die bij een bankmutatie kunnen horen.</summary>
 /// <param name="Verschil">Wat er na afletteren openstaat (de som van de posten min de mutatie); 0 = precies betaald.</param>
-public sealed record Afletterkandidaat(IReadOnlyList<OpenPost> Posten, Zekerheid Zekerheid, string Reden, decimal Verschil);
+public sealed record Afletterkandidaat(IReadOnlyList<OpenPost> Posten, Zekerheid Zekerheid, string Reden, decimal Verschil)
+{
+    /// <summary>Eén post waarvan na afletteren nog een deel openstaat (niet te veel betaald).</summary>
+    public bool IsDeelbetaling => Posten is [var post] && Verschil != 0 && Math.Sign(Verschil) == Math.Sign(post.Openstaand);
+
+    /// <summary>De post was al helemaal betaald: deze betaling is er waarschijnlijk een te veel.</summary>
+    public bool IsAlBetaald => Posten is [{ IsBetaald: true }];
+}
 
 /// <summary>De kandidaten bij één bankmutatie, de sterkste eerst.</summary>
 public sealed record Afletteradvies(Bankmutatie Mutatie, IReadOnlyList<Afletterkandidaat> Kandidaten)
 {
     /// <summary>
     /// De kandidaat die automatisch geboekt mag worden: de enige zekere, en dan alleen als hij de mutatie precies
-    /// dekt. Twee zekere kandidaten die elkaar tegenspreken, geven geen automatische boeking.
+    /// dekt of een deelbetaling is. Twee zekere kandidaten die elkaar tegenspreken, geven geen automatische boeking;
+    /// noemt de mutatie een factuur die al betaald is, dan ook niet (mogelijk een dubbele betaling).
     /// </summary>
     public Afletterkandidaat? Automatisch =>
-        Kandidaten.Where(k => k.Zekerheid == Zekerheid.Zeker).ToList() is [{ Verschil: 0 } enige] ? enige : null;
+        !Kandidaten.Any(k => k.IsAlBetaald) && Kandidaten.Where(k => k.Zekerheid == Zekerheid.Zeker).ToList() is [var enige] && (enige.Verschil == 0 || enige.IsDeelbetaling)
+            ? enige
+            : null;
 }
 
 /// <summary>
@@ -39,6 +49,9 @@ public sealed record Afletteradvies(Bankmutatie Mutatie, IReadOnlyList<Afletterk
 /// <item>naam van de tegenpartij en hetzelfde bedrag;</item>
 /// <item>alleen hetzelfde bedrag, als dat maar bij één post voorkomt.</item>
 /// </list>
+/// Een deelbetaling met het factuurnummer of betalingskenmerk én het IBAN van de leverancier is ook zeker: het
+/// restant blijft openstaan. Een betaling met het nummer of kenmerk van een factuur die al betaald is, wordt nooit
+/// automatisch geboekt: die staat als mogelijke dubbele betaling bij de mutatie.
 /// </summary>
 public static class Afletteraar
 {
@@ -55,7 +68,8 @@ public static class Afletteraar
             return new Afletteradvies(mutatie, []);
         }
 
-        var posten = openPosten
+        var alle = openPosten.ToList();
+        var posten = alle
             .Where(p => !p.IsBetaald && Math.Sign(p.Openstaand) == Math.Sign(mutatie.Bedrag))
             .OrderBy(p => p.Datum).ThenBy(p => p.Factuurnummer, StringComparer.Ordinal)
             .ToList();
@@ -79,18 +93,31 @@ public static class Afletteraar
         // Een post van een andere relatie dan die bij het IBAN hoort, is nooit zeker.
         bool Past(OpenPost p) => viaIban.Count == 0 || viaIban.Contains(p.Relatie);
 
+        // Minder dan wat openstaat, met het IBAN van de leverancier: een deelbetaling.
+        bool Deel(OpenPost p) => viaIban.Contains(p.Relatie) && Math.Abs(mutatie.Bedrag) < Math.Abs(p.Openstaand);
+
         // 1. Betalingskenmerk.
         foreach (var post in posten.Where(p => kenmerk.Length > 0 && Cijfers(p.Betalingskenmerk) == kenmerk))
         {
-            var zeker = post.Openstaand == mutatie.Bedrag && Past(post);
-            Voegtoe([post], zeker ? Zekerheid.Zeker : Zekerheid.Voorstel, zeker ? "Betalingskenmerk" : "Betalingskenmerk, ander bedrag");
+            var zeker = (post.Openstaand == mutatie.Bedrag && Past(post)) || Deel(post);
+            Voegtoe([post], zeker ? Zekerheid.Zeker : Zekerheid.Voorstel,
+                post.Openstaand == mutatie.Bedrag ? "Betalingskenmerk" : Deel(post) ? "Betalingskenmerk, deelbetaling" : "Betalingskenmerk, ander bedrag");
         }
 
         // 2. Factuurnummer in de omschrijving.
         foreach (var post in posten.Where(p => Factuurnummers.KomtVoor(p.Factuurnummer, tekst)))
         {
-            var zeker = post.Openstaand == mutatie.Bedrag && Past(post);
-            Voegtoe([post], zeker ? Zekerheid.Zeker : Zekerheid.Voorstel, post.Openstaand == mutatie.Bedrag ? "Factuurnummer" : "Factuurnummer, ander bedrag");
+            var zeker = (post.Openstaand == mutatie.Bedrag && Past(post)) || Deel(post);
+            Voegtoe([post], zeker ? Zekerheid.Zeker : Zekerheid.Voorstel,
+                post.Openstaand == mutatie.Bedrag ? "Factuurnummer" : Deel(post) ? "Factuurnummer, deelbetaling" : "Factuurnummer, ander bedrag");
+        }
+
+        // 2b. Het nummer of kenmerk van een factuur die al betaald is (of waarop al te veel betaald is): een dubbele
+        // betaling. Alleen een voorstel; afletteren zet het bedrag als te vorderen op die factuur.
+        foreach (var post in alle.Where(p => Past(p) && Math.Sign(p.Bedrag) == Math.Sign(mutatie.Bedrag) && Math.Sign(p.Openstaand) != Math.Sign(mutatie.Bedrag)
+                     && ((kenmerk.Length > 0 && Cijfers(p.Betalingskenmerk) == kenmerk) || Factuurnummers.KomtVoor(p.Factuurnummer, tekst))))
+        {
+            Voegtoe([post], Zekerheid.Voorstel, "Factuur is al betaald: dubbele betaling?");
         }
 
         // 3. IBAN en bedrag.

@@ -9,7 +9,8 @@ public static class Bankboeker
 {
     /// <summary>
     /// Lettert een mutatie af op openstaande posten, de oudste eerst. Elke post wordt zo ver mogelijk betaald; wat
-    /// overblijft (bijv. te veel betaald) gaat naar de vraagposten. Geeft ook de bijgewerkte openstaande posten.
+    /// overblijft (te veel betaald, of een dubbele betaling van een factuur die al betaald was) blijft op de laatste
+    /// post staan als te vorderen. Geeft ook de bijgewerkte openstaande posten.
     /// </summary>
     public static (Journaalpost Post, IReadOnlyList<OpenPost> Bijgewerkt) Afletteren(
         Bankmutatie mutatie, IReadOnlyList<OpenPost> posten, Dagboek dagboek, string boekstuk, Rekeningschema schema)
@@ -20,21 +21,30 @@ public static class Bankboeker
         var regels = new List<Journaalregel> { new(BankRekening(dagboek), mutatie.Bedrag, mutatie.Omschrijving) };
         var bijgewerkt = new List<OpenPost>();
         var rest = mutatie.Bedrag;
+        string Tegenrekening(OpenPost post) => schema.Enige(post.Soort == Factuursoort.Verkoop ? Rekeningfunctie.Debiteuren : Rekeningfunctie.Crediteuren).Nummer;
         foreach (var post in posten.OrderBy(p => p.Datum))
         {
             if (rest == 0 || Math.Sign(post.Openstaand) != Math.Sign(rest))
             {
-                break;
+                continue;
             }
 
             var deel = Math.Abs(post.Openstaand) <= Math.Abs(rest) ? post.Openstaand : rest;
-            var tegenrekening = schema.Enige(post.Soort == Factuursoort.Verkoop ? Rekeningfunctie.Debiteuren : Rekeningfunctie.Crediteuren);
-            regels.Add(new Journaalregel(tegenrekening.Nummer, -deel, $"Betaling {post.Factuurnummer}", null, post.Relatie, post.Factuurnummer));
+            regels.Add(new Journaalregel(Tegenrekening(post), -deel, $"Betaling {post.Factuurnummer}", null, post.Relatie, post.Factuurnummer));
             bijgewerkt.Add(post with { Openstaand = post.Openstaand - deel });
             rest -= deel;
         }
 
-        if (rest != 0)
+        // Te veel betaald (of een factuur die al betaald was): het verschil blijft op de laatste factuur staan, als te
+        // vorderen van (of terug te betalen aan) de relatie. Zonder factuur naar de vraagposten.
+        if (rest != 0 && posten.OrderBy(p => p.Datum).LastOrDefault() is { } laatste)
+        {
+            var huidig = bijgewerkt.FirstOrDefault(p => p.Id == laatste.Id) ?? laatste;
+            regels.Add(new Journaalregel(Tegenrekening(laatste), -rest, $"Te veel betaald {laatste.Factuurnummer}", null, laatste.Relatie, laatste.Factuurnummer));
+            bijgewerkt.RemoveAll(p => p.Id == laatste.Id);
+            bijgewerkt.Add(huidig with { Openstaand = huidig.Openstaand - rest });
+        }
+        else if (rest != 0)
         {
             regels.Add(new Journaalregel(schema.Enige(Rekeningfunctie.Vraagposten).Nummer, -rest, "Niet afgeletterd deel"));
         }

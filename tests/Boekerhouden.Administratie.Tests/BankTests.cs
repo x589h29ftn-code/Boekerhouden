@@ -157,10 +157,11 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
 
         Assert.True(uitkomst.IsGelukt, string.Join("; ", uitkomst.Fouten));
         await using var db = await app.Dienst<Toegang>().Open(wie, id, Recht.Lezen);
-        Assert.Equal(0m, (await db.OpenstaandePosten.SingleAsync()).Openstaand);
+        // Een cent te veel betaald: te vorderen op de factuur, niet naar de vraagposten.
+        Assert.Equal(0.01m, (await db.OpenstaandePosten.SingleAsync()).Openstaand);
         Assert.Equal(["NL63TRIO0212345678"], (await db.Relaties.SingleAsync()).Ibans);
         var proef = await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026);
-        Assert.Equal((0m, 0.01m), (Saldo(proef, "1600"), Saldo(proef, "2000")));
+        Assert.Equal((0.01m, 0m), (Saldo(proef, "1600"), Saldo(proef, "2000")));
         Assert.False((await bank.Afletteren(wie, id, mutatie.Id, [kandidaat.Posten[0].Id])).IsGelukt);
     }
 
@@ -247,20 +248,19 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
     }
 
     [Fact]
-    public async Task Openstaande_posten_op_vervaldatum_met_deelbetalingen_en_vraagposten()
+    public async Task Een_deelbetaling_met_factuurnummer_en_iban_lettert_automatisch_af()
     {
         var wie = await app.Beheerder();
         var id = await app.Administratie();
         var bank = app.Dienst<BankDienst>();
         await BoekBelnet(wie, id);
-        await bank.Lees(wie, id, Afschrift(belnet: "20,00"), "ing.mt940");
-        var deel = (await bank.Lijst(wie, id)).Single(m => m.Bedrag == -20m);
+        var open = (await bank.OpenPosten(wie, id)).Single();
+        Assert.Equal(("Belnet B.V.", -24.99m, false), (open.Naam, open.Openstaand, open.Deels));
+
+        Assert.Equal(1, (await bank.Lees(wie, id, Afschrift(belnet: "20,00"), "ing.mt940")).Waarde!.Automatisch);
+
+        Assert.DoesNotContain(await bank.Lijst(wie, id), m => m.Bedrag == -20m);
         var post = (await bank.OpenPosten(wie, id)).Single();
-        Assert.Equal(("Belnet B.V.", -24.99m, false), (post.Naam, post.Openstaand, post.Deels));
-
-        Assert.True((await bank.Afletteren(wie, id, deel.Id, [post.Id])).IsGelukt);
-
-        post = (await bank.OpenPosten(wie, id)).Single();
         Assert.Equal((-4.99m, true, new DateOnly(2026, 3, 15)), (post.Openstaand, post.Deels, post.Vervaldatum));
         Assert.Equal(("2000", 0m), await bank.Vraagposten(wie, id));
         var buiten = await app.Gebruiker("Buiten");
@@ -277,8 +277,6 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
         var bank = app.Dienst<BankDienst>();
         await BoekBelnet(wie, id);
         await bank.Lees(wie, id, Afschrift(belnet: "20,00"), "ing.mt940");
-        var deel = (await bank.Lijst(wie, id)).Single(m => m.Bedrag == -20m);
-        Assert.True((await bank.Afletteren(wie, id, deel.Id, [(await bank.OpenPosten(wie, id)).Single().Id])).IsGelukt);
         var openposten = app.Dienst<OpenpostenDienst>();
 
         var voor = await openposten.Crediteuren(wie, id, new(2026, 3, 1));
@@ -303,7 +301,7 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
     }
 
     [Fact]
-    public async Task Te_veel_betaald_via_de_bank_gaat_naar_vraagposten_en_de_factuur_is_niet_meer_open()
+    public async Task Te_veel_betaald_via_de_bank_blijft_als_te_vorderen_op_de_factuur()
     {
         var wie = await app.Beheerder();
         var id = await app.Administratie("Overbetaling B.V.");
@@ -314,8 +312,10 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
 
         Assert.True((await bank.Afletteren(wie, id, mutatie.Id, [(await bank.OpenPosten(wie, id)).Single().Id])).IsGelukt);
 
-        Assert.Empty((await app.Dienst<OpenpostenDienst>().Crediteuren(wie, id, new(2026, 3, 31))).Relaties);
-        Assert.Equal(("2000", 5.01m), await bank.Vraagposten(wie, id));
+        var post = Assert.Single(Assert.Single((await app.Dienst<OpenpostenDienst>().Crediteuren(wie, id, new(2026, 3, 31))).Relaties).Posten);
+        Assert.Equal((24.99m, 30m, -5.01m), (post.Factuurbedrag, post.Betaald, post.Openstaand));
+        Assert.Equal(5.01m, (await bank.OpenPosten(wie, id)).Single().Openstaand);
+        Assert.Equal(("2000", 0m), await bank.Vraagposten(wie, id));
         Assert.Equal(24.99m, (await app.Dienst<OpenpostenDienst>().Crediteuren(wie, id, new(2026, 3, 1))).Openstaand);
     }
 

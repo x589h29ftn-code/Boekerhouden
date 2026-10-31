@@ -390,7 +390,10 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         await db.Vergrendel(administratie);
         var ids = postIds.Distinct().ToList();
         var posten = await db.OpenstaandePosten.Where(p => ids.Contains(p.Id)).ToListAsync();
-        if (posten.Count != ids.Count || posten.Any(p => p.Openstaand == 0 || Math.Sign(p.Openstaand) != Math.Sign(t.Bedrag)))
+        // Een post die al betaald is, mag alleen als enige en in dezelfde richting als de factuur: een dubbele betaling
+        // (te vorderen op die factuur).
+        bool Open(OpenstaandePost p) => p.Openstaand != 0 && Math.Sign(p.Openstaand) == Math.Sign(t.Bedrag);
+        if (posten.Count != ids.Count || !(posten.All(Open) || (posten is [var enige] && Math.Sign(enige.Bedrag) == Math.Sign(t.Bedrag))))
         {
             return Uitkomst.Mislukt("Een van de openstaande posten is intussen betaald of past niet bij deze mutatie.");
         }
@@ -606,7 +609,10 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             geheugen.Onthoud(keuze.Sleutel, keuze.NaarDomein());
         }
 
-        var posten = (await db.OpenstaandePosten.AsNoTracking().Where(p => p.Openstaand != 0).ToListAsync()).Select(p => p.NaarDomein()).ToList();
+        // Ook de betaalde posten van het jaar voor de oudste mutatie die nog te verwerken is: een betaling met hun
+        // nummer is mogelijk een dubbele betaling.
+        var sinds = (await db.Banktransacties.Where(t => t.Status == Banktransactiestatus.TeVerwerken).MinAsync(t => (DateOnly?)t.Datum))?.AddYears(-1) ?? DateOnly.MaxValue;
+        var posten = (await db.OpenstaandePosten.AsNoTracking().Where(p => p.Openstaand != 0 || p.Datum >= sinds).ToListAsync()).Select(p => p.NaarDomein()).ToList();
         var regels = (await db.Regels.AsNoTracking().OrderBy(r => r.Volgorde).ToListAsync()).Select(r => r.NaarDomein()).ToList();
         return new Bankcontext(posten, await Relaties(db), regels, geheugen, await BtwDienst.Lees(db));
     }

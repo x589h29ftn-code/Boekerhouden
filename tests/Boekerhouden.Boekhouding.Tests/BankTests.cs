@@ -93,6 +93,28 @@ public sealed class Mt940Tests
     }
 
     [Fact]
+    public void Vrije_tekst_zonder_labels_met_iban_en_naam_op_de_eerste_regel()
+    {
+        const string tekst = """
+            :20:R1
+            :25:NL20INGB0001234567
+            :28C:00001/001
+            :60F:C261001EUR1000,00
+            :61:2610021002D99,99NTRF9100234501
+            :86:NL44RABO0123456789 Kantoorhandel Jansen B.V.
+            Factuur 2026-114
+            :61:2610031003D24,50NCHGNONREF
+            :86:Kosten zakelijk betaalpakket oktober 2026
+            :62F:C261003EUR875,51
+            """;
+
+        var mutaties = Mt940Lezer.Lees(new StringReader(tekst)).Single().Mutaties;
+
+        Assert.Equal(("NL44RABO0123456789", "Kantoorhandel Jansen B.V.", "Factuur 2026-114"), (mutaties[0].TegenIban, mutaties[0].TegenNaam, mutaties[0].Omschrijving));
+        Assert.Equal((null, null, "Kosten zakelijk betaalpakket oktober 2026"), (mutaties[1].TegenIban, mutaties[1].TegenNaam, mutaties[1].Omschrijving));
+    }
+
+    [Fact]
     public void Onleesbare_bestanden_geven_een_duidelijke_fout()
     {
         Assert.Contains("geen MT940", Assert.Throws<BankbestandException>(() => Mt940Lezer.Lees(new StringReader("hallo"))).Message, StringComparison.Ordinal);

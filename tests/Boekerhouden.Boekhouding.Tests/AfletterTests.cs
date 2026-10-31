@@ -52,6 +52,36 @@ public sealed class AfletteraarTests
     }
 
     [Fact]
+    public void Deelbetaling_met_factuurnummer_en_iban_is_zeker_zonder_iban_een_voorstel()
+    {
+        var post = Crediteur("BELNET", "BN-2026-0440", 3000m);
+
+        var deel = Afletteraar.Zoek(Betaling(-1800m, "Factuur BN-2026-0440 deelbetaling 1 van 2", IbanBelnet), [post], Relaties);
+        var onbekend = Afletteraar.Zoek(Betaling(-1800m, "Factuur BN-2026-0440 deelbetaling 1 van 2", "NL02ABNA0123456789"), [post], Relaties);
+        var teVeel = Afletteraar.Zoek(Betaling(-3500m, "Factuur BN-2026-0440", IbanBelnet), [post], Relaties);
+
+        Assert.Equal(("Factuurnummer, deelbetaling", -1200m, true), (deel.Automatisch!.Reden, deel.Automatisch.Verschil, deel.Automatisch.IsDeelbetaling));
+        Assert.Null(onbekend.Automatisch);
+        Assert.Equal("Factuurnummer, ander bedrag", Assert.Single(onbekend.Kandidaten).Reden);
+        Assert.Null(teVeel.Automatisch);
+    }
+
+    [Fact]
+    public void Een_betaling_van_een_factuur_die_al_betaald_is_wordt_een_voorstel_en_nooit_automatisch()
+    {
+        var betaald = Crediteur("BELNET", "BN-2026-0302", 600m) with { Openstaand = 0m };
+        var ander = Crediteur("BELNET", "BN-2026-0303", 600m);
+        var mutatie = Betaling(-600m, "Factuur BN-2026-0302", IbanBelnet);
+
+        var advies = Afletteraar.Zoek(mutatie, [betaald, ander], Relaties);
+
+        Assert.Null(advies.Automatisch);
+        var dubbel = Assert.Single(advies.Kandidaten, k => k.IsAlBetaald);
+        Assert.Equal(("Factuur is al betaald: dubbele betaling?", Zekerheid.Voorstel, betaald.Id), (dubbel.Reden, dubbel.Zekerheid, dubbel.Posten[0].Id));
+        Assert.Empty(Afletteraar.Zoek(Betaling(-600m, "Factuur BN-2026-0302", IbanJansen), [betaald], Relaties).Kandidaten);
+    }
+
+    [Fact]
     public void Iban_en_bedrag_zonder_factuurnummer_is_zeker_als_er_maar_een_post_is()
     {
         var post = Crediteur("JANSEN", "2026-114", 199.65m);
@@ -197,18 +227,23 @@ public sealed class BankboekerTests
     }
 
     [Fact]
-    public void Deelbetaling_laat_een_rest_open_en_te_veel_gaat_naar_vraagposten()
+    public void Deelbetaling_laat_een_rest_open_en_te_veel_blijft_op_de_post()
     {
         var schema = Testadministratie.Schema();
         var post = AfletteraarTests.Debiteur("PLEIN", "2026-0007", 300m);
 
         var (_, deel) = Bankboeker.Afletteren(new Bankmutatie(Datum, 255m, "deel"), [post], Testadministratie.Bank, "1", schema);
-        var (teVeel, _) = Bankboeker.Afletteren(new Bankmutatie(Datum, 310m, "te veel"), [post], Testadministratie.Bank, "2", schema);
+        var (teVeel, bijgewerkt) = Bankboeker.Afletteren(new Bankmutatie(Datum, 310m, "te veel"), [post], Testadministratie.Bank, "2", schema);
+        var (dubbel, nogmaals) = Bankboeker.Afletteren(new Bankmutatie(Datum, 300m, "nog eens"), [post with { Openstaand = 0m }], Testadministratie.Bank, "3", schema);
 
         Assert.Equal(45m, deel[0].Openstaand);
-        Assert.Equal(-300m, teVeel.Regels.Single(r => r.Rekeningnummer == "1300").Bedrag);
-        Assert.Equal(-10m, teVeel.Regels.Single(r => r.Rekeningnummer == "2000").Bedrag);
+        Assert.Equal([-300m, -10m], teVeel.Regels.Where(r => r.Rekeningnummer == "1300").Select(r => r.Bedrag));
+        Assert.All(teVeel.Regels.Where(r => r.Rekeningnummer == "1300"), r => Assert.Equal(("PLEIN", "2026-0007"), (r.Relatie, r.Factuurnummer)));
+        Assert.DoesNotContain(teVeel.Regels, r => r.Rekeningnummer == "2000");
+        Assert.Equal(-10m, Assert.Single(bijgewerkt).Openstaand);
         Assert.Equal(0m, teVeel.Regels.Sum(r => r.Bedrag));
+        Assert.Equal(-300m, dubbel.Regels.Single(r => r.Rekeningnummer == "1300").Bedrag);
+        Assert.Equal(-300m, Assert.Single(nogmaals).Openstaand);
     }
 
     [Fact]

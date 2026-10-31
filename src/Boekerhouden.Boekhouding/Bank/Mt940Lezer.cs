@@ -10,7 +10,8 @@ namespace Boekerhouden.Boekhouding.Bank;
 /// bevatten; elk begint met <c>:20:</c>. De omschrijving (<c>:86:</c>) verschilt per bank:
 /// <list type="bullet">
 /// <item>gestructureerd met codes als <c>/CNTP/</c>, <c>/NAME/</c>, <c>/IBAN/</c>, <c>/REMI/</c> en <c>/EREF/</c>;</item>
-/// <item>vrije tekst met <c>IBAN:</c>, <c>NAAM:</c>, <c>OMSCHRIJVING:</c> en <c>KENMERK:</c>.</item>
+/// <item>vrije tekst met <c>IBAN:</c>, <c>NAAM:</c>, <c>OMSCHRIJVING:</c> en <c>KENMERK:</c>;</item>
+/// <item>vrije tekst zonder labels: IBAN en naam op de eerste regel, de omschrijving daaronder.</item>
 /// </list>
 /// </summary>
 public static partial class Mt940Lezer
@@ -191,6 +192,14 @@ public static partial class Mt940Lezer
     {
         var info = (ruw.Informatie ?? string.Empty).Replace("\n", " ", StringComparison.Ordinal).Trim();
         var velden = info.StartsWith('/') ? Gestructureerd(info) : VrijeTekst(info);
+        if (velden.Count == 0 && ruw.Informatie is { } regels && TegenpartijOpEersteRegel().Match(regels.Split('\n')[0].Trim()) is { Success: true } eerste)
+        {
+            // Zonder codes of labels: "NL..IBAN Naam" op de eerste regel, de omschrijving op de volgende.
+            Zet(velden, "IBAN", eerste.Groups[1].Value);
+            Zet(velden, "NAME", eerste.Groups[2].Value);
+            Zet(velden, "REMI", string.Join(' ', regels.Split('\n').Skip(1)));
+        }
+
         velden.TryGetValue("IBAN", out var iban);
         if (iban is null && ruw.Aanvulling is { } aanvulling && IbanPatroon().Match(aanvulling.Replace(" ", string.Empty, StringComparison.Ordinal)) is { Success: true } a)
         {
@@ -337,6 +346,9 @@ public static partial class Mt940Lezer
 
     [GeneratedRegex(@"[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}")]
     private static partial Regex IbanPatroon();
+
+    [GeneratedRegex(@"^([A-Z]{2}[0-9]{2}[A-Z0-9]{11,30})\s+(\S.*)$")]
+    private static partial Regex TegenpartijOpEersteRegel();
 
     [GeneratedRegex(@"/([A-Z]{2,11})(?=/)")]
     private static partial Regex CodePatroon();
