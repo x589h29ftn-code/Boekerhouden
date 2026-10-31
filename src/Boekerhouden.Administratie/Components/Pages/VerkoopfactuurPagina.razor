@@ -7,6 +7,7 @@
 @inject VerkoopDienst Verkoop
 @inject InrichtingDienst Inrichting
 @inject FactuuropmaakDienst Opmaak
+@inject VerkoopimportDienst Import
 @inject NavigationManager Navigatie
 @inject IJSRuntime JS
 
@@ -25,7 +26,7 @@
         }
         else if (weergave is { } c)
         {
-            <span title="@Weergave.DatumTijd(c.AangemaaktOp)">concept, gemaakt @Weergave.Moment(c.AangemaaktOp) door @c.AangemaaktDoor</span>
+            <span title="@Weergave.DatumTijd(c.AangemaaktOp)">@(c.Ingelezen ? "ingelezen" : "concept, gemaakt") @Weergave.Moment(c.AangemaaktOp) door @c.AangemaaktDoor</span>
         }
     </Kenmerken>
     <Acties>
@@ -38,7 +39,11 @@
                 <button class="btn btn-outline-secondary" disabled="@bezig" @onclick="Crediteer" title="Een creditfactuur met dezelfde regels, negatief">Crediteren</button>
             }
         }
-        @if (weergave is not null)
+        @if (weergave is { Ingelezen: true })
+        {
+            <button class="btn btn-outline-secondary" @onclick="Origineel" title="@weergave.Bestandsnaam">Origineel</button>
+        }
+        else if (weergave is not null)
         {
             <span class="knopgroep">
                 <button class="btn btn-outline-secondary" disabled="@bezig" @onclick="Pdf" title="@(weergave.Status == Verkoopstatus.Concept ? "Voorbeeld als PDF (met CONCEPT erover)" : "De factuur als PDF")">PDF</button>
@@ -56,6 +61,10 @@
         @if (bericht is not null)
         {
             <div class="bericht mb-2">@bericht</div>
+        }
+        @if (weergave is { Status: Verkoopstatus.Concept, Melding: { } melding })
+        {
+            <div class="status let-op d-block mb-2">@melding</div>
         }
         @if (verkoop is null)
         {
@@ -118,6 +127,10 @@
                             {
                                 <span class="small text-secondary" title="@string.Join(", ", klant.Gegevens.Adres.Regels)">@string.Join(", ", klant.Gegevens.Adres.Regels)</span>
                             }
+                            else if (weergave is { Ingelezen: true } w && w.Factuur.Klant.Naam.Length > 0)
+                            {
+                                <span class="small text-secondary">op de factuur: @w.Factuur.Klant.Naam @w.Factuur.Klant.BtwNummer</span>
+                            }
                         }
                     </div>
                 </div>
@@ -154,7 +167,14 @@
                     <label for="omschrijving">Omschrijving</label>
                     <input id="omschrijving" class="form-control form-control-sm" @bind="invoer.Omschrijving" placeholder="bijv. Werkzaamheden maart 2026" />
                 </div>
-                @if (layouts.Count > 1)
+                @if (weergave is { Ingelezen: true })
+                {
+                    <div class="formulier-rij">
+                        <label for="nummer">Factuurnummer</label>
+                        <input id="nummer" class="form-control form-control-sm" style="max-width:14rem" @bind="invoer.Factuurnummer" title="Het nummer uit het andere pakket" />
+                    </div>
+                }
+                else if (layouts.Count > 1)
                 {
                     <div class="formulier-rij">
                         <label for="layout">Lay-out</label>
@@ -198,7 +218,7 @@
                 @if (context.Mag(Recht.Invoeren))
                 {
                     <div class="d-flex align-items-center gap-2 mt-3">
-                        <button class="btn btn-primary" disabled="@bezig" @onclick="MaakDefinitief" title="Nummer geven, boeken en op de debiteuren zetten; daarna alleen nog te corrigeren met een creditfactuur">Definitief maken</button>
+                        <button class="btn btn-primary" disabled="@bezig" @onclick="MaakDefinitief" title="@(weergave?.Ingelezen == true ? "Boeken met het nummer van het andere pakket en op de debiteuren zetten" : "Nummer geven, boeken en op de debiteuren zetten; daarna alleen nog te corrigeren met een creditfactuur")">@(weergave?.Ingelezen == true ? "Boeken" : "Definitief maken")</button>
                         <button class="btn btn-outline-secondary" disabled="@bezig" @onclick="Bewaar">Bewaren als concept</button>
                         @if (Factuur is not null)
                         {
@@ -273,7 +293,7 @@
     {
         verkoop = await Verkoop.Context(geopend!.Wie, Id);
         weergave = Factuur is { } id ? await Verkoop.Open(geopend.Wie, Id, id) : null;
-        voorbeeld = weergave is { Status: Verkoopstatus.Definitief } ? await Opmaak.Beeld(geopend.Wie, Id, weergave.Id) : null;
+        voorbeeld = weergave is { Status: Verkoopstatus.Definitief, Ingelezen: false } ? await Opmaak.Beeld(geopend.Wie, Id, weergave.Id) : null;
         layouts = await Opmaak.Layouts(geopend.Wie, Id);
         if (weergave is not null)
         {
@@ -341,7 +361,9 @@
         }
     }
 
-    private void BeginKlant() => nieuweKlant = new();
+    private void BeginKlant() => nieuweKlant = weergave is { Ingelezen: true } w
+        ? new() { Naam = w.Factuur.Klant.Naam, BtwNummer = w.Factuur.Klant.BtwNummer, Land = w.Factuur.Klant.Adres.Land }
+        : new();
 
     private async Task VoegKlantToe()
     {
@@ -376,7 +398,7 @@
 
         return new Verkoopinvoer(invoer.Relatie, invoer.Datum, invoer.Vervaldatum, invoer.Omschrijving ?? "", regels,
             invoer.Referentie, invoer.Tekst, invoer.Verdelen ? new Periodeverdeling(invoer.VerdeelVan, invoer.VerdeelTot, invoer.Verdeelrekening ?? "") : null,
-            invoer.LayoutId);
+            invoer.LayoutId, invoer.Factuurnummer);
     }
 
     private async Task<Guid?> BewaarConcept()
@@ -504,6 +526,14 @@
         }
     }
 
+    private async Task Origineel()
+    {
+        if (await Import.Bestand(geopend!.Wie, Id, weergave!.Id) is { } bestand)
+        {
+            await JS.Bewaar(bestand.Inhoud, bestand.Bestandsnaam, bestand.Inhoudstype);
+        }
+    }
+
     private async Task Afdrukken()
     {
         if (await Opmaak.Html(geopend!.Wie, Id, weergave!.Id) is { } html)
@@ -576,6 +606,8 @@
 
         public Guid? LayoutId { get; set; }
 
+        public string? Factuurnummer { get; set; }
+
         public static Formulier Van(Verkoopinvoer v)
         {
             var f = new Formulier
@@ -591,6 +623,7 @@
                 VerdeelTot = v.Verdeling?.Tot ?? v.Datum,
                 Verdeelrekening = v.Verdeling?.Rekening,
                 LayoutId = v.LayoutId,
+                Factuurnummer = v.Factuurnummer,
             };
             f.Regels.AddRange(v.Regels.Select(Verkoopregelinvoer.Van));
             if (f.Regels.Count == 0)

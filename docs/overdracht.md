@@ -2,7 +2,7 @@
 
 Voor wie (mens of Claude-sessie) verder gaat aan Boekerhouden. Lees eerst `CLAUDE.md` (werkafspraken en structuur),
 dan dit document, en voor de inhoud `docs/administratie/README.md` (administratiepakket) en `docs/onderzoek/README.md`
-(samenstelpakket). Stand: 31 oktober 2026.
+(samenstelpakket). Stand: 31 oktober 2026 (avond, na de verkoop).
 
 ## 1. Waar we staan
 
@@ -38,6 +38,14 @@ Laatst gebouwd (oktober 2026), in deze volgorde:
    - "vandaag 18:32" en bevestigingen met inhoud.
 
    Alles in `src/Boekerhouden.Huisstijl/wwwroot/uitstraling.css`.
+4. **Verkoop (A9)**, in zes plakjes (README §5 *Verkoop*):
+   - verkoopfactuur maken: concept → definitief met doorlopend nummer per jaar (20260001), betalingskenmerk,
+     btw-controle (verlegd, ICP), boeking op debiteuren, creditfactuur, periodeverdeling;
+   - verkoopboek en openstaande debiteuren (gedeelde schermen met inkoop en crediteuren);
+   - factuurlay-out met een ontwerper (blokken slepen, logo, lettertype, kleuren, kolommen, teksten met variabelen),
+     PDF, afdrukken, e-factuur (UBL Peppol BIS 3) en e-mail als .eml;
+   - terugkerende facturen (maand, kwartaal, halfjaar, jaar; `#periode`), ook meteen definitief en verdeeld;
+   - verkoopfacturen uit een ander pakket inlezen (UBL, PDF, scan), vanzelf boeken als alles klopt.
 
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).
@@ -55,7 +63,7 @@ Afgesproken of voorgesteld maar nog niet gebouwd, ongeveer in volgorde van wens:
 | Afdrukken | Elk overzicht netjes met Ctrl+P: zonder menu en knoppen, met administratie, periode en paginanummers |
 | Eén menubalk | De kopbalk en het menu van de administratie samenvoegen (kruimelpad *kantoor › administratie › pagina*) |
 | Lettertype beoordelen | Segoe UI (systeem) staat aan sinds commit `aea7fd9`; de gebruiker test het in de Windows-app. Terug naar IBM Plex is één regel (`--bs-body-font-family` in `uitstraling.css`) |
-| Verkoop (A9) | Factuur maken, nummeren, PDF, debiteurenlijst |
+| Verkoop: vervolg | Versturen vanuit het pakket (SMTP of Peppol) in plaats van een .eml; terugkerende facturen vanzelf maken (zonder klik); herinneringen; ouderdomsanalyse debiteuren |
 | Btw-aangifte en periodes (A10) | Aangifte per rubriek, afdracht, periodes afsluiten |
 | Saldibalans naar het samenstelpakket (A12) | Jaarrekening zonder export |
 | Gepland (README §5) | Regels splitsen per leverancier, verzamel-PDF splitsen, vreemde valuta, ontbrekende factuur |
@@ -115,5 +123,11 @@ scripts/ui/herstart.sh && node scripts/ui/schermafbeeldingen.js /tmp/schermen vo
   (`.regeltabel`, `.bankregels`) niet, anders worden Debet en Credit te smal.
 - **Prerender**: `WebTests` controleert teksten in de HTML zoals de server die eerst stuurt; bij het hernoemen van
   knoppen of koppen die tests bijwerken.
+- **Een blok in de ontwerper krijgt geen klik**: de doorlopende tekst (`fp-stroom`) begint bovenaan de pagina; zijn
+  witruimte lag over de blokken. Daarom `pointer-events: none` op `.fp-stroom` (en `auto` op zijn kinderen).
+- **Voettekst op elke pagina**: `position: fixed` gedraagt zich in Chromium-print onbetrouwbaar (op een pagina weg, op
+  een andere bovenaan). De voettekst staat daarom in de paginamarge (`@page { @bottom-center { content: ... } }`).
+- **JavaScript koppelen binnen `AdministratieKader`**: de pagina krijgt geen `OnAfterRender` als de kader zijn inhoud
+  pas later toont; maak er een eigen component van die zichzelf koppelt (zoals `Ontwerpvlak`).
 - **Processen stoppen**: `pkill -f` met een patroon dat ook in de eigen opdrachtregel staat, stopt de eigen shell;
   gebruik `pgrep` met een specifiek pad (zoals in `scripts/ui/herstart.sh`).

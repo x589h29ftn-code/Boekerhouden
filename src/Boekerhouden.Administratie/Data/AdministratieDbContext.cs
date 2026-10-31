@@ -90,6 +90,8 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
 
     public DbSet<Abonnement> Abonnementen => Set<Abonnement>();
 
+    public DbSet<Verkoopbestand> Verkoopbestanden => Set<Verkoopbestand>();
+
     /// <summary>De sleutels van ASP.NET Core Data Protection (cookies, tokens).</summary>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
@@ -403,6 +405,8 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(v => v.Verdeling).HasMaxLength(4000);
             e.Property(v => v.AangemaaktDoor).HasMaxLength(200);
             e.Property(v => v.DefinitiefDoor).HasMaxLength(200);
+            e.Property(v => v.ExternNummer).HasMaxLength(30);
+            e.Property(v => v.Melding).HasMaxLength(2000);
             e.HasMany(v => v.Regels).WithOne().HasForeignKey(r => r.VerkoopdocumentId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<Administratie>().WithMany().HasForeignKey(v => v.AdministratieId);
         });
@@ -446,6 +450,18 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.HasOne<Administratie>().WithMany().HasForeignKey(a => a.AdministratieId);
         });
 
+        builder.Entity<Verkoopbestand>(e =>
+        {
+            e.ToTable("Verkoopbestanden");
+            e.HasKey(b => b.VerkoopdocumentId);
+            e.HasIndex(b => new { b.AdministratieId, b.Sha256 });
+            e.Property(b => b.Bestandsnaam).HasMaxLength(260);
+            e.Property(b => b.Inhoudstype).HasMaxLength(100);
+            e.Property(b => b.Sha256).HasMaxLength(64).IsFixedLength();
+            e.HasOne<Verkoopdocument>().WithOne().HasForeignKey<Verkoopbestand>(b => b.VerkoopdocumentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<Verkoopbestand>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Abonnement>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Factuurlayout>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Verkoopdocument>().HasQueryFilter(e => e.AdministratieId == Geopend);

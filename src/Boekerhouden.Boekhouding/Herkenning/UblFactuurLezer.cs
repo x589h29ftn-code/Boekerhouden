@@ -77,6 +77,14 @@ public static class UblFactuurLezer
             .ToList();
 
         var factuurdatum = Datum(Kind(wortel, "IssueDate"));
+        var klant = Pad(wortel, "AccountingCustomerParty", "Party");
+        var klantBtw = Kinderen(klant, "PartyTaxScheme").Select(p => Tekst(Kind(p, "CompanyID"))).FirstOrDefault(n => n is not null && BtwNummer.IsGeldig(n));
+        var klantKvk = Kind(Kind(klant, "PartyLegalEntity"), "CompanyID") is { } kid && (string?)kid.Attribute("schemeID") is null or "0106" ? Tekst(kid) : null;
+        var afnemer = klant is null ? null : new Afnemer(
+            Tekst(Pad(klant, "PartyName", "Name")) ?? Tekst(Pad(klant, "PartyLegalEntity", "RegistrationName")),
+            klantBtw is null ? null : BtwNummer.Normaliseer(klantBtw),
+            klantKvk,
+            Tekst(Pad(klant, "PostalAddress", "Country", "IdentificationCode"))?.ToUpperInvariant());
         return new HerkendeFactuur(
             Herkenningsbron.EFactuur,
             Naam: naam,
@@ -100,7 +108,8 @@ public static class UblFactuurLezer
             // Btw-categorie AE (verlegd) of K (intracommunautair): de afnemer berekent de btw.
             Verlegd: Kinderen(wortel, "TaxTotal").SelectMany(t => Kinderen(t, "TaxSubtotal"))
                 .Any(t => Tekst(Pad(t, "TaxCategory", "ID")) is "AE" or "K"),
-            Valuta: Tekst(Kind(wortel, "DocumentCurrencyCode"))?.ToUpperInvariant() is { Length: 3 } valuta && valuta != "EUR" ? valuta : null);
+            Valuta: Tekst(Kind(wortel, "DocumentCurrencyCode"))?.ToUpperInvariant() is { Length: 3 } valuta && valuta != "EUR" ? valuta : null,
+            Afnemer: afnemer);
     }
 
     private static XmlReaderSettings Instellingen(bool sluiten) =>

@@ -1389,6 +1389,41 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.ToTable("OpenstaandePosten", (string)null);
                 });
 
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Verkoopbestand", b =>
+                {
+                    b.Property<Guid>("VerkoopdocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Bestandsnaam")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("character varying(260)");
+
+                    b.Property<byte[]>("Inhoud")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("Inhoudstype")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character(64)")
+                        .IsFixedLength();
+
+                    b.HasKey("VerkoopdocumentId");
+
+                    b.HasIndex("AdministratieId", "Sha256");
+
+                    b.ToTable("Verkoopbestanden", (string)null);
+                });
+
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Verkoopdocument", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1429,6 +1464,13 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.Property<DateTimeOffset?>("DefinitiefOp")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("ExternNummer")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<bool>("Ingelezen")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Klantgegevens")
                         .IsRequired()
                         .HasMaxLength(4000)
@@ -1436,6 +1478,10 @@ namespace Boekerhouden.Administratie.Data.Migraties
 
                     b.Property<Guid?>("LayoutId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Melding")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
 
                     b.Property<string>("Nummer")
                         .HasMaxLength(30)
@@ -1883,6 +1929,15 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.HasOne("Boekerhouden.Administratie.Data.Boeking", null)
                         .WithMany()
                         .HasForeignKey("BoekingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Verkoopbestand", b =>
+                {
+                    b.HasOne("Boekerhouden.Administratie.Data.Verkoopdocument", null)
+                        .WithOne()
+                        .HasForeignKey("Boekerhouden.Administratie.Data.Verkoopbestand", "VerkoopdocumentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

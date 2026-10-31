@@ -745,6 +745,15 @@ public sealed class Verkoopdocument : IVanAdministratie
     /// <summary>De terugkerende factuur waaruit deze is gemaakt.</summary>
     public Guid? AbonnementId { get; set; }
 
+    /// <summary>Ingelezen uit een ander pakket (het origineel in <see cref="Verkoopbestand"/>): het nummer komt van daar.</summary>
+    public bool Ingelezen { get; set; }
+
+    /// <summary>Bij een ingelezen factuur het nummer van het andere pakket, zolang hij nog niet geboekt is.</summary>
+    public string? ExternNummer { get; set; }
+
+    /// <summary>Waarom een ingelezen factuur niet vanzelf geboekt is.</summary>
+    public string? Melding { get; set; }
+
     public DateTimeOffset AangemaaktOp { get; set; }
 
     public string AangemaaktDoor { get; set; } = string.Empty;
@@ -862,4 +871,21 @@ public sealed class Abonnement : IVanAdministratie
     public string AangemaaktDoor { get; set; } = string.Empty;
 
     public DateTimeOffset? LaatstGemaaktOp { get; set; }
+}
+
+/// <summary>Het origineel van een ingelezen verkoopfactuur (PDF, e-factuur of scan).</summary>
+public sealed class Verkoopbestand : IVanAdministratie
+{
+    public Guid VerkoopdocumentId { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    public string Bestandsnaam { get; set; } = string.Empty;
+
+    public string Inhoudstype { get; set; } = string.Empty;
+
+    /// <summary>SHA-256 van de inhoud: hetzelfde bestand twee keer inlezen wordt herkend.</summary>
+    public string Sha256 { get; set; } = string.Empty;
+
+    public byte[] Inhoud { get; set; } = [];
 }

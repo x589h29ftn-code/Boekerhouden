@@ -101,6 +101,13 @@ function totp(sleutel) {
   if (titel.includes('top:92mm;left:20mm')) log.push('ontwerper: titel niet versleept (' + titel + ')');
   await page.screenshot({ path: `${uit}/${pre}-factuurlayout-gesleept.png` });
 
+  // Een verkoopfactuur uit een ander pakket inlezen (klant onbekend: concept met de reden).
+  await page.goto(`${basis}/a/${id}/verkoop`); await page.waitForTimeout(1500);
+  await page.setInputFiles('#verkoopbestanden', path.join(fictief, 'verkoop-ander-pakket.xml')); await page.waitForTimeout(2500);
+  await page.screenshot({ path: `${uit}/${pre}-verkoop-ingelezen.png` });
+  await page.locator('tr:has-text("ingelezen")').first().click(); await page.waitForSelector('#nummer'); await page.waitForTimeout(1200);
+  await page.screenshot({ path: `${uit}/${pre}-verkoopfactuur-ingelezen.png` });
+
   // Bankafschrift inlezen (slepen kan ook; het bestandsveld bedekt dan de pagina).
   await page.goto(`${basis}/a/${id}/bank`); await page.waitForTimeout(1500);
   await page.setInputFiles('#afschriften', path.join(fictief, 'ing-2026-03.mt940')); await page.waitForTimeout(3000);

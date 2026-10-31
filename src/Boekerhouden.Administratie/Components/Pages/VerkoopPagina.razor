@@ -1,6 +1,7 @@
 @page "/a/{Id:guid}/verkoop"
 @inject VerkoopDienst Verkoop
 @inject AbonnementDienst Abonnementen
+@inject VerkoopimportDienst Import
 @inject NavigationManager Navigatie
 
 <AdministratieKader Id="Id" Titel="Verkoop" Actief="/verkoop" BijOpenen="Open">
@@ -20,10 +21,19 @@
         <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
         @if (geopend?.Kop.Mag(Recht.Invoeren) == true)
         {
+            <label class="btn btn-outline-secondary @(bezig ? "disabled" : null)" for="verkoopbestanden" aria-busy="@(bezig ? "true" : null)" title="Verkoopfacturen uit een ander pakket: PDF, e-factuur (UBL) of scan; slepen op de pagina kan ook">Inlezen</label>
             <a class="btn btn-primary" href="/a/@Id/verkoop/nieuw"><Icoon Naam="plus" /> Nieuwe factuur</a>
         }
     </Acties>
     <ChildContent>
+        @if (geopend?.Kop.Mag(Recht.Invoeren) == true)
+        {
+            <Sleepvlak Id="verkoopbestanden" Pagina="true" Tekst="Verkoopfacturen inlezen" Accept=".pdf,.xml,.jpg,.jpeg,.png,application/pdf,application/xml,text/xml,image/jpeg,image/png" OnChange="LeesIn" Bezig="bezig" />
+        }
+        @foreach (var u in ingelezen)
+        {
+            <div class="small mb-1 @(u.Geboekt ? "bericht" : "status let-op d-block")">@u.Melding</div>
+        }
         @if (teMaken > 0)
         {
             <div class="bericht mb-3">
@@ -68,7 +78,7 @@
                             <tr class="klikbaar" @onclick="() => Navigatie.NavigateTo(Adres(r))" title="@(r.Status == Verkoopstatus.Concept ? $"Concept, gemaakt {Weergave.Moment(r.AangemaaktOp)}" : "Naar de factuur")">
                                 <td class="text-nowrap">@(r.Nummer ?? "")@if (r.Status == Verkoopstatus.Concept)
                                     {
-                                        <span class="status">concept</span>
+                                        <span class="status @(r.Melding is null ? null : "let-op")" title="@r.Melding">@(r.Ingelezen ? "ingelezen" : "concept")</span>
                                     }</td>
                                 <td class="text-nowrap">@Weergave.Datum(r.Datum)</td>
                                 <td title="@r.Relatie">@r.Klant</td>
@@ -103,6 +113,8 @@
     private bool alleenOpen;
     private IReadOnlyList<Verkooplijstregel>? regels;
     private int teMaken;
+    private bool bezig;
+    private List<Verkoopinleesuitkomst> ingelezen = [];
 
     private readonly Sortering<Verkooplijstregel> sortering = new(
         new("Nummer", r => r.Nummer ?? "", EerstOplopend: false),
@@ -152,6 +164,29 @@
             r.Klant.Contains(w, StringComparison.CurrentCultureIgnoreCase) || (r.Nummer?.Contains(w, StringComparison.OrdinalIgnoreCase) ?? false) || r.Omschrijving.Contains(w, StringComparison.CurrentCultureIgnoreCase)));
 
     private bool Vervallen(Verkooplijstregel r) => r.Openstaand is > 0 && r.Vervaldatum < vandaag;
+
+    private async Task LeesIn(InputFileChangeEventArgs e)
+    {
+        bezig = true;
+        ingelezen = [];
+        foreach (var bestand in e.GetMultipleFiles(250))
+        {
+            try
+            {
+                await using var stream = bestand.OpenReadStream(Documenten.PdfTekst.MaximumBytes);
+                ingelezen.Add(await Import.Lees(geopend!.Wie, Id, stream, bestand.Name, bestand.ContentType));
+            }
+            catch (IOException)
+            {
+                ingelezen.Add(new Verkoopinleesuitkomst(null, false, $"{bestand.Name} is groter dan {Documenten.PdfTekst.MaximumBytes / 1024 / 1024} MB en is niet ingelezen."));
+            }
+
+            StateHasChanged();
+        }
+
+        bezig = false;
+        await Laad();
+    }
 
     private static string Aantal(int n) => n == 1 ? "1 factuur" : $"{n} facturen";
 

@@ -44,7 +44,7 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   `Btw/` (btw-codes met soort en tarief, koppeling met de aangifterubrieken, tarieven per datum, aangifte berekenen), `Relaties/` (IBAN, btw-nummer, namen vergelijken), `Facturen/` (facturen boeken,
   openstaande posten), `Bank/` (MT940, CAMT.053, bankboekingen), `Afletteren/`, `Regels/` (verwerkingsregels, leergeheugen,
   advies), `Herkenning/` (factuurtekst, UBL, leverancier herkennen, inkoopvoorstel) en `Verkoop/` (verkoopfactuur, nummering per jaar,
-  betalingskenmerk, btw-controle en vermeldingen).
+  betalingskenmerk, btw-controle en vermeldingen, factuurontwerp, UBL schrijven, terugkerende planning, inlezen).
 - `src/Boekerhouden.Documenten` – documenten van buiten lezen voor de herkenning: tekst uit PDF (PdfPig, als `Tekstwoord`en
   met hun plek), UBL als los bestand of als bijlage, OCR van scans en foto's (`TesseractOcr` als eigen proces, `OcrLezer`); begrensd (grootte, pagina's), XML altijd zonder DTD; vooraf een virusscan met ClamAV (clamd),
   *fail closed*. Beveiliging en besluiten B1–B5: `docs/administratie/beveiliging.md`.
@@ -53,7 +53,7 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   migraties met triggers die boekingen en het log onwijzigbaar maken), `Diensten/` (`Toegang` = de enige weg naar de
   gegevens van een administratie, met rechten per lidmaatschap; administraties, grootboek en boeken met hash-keten,
   gebruikers, tweestapsverificatie en passkeys, wijzigingslog; `AansluitingDienst` = saldo-aansluitingen; `OverzichtDienst` = grootboekkaart en kolommenbalans naar Excel en PDF; `InkoopDienst` = inlezen met virusscan, voorstel en
-  (automatisch) boeken en de kopie in de documentmap; `VerkoopDienst` = verkoopfacturen: concept, definitief (nummer, boeking, debiteuren), crediteren; `FactuuropmaakDienst` = lay-out van de verkoopfactuur, PDF, e-factuur (UBL) en e-mail (.eml); `AbonnementDienst` = terugkerende verkoopfacturen; `BankDienst` = afschriften inlezen (saldo, aansluiting, dubbel), afletteren en op rekening boeken; `InrichtingDienst` = relaties, regels en instellingen van een
+  (automatisch) boeken en de kopie in de documentmap; `VerkoopDienst` = verkoopfacturen: concept, definitief (nummer, boeking, debiteuren), crediteren; `FactuuropmaakDienst` = lay-out van de verkoopfactuur, PDF, e-factuur (UBL) en e-mail (.eml); `AbonnementDienst` = terugkerende verkoopfacturen; `VerkoopimportDienst` = verkoopfacturen uit een ander pakket inlezen; `BankDienst` = afschriften inlezen (saldo, aansluiting, dubbel), afletteren en op rekening boeken; `InrichtingDienst` = relaties, regels en instellingen van een
   administratie; `KantoorDienst` = kantoorinstellingen, alleen beheerder; `BtwDienst` = btw-tabel (codes met soort en tarief, tarieven per datum), wijzigen alleen beheerder; `Werkomgeving` = webapp of lokaal),
   `Lokaal/` (`LokaleApp` = samenstelling voor de Windows-app: SQLite, lokale gebruiker zonder inloggen), `Identiteit/` (inloggen, beveiligingsheaders,
   tweestap verplicht voor de beheerder), `Components/` (schermen; accountpagina's statisch, de rest interactief).

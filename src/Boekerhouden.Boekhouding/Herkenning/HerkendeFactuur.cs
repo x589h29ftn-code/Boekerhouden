@@ -20,6 +20,9 @@ public sealed record Btwregel(decimal Percentage, decimal? Grondslag, decimal Bt
 /// <summary>De periode waarover gefactureerd wordt, bijv. "periode 01-09-2026 t/m 31-08-2027".</summary>
 public sealed record Factuurperiode(DateOnly Van, DateOnly Tot);
 
+/// <summary>De afnemer (klant) zoals op de factuur; alleen bij een e-factuur betrouwbaar (bij een verkoopfactuur de klant).</summary>
+public sealed record Afnemer(string? Naam, string? BtwNummer = null, string? KvkNummer = null, string? Land = null);
+
 /// <summary>Een regel van de factuur (alleen bij e-facturen betrouwbaar).</summary>
 public sealed record HerkendeRegel(string Omschrijving, decimal Bedrag, decimal? Percentage);
 
@@ -54,7 +57,8 @@ public sealed record HerkendeFactuur(
     bool Verlegd = false,
     Factuurperiode? Periode = null,
     bool Herinnering = false,
-    string? Valuta = null)
+    string? Valuta = null,
+    Afnemer? Afnemer = null)
 {
     public IReadOnlyList<Btwregel> Btwregels => Btw ?? [];
 

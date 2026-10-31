@@ -11,6 +11,7 @@ namespace Boekerhouden.Administratie.Diensten;
 /// <summary>Een verkoopfactuur zoals de gebruiker hem invult (concept).</summary>
 /// <param name="Relatie">De code van de klant.</param>
 /// <param name="Referentie">Het kenmerk van de klant (inkoopordernummer, project).</param>
+/// <param name="Factuurnummer">Alleen bij een ingelezen factuur: het nummer uit het andere pakket.</param>
 /// <param name="Tekst">Een eigen tekst onder de regels.</param>
 /// <param name="Verdeling">De omzet over een periode verdelen (bijv. een jaarabonnement), via vooruitontvangen omzet.</param>
 public sealed record Verkoopinvoer(
@@ -22,7 +23,8 @@ public sealed record Verkoopinvoer(
     string? Referentie = null,
     string? Tekst = null,
     Periodeverdeling? Verdeling = null,
-    Guid? LayoutId = null);
+    Guid? LayoutId = null,
+    string? Factuurnummer = null);
 
 /// <summary>Een verkoopfactuur in de lijst.</summary>
 /// <param name="Openstaand">Wat de klant nog moet betalen (alleen bij een definitieve factuur).</param>
@@ -38,7 +40,9 @@ public sealed record Verkooplijstregel(
     decimal Exclusief,
     decimal Totaal,
     decimal? Openstaand,
-    DateTimeOffset AangemaaktOp);
+    DateTimeOffset AangemaaktOp,
+    bool Ingelezen = false,
+    string? Melding = null);
 
 /// <summary>Een verkoopfactuur met alles om hem te tonen, op te maken of verder te bewerken.</summary>
 /// <param name="Factuur">De factuur zoals hij op papier staat (met de klant als momentopname).</param>
@@ -60,7 +64,10 @@ public sealed record Verkoopweergave(
     DateTimeOffset AangemaaktOp,
     string AangemaaktDoor,
     DateTimeOffset? DefinitiefOp,
-    string? DefinitiefDoor)
+    string? DefinitiefDoor,
+    bool Ingelezen = false,
+    string? Melding = null,
+    string? Bestandsnaam = null)
 {
     public decimal Exclusief => Factuur.TotaalExclusief;
 
@@ -134,8 +141,8 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
                 var factuur = Domein(v);
                 var codes = tabel.Op(v.Datum);
                 var totaal = Veilig(() => factuur.Totaal(codes), factuur.TotaalExclusief);
-                return new Verkooplijstregel(v.Id, v.Status, v.Nummer, v.Relatie, factuur.Klant.Naam, v.Datum, v.Vervaldatum, v.Omschrijving,
-                    factuur.TotaalExclusief, totaal, v.BoekingId is { } b && open.TryGetValue(b, out var o) ? o : null, v.AangemaaktOp);
+                return new Verkooplijstregel(v.Id, v.Status, v.Nummer ?? v.ExternNummer, v.Relatie, factuur.Klant.Naam, v.Datum, v.Vervaldatum, v.Omschrijving,
+                    factuur.TotaalExclusief, totaal, v.BoekingId is { } b && open.TryGetValue(b, out var o) ? o : null, v.AangemaaktOp, v.Ingelezen, v.Melding);
             })
             .OrderBy(r => r.Status != Verkoopstatus.Concept).ThenByDescending(r => r.Datum).ThenByDescending(r => r.Nummer, StringComparer.Ordinal).ThenByDescending(r => r.AangemaaktOp),
         ];
@@ -174,7 +181,8 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
         var btw = Veilig(() => factuur.Btw(codes), []);
         return new Verkoopweergave(v.Id, v.Status, factuur, Invoer(v), a.Afzender(), btw, factuur.TotaalExclusief + btw.Sum(x => x.Btw),
             Veilig(() => Verkoopcontrole.Vermeldingen(factuur, codes), []), boeking is null ? null : (boeking.Dagboek, boeking.Boekstuk), open, v.CreditVoorId,
-            verdeling?.Boekstukken ?? [], v.AangemaaktOp, v.AangemaaktDoor, v.DefinitiefOp, v.DefinitiefDoor);
+            verdeling?.Boekstukken ?? [], v.AangemaaktOp, v.AangemaaktDoor, v.DefinitiefOp, v.DefinitiefDoor, v.Ingelezen, v.Melding,
+            v.Ingelezen ? await db.Verkoopbestanden.AsNoTracking().Where(b => b.VerkoopdocumentId == v.Id).Select(b => b.Bestandsnaam).FirstOrDefaultAsync() : null);
     }
 
     /// <summary>Bewaart een concept: nieuw (zonder id) of een bestaand concept. Een definitieve factuur wijzigt niet.</summary>
@@ -241,7 +249,7 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
     }
 
     /// <summary>Een nieuw concept (nog niet toegevoegd aan de database), bijv. van een terugkerende factuur.</summary>
-    internal static Verkoopdocument NieuwConcept(Guid administratie, Verkoopinvoer invoer, Handelsrelatie relatie, Uitvoerder wie, DateTimeOffset nu, Guid? abonnement = null)
+    internal static Verkoopdocument NieuwConcept(Guid administratie, Verkoopinvoer invoer, Handelsrelatie relatie, Uitvoerder wie, DateTimeOffset nu, Guid? abonnement = null, bool ingelezen = false)
     {
         var document = new Verkoopdocument
         {
@@ -251,6 +259,7 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
             AangemaaktOp = nu,
             AangemaaktDoor = wie.Naam,
             AbonnementId = abonnement,
+            Ingelezen = ingelezen,
         };
         Neem(document, invoer, relatie);
         return document;
@@ -266,6 +275,11 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
         document.Referentie = Leeg(invoer.Referentie, 100);
         document.Tekst = Leeg(invoer.Tekst, 4000);
         document.LayoutId = invoer.LayoutId;
+        if (document.Ingelezen)
+        {
+            document.ExternNummer = Leeg(invoer.Factuurnummer, 30);
+        }
+
         document.Verdeling = invoer.Verdeling is { } v ? JsonSerializer.Serialize(new Verdelingsgegevens(v.Van, v.Tot, v.Rekening, [], []), Json) : null;
         document.Regels.AddRange(invoer.Regels.Select((r, i) => new Verkoopdocumentregel
         {
@@ -320,14 +334,28 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
 
         if (await db.Relaties.AsNoTracking().FirstOrDefaultAsync(r => r.Code == document.Relatie) is not { } relatie)
         {
-            return Uitkomst<string>.Mislukt("De klant van deze factuur bestaat niet meer.");
+            return Uitkomst<string>.Mislukt(document.Relatie.Length == 0 ? "Kies een klant." : "De klant van deze factuur bestaat niet meer.");
         }
 
         var a = await db.Administraties.AsNoTracking().SingleAsync(x => x.Id == administratie);
         var codes = (await BtwDienst.Lees(db)).Op(document.Datum);
         var (schema, dagboeken) = await GrootboekDienst.Inrichting(db);
         var factuur = Domein(document) with { Klant = relatie.AlsKlant() };
-        var fouten = Verkoopcontrole.Controleer(factuur, a.Afzender(), codes).ToList();
+        // Een ingelezen factuur is al verstuurd door het andere pakket: alleen wat nodig is om te boeken.
+        var fouten = document.Ingelezen ? Ingelezencontrole(factuur, codes) : [.. Verkoopcontrole.Controleer(factuur, a.Afzender(), codes)];
+        if (document.Ingelezen)
+        {
+            var anderNummer = document.ExternNummer?.Trim();
+            if (string.IsNullOrEmpty(anderNummer))
+            {
+                fouten.Add("Vul het factuurnummer in.");
+            }
+            else if (await db.Verkoopdocumenten.AnyAsync(v => v.Nummer == anderNummer) || await db.OpenstaandePosten.AnyAsync(p => p.Soort == Factuursoort.Verkoop && p.Factuurnummer == anderNummer))
+            {
+                fouten.Add($"Factuur {anderNummer} staat al in de administratie.");
+            }
+        }
+
         var dagboek = dagboeken.FirstOrDefault(d => d.Soort == Dagboeksoort.Verkoop);
         if (dagboek is null)
         {
@@ -380,9 +408,23 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
         await db.Vergrendel(administratie);
         var jaar = document.Datum.Year;
         var begin = jaar.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        var uitgegeven = await db.Verkoopdocumenten.AsNoTracking().Where(v => v.Nummer != null && v.Nummer.StartsWith(begin)).Select(v => v.Nummer!).ToListAsync();
-        var nummer = Factuurnummering.Volgende(jaar, uitgegeven);
-        var kenmerk = Betalingskenmerk.Maak(nummer);
+        string nummer;
+        string? kenmerk;
+        string boekstuk;
+        if (document.Ingelezen)
+        {
+            // Het nummer en kenmerk van het andere pakket; het boekstuk uit de eigen reeks van het verkoopboek.
+            (nummer, kenmerk) = (document.ExternNummer!.Trim(), document.Betalingskenmerk);
+            boekstuk = await GrootboekDienst.VolgendBoekstuk(db, dagboek!.Code, jaar);
+        }
+        else
+        {
+            var uitgegeven = await db.Verkoopdocumenten.AsNoTracking().Where(v => v.Nummer != null && v.Nummer.StartsWith(begin)).Select(v => v.Nummer!).ToListAsync();
+            nummer = Factuurnummering.Volgende(jaar, uitgegeven);
+            kenmerk = Betalingskenmerk.Maak(nummer);
+            boekstuk = nummer;
+        }
+
         factuur = factuur with
         {
             Nummer = nummer,
@@ -399,7 +441,7 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
                 teBoeken = teBoeken with { Regels = [.. teBoeken.Regels.Select(r => r with { Rekeningnummer = verdeling.Rekening })] };
             }
 
-            (post, open) = Factuurboeker.Boek(teBoeken, dagboek!, nummer, schema, codes);
+            (post, open) = Factuurboeker.Boek(teBoeken, dagboek!, boekstuk, schema, codes);
         }
         catch (Exception fout) when (fout is ArgumentException or InvalidOperationException)
         {
@@ -458,9 +500,11 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
         document.BoekingId = boeking.Id;
         document.DefinitiefOp = tijd.GetUtcNow();
         document.DefinitiefDoor = wie.Naam;
+        (document.ExternNummer, document.Melding) = (null, null);
         await db.SaveChangesAsync();
         await transactie.CommitAsync();
-        await audit.Log(wie, AuditActies.VerkoopfactuurDefinitief, $"{dagboek!.Code} {nummer}", $"{relatie.Code}; {factuur.Totaal(codes):0.00}", administratie);
+        await audit.Log(wie, document.Ingelezen ? AuditActies.VerkoopfactuurIngelezenGeboekt : AuditActies.VerkoopfactuurDefinitief, $"{dagboek!.Code} {boekstuk}",
+            $"{relatie.Code} {nummer}; {factuur.Totaal(codes):0.00}", administratie);
         if (verrekend is not null)
         {
             await audit.Log(wie, AuditActies.CreditnotaVerrekend, $"{relatie.Code} {nummer}", $"met {verrekend}", administratie);
@@ -469,6 +513,37 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
         // Een ontvangst die al op de bank stond (bijv. een vooruitbetaling met het nummer), lettert nu af.
         await bank.NaFactuur(wie, administratie, open.Id, null);
         return Uitkomst<string>.Met(nummer);
+    }
+
+    /// <summary>De controle van een ingelezen factuur: klant, regels, omzetrekening en verkoopcodes.</summary>
+    private static List<string> Ingelezencontrole(Verkoopfactuur factuur, IReadOnlyList<BtwCode> codes)
+    {
+        var fouten = new List<string>();
+        if (string.IsNullOrWhiteSpace(factuur.Relatie))
+        {
+            fouten.Add("Kies een klant.");
+        }
+
+        if (factuur.Regels.Count == 0)
+        {
+            fouten.Add("De factuur heeft geen regels.");
+        }
+
+        for (var i = 0; i < factuur.Regels.Count; i++)
+        {
+            var regel = factuur.Regels[i];
+            if (string.IsNullOrWhiteSpace(regel.Rekeningnummer))
+            {
+                fouten.Add($"Regel {i + 1}: kies de omzetrekening.");
+            }
+
+            if (BtwCodes.Zoek(codes, regel.BtwCode) is not { Richting: BtwRichting.Verkoop })
+            {
+                fouten.Add($"Regel {i + 1}: kies een btw-code voor de verkoop.");
+            }
+        }
+
+        return fouten;
     }
 
     /// <summary>Een nieuw concept met dezelfde klant en regels, gedateerd vandaag.</summary>
@@ -568,7 +643,7 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
 
     private static Verkoopinvoer Invoer(Verkoopdocument v) =>
         new(v.Relatie, v.Datum, v.Vervaldatum, v.Omschrijving, [.. v.Regels.OrderBy(r => r.Volgorde).Select(r => r.NaarDomein())], v.Referentie, v.Tekst,
-            Verdeling(v) is { } g ? new Periodeverdeling(g.Van, g.Tot, g.Rekening) : null, v.LayoutId);
+            Verdeling(v) is { } g ? new Periodeverdeling(g.Van, g.Tot, g.Rekening) : null, v.LayoutId, v.Ingelezen ? v.Nummer ?? v.ExternNummer : null);
 
     private static Verdelingsgegevens? Verdeling(Verkoopdocument v) =>
         v.Verdeling is { } json ? JsonSerializer.Deserialize<Verdelingsgegevens>(json, Json) : null;
