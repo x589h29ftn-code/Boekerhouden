@@ -410,6 +410,18 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
             Betaalverschil = invoer.Afwijkend.Betaalverschil is { } grens ? decimal.Round(grens, 2) : null,
         };
         fouten.AddRange(afwijkend.Op(kantoor).Controleer());
+        if (afwijkend.Op(kantoor) is { Betaalverschil: > 0, Verschilrekening: { } verschilrekening })
+        {
+            var (schema, _) = await GrootboekDienst.Inrichting(db);
+            if (schema.Zoek(verschilrekening) is not { } rekening)
+            {
+                fouten.Add($"Rekening {verschilrekening} voor betaalverschillen bestaat niet in deze administratie.");
+            }
+            else if (rekening.Functie is Boekhouding.Grootboek.Rekeningfunctie.Bank or Boekhouding.Grootboek.Rekeningfunctie.Debiteuren or Boekhouding.Grootboek.Rekeningfunctie.Crediteuren or Boekhouding.Grootboek.Rekeningfunctie.Voorbelasting or Boekhouding.Grootboek.Rekeningfunctie.AfTeDragenBtw)
+            {
+                fouten.Add($"Op {rekening.Nummer} {rekening.Naam} boek je geen betaalverschillen: die rekening hoort bij de bank, de openstaande posten of de btw.");
+            }
+        }
         if (fouten.Count > 0)
         {
             return Uitkomst.Mislukt([.. fouten]);

@@ -1,4 +1,5 @@
-@* Een kolomkop om op te sorteren: klikken sorteert, nog eens klikken keert om; het pijltje toont de richting. *@
+@* Een kolomkop om op te sorteren: klikken sorteert, nog eens klikken keert om; het pijltje toont de richting.
+   Gewijzigd tekent de tabel opnieuw: geef de pagina mee (Gewijzigd="StateHasChanged"), anders tekent alleen de kop. *@
 
 <th class="sorteerbaar @Klasse" aria-sort="@(Sortering.Kolom == Naam ? (Sortering.Oplopend ? "ascending" : "descending") : null)" title="Sorteren" @onclick="Wissel">
     @(Tekst ?? Naam)<span class="sorteerpijl" aria-hidden="true">@(Sortering.Kolom == Naam ? (Sortering.Oplopend ? "▲" : "▼") : null)</span>
@@ -18,7 +19,7 @@
     [Parameter]
     public string? Klasse { get; set; }
 
-    [Parameter]
+    [Parameter, EditorRequired]
     public EventCallback Gewijzigd { get; set; }
 
     private async Task Wissel()

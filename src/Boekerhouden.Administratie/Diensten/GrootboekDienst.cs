@@ -413,6 +413,27 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
 
     private static GeboektePost Geboekt(Boeking b) => new(b.Volgnummer, b.NaarDomein(), b.GeboektOp, b.GeboektDoor);
 
+    /// <summary>
+    /// Waarom regels van een boeking niet te herboeken zijn: een teruggedraaide boeking of een tegenboeking (die moeten
+    /// elkaar blijven opheffen) en een periodeverdeling (die gaat via de factuur). Een gewone factuurboeking mag wel: de
+    /// factuur toont daarna de nieuwe rekening.
+    /// </summary>
+    private static async Task<string?> NietTeHerboeken(AdministratieDbContext db, Boeking boeking)
+    {
+        if (boeking.Herstelt is not null || await db.Boekingen.AnyAsync(b => b.Herstelt == boeking.Id))
+        {
+            return "deze boeking is teruggedraaid met een tegenboeking.";
+        }
+
+        var stuk = $"\"{boeking.Dagboek} {boeking.Boekstuk}\"";
+        if (await db.Documenten.AnyAsync(d => d.Verdeling != null && (d.BoekingId == boeking.Id || d.Verdeling.Contains(stuk))))
+        {
+            return "deze boeking hoort bij de periodeverdeling van een factuur; pas hem aan via de factuur.";
+        }
+
+        return null;
+    }
+
     /// <summary>Waarom een boeking niet via <see cref="PasAan"/> aan te passen is, of leeg als dat wel kan.</summary>
     private static async Task<string?> NietAanpasbaar(AdministratieDbContext db, Boeking boeking)
     {
@@ -491,11 +512,6 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
     }
 
     /// <summary>
-    /// Een nieuwe versie van een boeking achteraan in de keten: hetzelfde dagboek en boekstuk, versie plus één, met een
-    /// verwijzing naar de vorige. Wat naar de vorige versie wees (bankmutatie, document, openstaande post), wijst daarna
-    /// naar de nieuwe. Zonder regels is de boeking vervallen. Alleen binnen een transactie; slaat niet op.
-    /// </summary>
-    /// <summary>
     /// Herboekt regels naar een andere rekening (bijv. vanaf de grootboekkaart): per boeking een nieuwe versie waarin
     /// alleen die regels een andere rekening hebben. Niet voor regels op of naar bank, debiteuren, crediteuren of btw:
     /// die horen bij het afschrift, de openstaande posten of de aangifte.
@@ -532,6 +548,11 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
             if (await db.Geldend.AsNoTracking().Include(b => b.Regels).FirstOrDefaultAsync(b => b.Dagboek == groep.Key.Dagboek && b.Boekstuk == groep.Key.Boekstuk) is not { } oud)
             {
                 return Uitkomst<int>.Mislukt($"Boeking {groep.Key.Dagboek} {groep.Key.Boekstuk} bestaat niet (meer).");
+            }
+
+            if (await NietTeHerboeken(db, oud) is { } reden)
+            {
+                return Uitkomst<int>.Mislukt($"{oud.Dagboek} {oud.Boekstuk}: {reden}");
             }
 
             var post = oud.NaarDomein();
@@ -576,6 +597,11 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
         return Uitkomst<int>.Met(herboekt.Sum(h => h.Aantal));
     }
 
+    /// <summary>
+    /// Een nieuwe versie van een boeking achteraan in de keten: hetzelfde dagboek en boekstuk, versie plus één, met een
+    /// verwijzing naar de vorige. Wat naar de vorige versie wees (bankmutatie, document, openstaande post), wijst daarna
+    /// naar de nieuwe. Zonder regels is de boeking vervallen. Alleen binnen een transactie; slaat niet op.
+    /// </summary>
     internal async Task<Boeking> NieuweVersie(AdministratieDbContext db, Guid administratie, Boeking vorige, Journaalpost post, Uitvoerder wie)
     {
         var boeking = await VoegToeAanKeten(db, administratie, post with { Dagboek = vorige.Dagboek, Boekstuk = vorige.Boekstuk }, wie);

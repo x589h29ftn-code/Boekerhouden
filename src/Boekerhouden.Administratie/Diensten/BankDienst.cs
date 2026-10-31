@@ -255,7 +255,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         if (voorstel.Afletteren.KleinVerschil(context.Instellingen.Betaalverschil) is not { } kandidaat
             || context.Instellingen.Verschilrekening is not { } rekening
             || context.Schema.Zoek(rekening) is not { } r
-            || Boekingscorrectie.IsVast(r))
+            || r.Functie is Rekeningfunctie.Bank or Rekeningfunctie.Debiteuren or Rekeningfunctie.Crediteuren or Rekeningfunctie.Voorbelasting or Rekeningfunctie.AfTeDragenBtw)
         {
             return null;
         }

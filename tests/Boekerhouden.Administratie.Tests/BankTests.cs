@@ -15,7 +15,7 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
     private const string EigenIban = "NL20INGB0001234567";
 
     /// <summary>Het afschrift; met <paramref name="belnet"/> een ander bedrag voor Belnet, met <paramref name="april"/> een maand later.</summary>
-    private static MemoryStream Afschrift(string belnet = "25,00", bool april = false, string? eindsaldo = null)
+    internal static MemoryStream Afschrift(string belnet = "25,00", bool april = false, string? eindsaldo = null)
     {
         var tekst = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fictief", "administratie", "ing-2026-03.mt940"));
         var eind = 5985.35m + 25m - decimal.Parse(belnet, new System.Globalization.CultureInfo("nl-NL"));

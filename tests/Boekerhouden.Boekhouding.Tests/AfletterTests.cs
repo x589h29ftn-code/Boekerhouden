@@ -70,6 +70,23 @@ public sealed class AfletteraarTests
     }
 
     [Fact]
+    public void Klein_betaalverschil_niet_bij_twee_facturen_al_betaald_of_korting_wel_bij_een_ontvangst()
+    {
+        var eerste = Crediteur("BELNET", "BN-2026-0440", 24.99m);
+        var tweede = Crediteur("BELNET", "BN-2026-0441", 24.99m);
+        var twee = Afletteraar.Zoek(Betaling(-50m, "Facturen BN-2026-0440 BN-2026-0441", IbanBelnet), [eerste, tweede], Relaties);
+        var betaald = eerste with { Openstaand = 0m };
+        var dubbel = Afletteraar.Zoek(Betaling(-25m, "Factuur BN-2026-0440", IbanBelnet), [betaald], Relaties);
+        var korting = Afletteraar.Zoek(Betaling(-24.50m, "Factuur BN-2026-0440 2% korting", IbanBelnet), [eerste], Relaties);
+        var ontvangst = Afletteraar.Zoek(new Bankmutatie(Datum, 120.98m, "Factuur 2026-0017", IbanDeVries), [Debiteur("DEVRIES", "2026-0017", 121m)], Relaties);
+
+        Assert.Null(twee.KleinVerschil(1m));
+        Assert.Null(dubbel.KleinVerschil(1m));
+        Assert.Null(korting.KleinVerschil(1m));
+        Assert.Equal(0.02m, ontvangst.KleinVerschil(0.05m)!.Verschil);
+    }
+
+    [Fact]
     public void Deelbetaling_met_factuurnummer_en_iban_is_zeker_zonder_iban_een_voorstel()
     {
         var post = Crediteur("BELNET", "BN-2026-0440", 3000m);
