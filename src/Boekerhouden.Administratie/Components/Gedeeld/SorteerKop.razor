@@ -2,7 +2,7 @@
    Gewijzigd tekent de tabel opnieuw: geef de pagina mee (Gewijzigd="StateHasChanged"), anders tekent alleen de kop. *@
 
 <th class="sorteerbaar @Klasse" aria-sort="@(Sortering.Kolom == Naam ? (Sortering.Oplopend ? "ascending" : "descending") : null)" title="Sorteren" @onclick="Wissel">
-    @(Tekst ?? Naam)<span class="sorteerpijl" aria-hidden="true">@(Sortering.Kolom == Naam ? (Sortering.Oplopend ? "▲" : "▼") : null)</span>
+    @(Tekst ?? Naam)<span class="sorteerpijl"><Icoon Naam="arrow-up" /></span>
 </th>
 
 @code {

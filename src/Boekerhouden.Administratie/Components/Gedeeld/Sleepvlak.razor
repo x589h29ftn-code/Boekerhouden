@@ -6,7 +6,7 @@
 <div @ref="vlak" class="sleepvlak @(Bezig ? "bezig" : null)">
     <InputFile id="@Id" accept="@Accept" multiple="@Meerdere" OnChange="OnChange" disabled="@Bezig" aria-label="@Tekst" />
     <div class="sleepvlak-tekst" aria-hidden="true">
-        <span class="sleepvlak-icoon">⇩</span>
+        <span class="sleepvlak-icoon"><Icoon Naam="upload" /></span>
         <span class="fw-semibold">@Tekst</span>
         @if (Soorten is not null)
         {

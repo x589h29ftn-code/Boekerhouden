@@ -8,7 +8,7 @@
     <Acties>
         @if (gekozen is not null)
         {
-            <button class="btn btn-sm btn-outline-secondary" title="Een nieuwe boeking met dezelfde regels, een maand later" @onclick="() => Kopieer(gekozen.Post)">Kopiëren</button>
+            <button class="btn btn-sm btn-outline-secondary" title="Een nieuwe boeking met dezelfde regels, een maand later" @onclick="() => Kopieer(gekozen.Post)"><Icoon Naam="copy" /><span>Kopiëren</span></button>
         }
         @if (gekozen is not null || kopie is not null)
         {

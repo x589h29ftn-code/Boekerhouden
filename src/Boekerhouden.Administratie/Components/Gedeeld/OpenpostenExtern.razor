@@ -14,7 +14,7 @@
             <option value="@Factuursoort.Inkoop">Crediteuren</option>
             <option value="@Factuursoort.Verkoop">Debiteuren</option>
         </select>
-        <button class="btn btn-sm btn-outline-secondary text-nowrap" disabled="@bezig" title="Bijwerken" @onclick="Ververs">&#x21bb; Verversen</button>
+        <button class="btn btn-sm btn-outline-secondary text-nowrap" disabled="@bezig" title="Bijwerken" @onclick="Ververs"><Icoon Naam="refresh-cw" /><span>Verversen</span></button>
         <span class="small text-secondary text-nowrap" title="Bijgewerkt">@bijgewerkt</span>
     </div>
     @if (geenToegang)
@@ -23,7 +23,7 @@
     }
     else if (posten is null)
     {
-        <div class="text-secondary small">Laden…</div>
+        <Laadschets />
     }
     else
     {

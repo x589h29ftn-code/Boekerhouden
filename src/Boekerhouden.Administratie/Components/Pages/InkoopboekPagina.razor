@@ -38,7 +38,7 @@
         </div>
         @if (regels is { Count: 0 })
         {
-            <div class="card card-body text-center text-secondary py-4">Geen inkoopfacturen @(alleJaren ? null : "in deze periode").</div>
+            <div class="card leeg"><Icoon Naam="inbox" /><span>Geen inkoopfacturen @(alleJaren ? null : "in deze periode").</span></div>
         }
         else if (regels is not null)
         {
@@ -50,7 +50,7 @@
                             @foreach (var k in Kolommen)
                             {
                                 <th class="sorteerbaar @(k.Bedrag ? "text-end" : null)" aria-sort="@(sortering == k.Naam ? (oplopend ? "ascending" : "descending") : null)" title="Sorteren" @onclick="() => Sorteer(k)">
-                                    @k.Naam<span class="sorteerpijl" aria-hidden="true">@(sortering == k.Naam ? (oplopend ? "▲" : "▼") : null)</span>
+                                    @k.Naam<span class="sorteerpijl"><Icoon Naam="arrow-up" /></span>
                                 </th>
                             }
                         </tr>

@@ -13,7 +13,7 @@
         {
             <span class="rekeningkeuze-naam" title="@gekozen.Naam">@gekozen.Naam</span>
         }
-        <button type="button" class="rekeningkeuze-alle" tabindex="-1" title="Alle rekeningen (F2)" aria-label="Alle rekeningen" @onmousedown:preventDefault @onclick="OpenVenster">⋯</button>
+        <button type="button" class="rekeningkeuze-alle" tabindex="-1" title="Alle rekeningen (F2)" aria-label="Alle rekeningen" @onmousedown:preventDefault @onclick="OpenVenster"><Icoon Naam="ellipsis" /></button>
     </div>
     @if (open && treffers.Count > 0)
     {

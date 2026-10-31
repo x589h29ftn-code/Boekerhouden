@@ -1,0 +1,541 @@
+/* Uitstraling van beide apps: lettertype, kleur, iconen, overgangen en kleine animaties. Wordt als laatste geladen
+   (na Bootstrap, app.css en de css van de app), zodat deze regels de basis zetten. Bewegingen zijn kort (120–260 ms) en
+   vallen weg bij "minder beweging" in het besturingssysteem. */
+
+@font-face {
+    font-family: "IBM Plex Sans";
+    src: url("fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "IBM Plex Sans";
+    src: url("fonts/ibm-plex-sans-latin-500-normal.woff2") format("woff2");
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "IBM Plex Sans";
+    src: url("fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2");
+    font-weight: 600 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+:root {
+    --bh-accent: #1d5c63;
+    --bh-accent-donker: #154449;
+    --bh-accent-zacht: #e5eeee;
+    --bh-tekst: #1e2428;
+    --bh-zacht: #66717a;
+    --bh-lijn: #e3e6e8;
+    --bh-lijn-sterk: #cfd5d9;
+    --bh-vlak: #f6f6f4;
+    --bh-kop: #fafaf9;
+    --bh-snel: 120ms;
+    --bh-gewoon: 180ms;
+    --bh-curve: cubic-bezier(.2, .7, .2, 1);
+    --bs-primary: var(--bh-accent);
+    --bs-primary-rgb: 29, 92, 99;
+    --bs-link-color: var(--bh-accent);
+    --bs-link-color-rgb: 29, 92, 99;
+    --bs-link-hover-color: var(--bh-accent-donker);
+    --bs-link-hover-color-rgb: 21, 68, 73;
+    --bs-body-font-family: "IBM Plex Sans", system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+    --bs-body-color: var(--bh-tekst);
+    --bs-secondary-color: var(--bh-zacht);
+    --bs-border-color: var(--bh-lijn);
+    --bs-tertiary-bg: #f3f4f3;
+    --bs-focus-ring-color: rgba(29, 92, 99, .25);
+    --kleur-zacht: var(--bh-zacht);
+    --kleur-lijn: var(--bh-lijn);
+}
+
+html, body {
+    font-family: var(--bs-body-font-family);
+    background: var(--bh-vlak);
+    color: var(--bh-tekst);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+h1, .h1, h2, .h2, h3, .h3 {
+    font-weight: 600;
+    letter-spacing: -.01em;
+}
+
+h1.h3, .h3 {
+    font-size: 1.45rem;
+}
+
+a {
+    color: var(--bh-accent);
+    text-decoration: none;
+    text-underline-offset: .18em;
+}
+
+    a:hover {
+        text-decoration: underline;
+    }
+
+.btn-link {
+    text-decoration: none;
+}
+
+    .btn-link:hover {
+        text-decoration: underline;
+    }
+
+/* Cijfers even breed, zodat bedragen recht onder elkaar staan. */
+.bedrag, .overzichtstabel td, .table td {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Iconen: één lijnset (Lucide, iconen.svg); kleur en dikte volgen de tekst. */
+.icoon {
+    width: 1em;
+    height: 1em;
+    flex: none;
+    vertical-align: -.14em;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.btn .icoon + span, .btn > .icoon:not(:only-child) {
+    margin-right: .35rem;
+}
+
+.btn.alleen-icoon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding-inline: .45rem;
+}
+
+/* Knoppen: rustige randen, een zachte indruk bij klikken en een draaiend bolletje zolang het bezig is. */
+.btn {
+    transition: color var(--bh-snel) ease, background-color var(--bh-snel) ease, border-color var(--bh-snel) ease, box-shadow var(--bh-snel) ease, transform 80ms ease;
+}
+
+    .btn:active:not(:disabled) {
+        transform: translateY(.5px) scale(.985);
+    }
+
+.btn-primary {
+    --bs-btn-bg: var(--bh-accent);
+    --bs-btn-border-color: var(--bh-accent);
+    --bs-btn-hover-bg: var(--bh-accent-donker);
+    --bs-btn-hover-border-color: var(--bh-accent-donker);
+    --bs-btn-active-bg: var(--bh-accent-donker);
+    --bs-btn-active-border-color: var(--bh-accent-donker);
+    --bs-btn-disabled-bg: var(--bh-accent);
+    --bs-btn-disabled-border-color: var(--bh-accent);
+    --bs-btn-focus-shadow-rgb: 29, 92, 99;
+    font-weight: 500;
+}
+
+.btn-outline-primary {
+    --bs-btn-color: var(--bh-accent);
+    --bs-btn-border-color: var(--bh-accent);
+    --bs-btn-hover-bg: var(--bh-accent);
+    --bs-btn-hover-border-color: var(--bh-accent);
+    --bs-btn-active-bg: var(--bh-accent-donker);
+    --bs-btn-active-border-color: var(--bh-accent-donker);
+    --bs-btn-focus-shadow-rgb: 29, 92, 99;
+}
+
+.btn-outline-secondary {
+    --bs-btn-color: var(--bh-tekst);
+    --bs-btn-bg: #fff;
+    --bs-btn-border-color: var(--bh-lijn-sterk);
+    --bs-btn-hover-color: var(--bh-tekst);
+    --bs-btn-hover-bg: #f0f2f2;
+    --bs-btn-hover-border-color: #c2c9ce;
+    --bs-btn-active-color: var(--bh-tekst);
+    --bs-btn-active-bg: #e6e9ea;
+    --bs-btn-active-border-color: #c2c9ce;
+    --bs-btn-disabled-color: #9aa3a9;
+    --bs-btn-disabled-border-color: var(--bh-lijn);
+    --bs-btn-focus-shadow-rgb: 29, 92, 99;
+}
+
+    .btn-outline-secondary.active, .btn-check:checked + .btn-outline-secondary {
+        --bs-btn-active-bg: var(--bh-accent-zacht);
+        --bs-btn-active-color: var(--bh-accent-donker);
+        --bs-btn-active-border-color: #b9cfd1;
+    }
+
+.btn[aria-busy="true"]::before {
+    content: "";
+    display: inline-block;
+    width: .8em;
+    height: .8em;
+    margin-right: .4rem;
+    vertical-align: -.1em;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: bh-draai .7s linear infinite;
+}
+
+/* Focus: een duidelijke ring alleen bij toetsenbordgebruik. */
+.btn:focus-visible, a:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--bs-focus-ring-color);
+    border-radius: var(--bs-border-radius);
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--bh-accent);
+    box-shadow: 0 0 0 3px var(--bs-focus-ring-color);
+}
+
+.form-check-input:focus {
+    border-color: var(--bh-accent);
+    box-shadow: 0 0 0 3px var(--bs-focus-ring-color);
+}
+
+.form-check-input:checked {
+    background-color: var(--bh-accent);
+    border-color: var(--bh-accent);
+}
+
+.form-switch .form-check-input {
+    transition: background-position var(--bh-gewoon) var(--bh-curve), background-color var(--bh-snel) ease;
+}
+
+.form-control, .form-select {
+    border-color: var(--bh-lijn-sterk);
+}
+
+    .form-control::file-selector-button {
+        margin-right: .75rem;
+        padding-inline: .9rem;
+        border: 0;
+        border-right: 1px solid var(--bh-lijn-sterk);
+        background: #f3f4f4;
+        color: var(--bh-tekst);
+        transition: background-color var(--bh-snel) ease;
+    }
+
+    .form-control:hover:not(:disabled)::file-selector-button {
+        background: #e9ecec;
+    }
+
+/* Kaarten en tabellen: dunne lijnen, geen zware kaders. */
+.card {
+    border-color: var(--bh-lijn);
+    border-radius: .5rem;
+    box-shadow: 0 1px 2px rgba(20, 30, 35, .04);
+}
+
+    .card > .table:first-child > thead > tr:first-child > th:first-child {
+        border-top-left-radius: .5rem;
+    }
+
+    .card > .table:first-child > thead > tr:first-child > th:last-child {
+        border-top-right-radius: .5rem;
+    }
+
+.table {
+    --bs-table-border-color: #eceeef;
+    --bs-table-hover-bg: rgba(29, 92, 99, .045);
+    --bs-table-active-bg: var(--bh-accent-zacht);
+}
+
+    .table > tbody > tr > td {
+        transition: background-color var(--bh-snel) ease;
+    }
+
+/* Kolomkoppen en kleine kopjes in gewone letters, niet in HOOFDLETTERS met extra letterafstand. */
+.table > thead th, .card > .table > thead > tr > th, .overzichtstabel > thead th, .regeltabel > thead th,
+.sectiekop, .paneelkop, .verwerkpaneel .paneelkop, .boom-kop, .klantkaart-kop, .wp-sectie-kop, .beheermenu .groep, .variabele-groep,
+.overzichtstabel tr.indeling-kop.niveau-0 > td {
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.table > thead th, .card > .table > thead > tr > th, .overzichtstabel > thead th {
+    font-size: .8125rem;
+    font-weight: 500;
+    color: var(--bh-zacht);
+    background: var(--bh-kop);
+    border-bottom: 1px solid var(--bh-lijn);
+}
+
+.regeltabel > thead th {
+    font-size: .8125rem;
+    font-weight: 500;
+    color: var(--bh-zacht);
+}
+
+.sectiekop, .paneelkop, .verwerkpaneel .paneelkop, .boom-kop, .klantkaart-kop, .wp-sectie-kop, .beheermenu .groep {
+    font-size: .8125rem;
+    font-weight: 600;
+    color: var(--bh-zacht);
+}
+
+.overzichtstabel tr.indeling-kop.niveau-0 > td {
+    font-size: .875rem;
+    font-weight: 600;
+}
+
+/* Sorteren: het pijltje draait in plaats van te wisselen; bij aanwijzen zie je waar je kunt sorteren. */
+th.sorteerbaar {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    transition: color var(--bh-snel) ease;
+}
+
+    th.sorteerbaar:hover {
+        color: var(--bh-tekst);
+    }
+
+.sorteerpijl {
+    display: inline-flex;
+    margin-left: .25rem;
+    opacity: 0;
+    transition: opacity var(--bh-snel) ease, transform var(--bh-gewoon) var(--bh-curve);
+}
+
+th.sorteerbaar:hover .sorteerpijl {
+    opacity: .45;
+}
+
+th[aria-sort] {
+    color: var(--bh-tekst);
+}
+
+    th[aria-sort] .sorteerpijl {
+        opacity: 1;
+    }
+
+th[aria-sort="descending"] .sorteerpijl {
+    transform: rotate(180deg);
+}
+
+/* Een pagina komt rustig binnen: even vervagen en een paar pixels omhoog. */
+@keyframes bh-binnen {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes bh-vervagen {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes bh-draai {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes bh-glans {
+    from {
+        background-position: 100% 0;
+    }
+
+    to {
+        background-position: -100% 0;
+    }
+}
+
+/* Een verwerkte regel licht op en schuift weg voordat hij uit de lijst gaat. */
+@keyframes bh-verwerkt {
+    0% {
+        background-color: var(--bh-accent-zacht);
+    }
+
+    55% {
+        opacity: 1;
+        transform: none;
+        background-color: var(--bh-accent-zacht);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateX(12px);
+        background-color: var(--bh-accent-zacht);
+    }
+}
+
+@keyframes bh-vinkje {
+    from {
+        stroke-dashoffset: 24;
+    }
+
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+.administratie-inhoud, .beheer-inhoud, .pagina-binnen {
+    animation: bh-binnen var(--bh-gewoon) var(--bh-curve) both;
+}
+
+tr.verwerkt > td {
+    animation: bh-verwerkt 280ms var(--bh-curve) forwards;
+}
+
+.vinkje-in .icoon {
+    stroke-dasharray: 24;
+    animation: bh-vinkje 260ms var(--bh-curve) both;
+}
+
+.bericht, .alert {
+    animation: bh-binnen var(--bh-gewoon) var(--bh-curve) both;
+}
+
+/* Laden: een schets van de tabel met een zachte glans, pas na een korte pauze (anders flitst hij bij snel laden). */
+.laadschets {
+    display: grid;
+    gap: .6rem;
+    padding: .9rem 1rem;
+    animation: bh-vervagen var(--bh-gewoon) ease 150ms both;
+}
+
+    .laadschets span {
+        display: block;
+        height: .7rem;
+        border-radius: .25rem;
+        background: linear-gradient(90deg, #eceeed 0%, #f6f7f6 45%, #eceeed 90%);
+        background-size: 200% 100%;
+        animation: bh-glans 1.3s linear infinite;
+    }
+
+        .laadschets span:nth-child(3n + 1) {
+            width: 92%;
+        }
+
+        .laadschets span:nth-child(3n + 2) {
+            width: 78%;
+        }
+
+        .laadschets span:nth-child(3n) {
+            width: 64%;
+        }
+
+/* Lege lijst: een klein lijnicoon en één regel. */
+.leeg {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .4rem;
+    padding: 2rem 1rem;
+    color: var(--bh-zacht);
+    animation: bh-binnen var(--bh-gewoon) var(--bh-curve) both;
+}
+
+    .leeg .icoon {
+        width: 1.6rem;
+        height: 1.6rem;
+        stroke-width: 1.5;
+        color: #a3adb3;
+    }
+
+/* Menu van de administratie: een klein icoon per groep en een chevron die meedraait. */
+.groepsicoon {
+    margin-right: .4rem;
+    color: var(--bh-zacht);
+    transition: color var(--bh-snel) ease;
+}
+
+.admmenu-groep.actief .groepsicoon, .admmenu-groep:hover .groepsicoon {
+    color: var(--bh-accent);
+}
+
+.admmenu-kop .pijl {
+    display: inline-flex;
+    margin-left: .2rem;
+    font-size: .85em;
+    opacity: .6;
+}
+
+.admmenu-groep.actief > .admmenu-kop {
+    border-bottom-color: var(--bh-accent);
+}
+
+.admmenu-link {
+    transition: background-color var(--bh-snel) ease, color var(--bh-snel) ease;
+}
+
+/* Terug naar de lijst: een pijl in een rondje dat bij aanwijzen een stapje naar links zet. */
+a.terug {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    font-size: 1.1rem;
+    color: var(--bh-zacht);
+    transition: background-color var(--bh-snel) ease, color var(--bh-snel) ease, transform var(--bh-gewoon) var(--bh-curve);
+}
+
+    a.terug:hover {
+        background: #eceeee;
+        color: var(--bh-tekst);
+        text-decoration: none;
+        transform: translateX(-2px);
+    }
+
+.sleepvlak-icoon {
+    color: var(--bh-accent);
+}
+
+    .sleepvlak-icoon .icoon {
+        width: 1.6rem;
+        height: 1.6rem;
+        stroke-width: 1.5;
+    }
+
+/* Openklappen in de balans: de chevron draait een kwartslag. */
+.overzicht .pijl, .pijl.open {
+    display: inline-flex;
+    transition: transform var(--bh-gewoon) var(--bh-curve);
+}
+
+    .pijl.open {
+        transform: rotate(90deg);
+    }
+
+/* Rekening of post kiezen: de knop met de puntjes. */
+.rekeningkeuze-alle .icoon {
+    vertical-align: -.2em;
+}
+
+/* Dunne, grijze scrollbalken. */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #c7cdd1 transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 1ms !important;
+        animation-delay: 0ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 1ms !important;
+    }
+}

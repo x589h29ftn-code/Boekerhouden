@@ -5,8 +5,8 @@
     <DatumVeld Label="Van" Waarde="Van" WaardeChanged="ZetVan" />
     <span class="text-secondary" aria-hidden="true">→</span>
     <DatumVeld Label="Tot en met" Waarde="Tot" WaardeChanged="ZetTot" />
-    <button type="button" class="btn btn-sm btn-link text-secondary px-1" title="Vorige periode" @onclick="() => Schuif(-1)">‹</button>
-    <button type="button" class="btn btn-sm btn-link text-secondary px-1" title="Volgende periode" @onclick="() => Schuif(1)">›</button>
+    <button type="button" class="btn btn-sm btn-link text-secondary px-1" title="Vorige periode" aria-label="Vorige periode" @onclick="() => Schuif(-1)"><Icoon Naam="chevron-left" /></button>
+    <button type="button" class="btn btn-sm btn-link text-secondary px-1" title="Volgende periode" aria-label="Volgende periode" @onclick="() => Schuif(1)"><Icoon Naam="chevron-right" /></button>
 </div>
 
 @code {

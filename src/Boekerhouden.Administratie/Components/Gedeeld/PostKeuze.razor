@@ -14,7 +14,7 @@
         {
             <span class="rekeningkeuze-naam" title="@Naam(gekozen.Relatie)">@Naam(gekozen.Relatie)</span>
         }
-        <button type="button" class="rekeningkeuze-alle" tabindex="-1" title="Openstaande posten (F2)" aria-label="Openstaande posten" @onmousedown:preventDefault @onclick="OpenVenster">⋯</button>
+        <button type="button" class="rekeningkeuze-alle" tabindex="-1" title="Openstaande posten (F2)" aria-label="Openstaande posten" @onmousedown:preventDefault @onclick="OpenVenster"><Icoon Naam="ellipsis" /></button>
     </div>
     @if (open && Gekozen is null)
     {

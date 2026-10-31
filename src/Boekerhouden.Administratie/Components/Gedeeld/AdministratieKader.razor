@@ -6,7 +6,7 @@
 
 @if (!geladen)
 {
-    <p class="text-secondary">Laden…</p>
+    <Laadschets />
 }
 else if (kop is null)
 {
@@ -29,7 +29,7 @@ else
                 var actief = zichtbaar.Any(i => i.Pad == Actief);
                 <div class="admmenu-groep @(actief ? "actief" : null) @(open == groep ? "open" : null)" @onmouseleave="() => Sluit(groep)">
                     <button type="button" class="admmenu-kop" aria-haspopup="true" aria-expanded="@(open == groep)" @onclick="() => Wissel(groep)">
-                        @groep <span class="pijl" aria-hidden="true">▾</span>
+                        <Icoon Naam="@Groepsicoon(groep)" Klasse="groepsicoon" />@groep<span class="pijl"><Icoon Naam="chevron-down" /></span>
                     </button>
                     <div class="admmenu-items">
                         @foreach (var (pad, naam, _) in zichtbaar)
@@ -44,7 +44,7 @@ else
             <div class="d-flex align-items-center flex-wrap gap-3 mb-3">
                 @if (TerugAdres is { } terug)
                 {
-                    <a class="terug" href="@terug" title="Terug" aria-label="Terug">&larr;</a>
+                    <a class="terug" href="@terug" title="Terug" aria-label="Terug"><Icoon Naam="arrow-left" /></a>
                 }
                 <h1 class="h3 mb-0 me-auto">@Titel</h1>
                 @Acties
@@ -55,6 +55,14 @@ else
 }
 
 @code {
+    private static string Groepsicoon(string groep) => groep switch
+    {
+        "Boekhouden" => "notebook-pen",
+        "Dagboeken" => "book-open",
+        "Rapportages" => "chart-column",
+        _ => "settings",
+    };
+
     /// <summary>Het menu per groep: boekhouden (verwerken), dagboeken (terugvinden), rapportages en inrichting.</summary>
     private static readonly (string Groep, (string Pad, string Naam, Recht Recht)[] Items)[] Menu =
     [

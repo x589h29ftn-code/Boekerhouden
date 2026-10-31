@@ -21,8 +21,8 @@
             <label class="form-check-label text-secondary" for="met-nul">ook zonder saldo</label>
         </span>
         <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
-        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De kolommenbalans als Excel" @onclick="Excel">Excel</button>
-        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De kolommenbalans als PDF (A4 liggend)" @onclick="Pdf">PDF</button>
+        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De kolommenbalans als Excel" @onclick="Excel"><Icoon Naam="file-spreadsheet" /><span>Excel</span></button>
+        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De kolommenbalans als PDF (A4 liggend)" @onclick="Pdf"><Icoon Naam="file-text" /><span>PDF</span></button>
     </Acties>
     <ChildContent>
         <Foutmeldingen Fouten="fouten" />

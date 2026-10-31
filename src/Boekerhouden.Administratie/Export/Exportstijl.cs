@@ -13,14 +13,14 @@ internal static class Exportstijl
         h2 .code { display: inline-block; min-width: 6rem; color: #6c757d; }
         table { width: 100%; border-collapse: collapse; table-layout: fixed; border: 1px solid #e3e7eb; }
         th { font-size: 7pt; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #6c757d; text-align: left;
-             background: #f4f6f8; border-bottom: 1px solid #1f5f8b; padding: 4pt 5pt; vertical-align: bottom; }
+             background: #f4f6f8; border-bottom: 1px solid #1d5c63; padding: 4pt 5pt; vertical-align: bottom; }
         td { padding: 2.5pt 5pt; border-bottom: 1px solid #eef0f2; }
         .r { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
         .datum { white-space: nowrap; }
         .zacht { color: #6c757d; }
         tr.totaal td { font-weight: 600; background: #f4f6f8; border-bottom: 0; }
         table.generaal { margin-top: 12pt; }
-        table.generaal td { font-weight: 600; font-size: 10pt; background: #f4f6f8; border-top: 1px solid #1f5f8b; border-bottom: 0; }
+        table.generaal td { font-weight: 600; font-size: 10pt; background: #f4f6f8; border-top: 1px solid #1d5c63; border-bottom: 0; }
         .relatie { break-inside: avoid; }
         .voet { margin-top: 10pt; font-size: 7.5pt; color: #6c757d; }
         """;

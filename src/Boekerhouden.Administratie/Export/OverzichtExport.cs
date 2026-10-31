@@ -180,7 +180,7 @@ public static class OverzichtExport
             cel.Style.Font.Bold = true;
             cel.Style.Fill.BackgroundColor = XLColor.FromHtml("#f4f6f8");
             cel.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
-            cel.Style.Border.BottomBorderColor = XLColor.FromHtml("#1f5f8b");
+            cel.Style.Border.BottomBorderColor = XLColor.FromHtml("#1d5c63");
         }
 
         blad.SheetView.FreezeRows(rij);

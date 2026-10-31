@@ -13,9 +13,9 @@
         @if (werkvoorraad is { Count: > 0 } && Positie is { } positie)
         {
             <span class="bladeren">
-                <button class="btn btn-sm btn-link text-secondary px-1" title="Vorige factuur (Alt+↑)" disabled="@(positie == 0)" @onclick="() => Ga(-1)">‹</button>
+                <button class="btn btn-sm btn-link text-secondary px-1" title="Vorige factuur (Alt+↑)" disabled="@(positie == 0)" aria-label="Vorige factuur" @onclick="() => Ga(-1)"><Icoon Naam="chevron-left" /></button>
                 <span class="small text-secondary">@(positie + 1) van @werkvoorraad.Count</span>
-                <button class="btn btn-sm btn-link text-secondary px-1" title="Volgende factuur (Alt+↓)" disabled="@(positie == werkvoorraad.Count - 1)" @onclick="() => Ga(1)">›</button>
+                <button class="btn btn-sm btn-link text-secondary px-1" title="Volgende factuur (Alt+↓)" disabled="@(positie == werkvoorraad.Count - 1)" aria-label="Volgende factuur" @onclick="() => Ga(1)"><Icoon Naam="chevron-right" /></button>
             </span>
         }
         @if (verwerking is { Document.Status: Documentstatus.TeVerwerken } info)
@@ -318,7 +318,7 @@
                                                     </div>
                                                 </td>
                                             }
-                                            <td><button class="btn btn-sm btn-link text-secondary p-0 regel-weg" title="Regel verwijderen" @onclick="() => Verwijder(regel)" disabled="@(regels.Count <= 1)">×</button></td>
+                                            <td><button class="btn btn-sm btn-link text-secondary p-0 regel-weg" title="Regel verwijderen" @onclick="() => Verwijder(regel)" disabled="@(regels.Count <= 1)"><Icoon Naam="x" /></button></td>
                                         </tr>
                                     }
                                 </tbody>

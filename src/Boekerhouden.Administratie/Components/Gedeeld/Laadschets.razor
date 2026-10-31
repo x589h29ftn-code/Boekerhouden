@@ -1,0 +1,12 @@
+@* Terwijl een pagina of tabel laadt: grijze balkjes met een zachte glans in plaats van "Laden…". *@
+<div class="laadschets" role="status" aria-label="Laden">
+    @for (var i = 0; i < Regels; i++)
+    {
+        <span></span>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Regels { get; set; } = 6;
+}

@@ -3,12 +3,12 @@
 
 <AdministratieKader Id="Id" Titel="Aansluitingen" Actief="/aansluitingen" BijOpenen="Open">
     <Acties>
-        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="Bijwerken" @onclick="Laad">&#x21bb; Verversen</button>
+        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="Bijwerken" @onclick="Laad"><Icoon Naam="refresh-cw" /><span>Verversen</span></button>
     </Acties>
     <ChildContent>
         @if (lijst is { Count: 0 })
         {
-            <div class="card card-body text-center text-secondary py-4">Geen bank, crediteuren, debiteuren of btw-rekeningen ingericht.</div>
+            <div class="card leeg"><Icoon Naam="scale" /><span>Geen bank, crediteuren, debiteuren of btw-rekeningen ingericht.</span></div>
         }
         else if (lijst is not null)
         {

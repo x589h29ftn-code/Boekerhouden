@@ -14,8 +14,8 @@
             }
         </select>
         <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
-        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De grootboekkaart als Excel" @onclick="Excel">Excel</button>
-        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De grootboekkaart als PDF (A4 liggend)" @onclick="Pdf">PDF</button>
+        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De grootboekkaart als Excel" @onclick="Excel"><Icoon Naam="file-spreadsheet" /><span>Excel</span></button>
+        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De grootboekkaart als PDF (A4 liggend)" @onclick="Pdf"><Icoon Naam="file-text" /><span>PDF</span></button>
     </Acties>
     <ChildContent>
         @if (kaart is not null)
@@ -25,8 +25,8 @@
                 <span class="rekeningnummer">@kaart.Rekening.Nummer</span>
                 <span class="fw-semibold">@kaart.Rekening.Naam</span>
                 <span class="btn-group btn-group-sm ms-2 bladeren">
-                    <button class="btn btn-outline-secondary" title="Vorige rekening@(Buur(-1) is { } v ? $": {v.Nummer} {v.Naam}" : null)" aria-label="Vorige rekening" disabled="@(Buur(-1) is null)" @onclick="() => Blader(-1)">&lsaquo;</button>
-                    <button class="btn btn-outline-secondary" title="Volgende rekening@(Buur(1) is { } n ? $": {n.Nummer} {n.Naam}" : null)" aria-label="Volgende rekening" disabled="@(Buur(1) is null)" @onclick="() => Blader(1)">&rsaquo;</button>
+                    <button class="btn btn-outline-secondary" title="Vorige rekening@(Buur(-1) is { } v ? $": {v.Nummer} {v.Naam}" : null)" aria-label="Vorige rekening" disabled="@(Buur(-1) is null)" @onclick="() => Blader(-1)"><Icoon Naam="chevron-left" /></button>
+                    <button class="btn btn-outline-secondary" title="Volgende rekening@(Buur(1) is { } n ? $": {n.Nummer} {n.Naam}" : null)" aria-label="Volgende rekening" disabled="@(Buur(1) is null)" @onclick="() => Blader(1)"><Icoon Naam="chevron-right" /></button>
                 </span>
                 <input class="form-control form-control-sm ms-auto kaartzoeken" placeholder="Zoeken op omschrijving, bedrag, relatie of factuurnummer" aria-label="Zoeken"
                        @bind="zoek" @bind:event="oninput" />
@@ -37,7 +37,7 @@
                 <div class="d-flex align-items-center gap-2 mb-2 small herboeken">
                     <span>@gekozen.Count @(gekozen.Count == 1 ? "regel" : "regels") (<Euro Waarde="Gekozen.Sum(m => m.Bedrag)" />) herboeken naar</span>
                     <div class="herboeken-rekening"><RekeningKeuze Id="herboek-rekening" @bind-Waarde="naarRekening" Schema="schema" Kader="geopend" /></div>
-                    <button class="btn btn-sm btn-primary" disabled="@(bezig || string.IsNullOrWhiteSpace(naarRekening))" @onclick="Herboek">Herboeken</button>
+                    <button class="btn btn-sm btn-primary" disabled="@(bezig || string.IsNullOrWhiteSpace(naarRekening))" aria-busy="@(bezig ? "true" : null)" @onclick="Herboek"><Icoon Naam="arrow-right-left" /><span>Herboeken</span></button>
                     <button class="btn btn-sm btn-link text-secondary" @onclick="() => gekozen.Clear()">annuleren</button>
                 </div>
             }

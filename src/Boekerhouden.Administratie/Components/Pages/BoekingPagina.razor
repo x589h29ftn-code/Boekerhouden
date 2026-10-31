@@ -18,7 +18,7 @@
         }
         @if (detail is { Document: null, Herstelt: null } && !aanpassen && geopend?.Kop.Mag(Recht.Boekhouden) == true && IsMemoriaal)
         {
-            <a class="btn btn-sm btn-outline-secondary" href="/a/@Id/memoriaal?dagboek=@Uri.EscapeDataString(Dagboek)&kopie=@Uri.EscapeDataString(Boekstuk)" title="Een nieuwe boeking met dezelfde regels, een maand later">Kopiëren</a>
+            <a class="btn btn-sm btn-outline-secondary" href="/a/@Id/memoriaal?dagboek=@Uri.EscapeDataString(Dagboek)&kopie=@Uri.EscapeDataString(Boekstuk)" title="Een nieuwe boeking met dezelfde regels, een maand later"><Icoon Naam="copy" /><span>Kopiëren</span></a>
         }
     </Acties>
     <ChildContent>

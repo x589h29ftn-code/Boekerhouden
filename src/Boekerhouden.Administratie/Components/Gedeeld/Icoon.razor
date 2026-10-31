@@ -1,0 +1,12 @@
+@* Een icoon uit de lijnset van de huisstijl (Lucide, iconen.svg); kleur en grootte volgen de tekst. Alleen als
+   versiering: de knop of link zelf heeft de tekst of een aria-label. *@
+<svg class="icoon @Klasse" aria-hidden="true" focusable="false"><use href="_content/Boekerhouden.Huisstijl/iconen.svg#@Naam"></use></svg>
+
+@code {
+    /// <summary>De naam in iconen.svg, bijv. <c>chevron-left</c>, <c>refresh-cw</c> of <c>app-window</c>.</summary>
+    [Parameter, EditorRequired]
+    public string Naam { get; set; } = "";
+
+    [Parameter]
+    public string? Klasse { get; set; }
+}

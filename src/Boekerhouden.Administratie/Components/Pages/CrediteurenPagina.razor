@@ -24,7 +24,7 @@
         <Foutmeldingen Fouten="fouten" />
         @if (lijst is { Relaties.Count: 0 })
         {
-            <div class="card card-body text-center text-secondary py-4">Geen openstaande posten op @Weergave.Datum(peildatum).</div>
+            <div class="card leeg"><Icoon Naam="circle-check" /><span>Geen openstaande posten op @Weergave.Datum(peildatum).</span></div>
         }
         else if (lijst is not null)
         {

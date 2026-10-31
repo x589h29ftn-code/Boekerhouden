@@ -8,7 +8,7 @@
             {
                 var sleutel = post.Code ?? post.Naam;
                 <tr class="klikbaar post" @onclick="() => Wissel(sleutel)">
-                    <td title="@post.Code"><span class="pijl" aria-hidden="true">@(open.Contains(sleutel) ? "▾" : "▸")</span> @post.Naam</td>
+                    <td title="@post.Code"><span class="pijl @(open.Contains(sleutel) ? "open" : null)"><Icoon Naam="chevron-right" /></span> @post.Naam</td>
                     <td class="bedrag text-end"><Euro Waarde="Teken * post.Saldo" /></td>
                 </tr>
                 @if (open.Contains(sleutel))
