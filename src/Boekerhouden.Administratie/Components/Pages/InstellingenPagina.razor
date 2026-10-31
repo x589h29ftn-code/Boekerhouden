@@ -20,6 +20,13 @@
                 <div class="col-md-6"><label class="form-label" for="kvk">KvK-nummer</label><input id="kvk" class="form-control" @bind="gegevens.KvkNummer" /></div>
                 <div class="col-md-6"><label class="form-label" for="btw">Btw-nummer</label><input id="btw" class="form-control" @bind="gegevens.BtwNummer" /></div>
                 <div class="col-12"><label class="form-label" for="ibans">Eigen bankrekeningen (IBAN's, gescheiden door komma's)</label><input id="ibans" class="form-control" @bind="gegevens.Ibans" /></div>
+                <div class="col-md-6"><label class="form-label" for="straat">Straat en huisnummer</label><input id="straat" class="form-control" @bind="gegevens.Straat" /></div>
+                <div class="col-md-2"><label class="form-label" for="postcode">Postcode</label><input id="postcode" class="form-control" @bind="gegevens.Postcode" /></div>
+                <div class="col-md-3"><label class="form-label" for="plaats">Plaats</label><input id="plaats" class="form-control" @bind="gegevens.Plaats" /></div>
+                <div class="col-md-1"><label class="form-label" for="land">Land</label><input id="land" class="form-control" maxlength="2" placeholder="NL" @bind="gegevens.Land" /></div>
+                <div class="col-md-4"><label class="form-label" for="email">E-mail</label><input id="email" class="form-control" type="email" @bind="gegevens.Email" /></div>
+                <div class="col-md-4"><label class="form-label" for="telefoon">Telefoon</label><input id="telefoon" class="form-control" @bind="gegevens.Telefoon" /></div>
+                <div class="col-md-4"><label class="form-label" for="website">Website</label><input id="website" class="form-control" @bind="gegevens.Website" /></div>
             </div>
             <div class="mb-3">
                 <InstellingenVelden Invoer="instellingen" Kantoor="kantoor" />
@@ -50,6 +57,12 @@
 
         var i = await Inrichting.Instellingen(g.Wie, Id);
         gegevens = new Gegevens { Naam = i.Naam, KvkNummer = i.KvkNummer, BtwNummer = i.BtwNummer, Ibans = string.Join(", ", i.Ibans) };
+        if (i.Contact is { } c)
+        {
+            (gegevens.Straat, gegevens.Postcode, gegevens.Plaats, gegevens.Land) = (c.Straat, c.Postcode, c.Plaats, c.Land);
+            (gegevens.Email, gegevens.Telefoon, gegevens.Website) = (c.Email, c.Telefoon, c.Website);
+        }
+
         instellingen = InstellingenInvoer.Van(i.Afwijkend);
         kantoor = i.Kantoor;
     }
@@ -66,7 +79,8 @@
         }
 
         var uitkomst = await Inrichting.WijzigInstellingen(geopend!.Wie, Id,
-            new Instellingen(gegevens!.Naam, gegevens.KvkNummer, gegevens.BtwNummer, [.. gegevens.Ibans.Split(',', ';')], afwijkend));
+            new Instellingen(gegevens!.Naam, gegevens.KvkNummer, gegevens.BtwNummer, [.. gegevens.Ibans.Split(',', ';')], afwijkend,
+                Contact: new Contactgegevens(gegevens.Straat, gegevens.Postcode, gegevens.Plaats, gegevens.Land, gegevens.Email, gegevens.Telefoon, gegevens.Website)));
         fouten = uitkomst.Fouten;
         bericht = uitkomst.IsGelukt ? $"Instellingen van {gegevens.Naam} opgeslagen." : null;
     }
@@ -80,5 +94,19 @@
         public string? BtwNummer { get; set; }
 
         public string Ibans { get; set; } = "";
+
+        public string? Straat { get; set; }
+
+        public string? Postcode { get; set; }
+
+        public string? Plaats { get; set; }
+
+        public string? Land { get; set; }
+
+        public string? Email { get; set; }
+
+        public string? Telefoon { get; set; }
+
+        public string? Website { get; set; }
     }
 }

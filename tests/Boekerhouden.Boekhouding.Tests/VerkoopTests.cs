@@ -166,7 +166,8 @@ public sealed class VerkoopTests
     {
         var fouten = Verkoopcontrole.Controleer(
             Factuur(new Verkoopregel("", 1m, 10m, "8000", "V21"), new Verkoopregel("Iets", 1m, 10m, "8000", "I21"), new Verkoopregel("Korting", 1m, 10m, "8000", "V21", Korting: 120m))
-                with { Klant = new Partij("Klant B.V.", new()), Vervaldatum = new(2026, 2, 1) },
+                with
+            { Klant = new Partij("Klant B.V.", new()), Vervaldatum = new(2026, 2, 1) },
             Eigen, Codes);
 
         Assert.Contains(fouten, f => f.Contains("adres van Klant B.V.", StringComparison.Ordinal));

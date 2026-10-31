@@ -19,6 +19,40 @@
             @string.Join(" · ", new[] { string.Join(", ", r.Ibans.Select(Boekhouding.Relaties.Iban.Toon)), r.BtwNummer, r.KvkNummer is null ? null : $"KvK {r.KvkNummer}" }.Where(x => !string.IsNullOrEmpty(x)))
         </div>
 
+        <h2 class="h6 sectiekop">Gegevens</h2>
+        <div class="card card-body mb-4 relatiegegevens">
+            <fieldset disabled="@(!context.Mag(Recht.Invoeren))">
+                <div class="row g-2">
+                    <div class="col-md-4"><label class="form-label" for="rn">Naam</label><input id="rn" class="form-control form-control-sm" @bind="gegevens.Naam" /></div>
+                    <div class="col-md-3"><label class="form-label" for="rb">Btw-nummer</label><input id="rb" class="form-control form-control-sm" @bind="gegevens.BtwNummer" /></div>
+                    <div class="col-md-2"><label class="form-label" for="rk">KvK-nummer</label><input id="rk" class="form-control form-control-sm" @bind="gegevens.KvkNummer" /></div>
+                    <div class="col-md-3"><label class="form-label" for="rt">Standaardrekening inkoop</label><input id="rt" class="form-control form-control-sm" @bind="gegevens.Tegenrekening" /></div>
+                </div>
+                <div class="form-check mt-3 mb-2">
+                    <input class="form-check-input" type="checkbox" id="klant" @bind="gegevens.IsKlant" />
+                    <label class="form-check-label" for="klant">Klant: deze relatie krijgt verkoopfacturen</label>
+                </div>
+                @if (gegevens.IsKlant)
+                {
+                    <div class="row g-2">
+                        <div class="col-md-4"><label class="form-label" for="ks">Straat en huisnummer</label><input id="ks" class="form-control form-control-sm" @bind="gegevens.Straat" /></div>
+                        <div class="col-md-2"><label class="form-label" for="kp">Postcode</label><input id="kp" class="form-control form-control-sm" @bind="gegevens.Postcode" /></div>
+                        <div class="col-md-3"><label class="form-label" for="kpl">Plaats</label><input id="kpl" class="form-control form-control-sm" @bind="gegevens.Plaats" /></div>
+                        <div class="col-md-1"><label class="form-label" for="kl">Land</label><input id="kl" class="form-control form-control-sm" maxlength="2" placeholder="NL" @bind="gegevens.Land" /></div>
+                        <div class="col-md-2"><label class="form-label" for="kt">Termijn (dagen)</label><input id="kt" class="form-control form-control-sm text-end" @bind="gegevens.Termijn" /></div>
+                        <div class="col-md-4"><label class="form-label" for="ke">E-mail voor facturen</label><input id="ke" class="form-control form-control-sm" type="email" @bind="gegevens.Email" /></div>
+                        <div class="col-md-3"><label class="form-label" for="kc">Contactpersoon</label><input id="kc" class="form-control form-control-sm" @bind="gegevens.Contactpersoon" /></div>
+                        <div class="col-md-3"><label class="form-label" for="ko">Omzetrekening</label><input id="ko" class="form-control form-control-sm" @bind="gegevens.Omzetrekening" /></div>
+                        <div class="col-md-2"><label class="form-label" for="kv">Btw-code verkoop</label><input id="kv" class="form-control form-control-sm" placeholder="V21" @bind="gegevens.Verkoopbtwcode" /></div>
+                    </div>
+                }
+                @if (context.Mag(Recht.Invoeren))
+                {
+                    <button class="btn btn-sm btn-outline-primary mt-3" @onclick="BewaarGegevens">Opslaan</button>
+                }
+            </fieldset>
+        </div>
+
         <h2 class="h6 sectiekop">Geleerd bij inkoopfacturen</h2>
         <div class="card mb-4">
             <div class="card-body">
@@ -165,11 +199,82 @@
 
     private string? vanaf;
     private string? afwijking;
+    private Relatieformulier gegevens = new();
+
+    private async Task BewaarGegevens()
+    {
+        int? termijn = string.IsNullOrWhiteSpace(gegevens.Termijn) ? null : int.TryParse(gegevens.Termijn, out var t) ? t : -1;
+        var r = geleerd!.Relatie;
+        var uitkomst = await Inrichting.WijzigRelatie(geopend!.Wie, Id, r.Id, new RelatieInvoer(gegevens.Naam, gegevens.BtwNummer, gegevens.KvkNummer, gegevens.Tegenrekening,
+            new Klantgegevens(gegevens.IsKlant, gegevens.Straat, gegevens.Postcode, gegevens.Plaats, gegevens.Land, gegevens.Email, gegevens.Contactpersoon, termijn,
+                gegevens.Omzetrekening, gegevens.Verkoopbtwcode)));
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            await Open(geopend);
+            bericht = $"Gegevens van {gegevens.Naam} opgeslagen.";
+        }
+    }
+
+    /// <summary>De gegevens van de relatie zoals ze in het formulier staan.</summary>
+    private sealed class Relatieformulier
+    {
+        public string Naam { get; set; } = "";
+
+        public string? BtwNummer { get; set; }
+
+        public string? KvkNummer { get; set; }
+
+        public string? Tegenrekening { get; set; }
+
+        public bool IsKlant { get; set; }
+
+        public string? Straat { get; set; }
+
+        public string? Postcode { get; set; }
+
+        public string? Plaats { get; set; }
+
+        public string? Land { get; set; }
+
+        public string? Termijn { get; set; }
+
+        public string? Email { get; set; }
+
+        public string? Contactpersoon { get; set; }
+
+        public string? Omzetrekening { get; set; }
+
+        public string? Verkoopbtwcode { get; set; }
+
+        public static Relatieformulier Van(RelatieRegel r) => new()
+        {
+            Naam = r.Naam,
+            BtwNummer = r.BtwNummer,
+            KvkNummer = r.KvkNummer,
+            Tegenrekening = r.Tegenrekening,
+            IsKlant = r.Klant?.IsKlant ?? false,
+            Straat = r.Klant?.Straat,
+            Postcode = r.Klant?.Postcode,
+            Plaats = r.Klant?.Plaats,
+            Land = r.Klant?.Land,
+            Termijn = r.Klant?.Betalingstermijn?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            Email = r.Klant?.Email,
+            Contactpersoon = r.Klant?.Contactpersoon,
+            Omzetrekening = r.Klant?.Omzetrekening,
+            Verkoopbtwcode = r.Klant?.Verkoopbtwcode,
+        };
+    }
 
     private async Task Open(Geopend g)
     {
         geopend = g;
         geleerd = await Inrichting.Geleerd(g.Wie, Id, Code);
+        if (geleerd is not null)
+        {
+            gegevens = Relatieformulier.Van(geleerd.Relatie);
+        }
+
         vanaf = geleerd?.Relatie.ControleVanaf is { } v ? Bedragen.Getal(v) : null;
         afwijking = geleerd?.Relatie.ControleAfwijking is { } a ? a.ToString("0.##", System.Globalization.CultureInfo.GetCultureInfo("nl-NL")) : null;
         schema = await Grootboek.Schema(g.Wie, Id);

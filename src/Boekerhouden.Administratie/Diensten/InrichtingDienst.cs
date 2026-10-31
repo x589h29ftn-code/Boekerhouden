@@ -9,7 +9,38 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Boekerhouden.Administratie.Diensten;
 
-public sealed record RelatieInvoer(string Naam, string? BtwNummer, string? KvkNummer, string? Tegenrekening);
+/// <param name="Klant">De gegevens als klant; leeg = ongewijzigd laten.</param>
+public sealed record RelatieInvoer(string Naam, string? BtwNummer, string? KvkNummer, string? Tegenrekening, Klantgegevens? Klant = null);
+
+/// <summary>
+/// De gegevens van een relatie als klant: adres en contact voor op de factuur, betalingstermijn, en de omzetrekening
+/// en btw-code die bij een nieuwe factuurregel worden voorgesteld.
+/// </summary>
+public sealed record Klantgegevens(
+    bool IsKlant,
+    string? Straat = null,
+    string? Postcode = null,
+    string? Plaats = null,
+    string? Land = null,
+    string? Email = null,
+    string? Contactpersoon = null,
+    int? Betalingstermijn = null,
+    string? Omzetrekening = null,
+    string? Verkoopbtwcode = null)
+{
+    internal static Klantgegevens Van(Handelsrelatie r) =>
+        new(r.Klant, r.Straat, r.Postcode, r.Plaats, r.Land, r.Email, r.Contactpersoon, r.Betalingstermijn, r.Omzetrekening, r.Verkoopbtwcode);
+}
+
+/// <summary>Adres en contact van de eigen onderneming (afzender op de verkoopfacturen).</summary>
+public sealed record Contactgegevens(
+    string? Straat = null,
+    string? Postcode = null,
+    string? Plaats = null,
+    string? Land = null,
+    string? Email = null,
+    string? Telefoon = null,
+    string? Website = null);
 
 /// <param name="ControleVanaf">Facturen vanaf dit bedrag altijd zelf controleren.</param>
 /// <param name="ControleAfwijking">Facturen die meer dan dit percentage afwijken van de vorige altijd zelf controleren.</param>
@@ -22,7 +53,8 @@ public sealed record RelatieRegel(
     string? KvkNummer,
     string? Tegenrekening,
     decimal? ControleVanaf = null,
-    decimal? ControleAfwijking = null);
+    decimal? ControleAfwijking = null,
+    Klantgegevens? Klant = null);
 
 public sealed record RegelRegel(Guid Id, int Volgorde, Verwerkingsregel Regel);
 
@@ -51,7 +83,8 @@ public sealed record Instellingen(
     string? BtwNummer,
     IReadOnlyList<string> Ibans,
     AfwijkendeInstellingen Afwijkend,
-    Verwerkingsinstellingen? Kantoor = null)
+    Verwerkingsinstellingen? Kantoor = null,
+    Contactgegevens? Contact = null)
 {
     /// <summary>Wat er voor de administratie geldt.</summary>
     public Verwerkingsinstellingen Geldend => Afwijkend.Op(Kantoor ?? Verwerkingsinstellingen.Standaard);
@@ -68,7 +101,7 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
         return [.. (await db.Relaties.AsNoTracking().OrderBy(r => r.Naam).ToListAsync())
-            .Select(r => new RelatieRegel(r.Id, r.Code, r.Naam, r.Ibans, r.BtwNummer, r.KvkNummer, r.Tegenrekening, r.ControleVanaf, r.ControleAfwijking))];
+            .Select(r => new RelatieRegel(r.Id, r.Code, r.Naam, r.Ibans, r.BtwNummer, r.KvkNummer, r.Tegenrekening, r.ControleVanaf, r.ControleAfwijking, Klantgegevens.Van(r)))];
     }
 
     /// <summary>Wat het pakket van deze leverancier geleerd heeft (inkoopfacturen), of leeg als de relatie niet bestaat.</summary>
@@ -95,7 +128,7 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
             .Where(x => x.Regel.Relatie == relatie || (x.Regel.NaamBevat is { Length: > 0 } deel && r.Naam.Contains(deel, StringComparison.OrdinalIgnoreCase)))
             .ToList();
         return new GeleerdeLeverancier(
-            new RelatieRegel(r.Id, r.Code, r.Naam, r.Ibans, r.BtwNummer, r.KvkNummer, r.Tegenrekening, r.ControleVanaf, r.ControleAfwijking),
+            new RelatieRegel(r.Id, r.Code, r.Naam, r.Ibans, r.BtwNummer, r.KvkNummer, r.Tegenrekening, r.ControleVanaf, r.ControleAfwijking, Klantgegevens.Van(r)),
             voorstel,
             geheugen.Drempel,
             [.. keuzes.Select(k => new Bevestigd(k.Tijdstip, k.NaarDomein()))],
@@ -377,7 +410,8 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
         var a = await db.Administraties.AsNoTracking().SingleAsync(x => x.Id == administratie);
-        return new Instellingen(a.Naam, a.KvkNummer, a.BtwNummer, a.Ibans, a.Afwijkend(), await KantoorDienst.Lees(db));
+        return new Instellingen(a.Naam, a.KvkNummer, a.BtwNummer, a.Ibans, a.Afwijkend(), await KantoorDienst.Lees(db),
+            new Contactgegevens(a.Straat, a.Postcode, a.Plaats, a.Land, a.Email, a.Telefoon, a.Website));
     }
 
     public async Task<Uitkomst> WijzigInstellingen(Uitvoerder wie, Guid administratie, Instellingen invoer)
@@ -398,6 +432,11 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
         if (!string.IsNullOrWhiteSpace(invoer.BtwNummer) && !BtwNummer.IsGeldig(invoer.BtwNummer))
         {
             fouten.Add("Het btw-nummer is niet geldig (bijv. NL123456789B01).");
+        }
+
+        if (invoer.Contact?.Land is { Length: > 0 } land && land.Trim().Length != 2)
+        {
+            fouten.Add("Het land is een landcode van twee letters (NL, BE, DE …).");
         }
 
         var ibans = invoer.Ibans.Where(i => !string.IsNullOrWhiteSpace(i)).Select(Iban.Normaliseer).Distinct().ToList();
@@ -442,6 +481,12 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
         a.Documentmap = afwijkend.Documentmap;
         a.Betaalverschil = afwijkend.Betaalverschil;
         a.Verschilrekening = afwijkend.Verschilrekening;
+        if (invoer.Contact is { } c)
+        {
+            (a.Straat, a.Postcode, a.Plaats, a.Land) = (Leeg(c.Straat), Leeg(c.Postcode), Leeg(c.Plaats), Leeg(c.Land)?.ToUpperInvariant());
+            (a.Email, a.Telefoon, a.Website) = (Leeg(c.Email), Leeg(c.Telefoon), Leeg(c.Website));
+        }
+
         await db.SaveChangesAsync();
         await audit.Log(wie, AuditActies.InstellingenGewijzigd, a.Naam, details, administratie);
         return Uitkomst.Gelukt;
@@ -465,6 +510,29 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
             fouten.Add($"Rekening {invoer.Tegenrekening} bestaat niet.");
         }
 
+        if (invoer.Klant is { } k)
+        {
+            if (!string.IsNullOrWhiteSpace(k.Omzetrekening) && !await db.Rekeningen.AnyAsync(r => r.Nummer == k.Omzetrekening.Trim()))
+            {
+                fouten.Add($"Rekening {k.Omzetrekening} bestaat niet.");
+            }
+
+            if (k.Land is { Length: > 0 } land && land.Trim().Length != 2)
+            {
+                fouten.Add("Het land is een landcode van twee letters (NL, BE, DE …).");
+            }
+
+            if (k.Betalingstermijn is < 0 or > 365)
+            {
+                fouten.Add("De betalingstermijn ligt tussen 0 en 365 dagen.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(k.Email) && !k.Email.Contains('@', StringComparison.Ordinal))
+            {
+                fouten.Add("Het e-mailadres is niet geldig.");
+            }
+        }
+
         return fouten;
     }
 
@@ -474,6 +542,13 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
         relatie.BtwNummer = string.IsNullOrWhiteSpace(invoer.BtwNummer) ? null : BtwNummer.Normaliseer(invoer.BtwNummer);
         relatie.KvkNummer = Leeg(invoer.KvkNummer);
         relatie.Tegenrekening = Leeg(invoer.Tegenrekening);
+        if (invoer.Klant is { } k)
+        {
+            relatie.Klant = k.IsKlant;
+            (relatie.Straat, relatie.Postcode, relatie.Plaats, relatie.Land) = (Leeg(k.Straat), Leeg(k.Postcode), Leeg(k.Plaats), Leeg(k.Land)?.ToUpperInvariant());
+            (relatie.Email, relatie.Contactpersoon, relatie.Betalingstermijn) = (Leeg(k.Email), Leeg(k.Contactpersoon), k.Betalingstermijn);
+            (relatie.Omzetrekening, relatie.Verkoopbtwcode) = (Leeg(k.Omzetrekening), Leeg(k.Verkoopbtwcode)?.ToUpperInvariant());
+        }
     }
 
     private async Task<bool> WachtwoordKlopt(Uitvoerder wie, string wachtwoord)

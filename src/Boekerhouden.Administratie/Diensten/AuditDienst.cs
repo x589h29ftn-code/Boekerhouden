@@ -106,5 +106,9 @@ public static class AuditActies
     public const string BtwtariefVerwijderd = "Btw-tarief verwijderd";
     public const string BtwcodeToegevoegd = "Btw-code toegevoegd";
     public const string BtwcodeGewijzigd = "Btw-code gewijzigd";
+    public const string VerkoopconceptGemaakt = "Verkoopfactuur (concept) gemaakt";
+    public const string VerkoopconceptGewijzigd = "Verkoopfactuur (concept) gewijzigd";
+    public const string VerkoopconceptVerwijderd = "Verkoopfactuur (concept) verwijderd";
+    public const string VerkoopfactuurDefinitief = "Verkoopfactuur definitief";
     public const string KetenGecontroleerd = "Journaal gecontroleerd";
 }

@@ -1,0 +1,147 @@
+@page "/a/{Id:guid}/verkoop"
+@inject VerkoopDienst Verkoop
+@inject NavigationManager Navigatie
+
+<AdministratieKader Id="Id" Titel="Verkoop" Actief="/verkoop" BijOpenen="Open">
+    <Kenmerken>
+        @if (regels is not null)
+        {
+            var concepten = regels.Count(r => r.Status == Verkoopstatus.Concept);
+            var facturen = regels.Count(r => r.Status == Verkoopstatus.Definitief);
+            <span>@concepten @(concepten == 1 ? "concept" : "concepten")</span>
+            <span class="scheiding">·</span>
+            <span>@facturen @(facturen == 1 ? "factuur" : "facturen") in @Periodetekst</span>
+            <span class="scheiding">·</span>
+            <span>open @Weergave.Bedrag(regels.Sum(r => r.Openstaand ?? 0m))</span>
+        }
+    </Kenmerken>
+    <Acties>
+        <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
+        @if (geopend?.Kop.Mag(Recht.Invoeren) == true)
+        {
+            <a class="btn btn-primary" href="/a/@Id/verkoop/nieuw"><Icoon Naam="plus" /> Nieuwe factuur</a>
+        }
+    </Acties>
+    <ChildContent>
+        @if (regels is null)
+        {
+            <Laadschets />
+        }
+        else if (regels.Count == 0)
+        {
+            <div class="leeg-regel">Nog geen verkoopfacturen in deze periode.</div>
+        }
+        else
+        {
+            <div class="zoekbalk d-flex align-items-center gap-2 mb-3">
+                <input class="form-control form-control-sm zoek-tekst" type="search" placeholder="Zoek op klant, nummer of omschrijving" aria-label="Zoeken" @bind="zoek" @bind:event="oninput" />
+                <span class="form-check mb-0 small ms-2">
+                    <input class="form-check-input" type="checkbox" id="alleen-open" @bind="alleenOpen" />
+                    <label class="form-check-label text-secondary" for="alleen-open">alleen open</label>
+                </span>
+            </div>
+            var zichtbaar = sortering.Pas(regels.Where(Past)).ToList();
+            <div class="card overzichtskaart">
+                <table class="table align-middle mb-0 overzichtstabel verkooplijst" data-sleepbaar="verkoop">
+                    <thead>
+                        <tr>
+                            <SorteerKop Sortering="sortering" Naam="Nummer" Gewijzigd="StateHasChanged" />
+                            <SorteerKop Sortering="sortering" Naam="Datum" Gewijzigd="StateHasChanged" />
+                            <SorteerKop Sortering="sortering" Naam="Klant" Gewijzigd="StateHasChanged" />
+                            <SorteerKop Sortering="sortering" Naam="Omschrijving" Gewijzigd="StateHasChanged" />
+                            <SorteerKop Sortering="sortering" Naam="Vervaldatum" Gewijzigd="StateHasChanged" />
+                            <SorteerKop Sortering="sortering" Naam="Excl. btw" Klasse="text-end" Gewijzigd="StateHasChanged" />
+                            <SorteerKop Sortering="sortering" Naam="Totaal" Klasse="text-end" Gewijzigd="StateHasChanged" />
+                            <SorteerKop Sortering="sortering" Naam="Open" Klasse="text-end" Gewijzigd="StateHasChanged" />
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in zichtbaar)
+                        {
+                            <tr class="klikbaar" @onclick="() => Navigatie.NavigateTo(Adres(r))" title="@(r.Status == Verkoopstatus.Concept ? $"Concept, gemaakt {Weergave.Moment(r.AangemaaktOp)}" : "Naar de factuur")">
+                                <td class="text-nowrap">@(r.Nummer ?? "")@if (r.Status == Verkoopstatus.Concept)
+                                    {
+                                        <span class="status">concept</span>
+                                    }</td>
+                                <td class="text-nowrap">@Weergave.Datum(r.Datum)</td>
+                                <td title="@r.Relatie">@r.Klant</td>
+                                <td class="omschrijving" title="@r.Omschrijving">@r.Omschrijving</td>
+                                <td class="text-nowrap @(Vervallen(r) ? "vervallen" : null)">@Weergave.Datum(r.Vervaldatum)</td>
+                                <td class="bedrag text-end">@Weergave.Bedrag(r.Exclusief)</td>
+                                <td class="bedrag text-end">@Weergave.Bedrag(r.Totaal)</td>
+                                <td class="bedrag text-end text-secondary">@(r.Openstaand is { } o and not 0 ? Weergave.Bedrag(o) : null)</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr class="generaal">
+                            <td colspan="5">Totaal (@Aantal(zichtbaar.Count(r => r.Status == Verkoopstatus.Definitief)))</td>
+                            <td class="bedrag text-end">@Weergave.Bedrag(zichtbaar.Where(r => r.Status == Verkoopstatus.Definitief).Sum(r => r.Exclusief))</td>
+                            <td class="bedrag text-end">@Weergave.Bedrag(zichtbaar.Where(r => r.Status == Verkoopstatus.Definitief).Sum(r => r.Totaal))</td>
+                            <td class="bedrag text-end">@Weergave.Bedrag(zichtbaar.Sum(r => r.Openstaand ?? 0m))</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        }
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private DateOnly van;
+    private DateOnly tot;
+    private DateOnly vandaag;
+    private string zoek = "";
+    private bool alleenOpen;
+    private IReadOnlyList<Verkooplijstregel>? regels;
+
+    private readonly Sortering<Verkooplijstregel> sortering = new(
+        new("Nummer", r => r.Nummer ?? "", EerstOplopend: false),
+        new("Datum", r => r.Datum, EerstOplopend: false),
+        new("Klant", r => r.Klant.ToUpperInvariant()),
+        new("Omschrijving", r => r.Omschrijving.ToUpperInvariant()),
+        new("Vervaldatum", r => r.Vervaldatum, EerstOplopend: false),
+        new("Excl. btw", r => r.Exclusief, EerstOplopend: false),
+        new("Totaal", r => r.Totaal, EerstOplopend: false),
+        new("Open", r => r.Openstaand ?? 0m, EerstOplopend: false));
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "van")]
+    public string? VanTekst { get; set; }
+
+    [SupplyParameterFromQuery(Name = "tot")]
+    public string? TotTekst { get; set; }
+
+    private string Periodetekst => van.Month == 1 && van.Day == 1 && tot == new DateOnly(van.Year, 12, 31) ? van.Year.ToString(System.Globalization.CultureInfo.InvariantCulture) : $"{Weergave.Datum(van)} – {Weergave.Datum(tot)}";
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        vandaag = DateOnly.FromDateTime(DateTime.Today);
+        (van, tot) = Weergave.Periode(VanTekst, TotTekst) ?? Boekhouding.Grootboek.Periode.Jaar(await Verkoop.LaatsteFactuurjaar(g.Wie, Id));
+        await Laad();
+    }
+
+    private async Task Laad() => regels = await Verkoop.Lijst(geopend!.Wie, Id, van, tot);
+
+    private async Task KiesPeriode((DateOnly Van, DateOnly Tot) periode)
+    {
+        (van, tot) = periode;
+        Navigatie.NavigateTo($"/a/{Id}/verkoop?{Weergave.Periodequery(van, tot)}", replace: true);
+        await Laad();
+    }
+
+    private bool Past(Verkooplijstregel r) =>
+        (!alleenOpen || r.Openstaand is not (null or 0)) &&
+        (zoek.Length == 0 || zoek.Split(' ', StringSplitOptions.RemoveEmptyEntries).All(w =>
+            r.Klant.Contains(w, StringComparison.CurrentCultureIgnoreCase) || (r.Nummer?.Contains(w, StringComparison.OrdinalIgnoreCase) ?? false) || r.Omschrijving.Contains(w, StringComparison.CurrentCultureIgnoreCase)));
+
+    private bool Vervallen(Verkooplijstregel r) => r.Openstaand is > 0 && r.Vervaldatum < vandaag;
+
+    private static string Aantal(int n) => n == 1 ? "1 factuur" : $"{n} facturen";
+
+    private string Adres(Verkooplijstregel r) => $"/a/{Id}/verkoop/{r.Id}";
+}

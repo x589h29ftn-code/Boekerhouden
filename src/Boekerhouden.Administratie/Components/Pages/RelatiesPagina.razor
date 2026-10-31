@@ -42,7 +42,10 @@
                     @foreach (var r in sortering.Pas(relaties))
                     {
                         <tr class="regel-met-acties">
-                            <td title="@r.Code"><a class="text-reset" href="/a/@Id/relaties/@Uri.EscapeDataString(r.Code)">@r.Naam</a></td>
+                            <td title="@r.Code"><a class="text-reset" href="/a/@Id/relaties/@Uri.EscapeDataString(r.Code)">@r.Naam</a>@if (r.Klant?.IsKlant == true)
+                                {
+                                    <span class="status ms-2">klant</span>
+                                }</td>
                             <td class="small">@string.Join(", ", r.Ibans.Select(Boekhouding.Relaties.Iban.Toon))</td>
                             <td class="small">@r.BtwNummer</td>
                             <td class="small">@r.KvkNummer</td>

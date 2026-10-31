@@ -55,12 +55,20 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.Property<int?>("DrempelAutomatisch")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Email")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
                     b.PrimitiveCollection<string>("Ibans")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("KvkNummer")
                         .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Land")
+                        .HasMaxLength(2)
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("LimietAfwijkend")
@@ -80,7 +88,27 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasMaxLength(30)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Plaats")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Postcode")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Straat")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Telefoon")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Verschilrekening")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Website")
+                        .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
@@ -968,6 +996,9 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.Property<Guid>("AdministratieId")
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("Betalingstermijn")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("BtwNummer")
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
@@ -975,6 +1006,10 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Contactpersoon")
+                        .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
                     b.Property<long?>("ControleAfwijking")
@@ -985,12 +1020,23 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasPrecision(18, 2)
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Email")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
                     b.PrimitiveCollection<string>("Ibans")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("Klant")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("KvkNummer")
                         .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Land")
+                        .HasMaxLength(2)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Naam")
@@ -998,8 +1044,28 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasMaxLength(300)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Omzetrekening")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Plaats")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Postcode")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Straat")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Tegenrekening")
                         .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Verkoopbtwcode")
+                        .HasMaxLength(10)
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
@@ -1178,6 +1244,151 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.HasIndex("AdministratieId", "Relatie", "Factuurnummer");
 
                     b.ToTable("OpenstaandePosten", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Verkoopdocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AangemaaktDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("AangemaaktOp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("AbonnementId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Betalingskenmerk")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("BoekingId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("CreditVoorId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("Datum")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DefinitiefDoor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("DefinitiefOp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Klantgegevens")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("LayoutId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Nummer")
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Omschrijving")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Referentie")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Relatie")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Tekst")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Verdeling")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("Vervaldatum")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdministratieId", "Nummer")
+                        .IsUnique();
+
+                    b.HasIndex("AdministratieId", "Status", "Datum");
+
+                    b.ToTable("Verkoopdocumenten", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Verkoopdocumentregel", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("Aantal")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BtwCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Eenheid")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Korting")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Omschrijving")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Prijs")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Rekeningnummer")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("VerkoopdocumentId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Volgorde")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VerkoopdocumentId");
+
+                    b.ToTable("Verkoopdocumentregels", (string)null);
                 });
 
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Zoekplek", b =>
@@ -1505,6 +1716,24 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Verkoopdocument", b =>
+                {
+                    b.HasOne("Boekerhouden.Administratie.Data.Administratie", null)
+                        .WithMany()
+                        .HasForeignKey("AdministratieId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Verkoopdocumentregel", b =>
+                {
+                    b.HasOne("Boekerhouden.Administratie.Data.Verkoopdocument", null)
+                        .WithMany("Regels")
+                        .HasForeignKey("VerkoopdocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", null)
@@ -1608,6 +1837,11 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                 });
 
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Boeking", b =>
+                {
+                    b.Navigation("Regels");
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Verkoopdocument", b =>
                 {
                     b.Navigation("Regels");
                 });

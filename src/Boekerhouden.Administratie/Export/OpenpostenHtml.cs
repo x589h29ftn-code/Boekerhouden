@@ -18,15 +18,16 @@ public static class OpenpostenHtml
     public static string Maak(Openpostenlijst lijst)
     {
         ArgumentNullException.ThrowIfNull(lijst);
+        var titel = lijst.Soort == Boekhouding.Facturen.Factuursoort.Inkoop ? "Openstaande posten crediteuren" : "Openstaande posten debiteuren";
         var html = new StringBuilder();
         html.Append(CultureInfo.InvariantCulture, $$"""
             <!doctype html>
-            <html lang="nl"><head><meta charset="utf-8"><title>Openstaande posten crediteuren</title>
+            <html lang="nl"><head><meta charset="utf-8"><title>{{titel}}</title>
             <style>{{Exportstijl.Css}}
             </style></head><body>
             """);
         html.Append(CultureInfo.InvariantCulture, $"""
-            <h1>Openstaande posten crediteuren</h1>
+            <h1>{titel}</h1>
             <div class="kop"><div><span>Administratie:</span>{E(lijst.Administratie)}</div><div><span>Peildatum:</span>{Datum(lijst.Peildatum)}</div></div>
             """);
         const string Kolommen = """<colgroup><col style="width:9%"><col style="width:9%"><col><col style="width:12%"><col style="width:11%"><col style="width:11%"><col style="width:11%"><col style="width:5%"></colgroup>""";

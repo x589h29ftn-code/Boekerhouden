@@ -59,25 +59,44 @@ public sealed class OpenpostenDienst(Toegang toegang, PdfDienst pdf)
     /// <summary>De groep voor regels op crediteuren zonder leverancier.</summary>
     public const string ZonderRelatie = "Zonder leverancier";
 
+    /// <summary>De groep voor regels op debiteuren zonder klant.</summary>
+    public const string ZonderKlant = "Zonder klant";
+
     /// <summary>De lijst als PDF (A4 liggend), voor de download.</summary>
     public async Task<Uitkomst<byte[]>> CrediteurenPdf(Uitvoerder wie, Guid administratie, DateOnly peildatum, string? relatie = null, CancellationToken stoppen = default) =>
         await pdf.Maak(OpenpostenHtml.Maak(await Crediteuren(wie, administratie, peildatum, relatie)), stoppen);
 
-    public async Task<Openpostenlijst> Crediteuren(Uitvoerder wie, Guid administratie, DateOnly peildatum, string? relatie = null)
+    /// <summary>De openstaande debiteuren als PDF (A4 liggend).</summary>
+    public async Task<Uitkomst<byte[]>> DebiteurenPdf(Uitvoerder wie, Guid administratie, DateOnly peildatum, string? relatie = null, CancellationToken stoppen = default) =>
+        await pdf.Maak(OpenpostenHtml.Maak(await Debiteuren(wie, administratie, peildatum, relatie)), stoppen);
+
+    public Task<Openpostenlijst> Crediteuren(Uitvoerder wie, Guid administratie, DateOnly peildatum, string? relatie = null) =>
+        Lijst(wie, administratie, Factuursoort.Inkoop, peildatum, relatie);
+
+    /// <summary>De openstaande posten debiteuren op de peildatum (te ontvangen), op dezelfde manier als de crediteuren.</summary>
+    public Task<Openpostenlijst> Debiteuren(Uitvoerder wie, Guid administratie, DateOnly peildatum, string? relatie = null) =>
+        Lijst(wie, administratie, Factuursoort.Verkoop, peildatum, relatie);
+
+    private async Task<Openpostenlijst> Lijst(Uitvoerder wie, Guid administratie, Factuursoort soort, DateOnly peildatum, string? relatie)
     {
+        // Inkoop: facturen credit (negatief) en betalingen debet; verkoop andersom. Op de lijst staan beide positief.
+        var s = soort == Factuursoort.Inkoop ? -1 : 1;
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
         var naam = await db.Administraties.AsNoTracking().Where(a => a.Id == administratie).Select(a => a.Naam).SingleAsync();
         var (schema, _) = await GrootboekDienst.Inrichting(db);
-        var crediteuren = schema.MetFunctie(Rekeningfunctie.Crediteuren).Select(r => r.Nummer).ToList();
+        var crediteuren = schema.MetFunctie(soort == Factuursoort.Inkoop ? Rekeningfunctie.Crediteuren : Rekeningfunctie.Debiteuren).Select(r => r.Nummer).ToList();
 
         var allePosten = await db.OpenstaandePosten.AsNoTracking()
-            .Where(p => p.Soort == Factuursoort.Inkoop && (relatie == null || p.Relatie == relatie))
+            .Where(p => p.Soort == soort && (relatie == null || p.Relatie == relatie))
             .ToListAsync();
         var posten = allePosten.Where(p => p.Datum <= peildatum).ToList();
         var factuurboekingen = allePosten.Select(p => p.BoekingId).ToList();
         var boekingIds = posten.Select(p => p.BoekingId).ToList();
         var boekingen = await db.Boekingen.AsNoTracking().Where(b => boekingIds.Contains(b.Id))
             .Select(b => new { b.Id, b.Dagboek, b.Boekstuk, b.Omschrijving }).ToDictionaryAsync(b => b.Id);
+        var gemaakt = soort == Factuursoort.Verkoop
+            ? await db.Verkoopdocumenten.AsNoTracking().Where(v => v.BoekingId != null && boekingIds.Contains(v.BoekingId.Value)).ToDictionaryAsync(v => v.BoekingId!.Value, v => v.Id)
+            : [];
 
         // Alle andere regels op crediteuren: betalingen, correcties en wat er zonder factuur op crediteuren staat.
         var andere = await (from r in db.GeldendeRegels
@@ -98,10 +117,10 @@ public sealed class OpenpostenDienst(Toegang toegang, PdfDienst pdf)
             var vereffend = p.Openstaand - p.Bedrag;
             var verschil = vereffend - alle.Sum(b => b.Bedrag);
             var verrekend = Math.Sign(verschil) == Math.Sign(vereffend) && Math.Abs(vereffend) > Math.Abs(vereffend - verschil) ? verschil : 0m;
-            var betaald = alle.Where(b => b.Datum <= peildatum).Sum(b => b.Bedrag) + verrekend;
+            var betaald = -s * (alle.Where(b => b.Datum <= peildatum).Sum(b => b.Bedrag) + verrekend);
             var boeking = boekingen.GetValueOrDefault(p.BoekingId);
-            return (p.Relatie, Post: new Openpost(p.Id, p.Datum, p.Vervaldatum, boeking?.Omschrijving ?? "", p.Factuurnummer, -p.Bedrag, betaald,
-                peildatum.DayNumber - p.Datum.DayNumber, boeking?.Dagboek ?? "", boeking?.Boekstuk ?? "", p.DocumentId));
+            return (p.Relatie, Post: new Openpost(p.Id, p.Datum, p.Vervaldatum, boeking?.Omschrijving ?? "", p.Factuurnummer, s * p.Bedrag, betaald,
+                peildatum.DayNumber - p.Datum.DayNumber, boeking?.Dagboek ?? "", boeking?.Boekstuk ?? "", gemaakt.TryGetValue(p.BoekingId, out var v) ? v : p.DocumentId));
         });
 
         // Regels die niet bij een factuur op de peildatum horen (geen of een onbekend factuurnummer, een vooruitbetaling,
@@ -113,14 +132,15 @@ public sealed class OpenpostenDienst(Toegang toegang, PdfDienst pdf)
             {
                 var eerste = g.OrderBy(b => b.Datum).ThenBy(b => b.Volgnummer).First();
                 return (Relatie: g.Key.Relatie, Post: new Openpost(Guid.Empty, eerste.Datum, eerste.Datum, eerste.Omschrijving ?? eerste.Boeking, eerste.Factuurnummer ?? "",
-                    -g.Where(b => b.Bedrag < 0).Sum(b => b.Bedrag), g.Where(b => b.Bedrag > 0).Sum(b => b.Bedrag),
+                    s * g.Where(b => s * b.Bedrag > 0).Sum(b => b.Bedrag), -s * g.Where(b => s * b.Bedrag < 0).Sum(b => b.Bedrag),
                     peildatum.DayNumber - eerste.Datum.DayNumber, eerste.Dagboek, eerste.Boekstuk, null));
             });
 
-        return new Openpostenlijst(naam, peildatum, Factuursoort.Inkoop,
+        var zonder = soort == Factuursoort.Inkoop ? ZonderRelatie : ZonderKlant;
+        return new Openpostenlijst(naam, peildatum, soort,
         [
             .. regels.Concat(los).Where(x => x.Post.Openstaand != 0).GroupBy(x => x.Relatie)
-                .Select(g => new Openpostrelatie(g.Key, g.Key.Length == 0 ? ZonderRelatie : namen.GetValueOrDefault(g.Key) ?? g.Key, [.. g.Select(x => x.Post).OrderBy(p => p.Datum).ThenBy(p => p.Factuurnummer, StringComparer.Ordinal)]))
+                .Select(g => new Openpostrelatie(g.Key, g.Key.Length == 0 ? zonder : namen.GetValueOrDefault(g.Key) ?? g.Key, [.. g.Select(x => x.Post).OrderBy(p => p.Datum).ThenBy(p => p.Factuurnummer, StringComparer.Ordinal)]))
                 .OrderBy(r => r.Relatie.Length == 0).ThenBy(r => r.Naam, StringComparer.CurrentCultureIgnoreCase),
         ]);
     }

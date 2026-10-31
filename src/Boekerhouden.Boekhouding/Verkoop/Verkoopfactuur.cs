@@ -137,10 +137,25 @@ public static class Landen
 {
     private static readonly Dictionary<string, string> Namen = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["NL"] = "Nederland", ["BE"] = "België", ["DE"] = "Duitsland", ["FR"] = "Frankrijk", ["LU"] = "Luxemburg",
-        ["AT"] = "Oostenrijk", ["DK"] = "Denemarken", ["ES"] = "Spanje", ["IT"] = "Italië", ["PT"] = "Portugal",
-        ["IE"] = "Ierland", ["SE"] = "Zweden", ["FI"] = "Finland", ["PL"] = "Polen", ["CZ"] = "Tsjechië",
-        ["GB"] = "Verenigd Koninkrijk", ["CH"] = "Zwitserland", ["NO"] = "Noorwegen", ["US"] = "Verenigde Staten",
+        ["NL"] = "Nederland",
+        ["BE"] = "België",
+        ["DE"] = "Duitsland",
+        ["FR"] = "Frankrijk",
+        ["LU"] = "Luxemburg",
+        ["AT"] = "Oostenrijk",
+        ["DK"] = "Denemarken",
+        ["ES"] = "Spanje",
+        ["IT"] = "Italië",
+        ["PT"] = "Portugal",
+        ["IE"] = "Ierland",
+        ["SE"] = "Zweden",
+        ["FI"] = "Finland",
+        ["PL"] = "Polen",
+        ["CZ"] = "Tsjechië",
+        ["GB"] = "Verenigd Koninkrijk",
+        ["CH"] = "Zwitserland",
+        ["NO"] = "Noorwegen",
+        ["US"] = "Verenigde Staten",
     };
 
     public static string Naam(string code) => Namen.GetValueOrDefault(code) ?? code.ToUpperInvariant();

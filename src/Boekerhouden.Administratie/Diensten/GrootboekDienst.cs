@@ -621,8 +621,77 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
             open.BoekingId = boeking.Id;
         }
 
+        foreach (var verkoop in await db.Verkoopdocumenten.Where(v => v.BoekingId == vorige.Id).ToListAsync())
+        {
+            verkoop.BoekingId = boeking.Id;
+        }
+
         return boeking;
     }
+
+    /// <summary>
+    /// De boekingen van een periodeverdeling in het memoriaal: per maand (op de eerste dag) een gelijk deel van elke
+    /// regel naar zijn rekening (kosten debet bij inkoop, omzet credit bij verkoop), af van of bij de verdeelrekening.
+    /// Binnen de transactie van de factuur; geeft de boekstukken.
+    /// </summary>
+    /// <param name="regels">De te verdelen bedragen met teken zoals ze op de resultatenrekening komen.</param>
+    /// <param name="vorige">Bij een aangepaste factuur de maandboekingen van toen: die krijgen een nieuwe versie (en
+    /// vervallen als er nu minder maanden zijn).</param>
+    internal async Task<Uitkomst<IReadOnlyList<string>>> BoekVerdeling(
+        AdministratieDbContext db, Guid administratie, Periodeverdeling verdeling, Dagboek memoriaal, Factuur factuur, IReadOnlyList<Verdeelregel> regels,
+        Rekeningschema schema, IReadOnlyList<Dagboek> dagboeken, Uitvoerder wie, IReadOnlyList<string> vorige)
+    {
+        var maanden = verdeling.PerMaand(regels);
+        var boekstukken = new List<string>();
+        await db.SaveChangesAsync();
+        for (var i = 0; i < maanden.Count; i++)
+        {
+            var (maand, maandregels) = maanden[i];
+            var eerder = i < vorige.Count ? await GeldendeBoeking(db, vorige[i]) : null;
+            var boekstuk = eerder?.Boekstuk ?? await VolgendBoekstuk(db, memoriaal.Code, maand.Year);
+            var post = new Journaalpost(eerder?.Dagboek ?? memoriaal.Code, boekstuk, maand, Kort($"Verdeling {factuur.Factuurnummer} {maand:MM-yyyy} ({i + 1}/{maanden.Count}): {factuur.Omschrijving}"),
+                [.. maandregels.Select(r => new Journaalregel(r.Rekeningnummer, r.Bedrag, Kort($"Verdeling {i + 1}/{maanden.Count}: {r.Omschrijving ?? factuur.Omschrijving}"), null, factuur.Relatie, factuur.Factuurnummer))]);
+            if (Journaalcontrole.Controleer(post, schema, dagboeken) is { Count: > 0 } fouten)
+            {
+                return Uitkomst<IReadOnlyList<string>>.Mislukt([.. fouten]);
+            }
+
+            if (eerder is null)
+            {
+                await VoegToeAanKeten(db, administratie, post, wie);
+            }
+            else
+            {
+                await NieuweVersie(db, administratie, eerder, post, wie);
+            }
+
+            await db.SaveChangesAsync();
+            boekstukken.Add($"{post.Dagboek} {boekstuk}");
+        }
+
+        await LaatVervallen(db, administratie, vorige.Skip(maanden.Count), wie);
+        return Uitkomst<IReadOnlyList<string>>.Met(boekstukken);
+    }
+
+    /// <summary>Maandboekingen die niet meer nodig zijn, vervallen: een nieuwe versie zonder regels.</summary>
+    internal async Task LaatVervallen(AdministratieDbContext db, Guid administratie, IEnumerable<string> stukken, Uitvoerder wie)
+    {
+        await db.SaveChangesAsync();
+        foreach (var stuk in stukken)
+        {
+            if (await GeldendeBoeking(db, stuk) is { Regels.Count: > 0 } eerder)
+            {
+                await NieuweVersie(db, administratie, eerder, new Journaalpost(eerder.Dagboek, eerder.Boekstuk, eerder.Datum, Kort($"Vervallen: {eerder.Omschrijving}"), []), wie);
+                await db.SaveChangesAsync();
+            }
+        }
+    }
+
+    /// <summary>De geldende versie van een boeking, op "dagboek boekstuk".</summary>
+    internal static async Task<Boeking?> GeldendeBoeking(AdministratieDbContext db, string stuk) =>
+        stuk.Split(' ', 2) is [var dagboek, var boekstuk]
+            ? await db.Geldend.AsNoTracking().Include(b => b.Regels).SingleOrDefaultAsync(b => b.Dagboek == dagboek && b.Boekstuk == boekstuk)
+            : null;
 
     private static string Kort(string tekst) => tekst.Length > 200 ? tekst[..200] : tekst;
 

@@ -1,0 +1,14 @@
+@page "/a/{Id:guid}/verkoopboek"
+
+<Factuurboekoverzicht Id="Id" Soort="Boekhouding.Facturen.Factuursoort.Verkoop" VanTekst="@VanTekst" TotTekst="@TotTekst" />
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "van")]
+    public string? VanTekst { get; set; }
+
+    [SupplyParameterFromQuery(Name = "tot")]
+    public string? TotTekst { get; set; }
+}

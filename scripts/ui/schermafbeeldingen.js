@@ -58,12 +58,34 @@ function totp(sleutel) {
   await page.click('button.btn-primary:has-text("Boeken")'); await page.waitForTimeout(1500);
   await page.screenshot({ path: `${uit}/${pre}-memoriaal.png` });
 
+  // Verkoop: eigen adres en btw-nummer, een nieuwe klant en een factuur die definitief wordt.
+  await page.goto(`${basis}/a/${id}/instellingen`); await page.waitForSelector('#straat'); await page.waitForTimeout(800);
+  await page.fill('#btw', 'NL123456782B01'); await page.fill('#straat', 'Dorpsstraat 1'); await page.fill('#postcode', '1234 AB');
+  await page.fill('#plaats', 'Ergens'); await page.click('button:has-text("Opslaan")'); await page.waitForTimeout(1000);
+  await page.goto(`${basis}/a/${id}/verkoop/nieuw`); await page.waitForSelector('#klant'); await page.waitForTimeout(1200);
+  await page.click('button:has-text("Nieuwe klant")'); await page.fill('#kn', 'J. de Vries Installatie'); await page.fill('#ks', 'Laan 2');
+  await page.fill('#kp', '5678 CD'); await page.fill('#kpl', 'Elders'); await page.click('.nieuwe-klant button:has-text("Toevoegen")'); await page.waitForTimeout(1000);
+  await page.fill('#omschrijving', 'Werkzaamheden maart 2026');
+  await page.locator('input[aria-label=Omschrijving]').first().fill('Advies en ontwerp');
+  await page.locator('input[aria-label=Aantal]').first().fill('12');
+  await page.locator('input[aria-label=Eenheid]').first().fill('uur');
+  await page.locator('input[aria-label="Prijs per eenheid exclusief btw"]').first().fill('85');
+  await page.click('button:has-text("Nog een regel")');
+  await page.locator('input[aria-label=Omschrijving]').nth(1).fill('Materiaal');
+  await page.locator('input[aria-label=Aantal]').nth(1).fill('1');
+  await page.locator('input[aria-label="Prijs per eenheid exclusief btw"]').nth(1).fill('240');
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${uit}/${pre}-verkoopfactuur-concept.png` });
+  await page.click('button:has-text("Definitief maken")'); await page.waitForTimeout(2500);
+  await page.screenshot({ path: `${uit}/${pre}-verkoopfactuur-definitief.png` });
+
   // Bankafschrift inlezen (slepen kan ook; het bestandsveld bedekt dan de pagina).
   await page.goto(`${basis}/a/${id}/bank`); await page.waitForTimeout(1500);
   await page.setInputFiles('#afschriften', path.join(fictief, 'ing-2026-03.mt940')); await page.waitForTimeout(3000);
 
   const schermen = [['bank', 'bank'], ['grootboek', 'grootboek?rekening=1600&van=2026-01-01&tot=2026-12-31'], ['kolommenbalans', 'kolommenbalans'],
-    ['inkoop', 'inkoop'], ['journaal', 'journaal'], ['aansluitingen', 'aansluitingen']];
+    ['inkoop', 'inkoop'], ['journaal', 'journaal'], ['aansluitingen', 'aansluitingen'], ['verkoop', 'verkoop'], ['verkoopboek', 'verkoopboek'],
+    ['debiteuren', 'debiteuren']];
   for (const [naam, pad] of schermen) {
     await page.goto(`${basis}/a/${id}/${pad}`); await page.waitForTimeout(1800);
     if (naam === 'bank' && await page.locator('table.bankmutaties tbody tr').count() > 0) {

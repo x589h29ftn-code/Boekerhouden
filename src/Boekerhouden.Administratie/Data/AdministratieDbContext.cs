@@ -82,6 +82,10 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
 
     public DbSet<Banktransactie> Banktransacties => Set<Banktransactie>();
 
+    public DbSet<Verkoopdocument> Verkoopdocumenten => Set<Verkoopdocument>();
+
+    public DbSet<Verkoopdocumentregel> Verkoopdocumentregels => Set<Verkoopdocumentregel>();
+
     /// <summary>De sleutels van ASP.NET Core Data Protection (cookies, tokens).</summary>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
@@ -107,6 +111,13 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(a => a.LimietAutomatisch).HasPrecision(18, 2);
             e.Property(a => a.Bandbreedte).HasPrecision(6, 2);
             e.Property(a => a.Documentmap).HasMaxLength(400);
+            e.Property(a => a.Straat).HasMaxLength(200);
+            e.Property(a => a.Postcode).HasMaxLength(20);
+            e.Property(a => a.Plaats).HasMaxLength(100);
+            e.Property(a => a.Land).HasMaxLength(2);
+            e.Property(a => a.Email).HasMaxLength(200);
+            e.Property(a => a.Telefoon).HasMaxLength(50);
+            e.Property(a => a.Website).HasMaxLength(200);
         });
 
         builder.Entity<Kantoorinstellingen>(e =>
@@ -206,6 +217,14 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(r => r.Tegenrekening).HasMaxLength(20);
             e.Property(r => r.ControleVanaf).HasPrecision(18, 2);
             e.Property(r => r.ControleAfwijking).HasPrecision(6, 2);
+            e.Property(r => r.Straat).HasMaxLength(200);
+            e.Property(r => r.Postcode).HasMaxLength(20);
+            e.Property(r => r.Plaats).HasMaxLength(100);
+            e.Property(r => r.Land).HasMaxLength(2);
+            e.Property(r => r.Email).HasMaxLength(200);
+            e.Property(r => r.Contactpersoon).HasMaxLength(200);
+            e.Property(r => r.Omzetrekening).HasMaxLength(20);
+            e.Property(r => r.Verkoopbtwcode).HasMaxLength(10);
             e.HasOne<Administratie>().WithMany().HasForeignKey(r => r.AdministratieId);
         });
 
@@ -364,6 +383,40 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             }));
         });
 
+        builder.Entity<Verkoopdocument>(e =>
+        {
+            e.ToTable("Verkoopdocumenten");
+            e.HasIndex(v => new { v.AdministratieId, v.Nummer }).IsUnique();
+            e.HasIndex(v => new { v.AdministratieId, v.Status, v.Datum });
+            e.Property(v => v.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(v => v.Nummer).HasMaxLength(30);
+            e.Property(v => v.Relatie).HasMaxLength(50);
+            e.Property(v => v.Klantgegevens).HasMaxLength(4000);
+            e.Property(v => v.Omschrijving).HasMaxLength(500);
+            e.Property(v => v.Referentie).HasMaxLength(100);
+            e.Property(v => v.Tekst).HasMaxLength(4000);
+            e.Property(v => v.Betalingskenmerk).HasMaxLength(50);
+            e.Property(v => v.Verdeling).HasMaxLength(4000);
+            e.Property(v => v.AangemaaktDoor).HasMaxLength(200);
+            e.Property(v => v.DefinitiefDoor).HasMaxLength(200);
+            e.HasMany(v => v.Regels).WithOne().HasForeignKey(r => r.VerkoopdocumentId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Administratie>().WithMany().HasForeignKey(v => v.AdministratieId);
+        });
+
+        builder.Entity<Verkoopdocumentregel>(e =>
+        {
+            e.ToTable("Verkoopdocumentregels");
+            e.Property(r => r.Omschrijving).HasMaxLength(1000);
+            e.Property(r => r.Aantal).HasPrecision(18, 4);
+            e.Property(r => r.Eenheid).HasMaxLength(20);
+            e.Property(r => r.Prijs).HasPrecision(18, 4);
+            e.Property(r => r.Korting).HasPrecision(6, 2);
+            e.Property(r => r.Rekeningnummer).HasMaxLength(20);
+            e.Property(r => r.BtwCode).HasMaxLength(10);
+        });
+
+        builder.Entity<Verkoopdocument>().HasQueryFilter(e => e.AdministratieId == Geopend);
+        builder.Entity<Verkoopdocumentregel>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Afschrift>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Banktransactie>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Leerkeuze>().HasQueryFilter(e => e.AdministratieId == Geopend);

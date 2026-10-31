@@ -1057,3 +1057,18 @@ body.kolom-slepen { cursor: col-resize; user-select: none; }
 .grootboekkaart td { overflow: hidden; }
 .bladeren .btn { line-height: 1; padding: .15rem .55rem; }
 .overzichtskaart:has(> table[data-kolommen]) { overflow-x: auto; }
+
+/* Verkoopfactuur maken: labels links, velden rechts; de regels over de volle breedte. */
+.verkoopformulier .formulier-rij { display: grid; grid-template-columns: 9rem 1fr; gap: .5rem; align-items: center; margin-bottom: .5rem; }
+.verkoopformulier .formulier-rij > label { color: var(--bs-secondary-color); font-size: .875rem; }
+.verkoopformulier #omschrijving { max-width: 40rem; }
+.verkoopregels tfoot td { border-bottom: 0; }
+.verkooplijst .status { margin-left: .25rem; }
+.verkooplijst td.vervallen { color: var(--bs-body-color); font-weight: 600; }
+
+/* Een definitieve verkoopfactuur: de gegevens rechts naast de klant. */
+.factuur-samenvatting { max-width: 60rem; }
+.factuurgegevens { display: grid; grid-template-columns: auto auto; column-gap: 1.25rem; row-gap: .1rem; font-size: .875rem; }
+.factuurgegevens dt { font-weight: normal; color: var(--bs-secondary-color); }
+.factuurgegevens dd { margin: 0; }
+.factuurtekst { white-space: pre-line; }

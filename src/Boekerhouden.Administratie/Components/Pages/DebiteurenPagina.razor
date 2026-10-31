@@ -1,0 +1,11 @@
+@page "/a/{Id:guid}/debiteuren"
+
+<OpenpostenOverzicht Id="Id" Soort="Boekhouding.Facturen.Factuursoort.Verkoop" PeildatumTekst="@PeildatumTekst" />
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "peildatum")]
+    public string? PeildatumTekst { get; set; }
+}

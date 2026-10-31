@@ -56,6 +56,7 @@ public static class StandaardRekeningschema
         [
             B("1600", "Crediteuren", "BSchCreHac", Rekeningfunctie.Crediteuren),
             B("1700", "Nog te betalen kosten", "BSchOpaNtb"),
+            B("1710", "Vooruitontvangen omzet", "BSchOpa"),
             B("1800", "Overige schulden", "BSchOvsOvs"),
             B("2000", "Vraagposten", null, Rekeningfunctie.Vraagposten),
         ]);

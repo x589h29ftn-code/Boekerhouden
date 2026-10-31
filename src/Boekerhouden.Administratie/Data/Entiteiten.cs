@@ -56,6 +56,27 @@ public sealed class Administratie
     /// <summary>De eigen bankrekening(en); staan ook op facturen, maar zijn niet van de leverancier.</summary>
     public List<string> Ibans { get; set; } = [];
 
+    // Adres en contact van de onderneming: staan als afzender op de verkoopfacturen.
+
+    public string? Straat { get; set; }
+
+    public string? Postcode { get; set; }
+
+    public string? Plaats { get; set; }
+
+    /// <summary>Landcode (NL, BE …); leeg = Nederland.</summary>
+    public string? Land { get; set; }
+
+    public string? Email { get; set; }
+
+    public string? Telefoon { get; set; }
+
+    public string? Website { get; set; }
+
+    /// <summary>De onderneming als afzender van een verkoopfactuur.</summary>
+    public Boekhouding.Verkoop.Partij Afzender() =>
+        new(Naam, new(Straat, Postcode, Plaats, Land), BtwNummer, KvkNummer, Email, [.. Ibans], Telefoon, Website);
+
     // Instellingen waarin de administratie afwijkt van het kantoor; leeg = de kantoorinstelling.
 
     /// <summary>Betalingstermijn in dagen als de factuur geen vervaldatum noemt.</summary>
@@ -257,6 +278,35 @@ public sealed class Handelsrelatie : IVanAdministratie
 
     /// <summary>De standaard grootboekrekening (bijv. telefoonkosten).</summary>
     public string? Tegenrekening { get; set; }
+
+    // Gegevens als klant: adres en contact (voor de verkoopfactuur), betalingstermijn en de standaard omzetrekening en btw-code.
+
+    /// <summary>Een klant (debiteur): staat in de keuzelijst bij het factureren.</summary>
+    public bool Klant { get; set; }
+
+    public string? Straat { get; set; }
+
+    public string? Postcode { get; set; }
+
+    public string? Plaats { get; set; }
+
+    /// <summary>Landcode (NL, BE …); leeg = Nederland.</summary>
+    public string? Land { get; set; }
+
+    public string? Email { get; set; }
+
+    public string? Contactpersoon { get; set; }
+
+    /// <summary>Betalingstermijn in dagen voor facturen aan deze klant; leeg = die van de administratie.</summary>
+    public int? Betalingstermijn { get; set; }
+
+    public string? Omzetrekening { get; set; }
+
+    public string? Verkoopbtwcode { get; set; }
+
+    /// <summary>De klant zoals hij op een verkoopfactuur staat.</summary>
+    public Boekhouding.Verkoop.Partij AlsKlant() =>
+        new(Naam, new(Straat, Postcode, Plaats, Land), BtwNummer, KvkNummer, Email, [.. Ibans], Contactpersoon: Contactpersoon);
 
     /// <summary>Facturen vanaf dit bedrag (inclusief btw) altijd zelf controleren.</summary>
     public decimal? ControleVanaf { get; set; }
@@ -634,4 +684,104 @@ public sealed class Btwtariefrecord
     public decimal Percentage { get; set; }
 
     public Boekhouding.Btw.Btwtariefregel NaarDomein() => new(Tarief, Vanaf, Percentage);
+}
+
+public enum Verkoopstatus
+{
+    /// <summary>Nog te wijzigen of te verwijderen; heeft geen nummer en geen boeking.</summary>
+    Concept,
+
+    /// <summary>Genummerd en geboekt; wijzigen kan alleen nog met een creditfactuur.</summary>
+    Definitief,
+}
+
+/// <summary>
+/// Een verkoopfactuur die in het pakket gemaakt wordt: eerst een concept, dan definitief (nummer, boeking, openstaande
+/// post). De klant staat er als momentopname in (<see cref="Klantgegevens"/>), zodat de factuur gelijk blijft als de
+/// relatie later verandert.
+/// </summary>
+public sealed class Verkoopdocument : IVanAdministratie
+{
+    public Guid Id { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    public Verkoopstatus Status { get; set; }
+
+    /// <summary>Het factuurnummer (bijv. 20260001); leeg zolang het een concept is.</summary>
+    public string? Nummer { get; set; }
+
+    /// <summary>De code van de klant.</summary>
+    public string Relatie { get; set; } = string.Empty;
+
+    /// <summary>De klant zoals op de factuur (JSON van <c>Partij</c>).</summary>
+    public string Klantgegevens { get; set; } = string.Empty;
+
+    public DateOnly Datum { get; set; }
+
+    public DateOnly Vervaldatum { get; set; }
+
+    public string Omschrijving { get; set; } = string.Empty;
+
+    /// <summary>Het kenmerk van de klant (inkoopordernummer, project), op de factuur als "Uw referentie".</summary>
+    public string? Referentie { get; set; }
+
+    /// <summary>Een eigen tekst onder de regels van deze factuur.</summary>
+    public string? Tekst { get; set; }
+
+    public string? Betalingskenmerk { get; set; }
+
+    /// <summary>Bij een creditfactuur: de factuur die hij crediteert.</summary>
+    public Guid? CreditVoorId { get; set; }
+
+    public Guid? BoekingId { get; set; }
+
+    /// <summary>De periodeverdeling (JSON: periode, verdeelrekening en de boekstukken per maand); leeg zonder verdeling.</summary>
+    public string? Verdeling { get; set; }
+
+    /// <summary>De lay-out waarmee de factuur wordt opgemaakt; leeg = de standaard van de administratie.</summary>
+    public Guid? LayoutId { get; set; }
+
+    /// <summary>De terugkerende factuur waaruit deze is gemaakt.</summary>
+    public Guid? AbonnementId { get; set; }
+
+    public DateTimeOffset AangemaaktOp { get; set; }
+
+    public string AangemaaktDoor { get; set; } = string.Empty;
+
+    public DateTimeOffset? DefinitiefOp { get; set; }
+
+    public string? DefinitiefDoor { get; set; }
+
+    public List<Verkoopdocumentregel> Regels { get; set; } = [];
+}
+
+/// <summary>Eén regel van een verkoopfactuur: aantal × prijs, met korting, omzetrekening en btw-code.</summary>
+public sealed class Verkoopdocumentregel : IVanAdministratie
+{
+    public long Id { get; set; }
+
+    public Guid VerkoopdocumentId { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    public int Volgorde { get; set; }
+
+    public string Omschrijving { get; set; } = string.Empty;
+
+    public decimal Aantal { get; set; }
+
+    public string? Eenheid { get; set; }
+
+    /// <summary>Prijs per eenheid exclusief btw (tot vier decimalen).</summary>
+    public decimal Prijs { get; set; }
+
+    /// <summary>Korting in procenten.</summary>
+    public decimal Korting { get; set; }
+
+    public string Rekeningnummer { get; set; } = string.Empty;
+
+    public string BtwCode { get; set; } = string.Empty;
+
+    public Boekhouding.Verkoop.Verkoopregel NaarDomein() => new(Omschrijving, Aantal, Prijs, Rekeningnummer, BtwCode, Eenheid, Korting);
 }

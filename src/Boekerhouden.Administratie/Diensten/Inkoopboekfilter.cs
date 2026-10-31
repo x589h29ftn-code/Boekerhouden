@@ -7,7 +7,7 @@ namespace Boekerhouden.Administratie.Diensten;
 /// </summary>
 public sealed record Inkoopboekfilter(string? Tekst = null, string? Relatie = null, decimal? BedragVan = null, decimal? BedragTot = null, bool AlleenOpen = false)
 {
-    public bool Past(Inkoopboekregel regel)
+    public bool Past(Factuurboekregel regel)
     {
         ArgumentNullException.ThrowIfNull(regel);
         if (Relatie is { Length: > 0 } relatie && regel.Relatie != relatie)
