@@ -1,0 +1,118 @@
+@* De openstaande posten in een eigen venster (bijv. op een tweede beeldscherm naast het bankboek): zoeken op
+   leverancier, factuurnummer of bedrag, crediteuren of debiteuren, en Verversen om bij te werken na het afletteren. In
+   de webapp een eigen pagina zonder kopbalk, in de Windows-app een tweede venster. *@
+@using Boekerhouden.Boekhouding.Facturen
+@inject BankDienst Bank
+@inject TimeProvider Tijd
+
+<div class="openposten-extern p-3">
+    <div class="d-flex align-items-center gap-2 mb-2">
+        <h1 class="h5 mb-0 me-2 text-nowrap">Openstaande posten</h1>
+        <input class="form-control form-control-sm" placeholder="Zoeken op leverancier, factuurnummer of bedrag" aria-label="Zoeken" @bind="zoek" @bind:event="oninput" />
+        <select class="form-select form-select-sm w-auto" aria-label="Soort" @bind="soort">
+            <option value="">Crediteuren en debiteuren</option>
+            <option value="@Factuursoort.Inkoop">Crediteuren</option>
+            <option value="@Factuursoort.Verkoop">Debiteuren</option>
+        </select>
+        <button class="btn btn-sm btn-outline-secondary text-nowrap" disabled="@bezig" title="Bijwerken" @onclick="Ververs">&#x21bb; Verversen</button>
+        <span class="small text-secondary text-nowrap" title="Bijgewerkt">@bijgewerkt</span>
+    </div>
+    @if (geenToegang)
+    {
+        <div class="alert alert-warning">Je hebt geen toegang tot deze administratie.</div>
+    }
+    else if (posten is null)
+    {
+        <div class="text-secondary small">Laden…</div>
+    }
+    else
+    {
+        <div class="card">
+            <table class="table table-sm table-hover align-middle mb-0 overzichtstabel">
+                <thead>
+                    <tr><th>Relatie</th><th>Factuurnr.</th><th>Datum</th><th>Vervaldatum</th><th class="text-end">Bedrag</th><th class="text-end">Openstaand</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in Treffers)
+                    {
+                        var dagen = vandaag.DayNumber - p.Vervaldatum.DayNumber;
+                        <tr>
+                            <td class="text-truncate" title="@(p.Soort == Factuursoort.Inkoop ? "Crediteur" : "Debiteur") · @p.Relatie">@p.Naam</td>
+                            <td>@p.Factuurnummer</td>
+                            <td class="text-nowrap">@Weergave.Datum(p.Datum)</td>
+                            <td class="text-nowrap @(dagen > 0 ? "status" : "text-secondary")" title="@(dagen > 0 ? $"{dagen} dagen vervallen" : null)">@Weergave.Datum(p.Vervaldatum)</td>
+                            <td class="bedrag text-end"><Euro Waarde="p.Bedrag" /></td>
+                            <td class="bedrag text-end"><Euro Waarde="p.Openstaand" /></td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="generaal">
+                        <td colspan="5">@Treffers.Count posten</td>
+                        <td class="bedrag text-end"><Euro Waarde="Treffers.Sum(p => p.Openstaand)" /></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<OpenpostRegel>? posten;
+    private string? zoek;
+    private string soort = "";
+    private bool bezig;
+    private string? bijgewerkt;
+    private DateOnly vandaag;
+    private bool geenToegang;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Authenticatie { get; set; } = default!;
+
+    [Parameter]
+    public Guid Administratie { get; set; }
+
+    private List<OpenpostRegel> Treffers =>
+        [.. (posten ?? []).Where(p => (soort.Length == 0 || p.Soort.ToString() == soort) && Past(p))
+            .OrderBy(p => p.Naam, StringComparer.CurrentCultureIgnoreCase).ThenBy(p => p.Datum)];
+
+    protected override async Task OnInitializedAsync() => await Ververs();
+
+    private async Task Ververs()
+    {
+        bezig = true;
+        var wie = (await Authenticatie).User.AlsUitvoerder();
+        try
+        {
+            posten = await Bank.OpenPosten(wie, Administratie);
+        }
+        catch (GeenToegangException)
+        {
+            geenToegang = true;
+        }
+
+        var nu = Tijd.GetLocalNow();
+        vandaag = DateOnly.FromDateTime(nu.DateTime);
+        bijgewerkt = nu.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+        bezig = false;
+    }
+
+    /// <summary>Zoeken op naam, code of factuurnummer, of op het bedrag of wat openstaat (ook zonder minteken).</summary>
+    private bool Past(OpenpostRegel p)
+    {
+        if (string.IsNullOrWhiteSpace(zoek))
+        {
+            return true;
+        }
+
+        var tekst = zoek.Trim();
+        if (BedragParser.TryParse(tekst, out var bedrag) && (Math.Abs(p.Openstaand) == Math.Abs(bedrag) || Math.Abs(p.Bedrag) == Math.Abs(bedrag)))
+        {
+            return true;
+        }
+
+        return p.Factuurnummer.Contains(tekst, StringComparison.OrdinalIgnoreCase)
+               || p.Naam.Contains(tekst, StringComparison.CurrentCultureIgnoreCase)
+               || p.Relatie.Contains(tekst, StringComparison.OrdinalIgnoreCase);
+    }
+}

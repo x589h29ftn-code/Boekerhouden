@@ -1,0 +1,10 @@
+@page "/a/{Id:guid}/bank/openstaand"
+@layout LegeLayout
+
+<PageTitle>Openstaande posten</PageTitle>
+<OpenpostenExtern Administratie="Id" />
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+}

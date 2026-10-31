@@ -6,6 +6,8 @@
 @inject BankDienst Bank
 @inject InkoopDienst Inkoop
 @inject InrichtingDienst Inrichting
+@inject IJSRuntime JS
+@inject IServiceProvider Diensten
 
 <AdministratieKader Id="Id" Titel="Bank" Actief="/bank" BijOpenen="Open">
     @if (context.Mag(Recht.Invoeren))
@@ -47,6 +49,7 @@
                 {
                     <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="Alle mutaties in Te verwerken opnieuw herkennen: afletteren, regels (ook autoherkenning) en wat er geleerd is" @onclick="VerwerkOpnieuw">Opnieuw herkennen</button>
                 }
+                <button class="btn btn-sm btn-outline-secondary" title="De openstaande posten in een eigen venster, bijv. op een tweede beeldscherm" @onclick="OpenpostenExtern">Openstaande posten &#x29c9;</button>
                 <span class="form-check form-switch mb-0">
                     <input class="form-check-input" type="checkbox" id="ookgeboekt" checked="@ookGeboekt" @onchange="WisselGeboekt" />
                     <label class="form-check-label small text-secondary" for="ookgeboekt">ook geboekt</label>
@@ -609,6 +612,18 @@
     private async Task Afletteren(List<Guid> posten) =>
         await Na(await Bank.Afletteren(geopend!.Wie, Id, gekozen!.Mutatie.Id, posten));
 
+
+    /// <summary>De openstaande posten in een eigen venster: in de Windows-app een tweede venster, in de webapp een pop-up.</summary>
+    private async Task OpenpostenExtern()
+    {
+        if (Diensten.GetService<IDocumentvenster>() is { } venster)
+        {
+            venster.OpenOpenposten(Id, $"Openstaande posten – {geopend?.Kop.Naam}");
+            return;
+        }
+
+        await JS.InvokeVoidAsync("open", $"/a/{Id}/bank/openstaand", $"openposten-{Id:N}", "popup,width=1100,height=900");
+    }
 
     private async Task Na(Uitkomst uitkomst)
     {

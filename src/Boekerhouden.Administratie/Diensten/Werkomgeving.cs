@@ -19,4 +19,7 @@ public interface IDocumentvenster
 
     /// <summary>Staat het viewervenster open? Dan toont een volgende factuur zich daar.</summary>
     bool ViewerOpen { get; }
+
+    /// <summary>De openstaande posten in een eigen venster (bijv. op een tweede beeldscherm naast het bankboek).</summary>
+    void OpenOpenposten(Guid administratie, string titel);
 }

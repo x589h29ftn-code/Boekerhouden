@@ -32,6 +32,21 @@ internal sealed class Documentvenster(InkoopDienst inkoop, IServiceProvider dien
     }
 
     private ViewerVenster? open;
+    private OpenpostenVensterExtern? openposten;
+
+    /// <summary>Eén venster met openstaande posten: staat het al open, dan komt het naar voren.</summary>
+    public void OpenOpenposten(Guid administratie, string titel)
+    {
+        if (openposten is { IsDisposed: false } bestaand)
+        {
+            bestaand.Activate();
+            return;
+        }
+
+        var venster = new OpenpostenVensterExtern(diensten, administratie, titel);
+        openposten = venster;
+        venster.Show();
+    }
 
     public bool ViewerOpen => open is { IsDisposed: false };
 
