@@ -27,12 +27,19 @@
             else if (teVerwerken is not null)
             {
                 <div class="card mb-4">
-                    <table class="table table-sm table-hover align-middle mb-0">
+                    <table class="table table-sm table-hover align-middle mb-0" data-sleepbaar="inkoop-werkvoorraad">
                         <thead>
-                            <tr><th>Leverancier</th><th>Factuurnummer</th><th>Factuurdatum</th><th class="text-end">Bedrag</th><th>Waarom</th><th>Ingelezen</th></tr>
+                            <tr>
+                                <SorteerKop Sortering="sortering" Naam="Leverancier" />
+                                <SorteerKop Sortering="sortering" Naam="Factuurnummer" />
+                                <SorteerKop Sortering="sortering" Naam="Factuurdatum" />
+                                <SorteerKop Sortering="sortering" Naam="Bedrag" Klasse="text-end" />
+                                <SorteerKop Sortering="sortering" Naam="Waarom" />
+                                <SorteerKop Sortering="sortering" Naam="Ingelezen" />
+                            </tr>
                         </thead>
                         <tbody>
-                            @foreach (var d in teVerwerken)
+                            @foreach (var d in sortering.Pas(teVerwerken))
                             {
                                 <tr>
                                     <td><a href="/a/@Id/inkoop/@d.Id">@(d.Leverancier ?? d.Bestandsnaam)</a></td>
@@ -67,6 +74,14 @@
 
     private Geopend? geopend;
     private IReadOnlyList<DocumentRegel>? teVerwerken;
+
+    private readonly Sortering<DocumentRegel> sortering = new(
+        new("Leverancier", d => (d.Leverancier ?? d.Bestandsnaam).ToUpperInvariant()),
+        new("Factuurnummer", d => d.Factuurnummer),
+        new("Factuurdatum", d => d.Factuurdatum, EerstOplopend: false),
+        new("Bedrag", d => d.Totaal, EerstOplopend: false),
+        new("Waarom", d => d.Melding),
+        new("Ingelezen", d => d.IngelezenOp, EerstOplopend: false));
     private List<Inleesuitkomst> uitkomsten = [];
     private bool bezig;
     private Herverwerking? opnieuw;

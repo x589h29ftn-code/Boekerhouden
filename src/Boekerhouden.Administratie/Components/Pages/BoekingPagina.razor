@@ -16,6 +16,10 @@
         {
             <button class="btn btn-sm btn-outline-secondary" @onclick="BeginAanpassen">Aanpassen</button>
         }
+        @if (detail is { Document: null, Herstelt: null } && !aanpassen && geopend?.Kop.Mag(Recht.Boekhouden) == true && IsMemoriaal)
+        {
+            <a class="btn btn-sm btn-outline-secondary" href="/a/@Id/memoriaal?dagboek=@Uri.EscapeDataString(Dagboek)&kopie=@Uri.EscapeDataString(Boekstuk)" title="Een nieuwe boeking met dezelfde regels, een maand later">Kopiëren</a>
+        }
     </Acties>
     <ChildContent>
         @if (geladen && detail is null)
@@ -49,7 +53,7 @@
                     <div class="status mb-2">@vast</div>
                 }
                 <div class="card overzichtskaart">
-                    <table class="table align-middle mb-0 overzichtstabel">
+                    <table class="table align-middle mb-0 overzichtstabel" data-sleepbaar="boeking">
                         <thead>
                             <tr><th>Grootboek</th><th>Omschrijving</th><th>Btw</th><th>Relatie</th><th>Factuur</th><th class="text-end">Debet</th><th class="text-end">Credit</th></tr>
                         </thead>
@@ -178,6 +182,8 @@
     /// <summary>Net als bij boeken: het memoriaal is voor het kantoor, de andere dagboeken ook voor de ondernemer.</summary>
     private bool MagAanpassen(AdministratieKop kop) =>
         kop.Mag(dagboeken.FirstOrDefault(d => d.Code == Dagboek)?.Soort == Dagboeksoort.Memoriaal ? Recht.Boekhouden : Recht.Invoeren);
+
+    private bool IsMemoriaal => dagboeken.FirstOrDefault(d => d.Code == Dagboek)?.Soort == Dagboeksoort.Memoriaal;
 
     private string Adres(string dagboekBoekstuk) =>
         dagboekBoekstuk.Split(' ', 2) is [var d, var s] ? $"/a/{Id}/boeking/{Uri.EscapeDataString(d)}/{Uri.EscapeDataString(s)}" : "#";

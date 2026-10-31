@@ -27,12 +27,19 @@
     else if (relaties is not null)
     {
         <div class="card">
-            <table class="table table-sm align-middle mb-0">
+            <table class="table table-sm align-middle mb-0" data-sleepbaar="relaties">
                 <thead>
-                    <tr><th>Naam</th><th>IBAN</th><th>Btw-nummer</th><th>KvK</th><th>Standaardrekening</th><th></th></tr>
+                    <tr>
+                        <SorteerKop Sortering="sortering" Naam="Naam" />
+                        <SorteerKop Sortering="sortering" Naam="IBAN" />
+                        <SorteerKop Sortering="sortering" Naam="Btw-nummer" />
+                        <SorteerKop Sortering="sortering" Naam="KvK" />
+                        <SorteerKop Sortering="sortering" Naam="Standaardrekening" />
+                        <th></th>
+                    </tr>
                 </thead>
                 <tbody>
-                    @foreach (var r in relaties)
+                    @foreach (var r in sortering.Pas(relaties))
                     {
                         <tr class="regel-met-acties">
                             <td title="@r.Code"><a class="text-reset" href="/a/@Id/relaties/@Uri.EscapeDataString(r.Code)">@r.Naam</a></td>
@@ -73,6 +80,13 @@
 @code {
     private Geopend? geopend;
     private IReadOnlyList<RelatieRegel>? relaties;
+
+    private readonly Sortering<RelatieRegel> sortering = new(
+        new("Naam", r => r.Naam.ToUpperInvariant()),
+        new("IBAN", r => r.Ibans.FirstOrDefault()),
+        new("Btw-nummer", r => r.BtwNummer),
+        new("KvK", r => r.KvkNummer),
+        new("Standaardrekening", r => r.Tegenrekening));
     private Invoer nieuw = new();
     private RelatieRegel? ibanVoor;
     private string ibans = "";

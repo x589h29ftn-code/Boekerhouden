@@ -31,6 +31,10 @@ public sealed class InstellingenInvoer
 
     public string? Documentmap { get; set; }
 
+    public string? Betaalverschil { get; set; }
+
+    public string? Verschilrekening { get; set; }
+
     public static InstellingenInvoer Van(Verwerkingsinstellingen i)
     {
         ArgumentNullException.ThrowIfNull(i);
@@ -42,6 +46,8 @@ public sealed class InstellingenInvoer
             Betalingstermijn = i.Betalingstermijn.ToString(Nl),
             Adrescontrole = i.Adrescontrole ? Aan : Uit,
             Documentmap = i.Documentmap,
+            Betaalverschil = i.Betaalverschil is { } b ? Bedragen.Getal(b) : null,
+            Verschilrekening = i.Verschilrekening,
         };
     }
 
@@ -57,6 +63,8 @@ public sealed class InstellingenInvoer
             Betalingstermijn = a.Betalingstermijn?.ToString(Nl),
             Adrescontrole = a.Adrescontrole switch { null => Kantoor, true => Aan, false => Uit },
             Documentmap = a.Documentmap,
+            Betaalverschil = a.Betaalverschil is { } b ? Bedragen.Getal(b) : null,
+            Verschilrekening = a.Verschilrekening,
         };
     }
 
@@ -71,7 +79,9 @@ public sealed class InstellingenInvoer
             Getal(Limiet, "De limiet", fouten),
             Geheel(Betalingstermijn, "De betalingstermijn", fouten) ?? standaard.Betalingstermijn,
             Adrescontrole != Uit,
-            string.IsNullOrWhiteSpace(Documentmap) ? null : Documentmap.Trim());
+            string.IsNullOrWhiteSpace(Documentmap) ? null : Documentmap.Trim(),
+            Getal(Betaalverschil, "Het betaalverschil", fouten),
+            string.IsNullOrWhiteSpace(Verschilrekening) ? null : Verschilrekening.Trim());
     }
 
     /// <summary>Als afwijkingen van het kantoor; een leeg veld volgt het kantoor.</summary>
@@ -91,7 +101,9 @@ public sealed class InstellingenInvoer
             eigenLimiet,
             Geheel(Betalingstermijn, "De betalingstermijn", fouten),
             Adrescontrole switch { Aan => true, Uit => false, _ => null },
-            string.IsNullOrWhiteSpace(Documentmap) ? null : Documentmap.Trim());
+            string.IsNullOrWhiteSpace(Documentmap) ? null : Documentmap.Trim(),
+            Getal(Betaalverschil, "Het betaalverschil", fouten),
+            string.IsNullOrWhiteSpace(Verschilrekening) ? null : Verschilrekening.Trim());
     }
 
     private static readonly System.Globalization.CultureInfo Nl = System.Globalization.CultureInfo.GetCultureInfo("nl-NL");

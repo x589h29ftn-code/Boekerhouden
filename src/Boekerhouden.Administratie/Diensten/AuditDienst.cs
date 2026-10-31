@@ -98,6 +98,7 @@ public static class AuditActies
     public const string DocumentTeruggezet = "Document terug naar Te verwerken";
     public const string DocumentVerwijderd = "Document verwijderd";
     public const string BoekingTeruggedraaid = "Boeking teruggedraaid";
+    public const string Herboekt = "Herboekt";
     public const string BoekingAangepast = "Boeking aangepast";
     public const string CreditnotaVerrekend = "Creditnota verrekend";
     public const string OpnieuwVerwerkt = "Opnieuw automatisch verwerkt";

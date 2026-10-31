@@ -74,12 +74,19 @@
         else if (posten is not null)
         {
             <div class="card">
-                <table class="table table-sm align-middle mb-0">
+                <table class="table table-sm align-middle mb-0" data-sleepbaar="bank-werklijst">
                     <thead>
-                        <tr><th>Vervalt</th><th>Relatie</th><th>Factuur</th><th class="text-end">Bedrag</th><th class="text-end">Open</th><th></th></tr>
+                        <tr>
+                            <SorteerKop Sortering="postsortering" Naam="Vervalt" />
+                            <SorteerKop Sortering="postsortering" Naam="Relatie" />
+                            <SorteerKop Sortering="postsortering" Naam="Factuur" />
+                            <SorteerKop Sortering="postsortering" Naam="Bedrag" Klasse="text-end" />
+                            <SorteerKop Sortering="postsortering" Naam="Open" Klasse="text-end" />
+                            <th></th>
+                        </tr>
                     </thead>
                     <tbody>
-                        @foreach (var p in posten)
+                        @foreach (var p in postsortering.Pas(posten))
                         {
                             var dagen = Vandaag.DayNumber - p.Vervaldatum.DayNumber;
                             <tr>
@@ -119,12 +126,16 @@
         <div class="row g-3 bankwerk">
             <div class="col-lg-5">
                 <div class="card">
-                    <table class="table table-sm table-hover align-middle mb-0 bankmutaties">
+                    <table class="table table-sm table-hover align-middle mb-0 bankmutaties" data-sleepbaar="bankmutaties">
                         <thead>
-                            <tr><th>Datum</th><th>Tegenpartij en omschrijving</th><th class="text-end">Bedrag</th></tr>
+                            <tr>
+                                <SorteerKop Sortering="mutatiesortering" Naam="Datum" />
+                                <SorteerKop Sortering="mutatiesortering" Naam="Tegenpartij" Tekst="Tegenpartij en omschrijving" />
+                                <SorteerKop Sortering="mutatiesortering" Naam="Bedrag" Klasse="text-end" />
+                            </tr>
                         </thead>
                         <tbody>
-                            @foreach (var m in mutaties)
+                            @foreach (var m in mutatiesortering.Pas(mutaties))
                             {
                                 var open = gekozen?.Mutatie.Id == m.Id;
                                 <tr class="@(m.Status == Banktransactiestatus.TeVerwerken ? "kiesbaar" : "geboekt") @(open ? "table-active" : null)" @onclick="() => Kies(m)">
@@ -312,6 +323,18 @@
 
     private Geopend? geopend;
     private IReadOnlyList<BankmutatieRegel>? mutaties;
+
+    private readonly Sortering<BankmutatieRegel> mutatiesortering = new(
+        new("Datum", m => m.Datum, EerstOplopend: false),
+        new("Tegenpartij", m => (m.TegenNaam ?? m.Omschrijving).ToUpperInvariant()),
+        new("Bedrag", m => m.Bedrag, EerstOplopend: false));
+
+    private readonly Sortering<OpenpostRegel> postsortering = new(
+        new("Vervalt", p => p.Vervaldatum),
+        new("Relatie", p => p.Naam.ToUpperInvariant()),
+        new("Factuur", p => p.Factuurnummer),
+        new("Bedrag", p => p.Bedrag, EerstOplopend: false),
+        new("Open", p => p.Openstaand, EerstOplopend: false));
     private List<(string Bestand, Uitkomst<Bankinlezing> Uitkomst)> uitkomsten = [];
     private bool bezig;
     private bool ookGeboekt;

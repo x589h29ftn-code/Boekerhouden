@@ -31,12 +31,19 @@
         else if (posten is not null)
         {
             <div class="card">
-                <table class="table table-sm align-middle mb-0">
+                <table class="table table-sm align-middle mb-0" data-sleepbaar="journaal">
                     <thead>
-                        <tr><th>#</th><th>Datum</th><th>Dagboek</th><th>Boekstuk</th><th>Omschrijving</th><th class="text-end">Bedrag</th></tr>
+                        <tr>
+                            <SorteerKop Sortering="sortering" Naam="#" />
+                            <SorteerKop Sortering="sortering" Naam="Datum" />
+                            <SorteerKop Sortering="sortering" Naam="Dagboek" />
+                            <SorteerKop Sortering="sortering" Naam="Boekstuk" />
+                            <SorteerKop Sortering="sortering" Naam="Omschrijving" />
+                            <SorteerKop Sortering="sortering" Naam="Bedrag" Klasse="text-end" />
+                        </tr>
                     </thead>
                     <tbody>
-                        @foreach (var p in posten)
+                        @foreach (var p in sortering.Pas(posten))
                         {
                             <tr class="klikbaar" @onclick="() => Wissel(p.Volgnummer)">
                                 <td class="text-secondary" title="Geboekt door @p.GeboektDoor op @Weergave.DatumTijd(p.GeboektOp)">@p.Volgnummer</td>
@@ -69,6 +76,14 @@
 @code {
     private Geopend? geopend;
     private IReadOnlyList<GeboektePost>? posten;
+
+    private readonly Sortering<GeboektePost> sortering = new(
+        new("#", p => p.Volgnummer, EerstOplopend: false),
+        new("Datum", p => p.Post.Datum, EerstOplopend: false),
+        new("Dagboek", p => p.Post.Dagboek),
+        new("Boekstuk", p => p.Post.Boekstuk),
+        new("Omschrijving", p => p.Post.Omschrijving.ToUpperInvariant()),
+        new("Bedrag", p => p.Post.TotaalDebet, EerstOplopend: false));
     private IReadOnlyList<long>? keten;
     private readonly HashSet<long> open = [];
     private DateOnly van;

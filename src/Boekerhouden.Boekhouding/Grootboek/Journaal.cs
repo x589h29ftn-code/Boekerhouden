@@ -6,6 +6,7 @@ namespace Boekerhouden.Boekhouding.Grootboek;
 /// <param name="BtwCode">De btw-code van de regel.</param>
 /// <param name="Btw">De btw die in dezelfde boeking bij deze regel hoort (zelfde btw-code), naar verhouding als meer regels
 /// die code hebben; leeg op de btw-rekeningen zelf en zonder btw-code.</param>
+/// <param name="Regel">De plek van de regel in de boeking (vanaf 0), om hem terug te vinden (bijv. om te herboeken).</param>
 public sealed record Kaartregel(
     DateOnly Datum,
     string Dagboek,
@@ -16,7 +17,8 @@ public sealed record Kaartregel(
     string? Relatie,
     string? Factuurnummer,
     string? BtwCode = null,
-    decimal? Btw = null);
+    decimal? Btw = null,
+    int Regel = 0);
 
 /// <summary>De grootboekkaart van één rekening over een periode.</summary>
 public sealed record Grootboekkaart(Rekening Rekening, DateOnly Van, DateOnly Tot, decimal Beginsaldo, IReadOnlyList<Kaartregel> Mutaties)
@@ -134,7 +136,7 @@ public sealed class Journaal
         {
             saldo += regel.Bedrag;
             mutaties.Add(new Kaartregel(post.Datum, post.Dagboek, post.Boekstuk, regel.Omschrijving ?? post.Omschrijving, regel.Bedrag, saldo, regel.Relatie, regel.Factuurnummer,
-                regel.BtwCode, BtwBij(post, regel)));
+                regel.BtwCode, BtwBij(post, regel), post.Regels.ToList().FindIndex(r => ReferenceEquals(r, regel))));
         }
 
         return new Grootboekkaart(rekening, van, tot, beginsaldo, mutaties);

@@ -44,6 +44,9 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasPrecision(6, 2)
                         .HasColumnType("numeric(6,2)");
 
+                    b.Property<decimal?>("Betaalverschil")
+                        .HasColumnType("numeric");
+
                     b.Property<int?>("Betalingstermijn")
                         .HasColumnType("integer");
 
@@ -82,6 +85,9 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
+
+                    b.Property<string>("Verschilrekening")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -1028,6 +1034,9 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasPrecision(6, 2)
                         .HasColumnType("numeric(6,2)");
 
+                    b.Property<decimal?>("Betaalverschil")
+                        .HasColumnType("numeric");
+
                     b.Property<int>("Betalingstermijn")
                         .HasColumnType("integer");
 
@@ -1049,6 +1058,9 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
                         .HasDefaultValue(100);
+
+                    b.Property<string>("Verschilrekening")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 

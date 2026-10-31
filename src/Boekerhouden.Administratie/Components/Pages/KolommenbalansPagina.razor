@@ -3,6 +3,8 @@
 @inject GrootboekDienst Grootboek
 @inject KantoorDienst Kantoor
 @inject NavigationManager Navigatie
+@inject OverzichtDienst Overzicht
+@inject IJSRuntime JS
 
 <AdministratieKader Id="Id" Titel="Kolommenbalans" Actief="/kolommenbalans" BijOpenen="Open">
     <Acties>
@@ -19,8 +21,11 @@
             <label class="form-check-label text-secondary" for="met-nul">ook zonder saldo</label>
         </span>
         <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
+        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De kolommenbalans als Excel" @onclick="Excel">Excel</button>
+        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De kolommenbalans als PDF (A4 liggend)" @onclick="Pdf">PDF</button>
     </Acties>
     <ChildContent>
+        <Foutmeldingen Fouten="fouten" />
         @if (melding is not null)
         {
             <div class="bericht">@melding</div>
@@ -28,7 +33,7 @@
         else if (!perMaand && koba is not null)
         {
             <div class="card overzichtskaart">
-                <table class="table align-middle mb-0 overzichtstabel kolommenbalans" style="@Letter">
+                <table class="table align-middle mb-0 overzichtstabel kolommenbalans" style="@Letter" data-sleepbaar="kolommenbalans">
                     <thead>
                         <tr>
                             <th>Grootboek</th>
@@ -97,7 +102,7 @@
         else if (perMaand && maanden is not null)
         {
             <div class="card overzichtskaart maandoverzicht-kaart">
-                <table class="table align-middle mb-0 overzichtstabel maandoverzicht" style="@Letter">
+                <table class="table align-middle mb-0 overzichtstabel maandoverzicht" style="@Letter" data-sleepbaar="maandoverzicht">
                     <thead>
                         <tr>
                             <th>Grootboek</th>
@@ -220,6 +225,40 @@
         catch (ArgumentException)
         {
             (maanden, melding) = (null, $"Per maand kan over hoogstens {Maandoverzicht.MaximumMaanden} maanden; kies een kortere periode.");
+        }
+    }
+
+    private bool bezig;
+    private IReadOnlyList<string>? fouten;
+
+    private async Task Excel()
+    {
+        bezig = true;
+        try
+        {
+            await JS.Bewaar(await Overzicht.KolommenbalansExcel(geopend!.Wie, Id, van, tot), $"Kolommenbalans {van:yyyy-MM-dd} {tot:yyyy-MM-dd}.xlsx", Download.Excel);
+        }
+        finally
+        {
+            bezig = false;
+        }
+    }
+
+    private async Task Pdf()
+    {
+        bezig = true;
+        try
+        {
+            var uitkomst = await Overzicht.KolommenbalansPdf(geopend!.Wie, Id, van, tot);
+            fouten = uitkomst.Fouten;
+            if (uitkomst.IsGelukt)
+            {
+                await JS.Bewaar(uitkomst.Waarde!, $"Kolommenbalans {van:yyyy-MM-dd} {tot:yyyy-MM-dd}.pdf", Download.Pdf);
+            }
+        }
+        finally
+        {
+            bezig = false;
         }
     }
 

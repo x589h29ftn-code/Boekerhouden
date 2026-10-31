@@ -18,7 +18,8 @@ public enum Zekerheid
 /// <param name="Verschil">Wat er na afletteren openstaat (de som van de posten min de mutatie); 0 = precies betaald.</param>
 /// <param name="Korting">De mutatie noemt een (betalings)korting: het verschil is waarschijnlijk korting, af te boeken op
 /// een rekening in plaats van open te laten staan.</param>
-public sealed record Afletterkandidaat(IReadOnlyList<OpenPost> Posten, Zekerheid Zekerheid, string Reden, decimal Verschil, bool Korting = false)
+/// <param name="NummerEnIban">Eén post waarvan de mutatie het factuurnummer of kenmerk noemt, van het IBAN van de relatie.</param>
+public sealed record Afletterkandidaat(IReadOnlyList<OpenPost> Posten, Zekerheid Zekerheid, string Reden, decimal Verschil, bool Korting = false, bool NummerEnIban = false)
 {
     /// <summary>Eén post waarvan na afletteren nog een deel openstaat (niet te veel betaald).</summary>
     public bool IsDeelbetaling => !Korting && Posten is [var post] && Verschil != 0 && Math.Sign(Verschil) == Math.Sign(post.Openstaand);
@@ -37,6 +38,18 @@ public sealed record Afletteradvies(Bankmutatie Mutatie, IReadOnlyList<Afletterk
     /// </summary>
     public Afletterkandidaat? Automatisch =>
         !Kandidaten.Any(k => k.IsAlBetaald) && Kandidaten.Where(k => k.Zekerheid == Zekerheid.Zeker).ToList() is [var enige] && (enige.Verschil == 0 || enige.IsDeelbetaling)
+            ? enige
+            : null;
+
+    /// <summary>
+    /// De enige kandidaat waarvan nummer en IBAN kloppen, die op een klein verschil na precies betaald is, te veel of te
+    /// weinig: het verschil mag worden afgeboekt (instelling betaalverschil). Niet als er ook een zekere kandidaat is
+    /// die precies klopt, bij een factuur die al betaald was of bij betalingskorting (die heeft een eigen boeking).
+    /// </summary>
+    public Afletterkandidaat? KleinVerschil(decimal? grens) =>
+        grens is > 0 && !Kandidaten.Any(k => k.IsAlBetaald || (k.Zekerheid == Zekerheid.Zeker && k.Verschil == 0))
+        && Kandidaten.Where(k => k.NummerEnIban).ToList() is [{ Korting: false } enige]
+        && enige.Verschil != 0 && Math.Abs(enige.Verschil) <= grens
             ? enige
             : null;
 }
@@ -88,12 +101,12 @@ public static partial class Afletteraar
         var kandidaten = new List<Afletterkandidaat>();
         var gebruikt = new HashSet<Guid>();
         var korting = KortingPatroon().IsMatch(tekst);
-        void Voegtoe(IReadOnlyList<OpenPost> lijst, Zekerheid zekerheid, string reden, bool isKorting = false)
+        void Voegtoe(IReadOnlyList<OpenPost> lijst, Zekerheid zekerheid, string reden, bool isKorting = false, bool nummerEnIban = false)
         {
             if (lijst.Count > 0 && !lijst.Any(p => gebruikt.Contains(p.Id)))
             {
                 gebruikt.UnionWith(lijst.Select(p => p.Id));
-                kandidaten.Add(new Afletterkandidaat(lijst, zekerheid, reden, lijst.Sum(p => p.Openstaand) - mutatie.Bedrag, isKorting));
+                kandidaten.Add(new Afletterkandidaat(lijst, zekerheid, reden, lijst.Sum(p => p.Openstaand) - mutatie.Bedrag, isKorting, nummerEnIban));
             }
         }
 
@@ -128,14 +141,14 @@ public static partial class Afletteraar
         foreach (var post in posten.Where(p => kenmerk.Length > 0 && Cijfers(p.Betalingskenmerk) == kenmerk))
         {
             var zeker = (post.Openstaand == mutatie.Bedrag && Past(post)) || (Deel(post) && Past(post));
-            Voegtoe([post], zeker ? Zekerheid.Zeker : Zekerheid.Voorstel, Reden("Betalingskenmerk", post), Korting(post));
+            Voegtoe([post], zeker ? Zekerheid.Zeker : Zekerheid.Voorstel, Reden("Betalingskenmerk", post), Korting(post), viaIban.Contains(post.Relatie));
         }
 
         // 2. Factuurnummer in de omschrijving.
         foreach (var post in posten.Where(p => Factuurnummers.KomtVoor(p.Factuurnummer, tekst)))
         {
             var zeker = (post.Openstaand == mutatie.Bedrag && Past(post)) || (Deel(post) && Past(post));
-            Voegtoe([post], zeker ? Zekerheid.Zeker : Zekerheid.Voorstel, Reden("Factuurnummer", post), Korting(post));
+            Voegtoe([post], zeker ? Zekerheid.Zeker : Zekerheid.Voorstel, Reden("Factuurnummer", post), Korting(post), viaIban.Contains(post.Relatie));
         }
 
         // 2b. Het nummer of kenmerk van een factuur die al betaald is (of waarop al te veel betaald is), met hetzelfde

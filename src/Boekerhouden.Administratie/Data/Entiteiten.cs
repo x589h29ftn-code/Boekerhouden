@@ -77,8 +77,12 @@ public sealed class Administratie
     /// <summary>Waar een kopie van elk geboekt document komt (met variabelen).</summary>
     public string? Documentmap { get; set; }
 
+    public decimal? Betaalverschil { get; set; }
+
+    public string? Verschilrekening { get; set; }
+
     public Boekhouding.Regels.AfwijkendeInstellingen Afwijkend() =>
-        new(DrempelAutomatisch, Bandbreedte, LimietAfwijkend, LimietAutomatisch, Betalingstermijn, Adrescontrole, Documentmap);
+        new(DrempelAutomatisch, Bandbreedte, LimietAfwijkend, LimietAutomatisch, Betalingstermijn, Adrescontrole, Documentmap, Betaalverschil, Verschilrekening);
 
     public DateTimeOffset AangemaaktOp { get; set; }
 
@@ -474,6 +478,11 @@ public sealed class Kantoorinstellingen
 
     public string? Documentmap { get; set; }
 
+    /// <summary>Kleine betaalverschillen tot dit bedrag automatisch afboeken; leeg = uit.</summary>
+    public decimal? Betaalverschil { get; set; }
+
+    public string? Verschilrekening { get; set; }
+
     /// <summary>Lettergrootte van de overzichten (kolommenbalans) in procenten; 100 = normaal.</summary>
     public int OverzichtLetter { get; set; } = 100;
 
@@ -481,7 +490,7 @@ public sealed class Kantoorinstellingen
     public bool OverzichtHeleEuros { get; set; }
 
     public Boekhouding.Regels.Verwerkingsinstellingen NaarDomein() =>
-        new(DrempelAutomatisch, Bandbreedte, LimietAutomatisch, Betalingstermijn, Adrescontrole, Documentmap);
+        new(DrempelAutomatisch, Bandbreedte, LimietAutomatisch, Betalingstermijn, Adrescontrole, Documentmap, Betaalverschil, Verschilrekening);
 }
 
 /// <summary>Een aangewezen plek op de factuur van een leverancier (zoektemplate), per veld de laatste.</summary>

@@ -320,6 +320,78 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
     }
 
     [Fact]
+    public async Task Een_klein_betaalverschil_wordt_automatisch_afgeboekt_als_de_administratie_dat_wil()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Betaalverschil B.V.");
+        var bank = app.Dienst<BankDienst>();
+        var inrichting = app.Dienst<InrichtingDienst>();
+        var huidig = await inrichting.Instellingen(wie, id);
+        Assert.Contains("rekening voor kleine betaalverschillen", (await inrichting.WijzigInstellingen(wie, id, huidig with { Afwijkend = huidig.Afwijkend with { Betaalverschil = 1m } })).Fouten[0], StringComparison.Ordinal);
+        Assert.True((await inrichting.WijzigInstellingen(wie, id, huidig with { Afwijkend = huidig.Afwijkend with { Betaalverschil = 1m, Verschilrekening = "9000" } })).IsGelukt);
+        await BoekBelnet(wie, id);
+
+        var gelezen = await bank.Lees(wie, id, Afschrift(belnet: "25,00"), "ing.mt940");
+
+        Assert.Equal(1, gelezen.Waarde!.Automatisch);
+        Assert.Empty(await bank.OpenPosten(wie, id));
+        var proef = await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026);
+        Assert.Equal((0.01m, 0m), (Saldo(proef, "9000"), Saldo(proef, "1600")));
+        Assert.Empty(await app.Dienst<GrootboekDienst>().ControleerKeten(wie, id));
+    }
+
+    [Fact]
+    public async Task Een_groter_verschil_dan_de_grens_blijft_een_deelbetaling()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Grens Betaalverschil B.V.");
+        var bank = app.Dienst<BankDienst>();
+        var inrichting = app.Dienst<InrichtingDienst>();
+        var huidig = await inrichting.Instellingen(wie, id);
+        Assert.True((await inrichting.WijzigInstellingen(wie, id, huidig with { Afwijkend = huidig.Afwijkend with { Betaalverschil = 1m, Verschilrekening = "9000" } })).IsGelukt);
+        await BoekBelnet(wie, id);
+
+        await bank.Lees(wie, id, Afschrift(belnet: "20,00"), "ing.mt940");
+
+        Assert.Equal(-4.99m, (await bank.OpenPosten(wie, id)).Single().Openstaand);
+        Assert.Equal(0m, Saldo(await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026), "9000"));
+    }
+
+    [Fact]
+    public async Task Aansluitingen_van_bank_crediteuren_en_vraagposten()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Aansluiting B.V.");
+        var bank = app.Dienst<BankDienst>();
+        var dienst = app.Dienst<AansluitingDienst>();
+        await BoekBelnet(wie, id);
+        Assert.Contains(await dienst.Aansluitingen(wie, id), a => a.Soort == Aansluitingsoort.Bank && a.Bron is null);
+
+        await bank.Lees(wie, id, Afschrift(belnet: "20,00"), "ing.mt940");
+        var lijst = await dienst.Aansluitingen(wie, id);
+
+        var rekening = lijst.Single(a => a.Soort == Aansluitingsoort.Bank);
+        Assert.Equal(5990.35m, rekening.Bron);
+        Assert.False(rekening.Sluit);
+        Assert.Contains("2 mutaties te verwerken", rekening.Toelichting, StringComparison.Ordinal);
+        var crediteuren = lijst.Single(a => a.Soort == Aansluitingsoort.Crediteuren);
+        Assert.Equal((-4.99m, -4.99m, true), (crediteuren.Grootboek, crediteuren.Bron, crediteuren.Sluit));
+        Assert.True(lijst.Single(a => a.Soort == Aansluitingsoort.Vraagposten).Sluit);
+        foreach (var m in await bank.Lijst(wie, id))
+        {
+            Assert.True((await bank.OpRekening(wie, id, m.Id, "9000", null, null)).IsGelukt);
+        }
+
+        Assert.False((await dienst.Aansluitingen(wie, id)).Single(a => a.Soort == Aansluitingsoort.Bank).Sluit);
+        var beginbalans = new Boekhouding.Grootboek.Journaalpost("MEM", "2026-0001", new(2026, 1, 1), "Beginbalans", [new Boekhouding.Grootboek.Journaalregel("1100", 5000m), new Boekhouding.Grootboek.Journaalregel("0500", -5000m)]);
+        Assert.True((await app.Dienst<GrootboekDienst>().Boek(wie, id, beginbalans)).IsGelukt);
+
+        Assert.True((await dienst.Aansluitingen(wie, id)).Single(a => a.Soort == Aansluitingsoort.Bank).Sluit);
+        var buiten = await app.Gebruiker("Buiten Aansluiting");
+        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.Aansluitingen(buiten, id));
+    }
+
+    [Fact]
     public async Task Een_mutatie_verdelen_over_regels_met_btw_en_een_openstaande_post()
     {
         var wie = await app.Beheerder();

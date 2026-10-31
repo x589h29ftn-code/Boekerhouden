@@ -12,13 +12,20 @@ namespace Boekerhouden.Boekhouding.Regels;
 /// <param name="Documentmap">
 /// Waar een kopie van elk geboekt document komt, met variabelen (zie <see cref="Facturen.Documentpad"/>); leeg = nergens.
 /// </param>
+/// <param name="Betaalverschil">
+/// Een betaling die hoogstens zoveel euro afwijkt van de enige passende factuur (nummer en IBAN kloppen) wordt
+/// automatisch afgeletterd en het verschil afgeboekt op <paramref name="Verschilrekening"/>; leeg of 0 = uit.
+/// </param>
+/// <param name="Verschilrekening">De grootboekrekening voor kleine betaalverschillen.</param>
 public sealed record Verwerkingsinstellingen(
     int Drempel = 2,
     decimal Bandbreedte = Leergeheugen.StandaardBandbreedte,
     decimal? Limiet = null,
     int Betalingstermijn = 30,
     bool Adrescontrole = true,
-    string? Documentmap = null)
+    string? Documentmap = null,
+    decimal? Betaalverschil = null,
+    string? Verschilrekening = null)
 {
     public static Verwerkingsinstellingen Standaard { get; } = new();
 
@@ -46,6 +53,16 @@ public sealed record Verwerkingsinstellingen(
             fouten.Add("De betalingstermijn ligt tussen 0 en 365 dagen.");
         }
 
+        if (Betaalverschil is < 0 or > 100)
+        {
+            fouten.Add("Een klein betaalverschil is hoogstens € 100.");
+        }
+
+        if (Betaalverschil > 0 && string.IsNullOrWhiteSpace(Verschilrekening))
+        {
+            fouten.Add("Kies de rekening voor kleine betaalverschillen.");
+        }
+
         fouten.AddRange(Facturen.Documentpad.Controleer(Documentmap));
         return fouten;
     }
@@ -62,7 +79,9 @@ public sealed record AfwijkendeInstellingen(
     decimal? Limiet = null,
     int? Betalingstermijn = null,
     bool? Adrescontrole = null,
-    string? Documentmap = null)
+    string? Documentmap = null,
+    decimal? Betaalverschil = null,
+    string? Verschilrekening = null)
 {
     public static AfwijkendeInstellingen Geen { get; } = new();
 
@@ -76,6 +95,8 @@ public sealed record AfwijkendeInstellingen(
             LimietAfwijkend ? Limiet : kantoor.Limiet,
             Betalingstermijn ?? kantoor.Betalingstermijn,
             Adrescontrole ?? kantoor.Adrescontrole,
-            string.IsNullOrWhiteSpace(Documentmap) ? kantoor.Documentmap : Documentmap);
+            string.IsNullOrWhiteSpace(Documentmap) ? kantoor.Documentmap : Documentmap,
+            Betaalverschil ?? kantoor.Betaalverschil,
+            string.IsNullOrWhiteSpace(Verschilrekening) ? kantoor.Verschilrekening : Verschilrekening);
     }
 }

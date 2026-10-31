@@ -403,7 +403,12 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
         var ibans = invoer.Ibans.Where(i => !string.IsNullOrWhiteSpace(i)).Select(Iban.Normaliseer).Distinct().ToList();
         fouten.AddRange(ibans.Where(i => !Iban.IsGeldig(i)).Select(i => $"{i} is geen geldig IBAN."));
         var kantoor = await KantoorDienst.Lees(db);
-        var afwijkend = invoer.Afwijkend with { Documentmap = Leeg(invoer.Afwijkend.Documentmap) };
+        var afwijkend = invoer.Afwijkend with
+        {
+            Documentmap = Leeg(invoer.Afwijkend.Documentmap),
+            Verschilrekening = Leeg(invoer.Afwijkend.Verschilrekening),
+            Betaalverschil = invoer.Afwijkend.Betaalverschil is { } grens ? decimal.Round(grens, 2) : null,
+        };
         fouten.AddRange(afwijkend.Op(kantoor).Controleer());
         if (fouten.Count > 0)
         {
@@ -423,6 +428,8 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
         a.Betalingstermijn = afwijkend.Betalingstermijn;
         a.Adrescontrole = afwijkend.Adrescontrole;
         a.Documentmap = afwijkend.Documentmap;
+        a.Betaalverschil = afwijkend.Betaalverschil;
+        a.Verschilrekening = afwijkend.Verschilrekening;
         await db.SaveChangesAsync();
         await audit.Log(wie, AuditActies.InstellingenGewijzigd, a.Naam, details, administratie);
         return Uitkomst.Gelukt;

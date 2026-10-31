@@ -1,6 +1,7 @@
 @* Een boeking invoeren of aanpassen: datum, omschrijving en regels (rekening, omschrijving, btw-code, debet, credit).
    Zonder Post is het een nieuwe boeking (GrootboekDienst.Boek); met Post een aanpassing, een nieuwe versie van
-   dezelfde boeking (GrootboekDienst.PasAan). Regels op bank, debiteuren en crediteuren staan bij een aanpassing vast. *@
+   dezelfde boeking (GrootboekDienst.PasAan). Regels op bank, debiteuren en crediteuren staan bij een aanpassing vast.
+   Een nieuwe boeking kan beginnen als kopie (Voorbeeld) en elke maand herhaald worden (GrootboekDienst.BoekPerMaand). *@
 @using Boekerhouden.Boekhouding.Grootboek
 @inject GrootboekDienst Grootboek
 @inject BtwDienst Btw
@@ -72,6 +73,19 @@
     </div>
     <div class="d-flex align-items-center gap-2 mt-3">
         <button class="btn btn-primary" @onclick="Opslaan" disabled="@bezig" title="@(Post is null ? null : "Dezelfde boeking krijgt een nieuwe versie; de vorige blijft bewaard")">@(Post is null ? "Boeken" : "Opslaan")</button>
+        @if (Post is null)
+        {
+            <span class="form-check form-switch mb-0 small text-nowrap ms-2">
+                <input class="form-check-input" type="checkbox" id="herhalen" @bind="herhalen" />
+                <label class="form-check-label text-secondary" for="herhalen">elke maand</label>
+            </span>
+            @if (herhalen)
+            {
+                <label class="small text-secondary" for="herhalen-tot">t/m</label>
+                <input id="herhalen-tot" type="month" class="form-control form-control-sm w-auto" value="@herhalenTot" @onchange="e => herhalenTot = e.Value as string" title="De laatste maand" />
+                <span class="small text-secondary">@(Maanden is { } n ? $"{n} boekingen" : null)</span>
+            }
+        }
         @if (Geannuleerd.HasDelegate)
         {
             <button class="btn btn-link text-secondary" @onclick="() => Geannuleerd.InvokeAsync()">Annuleren</button>
@@ -107,6 +121,10 @@
     [Parameter]
     public DateOnly Datum { get; set; }
 
+    /// <summary>Een nieuwe boeking als kopie van deze (bijv. een terugkerende memoriaalboeking).</summary>
+    [Parameter]
+    public Journaalpost? Voorbeeld { get; set; }
+
     /// <summary>Na het boeken of opslaan, met een korte melding.</summary>
     [Parameter]
     public EventCallback<string> Opgeslagen { get; set; }
@@ -114,16 +132,35 @@
     [Parameter]
     public EventCallback Geannuleerd { get; set; }
 
+    private bool herhalen;
+    private string? herhalenTot;
+
     private bool VasteDatum => invoer.Regels.Any(r => r.Vast);
+
+    /// <summary>Het aantal maanden van de datum t/m de gekozen maand, of leeg als dat niet klopt.</summary>
+    private int? Maanden =>
+        DateOnly.TryParseExact(herhalenTot + "-01", "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var tot)
+        && (tot.Year * 12) + tot.Month - ((invoer.Datum.Year * 12) + invoer.Datum.Month) + 1 is var n and >= 1
+            ? n
+            : null;
 
     /// <summary>Het formulier wordt één keer gevuld; een andere boeking krijgt een nieuw exemplaar (via @key).</summary>
     protected override async Task OnInitializedAsync()
     {
-        var datum = Post?.Datum ?? Datum;
+        var datum = Post?.Datum ?? (Voorbeeld is { } v ? Volgende(v.Datum) : Datum);
         codes = (await Btw.Tabel()).Op(datum);
+        if (Post is null && Voorbeeld is not null)
+        {
+            invoer = new Invoer { Datum = datum, Omschrijving = Voorbeeld.Omschrijving, Regels = [.. Voorbeeld.Regels.Select(r => Regel(r, Voorbeeld.Omschrijving, vast: false))] };
+            boekstuk = await Grootboek.VolgendBoekstuk(Kader.Wie, Kader.Kop.Id, Dagboek, datum.Year);
+            herhalenTot = $"{datum.Year:0000}-12";
+            return;
+        }
+
         if (Post is null)
         {
             invoer = new Invoer { Datum = datum, Regels = [new(), new()] };
+            herhalenTot = $"{datum.Year:0000}-12";
             boekstuk = await Grootboek.VolgendBoekstuk(Kader.Wie, Kader.Kop.Id, Dagboek, datum.Year);
             return;
         }
@@ -134,20 +171,25 @@
             Omschrijving = Post.Omschrijving,
             Regels =
             [
-                .. Post.Regels.Select(r => new Invoerregel
-                {
-                    Rekening = r.Rekeningnummer,
-                    Omschrijving = r.Omschrijving == Post.Omschrijving ? null : r.Omschrijving,
-                    BtwCode = r.BtwCode,
-                    Relatie = r.Relatie,
-                    Factuurnummer = r.Factuurnummer,
-                    Debet = r.Bedrag > 0 ? Bedragen.Getal(r.Bedrag) : null,
-                    Credit = r.Bedrag < 0 ? Bedragen.Getal(-r.Bedrag) : null,
-                    Vast = Boekingscorrectie.IsVast(Schema.Zoek(r.Rekeningnummer)),
-                }),
+                .. Post.Regels.Select(r => Regel(r, Post.Omschrijving, Boekingscorrectie.IsVast(Schema.Zoek(r.Rekeningnummer)))),
             ],
         };
     }
+
+    private static Invoerregel Regel(Journaalregel r, string omschrijving, bool vast) => new()
+    {
+        Rekening = r.Rekeningnummer,
+        Omschrijving = r.Omschrijving == omschrijving ? null : r.Omschrijving,
+        BtwCode = r.BtwCode,
+        Relatie = r.Relatie,
+        Factuurnummer = r.Factuurnummer,
+        Debet = r.Bedrag > 0 ? Bedragen.Getal(r.Bedrag) : null,
+        Credit = r.Bedrag < 0 ? Bedragen.Getal(-r.Bedrag) : null,
+        Vast = vast,
+    };
+
+    /// <summary>Een kopie komt op dezelfde dag een maand later (of de laatste dag van een kortere maand).</summary>
+    private static DateOnly Volgende(DateOnly datum) => datum.AddMonths(1);
 
     private void RegelErbij()
     {
@@ -188,6 +230,24 @@
             if (Post is null)
             {
                 var post = new Journaalpost(Dagboek, boekstuk.Trim(), invoer.Datum, invoer.Omschrijving.Trim(), regels);
+                if (herhalen)
+                {
+                    if (Maanden is not { } maanden)
+                    {
+                        fouten = ["Kies de laatste maand voor het herhalen, op of na de maand van de datum."];
+                        return;
+                    }
+
+                    var reeks = await Grootboek.BoekPerMaand(Kader.Wie, Kader.Kop.Id, post, maanden);
+                    fouten = reeks.Fouten;
+                    if (reeks.IsGelukt)
+                    {
+                        await Opgeslagen.InvokeAsync($"{reeks.Waarde} boekingen in {Dagboek} geboekt, vanaf {post.Boekstuk}.");
+                    }
+
+                    return;
+                }
+
                 var uitkomst = await Grootboek.Boek(Kader.Wie, Kader.Kop.Id, post);
                 fouten = uitkomst.Fouten;
                 if (uitkomst.IsGelukt)

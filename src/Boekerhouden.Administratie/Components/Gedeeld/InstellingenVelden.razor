@@ -48,6 +48,15 @@
             <option value="@InstellingenInvoer.Uit">uit</option>
         </select>
     </div>
+    <div class="col-md-4">
+        <label class="form-label" for="betaalverschil">Klein betaalverschil afboeken tot</label>
+        <input id="betaalverschil" class="form-control" @bind="Invoer.Betaalverschil" placeholder="@(Grijs(Kantoor?.Betaalverschil is { } b ? Bedragen.Euro(b) : null) ?? "uit")"
+               title="Een betaling die zoveel afwijkt van de enige passende factuur (nummer en IBAN kloppen) automatisch afletteren en het verschil afboeken" />
+    </div>
+    <div class="col-md-4">
+        <label class="form-label" for="verschilrekening">Rekening betaalverschillen</label>
+        <input id="verschilrekening" class="form-control" @bind="Invoer.Verschilrekening" placeholder="@Grijs(Kantoor?.Verschilrekening)" title="Het grootboekrekeningnummer" />
+    </div>
     <div class="col-12">
         <label class="form-label" for="documentmap">Documentmap</label>
         <input id="documentmap" class="form-control" @bind="Invoer.Documentmap"

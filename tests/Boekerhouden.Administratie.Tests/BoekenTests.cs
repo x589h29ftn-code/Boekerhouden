@@ -237,6 +237,84 @@ public sealed class BoekenTests(AdministratieFixture app) : IClassFixture<Admini
     }
 
     [Fact]
+    public async Task Herboeken_vanaf_de_grootboekkaart_maakt_per_boeking_een_nieuwe_versie()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var grootboek = app.Dienst<GrootboekDienst>();
+        Assert.True((await grootboek.Boek(wie, id, Post("2026-0001", new(2026, 2, 1), ("4300", 100m), ("4310", 20m), ("1100", -120m)))).IsGelukt);
+        Assert.True((await grootboek.Boek(wie, id, Post("2026-0002", new(2026, 3, 1), ("4300", 50m), ("1100", -50m)))).IsGelukt);
+        var kaart = await grootboek.Kaart(wie, id, "4300", new(2026, 1, 1), new(2026, 12, 31));
+        var regels = kaart.Mutaties.Select(m => new Herboekregel(m.Dagboek, m.Boekstuk, m.Regel)).ToList();
+
+        Assert.Contains("hoort bij de bank", (await grootboek.Herboek(wie, id, regels, "1100")).Fouten[0], StringComparison.Ordinal);
+        Assert.Contains("blijft staan", (await grootboek.Herboek(wie, id, [new Herboekregel("MEM", "2026-0001", 2)], "4320")).Fouten[0], StringComparison.Ordinal);
+        var uitkomst = await grootboek.Herboek(wie, id, regels, "4320");
+
+        Assert.Equal(2, uitkomst.Waarde);
+        Assert.Empty((await grootboek.Kaart(wie, id, "4300", new(2026, 1, 1), new(2026, 12, 31))).Mutaties);
+        Assert.Equal(150m, (await grootboek.Kaart(wie, id, "4320", new(2026, 1, 1), new(2026, 12, 31))).Eindsaldo);
+        Assert.Equal(20m, (await grootboek.Kaart(wie, id, "4310", new(2026, 1, 1), new(2026, 12, 31))).Eindsaldo);
+        Assert.Equal(2, (await grootboek.Boeking(wie, id, "MEM", "2026-0001"))!.Versie);
+        Assert.Empty(await grootboek.ControleerKeten(wie, id));
+        var ondernemer = await app.Gebruiker("Herman Herboek");
+        await app.Dienst<AdministratieDienst>().ZetLid(id, ondernemer.Id!.Value, Data.Lidmaatschapsrol.Ondernemer, wie);
+        await Assert.ThrowsAsync<GeenToegangException>(() => grootboek.Herboek(ondernemer, id, regels, "4320"));
+    }
+
+    [Fact]
+    public async Task Grootboekkaart_en_kolommenbalans_naar_Excel_en_html()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Export Overzicht B.V.");
+        var grootboek = app.Dienst<GrootboekDienst>();
+        Assert.True((await grootboek.Boek(wie, id, Post("2026-0001", new(2026, 2, 1), ("4300", 100.40m), ("1100", -100.40m)))).IsGelukt);
+        Assert.True((await grootboek.Boek(wie, id, Post("2026-0002", new(2026, 3, 1), ("4300", 49.60m), ("1100", -49.60m)))).IsGelukt);
+        var overzicht = app.Dienst<OverzichtDienst>();
+
+        using (var boek = new ClosedXML.Excel.XLWorkbook(new MemoryStream(await overzicht.KaartExcel(wie, id, "4300", new(2026, 1, 1), new(2026, 12, 31)))))
+        {
+            var blad = boek.Worksheets.First();
+            var cellen = blad.CellsUsed().Select(c => c.GetFormattedString()).ToList();
+            Assert.Contains(cellen, c => c.Contains("Export Overzicht B.V.", StringComparison.Ordinal));
+            Assert.Contains(blad.CellsUsed(), c => c.DataType == ClosedXML.Excel.XLDataType.Number && c.GetValue<decimal>() == 150m);
+        }
+
+        using (var boek = new ClosedXML.Excel.XLWorkbook(new MemoryStream(await overzicht.KolommenbalansExcel(wie, id, new(2026, 1, 1), new(2026, 12, 31)))))
+        {
+            Assert.Contains(boek.Worksheets.First().CellsUsed(), c => c.GetFormattedString().Contains("Totaal generaal", StringComparison.Ordinal));
+        }
+
+        var html = Export.OverzichtExport.KaartHtml(await grootboek.Kaart(wie, id, "4300", new(2026, 1, 1), new(2026, 12, 31)), "Export Overzicht B.V.");
+        Assert.Contains("100,40", html, StringComparison.Ordinal);
+        Assert.Contains("150,00", html, StringComparison.Ordinal);
+        var buiten = await app.Gebruiker("Buiten Export");
+        await Assert.ThrowsAsync<GeenToegangException>(() => overzicht.KaartExcel(buiten, id, "4300", new(2026, 1, 1), new(2026, 12, 31)));
+    }
+
+    [Fact]
+    public async Task Een_boeking_elke_maand_herhalen_met_eigen_boekstukken()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Herhaal B.V.");
+        var grootboek = app.Dienst<GrootboekDienst>();
+
+        Assert.Contains("1 tot 24", (await grootboek.BoekPerMaand(wie, id, Post("2026-0001", new(2026, 1, 31), ("4300", 1000m), ("1100", -1000m)), 25)).Fouten[0], StringComparison.Ordinal);
+        var uitkomst = await grootboek.BoekPerMaand(wie, id, Post("2026-0001", new(2026, 1, 31), ("4300", 1000m), ("1100", -1000m)), 4);
+
+        Assert.Equal(4, uitkomst.Waarde);
+        var posten = (await grootboek.Posten(wie, id, "MEM")).Select(p => p.Post).OrderBy(p => p.Datum).ToList();
+        Assert.Equal([new(2026, 1, 31), new(2026, 2, 28), new(2026, 3, 31), new(2026, 4, 30)], posten.Select(p => p.Datum));
+        Assert.Equal(4, posten.Select(p => p.Boekstuk).Distinct().Count());
+        Assert.Equal(4000m, (await grootboek.Kaart(wie, id, "4300", new(2026, 1, 1), new(2026, 12, 31))).Eindsaldo);
+        var dubbel = await grootboek.BoekPerMaand(wie, id, Post(posten[0].Boekstuk, new(2026, 5, 1), ("4300", 1m), ("1100", -1m)), 2);
+        Assert.False(dubbel.IsGelukt);
+        var ondernemer = await app.Gebruiker("Olga Herhaal");
+        await app.Dienst<AdministratieDienst>().ZetLid(id, ondernemer.Id!.Value, Data.Lidmaatschapsrol.Ondernemer, wie);
+        Assert.False((await grootboek.BoekPerMaand(ondernemer, id, Post("2026-0099", new(2026, 6, 1), ("4300", 1m), ("1100", -1m)), 2)).IsGelukt);
+    }
+
+    [Fact]
     public async Task Meerdere_memorialen_voor_lonen_en_accountant()
     {
         var wie = await app.Beheerder();

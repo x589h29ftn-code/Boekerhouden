@@ -52,6 +52,24 @@ public sealed class AfletteraarTests
     }
 
     [Fact]
+    public void Klein_betaalverschil_alleen_met_nummer_en_iban_en_binnen_de_grens()
+    {
+        var post = Crediteur("BELNET", "BN-2026-0440", 24.99m);
+
+        var teVeel = Afletteraar.Zoek(Betaling(-25m, "Factuur BN-2026-0440", IbanBelnet), [post], Relaties);
+        var teWeinig = Afletteraar.Zoek(Betaling(-24.50m, "Factuur BN-2026-0440", IbanBelnet), [post], Relaties);
+        var vreemd = Afletteraar.Zoek(Betaling(-25m, "Factuur BN-2026-0440", "NL02ABNA0123456789"), [post], Relaties);
+        var precies = Afletteraar.Zoek(Betaling(-24.99m, "Factuur BN-2026-0440", IbanBelnet), [post], Relaties);
+
+        Assert.Equal(0.01m, teVeel.KleinVerschil(1m)!.Verschil);
+        Assert.Null(teVeel.KleinVerschil(null));
+        Assert.Equal(-0.49m, teWeinig.KleinVerschil(1m)!.Verschil);
+        Assert.Null(teWeinig.KleinVerschil(0.25m));
+        Assert.Null(vreemd.KleinVerschil(1m));
+        Assert.Null(precies.KleinVerschil(1m));
+    }
+
+    [Fact]
     public void Deelbetaling_met_factuurnummer_en_iban_is_zeker_zonder_iban_een_voorstel()
     {
         var post = Crediteur("BELNET", "BN-2026-0440", 3000m);

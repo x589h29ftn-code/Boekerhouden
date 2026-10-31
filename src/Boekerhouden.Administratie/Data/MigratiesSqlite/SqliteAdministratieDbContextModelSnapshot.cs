@@ -38,6 +38,9 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasPrecision(6, 2)
                         .HasColumnType("INTEGER");
 
+                    b.Property<long?>("Betaalverschil")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int?>("Betalingstermijn")
                         .HasColumnType("INTEGER");
 
@@ -75,6 +78,9 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.Property<string>("Ondernemingsvorm")
                         .IsRequired()
                         .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Verschilrekening")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
@@ -1016,6 +1022,9 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasPrecision(6, 2)
                         .HasColumnType("INTEGER");
 
+                    b.Property<long?>("Betaalverschil")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("Betalingstermijn")
                         .HasColumnType("INTEGER");
 
@@ -1037,6 +1046,9 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(100);
+
+                    b.Property<string>("Verschilrekening")
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 

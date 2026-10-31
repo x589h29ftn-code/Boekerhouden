@@ -1,0 +1,79 @@
+@page "/a/{Id:guid}/aansluitingen"
+@inject AansluitingDienst Aansluiting
+
+<AdministratieKader Id="Id" Titel="Aansluitingen" Actief="/aansluitingen" BijOpenen="Open">
+    <Acties>
+        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="Bijwerken" @onclick="Laad">&#x21bb; Verversen</button>
+    </Acties>
+    <ChildContent>
+        @if (lijst is { Count: 0 })
+        {
+            <div class="card card-body text-center text-secondary py-4">Geen bank, crediteuren, debiteuren of btw-rekeningen ingericht.</div>
+        }
+        else if (lijst is not null)
+        {
+            <div class="card overzichtskaart">
+                <table class="table align-middle mb-0 overzichtstabel aansluitingen" data-sleepbaar="aansluitingen">
+                    <thead>
+                        <tr><th>Aansluiting</th><th>Rekening</th><th class="text-end">Grootboek</th><th class="text-end">Volgens bron</th><th class="text-end">Verschil</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var a in lijst)
+                        {
+                            <tr class="@(Doel(a) is null ? null : "klikbaar")" @onclick="() => Naar(a)">
+                                <td>@a.Onderwerp</td>
+                                <td class="text-secondary">@a.Rekening</td>
+                                <td class="bedrag text-end">@Bedragen.Getal(a.Grootboek)</td>
+                                <td class="bedrag text-end">@(a.Bron is { } bron ? Bedragen.Getal(bron) : null)</td>
+                                <td class="bedrag text-end @(a.Sluit ? null : "let-op")">@(a.Verschil is { } v ? Bedragen.Getal(v) : null)</td>
+                                <td class="status">@(a.Sluit ? a.Toelichting : a.Toelichting is null ? "sluit niet" : $"sluit niet; {a.Toelichting}")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private IReadOnlyList<Aansluiting>? lijst;
+    private bool bezig;
+
+    [Inject]
+    private NavigationManager Navigatie { get; set; } = default!;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        await Laad();
+    }
+
+    private async Task Laad()
+    {
+        bezig = true;
+        lijst = await Aansluiting.Aansluitingen(geopend!.Wie, Id);
+        bezig = false;
+    }
+
+    /// <summary>Waar een regel heen gaat: de bank, de openstaande crediteuren of de grootboekkaart.</summary>
+    private string? Doel(Aansluiting a) => a.Soort switch
+    {
+        Aansluitingsoort.Bank => $"/a/{Id}/bank",
+        Aansluitingsoort.Crediteuren => $"/a/{Id}/crediteuren",
+        _ when a.Rekening is { } r && !r.Contains(',', StringComparison.Ordinal) => $"/a/{Id}/grootboek?rekening={Uri.EscapeDataString(r)}",
+        _ => null,
+    };
+
+    private void Naar(Aansluiting a)
+    {
+        if (Doel(a) is { } doel)
+        {
+            Navigatie.NavigateTo(doel);
+        }
+    }
+}

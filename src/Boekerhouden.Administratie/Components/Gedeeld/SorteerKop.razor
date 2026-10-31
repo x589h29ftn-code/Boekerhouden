@@ -1,0 +1,29 @@
+@* Een kolomkop om op te sorteren: klikken sorteert, nog eens klikken keert om; het pijltje toont de richting. *@
+
+<th class="sorteerbaar @Klasse" aria-sort="@(Sortering.Kolom == Naam ? (Sortering.Oplopend ? "ascending" : "descending") : null)" title="Sorteren" @onclick="Wissel">
+    @(Tekst ?? Naam)<span class="sorteerpijl" aria-hidden="true">@(Sortering.Kolom == Naam ? (Sortering.Oplopend ? "▲" : "▼") : null)</span>
+</th>
+
+@code {
+    [Parameter, EditorRequired]
+    public ISortering Sortering { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public string Naam { get; set; } = "";
+
+    /// <summary>De kop zoals hij er staat, als die anders is dan de naam van de kolom.</summary>
+    [Parameter]
+    public string? Tekst { get; set; }
+
+    [Parameter]
+    public string? Klasse { get; set; }
+
+    [Parameter]
+    public EventCallback Gewijzigd { get; set; }
+
+    private async Task Wissel()
+    {
+        Sortering.Wissel(Naam);
+        await Gewijzigd.InvokeAsync();
+    }
+}

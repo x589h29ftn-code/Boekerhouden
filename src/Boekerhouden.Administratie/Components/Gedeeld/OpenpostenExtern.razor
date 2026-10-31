@@ -28,9 +28,16 @@
     else
     {
         <div class="card">
-            <table class="table table-sm table-hover align-middle mb-0 overzichtstabel">
+            <table class="table table-sm table-hover align-middle mb-0 overzichtstabel" data-sleepbaar="openposten-extern">
                 <thead>
-                    <tr><th>Relatie</th><th>Factuurnr.</th><th>Datum</th><th>Vervaldatum</th><th class="text-end">Bedrag</th><th class="text-end">Openstaand</th></tr>
+                    <tr>
+                        <SorteerKop Sortering="sortering" Naam="Relatie" />
+                        <SorteerKop Sortering="sortering" Naam="Factuurnr." />
+                        <SorteerKop Sortering="sortering" Naam="Datum" />
+                        <SorteerKop Sortering="sortering" Naam="Vervaldatum" />
+                        <SorteerKop Sortering="sortering" Naam="Bedrag" Klasse="text-end" />
+                        <SorteerKop Sortering="sortering" Naam="Openstaand" Klasse="text-end" />
+                    </tr>
                 </thead>
                 <tbody>
                     @foreach (var p in Treffers)
@@ -73,8 +80,16 @@
     public Guid Administratie { get; set; }
 
     private List<OpenpostRegel> Treffers =>
-        [.. (posten ?? []).Where(p => (soort.Length == 0 || p.Soort.ToString() == soort) && Past(p))
-            .OrderBy(p => p.Naam, StringComparer.CurrentCultureIgnoreCase).ThenBy(p => p.Datum)];
+        [.. sortering.Pas((posten ?? []).Where(p => (soort.Length == 0 || p.Soort.ToString() == soort) && Past(p))
+            .OrderBy(p => p.Naam, StringComparer.CurrentCultureIgnoreCase).ThenBy(p => p.Datum))];
+
+    private readonly Sortering<OpenpostRegel> sortering = new(
+        new("Relatie", p => p.Naam.ToUpperInvariant()),
+        new("Factuurnr.", p => p.Factuurnummer),
+        new("Datum", p => p.Datum, EerstOplopend: false),
+        new("Vervaldatum", p => p.Vervaldatum),
+        new("Bedrag", p => Math.Abs(p.Bedrag), EerstOplopend: false),
+        new("Openstaand", p => Math.Abs(p.Openstaand), EerstOplopend: false));
 
     protected override async Task OnInitializedAsync() => await Ververs();
 

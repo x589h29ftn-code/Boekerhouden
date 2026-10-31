@@ -46,7 +46,7 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   `boekerhouden_administratie`): `Data/` (entiteiten, `AdministratieDbContext` met query filter per administratie,
   migraties met triggers die boekingen en het log onwijzigbaar maken), `Diensten/` (`Toegang` = de enige weg naar de
   gegevens van een administratie, met rechten per lidmaatschap; administraties, grootboek en boeken met hash-keten,
-  gebruikers, tweestapsverificatie en passkeys, wijzigingslog; `InkoopDienst` = inlezen met virusscan, voorstel en
+  gebruikers, tweestapsverificatie en passkeys, wijzigingslog; `AansluitingDienst` = saldo-aansluitingen; `OverzichtDienst` = grootboekkaart en kolommenbalans naar Excel en PDF; `InkoopDienst` = inlezen met virusscan, voorstel en
   (automatisch) boeken en de kopie in de documentmap; `BankDienst` = afschriften inlezen (saldo, aansluiting, dubbel), afletteren en op rekening boeken; `InrichtingDienst` = relaties, regels en instellingen van een
   administratie; `KantoorDienst` = kantoorinstellingen, alleen beheerder; `BtwDienst` = btw-tabel (codes met soort en tarief, tarieven per datum), wijzigen alleen beheerder; `Werkomgeving` = webapp of lokaal),
   `Lokaal/` (`LokaleApp` = samenstelling voor de Windows-app: SQLite, lokale gebruiker zonder inloggen), `Identiteit/` (inloggen, beveiligingsheaders,

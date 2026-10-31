@@ -8,6 +8,10 @@
     <Acties>
         @if (gekozen is not null)
         {
+            <button class="btn btn-sm btn-outline-secondary" title="Een nieuwe boeking met dezelfde regels, een maand later" @onclick="() => Kopieer(gekozen.Post)">Kopiëren</button>
+        }
+        @if (gekozen is not null || kopie is not null)
+        {
             <button class="btn btn-sm btn-outline-primary" @onclick="NieuweBoeking">Nieuwe boeking</button>
         }
     </Acties>
@@ -52,20 +56,25 @@
                 <div class="bericht mb-2">@bericht</div>
             }
             <div class="card card-body mb-4">
-                <BoekingBewerken @key="formulier" Kader="geopend" Schema="schema" Dagboek="@dagboek.Code" Post="gekozen?.Post" Datum="vandaag"
-                                 Opgeslagen="Opgeslagen" Geannuleerd="@(gekozen is null ? default : EventCallback.Factory.Create(this, NieuweBoeking))" />
+                <BoekingBewerken @key="formulier" Kader="geopend" Schema="schema" Dagboek="@dagboek.Code" Post="gekozen?.Post" Voorbeeld="kopie" Datum="vandaag"
+                                 Opgeslagen="Opgeslagen" Geannuleerd="@(gekozen is null && kopie is null ? default : EventCallback.Factory.Create(this, NieuweBoeking))" />
             </div>
 
             @if (posten is { Count: > 0 })
             {
                 <h2 class="h6 sectiekop">Geboekt in @dagboek.Naam</h2>
                 <div class="card">
-                    <table class="table table-sm align-middle mb-0 overzichtstabel memoriaal-lijst">
+                    <table class="table table-sm align-middle mb-0 overzichtstabel memoriaal-lijst" data-sleepbaar="memoriaal">
                         <thead>
-                            <tr><th style="width:7rem">Datum</th><th style="width:8rem">Boekstuk</th><th>Omschrijving</th><th class="text-end">Bedrag</th></tr>
+                            <tr>
+                                <SorteerKop Sortering="sortering" Naam="Datum" />
+                                <SorteerKop Sortering="sortering" Naam="Boekstuk" />
+                                <SorteerKop Sortering="sortering" Naam="Omschrijving" />
+                                <SorteerKop Sortering="sortering" Naam="Bedrag" Klasse="text-end" />
+                            </tr>
                         </thead>
                         <tbody>
-                            @foreach (var p in posten)
+                            @foreach (var p in sortering.Pas(posten))
                             {
                                 <tr class="klikbaar @(p.Post.Boekstuk == gekozen?.Post.Boekstuk ? "gemarkeerd" : null)" @onclick="() => Kies(p)" title="Geboekt door @p.GeboektDoor op @Weergave.DatumTijd(p.GeboektOp)">
                                     <td class="text-nowrap">@Weergave.Datum(p.Post.Datum)</td>
@@ -93,6 +102,13 @@
     private Boekhouding.Grootboek.Dagboek? dagboek;
     private IReadOnlyList<GeboektePost>? posten;
     private GeboektePost? gekozen;
+    private Journaalpost? kopie;
+
+    private readonly Sortering<GeboektePost> sortering = new(
+        new("Datum", p => p.Post.Datum, EerstOplopend: false),
+        new("Boekstuk", p => p.Post.Boekstuk),
+        new("Omschrijving", p => p.Post.Omschrijving.ToUpperInvariant()),
+        new("Bedrag", p => p.Post.TotaalDebet, EerstOplopend: false));
     private DateOnly vandaag;
     private int formulier;
     private string? bericht;
@@ -105,6 +121,10 @@
     [SupplyParameterFromQuery(Name = "dagboek")]
     public string? DagboekCode { get; set; }
 
+    /// <summary>Het boekstuk om te kopiëren (vanaf de boekingpagina).</summary>
+    [SupplyParameterFromQuery(Name = "kopie")]
+    public string? KopieVan { get; set; }
+
     private async Task Open(Geopend g)
     {
         geopend = g;
@@ -116,6 +136,10 @@
         schema = await Grootboek.Schema(g.Wie, Id);
         vandaag = DateOnly.FromDateTime(Tijd.GetLocalNow().Date);
         await Laad();
+        if (KopieVan is not null && posten?.FirstOrDefault(p => p.Post.Boekstuk == KopieVan) is { } bron)
+        {
+            Kopieer(bron.Post);
+        }
     }
 
     /// <summary>Een ander memoriaal (tab): dezelfde pagina, andere query.</summary>
@@ -123,7 +147,7 @@
     {
         if (geopend is not null && dagboek is not null && dagboek.Code != DagboekCode && DagboekCode is not null)
         {
-            (bericht, gekozen) = (null, null);
+            (bericht, gekozen, kopie) = (null, null, null);
             await Laad();
         }
     }
@@ -140,19 +164,25 @@
 
     private void Kies(GeboektePost post)
     {
-        (gekozen, bericht) = (post, null);
+        (gekozen, kopie, bericht) = (post, null, null);
+        formulier++;
+    }
+
+    private void Kopieer(Journaalpost post)
+    {
+        (gekozen, kopie, bericht) = (null, post, null);
         formulier++;
     }
 
     private void NieuweBoeking()
     {
-        (gekozen, bericht) = (null, null);
+        (gekozen, kopie, bericht) = (null, null, null);
         formulier++;
     }
 
     private async Task Opgeslagen(string melding)
     {
-        gekozen = null;
+        (gekozen, kopie) = (null, null);
         await Laad();
         bericht = melding;
     }

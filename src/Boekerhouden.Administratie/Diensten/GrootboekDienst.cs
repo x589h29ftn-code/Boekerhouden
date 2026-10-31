@@ -15,6 +15,9 @@ public sealed record GeboektePost(long Volgnummer, Journaalpost Post, DateTimeOf
 /// <summary>Een eerdere versie van een aangepaste boeking.</summary>
 public sealed record Boekingsversie(int Versie, GeboektePost Boeking);
 
+/// <summary>Een regel om te herboeken: de boeking (dagboek en boekstuk, de geldende versie) en de plek van de regel daarin.</summary>
+public sealed record Herboekregel(string Dagboek, string Boekstuk, int Regel);
+
 /// <summary>Eén boeking om in te zien (de geldende versie), met het document (de factuur) waar hij bij hoort, als dat er is.</summary>
 /// <param name="Versie">De versie: 1 = nooit aangepast.</param>
 /// <param name="Eerder">De eerdere versies, de nieuwste eerst.</param>
@@ -215,6 +218,42 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
         await transactie.CommitAsync();
         await audit.Log(wie, AuditActies.Geboekt, $"{post.Dagboek} {boeking.Boekstuk}", $"{boeking.Omschrijving}; {post.TotaalDebet:0.00}", administratie);
         return Uitkomst<long>.Met(boeking.Volgnummer);
+    }
+
+    /// <summary>Hoe vaak een boeking hoogstens per maand te herhalen is (twee jaar).</summary>
+    public const int MaximumHerhalingen = 24;
+
+    /// <summary>
+    /// Een terugkerende boeking (bijv. huur of afschrijving in het memoriaal): de eerste zoals ingevoerd, daarna elke
+    /// maand een kopie op dezelfde dag (of de laatste dag van een kortere maand) met een eigen boekstuknummer, in totaal
+    /// <paramref name="maanden"/> keer. Stopt bij de eerste fout; het aantal geboekte staat in de uitkomst.
+    /// </summary>
+    public async Task<Uitkomst<int>> BoekPerMaand(Uitvoerder wie, Guid administratie, Journaalpost eerste, int maanden)
+    {
+        ArgumentNullException.ThrowIfNull(eerste);
+        if (maanden is < 1 or > MaximumHerhalingen)
+        {
+            return Uitkomst<int>.Mislukt($"Herhalen kan 1 tot {MaximumHerhalingen} maanden.");
+        }
+
+        var geboekt = 0;
+        for (var i = 0; i < maanden; i++)
+        {
+            var maand = new DateOnly(eerste.Datum.Year, eerste.Datum.Month, 1).AddMonths(i);
+            var datum = new DateOnly(maand.Year, maand.Month, Math.Min(eerste.Datum.Day, DateTime.DaysInMonth(maand.Year, maand.Month)));
+            var post = i == 0 ? eerste : eerste with { Datum = datum, Boekstuk = await VolgendBoekstuk(wie, administratie, eerste.Dagboek, datum.Year) };
+            var uitkomst = await Boek(wie, administratie, post);
+            if (!uitkomst.IsGelukt)
+            {
+                return geboekt == 0
+                    ? Uitkomst<int>.Mislukt([.. uitkomst.Fouten])
+                    : Uitkomst<int>.Mislukt([$"{geboekt} van de {maanden} boekingen zijn geboekt, {Weergave.Datum(datum)} niet:", .. uitkomst.Fouten]);
+            }
+
+            geboekt++;
+        }
+
+        return Uitkomst<int>.Met(geboekt);
     }
 
     /// <summary>
@@ -456,6 +495,87 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
     /// verwijzing naar de vorige. Wat naar de vorige versie wees (bankmutatie, document, openstaande post), wijst daarna
     /// naar de nieuwe. Zonder regels is de boeking vervallen. Alleen binnen een transactie; slaat niet op.
     /// </summary>
+    /// <summary>
+    /// Herboekt regels naar een andere rekening (bijv. vanaf de grootboekkaart): per boeking een nieuwe versie waarin
+    /// alleen die regels een andere rekening hebben. Niet voor regels op of naar bank, debiteuren, crediteuren of btw:
+    /// die horen bij het afschrift, de openstaande posten of de aangifte.
+    /// </summary>
+    public async Task<Uitkomst<int>> Herboek(Uitvoerder wie, Guid administratie, IReadOnlyList<Herboekregel> regels, string naarRekening)
+    {
+        ArgumentNullException.ThrowIfNull(wie);
+        ArgumentNullException.ThrowIfNull(regels);
+        await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
+        var schema = await LaadSchema(db);
+        static bool Vast(Rekening? r) => r?.Functie is Rekeningfunctie.Bank or Rekeningfunctie.Debiteuren or Rekeningfunctie.Crediteuren
+            or Rekeningfunctie.Voorbelasting or Rekeningfunctie.AfTeDragenBtw;
+        if (schema.Zoek(naarRekening?.Trim()) is not { } naar)
+        {
+            return Uitkomst<int>.Mislukt("Kies de rekening waar de regels naartoe gaan.");
+        }
+
+        if (Vast(naar))
+        {
+            return Uitkomst<int>.Mislukt($"Naar {naar.Nummer} {naar.Naam} herboek je niet: die rekening hoort bij de bank, de openstaande posten of de btw.");
+        }
+
+        if (regels.Count == 0)
+        {
+            return Uitkomst<int>.Mislukt("Kies de regels die je wilt herboeken.");
+        }
+
+        var dagboeken = await LaadDagboeken(db);
+        await using var transactie = await db.Database.BeginTransactionAsync();
+        await db.Vergrendel(administratie);
+        var herboekt = new List<(string Boeking, int Versie, int Aantal)>();
+        foreach (var groep in regels.GroupBy(r => (r.Dagboek, r.Boekstuk)))
+        {
+            if (await db.Geldend.AsNoTracking().Include(b => b.Regels).FirstOrDefaultAsync(b => b.Dagboek == groep.Key.Dagboek && b.Boekstuk == groep.Key.Boekstuk) is not { } oud)
+            {
+                return Uitkomst<int>.Mislukt($"Boeking {groep.Key.Dagboek} {groep.Key.Boekstuk} bestaat niet (meer).");
+            }
+
+            var post = oud.NaarDomein();
+            var nieuweRegels = post.Regels.ToList();
+            foreach (var plek in groep.Select(r => r.Regel).Distinct())
+            {
+                if (plek < 0 || plek >= nieuweRegels.Count)
+                {
+                    return Uitkomst<int>.Mislukt($"Boeking {groep.Key.Dagboek} {groep.Key.Boekstuk} is intussen gewijzigd; ververs de grootboekkaart.");
+                }
+
+                if (Vast(schema.Zoek(nieuweRegels[plek].Rekeningnummer)))
+                {
+                    return Uitkomst<int>.Mislukt($"De regel op {nieuweRegels[plek].Rekeningnummer} in {groep.Key.Dagboek} {groep.Key.Boekstuk} hoort bij de bank, de openstaande posten of de btw en blijft staan.");
+                }
+
+                nieuweRegels[plek] = nieuweRegels[plek] with { Rekeningnummer = naar.Nummer };
+            }
+
+            if (nieuweRegels.SequenceEqual(post.Regels))
+            {
+                continue;
+            }
+
+            var nieuw = post with { Regels = nieuweRegels };
+            if (Journaalcontrole.Controleer(nieuw, schema, dagboeken) is { Count: > 0 } fouten)
+            {
+                return Uitkomst<int>.Mislukt([.. fouten]);
+            }
+
+            var versie = await NieuweVersie(db, administratie, oud, nieuw, wie);
+            await db.SaveChangesAsync();
+            herboekt.Add(($"{oud.Dagboek} {oud.Boekstuk}", versie.Versie, groep.Count()));
+        }
+
+        await transactie.CommitAsync();
+        foreach (var (boeking, versie, aantal) in herboekt)
+        {
+            await audit.Log(wie, AuditActies.Herboekt, boeking, $"versie {versie}; {aantal} {(aantal == 1 ? "regel" : "regels")} naar {naar.Nummer}", administratie);
+        }
+
+        return Uitkomst<int>.Met(herboekt.Sum(h => h.Aantal));
+    }
+
     internal async Task<Boeking> NieuweVersie(AdministratieDbContext db, Guid administratie, Boeking vorige, Journaalpost post, Uitvoerder wie)
     {
         var boeking = await VoegToeAanKeten(db, administratie, post with { Dagboek = vorige.Dagboek, Boekstuk = vorige.Boekstuk }, wie);

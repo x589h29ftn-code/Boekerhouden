@@ -70,3 +70,24 @@ export function maak(tabel, sleutel) {
         });
     });
 }
+
+// Elke tabel met data-sleepbaar="sleutel" krijgt vanzelf versleepbare kolommen, ook als Blazor hem later tekent.
+function koppelAlle() {
+    document.querySelectorAll("table[data-sleepbaar]:not([data-kolommen])").forEach(t => {
+        if (t.tHead && t.tHead.rows.length > 0 && t.offsetParent !== null) {
+            maak(t, t.dataset.sleepbaar);
+        }
+    });
+}
+
+if (typeof document !== "undefined" && !window.kolommenGekoppeld) {
+    window.kolommenGekoppeld = true;
+    let gepland = false;
+    new MutationObserver(() => {
+        if (!gepland) {
+            gepland = true;
+            requestAnimationFrame(() => { gepland = false; koppelAlle(); });
+        }
+    }).observe(document.documentElement, { childList: true, subtree: true });
+    koppelAlle();
+}

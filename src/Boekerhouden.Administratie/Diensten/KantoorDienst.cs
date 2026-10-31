@@ -58,6 +58,8 @@ public sealed class KantoorDienst(IDbContextFactory<AdministratieDbContext> dbFa
         rij.Betalingstermijn = nieuw.Betalingstermijn;
         rij.Adrescontrole = nieuw.Adrescontrole;
         rij.Documentmap = string.IsNullOrWhiteSpace(nieuw.Documentmap) ? null : nieuw.Documentmap.Trim();
+        rij.Betaalverschil = nieuw.Betaalverschil is { } grens ? decimal.Round(grens, 2) : null;
+        rij.Verschilrekening = string.IsNullOrWhiteSpace(nieuw.Verschilrekening) ? null : nieuw.Verschilrekening.Trim();
         await db.SaveChangesAsync();
         await audit.Log(wie, AuditActies.KantoorinstellingenGewijzigd, "Kantoor", Verschil(oud, rij.NaarDomein()));
         return Uitkomst.Gelukt;
@@ -125,6 +127,8 @@ public sealed class KantoorDienst(IDbContextFactory<AdministratieDbContext> dbFa
             ("betalingstermijn", oud.Betalingstermijn, nieuw.Betalingstermijn),
             ("adrescontrole", oud.Adrescontrole, nieuw.Adrescontrole),
             ("documentmap", oud.Documentmap, nieuw.Documentmap),
+            ("betaalverschil", oud.Betaalverschil, nieuw.Betaalverschil),
+            ("verschilrekening", oud.Verschilrekening, nieuw.Verschilrekening),
         };
         var anders = delen.Where(d => !Equals(d.Oud, d.Nieuw)).Select(d => $"{d.Naam} {Tekst(d.Oud)} → {Tekst(d.Nieuw)}").ToList();
         return anders.Count == 0 ? "geen wijziging" : string.Join("; ", anders);

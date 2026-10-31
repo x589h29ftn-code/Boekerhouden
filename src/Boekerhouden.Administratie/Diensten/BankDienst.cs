@@ -222,12 +222,14 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         foreach (var transactie in transacties.OrderBy(t => t.Datum).ThenBy(t => t.Volgorde))
         {
             var voorstel = Voorstel(transactie, context);
-            var uitkomst = voorstel.Automatisch switch
-            {
-                Bankactie.Afletteren => await BoekAfletteren(db, administratie, transactie, [.. voorstel.Afletteren.Automatisch!.Posten.Select(p => p.Id)], wie, voorstel.Reden),
-                Bankactie.OpRekening => await BoekOpRekening(db, administratie, transactie, voorstel.Advies.Rekeningnummer!, voorstel.Advies.BtwCode, null, voorstel.Relatie, wie, voorstel.Reden),
-                _ => null,
-            };
+            var uitkomst = KleinVerschil(voorstel, context) is { } klein
+                ? await BoekAfletteren(db, administratie, transactie, [klein.Kandidaat.Posten[0].Id], wie, klein.Reden, klein.Afboeking)
+                : voorstel.Automatisch switch
+                {
+                    Bankactie.Afletteren => await BoekAfletteren(db, administratie, transactie, [.. voorstel.Afletteren.Automatisch!.Posten.Select(p => p.Id)], wie, voorstel.Reden),
+                    Bankactie.OpRekening => await BoekOpRekening(db, administratie, transactie, voorstel.Advies.Rekeningnummer!, voorstel.Advies.BtwCode, null, voorstel.Relatie, wie, voorstel.Reden),
+                    _ => null,
+                };
             if (uitkomst?.IsGelukt == true)
             {
                 automatisch++;
@@ -242,6 +244,25 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         }
 
         return automatisch;
+    }
+
+    /// <summary>
+    /// Een klein betaalverschil op de enige passende factuur, als de administratie dat automatisch afboekt
+    /// (instelling betaalverschil) en de rekening ervoor bestaat en geen bank, debiteuren, crediteuren of btw is.
+    /// </summary>
+    private static (Boekhouding.Afletteren.Afletterkandidaat Kandidaat, string Reden, Verschilafboeking Afboeking)? KleinVerschil(Bankvoorstel voorstel, Bankcontext context)
+    {
+        if (voorstel.Afletteren.KleinVerschil(context.Instellingen.Betaalverschil) is not { } kandidaat
+            || context.Instellingen.Verschilrekening is not { } rekening
+            || context.Schema.Zoek(rekening) is not { } r
+            || Boekingscorrectie.IsVast(r))
+        {
+            return null;
+        }
+
+        var tekst = kandidaat.Verschil > 0 ? "te weinig" : "te veel";
+        var reden = $"{kandidaat.Reden}; {Domain.Bedragen.Euro(Math.Abs(kandidaat.Verschil))} {tekst} betaald, afgeboekt als betaalverschil";
+        return (kandidaat, reden, new Verschilafboeking(r.Nummer, null, "Betaalverschil"));
     }
 
     public async Task<IReadOnlyList<BankmutatieRegel>> Lijst(Uitvoerder wie, Guid administratie, bool ookGeboekt = false)
@@ -742,12 +763,13 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         return sleutels;
     }
 
-    private sealed record Bankcontext(IReadOnlyList<OpenPost> OpenPosten, IReadOnlyList<Relatie> Relaties, IReadOnlyList<Verwerkingsregel> Regels, Leergeheugen Geheugen, Btwtabel Btw);
+    private sealed record Bankcontext(IReadOnlyList<OpenPost> OpenPosten, IReadOnlyList<Relatie> Relaties, IReadOnlyList<Verwerkingsregel> Regels, Leergeheugen Geheugen, Btwtabel Btw, Verwerkingsinstellingen Instellingen, Rekeningschema Schema);
 
     private static async Task<Bankcontext> Context(AdministratieDbContext db, Guid administratie)
     {
         var adm = await db.Administraties.AsNoTracking().SingleAsync(a => a.Id == administratie);
-        var geheugen = new Leergeheugen(adm.Afwijkend().Op(await KantoorDienst.Lees(db)));
+        var instellingen = adm.Afwijkend().Op(await KantoorDienst.Lees(db));
+        var geheugen = new Leergeheugen(instellingen);
         foreach (var keuze in await db.Leerkeuzes.AsNoTracking().OrderBy(k => k.Id).ToListAsync())
         {
             geheugen.Onthoud(keuze.Sleutel, keuze.NaarDomein());
@@ -758,7 +780,8 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         var sinds = (await db.Banktransacties.Where(t => t.Status == Banktransactiestatus.TeVerwerken).MinAsync(t => (DateOnly?)t.Datum))?.AddYears(-1) ?? DateOnly.MaxValue;
         var posten = (await db.OpenstaandePosten.AsNoTracking().Where(p => p.Openstaand != 0 || p.Datum >= sinds).ToListAsync()).Select(p => p.NaarDomein()).ToList();
         var regels = (await db.Regels.AsNoTracking().OrderBy(r => r.Volgorde).ToListAsync()).Select(r => r.NaarDomein()).ToList();
-        return new Bankcontext(posten, await Relaties(db), regels, geheugen, await BtwDienst.Lees(db));
+        var (schema, _) = await GrootboekDienst.Inrichting(db);
+        return new Bankcontext(posten, await Relaties(db), regels, geheugen, await BtwDienst.Lees(db), instellingen, schema);
     }
 
     private static Bankvoorstel Voorstel(Banktransactie t, Bankcontext context) =>
