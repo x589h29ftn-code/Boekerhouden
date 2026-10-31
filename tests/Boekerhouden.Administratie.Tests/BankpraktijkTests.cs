@@ -187,6 +187,78 @@ public sealed class BankpraktijkTests(AdministratieFixture app) : IClassFixture<
         Assert.Empty(await grootboek.ControleerKeten(wie, id));
     }
 
+    private const string Lastig = """
+        :20:TEST20261029
+        :25:NL31RABO0001234501
+        :28C:00001/001
+        :60F:C261001EUR20000,00
+        :61:2610061006D544,50NTRFNONREF
+        :86:NL47INGB0002200104 Technisch Bureau Noord B.V.
+        BETALINGSKENM.: 4410123456789012
+        :61:2610091009D968,00NTRFNONREF
+        :86:NL21INGB0002500108 Kantoorservice Zuid B.V.
+        Factuur KS-2026-2201 minus creditnota KS-CN-2026-0033
+        :61:2610121012D633,44NTRFNONREF
+        :86:NL39RABO0002400103 Bouwstoffen Noord B.V.
+        Fact BN-2026-1041 1042 1043
+        :61:2610121012D2371,60NTRFNONREF
+        :86:NL56RABO0002600102 Machinehandel Midden B.V.
+        MM-2026-0780 incl 2% korting
+        :61:2610161016D400,00NTRFNONREF
+        :86:NL96RABO0007700903 Kantoorhuis Fryslan B.V.
+        Factuur KF-2026-00455
+        :62F:C261016EUR15082,46
+        -
+        """;
+
+    [Fact]
+    public async Task Sombetaling_creditnota_korting_en_een_ander_iban()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Testbedrijf Lastig B.V.");
+        var inkoop = app.Dienst<InkoopDienst>();
+        var inrichting = app.Dienst<InrichtingDienst>();
+        Assert.True((await inrichting.VoegRelatieToe(wie, id, new RelatieInvoer("Kantoorhuis Fryslân B.V.", null, null, "4300"), Kantoor)).IsGelukt);
+        async Task Boek(string naam, string iban, string nummer, int dag, decimal exclusief, bool creditnota = false, string? kenmerk = null)
+        {
+            var datum = new DateOnly(2026, 10, dag);
+            var gelezen = await inkoop.Lees(wie, id, new MemoryStream(InkoopTests.Belnet(nummer, datum.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))), $"{nummer}.xml", null);
+            var code = (await inrichting.Relaties(wie, id)).FirstOrDefault(r => r.Naam == naam)?.Code;
+            var uitkomst = await inkoop.Boek(wie, id, gelezen.DocumentId!.Value, new Factuurinvoer(code, code is null ? new NieuweRelatie(naam, iban, null, null) : null,
+                nummer, datum, datum.AddDays(14), $"Factuur {nummer}", [new Factuurregel("", "4300", "I21", exclusief, null)], kenmerk, Creditnota: creditnota));
+            Assert.True(uitkomst.IsGelukt, string.Join("; ", uitkomst.Fouten));
+        }
+
+        await Boek("Technisch Bureau Noord B.V.", "NL47INGB0002200104", "TN-26-0555", 5, 450m, kenmerk: "4410 1234 5678 9012");
+        await Boek("Kantoorservice Zuid B.V.", "NL21INGB0002500108", "KS-2026-2201", 1, 1000m);
+        await Boek("Kantoorservice Zuid B.V.", "NL21INGB0002500108", "KS-CN-2026-0033", 8, 200m, creditnota: true);
+        await Boek("Bouwstoffen Noord B.V.", "NL39RABO0002400103", "BN-2026-1041", 7, 310m);
+        await Boek("Bouwstoffen Noord B.V.", "NL39RABO0002400103", "BN-2026-1042", 8, 125.50m);
+        await Boek("Bouwstoffen Noord B.V.", "NL39RABO0002400103", "BN-2026-1043", 9, 88m);
+        await Boek("Machinehandel Midden B.V.", "NL56RABO0002600102", "MM-2026-0780", 5, 2000m);
+        await Boek("Kantoorhuis Fryslân B.V.", Kantoor, "KF-2026-00455", 15, 330.58m);
+
+        var bank = app.Dienst<BankDienst>();
+        var gelezenAfschrift = await bank.Lees(wie, id, Afschrift(Lastig), "lastig.sta");
+
+        // Kenmerk, factuur min creditnota en de sombetaling met de nummers gaan automatisch; korting en het andere IBAN niet.
+        Assert.Equal(3, gelezenAfschrift.Waarde!.Automatisch);
+        var rest = await bank.Lijst(wie, id);
+        Assert.Equal([-2371.60m, -400m], rest.Select(m => m.Bedrag).OrderBy(b => b));
+        var korting = rest.Single(m => m.Bedrag == -2371.60m);
+        var kandidaat = Assert.Single((await bank.Verwerking(wie, id, korting.Id))!.Voorstel.Afletteren.Kandidaten);
+        Assert.True(kandidaat.Korting);
+        Assert.False((await bank.Afletteren(wie, id, korting.Id, [kandidaat.Posten[0].Id], new Verschilafboeking("1600", "I21"))).IsGelukt);
+        Assert.True((await bank.Afletteren(wie, id, korting.Id, [kandidaat.Posten[0].Id], new Verschilafboeking("4300", "I21", "Betalingskorting"))).IsGelukt);
+        var ander = rest.Single(m => m.Bedrag == -400m);
+        Assert.Equal(Boekhouding.Afletteren.Zekerheid.Voorstel, Assert.Single((await bank.Verwerking(wie, id, ander.Id))!.Voorstel.Afletteren.Kandidaten).Zekerheid);
+
+        var open = await app.Dienst<OpenpostenDienst>().Crediteuren(wie, id, new(2026, 10, 31));
+        Assert.Equal([("KF-2026-00455", 400m)], open.Relaties.SelectMany(r => r.Posten).Select(p => (p.Factuurnummer, p.Openstaand)));
+        var proef = await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026);
+        Assert.Equal((-(20_000m - 15_082.46m - 400m), -400m), (Saldo(proef, "1100"), Saldo(proef, "1600")));
+    }
+
     private static decimal Saldo(Boekhouding.Grootboek.Proefbalans proef, string rekening) =>
         proef.Regels.FirstOrDefault(r => r.Rekening.Nummer == rekening)?.Saldo ?? 0m;
 }

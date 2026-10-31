@@ -7,7 +7,8 @@ using Boekerhouden.Boekhouding.Relaties;
 namespace Boekerhouden.Boekhouding.Herkenning;
 
 /// <summary>Een factuur die al in de administratie staat, om dubbel boeken te voorkomen.</summary>
-public sealed record BestaandeFactuur(string Relatie, string Factuurnummer, DateOnly Datum, decimal Totaal);
+/// <param name="Betaald">De factuur is (helemaal) betaald of verrekend.</param>
+public sealed record BestaandeFactuur(string Relatie, string Factuurnummer, DateOnly Datum, decimal Totaal, bool Betaald = false);
 
 /// <summary>
 /// Het voorstel voor een ingelezen inkoopfactuur: de herkende leverancier, het advies (rekening en btw-code), de
@@ -63,7 +64,9 @@ public static class Inkoopverwerker
 
         if (leverancier is not null && Dubbel(herkend, leverancier.Relatie.Code, bestaand) is { } dubbel)
         {
-            belemmeringen.Add($"Lijkt al geboekt: factuur {dubbel.Factuurnummer} van {dubbel.Datum:dd-MM-yyyy}.");
+            belemmeringen.Add(herkend.Herinnering
+                ? $"Herinnering van factuur {dubbel.Factuurnummer} van {dubbel.Datum:dd-MM-yyyy}: die is al geboekt{(dubbel.Betaald ? " en betaald" : null)}. Niet nog eens boeken."
+                : $"Lijkt al geboekt: factuur {dubbel.Factuurnummer} van {dubbel.Datum:dd-MM-yyyy}{(dubbel.Betaald ? " (betaald)" : null)}.");
         }
         else if (leverancier is not null && Gelijkend(herkend, leverancier.Relatie.Code, bestaand) is { } gelijkend)
         {

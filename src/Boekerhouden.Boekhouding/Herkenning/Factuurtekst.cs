@@ -80,7 +80,8 @@ public static partial class Factuurtekst
             OpEigenNaam: namen.Count > 0 ? regels.Any(r => namen.Any(n => Namen.LijktOp(n, r))) : null,
             Postcodes: Postcode.Zoek(tekst),
             Verlegd: VerlegdPatroon().IsMatch(tekst),
-            Periode: Periode(regels));
+            Periode: Periode(regels),
+            Herinnering: regels.Take(12).Any(r => HerinneringPatroon().IsMatch(r)) || AanmaningPatroon().IsMatch(tekst));
     }
 
     /// <summary>
@@ -548,7 +549,7 @@ public static partial class Factuurtekst
         BtwPatroon().Matches(hoofdletters).Select(m => BtwNummer.Normaliseer(m.Value))
             .Concat(BuitenlandsBtw().Matches(hoofdletters).Select(m => BtwNummer.Normaliseer(m.Groups[1].Value)))
             .Where(BtwNummer.IsGeldig)
-            .Where(n => n.StartsWith("NL", StringComparison.Ordinal) || BtwNummer.IsEuLand(n[..2]));
+            .Where(n => n.StartsWith("NL", StringComparison.Ordinal) || (BtwNummer.IsEuLand(n[..2]) && n.Count(char.IsAsciiDigit) >= 5));
 
     [GeneratedRegex(@"\b[A-Z]{2}[0-9]{2}(?:\s?[A-Z0-9]{4}){2,7}(?:\s?[A-Z0-9]{1,3})?\b")]
     private static partial Regex IbanPatroon();
@@ -580,16 +581,23 @@ public static partial class Factuurtekst
     [GeneratedRegex(@"btw\s*verlegd|verlegd\s*naar|verleggingsregeling|reverse[\s-]*charge|vat\s*reverse|art(?:icle|ikel)?\.?\s*196|autoliquidation|steuerschuldnerschaft", RegexOptions.IgnoreCase)]
     private static partial Regex VerlegdPatroon();
 
+    /// <summary>Een kop als HERINNERING of AANMANING bovenaan de factuur.</summary>
+    [GeneratedRegex(@"\b(?:herinnering|betalingsherinnering|aanmaning|reminder|payment\s+reminder|mahnung)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex HerinneringPatroon();
+
+    [GeneratedRegex(@"\b(?:[0-9]e|tweede|derde|laatste)\s+(?:aanmaning|herinnering)\b|nog\s+niet\s+(?:voldaan|betaald|ontvangen)", RegexOptions.IgnoreCase)]
+    private static partial Regex AanmaningPatroon();
+
     [GeneratedRegex(@"(?:kvk|k\.v\.k\.|kamer van koophandel|coc|handelsregister)[^0-9\n]{0,20}([0-9]{8})\b", RegexOptions.IgnoreCase)]
     private static partial Regex Kvk();
 
-    [GeneratedRegex(@"betalingskenmerk[^0-9\n]{0,5}([0-9][0-9 ]{14,22}[0-9])", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"(?:betalingskenmerk|betaalkenmerk|betalingskenm\.)[^0-9\n]{0,5}([0-9][0-9 ]{14,22}[0-9])", RegexOptions.IgnoreCase)]
     private static partial Regex Kenmerk();
 
     [GeneratedRegex(@"(?:betalingstermijn|betaaltermijn|binnen|payment terms?)\D{0,15}([0-9]{1,3})\s*dagen", RegexOptions.IgnoreCase)]
     private static partial Regex Termijn();
 
-    [GeneratedRegex(@"(?:fa[ck]tuurnummer|fa[ck]tuurnr\.?|fa[ck]tuur\s*nr\.?|fa[ck]tuur\s*#|notanummer|nota\s*nr\.?|invoice\s*(?:number|no\.?|nr\.?|#)|creditnotanummer)", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"(?:fa[ck]tuurnummer|fa[ck]tuurnr\.?|fa[ck]tuur\s*nr\.?|fa[ck]tuur\s*#|notanummer|nota\s*nr\.?|invoice\s*(?:number|no\.?|nr\.?|#)|creditnotanummer|(?<![\p{L}-])nummer\s*:)", RegexOptions.IgnoreCase)]
     private static partial Regex FactuurnummerLabel();
 
     /// <summary>Alleen "Factuur" als label vooraan een regel, met erachter een waarde met cijfers ("Factuur: 2026-117").</summary>

@@ -192,12 +192,13 @@ public static partial class Mt940Lezer
     {
         var info = (ruw.Informatie ?? string.Empty).Replace("\n", " ", StringComparison.Ordinal).Trim();
         var velden = info.StartsWith('/') ? Gestructureerd(info) : VrijeTekst(info);
-        if (velden.Count == 0 && ruw.Informatie is { } regels && TegenpartijOpEersteRegel().Match(regels.Split('\n')[0].Trim()) is { Success: true } eerste)
+        if (!velden.ContainsKey("IBAN") && !velden.ContainsKey("NAME") && !info.StartsWith('/') && ruw.Informatie is { } regels
+            && TegenpartijOpEersteRegel().Match(regels.Split('\n')[0].Trim()) is { Success: true } eerste)
         {
-            // Zonder codes of labels: "NL..IBAN Naam" op de eerste regel, de omschrijving op de volgende.
+            // Zonder codes: "NL..IBAN Naam" op de eerste regel, de omschrijving (en eventueel BETALINGSKENM.:) eronder.
             Zet(velden, "IBAN", eerste.Groups[1].Value);
             Zet(velden, "NAME", eerste.Groups[2].Value);
-            Zet(velden, "REMI", string.Join(' ', regels.Split('\n').Skip(1)));
+            Zet(velden, "REMI", string.Join(' ', regels.Split('\n').Skip(1).Where(r => !LabelPatroon().IsMatch(r))));
         }
 
         velden.TryGetValue("IBAN", out var iban);

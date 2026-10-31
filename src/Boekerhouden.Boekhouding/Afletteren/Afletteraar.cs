@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Boekerhouden.Boekhouding.Bank;
 using Boekerhouden.Boekhouding.Facturen;
 using Boekerhouden.Boekhouding.Relaties;
@@ -15,10 +16,12 @@ public enum Zekerheid
 
 /// <summary>Een of meer openstaande posten die bij een bankmutatie kunnen horen.</summary>
 /// <param name="Verschil">Wat er na afletteren openstaat (de som van de posten min de mutatie); 0 = precies betaald.</param>
-public sealed record Afletterkandidaat(IReadOnlyList<OpenPost> Posten, Zekerheid Zekerheid, string Reden, decimal Verschil)
+/// <param name="Korting">De mutatie noemt een (betalings)korting: het verschil is waarschijnlijk korting, af te boeken op
+/// een rekening in plaats van open te laten staan.</param>
+public sealed record Afletterkandidaat(IReadOnlyList<OpenPost> Posten, Zekerheid Zekerheid, string Reden, decimal Verschil, bool Korting = false)
 {
     /// <summary>Eén post waarvan na afletteren nog een deel openstaat (niet te veel betaald).</summary>
-    public bool IsDeelbetaling => Posten is [var post] && Verschil != 0 && Math.Sign(Verschil) == Math.Sign(post.Openstaand);
+    public bool IsDeelbetaling => !Korting && Posten is [var post] && Verschil != 0 && Math.Sign(Verschil) == Math.Sign(post.Openstaand);
 
     /// <summary>De post was al helemaal betaald: deze betaling is er waarschijnlijk een te veel.</summary>
     public bool IsAlBetaald => Posten is [{ IsBetaald: true }];
@@ -49,11 +52,14 @@ public sealed record Afletteradvies(Bankmutatie Mutatie, IReadOnlyList<Afletterk
 /// <item>naam van de tegenpartij en hetzelfde bedrag;</item>
 /// <item>alleen hetzelfde bedrag, als dat maar bij één post voorkomt.</item>
 /// </list>
-/// Een deelbetaling met het factuurnummer of betalingskenmerk én het IBAN van de leverancier is ook zeker: het
-/// restant blijft openstaan. Een betaling met het nummer of kenmerk van een factuur die al betaald is, wordt nooit
+/// Vooraf: een verzamelbetaling van enkele posten van de relatie bij het IBAN (ook een factuur min een creditnota) die
+/// samen precies het bedrag zijn; zeker als de mutatie elk factuurnummer noemt (of het laatste deel ervan, "1041 1042
+/// 1043"). Een deelbetaling met het factuurnummer of betalingskenmerk én het IBAN van de leverancier is ook zeker: het
+/// restant blijft openstaan; noemt de mutatie een korting, dan is het een voorstel (het verschil afboeken). Een betaling
+/// naar een ander IBAN dan de leverancier bij ons bekend heeft, is nooit zeker. Een betaling met het nummer of kenmerk van een factuur die al betaald is, wordt nooit
 /// automatisch geboekt: die staat als mogelijke dubbele betaling bij de mutatie.
 /// </summary>
-public static class Afletteraar
+public static partial class Afletteraar
 {
     /// <summary>Hoeveel posten van één relatie hoogstens worden gecombineerd bij het zoeken naar een verzamelbetaling.</summary>
     public const int MaximumVoorVerzamelbetaling = 15;
@@ -81,40 +87,60 @@ public static class Afletteraar
 
         var kandidaten = new List<Afletterkandidaat>();
         var gebruikt = new HashSet<Guid>();
-        void Voegtoe(IReadOnlyList<OpenPost> lijst, Zekerheid zekerheid, string reden)
+        var korting = KortingPatroon().IsMatch(tekst);
+        void Voegtoe(IReadOnlyList<OpenPost> lijst, Zekerheid zekerheid, string reden, bool isKorting = false)
         {
             if (lijst.Count > 0 && !lijst.Any(p => gebruikt.Contains(p.Id)))
             {
                 gebruikt.UnionWith(lijst.Select(p => p.Id));
-                kandidaten.Add(new Afletterkandidaat(lijst, zekerheid, reden, lijst.Sum(p => p.Openstaand) - mutatie.Bedrag));
+                kandidaten.Add(new Afletterkandidaat(lijst, zekerheid, reden, lijst.Sum(p => p.Openstaand) - mutatie.Bedrag, isKorting));
             }
         }
 
-        // Een post van een andere relatie dan die bij het IBAN hoort, is nooit zeker.
-        bool Past(OpenPost p) => viaIban.Count == 0 || viaIban.Contains(p.Relatie);
+        // Een betaling naar een ander IBAN dan wij van de relatie kennen (gewijzigd rekeningnummer, mogelijk fraude).
+        var perCode = relatielijst.GroupBy(r => r.Code, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        bool AnderIban(OpenPost p) => mutatie.TegenIban is { Length: > 0 } iban && perCode.TryGetValue(p.Relatie, out var r) && r.Ibans.Count > 0 && !r.HeeftIban(iban);
 
-        // Minder dan wat openstaat, met het IBAN van de leverancier: een deelbetaling.
-        bool Deel(OpenPost p) => viaIban.Contains(p.Relatie) && Math.Abs(mutatie.Bedrag) < Math.Abs(p.Openstaand);
+        // Een post van een andere relatie dan die bij het IBAN hoort, of bij een onbekend IBAN, is nooit zeker.
+        bool Past(OpenPost p) => viaIban.Count == 0 ? !AnderIban(p) : viaIban.Contains(p.Relatie);
+
+        // Minder dan wat openstaat, met het IBAN van de leverancier: een deelbetaling (geen korting).
+        bool Deel(OpenPost p) => !korting && viaIban.Contains(p.Relatie) && Math.Abs(mutatie.Bedrag) < Math.Abs(p.Openstaand);
+
+        // Iets minder dan wat openstaat (hoogstens 5%) en de mutatie noemt een korting.
+        bool Korting(OpenPost p) => korting && Math.Abs(mutatie.Bedrag) < Math.Abs(p.Openstaand) && Math.Abs(p.Openstaand - mutatie.Bedrag) <= Math.Abs(p.Openstaand) * 0.05m;
+
+        string Reden(string bron, OpenPost post) =>
+            post.Openstaand == mutatie.Bedrag ? bron
+            : Korting(post) ? $"{bron}, betalingskorting {Math.Round(Math.Abs(post.Openstaand - mutatie.Bedrag) / Math.Abs(post.Openstaand) * 100, 1):0.#}%"
+            : Deel(post) ? $"{bron}, deelbetaling"
+            : $"{bron}, ander bedrag";
+
+        // 0. Verzamelbetaling met de nummers: enkele posten van de relatie bij het IBAN (ook met een creditnota) die
+        // samen precies het bedrag zijn.
+        var vanIban = alle.Where(p => viaIban.Contains(p.Relatie) && !p.IsBetaald).OrderBy(p => p.Datum).Take(MaximumVoorVerzamelbetaling).ToList();
+        if (Combinatie(vanIban, mutatie.Bedrag) is { } genoemd && genoemd.All(p => Factuurnummers.Genoemd(p.Factuurnummer, tekst)))
+        {
+            Voegtoe(genoemd, Zekerheid.Zeker, $"Factuurnummers en de som van {genoemd.Count} posten");
+        }
 
         // 1. Betalingskenmerk.
         foreach (var post in posten.Where(p => kenmerk.Length > 0 && Cijfers(p.Betalingskenmerk) == kenmerk))
         {
-            var zeker = (post.Openstaand == mutatie.Bedrag && Past(post)) || Deel(post);
-            Voegtoe([post], zeker ? Zekerheid.Zeker : Zekerheid.Voorstel,
-                post.Openstaand == mutatie.Bedrag ? "Betalingskenmerk" : Deel(post) ? "Betalingskenmerk, deelbetaling" : "Betalingskenmerk, ander bedrag");
+            var zeker = (post.Openstaand == mutatie.Bedrag && Past(post)) || (Deel(post) && Past(post));
+            Voegtoe([post], zeker ? Zekerheid.Zeker : Zekerheid.Voorstel, Reden("Betalingskenmerk", post), Korting(post));
         }
 
         // 2. Factuurnummer in de omschrijving.
         foreach (var post in posten.Where(p => Factuurnummers.KomtVoor(p.Factuurnummer, tekst)))
         {
-            var zeker = (post.Openstaand == mutatie.Bedrag && Past(post)) || Deel(post);
-            Voegtoe([post], zeker ? Zekerheid.Zeker : Zekerheid.Voorstel,
-                post.Openstaand == mutatie.Bedrag ? "Factuurnummer" : Deel(post) ? "Factuurnummer, deelbetaling" : "Factuurnummer, ander bedrag");
+            var zeker = (post.Openstaand == mutatie.Bedrag && Past(post)) || (Deel(post) && Past(post));
+            Voegtoe([post], zeker ? Zekerheid.Zeker : Zekerheid.Voorstel, Reden("Factuurnummer", post), Korting(post));
         }
 
-        // 2b. Het nummer of kenmerk van een factuur die al betaald is (of waarop al te veel betaald is): een dubbele
-        // betaling. Alleen een voorstel; afletteren zet het bedrag als te vorderen op die factuur.
-        foreach (var post in alle.Where(p => Past(p) && Math.Sign(p.Bedrag) == Math.Sign(mutatie.Bedrag) && Math.Sign(p.Openstaand) != Math.Sign(mutatie.Bedrag)
+        // 2b. Het nummer of kenmerk van een factuur die al betaald is (of waarop al te veel betaald is), met hetzelfde
+        // bedrag: een dubbele betaling. Alleen een voorstel; afletteren zet het bedrag als te vorderen op die factuur.
+        foreach (var post in alle.Where(p => Past(p) && p.Bedrag == mutatie.Bedrag && Math.Sign(p.Openstaand) != Math.Sign(mutatie.Bedrag)
                      && ((kenmerk.Length > 0 && Cijfers(p.Betalingskenmerk) == kenmerk) || Factuurnummers.KomtVoor(p.Factuurnummer, tekst))))
         {
             Voegtoe([post], Zekerheid.Voorstel, "Factuur is al betaald: dubbele betaling?");
@@ -128,10 +154,10 @@ public static class Afletteraar
             Voegtoe([post], gelijk.Count == 1 ? Zekerheid.Zeker : Zekerheid.Voorstel, gelijk.Count == 1 ? "IBAN en bedrag" : "IBAN en bedrag, meerdere facturen");
         }
 
-        // 4. Verzamelbetaling: de som van enkele posten van de relatie.
-        if (Combinatie(vanRelatie.Where(p => !gebruikt.Contains(p.Id)).Take(MaximumVoorVerzamelbetaling).ToList(), mutatie.Bedrag) is { } combinatie)
+        // 4. Verzamelbetaling: de som van enkele posten van de relatie (ook met een creditnota).
+        if (Combinatie(vanIban.Where(p => !gebruikt.Contains(p.Id)).ToList(), mutatie.Bedrag) is { } combinatie)
         {
-            Voegtoe(combinatie, Zekerheid.Voorstel, $"IBAN en de som van {combinatie.Count} facturen");
+            Voegtoe(combinatie, Zekerheid.Voorstel, $"IBAN en de som van {combinatie.Count} posten");
         }
 
         // 5. Naam en bedrag.
@@ -151,12 +177,15 @@ public static class Afletteraar
             .ToList());
     }
 
-    /// <summary>De kleinste combinatie (van minstens twee) posten die samen precies het bedrag zijn, de oudste eerst.</summary>
+    /// <summary>
+    /// De kleinste combinatie (van minstens twee) posten die samen precies het bedrag zijn, de oudste eerst. Posten
+    /// van beide tekens doen mee (een factuur min een creditnota), maar minstens één heeft het teken van het bedrag.
+    /// </summary>
     private static List<OpenPost>? Combinatie(List<OpenPost> posten, decimal bedrag)
     {
         for (var aantal = 2; aantal <= posten.Count; aantal++)
         {
-            if (Zoek(posten, bedrag, aantal, 0, []) is { } gevonden)
+            if (Zoek(posten, bedrag, bedrag, aantal, 0, []) is { } gevonden)
             {
                 return gevonden;
             }
@@ -165,23 +194,17 @@ public static class Afletteraar
         return null;
     }
 
-    private static List<OpenPost>? Zoek(List<OpenPost> posten, decimal rest, int nodig, int vanaf, List<OpenPost> gekozen)
+    private static List<OpenPost>? Zoek(List<OpenPost> posten, decimal bedrag, decimal rest, int nodig, int vanaf, List<OpenPost> gekozen)
     {
         if (nodig == 0)
         {
-            return rest == 0 ? [.. gekozen] : null;
+            return rest == 0 && gekozen.Any(p => Math.Sign(p.Openstaand) == Math.Sign(bedrag)) ? [.. gekozen] : null;
         }
 
         for (var i = vanaf; i <= posten.Count - nodig; i++)
         {
-            // Alle posten hebben hetzelfde teken als het bedrag: voorbij het bedrag schieten heeft geen zin.
-            if (Math.Abs(posten[i].Openstaand) > Math.Abs(rest))
-            {
-                continue;
-            }
-
             gekozen.Add(posten[i]);
-            var gevonden = Zoek(posten, rest - posten[i].Openstaand, nodig - 1, i + 1, gekozen);
+            var gevonden = Zoek(posten, bedrag, rest - posten[i].Openstaand, nodig - 1, i + 1, gekozen);
             gekozen.RemoveAt(gekozen.Count - 1);
             if (gevonden is not null)
             {
@@ -193,4 +216,7 @@ public static class Afletteraar
     }
 
     private static string Cijfers(string? tekst) => tekst is null ? string.Empty : string.Concat(tekst.Where(char.IsAsciiDigit));
+
+    [GeneratedRegex(@"korting|discount|skonto", RegexOptions.IgnoreCase)]
+    private static partial Regex KortingPatroon();
 }

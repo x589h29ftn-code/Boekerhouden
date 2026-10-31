@@ -123,7 +123,7 @@
                         <tr class="@(m.Status == Banktransactiestatus.TeVerwerken ? "kiesbaar" : null) @(open ? "table-active" : null)" @onclick="() => Kies(m)">
                             <td class="text-nowrap">@Weergave.Datum(m.Datum)</td>
                             <td title="@(m.TegenIban is { } iban ? Iban.Toon(iban) : null)">@m.TegenNaam</td>
-                            <td class="small omschrijving" title="@m.Omschrijving">@m.Omschrijving</td>
+                            <td class="small omschrijving" title="@m.Omschrijving" @ondblclick="() => KiesPosten(m)" @ondblclick:stopPropagation>@m.Omschrijving</td>
                             <td class="bedrag text-end"><Euro Waarde="m.Bedrag" /></td>
                             <td class="small text-secondary">
                                 @if (m.Status == Banktransactiestatus.Geboekt)
@@ -150,7 +150,11 @@
                                                 <div class="d-flex align-items-center gap-2 py-1 kandidaat">
                                                     <span>@string.Join(", ", k.Posten.Select(Post))</span>
                                                     <span class="small text-secondary" title="@(k.Verschil == 0 ? null : $"verschil {Bedragen.Getal(k.Verschil)}")">@k.Reden@(k.Zekerheid == Zekerheid.Zeker ? " · zeker" : null)</span>
-                                                    @if (mag)
+                                                    @if (mag && k.Korting)
+                                                    {
+                                                        <button class="btn btn-sm btn-outline-primary ms-auto" @onclick="() => OpenVenster(k.Posten.Select(p => p.Id).ToList(), afboeken: true)" @onclick:stopPropagation>Afletteren…</button>
+                                                    }
+                                                    else if (mag)
                                                     {
                                                         <button class="btn btn-sm btn-outline-primary ms-auto" @onclick="() => Afletteren(k.Posten.Select(p => p.Id).ToList())" @onclick:stopPropagation>Afletteren</button>
                                                     }
@@ -162,19 +166,7 @@
                                     {
                                         <div class="mb-3">
                                             <div class="paneelkop">Openstaande post</div>
-                                            <div class="d-flex gap-2 align-items-start">
-                                                <div class="openposten">
-                                                    @foreach (var p in gekozen.OpenPosten)
-                                                    {
-                                                        <label class="form-check d-block mb-0">
-                                                            <input class="form-check-input" type="checkbox" checked="@zelfGekozen.Contains(p.Id)" @onchange="() => WisselPost(p.Id)" />
-                                                            <span class="form-check-label">@Post(p)</span>
-                                                            <span class="small text-secondary ms-1">@Weergave.Datum(p.Datum)</span>
-                                                        </label>
-                                                    }
-                                                </div>
-                                                <button class="btn btn-sm btn-outline-primary ms-auto text-nowrap" disabled="@(zelfGekozen.Count == 0)" @onclick="() => Afletteren(zelfGekozen)">Afletteren</button>
-                                            </div>
+                                            <button class="btn btn-sm btn-outline-secondary" title="Of dubbelklik op de omschrijving" @onclick="() => OpenVenster([])">Zelf kiezen…</button>
                                         </div>
                                     }
                                     @if (mag)
@@ -228,6 +220,11 @@
             </table>
         </div>
     }
+    @if (venster is { } v && gekozen is not null)
+    {
+        <OpenpostenVenster Verwerking="gekozen" Kader="geopend" Voorgekozen="v.Posten" Afboeken="v.Afboeken" Fouten="fouten"
+                           Afletteren="AfletterenUitVenster" Gesloten="() => venster = null" />
+    }
 </AdministratieKader>
 
 @code {
@@ -240,7 +237,7 @@
     private bool ookGeboekt;
     private bool mag;
     private Bankverwerking? gekozen;
-    private List<Guid> zelfGekozen = [];
+    private (List<Guid> Posten, bool Afboeken)? venster;
     private string? rekening;
     private string? btwCode;
     private string? omschrijving;
@@ -338,7 +335,7 @@
 
         factuurUitkomst = null;
         gekozen = await Bank.Verwerking(geopend!.Wie, Id, m.Id);
-        zelfGekozen = [];
+        venster = null;
         // Kan de mutatie de betaling van een factuur zijn, dan geen rekening vooraf: anders staat de kost er twee keer in.
         var advies = gekozen?.Voorstel.Afletteren.Kandidaten.Count == 0 ? gekozen.Voorstel.Advies : null;
         rekening = advies?.Rekeningnummer;
@@ -346,12 +343,37 @@
         omschrijving = null;
     }
 
-    private void WisselPost(Guid post)
+    /// <summary>Dubbelklik op de omschrijving: de mutatie openen en meteen het venster met openstaande posten.</summary>
+    private async Task KiesPosten(BankmutatieRegel m)
     {
-        if (!zelfGekozen.Remove(post))
+        if (!mag || m.Status != Banktransactiestatus.TeVerwerken)
         {
-            zelfGekozen.Add(post);
+            return;
         }
+
+        if (gekozen?.Mutatie.Id != m.Id)
+        {
+            await Kies(m);
+        }
+
+        OpenVenster([.. gekozen?.Voorstel.Afletteren.Kandidaten.FirstOrDefault()?.Posten.Select(p => p.Id) ?? []]);
+    }
+
+    private void OpenVenster(List<Guid> posten, bool afboeken = false)
+    {
+        fouten = null;
+        venster = (posten, afboeken);
+    }
+
+    private async Task AfletterenUitVenster((IReadOnlyList<Guid> Posten, Verschilafboeking? Verschil) keuze)
+    {
+        var uitkomst = await Bank.Afletteren(geopend!.Wie, Id, gekozen!.Mutatie.Id, keuze.Posten, keuze.Verschil);
+        if (uitkomst.IsGelukt)
+        {
+            venster = null;
+        }
+
+        await Na(uitkomst);
     }
 
     private async Task Afletteren(List<Guid> posten) =>

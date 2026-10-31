@@ -4,16 +4,20 @@ using Boekerhouden.Boekhouding.Grootboek;
 
 namespace Boekerhouden.Boekhouding.Bank;
 
+/// <summary>Een verschil bij afletteren dat niet open blijft staan maar op een rekening gaat (bijv. betalingskorting).</summary>
+public sealed record Afboeking(string Rekeningnummer, BtwCode? Btw, string? Omschrijving = null);
+
 /// <summary>Zet een bankmutatie om in een journaalpost in het bankdagboek.</summary>
 public static class Bankboeker
 {
     /// <summary>
     /// Lettert een mutatie af op openstaande posten, de oudste eerst. Elke post wordt zo ver mogelijk betaald; wat
     /// overblijft (te veel betaald, of een dubbele betaling van een factuur die al betaald was) blijft op de laatste
-    /// post staan als te vorderen. Geeft ook de bijgewerkte openstaande posten.
+    /// post staan als te vorderen. Met <paramref name="verschil"/> worden de posten helemaal afgeletterd en gaat het
+    /// verschil naar die rekening (met de btw eruit). Geeft ook de bijgewerkte openstaande posten.
     /// </summary>
     public static (Journaalpost Post, IReadOnlyList<OpenPost> Bijgewerkt) Afletteren(
-        Bankmutatie mutatie, IReadOnlyList<OpenPost> posten, Dagboek dagboek, string boekstuk, Rekeningschema schema)
+        Bankmutatie mutatie, IReadOnlyList<OpenPost> posten, Dagboek dagboek, string boekstuk, Rekeningschema schema, Afboeking? verschil = null)
     {
         ArgumentNullException.ThrowIfNull(mutatie);
         ArgumentNullException.ThrowIfNull(posten);
@@ -22,6 +26,25 @@ public static class Bankboeker
         var bijgewerkt = new List<OpenPost>();
         var rest = mutatie.Bedrag;
         string Tegenrekening(OpenPost post) => schema.Enige(post.Soort == Factuursoort.Verkoop ? Rekeningfunctie.Debiteuren : Rekeningfunctie.Crediteuren).Nummer;
+
+        // Samen precies het bedrag (bijv. een factuur min een creditnota), of het verschil gaat naar een rekening
+        // (bijv. betalingskorting): elke post wordt helemaal afgeletterd.
+        if (posten.Count > 0 && (verschil is not null || posten.Sum(p => p.Openstaand) == mutatie.Bedrag))
+        {
+            foreach (var post in posten.OrderBy(p => p.Datum))
+            {
+                regels.Add(new Journaalregel(Tegenrekening(post), -post.Openstaand, $"Betaling {post.Factuurnummer}", null, post.Relatie, post.Factuurnummer));
+                bijgewerkt.Add(post with { Openstaand = 0m });
+            }
+
+            if (-regels.Sum(r => r.Bedrag) is var over && over != 0 && verschil is not null)
+            {
+                regels.AddRange(Verschilregels(over, verschil, schema, posten[0].Relatie));
+            }
+
+            return (new Journaalpost(dagboek!.Code, boekstuk, mutatie.Datum, Omschrijving(mutatie), regels), bijgewerkt);
+        }
+
         foreach (var post in posten.OrderBy(p => p.Datum))
         {
             if (rest == 0 || Math.Sign(post.Openstaand) != Math.Sign(rest))
@@ -50,6 +73,23 @@ public static class Bankboeker
         }
 
         return (new Journaalpost(dagboek!.Code, boekstuk, mutatie.Datum, Omschrijving(mutatie), regels), bijgewerkt);
+    }
+
+    /// <summary>Het verschil (zoals het journaal het nodig heeft) op de rekening, met de btw eruit als er een btw-code is.</summary>
+    private static IEnumerable<Journaalregel> Verschilregels(decimal bedrag, Afboeking afboeking, Rekeningschema schema, string relatie)
+    {
+        var tekst = afboeking.Omschrijving ?? "Verschil";
+        if (afboeking.Btw is { BtwOpFactuur: true } btw)
+        {
+            var (grondslag, btwBedrag) = BtwBerekening.UitInclusief(bedrag, btw.Percentage);
+            var functie = btw.Richting == BtwRichting.Inkoop ? Rekeningfunctie.Voorbelasting : Rekeningfunctie.AfTeDragenBtw;
+            yield return new Journaalregel(afboeking.Rekeningnummer, grondslag, tekst, btw.Code, relatie);
+            yield return new Journaalregel(schema.Enige(functie).Nummer, btwBedrag, $"Btw {tekst.ToLowerInvariant()}", btw.Code, relatie);
+        }
+        else
+        {
+            yield return new Journaalregel(afboeking.Rekeningnummer, bedrag, tekst, afboeking.Btw?.Code, relatie);
+        }
     }
 
     /// <summary>

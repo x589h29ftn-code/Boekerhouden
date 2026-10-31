@@ -227,19 +227,34 @@ debiteuren, een betaling bij crediteuren. Elke kandidaat krijgt een **zekerheid*
 | # | Kenmerk | Zekerheid |
 |---|---|---|
 | 1 | Gestructureerd **betalingskenmerk** gelijk | Zeker |
+| 0 | IBAN bekend en de **som van enkele** open posten van die relatie (ook een factuur min een creditnota), en de omschrijving noemt elk nummer (of het laatste getal ervan: "Fact GB-2026-1041 1042 1043") | Zeker, in één keer over alle posten |
 | 2 | **Factuurnummer** in de omschrijving, en het bedrag gelijk | Zeker |
 | 3 | **IBAN** van de relatie bekend, het bedrag gelijk, en het is de enige open post van die relatie met dat bedrag (ook zonder factuurnummer) | Zeker |
-| 4 | Factuurnummer in de omschrijving, maar het bedrag wijkt af (deelbetaling, betalingskorting) | Voorstel |
+| 4 | Factuurnummer of kenmerk en het IBAN van de relatie, en het bedrag is lager dan wat openstaat (**deelbetaling**) | Zeker; het restant blijft openstaan |
+| 4b | Factuurnummer, iets lager (hoogstens 5%) en de omschrijving noemt een **korting** | Voorstel (*Afletteren…*: het verschil afboeken op een rekening met btw-code, bijv. 40,00 korting en 8,40 correctie voorbelasting) |
+| 4c | Factuurnummer, maar het bedrag wijkt anders af | Voorstel |
+| 4d | Het nummer of kenmerk van een factuur die **al betaald** is, met hetzelfde bedrag | Voorstel *dubbele betaling?*, nooit automatisch (ook niet op een andere factuur); afletteren zet het als te vorderen op die factuur |
 | 5 | IBAN bekend, en het bedrag gelijk aan meerdere open posten | Voorstel (oudste eerst) |
 | 6 | IBAN bekend, en het bedrag gelijk aan de **som van enkele** open posten (verzamelbetaling) | Voorstel |
 | 7 | **Naam** van de tegenpartij lijkt op de relatienaam, en het bedrag gelijk | Voorstel |
 | 8 | Het bedrag is gelijk en uniek over alle open posten | Voorstel |
 
-- **Zeker** wordt automatisch geboekt, maar alleen als er precies één zekere kandidaat is.
+- **Zeker** wordt automatisch geboekt, maar alleen als er precies één zekere kandidaat is, en nooit als de mutatie
+  naar een **ander IBAN** gaat dan de relatie bij ons heeft (gewijzigd rekeningnummer, mogelijk fraude): dat is
+  hoogstens een voorstel.
+- Te veel betaald blijft als te vorderen op de (laatste) factuur staan.
+- **Zelf kiezen**: dubbelklik op de omschrijving van een mutatie (of *Zelf kiezen…*) opent een venster met alle
+  openstaande posten (die van de tegenpartij bovenaan): zoeken op leverancier, factuurnummer of bedrag, een of meer
+  posten aanvinken (ook een creditnota), het verschil met de mutatie zien en open laten of afboeken op een rekening
+  met btw-code (`OpenpostenVenster`, `BankDienst.Afletteren` met `Verschilafboeking`, `Bankboeker.Afletteren` met
+  `Afboeking`).
 - Bij een **voorstel** bevestigt de gebruiker. Bevestigt hij, dan leert het pakket het IBAN bij de relatie, zodat
   het de volgende keer *zeker* is.
-- Een factuurnummer wordt herkend zonder leestekens of hoofdlettergebruik (`2026-001` = `2026001`). Een kort
-  nummer (minder dan vier tekens) moet als los woord in de omschrijving staan.
+- Een factuurnummer wordt herkend zonder leestekens of hoofdlettergebruik (`2026-001` = `2026001`), en los
+  geschreven met dezelfde groepen in dezelfde volgorde (`inv 2026 87` = `INV-2026-0087`, bij minstens drie groepen).
+  Een kort nummer (minder dan vier tekens) moet als los woord in de omschrijving staan.
+- Getest met twee praktijksets (oktober 2026, verzonnen): `BankpraktijkTests` (deelbetaling in twee delen, dubbele
+  betaling en terugbetaling; kenmerk, factuur min creditnota, sombetaling, betalingskorting en een ander IBAN).
 
 ### 3.9 Rechten en gebruikers
 
@@ -293,6 +308,9 @@ gedaan.
 | A11 ✅ | **Scans**: Tesseract voor scans en foto's (`TesseractOcr`, `OcrLezer`); in de Windows-app als Tesseract op de pc staat | Ook papieren bonnen |
 | A12 | **Saldibalans naar het samenstelpakket** | Jaarrekening zonder export |
 | gepland | **Regels splitsen per leverancier** (wens gebruiker, oktober 2026): de factuurregels uitlezen en per leverancier een vaste verdeling over rekeningen leren (energie: levering en netbeheer; telefoon: abonnement en toestel; groothandel: 9% en 21%), en die de volgende keer voorstellen | Ook gesplitste facturen vanzelf |
+| gepland | **Verzamel-PDF splitsen** (wens gebruiker, oktober 2026): een PDF met meerdere facturen (één per pagina of meer) bij het inlezen opdelen in losse documenten, per factuurnummer of leverancier, met een controle-overzicht voor het splitsen | Een stapel facturen in één keer uploaden |
+| gepland | **Vreemde valuta** (batch 2, scenario 8): factuur in USD e.d. op de koers van de factuurdatum, betaling op de werkelijke koers, het verschil naar koersverschillen; bankkosten apart | Buitenlandse leveranciers zonder handwerk |
+| gepland | **Ontbrekende factuur** (batch 2, scenario 16 en 18): een betaling zonder factuur (huur, pinbon) markeren als *factuur ontbreekt*, tijdelijk op een tussenrekening, en de vaste last later automatisch | Vaste lasten en bonnetjes netjes opvolgen |
 | later | Online voor ondernemers (AD2), facturen per e-mail, directe bankkoppeling (PSD2), herinneringen, terugkerende facturen, kas, AI-herkenning als extra motor, e-facturen verzenden (Peppol) | |
 
 ### Stand na A1–A7
@@ -353,7 +371,7 @@ overzichten.
 | Stresstest | `InkoopStressTests`, alleen met `BOEKERHOUDEN_STRESS=1` (30 facturen per leverancier) of een aantal, bijv. `BOEKERHOUDEN_STRESS=100`: tien leveranciers in bulk inlezen, per leverancier twee zelf boeken, de rest met *Opnieuw herkennen*, de overzichten en de keten; en vier gebruikers die tegelijk inlezen en automatisch boeken. Gemeten (oktober 2026, cloudcontainer): 1000 facturen inlezen ca. 19 ms per stuk (p95 37 ms), opnieuw herkennen 980 facturen in 40 s, proefbalans, kolommenbalans, grootboekkaart en ketencontrole met 1000 boekingen elk onder 0,1 s; tegelijk inlezen zonder fouten en met een kloppende keten. In de browser: 150 PDF's in één keer uploaden in 5 s, het verwerkscherm met 150 in de werkvoorraad opent in 0,9 s, boeken met Ctrl+Enter en door naar de volgende 0,5–1 s; geheugen van de server 236 → 309 MB. *Te verwerken* toont altijd alle documenten (van de rest de laatste 100; alles staat in het inkoopboek); *Opnieuw herkennen* toont de stand ("Bezig: 120 van 980") |
 | Stresstest administraties | `AdministratiesStressTests`, alleen met `BOEKERHOUDEN_STRESS_ADMINISTRATIES=<aantal>` (en `BOEKERHOUDEN_STRESS_JAREN`, standaard 5): per administratie per maand 25 inkoopfacturen met openstaande post, een bankafschrift met betalingen, 25 ontvangsten en memoriaal; daarna de schermen van de eerste, middelste en laatste administratie. Gemeten (oktober 2026, cloudcontainer, PostgreSQL): 300 administraties × 5 jaar = 1,38 miljoen boekingen, 1,7 GB; lijst en zoeken in de administraties 58 en 12 ms; per administratie proefbalans, balans en W&V, kolommenbalans, grootboekkaart en journaal van een jaar 30–100 ms, ketencontrole 160–250 ms, inkoopboek en bankmutaties onder 25 ms, nieuwe factuur inlezen 30 ms. Proefbalans, kolommenbalans en grootboekkaart laden alleen de boekingen van de periode; wat daarvoor ligt telt de database op tot een beginstand (vroeger alle jaren: 150 ms en groeiend). Het journaal toont standaard het laatste boekjaar |
 | Reeks | Getest met vijf PDF's van één leverancier (`InkoopReeksTests`): met de standaarddrempel (2) gaan na twee keer zelf boeken de andere drie vanzelf (ook met *Opnieuw herkennen* na een bulkupload), met drempel 3 de vierde en vijfde; een veel hoger bedrag, een ander IBAN of een ander adres komt ter controle terug, en na die bevestiging begint de telling opnieuw. Een opnieuw gescande factuur (zelfde nummer) is dubbel |
-| Voorstel | `InkoopDienst` maakt het voorstel met `Inkoopverwerker`: regel > geleerd > relatie, met de signalen (afwijkend IBAN, afwijkend bedrag, dubbel, onbekende leverancier, boven de limiet). Dubbel is hetzelfde factuurnummer, of dezelfde datum en hetzelfde bedrag; de tweede controle meldt hetzelfde bedrag binnen zes dagen met een ander nummer (een herinnering of kopie?). Een maand- of weekfactuur valt daarbuiten. Zonder signaal en met een automatisch advies boekt het pakket zelf (`AutomatischGeboekt` in het log) |
+| Voorstel | `InkoopDienst` maakt het voorstel met `Inkoopverwerker`: regel > geleerd > relatie, met de signalen (afwijkend IBAN, afwijkend bedrag, dubbel, onbekende leverancier, boven de limiet). Dubbel is hetzelfde factuurnummer, of dezelfde datum en hetzelfde bedrag; de tweede controle meldt hetzelfde bedrag binnen zes dagen met een ander nummer (een herinnering of kopie?). Staat er HERINNERING of AANMANING op (of "nog niet voldaan"), dan heet het *Herinnering van factuur … die is al geboekt (en betaald). Niet nog eens boeken.* De herkenning leest ook "Nummer:" als factuurnummer en "Betaalkenmerk" als betalingskenmerk; een kolomkop als "BTW  Bedrag excl." is geen btw-nummer. Een maand- of weekfactuur valt daarbuiten. Zonder signaal en met een automatisch advies boekt het pakket zelf (`AutomatischGeboekt` in het log) |
 | Opnieuw herkennen | Knop bij *Te verwerken* (`InkoopDienst.VerwerkOpnieuw`): het pakket gaat opnieuw door alle facturen in Te verwerken, met wat het nu weet (nieuwe relaties, regels, wat er intussen geleerd is, het zoektemplate). Wat nu automatisch kan, wordt geboekt, de oudste eerst; bij de rest komt de actuele reden. Zo gaan na een bulkupload en een paar keer zelf boeken de andere facturen van die leverancier vanzelf |
 | Te verwerken | `/a/{id}/inkoop/{document}`: het formulier links en de factuur rechts in de viewer; de scheiding ertussen is te verslepen (breedte onthouden, dubbelklik = standaard), de hoogte met de hoek rechtsonder, en in- en uitzoomen met − en +. Verder de gegevens, rekening en btw-code per regel kiezen, nieuwe leverancier bevestigen, live bedragcontrole; elke keuze gaat in het leergeheugen |
 | Werkvoorraad | Links van het formulier de facturen in *Te verwerken* (aan of uit bij Weergave); boven het scherm "2 van 12" met vorige en volgende. Na het boeken opent de factuur die nu op dezelfde plaats staat, met een korte melding wat er geboekt is. De pagina blijft staan, dus gegevens en viewer worden opnieuw geladen; staat de factuur in een eigen venster, dan toont dat venster het nieuwe document |

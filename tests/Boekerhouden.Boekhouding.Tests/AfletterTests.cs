@@ -82,6 +82,77 @@ public sealed class AfletteraarTests
     }
 
     [Fact]
+    public void Verzamelbetaling_met_de_nummers_wordt_zeker_gesplitst()
+    {
+        var posten = new[] { Crediteur("JANSEN", "GB-2026-1041", 375.10m), Crediteur("JANSEN", "GB-2026-1042", 151.86m), Crediteur("JANSEN", "GB-2026-1043", 106.48m), Crediteur("JANSEN", "GB-2026-1050", 99m) };
+
+        var advies = Afletteraar.Zoek(Betaling(-633.44m, "Fact GB-2026-1041 1042 1043", IbanJansen), posten, Relaties);
+        var zonderNummers = Afletteraar.Zoek(Betaling(-633.44m, "Betaling oktober", IbanJansen), posten, Relaties);
+
+        Assert.Equal(["GB-2026-1041", "GB-2026-1042", "GB-2026-1043"], advies.Automatisch!.Posten.Select(p => p.Factuurnummer));
+        Assert.Equal("Factuurnummers en de som van 3 posten", advies.Automatisch.Reden);
+        Assert.Null(zonderNummers.Automatisch);
+        Assert.Equal(3, Assert.Single(zonderNummers.Kandidaten).Posten.Count);
+    }
+
+    [Fact]
+    public void Factuur_min_creditnota_in_een_betaling()
+    {
+        var factuur = Crediteur("JANSEN", "KH-2026-2201", 1210m);
+        var creditnota = Crediteur("JANSEN", "KH-CN-2026-0033", -242m);
+
+        var advies = Afletteraar.Zoek(Betaling(-968m, "Factuur KH-2026-2201 minus creditnota KH-CN-2026-0033", IbanJansen), [factuur, creditnota], Relaties);
+
+        Assert.Equal([factuur.Id, creditnota.Id], advies.Automatisch!.Posten.Select(p => p.Id));
+        var (boeking, bijgewerkt) = Bankboeker.Afletteren(advies.Mutatie, advies.Automatisch.Posten, Testadministratie.Bank, "1", Testadministratie.Schema());
+        Assert.Equal([1210m, -242m], boeking.Regels.Where(r => r.Rekeningnummer == "1600").Select(r => r.Bedrag));
+        Assert.All(bijgewerkt, p => Assert.True(p.IsBetaald));
+    }
+
+    [Fact]
+    public void Betalingskorting_is_een_voorstel_en_het_verschil_gaat_met_btw_naar_een_rekening()
+    {
+        var post = Crediteur("JANSEN", "MS-2026-0780", 2420m);
+
+        var advies = Afletteraar.Zoek(Betaling(-2371.60m, "MS-2026-0780 incl 2% korting", IbanJansen), [post], Relaties);
+
+        Assert.Null(advies.Automatisch);
+        var kandidaat = Assert.Single(advies.Kandidaten);
+        Assert.Equal(("Factuurnummer, betalingskorting 2%", true, false), (kandidaat.Reden, kandidaat.Korting, kandidaat.IsDeelbetaling));
+        var (boeking, bijgewerkt) = Bankboeker.Afletteren(advies.Mutatie, [post], Testadministratie.Bank, "1", Testadministratie.Schema(),
+            new Afboeking("4100", BtwCodes.Zoek(Testadministratie.Btw, "I21"), "Betalingskorting"));
+        Assert.Equal((2420m, -40m, -8.40m, 0m), (boeking.Regels.Single(r => r.Rekeningnummer == "1600").Bedrag, boeking.Regels.Single(r => r.Rekeningnummer == "4100").Bedrag,
+            boeking.Regels.Single(r => r.Rekeningnummer == "1510").Bedrag, boeking.Regels.Sum(r => r.Bedrag)));
+        Assert.True(Assert.Single(bijgewerkt).IsBetaald);
+    }
+
+    [Fact]
+    public void Kosten_met_het_nummer_van_een_betaalde_factuur_zijn_geen_dubbele_betaling()
+    {
+        var betaald = Crediteur("BELNET", "CT-884201", 462.70m) with { Openstaand = 0m };
+
+        Assert.Empty(Afletteraar.Zoek(Betaling(-12.50m, "Kosten betaling buitenland CT-884201", IbanBelnet), [betaald], Relaties).Kandidaten);
+    }
+
+    [Fact]
+    public void Een_betaling_naar_een_ander_iban_dan_bekend_is_nooit_zeker()
+    {
+        var post = Crediteur("JANSEN", "FKF-2026-00455", 400m);
+
+        var advies = Afletteraar.Zoek(Betaling(-400m, "Factuur FKF-2026-00455", "NL02ABNA0123456789"), [post], Relaties);
+
+        Assert.Null(advies.Automatisch);
+        Assert.Equal(("Factuurnummer", Zekerheid.Voorstel), (Assert.Single(advies.Kandidaten).Reden, advies.Kandidaten[0].Zekerheid));
+    }
+
+    [Theory]
+    [InlineData("INV-2026-0087", "inv 2026 87 installatie kantoor", true)]
+    [InlineData("INV-2026-0087", "inv 2026 88", false)]
+    [InlineData("2026-01", "januari 2026 1 stuk", false)]
+    public void Factuurnummer_los_geschreven(string nummer, string tekst, bool verwacht) =>
+        Assert.Equal(verwacht, Factuurnummers.KomtVoor(nummer, tekst));
+
+    [Fact]
     public void Iban_en_bedrag_zonder_factuurnummer_is_zeker_als_er_maar_een_post_is()
     {
         var post = Crediteur("JANSEN", "2026-114", 199.65m);
@@ -141,7 +212,7 @@ public sealed class AfletteraarTests
 
         var kandidaat = Assert.Single(advies.Kandidaten);
         Assert.Equal([b, c], kandidaat.Posten);
-        Assert.Equal("IBAN en de som van 2 facturen", kandidaat.Reden);
+        Assert.Equal("IBAN en de som van 2 posten", kandidaat.Reden);
         Assert.Equal(0m, kandidaat.Verschil);
     }
 

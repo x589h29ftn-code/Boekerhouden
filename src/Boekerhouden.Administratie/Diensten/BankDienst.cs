@@ -19,6 +19,9 @@ public sealed record Bankinlezing(int Afschriften, int Nieuw, int Dubbel, int Au
 /// <summary>Wat een nieuwe ronde automatisch verwerken opleverde: hoeveel er bekeken en hoeveel er geboekt zijn.</summary>
 public sealed record Herverwerking(int Bekeken, int Geboekt);
 
+/// <summary>Het verschil bij afletteren op een rekening boeken in plaats van open te laten staan (bijv. betalingskorting).</summary>
+public sealed record Verschilafboeking(string Rekening, string? BtwCode, string? Omschrijving = null);
+
 /// <summary>Een bankmutatie in de lijst.</summary>
 public sealed record BankmutatieRegel(
     Guid Id,
@@ -259,8 +262,9 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
 
         var context = await Context(db, administratie);
         var (schema, _) = await GrootboekDienst.Inrichting(db);
-        var posten = context.OpenPosten.Where(p => Math.Sign(p.Openstaand) == Math.Sign(t.Bedrag))
-            .OrderBy(p => p.Datum).ToList();
+        // Alle openstaande posten: eerst die in de richting van de mutatie, dan de rest (bijv. een creditnota).
+        var posten = context.OpenPosten.Where(p => !p.IsBetaald)
+            .OrderByDescending(p => Math.Sign(p.Openstaand) == Math.Sign(t.Bedrag)).ThenBy(p => p.Datum).ToList();
         return new Bankverwerking(Regel(t), Voorstel(t, context), posten, context.Relaties, schema, context.Btw.Op(t.Datum));
     }
 
@@ -269,7 +273,9 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
     /// vraagposten). Hoort het IBAN van de tegenpartij nog bij geen enkele relatie, dan leert het pakket het bij de
     /// relatie van de posten: de volgende keer is het zeker.
     /// </summary>
-    public async Task<Uitkomst> Afletteren(Uitvoerder wie, Guid administratie, Guid mutatie, IReadOnlyList<Guid> posten)
+    /// <param name="verschil">Het verschil tussen de posten en de mutatie niet open laten staan maar op deze rekening
+    /// boeken (bijv. betalingskorting, met btw-code); de posten worden dan helemaal afgeletterd.</param>
+    public async Task<Uitkomst> Afletteren(Uitvoerder wie, Guid administratie, Guid mutatie, IReadOnlyList<Guid> posten, Verschilafboeking? verschil = null)
     {
         ArgumentNullException.ThrowIfNull(posten);
         await using var db = await toegang.Open(wie, administratie, Recht.Invoeren);
@@ -283,7 +289,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             return Uitkomst.Mislukt("Kies een of meer openstaande posten.");
         }
 
-        var uitkomst = await BoekAfletteren(db, administratie, t, posten, wie, reden: null);
+        var uitkomst = await BoekAfletteren(db, administratie, t, posten, wie, reden: null, verschil);
         if (uitkomst.IsGelukt)
         {
             await LeerIban(db, administratie, t, posten, wie);
@@ -378,12 +384,30 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         return (rekening.Nummer, bedragen.Sum());
     }
 
-    private async Task<Uitkomst> BoekAfletteren(AdministratieDbContext db, Guid administratie, Banktransactie t, IReadOnlyList<Guid> postIds, Uitvoerder wie, string? reden)
+    private async Task<Uitkomst> BoekAfletteren(
+        AdministratieDbContext db, Guid administratie, Banktransactie t, IReadOnlyList<Guid> postIds, Uitvoerder wie, string? reden, Verschilafboeking? verschil = null)
     {
         var (schema, dagboeken) = await GrootboekDienst.Inrichting(db);
         if (dagboeken.FirstOrDefault(d => d.Code == t.Dagboek) is not { } dagboek)
         {
             return Uitkomst.Mislukt($"Dagboek {t.Dagboek} bestaat niet meer.");
+        }
+
+        Afboeking? afboeking = null;
+        if (verschil is not null)
+        {
+            if (schema.Zoek(verschil.Rekening.Trim()) is not { } rekening || rekening.Functie is Rekeningfunctie.Bank or Rekeningfunctie.Debiteuren or Rekeningfunctie.Crediteuren)
+            {
+                return Uitkomst.Mislukt("Kies voor het verschil een gewone grootboekrekening (niet bank, debiteuren of crediteuren).");
+            }
+
+            var btw = Boekhouding.Btw.BtwCodes.Zoek((await BtwDienst.Lees(db)).Op(t.Datum), verschil.BtwCode);
+            if (!string.IsNullOrWhiteSpace(verschil.BtwCode) && btw is null)
+            {
+                return Uitkomst.Mislukt($"Btw-code {verschil.BtwCode} bestaat niet.");
+            }
+
+            afboeking = new Afboeking(rekening.Nummer, btw, string.IsNullOrWhiteSpace(verschil.Omschrijving) ? null : Kort(verschil.Omschrijving.Trim(), 200));
         }
 
         await using var transactie = await db.Database.BeginTransactionAsync();
@@ -392,8 +416,10 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         var posten = await db.OpenstaandePosten.Where(p => ids.Contains(p.Id)).ToListAsync();
         // Een post die al betaald is, mag alleen als enige en in dezelfde richting als de factuur: een dubbele betaling
         // (te vorderen op die factuur).
+        // Posten met een ander teken (een creditnota) alleen als ze samen precies het bedrag zijn, of met een afboeking.
         bool Open(OpenstaandePost p) => p.Openstaand != 0 && Math.Sign(p.Openstaand) == Math.Sign(t.Bedrag);
-        if (posten.Count != ids.Count || !(posten.All(Open) || (posten is [var enige] && Math.Sign(enige.Bedrag) == Math.Sign(t.Bedrag))))
+        var samen = posten.Count > 1 && posten.All(p => p.Openstaand != 0) && (posten.Sum(p => p.Openstaand) == t.Bedrag || afboeking is not null);
+        if (posten.Count != ids.Count || !(posten.All(Open) || samen || (posten is [var enige] && Math.Sign(enige.Bedrag) == Math.Sign(t.Bedrag))))
         {
             return Uitkomst.Mislukt("Een van de openstaande posten is intussen betaald of past niet bij deze mutatie.");
         }
@@ -403,7 +429,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         IReadOnlyList<OpenPost> bijgewerkt;
         try
         {
-            (post, bijgewerkt) = Bankboeker.Afletteren(t.NaarDomein(), [.. posten.Select(p => p.NaarDomein())], dagboek, boekstuk, schema);
+            (post, bijgewerkt) = Bankboeker.Afletteren(t.NaarDomein(), [.. posten.Select(p => p.NaarDomein())], dagboek, boekstuk, schema, afboeking);
         }
         catch (Exception fout) when (fout is ArgumentException or InvalidOperationException)
         {
@@ -428,7 +454,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         await db.SaveChangesAsync();
         await transactie.CommitAsync();
         await audit.Log(wie, reden is null ? AuditActies.Afgeletterd : AuditActies.AutomatischGeboekt, $"{dagboek.Code} {boekstuk}",
-            $"{t.Bedrag:0.00} op {string.Join(", ", bijgewerkt.Select(p => $"{p.Relatie} {p.Factuurnummer}"))}", administratie);
+            $"{t.Bedrag:0.00} op {string.Join(", ", bijgewerkt.Select(p => $"{p.Relatie} {p.Factuurnummer}"))}{(afboeking is null ? null : $"; verschil op {afboeking.Rekeningnummer}")}", administratie);
         return Uitkomst.Gelukt;
     }
 

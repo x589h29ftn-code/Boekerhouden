@@ -1237,7 +1237,7 @@ public sealed class InkoopDienst(
         }
 
         var bestaand = await db.OpenstaandePosten.AsNoTracking().Where(p => p.Soort == Factuursoort.Inkoop)
-            .Select(p => new BestaandeFactuur(p.Relatie, p.Factuurnummer, p.Datum, -p.Bedrag)).ToListAsync();
+            .Select(p => new BestaandeFactuur(p.Relatie, p.Factuurnummer, p.Datum, -p.Bedrag, p.Openstaand == 0)).ToListAsync();
         return new Inkoopcontext(gegevens, instellingen, relaties, regels, geheugen, bestaand, await BtwDienst.Lees(db));
     }
 

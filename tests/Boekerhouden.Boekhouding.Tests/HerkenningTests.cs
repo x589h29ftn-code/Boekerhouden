@@ -156,6 +156,48 @@ public sealed class UblTests
     }
 }
 
+public sealed class FactuurkopTests
+{
+    private const string Kop = """
+        Drukkerij Het Anker B.V.                                    FACTUUR
+        Havenstraat 8, 8601 CD Sneek
+        KVK / registratie: 01234501
+        BTW-nummer: NL123456782B01
+        IBAN: NL44RABO0123456789
+        Factuur aan:                         Nummer:          DA-2026-0101
+        Testbedrijf B.V.                     Datum:           02-10-2026
+        Voorbeeldstraat 1                    Vervaldatum:     16-10-2026
+        8601 AA Sneek                        Betaalkenmerk:   4410 1234 5678 9012
+        Omschrijving                                    BTW     Bedrag excl. (EUR)
+        Drukwerk: 500 visitekaartjes                    21%                 200,00
+        Totaal excl. BTW                                              EUR 200,00
+        BTW 21% over 200,00                                            EUR 42,00
+        Totaal incl. BTW                                              EUR 242,00
+        """;
+
+    [Fact]
+    public void Nummer_als_label_betaalkenmerk_en_geen_tabelkop_als_btw_nummer()
+    {
+        var factuur = Factuurtekst.Analyseer(Kop);
+
+        Assert.Equal(("DA-2026-0101", "4410123456789012", "NL123456782B01"), (factuur.Factuurnummer, factuur.Betalingskenmerk, factuur.BtwNummer));
+        Assert.False(factuur.Herinnering);
+    }
+
+    [Theory]
+    [InlineData("HERINNERING")]
+    [InlineData("AANMANING")]
+    public void Een_herinnering_wordt_herkend(string kop)
+    {
+        var herinnering = Factuurtekst.Analyseer(Kop.Replace("FACTUUR", kop, StringComparison.Ordinal) + "\n2e aanmaning: volgens onze administratie is deze factuur nog niet voldaan.");
+
+        Assert.True(herinnering.Herinnering);
+        var voorstel = Inkoopverwerker.Verwerk(herinnering, [new Relatie("ANKER", "Drukkerij Het Anker B.V.", ["NL44RABO0123456789"])], [], new Leergeheugen(), Testadministratie.Btw,
+            [new BestaandeFactuur("ANKER", "DA-2026-0101", new(2026, 10, 2), 242m, Betaald: true)]);
+        Assert.Contains("Herinnering van factuur DA-2026-0101 van 02-10-2026: die is al geboekt en betaald. Niet nog eens boeken.", voorstel.Belemmeringen);
+    }
+}
+
 public sealed class InkoopverwerkerTests
 {
     private static readonly Relatie[] Relaties =

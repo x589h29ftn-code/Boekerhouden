@@ -4,7 +4,7 @@ namespace Boekerhouden.Boekhouding.Afletteren;
 /// Een factuurnummer terugvinden in de omschrijving van een betaling, ongeacht leestekens en hoofdletters
 /// (<c>2026-001</c> = <c>2026001</c> = <c>factuur:2026/001</c>).
 /// </summary>
-public static class Factuurnummers
+public static partial class Factuurnummers
 {
     private static readonly char[] Scheidingen = [' ', '\t', '\n', ',', ';', ':', '(', ')', '[', ']'];
 
@@ -17,7 +17,8 @@ public static class Factuurnummers
     /// <summary>
     /// Komt het factuurnummer voor in de tekst? Gelijk aan een woord (bij alleen cijfers ook zonder voorloopnullen),
     /// of vanaf vier tekens als deel van een woord, mits er geen cijfer direct voor of na staat (anders zou
-    /// <c>2026-001</c> ook in <c>2026-0012</c> gevonden worden).
+    /// <c>2026-001</c> ook in <c>2026-0012</c> gevonden worden), of los geschreven met dezelfde groepen in dezelfde
+    /// volgorde ("inv 2026 87" voor INV-2026-0087, bij minstens drie groepen).
     /// </summary>
     public static bool KomtVoor(string? factuurnummer, string? tekst)
     {
@@ -45,8 +46,56 @@ public static class Factuurnummers
             }
         }
 
+        return LosGeschreven(factuurnummer, tekst);
+    }
+
+    /// <summary>
+    /// Wordt het factuurnummer genoemd, ook los geschreven ("inv 2026 87" voor INV-2026-0087) of alleen met het laatste
+    /// getal als dat minstens drie cijfers heeft ("Fact GB-2026-1041 1042 1043")?
+    /// </summary>
+    public static bool Genoemd(string? factuurnummer, string? tekst)
+    {
+        if (KomtVoor(factuurnummer, tekst))
+        {
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(factuurnummer) || string.IsNullOrWhiteSpace(tekst))
+        {
+            return false;
+        }
+
+        var laatste = Delen(factuurnummer).LastOrDefault(IsGetal);
+        return laatste is { Length: >= 3 } && Delen(tekst).Contains(laatste);
+    }
+
+    /// <summary>De letter- en cijfergroepen, zonder voorloopnullen ("INV-2026-0087" → INV, 2026, 87).</summary>
+    private static List<string> Delen(string tekst) =>
+        [.. GroepPatroon().Matches(tekst.ToUpperInvariant()).Select(m => IsGetal(m.Value) ? m.Value.TrimStart('0') is { Length: > 0 } g ? g : "0" : m.Value)];
+
+    /// <summary>Komen de groepen van het nummer (minstens drie) achter elkaar in de tekst voor?</summary>
+    private static bool LosGeschreven(string factuurnummer, string tekst)
+    {
+        var nummer = Delen(factuurnummer);
+        if (nummer.Count < 3 || !nummer.Any(IsGetal))
+        {
+            return false;
+        }
+
+        var woorden = Delen(tekst);
+        for (var i = 0; i + nummer.Count <= woorden.Count; i++)
+        {
+            if (nummer.Select((d, j) => woorden[i + j] == d).All(x => x))
+            {
+                return true;
+            }
+        }
+
         return false;
     }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"[A-Z]+|[0-9]+")]
+    private static partial System.Text.RegularExpressions.Regex GroepPatroon();
 
     private static bool BevatMetGrens(string woord, string nummer)
     {

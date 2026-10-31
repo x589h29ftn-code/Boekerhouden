@@ -105,13 +105,17 @@ public sealed class Mt940Tests
             Factuur 2026-114
             :61:2610031003D24,50NCHGNONREF
             :86:Kosten zakelijk betaalpakket oktober 2026
-            :62F:C261003EUR875,51
+            :61:2610061006D544,50NTRFNONREF
+            :86:NL47INGB0002200104 Technisch Bureau Noord B.V.
+            BETALINGSKENM.: 4410123456789012
+            :62F:C261006EUR331,01
             """;
 
         var mutaties = Mt940Lezer.Lees(new StringReader(tekst)).Single().Mutaties;
 
         Assert.Equal(("NL44RABO0123456789", "Kantoorhandel Jansen B.V.", "Factuur 2026-114"), (mutaties[0].TegenIban, mutaties[0].TegenNaam, mutaties[0].Omschrijving));
         Assert.Equal((null, null, "Kosten zakelijk betaalpakket oktober 2026"), (mutaties[1].TegenIban, mutaties[1].TegenNaam, mutaties[1].Omschrijving));
+        Assert.Equal(("NL47INGB0002200104", "Technisch Bureau Noord B.V.", "4410123456789012"), (mutaties[2].TegenIban, mutaties[2].TegenNaam, mutaties[2].Betalingskenmerk));
     }
 
     [Fact]
