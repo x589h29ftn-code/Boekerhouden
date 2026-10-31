@@ -101,6 +101,27 @@ public sealed class JournaalTests
     }
 
     [Fact]
+    public void Grootboekkaart_toont_per_regel_de_btw_code_en_de_btw_uit_dezelfde_boeking()
+    {
+        var journaal = Testadministratie.Journaal();
+        journaal.Boek(new Journaalpost("MEM", "2026-0001", new(2026, 3, 1), "Inkoop",
+        [
+            new Journaalregel("4300", 100m, "Papier", "I21"),
+            new Journaalregel("4300", 50.01m, "Pennen", "I21"),
+            new Journaalregel("4300", 20m, "Zonder btw"),
+            new Journaalregel("1510", 31.50m, "Btw", "I21"),
+            new Journaalregel("1100", -201.51m),
+        ]));
+
+        var kaart = journaal.Kaart("4300", new(2026, 1, 1), new(2026, 12, 31));
+        var btw = journaal.Kaart("1510", new(2026, 1, 1), new(2026, 12, 31));
+
+        Assert.Equal([("I21", 21m), ("I21", 10.50m), (null, null)], kaart.Mutaties.Select(m => (m.BtwCode, m.Btw)));
+        Assert.Equal(31.50m, kaart.Mutaties.Sum(m => m.Btw ?? 0));
+        Assert.Equal(("I21", (decimal?)null), (btw.Mutaties[0].BtwCode, btw.Mutaties[0].Btw));
+    }
+
+    [Fact]
     public void Resultaatrekening_begint_elk_jaar_op_nul()
     {
         var journaal = Testadministratie.Journaal();

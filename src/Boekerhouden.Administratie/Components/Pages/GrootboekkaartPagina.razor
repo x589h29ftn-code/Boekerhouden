@@ -1,6 +1,7 @@
 @page "/a/{Id:guid}/grootboek"
 @inject GrootboekDienst Grootboek
 @inject NavigationManager Navigatie
+@inject IJSRuntime JS
 
 <AdministratieKader Id="Id" Titel="Grootboekkaart" Actief="/grootboek" BijOpenen="Open">
     <Acties>
@@ -19,16 +20,19 @@
                 <a class="btn btn-sm btn-link text-secondary px-0" href="/a/@Id/kolommenbalans?@Weergave.Periodequery(van, tot)" title="Naar de kolommenbalans">←</a>
                 <span class="rekeningnummer">@kaart.Rekening.Nummer</span>
                 <span class="fw-semibold">@kaart.Rekening.Naam</span>
-                <span class="small text-secondary ms-2" title="RGS">@kaart.Rekening.RgsCode</span>
+                <span class="btn-group btn-group-sm ms-2 bladeren">
+                    <button class="btn btn-outline-secondary" title="Vorige rekening@(Buur(-1) is { } v ? $": {v.Nummer} {v.Naam}" : null)" aria-label="Vorige rekening" disabled="@(Buur(-1) is null)" @onclick="() => Blader(-1)">&lsaquo;</button>
+                    <button class="btn btn-outline-secondary" title="Volgende rekening@(Buur(1) is { } n ? $": {n.Nummer} {n.Naam}" : null)" aria-label="Volgende rekening" disabled="@(Buur(1) is null)" @onclick="() => Blader(1)">&rsaquo;</button>
+                </span>
             </div>
             <div class="card overzichtskaart">
-                <table class="table align-middle mb-0 overzichtstabel">
+                <table @ref="tabel" class="table align-middle mb-0 overzichtstabel grootboekkaart">
                     <thead>
-                        <tr><th>Datum</th><th>Dagboek</th><th>Boekstuk</th><th>Omschrijving</th><th>Factuur</th><th class="text-end">Debet</th><th class="text-end">Credit</th><th class="text-end">Saldo</th></tr>
+                        <tr><th>Datum</th><th>Dagboek</th><th>Boekstuk</th><th>Omschrijving</th><th>Btw</th><th class="text-end">Btw-bedrag</th><th>Factuur</th><th class="text-end">Debet</th><th class="text-end">Credit</th><th class="text-end">Saldo</th></tr>
                     </thead>
                     <tbody>
                         <tr class="text-secondary">
-                            <td>@Weergave.Datum(kaart.Van)</td><td colspan="4">Beginsaldo</td><td></td><td></td>
+                            <td>@Weergave.Datum(kaart.Van)</td><td colspan="6">Beginsaldo</td><td></td><td></td>
                             <td class="bedrag text-end">@Bedragen.Getal(kaart.Beginsaldo)</td>
                         </tr>
                         @foreach (var m in kaart.Mutaties)
@@ -37,8 +41,10 @@
                                 <td class="text-nowrap">@Weergave.Datum(m.Datum)</td>
                                 <td>@m.Dagboek</td>
                                 <td class="text-nowrap">@m.Boekstuk</td>
-                                <td>@m.Omschrijving</td>
-                                <td class="text-secondary" title="@m.Relatie">@m.Factuurnummer</td>
+                                <td class="text-truncate" title="@m.Omschrijving">@m.Omschrijving</td>
+                                <td class="text-secondary">@m.BtwCode</td>
+                                <td class="bedrag text-end">@(m.Btw is { } btw ? Bedragen.Getal(btw) : null)</td>
+                                <td class="text-secondary text-truncate" title="@m.Relatie">@m.Factuurnummer</td>
                                 <td class="bedrag text-end">@(m.Bedrag > 0 ? Bedragen.Getal(m.Bedrag) : null)</td>
                                 <td class="bedrag text-end">@(m.Bedrag < 0 ? Bedragen.Getal(-m.Bedrag) : null)</td>
                                 <td class="bedrag text-end">@Bedragen.Getal(m.Saldo)</td>
@@ -47,7 +53,7 @@
                     </tbody>
                     <tfoot>
                         <tr class="generaal">
-                            <td colspan="5">Totaal en eindsaldo</td>
+                            <td colspan="7">Totaal en eindsaldo</td>
                             <td class="bedrag text-end">@Bedragen.Getal(kaart.TotaalDebet)</td>
                             <td class="bedrag text-end">@Bedragen.Getal(kaart.TotaalCredit)</td>
                             <td class="bedrag text-end">@Bedragen.Getal(kaart.Eindsaldo)</td>
@@ -65,6 +71,10 @@
     private DateOnly tot;
     private IReadOnlyList<Boekhouding.Grootboek.Rekening> rekeningen = [];
     private Boekhouding.Grootboek.Grootboekkaart? kaart;
+    private IReadOnlyList<Boekhouding.Grootboek.Rekening> metMutaties = [];
+    private ElementReference tabel;
+    private bool kolommenGemaakt;
+    private int pogingen;
 
     [Parameter]
     public Guid Id { get; set; }
@@ -91,8 +101,53 @@
         await Laad();
     }
 
-    private async Task Laad() =>
+    private async Task Laad()
+    {
         kaart = Rekening is null ? null : await Grootboek.Kaart(geopend!.Wie, Id, Rekening, van, tot);
+        // Bladeren gaat langs de rekeningen met een saldo of mutaties in de periode, zoals in de kolommenbalans.
+        metMutaties = [.. (await Grootboek.Kolommenbalans(geopend!.Wie, Id, van, tot)).Regels.Where(r => r.Debet != 0 || r.Credit != 0).Select(r => r.Rekening)];
+
+        // De tabel staat in de inhoud van het kader: deze pagina zelf opnieuw tekenen, zodat de kolommen te slepen zijn.
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // De tabel wordt in de inhoud van het kader getekend; pas als die er is (Context), de kolommen sleepbaar maken.
+        if (kaart is not null && !kolommenGemaakt && tabel.Context is null && pogingen++ < 3)
+        {
+            StateHasChanged();
+            return;
+        }
+
+        if (kaart is not null && !kolommenGemaakt && tabel.Context is not null)
+        {
+            kolommenGemaakt = true;
+            await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "./kolommen.js");
+            await module.InvokeVoidAsync("maak", tabel, "grootboekkaart");
+        }
+    }
+
+    /// <summary>De vorige of volgende rekening met mutaties (in de volgorde van het rekeningschema).</summary>
+    private Boekhouding.Grootboek.Rekening? Buur(int stap)
+    {
+        var lijst = metMutaties.Count > 0 ? metMutaties : rekeningen;
+        var plek = rekeningen.ToList().FindIndex(r => r.Nummer == Rekening);
+        var volgorde = lijst.Select(r => (Rekening: r, Plek: rekeningen.ToList().FindIndex(x => x.Nummer == r.Nummer))).ToList();
+        return stap > 0
+            ? volgorde.Where(x => x.Plek > plek).OrderBy(x => x.Plek).Select(x => x.Rekening).FirstOrDefault()
+            : volgorde.Where(x => x.Plek < plek && x.Plek >= 0).OrderByDescending(x => x.Plek).Select(x => x.Rekening).FirstOrDefault();
+    }
+
+    private async Task Blader(int stap)
+    {
+        if (Buur(stap) is { } rekening)
+        {
+            Rekening = rekening.Nummer;
+            Adres();
+            await Laad();
+        }
+    }
 
     private void Adres() =>
         Navigatie.NavigateTo($"/a/{Id}/grootboek?rekening={Uri.EscapeDataString(Rekening ?? "")}&{Weergave.Periodequery(van, tot)}", replace: true);

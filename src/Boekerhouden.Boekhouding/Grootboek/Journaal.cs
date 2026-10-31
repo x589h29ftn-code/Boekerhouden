@@ -3,6 +3,9 @@ using Boekerhouden.Domain;
 namespace Boekerhouden.Boekhouding.Grootboek;
 
 /// <summary>Een mutatie op een grootboekkaart, met het lopende saldo.</summary>
+/// <param name="BtwCode">De btw-code van de regel.</param>
+/// <param name="Btw">De btw die in dezelfde boeking bij deze regel hoort (zelfde btw-code), naar verhouding als meer regels
+/// die code hebben; leeg op de btw-rekeningen zelf en zonder btw-code.</param>
 public sealed record Kaartregel(
     DateOnly Datum,
     string Dagboek,
@@ -11,7 +14,9 @@ public sealed record Kaartregel(
     decimal Bedrag,
     decimal Saldo,
     string? Relatie,
-    string? Factuurnummer);
+    string? Factuurnummer,
+    string? BtwCode = null,
+    decimal? Btw = null);
 
 /// <summary>De grootboekkaart van één rekening over een periode.</summary>
 public sealed record Grootboekkaart(Rekening Rekening, DateOnly Van, DateOnly Tot, decimal Beginsaldo, IReadOnlyList<Kaartregel> Mutaties)
@@ -128,7 +133,8 @@ public sealed class Journaal
                      .OrderBy(x => x.Post.Datum).ThenBy(x => x.Post.Dagboek, StringComparer.Ordinal).ThenBy(x => x.Post.Boekstuk, StringComparer.Ordinal))
         {
             saldo += regel.Bedrag;
-            mutaties.Add(new Kaartregel(post.Datum, post.Dagboek, post.Boekstuk, regel.Omschrijving ?? post.Omschrijving, regel.Bedrag, saldo, regel.Relatie, regel.Factuurnummer));
+            mutaties.Add(new Kaartregel(post.Datum, post.Dagboek, post.Boekstuk, regel.Omschrijving ?? post.Omschrijving, regel.Bedrag, saldo, regel.Relatie, regel.Factuurnummer,
+                regel.BtwCode, BtwBij(post, regel)));
         }
 
         return new Grootboekkaart(rekening, van, tot, beginsaldo, mutaties);
@@ -278,6 +284,41 @@ public sealed class Journaal
     public Proefbalans Proefbalans(int boekjaar) => Proefbalans(new DateOnly(boekjaar, 1, 1), new DateOnly(boekjaar, 12, 31));
 
     private static DateOnly Boekjaarbegin(DateOnly datum) => new(datum.Year, 1, 1);
+
+    private static bool IsBtwRekening(Rekening? rekening) => rekening?.Functie is Rekeningfunctie.Voorbelasting or Rekeningfunctie.AfTeDragenBtw;
+
+    /// <summary>
+    /// De btw bij een regel: de btw-regels in dezelfde boeking met dezelfde btw-code (eerst de voorbelasting, anders de
+    /// af te dragen btw, zodat bij verlegde btw de aftrek telt), verdeeld over de regels met die code naar hun bedrag; de
+    /// laatste krijgt het afrondingsverschil.
+    /// </summary>
+    private decimal? BtwBij(Journaalpost post, Journaalregel regel)
+    {
+        if (string.IsNullOrWhiteSpace(regel.BtwCode) || IsBtwRekening(Schema.Zoek(regel.Rekeningnummer)))
+        {
+            return null;
+        }
+
+        var code = regel.BtwCode;
+        var btwregels = post.Regels.Where(r => r.BtwCode == code && IsBtwRekening(Schema.Zoek(r.Rekeningnummer))).ToList();
+        var voorbelasting = btwregels.Where(r => Schema.Zoek(r.Rekeningnummer)!.Functie == Rekeningfunctie.Voorbelasting).ToList();
+        var btw = (voorbelasting.Count > 0 ? voorbelasting : btwregels).Sum(r => r.Bedrag);
+        var grondslagen = post.Regels.Where(r => r.BtwCode == code && !IsBtwRekening(Schema.Zoek(r.Rekeningnummer))).ToList();
+        if (btwregels.Count == 0 || grondslagen.Count == 0)
+        {
+            return btwregels.Count == 0 ? 0m : null;
+        }
+
+        var totaal = grondslagen.Sum(r => r.Bedrag);
+        if (totaal == 0)
+        {
+            return null;
+        }
+
+        var verdeeld = grondslagen.Select(r => decimal.Round(btw * r.Bedrag / totaal, 2, MidpointRounding.AwayFromZero)).ToList();
+        var index = grondslagen.FindIndex(r => ReferenceEquals(r, regel));
+        return index == grondslagen.Count - 1 ? btw - verdeeld.Take(index).Sum() : verdeeld[index];
+    }
 
     private IEnumerable<(Journaalpost Post, Journaalregel Regel)> Regels(string rekeningnummer) =>
         posten.SelectMany(p => p.Regels.Where(r => r.Rekeningnummer == rekeningnummer).Select(r => (p, r)));

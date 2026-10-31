@@ -1048,3 +1048,12 @@ a.terug:hover {
 
 /* De treffers in de kolom factuurnummer: breder dan de kolom zelf. */
 .postkeuze-lijst { min-width: 26rem; }
+
+/* Kolommen breder of smaller slepen (kolommen.js): een greep aan de rechterrand van de kolomkop. */
+table[data-kolommen] th { position: relative; }
+.kolomgreep { position: absolute; top: 0; right: -3px; width: 7px; height: 100%; cursor: col-resize; z-index: 1; }
+.kolomgreep:hover, body.kolom-slepen .kolomgreep { background: var(--bs-border-color); }
+body.kolom-slepen { cursor: col-resize; user-select: none; }
+.grootboekkaart td { overflow: hidden; }
+.bladeren .btn { line-height: 1; padding: .15rem .55rem; }
+.overzichtskaart:has(> table[data-kolommen]) { overflow-x: auto; }
