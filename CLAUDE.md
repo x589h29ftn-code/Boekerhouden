@@ -53,12 +53,12 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   migraties met triggers die boekingen en het log onwijzigbaar maken), `Diensten/` (`Toegang` = de enige weg naar de
   gegevens van een administratie, met rechten per lidmaatschap; administraties, grootboek en boeken met hash-keten,
   gebruikers, tweestapsverificatie en passkeys, wijzigingslog; `AansluitingDienst` = saldo-aansluitingen; `OverzichtDienst` = grootboekkaart en kolommenbalans naar Excel en PDF; `InkoopDienst` = inlezen met virusscan, voorstel en
-  (automatisch) boeken en de kopie in de documentmap; `VerkoopDienst` = verkoopfacturen: concept, definitief (nummer, boeking, debiteuren), crediteren; `BankDienst` = afschriften inlezen (saldo, aansluiting, dubbel), afletteren en op rekening boeken; `InrichtingDienst` = relaties, regels en instellingen van een
+  (automatisch) boeken en de kopie in de documentmap; `VerkoopDienst` = verkoopfacturen: concept, definitief (nummer, boeking, debiteuren), crediteren; `FactuuropmaakDienst` = lay-out van de verkoopfactuur, PDF, e-factuur (UBL) en e-mail (.eml); `BankDienst` = afschriften inlezen (saldo, aansluiting, dubbel), afletteren en op rekening boeken; `InrichtingDienst` = relaties, regels en instellingen van een
   administratie; `KantoorDienst` = kantoorinstellingen, alleen beheerder; `BtwDienst` = btw-tabel (codes met soort en tarief, tarieven per datum), wijzigen alleen beheerder; `Werkomgeving` = webapp of lokaal),
   `Lokaal/` (`LokaleApp` = samenstelling voor de Windows-app: SQLite, lokale gebruiker zonder inloggen), `Identiteit/` (inloggen, beveiligingsheaders,
   tweestap verplicht voor de beheerder), `Components/` (schermen; accountpagina's statisch, de rest interactief).
   Negatieve toegangstests horen bij elke dienst. Geen inline scripts (CSP): JavaScript als los bestand in `wwwroot/`
-  (`factuurviewer.js` = de PDF-viewer met gebied aanwijzen; pdf.js staat in `wwwroot/lib/pdfjs`, Apache-2.0).
+  (`factuurviewer.js` = de PDF-viewer met gebied aanwijzen; `factuurontwerp.js` = blokken slepen in de factuurontwerper; pdf.js staat in `wwwroot/lib/pdfjs`, Apache-2.0).
 - `src/Boekerhouden.Administratie.Windows` – de Windows-app voor de tests: WinForms met BlazorWebView (dezelfde
   schermen, geen webserver), SQLite in `%LOCALAPPDATA%`, geen inloggen. Bouwt op Linux (`EnableWindowsTargeting`),
   draait alleen op Windows. `scripts/maak-windows-app.ps1` / `.sh` maken de zip; de CI ook, en start hem op Windows.

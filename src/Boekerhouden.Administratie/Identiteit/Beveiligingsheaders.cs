@@ -10,7 +10,7 @@ public sealed class Beveiligingsheaders(RequestDelegate volgende)
 {
     public const string Beleid =
         "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
-        "connect-src 'self' ws: wss:; font-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none'";
+        "connect-src 'self' ws: wss:; font-src 'self' data:; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none'";
 
     public Task InvokeAsync(HttpContext context)
     {

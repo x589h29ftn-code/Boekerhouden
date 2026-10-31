@@ -9,7 +9,7 @@ public sealed class VerkoopTests
 {
     private static readonly IReadOnlyList<BtwCode> Codes = BtwCodes.Standaard;
 
-    private static readonly Partij Eigen = new("Bakkerij Voorbeeld B.V.", new("Dorpsstraat 1", "1234 AB", "Ergens"), "NL001234567B01", "12345678");
+    private static readonly Partij Eigen = new("Bakkerij Voorbeeld B.V.", new("Dorpsstraat 1", "1234 AB", "Ergens"), "NL001234567B01", "12345678", Ibans: ["NL20INGB0001234567"]);
 
     private static Verkoopfactuur Factuur(params Verkoopregel[] regels) =>
         new("KLANT", new Partij("Klant B.V.", new("Laan 2", "5678 CD", "Elders")), "20260001", new(2026, 3, 1), new(2026, 3, 31), "Maart", regels);
@@ -157,6 +157,7 @@ public sealed class VerkoopTests
 
         Assert.Contains(Verkoopcontrole.Controleer(factuur, Eigen with { Adres = new() }, Codes), f => f.Contains("adres van de eigen onderneming", StringComparison.Ordinal));
         Assert.Contains(Verkoopcontrole.Controleer(factuur, Eigen with { BtwNummer = null }, Codes), f => f.Contains("btw-nummer van de eigen onderneming", StringComparison.Ordinal));
+        Assert.Contains(Verkoopcontrole.Controleer(factuur, Eigen with { Ibans = [] }, Codes), f => f.Contains("eigen IBAN", StringComparison.Ordinal));
         // Alleen vrijgestelde prestaties: geen btw-nummer nodig.
         Assert.Empty(Verkoopcontrole.Controleer(Factuur(new Verkoopregel("Les", 1m, 50m, "8000", "VVR")), Eigen with { BtwNummer = null }, Codes));
     }
@@ -204,4 +205,73 @@ public sealed class VerkoopTests
         Assert.Equal(["Laan 2", "5678 CD  Elders"], new Adres("Laan 2", "5678 CD", "Elders").Regels);
         Assert.Equal(["Rue 1", "1000  Brussel", "België"], new Adres("Rue 1", "1000", "Brussel", "be").Regels);
     }
+}
+
+public sealed class UblSchrijverTests
+{
+    private static readonly IReadOnlyList<BtwCode> Codes = BtwCodes.Standaard;
+
+    private static readonly Partij Eigen = new("Bakkerij Voorbeeld B.V.", new("Dorpsstraat 1", "1234 AB", "Ergens"), "NL123456782B01", "12345678", "info@bakkerij.test", ["NL20INGB0001234567"]);
+
+    private static Verkoopfactuur Factuur(params Verkoopregel[] regels) =>
+        new("KLANT", new Partij("Klant B.V.", new("Laan 2", "5678 CD", "Elders"), "NL800000006B01"), "20260007", new(2026, 3, 1), new(2026, 3, 31), "Maart", regels,
+            Betalingskenmerk.Maak("20260007"));
+
+    [Fact]
+    public void De_e_factuur_is_terug_te_lezen_met_dezelfde_gegevens()
+    {
+        var factuur = Factuur(new Verkoopregel("Advies", 10m, 85m, "8000", "V21", "uur", 10m), new Verkoopregel("Broodjes", 20m, 2.5m, "8010", "V9"));
+
+        var xml = UblFactuurSchrijver.Schrijf(factuur, Eigen, Codes, "PO-123");
+        var gelezen = Herkenning.UblFactuurLezer.Lees(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(xml)));
+
+        Assert.Equal("20260007", gelezen.Factuurnummer);
+        Assert.Equal("Bakkerij Voorbeeld B.V.", gelezen.Naam);
+        Assert.Equal("NL123456782B01", gelezen.BtwNummer);
+        Assert.Equal("12345678", gelezen.KvkNummer);
+        Assert.Equal("NL20INGB0001234567", gelezen.Iban);
+        Assert.Equal(new DateOnly(2026, 3, 1), gelezen.Factuurdatum);
+        Assert.Equal(new DateOnly(2026, 3, 31), gelezen.Vervaldatum);
+        Assert.Equal(factuur.Betalingskenmerk, gelezen.Betalingskenmerk);
+        Assert.Equal(815m, gelezen.TotaalExclusief);
+        Assert.Equal(815m + 160.65m + 4.5m, gelezen.TotaalInclusief);
+        Assert.Equal([(21m, 765m, 160.65m), (9m, 50m, 4.5m)], gelezen.Btwregels.Select(b => (b.Percentage, b.Grondslag!.Value, b.Btw)));
+        Assert.Equal([765m, 50m], gelezen.Regels!.Select(r => r.Bedrag));
+        Assert.Empty(gelezen.Controleer());
+        Assert.Contains("<cbc:BuyerReference>PO-123</cbc:BuyerReference>", xml, StringComparison.Ordinal);
+        Assert.Contains("unitCode=\"HUR\"", xml, StringComparison.Ordinal);
+        Assert.Contains("<cbc:AllowanceChargeReason>Korting 10%</cbc:AllowanceChargeReason>", xml, StringComparison.Ordinal);
+        Assert.Contains(UblFactuurSchrijver.Customization, xml, StringComparison.Ordinal);
+        Assert.StartsWith("<?xml version=\"1.0\" encoding=\"utf-8\"?>", xml, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Verlegd_en_icp_krijgen_hun_categorie_en_een_reden()
+    {
+        var xml = UblFactuurSchrijver.Schrijf(Factuur(new Verkoopregel("Montage", 8m, 60m, "8000", "VVL"), new Verkoopregel("Ovens", 1m, 2500m, "8010", "VEU")), Eigen, Codes);
+
+        Assert.Contains("<cbc:ID>AE</cbc:ID>", xml, StringComparison.Ordinal);
+        Assert.Contains("<cbc:ID>K</cbc:ID>", xml, StringComparison.Ordinal);
+        Assert.Contains("<cbc:TaxExemptionReason>Btw verlegd</cbc:TaxExemptionReason>", xml, StringComparison.Ordinal);
+        Assert.True(Herkenning.UblFactuurLezer.Lees(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(xml))).Verlegd);
+    }
+
+    [Fact]
+    public void Een_creditfactuur_wordt_een_creditnote_met_verwijzing()
+    {
+        var factuur = Factuur(new Verkoopregel("Advies", -10m, 85m, "8000", "V21")) with { Nummer = "20260008", CreditVoor = "20260007" };
+
+        var xml = UblFactuurSchrijver.Schrijf(factuur, Eigen, Codes);
+        var gelezen = Herkenning.UblFactuurLezer.Lees(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(xml)));
+
+        Assert.Contains("<CreditNote", xml, StringComparison.Ordinal);
+        Assert.Contains("<cbc:CreditNoteTypeCode>381</cbc:CreditNoteTypeCode>", xml, StringComparison.Ordinal);
+        Assert.Contains("<cbc:ID>20260007</cbc:ID>", xml, StringComparison.Ordinal);
+        Assert.Contains("<cbc:PayableAmount currencyID=\"EUR\">1028.50</cbc:PayableAmount>", xml, StringComparison.Ordinal);
+        Assert.Equal(-1028.5m, gelezen.TotaalInclusief);
+    }
+
+    [Fact]
+    public void Zonder_nummer_geen_e_factuur() =>
+        Assert.Throws<InvalidOperationException>(() => UblFactuurSchrijver.Schrijf(Factuur(new Verkoopregel("A", 1m, 1m, "8000", "V21")) with { Nummer = null }, Eigen, Codes));
 }

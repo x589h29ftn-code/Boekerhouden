@@ -32,6 +32,7 @@ public sealed class VerkoopTests(AdministratieFixture app) : IClassFixture<Admin
         {
             BtwNummer = "NL123456782B01",
             KvkNummer = "12345678",
+            Ibans = ["NL20INGB0001234567"],
             Contact = new Contactgegevens("Dorpsstraat 1", "1234 AB", "Ergens", null, "info@bakkerij.test"),
         });
         Assert.True(uitkomst.IsGelukt, string.Join("; ", uitkomst.Fouten));

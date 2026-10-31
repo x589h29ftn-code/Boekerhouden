@@ -1072,3 +1072,23 @@ body.kolom-slepen { cursor: col-resize; user-select: none; }
 .factuurgegevens dt { font-weight: normal; color: var(--bs-secondary-color); }
 .factuurgegevens dd { margin: 0; }
 .factuurtekst { white-space: pre-line; }
+
+/* De factuurontwerper: het A4 links (geschaald), de instellingen rechts. */
+.ontwerper { display: flex; gap: 1.5rem; align-items: flex-start; }
+.ontwerpvlak-rand { flex: none; background: var(--bs-tertiary-bg, #eceae6); padding: 1rem; border-radius: .25rem; }
+.ontwerpvlak { position: relative; width: calc(210mm * .8); height: calc(297mm * .8); overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.15); background: #fff; outline: none; }
+.ontwerpvlak-pagina { transform-origin: top left; width: 210mm; height: 297mm; overflow: hidden; }
+.ontwerpvlak .fp { min-height: 297mm; user-select: none; touch-action: none; }
+.ontwerppaneel { flex: 1; min-width: 17rem; max-width: 24rem; position: sticky; top: 1rem; }
+.ontwerppaneel fieldset { border: 0; padding: 0; margin: 0; }
+.paneelraster { display: grid; grid-template-columns: 7rem 1fr; gap: .35rem .5rem; align-items: center; }
+.paneelraster > label { font-size: .85rem; color: var(--bs-secondary-color); margin: 0; }
+.blokkenlijst { display: flex; flex-direction: column; align-items: flex-start; }
+.variabelen summary { cursor: pointer; }
+
+/* Het voorbeeld van een verkoopfactuur in zijn lay-out. */
+.factuurvoorbeeld { background: var(--bs-tertiary-bg, #eceae6); padding: 1rem; border-radius: .25rem; display: inline-block; }
+.factuurvoorbeeld-pagina { width: calc(210mm * .75); height: calc(297mm * .75); overflow: hidden; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.15); }
+.factuurvoorbeeld-pagina > div { transform: scale(.75); transform-origin: top left; width: 210mm; }
+.verkoop-info { max-width: 22rem; line-height: 1.6; }
+.knopgroep { display: inline-flex; gap: .5rem; }

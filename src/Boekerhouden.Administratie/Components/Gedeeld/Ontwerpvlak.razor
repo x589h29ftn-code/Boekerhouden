@@ -1,0 +1,71 @@
+@* Het A4 van de factuurontwerper: de pagina geschaald, met blokken die je kiest en versleept (factuurontwerp.js). Het
+   vlak meldt een keuze (Gekozen) en een nieuwe plek of breedte in millimeters (Verplaatst). *@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<style>@((MarkupString)Css)</style>
+<div class="ontwerpvlak" @ref="vlak" tabindex="0" data-schaal="@Schaal.ToString(System.Globalization.CultureInfo.InvariantCulture)" aria-label="Factuur (blokken aanklikken en slepen)">
+    <div class="ontwerpvlak-pagina" style="transform: scale(@Schaal.ToString(System.Globalization.CultureInfo.InvariantCulture))">
+        @((MarkupString)Pagina)
+    </div>
+</div>
+
+@code {
+    private ElementReference vlak;
+    private IJSObjectReference? module;
+    private IJSObjectReference? koppeling;
+    private DotNetObjectReference<Ontwerpvlak>? zelf;
+
+    [Parameter, EditorRequired]
+    public string Pagina { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public string Css { get; set; } = "";
+
+    [Parameter]
+    public decimal Schaal { get; set; } = 0.8m;
+
+    [Parameter]
+    public EventCallback<string?> Gekozen { get; set; }
+
+    [Parameter]
+    public EventCallback<(string Id, decimal X, decimal Y, decimal Breedte)> Verplaatst { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool eersteKeer)
+    {
+        if (eersteKeer)
+        {
+            module = await JS.InvokeAsync<IJSObjectReference>("import", "./factuurontwerp.js");
+            zelf = DotNetObjectReference.Create(this);
+            koppeling = await module.InvokeAsync<IJSObjectReference>("koppel", vlak, zelf);
+        }
+    }
+
+    [JSInvokable]
+    public Task Kies(string? id) => Gekozen.InvokeAsync(id);
+
+    [JSInvokable]
+    public Task Verplaats(string id, decimal x, decimal y, decimal breedte) => Verplaatst.InvokeAsync((id, x, y, breedte));
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (koppeling is not null)
+            {
+                await koppeling.InvokeVoidAsync("ontkoppel");
+                await koppeling.DisposeAsync();
+            }
+
+            if (module is not null)
+            {
+                await module.DisposeAsync();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+
+        zelf?.Dispose();
+    }
+}

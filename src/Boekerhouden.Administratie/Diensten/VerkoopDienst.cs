@@ -50,7 +50,7 @@ public sealed record Verkoopweergave(
     Verkoopfactuur Factuur,
     Verkoopinvoer Invoer,
     Partij Afzender,
-    IReadOnlyList<Btwregel> Btw,
+    IReadOnlyList<Btwtotaal> Btw,
     decimal Totaal,
     IReadOnlyList<string> Vermeldingen,
     (string Dagboek, string Boekstuk)? Boeking,
@@ -147,7 +147,7 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
         return await Weergave(db, administratie, id);
     }
 
-    private static async Task<Verkoopweergave?> Weergave(AdministratieDbContext db, Guid administratie, Guid id)
+    internal static async Task<Verkoopweergave?> Weergave(AdministratieDbContext db, Guid administratie, Guid id)
     {
         if (await db.Verkoopdocumenten.AsNoTracking().Include(v => v.Regels).FirstOrDefaultAsync(v => v.Id == id) is not { } v)
         {

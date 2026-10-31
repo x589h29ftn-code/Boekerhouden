@@ -86,6 +86,8 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
 
     public DbSet<Verkoopdocumentregel> Verkoopdocumentregels => Set<Verkoopdocumentregel>();
 
+    public DbSet<Factuurlayout> Factuurlayouts => Set<Factuurlayout>();
+
     /// <summary>De sleutels van ASP.NET Core Data Protection (cookies, tokens).</summary>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
@@ -415,6 +417,18 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(r => r.BtwCode).HasMaxLength(10);
         });
 
+        builder.Entity<Factuurlayout>(e =>
+        {
+            e.ToTable("Factuurlayouts");
+            e.HasIndex(l => l.AdministratieId);
+            e.Property(l => l.Naam).HasMaxLength(100);
+            e.Property(l => l.Ontwerp).HasMaxLength(100_000);
+            e.Property(l => l.Logotype).HasMaxLength(30);
+            e.Property(l => l.GewijzigdDoor).HasMaxLength(200);
+            e.HasOne<Administratie>().WithMany().HasForeignKey(l => l.AdministratieId);
+        });
+
+        builder.Entity<Factuurlayout>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Verkoopdocument>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Verkoopdocumentregel>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Afschrift>().HasQueryFilter(e => e.AdministratieId == Geopend);

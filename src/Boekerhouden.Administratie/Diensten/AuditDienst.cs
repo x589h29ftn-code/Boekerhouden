@@ -110,5 +110,9 @@ public static class AuditActies
     public const string VerkoopconceptGewijzigd = "Verkoopfactuur (concept) gewijzigd";
     public const string VerkoopconceptVerwijderd = "Verkoopfactuur (concept) verwijderd";
     public const string VerkoopfactuurDefinitief = "Verkoopfactuur definitief";
+    public const string VerkoopfactuurEmail = "Verkoopfactuur als e-mail klaargezet";
+    public const string LayoutToegevoegd = "Factuurlay-out toegevoegd";
+    public const string LayoutGewijzigd = "Factuurlay-out gewijzigd";
+    public const string LayoutVerwijderd = "Factuurlay-out verwijderd";
     public const string KetenGecontroleerd = "Journaal gecontroleerd";
 }

@@ -1,0 +1,438 @@
+@page "/a/{Id:guid}/factuurlayout"
+@using Boekerhouden.Administratie.Export
+@using Boekerhouden.Boekhouding.Verkoop
+@inject FactuuropmaakDienst Opmaak
+@inject VerkoopDienst Verkoop
+@inject IJSRuntime JS
+@inject NavigationManager Navigatie
+
+<AdministratieKader Id="Id" Titel="Factuurlay-out" Actief="/factuurlayout" BijOpenen="Open">
+    <Kenmerken>
+        @if (huidig is not null)
+        {
+            <span>@(huidig.Id is null ? "nog niet bewaard" : huidig.Standaard ? "standaard" : "")</span>
+            @if (gewijzigd)
+            {
+                <span class="scheiding">·</span>
+                <span>niet opgeslagen</span>
+            }
+        }
+    </Kenmerken>
+    <Acties>
+        @if (layouts.Count > 1)
+        {
+            <select class="form-select form-select-sm w-auto" aria-label="Lay-out" value="@huidig?.Id" @onchange="KiesLayout">
+                @foreach (var l in layouts)
+                {
+                    <option value="@l.Id">@l.Naam@(l.Standaard ? " (standaard)" : "")</option>
+                }
+            </select>
+        }
+        @if (mag)
+        {
+            <button class="btn btn-sm btn-outline-secondary" @onclick="Nieuw" title="Een nieuwe lay-out, als kopie van deze">Nieuwe lay-out</button>
+            <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" @onclick="Pdf" title="Het voorbeeld als PDF">PDF</button>
+            <button class="btn btn-primary" disabled="@bezig" @onclick="Bewaar">Opslaan</button>
+        }
+    </Acties>
+    <ChildContent>
+        <Foutmeldingen Fouten="fouten" />
+        @if (bericht is not null)
+        {
+            <div class="bericht mb-2">@bericht</div>
+        }
+        @if (ontwerp is null || afzender is null)
+        {
+            <Laadschets />
+        }
+        else
+        {
+            <div class="ontwerper">
+                <div class="ontwerpvlak-rand">
+                    <Ontwerpvlak Pagina="@FactuurHtml.Pagina(Voorbeeld, ontwerp, logo, ontwerper: true, gekozen)" Css="@FactuurHtml.Css(ontwerp)" Schaal="Schaal"
+                                 Gekozen="Kies" Verplaatst="Verplaatst" />
+                </div>
+                <aside class="ontwerppaneel">
+                    <fieldset disabled="@(!mag)">
+                        @if (Gekozen is { } blok)
+                        {
+                            <div class="d-flex align-items-center mb-2">
+                                <h2 class="h6 mb-0 me-auto">@Bloknaam(blok)</h2>
+                                <button class="btn btn-sm btn-link text-secondary p-0" title="Terug naar de pagina" @onclick="() => gekozen = null"><Icoon Naam="x" /></button>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="zichtbaar" checked="@blok.Zichtbaar" @onchange="e => Zet(b => b with { Zichtbaar = e.Value is true })" />
+                                <label class="form-check-label" for="zichtbaar">Tonen op de factuur</label>
+                            </div>
+                            <div class="paneelraster">
+                                <label for="bx">Links (mm)</label><input id="bx" class="form-control form-control-sm text-end" value="@Getal(blok.X)" @onchange="e => Verplaats(x: Lees(e))" />
+                                @if (!blok.Stroomt)
+                                {
+                                    <label for="by">Boven (mm)</label><input id="by" class="form-control form-control-sm text-end" value="@Getal(blok.Y)" @onchange="e => Verplaats(y: Lees(e))" />
+                                }
+                                <label for="bb">Breedte (mm)</label><input id="bb" class="form-control form-control-sm text-end" value="@Getal(blok.Breedte)" @onchange="e => Verplaats(breedte: Lees(e))" />
+                                @if (blok.Soort == Bloksoort.Logo)
+                                {
+                                    <label for="bh">Hoogte (mm)</label><input id="bh" class="form-control form-control-sm text-end" value="@Getal(blok.Hoogte ?? 20m)" @onchange="e => Zet(b => b with { Hoogte = Lees(e) })" />
+                                }
+                                else if (blok.Soort != Bloksoort.Regels)
+                                {
+                                    <label for="bl">Letter (pt)</label><input id="bl" class="form-control form-control-sm text-end" value="@Getal(blok.Lettergrootte ?? ontwerp.Lettergrootte)" @onchange="e => Zet(b => b with { Lettergrootte = Lees(e) })" />
+                                    <label for="bk">Kleur</label><input id="bk" type="color" class="form-control form-control-sm form-control-color" value="@(blok.Kleur ?? ontwerp.Tekstkleur)" @onchange="e => Zet(b => b with { Kleur = e.Value as string })" />
+                                }
+                                <label for="bu">Uitlijning</label>
+                                <select id="bu" class="form-select form-select-sm" value="@blok.Uitlijning" @onchange="e => Zet(b => b with { Uitlijning = Enum.Parse<Uitlijning>((string)e.Value!) })">
+                                    <option value="@Uitlijning.Links">links</option>
+                                    <option value="@Uitlijning.Midden">midden</option>
+                                    <option value="@Uitlijning.Rechts">rechts</option>
+                                </select>
+                            </div>
+                            @if (blok.Soort is not (Bloksoort.Logo or Bloksoort.Regels))
+                            {
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" id="vet" checked="@blok.Vet" @onchange="e => Zet(b => b with { Vet = e.Value is true })" />
+                                    <label class="form-check-label" for="vet">Vet</label>
+                                </div>
+                            }
+                            @if (blok.Soort is Bloksoort.Titel or Bloksoort.Tekst or Bloksoort.Betaalinstructie or Bloksoort.Voettekst)
+                            {
+                                <label class="form-label mt-2" for="bt">Tekst</label>
+                                <textarea id="bt" class="form-control form-control-sm" rows="4" @bind="Tekst" @bind:event="oninput"></textarea>
+                                <details class="small mt-1 variabelen">
+                                    <summary class="text-secondary">Variabelen</summary>
+                                    @foreach (var (naam, betekenis) in Factuurteksten.Alle)
+                                    {
+                                        <div><button type="button" class="btn btn-link btn-sm p-0" title="Toevoegen aan de tekst" @onclick="() => Tekst = (Tekst ?? string.Empty) + naam">@naam</button> <span class="text-secondary">@betekenis</span></div>
+                                    }
+                                </details>
+                            }
+                            @if (blok.Soort == Bloksoort.Logo)
+                            {
+                                <div class="mt-3">
+                                    <label class="form-label" for="logo">Logo (PNG of JPEG)</label>
+                                    <InputFile id="logo" class="form-control form-control-sm" accept="image/png,image/jpeg" OnChange="ZetLogo" />
+                                    @if (logo is not null)
+                                    {
+                                        <button class="btn btn-sm btn-link text-secondary px-0 mt-1" @onclick="VerwijderLogo">logo verwijderen</button>
+                                    }
+                                </div>
+                            }
+                            @if (blok.Soort == Bloksoort.Tekst)
+                            {
+                                <button class="btn btn-sm btn-link text-secondary px-0 mt-2" @onclick="VerwijderBlok">tekstblok verwijderen</button>
+                            }
+                        }
+                        else
+                        {
+                            <h2 class="h6">Pagina</h2>
+                            <div class="paneelraster">
+                                <label for="naam">Naam</label><input id="naam" class="form-control form-control-sm" @bind="naam" @bind:after="() => gewijzigd = true" />
+                                <label for="lt">Lettertype</label>
+                                <select id="lt" class="form-select form-select-sm" value="@ontwerp.Lettertype" @onchange="e => Wijzig(o => o with { Lettertype = (string)e.Value! })">
+                                    @foreach (var (letter, css) in Factuurontwerp.Lettertypen)
+                                    {
+                                        <option value="@letter" style="font-family: @css">@letter</option>
+                                    }
+                                </select>
+                                <label for="lg">Letter (pt)</label><input id="lg" class="form-control form-control-sm text-end" value="@Getal(ontwerp.Lettergrootte)" @onchange="e => Wijzig(o => o with { Lettergrootte = Lees(e) ?? o.Lettergrootte })" />
+                                <label for="ak">Accentkleur</label><input id="ak" type="color" class="form-control form-control-sm form-control-color" value="@ontwerp.Accentkleur" @onchange="e => Wijzig(o => o with { Accentkleur = (string)e.Value! })" />
+                                <label for="tk">Tekstkleur</label><input id="tk" type="color" class="form-control form-control-sm form-control-color" value="@ontwerp.Tekstkleur" @onchange="e => Wijzig(o => o with { Tekstkleur = (string)e.Value! })" />
+                                <label for="ts">Regels</label>
+                                <select id="ts" class="form-select form-select-sm" value="@ontwerp.Tabelstijl" @onchange="e => Wijzig(o => o with { Tabelstijl = Enum.Parse<Tabelstijl>((string)e.Value!) })">
+                                    <option value="@Tabelstijl.Lijnen">met lijnen</option>
+                                    <option value="@Tabelstijl.Strepen">om en om gekleurd</option>
+                                    <option value="@Tabelstijl.Rustig">zonder lijnen</option>
+                                </select>
+                            </div>
+                            <div class="mt-3 small text-secondary">Kolommen</div>
+                            <div class="d-flex flex-wrap gap-3">
+                                @Kolom("Aantal", ontwerp.KolomAantal, (o, v) => o with { KolomAantal = v })
+                                @Kolom("Eenheid", ontwerp.KolomEenheid, (o, v) => o with { KolomEenheid = v })
+                                @Kolom("Prijs", ontwerp.KolomPrijs, (o, v) => o with { KolomPrijs = v })
+                                @Kolom("Korting", ontwerp.KolomKorting, (o, v) => o with { KolomKorting = v })
+                                @Kolom("Btw", ontwerp.KolomBtw, (o, v) => o with { KolomBtw = v })
+                            </div>
+                            <div class="mt-3 small text-secondary">Blokken</div>
+                            <div class="blokkenlijst">
+                                @foreach (var b in ontwerp.Blokken)
+                                {
+                                    <button type="button" class="btn btn-sm btn-link px-0 text-start @(b.Zichtbaar ? null : "text-secondary")" @onclick="() => gekozen = b.Id">@Bloknaam(b)@(b.Zichtbaar ? null : " (uit)")</button>
+                                }
+                            </div>
+                            <div class="d-flex flex-wrap gap-2 mt-3">
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="TekstblokErbij">+ Tekstblok</button>
+                                <button class="btn btn-sm btn-link text-secondary" @onclick="Herstel" title="Terug naar de standaardlay-out (logo blijft)">standaard herstellen</button>
+                            </div>
+                            @if (huidig?.Id is { } bewaard && !huidig.Standaard)
+                            {
+                                <div class="d-flex flex-wrap gap-2 mt-3">
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="MaakStandaard">Maak standaard</button>
+                                    <VerwijderKnop Klasse="" Bezig="bezig" Bevestigd="Verwijder" />
+                                </div>
+                            }
+                        }
+                    </fieldset>
+                </aside>
+            </div>
+        }
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private const decimal Schaal = 0.8m;
+
+    private Geopend? geopend;
+    private IReadOnlyList<Layoutregel> layouts = [];
+    private Layoutgegevens? huidig;
+    private Factuurontwerp? ontwerp;
+    private Logo? logo;
+    private Partij? afzender;
+    private IReadOnlyList<Boekhouding.Btw.BtwCode> codes = [];
+    private string naam = "Standaard";
+    private string? gekozen;
+    private bool gewijzigd;
+    private bool mag;
+    private bool bezig;
+    private IReadOnlyList<string>? fouten;
+    private string? bericht;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "layout")]
+    public Guid? LayoutId { get; set; }
+
+    private Ontwerpblok? Gekozen => gekozen is null ? null : ontwerp?.Blok(gekozen);
+
+    private Verkoopbeeld Voorbeeld => Verkoopbeeld.Voorbeeld(afzender!, codes, DateOnly.FromDateTime(DateTime.Today));
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        mag = g.Kop.Mag(Recht.Invoeren);
+        var context = await Verkoop.Context(g.Wie, Id);
+        afzender = context.Afzender;
+        codes = context.Btwtabel.Op(DateOnly.FromDateTime(DateTime.Today));
+        await Laad(LayoutId);
+    }
+
+    private async Task Laad(Guid? id)
+    {
+        layouts = await Opmaak.Layouts(geopend!.Wie, Id);
+        huidig = await Opmaak.Layout(geopend.Wie, Id, id);
+        (ontwerp, logo, naam, gewijzigd) = (huidig.Ontwerp, huidig.Logo, huidig.Naam, false);
+    }
+
+    private void Kies(string? id) => gekozen = id;
+
+    private void Verplaatst((string Id, decimal X, decimal Y, decimal Breedte) plek)
+    {
+        if (mag && ontwerp is not null)
+        {
+            ontwerp = ontwerp.Verplaats(plek.Id, plek.X, plek.Y, plek.Breedte);
+            (gekozen, gewijzigd) = (plek.Id, true);
+        }
+    }
+
+    private void Verplaats(decimal? x = null, decimal? y = null, decimal? breedte = null)
+    {
+        if (Gekozen is { } b)
+        {
+            ontwerp = ontwerp!.Verplaats(b.Id, x ?? b.X, y ?? b.Y, breedte ?? b.Breedte);
+            gewijzigd = true;
+        }
+    }
+
+    private void Zet(Func<Ontwerpblok, Ontwerpblok> wijziging)
+    {
+        if (gekozen is not null)
+        {
+            ontwerp = ontwerp!.Wijzig(gekozen, wijziging).Compleet();
+            gewijzigd = true;
+        }
+    }
+
+    private void Wijzig(Func<Factuurontwerp, Factuurontwerp> wijziging)
+    {
+        ontwerp = wijziging(ontwerp!).Compleet();
+        gewijzigd = true;
+    }
+
+    private string? Tekst
+    {
+        get => Gekozen?.Tekst;
+        set => Zet(b => b with { Tekst = value });
+    }
+
+    private RenderFragment Kolom(string tekst, bool aan, Func<Factuurontwerp, bool, Factuurontwerp> zet) => __builder =>
+    {
+        var id = $"kolom-{tekst}";
+        <span class="form-check mb-0">
+            <input class="form-check-input" type="checkbox" id="@id" checked="@aan" @onchange="e => Wijzig(o => zet(o, e.Value is true))" />
+            <label class="form-check-label" for="@id">@tekst</label>
+        </span>
+    };
+
+    private void TekstblokErbij()
+    {
+        ontwerp = ontwerp!.MetTekstblok(out var id);
+        (gekozen, gewijzigd) = (id, true);
+    }
+
+    private void VerwijderBlok()
+    {
+        ontwerp = ontwerp!.ZonderBlok(gekozen!);
+        (gekozen, gewijzigd) = (null, true);
+    }
+
+    private void Herstel()
+    {
+        ontwerp = Factuurontwerp.Standaard;
+        (gekozen, gewijzigd) = (null, true);
+    }
+
+    private async Task Nieuw()
+    {
+        var uitkomst = await Opmaak.Bewaar(geopend!.Wie, Id, null, $"{naam} (kopie)", ontwerp!);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            if (logo is not null)
+            {
+                await Opmaak.ZetLogo(geopend.Wie, Id, uitkomst.Waarde, logo.Inhoud);
+            }
+
+            Navigatie.NavigateTo($"/a/{Id}/factuurlayout?layout={uitkomst.Waarde}", replace: true);
+            await Laad(uitkomst.Waarde);
+            bericht = $"Nieuwe lay-out {naam}.";
+        }
+    }
+
+    private async Task<Guid?> Opslaan()
+    {
+        var uitkomst = await Opmaak.Bewaar(geopend!.Wie, Id, huidig?.Id, naam, ontwerp!);
+        fouten = uitkomst.Fouten;
+        return uitkomst.IsGelukt ? uitkomst.Waarde : null;
+    }
+
+    private async Task Bewaar()
+    {
+        bezig = true;
+        try
+        {
+            if (await Opslaan() is { } id)
+            {
+                await Laad(id);
+                bericht = $"Lay-out {naam} opgeslagen.";
+            }
+        }
+        finally
+        {
+            bezig = false;
+        }
+    }
+
+    private async Task KiesLayout(ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value as string, out var id))
+        {
+            Navigatie.NavigateTo($"/a/{Id}/factuurlayout?layout={id}", replace: true);
+            await Laad(id);
+            (gekozen, bericht) = (null, null);
+        }
+    }
+
+    private async Task ZetLogo(InputFileChangeEventArgs e)
+    {
+        if (e.File.Size > Logo.MaximumGrootte)
+        {
+            fouten = ["Het logo is groter dan 1 MB; maak het kleiner."];
+            return;
+        }
+
+        // Het logo hoort bij een bewaarde lay-out: eerst opslaan.
+        var id = huidig?.Id ?? await Opslaan();
+        if (id is null)
+        {
+            return;
+        }
+
+        using var geheugen = new MemoryStream();
+        await e.File.OpenReadStream(Logo.MaximumGrootte).CopyToAsync(geheugen);
+        var uitkomst = await Opmaak.ZetLogo(geopend!.Wie, Id, id.Value, geheugen.ToArray());
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            var bewaard = ontwerp;
+            await Laad(id);
+            (ontwerp, gewijzigd, bericht) = (bewaard, bewaard != huidig!.Ontwerp, "Logo opgeslagen.");
+        }
+    }
+
+    private async Task VerwijderLogo()
+    {
+        if (huidig?.Id is { } id && (await Opmaak.VerwijderLogo(geopend!.Wie, Id, id)) is { IsGelukt: true })
+        {
+            logo = null;
+        }
+    }
+
+    private async Task MaakStandaard()
+    {
+        var uitkomst = await Opmaak.MaakStandaard(geopend!.Wie, Id, huidig!.Id!.Value);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            await Laad(huidig.Id);
+            bericht = $"{naam} is de standaard.";
+        }
+    }
+
+    private async Task Verwijder()
+    {
+        var uitkomst = await Opmaak.Verwijder(geopend!.Wie, Id, huidig!.Id!.Value);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            Navigatie.NavigateTo($"/a/{Id}/factuurlayout", replace: true);
+            await Laad(null);
+            bericht = "Lay-out verwijderd.";
+        }
+    }
+
+    private async Task Pdf()
+    {
+        bezig = true;
+        try
+        {
+            var uitkomst = await Opmaak.VoorbeeldPdf(Voorbeeld, ontwerp!, logo);
+            fouten = uitkomst.Fouten;
+            if (uitkomst.IsGelukt)
+            {
+                await JS.Bewaar(uitkomst.Waarde!, $"Voorbeeld {naam}.pdf", Download.Pdf);
+            }
+        }
+        finally
+        {
+            bezig = false;
+        }
+    }
+
+    private static string Bloknaam(Ontwerpblok b) => b.Soort switch
+    {
+        Bloksoort.Logo => "Logo",
+        Bloksoort.Afzender => "Afzender",
+        Bloksoort.Klant => "Klant (adres)",
+        Bloksoort.Titel => "Titel",
+        Bloksoort.Factuurgegevens => "Factuurgegevens",
+        Bloksoort.Regels => "Regels en totalen",
+        Bloksoort.Betaalinstructie => "Betaalinstructie",
+        Bloksoort.Voettekst => "Voettekst",
+        _ => $"Tekst: {(b.Tekst is { Length: > 24 } t ? t[..24] + "…" : b.Tekst)}",
+    };
+
+    private static string Getal(decimal getal) => getal.ToString("0.##", System.Globalization.CultureInfo.GetCultureInfo("nl-NL"));
+
+    private static decimal? Lees(ChangeEventArgs e) =>
+        Domain.BedragParser.TryParse(e.Value as string ?? "", out var getal) ? getal : null;
+}

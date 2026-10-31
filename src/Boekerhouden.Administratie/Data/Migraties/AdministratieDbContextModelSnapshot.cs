@@ -869,6 +869,50 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.ToTable("DocumentInhouden", (string)null);
                 });
 
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Factuurlayout", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("GewijzigdDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("GewijzigdOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("Logo")
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("Logotype")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("Naam")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Ontwerp")
+                        .IsRequired()
+                        .HasMaxLength(100000)
+                        .HasColumnType("character varying(100000)");
+
+                    b.Property<bool>("Standaard")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdministratieId");
+
+                    b.ToTable("Factuurlayouts", (string)null);
+                });
+
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Gebruiker", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1694,6 +1738,15 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.HasOne("Boekerhouden.Administratie.Data.Document", null)
                         .WithOne()
                         .HasForeignKey("Boekerhouden.Administratie.Data.DocumentInhoud", "DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Factuurlayout", b =>
+                {
+                    b.HasOne("Boekerhouden.Administratie.Data.Administratie", null)
+                        .WithMany()
+                        .HasForeignKey("AdministratieId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

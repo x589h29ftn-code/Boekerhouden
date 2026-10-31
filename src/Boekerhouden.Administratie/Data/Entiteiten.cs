@@ -785,3 +785,29 @@ public sealed class Verkoopdocumentregel : IVanAdministratie
 
     public Boekhouding.Verkoop.Verkoopregel NaarDomein() => new(Omschrijving, Aantal, Prijs, Rekeningnummer, BtwCode, Eenheid, Korting);
 }
+
+/// <summary>
+/// Een lay-out van de verkoopfactuur: het ontwerp (JSON van <c>Factuurontwerp</c>) en het logo. Een administratie kan
+/// er meer hebben; één is de standaard.
+/// </summary>
+public sealed class Factuurlayout : IVanAdministratie
+{
+    public Guid Id { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    public string Naam { get; set; } = string.Empty;
+
+    public bool Standaard { get; set; }
+
+    public string Ontwerp { get; set; } = string.Empty;
+
+    /// <summary>Het logo (PNG of JPEG), of leeg.</summary>
+    public byte[]? Logo { get; set; }
+
+    public string? Logotype { get; set; }
+
+    public DateTimeOffset GewijzigdOp { get; set; }
+
+    public string GewijzigdDoor { get; set; } = string.Empty;
+}

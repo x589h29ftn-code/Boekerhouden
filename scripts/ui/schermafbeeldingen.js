@@ -20,7 +20,7 @@ function totp(sleutel) {
   const fictief = path.resolve(__dirname, '../../tests/Fictief/administratie');
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
-  const log = []; page.on('pageerror', e => log.push(e.message)); page.on('console', m => { if (m.type() === 'error') log.push(m.text()); });
+  const log = []; page.on('pageerror', e => log.push(e.message)); page.on('console', m => { if (m.type() === 'error') log.push(m.text()); else if (process.env.DEBUG) console.log('console:', m.text()); });
   const basis = 'http://localhost:5090';
 
   // Eerste gebruiker met tweestapsverificatie, dan een administratie.
@@ -60,7 +60,7 @@ function totp(sleutel) {
 
   // Verkoop: eigen adres en btw-nummer, een nieuwe klant en een factuur die definitief wordt.
   await page.goto(`${basis}/a/${id}/instellingen`); await page.waitForSelector('#straat'); await page.waitForTimeout(800);
-  await page.fill('#btw', 'NL123456782B01'); await page.fill('#straat', 'Dorpsstraat 1'); await page.fill('#postcode', '1234 AB');
+  await page.fill('#btw', 'NL123456782B01'); await page.fill('#ibans', 'NL20INGB0001234567'); await page.fill('#straat', 'Dorpsstraat 1'); await page.fill('#postcode', '1234 AB');
   await page.fill('#plaats', 'Ergens'); await page.click('button:has-text("Opslaan")'); await page.waitForTimeout(1000);
   await page.goto(`${basis}/a/${id}/verkoop/nieuw`); await page.waitForSelector('#klant'); await page.waitForTimeout(1200);
   await page.click('button:has-text("Nieuwe klant")'); await page.fill('#kn', 'J. de Vries Installatie'); await page.fill('#ks', 'Laan 2');
@@ -78,6 +78,22 @@ function totp(sleutel) {
   await page.screenshot({ path: `${uit}/${pre}-verkoopfactuur-concept.png` });
   await page.click('button:has-text("Definitief maken")'); await page.waitForTimeout(2500);
   await page.screenshot({ path: `${uit}/${pre}-verkoopfactuur-definitief.png` });
+
+  // Afdrukken opent het afdrukvenster in een verborgen frame; hier alleen kijken of het frame de factuur bevat.
+  await page.evaluate(() => { window.print = () => {}; });
+  await page.click('button[title=Afdrukken]'); await page.waitForTimeout(1200);
+  const afdruk = await page.evaluate(() => [...document.querySelectorAll('iframe')].map(f => f.contentDocument?.body?.innerText || '').join(' '));
+  if (!afdruk.includes('Factuurnummer')) log.push('afdrukken: de factuur staat niet in het frame');
+
+  // De factuurontwerper: een blok kiezen en verslepen.
+  await page.goto(`${basis}/a/${id}/factuurlayout`); await page.waitForSelector('.ontwerpvlak .fp'); await page.waitForTimeout(1200);
+  await page.screenshot({ path: `${uit}/${pre}-factuurlayout.png` });
+  const klant = page.locator('.ontwerpvlak [data-blok=titel]'); const vak = await klant.boundingBox();
+  await page.mouse.move(vak.x + 10, vak.y + 5); await page.mouse.down(); await page.mouse.move(vak.x + 90, vak.y + 25, { steps: 8 }); await page.mouse.up();
+  await page.waitForTimeout(800);
+  const titel = await page.evaluate(() => document.querySelector('.ontwerpvlak [data-blok=titel]').getAttribute('style'));
+  if (titel.includes('top:92mm;left:20mm')) log.push('ontwerper: titel niet versleept (' + titel + ')');
+  await page.screenshot({ path: `${uit}/${pre}-factuurlayout-gesleept.png` });
 
   // Bankafschrift inlezen (slepen kan ook; het bestandsveld bedekt dan de pagina).
   await page.goto(`${basis}/a/${id}/bank`); await page.waitForTimeout(1500);

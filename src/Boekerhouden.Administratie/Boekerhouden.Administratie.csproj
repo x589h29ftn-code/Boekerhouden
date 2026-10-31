@@ -26,6 +26,11 @@
     <StaticWebAssetContentTypeMapping Include="application/x-font-type1" Cache="$(StaticWebAssetEndpointDefaultMediaCacheControlHeader)" Pattern="*.pfb" Priority="1" />
   </ItemGroup>
 
+  <!-- Het lettertype van de huisstijl (OFL) in de PDF van een verkoopfactuur. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\Boekerhouden.Huisstijl\wwwroot\fonts\*.woff2" LogicalName="Lettertype.%(Filename)%(Extension)" Visible="false" />
+  </ItemGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="Boekerhouden.Administratie.Tests" />
   </ItemGroup>

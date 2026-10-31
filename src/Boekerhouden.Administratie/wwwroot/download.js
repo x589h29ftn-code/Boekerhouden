@@ -10,3 +10,19 @@ export async function bewaar(naam, type, stroom) {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
+
+// Een document (HTML, zoals de PDF opgemaakt) afdrukken: in een verborgen frame laden en daar het afdrukvenster openen.
+export function afdrukken(html) {
+    const frame = document.createElement('iframe');
+    frame.style.position = 'fixed';
+    frame.style.width = '0';
+    frame.style.height = '0';
+    frame.style.border = '0';
+    frame.onload = () => {
+        frame.contentWindow.focus();
+        frame.contentWindow.print();
+        setTimeout(() => frame.remove(), 60000);
+    };
+    frame.srcdoc = html;
+    document.body.append(frame);
+}

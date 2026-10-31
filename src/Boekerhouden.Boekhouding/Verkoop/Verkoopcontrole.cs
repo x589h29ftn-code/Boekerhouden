@@ -81,6 +81,11 @@ public static class Verkoopcontrole
             fouten.Add("Vul het btw-nummer van de eigen onderneming in (Instellingen); dat moet op de factuur staan.");
         }
 
+        if (!factuur.IsCredit && afzender.Ibans is not { Count: > 0 })
+        {
+            fouten.Add("Vul het eigen IBAN in (Instellingen); de klant moet weten waar hij betaalt.");
+        }
+
         var klantnummer = factuur.Klant.BtwNummer is { } k ? BtwNummer.Normaliseer(k) : null;
         if (gebruikt.Any(c => c.Soort == Btwsoort.VerkoopVerlegd) && !BtwNummer.IsGeldig(klantnummer))
         {

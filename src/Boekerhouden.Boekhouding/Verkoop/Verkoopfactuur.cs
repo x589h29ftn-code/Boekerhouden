@@ -53,7 +53,7 @@ public sealed record Verkoopregel(
 }
 
 /// <summary>De btw van één code op de factuur: de grondslag (som van de regels) en de btw daarover.</summary>
-public sealed record Btwregel(BtwCode Code, decimal Grondslag, decimal Btw);
+public sealed record Btwtotaal(BtwCode Code, decimal Grondslag, decimal Btw);
 
 /// <summary>
 /// Een verkoopfactuur zoals die wordt gemaakt: de klant (zoals op de factuur, ook als de relatie later verandert), de
@@ -76,7 +76,7 @@ public sealed record Verkoopfactuur(
     public decimal TotaalExclusief => Regels.Sum(r => r.Bedrag);
 
     /// <summary>Per btw-code (in de volgorde van de regels) de grondslag en de btw.</summary>
-    public IReadOnlyList<Btwregel> Btw(IReadOnlyList<BtwCode> codes)
+    public IReadOnlyList<Btwtotaal> Btw(IReadOnlyList<BtwCode> codes)
     {
         ArgumentNullException.ThrowIfNull(codes);
         return
@@ -85,7 +85,7 @@ public sealed record Verkoopfactuur(
             {
                 var code = BtwCodes.Zoek(codes, g.Key) ?? throw new ArgumentException($"Btw-code {g.Key} bestaat niet.", nameof(codes));
                 var grondslag = g.Sum(r => r.Bedrag);
-                return new Btwregel(code, grondslag, code.Verlegd ? 0m : code.Bereken(grondslag));
+                return new Btwtotaal(code, grondslag, code.Verlegd ? 0m : code.Bereken(grondslag));
             }),
         ];
     }

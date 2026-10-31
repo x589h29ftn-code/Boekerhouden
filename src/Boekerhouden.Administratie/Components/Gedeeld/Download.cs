@@ -14,4 +14,11 @@ public static class Download
         using var stroom = new DotNetStreamReference(new MemoryStream(inhoud));
         await module.InvokeVoidAsync("bewaar", naam, soort, stroom);
     }
+
+    /// <summary>Een document (HTML met de opmaak voor papier) meteen afdrukken: het afdrukvenster van de browser.</summary>
+    public static async Task Afdrukken(this IJSRuntime js, string html)
+    {
+        await using var module = await js.InvokeAsync<IJSObjectReference>("import", "./download.js");
+        await module.InvokeVoidAsync("afdrukken", html);
+    }
 }
