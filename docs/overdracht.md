@@ -39,8 +39,8 @@ Laatst gebouwd (oktober 2026), in deze volgorde:
 
    Alles in `src/Boekerhouden.Huisstijl/wwwroot/uitstraling.css`.
 
-**Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5` en is nog niet samengevoegd met `main`. Ga daarop
-verder, of vraag de gebruiker eerst of hij een pull request naar `main` wil.
+**Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
+(`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).
 
 Alle tests zijn groen op PostgreSQL en SQLite. De CI (GitHub Actions) bouwt bij elke push ook de Windows-app als
 artefact `Boekerhouden-Administratie-win-x64`.
