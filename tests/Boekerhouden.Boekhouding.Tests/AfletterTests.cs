@@ -158,6 +158,20 @@ public sealed class AfletteraarTests
         Assert.Equal("IBAN en bedrag", zonder.Automatisch!.Reden);
     }
 
+    [Fact]
+    public void Postzoeker_geeft_de_beste_vijf_op_nummer_bedrag_of_naam()
+    {
+        var posten = Enumerable.Range(1, 8).Select(i => Crediteur("BELNET", $"BN-2026-04{i:00}", 20m + i, Datum.AddDays(i)))
+            .Append(Crediteur("JANSEN", "2026-114", 199.65m)).Append(Crediteur("JANSEN", "2026-115", 24.99m)).ToList();
+
+        Assert.Equal(5, Postzoeker.Zoek("BN-2026", posten, Relaties).Count);
+        Assert.Equal("2026-115", Postzoeker.Zoek("24,99", posten, Relaties)[0].Factuurnummer);
+        Assert.Equal("BN-2026-0403", Postzoeker.Zoek("bn20260403", posten, Relaties)[0].Factuurnummer);
+        Assert.Equal(["2026-114", "2026-115"], Postzoeker.Zoek("Kantoorhandel", posten, Relaties).Select(p => p.Factuurnummer));
+        Assert.Equal("JANSEN", Postzoeker.Zoek("", posten, Relaties, new HashSet<string> { "JANSEN" })[0].Relatie);
+        Assert.Empty(Postzoeker.Zoek("XYZ", posten, Relaties));
+    }
+
     [Theory]
     [InlineData("INV-2026-0087", "inv 2026 87 installatie kantoor", true)]
     [InlineData("INV-2026-0087", "inv 2026 88", false)]

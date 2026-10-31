@@ -1,6 +1,7 @@
-@* Een openstaande post kiezen in de kolom factuurnummer, zoals de rekeningkeuze: een factuurnummer typen (Enter of het
-   veld verlaten kiest de post met dat nummer), of F2 en de knop openen het venster met alle openstaande posten. Achter
-   het nummer staat de relatie van de gekozen post. *@
+@* Een openstaande post kiezen in de kolom factuurnummer, zoals de rekeningkeuze: typen (een nummer, een bedrag of de
+   naam van de leverancier) toont de vijf beste treffers (Postzoeker), te kiezen met een klik of de pijltjes en Enter;
+   het veld verlaten kiest de post met precies dat nummer. F2 en de knop openen het venster met alle openstaande
+   posten. Achter het nummer staat de relatie van de gekozen post. *@
 @using Boekerhouden.Boekhouding.Afletteren
 @using Boekerhouden.Boekhouding.Facturen
 
@@ -8,13 +9,27 @@
     <div class="rekeningkeuze-rij form-control form-control-sm">
         <input @ref="invoer" id="@Id" class="rekeningkeuze-invoer" value="@tekst" aria-label="Factuurnummer" autocomplete="off" title="@(Gekozen is { } g ? $"{Naam(g.Relatie)} · {g.Factuurnummer}" : null)"
                style="@(Gekozen is null ? null : $"width:{Math.Max(4, tekst?.Length ?? 0) + 1}ch;flex:none")"
-               @oninput="Typ" @onkeydown="Toets" @onblur="Verlaat" />
+               @oninput="Typ" @onkeydown="Toets" @onfocus="Open" @onblur="Verlaat" />
         @if (Gekozen is { } gekozen)
         {
             <span class="rekeningkeuze-naam" title="@Naam(gekozen.Relatie)">@Naam(gekozen.Relatie)</span>
         }
         <button type="button" class="rekeningkeuze-alle" tabindex="-1" title="Openstaande posten (F2)" aria-label="Openstaande posten" @onmousedown:preventDefault @onclick="OpenVenster">⋯</button>
     </div>
+    @if (open && Gekozen is null)
+    {
+        <ul class="rekeningkeuze-lijst postkeuze-lijst" role="listbox">
+            @for (var i = 0; i < treffers.Count; i++)
+            {
+                var p = treffers[i];
+                var n = i;
+                <li role="option" aria-selected="@(n == gemarkeerd)" class="@(n == gemarkeerd ? "gemarkeerd" : null)" @onmousedown="() => Kies(p.Id)" @onmousedown:preventDefault>
+                    <span class="nummer">@p.Factuurnummer</span> @Naam(p.Relatie) <span class="float-end text-secondary">@Domain.Bedragen.Getal(p.Openstaand)</span>
+                </li>
+            }
+            <li class="rekeningkeuze-meer" @onmousedown="OpenVenster" @onmousedown:preventDefault>Alle openstaande posten… <span class="text-secondary">F2</span></li>
+        </ul>
+    }
 </div>
 @if (venster)
 {
@@ -27,6 +42,9 @@
     private string? tekst;
     private Guid? getoond;
     private bool venster;
+    private bool open;
+    private int gemarkeerd = -1;
+    private IReadOnlyList<OpenPost> treffers = [];
 
     [Parameter]
     public Guid? Waarde { get; set; }
@@ -61,6 +79,23 @@
 
     private string Naam(string relatie) => Verwerking.Relaties.FirstOrDefault(r => r.Code == relatie)?.Naam ?? relatie;
 
+    private void Open()
+    {
+        if (Gekozen is null)
+        {
+            open = true;
+            Zoek();
+        }
+    }
+
+    /// <summary>De vijf beste treffers; de posten van de tegenpartij (het IBAN van de mutatie) gaan bij gelijke stand voor.</summary>
+    private void Zoek()
+    {
+        var tegenpartij = Verwerking.Relaties.Where(r => r.HeeftIban(Verwerking.Mutatie.TegenIban)).Select(r => r.Code).ToHashSet(StringComparer.Ordinal);
+        treffers = Postzoeker.Zoek(tekst, Verwerking.OpenPosten.Where(p => !Uitgesloten.Contains(p.Id)), Verwerking.Relaties, tegenpartij);
+        gemarkeerd = string.IsNullOrWhiteSpace(tekst) || treffers.Count == 0 ? -1 : 0;
+    }
+
     private async Task Typ(ChangeEventArgs e)
     {
         tekst = e.Value?.ToString();
@@ -68,6 +103,9 @@
         {
             await Kies(null);
         }
+
+        open = true;
+        Zoek();
     }
 
     private async Task Toets(KeyboardEventArgs e)
@@ -76,6 +114,19 @@
         {
             case "F2":
                 OpenVenster();
+                break;
+            case "ArrowDown":
+                open = true;
+                gemarkeerd = Math.Min(treffers.Count - 1, gemarkeerd + 1);
+                break;
+            case "ArrowUp":
+                gemarkeerd = Math.Max(0, gemarkeerd - 1);
+                break;
+            case "Escape":
+                open = false;
+                break;
+            case "Enter" when open && gemarkeerd >= 0 && gemarkeerd < treffers.Count:
+                await Kies(treffers[gemarkeerd].Id);
                 break;
             case "Enter" when Gekozen is null && !string.IsNullOrWhiteSpace(tekst):
                 if (Enige() is { } post)
@@ -99,6 +150,7 @@
 
     private async Task Verlaat()
     {
+        open = false;
         if (!venster && Gekozen is null && Enige() is { } post)
         {
             await Kies(post.Id);
@@ -107,6 +159,7 @@
 
     private async Task Kies(Guid? post)
     {
+        open = false;
         getoond = post;
         if (post is not null)
         {
@@ -116,7 +169,7 @@
         await WaardeChanged.InvokeAsync(post);
     }
 
-    private void OpenVenster() => venster = true;
+    private void OpenVenster() => (open, venster) = (false, true);
 
     private async Task KiesUitVenster(OpenPost post)
     {

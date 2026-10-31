@@ -45,7 +45,7 @@
             <div class="ms-auto d-flex align-items-center gap-3">
                 @if (mag && mutaties?.Any(m => m.Status == Banktransactiestatus.TeVerwerken) == true)
                 {
-                    <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="Opnieuw afletteren en regels toepassen op de mutaties in Te verwerken, bijv. nadat er facturen zijn geboekt" @onclick="VerwerkOpnieuw">Opnieuw afletteren</button>
+                    <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="Alle mutaties in Te verwerken opnieuw herkennen: afletteren, regels (ook autoherkenning) en wat er geleerd is" @onclick="VerwerkOpnieuw">Opnieuw herkennen</button>
                 }
                 <span class="form-check form-switch mb-0">
                     <input class="form-check-input" type="checkbox" id="ookgeboekt" checked="@ookGeboekt" @onchange="WisselGeboekt" />

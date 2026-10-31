@@ -1045,3 +1045,6 @@ a.terug {
 a.terug:hover {
     color: var(--bs-link-color);
 }
+
+/* De treffers in de kolom factuurnummer: breder dan de kolom zelf. */
+.postkeuze-lijst { min-width: 26rem; }
