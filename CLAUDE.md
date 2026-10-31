@@ -59,7 +59,7 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
 - De database bestaat in twee smaken: PostgreSQL (`Data/Migraties`) en SQLite (`SqliteAdministratieDbContext`,
   `Data/MigratiesSqlite`). Na een modelwijziging in het administratiepakket beide migraties maken.
 - `src/Boekerhouden.Huisstijl` – gedeelde huisstijl van beide apps (Bootstrap, `app.css`, logo) onder
-  `_content/Boekerhouden.Huisstijl/`; `uitstraling.css` (als laatste geladen) = lettertype IBM Plex Sans (`fonts/`, OFL),
+  `_content/Boekerhouden.Huisstijl/`; `uitstraling.css` (als laatste geladen) = lettertype van het systeem (Segoe UI op Windows, Apple op de Mac), IBM Plex Sans (`fonts/`, OFL) als terugval,
   accentkleur, tabelkoppen, overgangen en kleine animaties (met `prefers-reduced-motion`); `iconen.svg` = de iconenset
   (Lucide, ISC), te gebruiken via `<Icoon Naam="..." />`; geen losse tekens als ‹ › × ↻ als icoon.
 - `src/Boekerhouden.Import` – importsjabloon (.xlsx/.csv) inlezen en controleren (I1–I6, I11), sjabloon genereren,

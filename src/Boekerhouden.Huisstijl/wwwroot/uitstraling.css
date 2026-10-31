@@ -45,7 +45,9 @@
     --bs-link-color-rgb: 29, 92, 99;
     --bs-link-hover-color: var(--bh-accent-donker);
     --bs-link-hover-color-rgb: 21, 68, 73;
-    --bs-body-font-family: "IBM Plex Sans", system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+    /* Het lettertype van het systeem: Segoe UI (Variable) op Windows, het Apple-lettertype op de Mac; IBM Plex Sans
+       (meegeleverd) waar geen van beide is. Zo voelt het pakket als de rest van de kantoorsoftware. */
+    --bs-body-font-family: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, "IBM Plex Sans", Roboto, Arial, sans-serif;
     --bs-body-color: var(--bh-tekst);
     --bs-secondary-color: var(--bh-zacht);
     --bs-border-color: var(--bh-lijn);
