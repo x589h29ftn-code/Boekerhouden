@@ -1,0 +1,77 @@
+// Browsercontrole en schermafbeeldingen van het administratiepakket, met alleen verzonnen testdata uit tests/Fictief.
+// Gebruik: scripts/ui/herstart.sh && node scripts/ui/schermafbeeldingen.js <map> [voorvoegsel]
+// Maakt de eerste gebruiker (met tweestapsverificatie), een administratie, boekt een inkoopfactuur (UBL) en een
+// memoriaalboeking, leest een bankafschrift in en bewaart per scherm een PNG: <map>/<voorvoegsel>-<scherm>.png.
+const { chromium } = require('playwright');
+const crypto = require('crypto');
+const path = require('path');
+
+function totp(sleutel) {
+  const a = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'; let bits = '';
+  for (const c of sleutel.replace(/\s/g, '').toUpperCase()) bits += a.indexOf(c).toString(2).padStart(5, '0');
+  const b = []; for (let i = 0; i + 8 <= bits.length; i += 8) b.push(parseInt(bits.slice(i, i + 8), 2));
+  const t = Buffer.alloc(8); t.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30000)));
+  const h = crypto.createHmac('sha1', Buffer.from(b)).update(t).digest(); const o = h[h.length - 1] & 0xf;
+  return (((h[o] & 0x7f) << 24 | h[o + 1] << 16 | h[o + 2] << 8 | h[o + 3]) % 1000000).toString().padStart(6, '0');
+}
+
+(async () => {
+  const uit = process.argv[2] || '.'; const pre = process.argv[3] || 'scherm';
+  const fictief = path.resolve(__dirname, '../../tests/Fictief/administratie');
+  const browser = await chromium.launch();
+  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+  const log = []; page.on('pageerror', e => log.push(e.message)); page.on('console', m => { if (m.type() === 'error') log.push(m.text()); });
+  const basis = 'http://localhost:5090';
+
+  // Eerste gebruiker met tweestapsverificatie, dan een administratie.
+  await page.goto(basis + '/'); await page.waitForURL(/eerste-gebruiker/);
+  await page.fill('#naam', 'Bea Beheer'); await page.fill('#initialen', 'BB'); await page.fill('#email', 'beheer@kantoor.test');
+  await page.fill('#wachtwoord', 'Groene-Appel-Boom-42'); await page.fill('#herhaal', 'Groene-Appel-Boom-42');
+  await page.click('button[type=submit]'); await page.waitForURL(/account\/beveiliging/);
+  await page.fill('#code', totp(await page.textContent('code.fs-6'))); await page.click('button:has-text("Aanzetten")');
+  await page.waitForSelector('text=Je herstelcodes');
+  await page.goto(basis + '/'); await page.waitForTimeout(1500);
+  await page.click('text=Nieuwe administratie'); await page.waitForSelector('#naam'); await page.waitForTimeout(800);
+  await page.fill('#naam', 'Voorbeeld Handel B.V.'); await page.click('text=Aanmaken');
+  await page.waitForURL(/\/a\/[0-9a-f-]+$/); const id = page.url().split('/a/')[1];
+
+  // Inkoopfactuur (UBL) inlezen en boeken.
+  await page.goto(`${basis}/a/${id}/inkoop`); await page.waitForTimeout(1200);
+  await page.setInputFiles('#bestanden', path.join(fictief, 'belnet-2026-0411.xml')); await page.waitForTimeout(3000);
+  await page.goto(`${basis}/a/${id}/inkoop`); await page.waitForTimeout(1200);
+  if (await page.locator('table tbody a').count() > 0) {
+    await page.locator('table tbody a').first().click(); await page.waitForSelector('#nummer'); await page.waitForTimeout(1500);
+    const rek = page.locator('input[aria-label=Rekening]').first();
+    if (!(await rek.inputValue())) { await rek.click(); await rek.fill('4310'); await page.keyboard.press('Tab'); }
+    await page.click('button.btn-primary:has-text("oeken")'); await page.waitForTimeout(2000);
+  }
+
+  // Memoriaalboeking.
+  await page.goto(`${basis}/a/${id}/memoriaal`); await page.waitForTimeout(1500);
+  await page.fill('input[aria-label=Datum]', '15-03-2026');
+  await page.fill('input[placeholder=Omschrijving]', 'Afschrijving inventaris maart');
+  const reks = page.locator('input[aria-label=Rekening]');
+  await reks.nth(0).click(); await reks.nth(0).fill('4300'); await page.keyboard.press('Tab');
+  await page.locator('input[aria-label=Debet]').nth(0).fill('250');
+  await reks.nth(1).click(); await reks.nth(1).fill('1100'); await page.keyboard.press('Tab');
+  await page.locator('input[aria-label=Credit]').nth(1).fill('250');
+  await page.click('button.btn-primary:has-text("Boeken")'); await page.waitForTimeout(1500);
+  await page.screenshot({ path: `${uit}/${pre}-memoriaal.png` });
+
+  // Bankafschrift inlezen (slepen kan ook; het bestandsveld bedekt dan de pagina).
+  await page.goto(`${basis}/a/${id}/bank`); await page.waitForTimeout(1500);
+  await page.setInputFiles('#afschriften', path.join(fictief, 'ing-2026-03.mt940')); await page.waitForTimeout(3000);
+
+  const schermen = [['bank', 'bank'], ['grootboek', 'grootboek?rekening=1600&van=2026-01-01&tot=2026-12-31'], ['kolommenbalans', 'kolommenbalans'],
+    ['inkoop', 'inkoop'], ['journaal', 'journaal'], ['aansluitingen', 'aansluitingen']];
+  for (const [naam, pad] of schermen) {
+    await page.goto(`${basis}/a/${id}/${pad}`); await page.waitForTimeout(1800);
+    if (naam === 'bank' && await page.locator('table.bankmutaties tbody tr').count() > 0) {
+      await page.locator('table.bankmutaties tbody tr').first().click(); await page.waitForTimeout(1200);
+    }
+    await page.screenshot({ path: `${uit}/${pre}-${naam}.png` });
+  }
+
+  console.log('administratie', id, log.length ? 'fouten in de browser: ' + log.join(' | ') : 'geen fouten in de browser');
+  await browser.close();
+})();

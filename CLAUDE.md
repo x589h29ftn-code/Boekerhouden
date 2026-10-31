@@ -4,6 +4,10 @@ Eigen applicatie voor het samenstellen van jaarrekeningen en het opstellen van w
 (BV klein en eenmanszaak; later BV micro en VOF). Ontwerp en besluiten: `docs/onderzoek/`
 (start bij `docs/onderzoek/README.md`; roadmap in plakjes: §8.4).
 
+**Verder gaan in een nieuwe sessie?** Lees `docs/overdracht.md`: stand van zaken, wat nog openstaat, de werkwijze met
+de gebruiker (plakjes, CI-controle na elke push, schermafbeeldingen voor en na) en valkuilen. Het administratiepakket
+staat in `docs/administratie/README.md`.
+
 ## Bouwen en testen
 
 ```bash
@@ -19,6 +23,7 @@ dotnet ef migrations add <Naam> --project src/Boekerhouden.Data --output-dir Mig
 dotnet ef migrations add <Naam> --project src/Boekerhouden.Administratie --context AdministratieDbContext --output-dir Data/Migraties   # idem, administratiepakket
 dotnet ef migrations add <Naam> --project src/Boekerhouden.Administratie --context SqliteAdministratieDbContext --output-dir Data/MigratiesSqlite   # en voor SQLite (Windows-app)
 BOEKERHOUDEN_TEST_SQLITE=1 dotnet test tests/Boekerhouden.Administratie.Tests   # administratiepakket op SQLite
+scripts/ui/herstart.sh && node scripts/ui/schermafbeeldingen.js /tmp/schermen voor   # browsercontrole en schermafbeeldingen
 ```
 
 Warnings zijn errors (`TreatWarningsAsErrors`). In cloudsessies installeert `.claude/hooks/session-start.sh`

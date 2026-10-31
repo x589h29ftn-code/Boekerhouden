@@ -770,6 +770,7 @@ a.terug {
 /* Tabellen: bedragen en datums zo smal als hun inhoud, ruimte na een bedrag; omschrijvingen krijgen de rest. */
 :is(.overzichtstabel, .table):not(.regeltabel, .bankregels) > tbody > tr > td.bedrag {
     width: 1%;
+    min-width: 7.5rem;
     white-space: nowrap;
 }
 
