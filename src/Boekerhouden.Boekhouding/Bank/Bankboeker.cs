@@ -76,18 +76,19 @@ public static class Bankboeker
     }
 
     /// <summary>
-    /// Een mutatie verdeeld: de gekozen openstaande posten helemaal, en de rest over regels op grootboekrekeningen
-    /// (elk met een eigen bedrag, btw-code en omschrijving). Posten en regels samen moeten precies de mutatie zijn.
+    /// Een mutatie verdeeld: per openstaande post een bedrag (de hele post of een deel), en de rest over regels op
+    /// grootboekrekeningen (elk met een eigen bedrag, btw-code en omschrijving). Samen precies de mutatie.
     /// </summary>
+    /// <param name="posten">Per post het deel van de mutatie, met het teken van de mutatie (een betaling negatief).</param>
     /// <param name="regels">Per regel het deel van de mutatie, met hetzelfde teken als de mutatie (een betaling negatief).</param>
     public static (Journaalpost Post, IReadOnlyList<OpenPost> Bijgewerkt) Verdeeld(
-        Bankmutatie mutatie, IReadOnlyList<OpenPost> posten, IReadOnlyList<(decimal Bedrag, Afboeking Rekening)> regels, Dagboek dagboek, string boekstuk, Rekeningschema schema)
+        Bankmutatie mutatie, IReadOnlyList<(OpenPost Post, decimal Bedrag)> posten, IReadOnlyList<(decimal Bedrag, Afboeking Rekening)> regels, Dagboek dagboek, string boekstuk, Rekeningschema schema)
     {
         ArgumentNullException.ThrowIfNull(mutatie);
         ArgumentNullException.ThrowIfNull(posten);
         ArgumentNullException.ThrowIfNull(regels);
         ArgumentNullException.ThrowIfNull(schema);
-        var totaal = posten.Sum(p => p.Openstaand) + regels.Sum(r => r.Bedrag);
+        var totaal = posten.Sum(p => p.Bedrag) + regels.Sum(r => r.Bedrag);
         if (totaal != mutatie.Bedrag)
         {
             throw new InvalidOperationException($"Posten en regels ({totaal:0.00}) sluiten niet op de mutatie ({mutatie.Bedrag:0.00}).");
@@ -95,11 +96,11 @@ public static class Bankboeker
 
         var journaal = new List<Journaalregel> { new(BankRekening(dagboek), mutatie.Bedrag, mutatie.Omschrijving) };
         var bijgewerkt = new List<OpenPost>();
-        foreach (var post in posten.OrderBy(p => p.Datum))
+        foreach (var (post, bedrag) in posten.OrderBy(p => p.Post.Datum))
         {
             var rekening = schema.Enige(post.Soort == Factuursoort.Verkoop ? Rekeningfunctie.Debiteuren : Rekeningfunctie.Crediteuren).Nummer;
-            journaal.Add(new Journaalregel(rekening, -post.Openstaand, $"Betaling {post.Factuurnummer}", null, post.Relatie, post.Factuurnummer));
-            bijgewerkt.Add(post with { Openstaand = 0m });
+            journaal.Add(new Journaalregel(rekening, -bedrag, $"Betaling {post.Factuurnummer}", null, post.Relatie, post.Factuurnummer));
+            bijgewerkt.Add(post with { Openstaand = post.Openstaand - bedrag });
         }
 
         foreach (var (bedrag, rekening) in regels.Where(r => r.Bedrag != 0))

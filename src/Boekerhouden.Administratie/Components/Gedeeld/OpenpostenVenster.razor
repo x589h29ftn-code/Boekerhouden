@@ -1,6 +1,7 @@
-@* De openstaande posten bij een bankmutatie in een venster (dubbelklik op de omschrijving, of "Zelf kiezen"): zoeken op
-   leverancier, factuurnummer of bedrag, een of meer posten aanvinken (ook een creditnota), het verschil met de mutatie
-   zien, en dat verschil open laten staan of afboeken op een rekening (bijv. betalingskorting, met btw-code). *@
+@* De openstaande posten bij een bankmutatie in een venster (dubbelklik op de mutatie, "Kiezen…", of F2 in de kolom
+   factuurnummer): zoeken op leverancier, factuurnummer of bedrag, filteren op leverancier, soort en tegenpartij, met
+   de pijltjes en Enter. Een of meer posten aanvinken (ook een creditnota) en het verschil zien, of (Enkel) één post
+   kiezen voor een regel. *@
 @using Boekerhouden.Boekhouding.Bank
 @using Boekerhouden.Boekhouding.Facturen
 @using Boekerhouden.Domain
@@ -10,7 +11,26 @@
         <div class="card-header">
             <div class="d-flex align-items-center gap-2">
                 <input @ref="zoekveld" class="form-control form-control-sm" placeholder="Zoeken op leverancier, factuurnummer of bedrag" aria-label="Posten zoeken"
-                       @bind="zoek" @bind:event="oninput" />
+                       @bind="zoek" @bind:event="oninput" @bind:after="() => gemarkeerd = 0" />
+                <select class="form-select form-select-sm w-auto" aria-label="Leverancier of klant" @bind="relatie" @bind:after="() => gemarkeerd = 0">
+                    <option value="">Alle relaties</option>
+                    @foreach (var optie in Relatieopties)
+                    {
+                        <option value="@optie.Code">@optie.Naam</option>
+                    }
+                </select>
+                <select class="form-select form-select-sm w-auto" aria-label="Soort" @bind="soort" @bind:after="() => gemarkeerd = 0">
+                    <option value="">Crediteuren en debiteuren</option>
+                    <option value="@Factuursoort.Inkoop">Crediteuren</option>
+                    <option value="@Factuursoort.Verkoop">Debiteuren</option>
+                </select>
+                @if (VanTegenpartij.Count > 0)
+                {
+                    <label class="form-check form-switch mb-0 small text-nowrap" title="Alleen de posten van de relatie bij het IBAN van de mutatie">
+                        <input class="form-check-input" type="checkbox" @bind="alleenTegenpartij" @bind:after="() => gemarkeerd = 0" />
+                        <span class="form-check-label">tegenpartij</span>
+                    </label>
+                }
                 <button class="btn-close ms-1" title="Sluiten (Esc)" aria-label="Sluiten" @onclick="Sluit"></button>
             </div>
             <div class="small text-secondary mt-1 text-truncate" title="@Verwerking.Mutatie.Omschrijving">
@@ -20,14 +40,20 @@
         <div class="venster-inhoud">
             <table class="table table-sm table-hover align-middle mb-0 overzichtstabel">
                 <thead>
-                    <tr><th></th><th>Leverancier / klant</th><th>Factuurnr.</th><th>Datum</th><th>Vervaldatum</th><th class="text-end">Openstaand</th></tr>
+                    <tr>@if (!Enkel) { <th></th> }<th>Leverancier / klant</th><th>Factuurnr.</th><th>Datum</th><th>Vervaldatum</th><th class="text-end">Openstaand</th></tr>
                 </thead>
                 <tbody>
-                    @foreach (var p in Treffers)
+                    @{ var treffers = Treffers; }
+                    @for (var i = 0; i < treffers.Count; i++)
                     {
+                        var p = treffers[i];
+                        var n = i;
                         var aan = gekozen.Contains(p.Id);
-                        <tr class="klikbaar @(aan ? "table-active" : null)" @onclick="() => Wissel(p.Id)">
-                            <td><input class="form-check-input" type="checkbox" checked="@aan" aria-label="Kiezen" @onclick:stopPropagation @onchange="() => Wissel(p.Id)" /></td>
+                        <tr class="klikbaar @(aan ? "table-active" : null) @(n == gemarkeerd ? "gemarkeerd" : null)" @onclick="() => Klik(p)">
+                            @if (!Enkel)
+                            {
+                                <td><input class="form-check-input" type="checkbox" checked="@aan" aria-label="Kiezen" @onclick:stopPropagation @onchange="() => Wissel(p.Id)" /></td>
+                            }
                             <td>@Naam(p.Relatie)</td>
                             <td>@p.Factuurnummer</td>
                             <td class="text-nowrap">@Weergave.Datum(p.Datum)</td>
@@ -37,11 +63,13 @@
                     }
                 </tbody>
             </table>
-            @if (Treffers.Count == 0)
+            @if (treffers.Count == 0)
             {
                 <div class="text-secondary text-center py-4">Geen openstaande post gevonden.</div>
             }
         </div>
+        @if (!Enkel)
+        {
         <div class="card-footer">
             <Foutmeldingen Fouten="Fouten" />
             <div class="d-flex flex-wrap align-items-center gap-3 small">
@@ -81,6 +109,7 @@
                 </div>
             }
         </div>
+        }
     </div>
 </div>
 
@@ -93,6 +122,10 @@
     private string? btwCode;
     private string? omschrijving;
     private bool bezig;
+    private string relatie = "";
+    private string soort = "";
+    private bool alleenTegenpartij;
+    private int gemarkeerd;
 
     [Parameter, EditorRequired]
     public Bankverwerking Verwerking { get; set; } = default!;
@@ -103,6 +136,21 @@
 
     [Parameter]
     public Geopend? Kader { get; set; }
+
+    /// <summary>Eén post kiezen (voor een regel): klikken of Enter kiest en sluit het venster.</summary>
+    [Parameter]
+    public bool Enkel { get; set; }
+
+    /// <summary>Wat de gebruiker al typte (bijv. in de kolom factuurnummer).</summary>
+    [Parameter]
+    public string? Zoektekst { get; set; }
+
+    /// <summary>Posten die al op een andere regel staan: die staan hier niet.</summary>
+    [Parameter]
+    public IReadOnlyList<Guid> Uitgesloten { get; set; } = [];
+
+    [Parameter]
+    public EventCallback<OpenPost> Gekozen { get; set; }
 
     /// <summary>De posten die al aangevinkt staan (bijv. van een kandidaat).</summary>
     [Parameter]
@@ -130,7 +178,9 @@
         {
             var eigen = VanTegenpartij;
             return [.. Verwerking.OpenPosten
-                .Where(p => gekozen.Contains(p.Id) || Past(p))
+                .Where(p => !Uitgesloten.Contains(p.Id))
+                .Where(p => gekozen.Contains(p.Id) || (Past(p) && (relatie.Length == 0 || p.Relatie == relatie)
+                            && (soort.Length == 0 || p.Soort.ToString() == soort) && (!alleenTegenpartij || eigen.Contains(p.Relatie))))
                 .OrderByDescending(p => gekozen.Contains(p.Id))
                 .ThenByDescending(p => eigen.Contains(p.Relatie))];
         }
@@ -144,6 +194,10 @@
     {
         gekozen = [.. Voorgekozen];
         afboeken = Afboeken;
+        zoek = Zoektekst;
+        // De posten van de tegenpartij eerst; met een zoektekst alles.
+        alleenTegenpartij = string.IsNullOrWhiteSpace(Zoektekst) && VanTegenpartij.Count > 0
+                            && Verwerking.OpenPosten.Any(p => VanTegenpartij.Contains(p.Relatie) && !Uitgesloten.Contains(p.Id));
         if (Afboeken)
         {
             omschrijving = "Betalingskorting";
@@ -177,7 +231,22 @@
                || Naam(p.Relatie).Contains(tekst, StringComparison.OrdinalIgnoreCase);
     }
 
-    private string Naam(string relatie) => Verwerking.Relaties.FirstOrDefault(r => r.Code == relatie)?.Naam ?? relatie;
+    private string Naam(string code) => Verwerking.Relaties.FirstOrDefault(r => r.Code == code)?.Naam ?? code;
+
+    private IEnumerable<(string Code, string Naam)> Relatieopties =>
+        Verwerking.OpenPosten.Select(p => p.Relatie).Distinct().Select(c => (c, Naam(c))).OrderBy(r => r.Item2, StringComparer.CurrentCultureIgnoreCase);
+
+    private async Task Klik(OpenPost post)
+    {
+        if (Enkel)
+        {
+            await Gekozen.InvokeAsync(post);
+        }
+        else
+        {
+            Wissel(post.Id);
+        }
+    }
 
     private void Wissel(Guid post)
     {
@@ -197,9 +266,21 @@
 
     private async Task Toets(KeyboardEventArgs e)
     {
-        if (e.Key == "Escape")
+        var aantal = Treffers.Count;
+        switch (e.Key)
         {
-            await Sluit();
+            case "ArrowDown":
+                gemarkeerd = Math.Min(aantal - 1, gemarkeerd + 1);
+                break;
+            case "ArrowUp":
+                gemarkeerd = Math.Max(0, gemarkeerd - 1);
+                break;
+            case "Enter" when gemarkeerd >= 0 && gemarkeerd < aantal:
+                await Klik(Treffers[gemarkeerd]);
+                break;
+            case "Escape":
+                await Sluit();
+                break;
         }
     }
 

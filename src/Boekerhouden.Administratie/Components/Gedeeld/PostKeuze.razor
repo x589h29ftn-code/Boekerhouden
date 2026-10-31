@@ -1,0 +1,133 @@
+@* Een openstaande post kiezen in de kolom factuurnummer, zoals de rekeningkeuze: een factuurnummer typen (Enter of het
+   veld verlaten kiest de post met dat nummer), of F2 en de knop openen het venster met alle openstaande posten. Achter
+   het nummer staat de relatie van de gekozen post. *@
+@using Boekerhouden.Boekhouding.Afletteren
+@using Boekerhouden.Boekhouding.Facturen
+
+<div class="rekeningkeuze">
+    <div class="rekeningkeuze-rij form-control form-control-sm">
+        <input @ref="invoer" id="@Id" class="rekeningkeuze-invoer" value="@tekst" aria-label="Factuurnummer" autocomplete="off" title="@(Gekozen is { } g ? $"{Naam(g.Relatie)} · {g.Factuurnummer}" : null)"
+               style="@(Gekozen is null ? null : $"width:{Math.Max(4, tekst?.Length ?? 0) + 1}ch;flex:none")"
+               @oninput="Typ" @onkeydown="Toets" @onblur="Verlaat" />
+        @if (Gekozen is { } gekozen)
+        {
+            <span class="rekeningkeuze-naam" title="@Naam(gekozen.Relatie)">@Naam(gekozen.Relatie)</span>
+        }
+        <button type="button" class="rekeningkeuze-alle" tabindex="-1" title="Openstaande posten (F2)" aria-label="Openstaande posten" @onmousedown:preventDefault @onclick="OpenVenster">⋯</button>
+    </div>
+</div>
+@if (venster)
+{
+    <OpenpostenVenster Verwerking="Verwerking" Kader="Kader" Enkel="true" Zoektekst="@(Gekozen is null ? tekst : null)" Uitgesloten="Uitgesloten"
+                       Gekozen="KiesUitVenster" Gesloten="SluitVenster" />
+}
+
+@code {
+    private ElementReference invoer;
+    private string? tekst;
+    private Guid? getoond;
+    private bool venster;
+
+    [Parameter]
+    public Guid? Waarde { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid?> WaardeChanged { get; set; }
+
+    [Parameter, EditorRequired]
+    public Bankverwerking Verwerking { get; set; } = default!;
+
+    /// <summary>Posten die al op een andere regel staan.</summary>
+    [Parameter]
+    public IReadOnlyList<Guid> Uitgesloten { get; set; } = [];
+
+    [Parameter]
+    public string? Id { get; set; }
+
+    [Parameter]
+    public Geopend? Kader { get; set; }
+
+    private OpenPost? Gekozen => Waarde is { } id ? Verwerking.OpenPosten.FirstOrDefault(p => p.Id == id) : null;
+
+    protected override void OnParametersSet()
+    {
+        // Van buiten gekozen (bijv. via "Kiezen…"): het nummer tonen.
+        if (Waarde != getoond)
+        {
+            getoond = Waarde;
+            tekst = Gekozen?.Factuurnummer ?? (Waarde is null ? tekst : null);
+        }
+    }
+
+    private string Naam(string relatie) => Verwerking.Relaties.FirstOrDefault(r => r.Code == relatie)?.Naam ?? relatie;
+
+    private async Task Typ(ChangeEventArgs e)
+    {
+        tekst = e.Value?.ToString();
+        if (Waarde is not null)
+        {
+            await Kies(null);
+        }
+    }
+
+    private async Task Toets(KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "F2":
+                OpenVenster();
+                break;
+            case "Enter" when Gekozen is null && !string.IsNullOrWhiteSpace(tekst):
+                if (Enige() is { } post)
+                {
+                    await Kies(post.Id);
+                }
+                else
+                {
+                    OpenVenster();
+                }
+
+                break;
+        }
+    }
+
+    /// <summary>De enige open post met dit factuurnummer (zonder leestekens en hoofdletters).</summary>
+    private OpenPost? Enige() =>
+        string.IsNullOrWhiteSpace(tekst)
+            ? null
+            : Verwerking.OpenPosten.Where(p => !Uitgesloten.Contains(p.Id) && Factuurnummers.Normaliseer(p.Factuurnummer) == Factuurnummers.Normaliseer(tekst)).ToList() is [var enige] ? enige : null;
+
+    private async Task Verlaat()
+    {
+        if (!venster && Gekozen is null && Enige() is { } post)
+        {
+            await Kies(post.Id);
+        }
+    }
+
+    private async Task Kies(Guid? post)
+    {
+        getoond = post;
+        if (post is not null)
+        {
+            tekst = Verwerking.OpenPosten.First(p => p.Id == post).Factuurnummer;
+        }
+
+        await WaardeChanged.InvokeAsync(post);
+    }
+
+    private void OpenVenster() => venster = true;
+
+    private async Task KiesUitVenster(OpenPost post)
+    {
+        venster = false;
+        await Kies(post.Id);
+        await invoer.FocusAsync();
+    }
+
+    private async Task SluitVenster()
+    {
+        venster = false;
+        await invoer.FocusAsync();
+    }
+}

@@ -350,6 +350,27 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
     }
 
     [Fact]
+    public async Task Een_regel_op_een_openstaande_post_met_een_deel_van_het_bedrag()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Deel Post B.V.");
+        var bank = app.Dienst<BankDienst>();
+        await BoekBelnet(wie, id);
+        await bank.Lees(wie, id, Afschrift(belnet: "30,00"), "ing.mt940");
+        var belnet = (await bank.Lijst(wie, id)).Single(m => m.Bedrag == -30m);
+        var post = (await bank.OpenPosten(wie, id)).Single();
+
+        Assert.Equal(["Een openstaande post staat er twee keer in."],
+            (await bank.Verdeel(wie, id, belnet.Id, [post.Id], [new Bankregelinvoer("", null, 20m, Post: post.Id), new Bankregelinvoer("9000", null, 10m)])).Fouten);
+        var uitkomst = await bank.Verdeel(wie, id, belnet.Id, [], [new Bankregelinvoer("", null, 20m, Post: post.Id), new Bankregelinvoer("9000", null, 10m, "Kosten")]);
+
+        Assert.True(uitkomst.IsGelukt, string.Join("; ", uitkomst.Fouten));
+        Assert.Equal(-4.99m, (await bank.OpenPosten(wie, id)).Single().Openstaand);
+        var proef = await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026);
+        Assert.Equal((-4.99m, 10m), (Saldo(proef, "1600"), Saldo(proef, "9000")));
+    }
+
+    [Fact]
     public async Task Opnieuw_afletteren_boekt_wat_na_het_inlezen_zeker_is_geworden()
     {
         var wie = await app.Beheerder();

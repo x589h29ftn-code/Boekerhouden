@@ -19,8 +19,11 @@ public sealed record Bankinlezing(int Afschriften, int Nieuw, int Dubbel, int Au
 /// <summary>Wat een nieuwe ronde automatisch verwerken opleverde: hoeveel er bekeken en hoeveel er geboekt zijn.</summary>
 public sealed record Herverwerking(int Bekeken, int Geboekt);
 
-/// <summary>Een deel van een bankmutatie op een grootboekrekening: het bedrag inclusief btw, zoals op het afschrift (zonder teken).</summary>
-public sealed record Bankregelinvoer(string Rekening, string? BtwCode, decimal Bedrag, string? Omschrijving = null);
+/// <summary>
+/// Een deel van een bankmutatie: op een grootboekrekening, of met <paramref name="Post"/> op een openstaande post (dan
+/// telt de rekening niet). Het bedrag inclusief btw, zoals op het afschrift (zonder teken).
+/// </summary>
+public sealed record Bankregelinvoer(string Rekening, string? BtwCode, decimal Bedrag, string? Omschrijving = null, Guid? Post = null);
 
 /// <summary>Het verschil bij afletteren op een rekening boeken in plaats van open te laten staan (bijv. betalingskorting).</summary>
 public sealed record Verschilafboeking(string Rekening, string? BtwCode, string? Omschrijving = null);
@@ -324,7 +327,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         var codes = (await BtwDienst.Lees(db)).Op(t.Datum);
         var fouten = new List<string>();
         var verdeling = new List<(decimal, Afboeking)>();
-        foreach (var r in regels.Where(r => r.Bedrag != 0 || !string.IsNullOrWhiteSpace(r.Rekening)))
+        foreach (var r in regels.Where(r => r.Post is null && (r.Bedrag != 0 || !string.IsNullOrWhiteSpace(r.Rekening))))
         {
             if (schema.Zoek(r.Rekening?.Trim()) is not { } rekening)
             {
@@ -348,19 +351,31 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             verdeling.Add((Math.Sign(t.Bedrag) * r.Bedrag, new Afboeking(rekening.Nummer, btw, string.IsNullOrWhiteSpace(r.Omschrijving) ? null : Kort(r.Omschrijving.Trim(), 200))));
         }
 
-        var ids = posten.Distinct().ToList();
+        // Posten: de hele post, of per regel een bedrag op een post (een deel, of meer dan openstaat).
+        var delen = regels.Where(r => r.Post is not null).ToList();
+        var ids = posten.Concat(delen.Select(r => r.Post!.Value)).ToList();
         var open = await db.OpenstaandePosten.Where(p => ids.Contains(p.Id)).ToListAsync();
-        if (open.Count != ids.Count || open.Any(p => p.Openstaand == 0))
+        if (ids.Distinct().Count() != ids.Count)
+        {
+            fouten.Add("Een openstaande post staat er twee keer in.");
+        }
+        else if (open.Count != ids.Count || open.Any(p => p.Openstaand == 0))
         {
             fouten.Add("Een van de openstaande posten is intussen betaald.");
         }
 
+        if (delen.Any(r => r.Bedrag == 0))
+        {
+            fouten.Add("Vul bij elke openstaande post een bedrag in.");
+        }
+
+        var postbedragen = open.Select(p => (Post: p, Bedrag: delen.FirstOrDefault(r => r.Post == p.Id) is { } deel ? Math.Sign(t.Bedrag) * deel.Bedrag : p.Openstaand)).ToList();
         if (verdeling.Count == 0 && open.Count == 0)
         {
             fouten.Add("Kies een openstaande post of vul een regel in.");
         }
 
-        if (fouten.Count == 0 && open.Sum(p => p.Openstaand) + verdeling.Sum(v => v.Item1) is var totaal && totaal != t.Bedrag)
+        if (fouten.Count == 0 && postbedragen.Sum(p => p.Bedrag) + verdeling.Sum(v => v.Item1) is var totaal && totaal != t.Bedrag)
         {
             fouten.Add($"De posten en regels ({Domain.Bedragen.Getal(Math.Abs(totaal))}) sluiten niet op de mutatie ({Domain.Bedragen.Getal(Math.Abs(t.Bedrag))}).");
         }
@@ -373,7 +388,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         await using var transactie = await db.Database.BeginTransactionAsync();
         await db.Vergrendel(administratie);
         var boekstuk = await GrootboekDienst.VolgendBoekstuk(db, dagboek.Code, t.Datum.Year);
-        var (post, bijgewerkt) = Bankboeker.Verdeeld(t.NaarDomein(), [.. open.Select(p => p.NaarDomein())], verdeling, dagboek, boekstuk, schema);
+        var (post, bijgewerkt) = Bankboeker.Verdeeld(t.NaarDomein(), [.. postbedragen.Select(p => (p.Post.NaarDomein(), p.Bedrag))], verdeling, dagboek, boekstuk, schema);
         if (Journaalcontrole.Controleer(post, schema, dagboeken) is { Count: > 0 } controle)
         {
             return Uitkomst.Mislukt([.. controle]);
@@ -395,7 +410,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             $"{t.Bedrag:0.00} verdeeld: {string.Join(", ", open.Select(p => $"{p.Relatie} {p.Factuurnummer}").Concat(verdeling.Select(v => $"{v.Item2.Rekeningnummer} {v.Item1:0.00}")))}", administratie);
         if (open.Count > 0)
         {
-            await LeerIban(db, administratie, t, ids, wie);
+            await LeerIban(db, administratie, t, [.. ids.Distinct()], wie);
         }
 
         return Uitkomst.Gelukt;

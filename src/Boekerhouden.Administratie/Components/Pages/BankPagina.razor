@@ -175,71 +175,58 @@
                         }
                         @if (mag)
                         {
-                            <div class="mb-3">
+                            <div class="mb-2">
                                 <div class="d-flex align-items-center">
-                                    <div class="paneelkop mb-0">Openstaande posten</div>
-                                    <button class="btn btn-sm btn-link ms-auto" title="Of dubbelklik op de mutatie" @onclick="() => venster = (paneelPosten.ToList(), false, true)">Kiezen…</button>
+                                    <div class="paneelkop mb-0" title="@g.Voorstel.Advies.Reden">Regels</div>
+                                    <button class="btn btn-sm btn-link ms-auto" title="Meer openstaande posten tegelijk (of dubbelklik op de mutatie)" @onclick="KiesMeer">Posten kiezen…</button>
+                                    <button class="btn btn-sm btn-link" @onclick="RegelErbij">+ regel</button>
                                 </div>
-                                @foreach (var p in g.OpenPosten.Where(p => paneelPosten.Contains(p.Id)))
-                                {
-                                    <div class="d-flex align-items-center gap-2 py-1 regel-hover">
-                                        <span>@Post(p)</span>
-                                        <button class="btn btn-sm btn-link text-secondary ms-auto regelactie" title="Weghalen" @onclick="() => HaalPostWeg(p.Id)">&times;</button>
-                                    </div>
-                                }
-                            </div>
-                            <div class="mb-3">
-                                <div class="d-flex align-items-center">
-                                    <div class="paneelkop mb-0" title="@g.Voorstel.Advies.Reden">Op grootboek</div>
-                                    <button class="btn btn-sm btn-link ms-auto" @onclick="RegelErbij">+ regel</button>
-                                </div>
-                                @for (var i = 0; i < regels.Count; i++)
-                                {
-                                    var regel = regels[i];
-                                    var n = i;
-                                    <div class="row g-2 align-items-end mb-1 regel-hover">
-                                        <div class="col-md-4">
-                                            @if (n == 0)
-                                            {
-                                                <label class="form-label small mb-0" for="regel-rekening-0">Rekening</label>
-                                            }
-                                            <RekeningKeuze Id="@($"regel-rekening-{n}")" @bind-Waarde:get="regel.Rekening" @bind-Waarde:set="w => KiesRekening(regel, w)" Schema="g.Schema" Kader="geopend" />
-                                        </div>
-                                        <div class="col-md-2">
-                                            @if (n == 0)
-                                            {
-                                                <label class="form-label small mb-0" for="regel-btw-0">Btw</label>
-                                            }
-                                            <select id="@($"regel-btw-{n}")" class="form-select form-select-sm" @bind="regel.BtwCode">
-                                                <option value="">geen</option>
-                                                @foreach (var c in g.BtwCodes.Where(c => c.Actief))
-                                                {
-                                                    <option value="@c.Code" title="@c.Code · @c.Omschrijving">@c.Kort</option>
-                                                }
-                                            </select>
-                                        </div>
-                                        <div class="col-md-2">
-                                            @if (n == 0)
-                                            {
-                                                <label class="form-label small mb-0" for="regel-bedrag-0">Bedrag</label>
-                                            }
-                                            <input id="@($"regel-bedrag-{n}")" class="form-control form-control-sm text-end" @bind="regel.Bedrag" />
-                                        </div>
-                                        <div class="col-md-4 d-flex gap-1">
-                                            <div class="flex-grow-1">
-                                                @if (n == 0)
-                                                {
-                                                    <label class="form-label small mb-0" for="regel-omschrijving-0">Omschrijving</label>
-                                                }
-                                                <input id="@($"regel-omschrijving-{n}")" class="form-control form-control-sm" @bind="regel.Omschrijving" placeholder="@Standaardomschrijving(g.Mutatie)" />
-                                            </div>
-                                            @if (regels.Count > 1)
-                                            {
-                                                <button class="btn btn-sm btn-link text-secondary regelactie align-self-end" title="Regel weghalen" @onclick="() => regels.RemoveAt(n)">&times;</button>
-                                            }
-                                        </div>
-                                    </div>
-                                }
+                                <table class="table table-sm align-middle mb-0 bankregels">
+                                    <thead>
+                                        <tr><th>Factuurnummer</th><th>Rekening</th><th>Btw</th><th class="text-end">Bedrag</th><th>Omschrijving</th><th></th></tr>
+                                    </thead>
+                                    <tbody>
+                                        @for (var i = 0; i < regels.Count; i++)
+                                        {
+                                            var regel = regels[i];
+                                            var n = i;
+                                            var post = regel.Post is { } pid ? g.OpenPosten.FirstOrDefault(p => p.Id == pid) : null;
+                                            <tr class="regel-hover">
+                                                <td>
+                                                    <PostKeuze Id="@($"regel-factuur-{n}")" Waarde="regel.Post" WaardeChanged="p => KiesPost(regel, p)" Verwerking="g" Kader="geopend"
+                                                               Uitgesloten="@([.. regels.Where(r => r != regel && r.Post is not null).Select(r => r.Post!.Value)])" />
+                                                </td>
+                                                <td>
+                                                    @if (post is not null)
+                                                    {
+                                                        <span class="small text-secondary text-truncate d-block" title="@Rekeningnaam(g, Postrekening(g, post))">@Rekeningnaam(g, Postrekening(g, post))</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <RekeningKeuze Id="@($"regel-rekening-{n}")" @bind-Waarde:get="regel.Rekening" @bind-Waarde:set="w => KiesRekening(regel, w)" Schema="g.Schema" Kader="geopend" />
+                                                    }
+                                                </td>
+                                                <td>
+                                                    <select id="@($"regel-btw-{n}")" class="form-select form-select-sm" @bind="regel.BtwCode" disabled="@(post is not null)" aria-label="Btw">
+                                                        <option value="">geen</option>
+                                                        @foreach (var c in g.BtwCodes.Where(c => c.Actief))
+                                                        {
+                                                            <option value="@c.Code" title="@c.Code · @c.Omschrijving">@c.Kort</option>
+                                                        }
+                                                    </select>
+                                                </td>
+                                                <td><input id="@($"regel-bedrag-{n}")" class="form-control form-control-sm text-end" @bind="regel.Bedrag" aria-label="Bedrag" /></td>
+                                                <td><input id="@($"regel-omschrijving-{n}")" class="form-control form-control-sm" @bind="regel.Omschrijving" aria-label="Omschrijving" placeholder="@(post is not null ? $"Betaling {post.Factuurnummer}" : Standaardomschrijving(g.Mutatie))" /></td>
+                                                <td>
+                                                    @if (regels.Count > 1)
+                                                    {
+                                                        <button class="btn btn-sm btn-link text-secondary regelactie p-0" title="Regel weghalen" @onclick="() => regels.RemoveAt(n)">&times;</button>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
                             </div>
                             <div class="d-flex flex-wrap align-items-center gap-3 small mb-3 totalen">
                                 <span>Posten <Euro Waarde="Postentotaal" /></span>
@@ -284,8 +271,8 @@
                                             </div>
                                         </div>
                                         <div class="d-flex align-items-center gap-2 mt-2">
-                                            <span class="small text-secondary">@(regels.FirstOrDefault()?.Rekening is { Length: > 0 } ar ? $"→ {Rekeningnaam(g, ar)}{(regels[0].BtwCode is { Length: > 0 } ab ? $", {ab}" : null)}" : "Kies hierboven de rekening.")</span>
-                                            <button class="btn btn-sm btn-outline-primary ms-auto" disabled="@(bezig || string.IsNullOrWhiteSpace(regels.FirstOrDefault()?.Rekening))" @onclick="BewaarAutoherkenning">Opslaan en toepassen</button>
+                                            <span class="small text-secondary">@(regels.FirstOrDefault(r => r.Post is null) is { Rekening: { Length: > 0 } ar } ag ? $"→ {Rekeningnaam(g, ar)}{(ag.BtwCode is { Length: > 0 } ab ? $", {ab}" : null)}" : "Kies hierboven de rekening.")</span>
+                                            <button class="btn btn-sm btn-outline-primary ms-auto" disabled="@(bezig || string.IsNullOrWhiteSpace(regels.FirstOrDefault(r => r.Post is null)?.Rekening))" @onclick="BewaarAutoherkenning">Opslaan en toepassen</button>
                                         </div>
                                     }
                                 </div>
@@ -328,7 +315,6 @@
     private bool mag;
     private Bankverwerking? gekozen;
     private (List<Guid> Posten, bool Afboeken, bool Kiezen)? venster;
-    private List<Guid> paneelPosten = [];
     private List<Regelinvoer> regels = [];
     private bool magRegels;
     private bool autoOpen;
@@ -338,9 +324,11 @@
     private bool autoIban;
     private bool autoAutomatisch = true;
 
-    /// <summary>Een regel in het verwerkpaneel: een deel van de mutatie op een grootboekrekening.</summary>
+    /// <summary>Een regel in het verwerkpaneel: een deel van de mutatie op een openstaande post of op een grootboekrekening.</summary>
     private sealed class Regelinvoer
     {
+        public Guid? Post { get; set; }
+
         public string? Rekening { get; set; }
 
         public string? BtwCode { get; set; }
@@ -447,7 +435,6 @@
         factuurUitkomst = null;
         gekozen = await Bank.Verwerking(geopend!.Wie, Id, m.Id);
         venster = null;
-        paneelPosten = [];
         // Kan de mutatie de betaling van een factuur zijn, dan geen rekening vooraf: anders staat de kost er twee keer in.
         var advies = gekozen?.Voorstel.Afletteren.Kandidaten.Count == 0 ? gekozen.Voorstel.Advies : null;
         regels = [new Regelinvoer { Rekening = advies?.Rekeningnummer, BtwCode = advies?.BtwCode, Bedrag = Bedragen.Getal(Math.Abs(m.Bedrag)) }];
@@ -463,27 +450,46 @@
 
     private decimal Teken => gekozen is { } g ? Math.Sign(g.Mutatie.Bedrag) : 1;
 
-    private decimal Postentotaal => gekozen?.OpenPosten.Where(p => paneelPosten.Contains(p.Id)).Sum(p => p.Openstaand) ?? 0m;
+    private decimal Postentotaal => Teken * regels.Where(r => r.Post is not null).Sum(r => r.Waarde);
 
-    private decimal Regeltotaal => Teken * regels.Sum(r => r.Waarde);
+    private decimal Regeltotaal => Teken * regels.Where(r => r.Post is null).Sum(r => r.Waarde);
 
     private decimal Verschil => (gekozen?.Mutatie.Bedrag ?? 0m) - Postentotaal - Regeltotaal;
 
-    private void HaalPostWeg(Guid post)
+    private static string Postrekening(Bankverwerking g, Boekhouding.Facturen.OpenPost post) =>
+        g.Schema.Alle.FirstOrDefault(r => r.Functie == (post.Soort == Boekhouding.Facturen.Factuursoort.Verkoop ? Boekhouding.Grootboek.Rekeningfunctie.Debiteuren : Boekhouding.Grootboek.Rekeningfunctie.Crediteuren))?.Nummer ?? "";
+
+    /// <summary>Een post op een regel: dan geen rekening of btw, en als bedrag wat er openstaat (aan te passen voor een deel).</summary>
+    private void KiesPost(Regelinvoer regel, Guid? post)
     {
-        paneelPosten.Remove(post);
-        VulRest();
+        regel.Post = post;
+        if (post is { } id && gekozen?.OpenPosten.FirstOrDefault(p => p.Id == id) is { } open)
+        {
+            (regel.Rekening, regel.BtwCode) = (null, null);
+            regel.Bedrag = Bedragen.Getal(Math.Abs(open.Openstaand));
+        }
     }
 
-    /// <summary>Wat er na de posten overblijft, op de (enige) regel; bij meer regels een nieuwe regel met de rest.</summary>
-    private void VulRest()
+    private void KiesMeer() => venster = ([.. regels.Where(r => r.Post is not null).Select(r => r.Post!.Value)], false, true);
+
+    /// <summary>Gekozen in het venster: per post een regel (een lege regel wordt eerst gebruikt), weggevinkte posten eraf.</summary>
+    private void NeemPosten(IReadOnlyList<Guid> posten)
     {
-        var rest = Math.Abs((gekozen?.Mutatie.Bedrag ?? 0m) - Postentotaal);
-        if (regels.Count <= 1)
+        regels.RemoveAll(r => r.Post is { } p && !posten.Contains(p));
+        foreach (var post in posten.Where(p => regels.All(r => r.Post != p)))
         {
-            var regel = regels.FirstOrDefault() ?? new Regelinvoer();
-            regel.Bedrag = rest == 0 ? null : Bedragen.Getal(rest);
-            regels = [regel];
+            var regel = regels.FirstOrDefault(r => r.Post is null && string.IsNullOrWhiteSpace(r.Rekening)) ?? new Regelinvoer();
+            if (!regels.Contains(regel))
+            {
+                regels.Add(regel);
+            }
+
+            KiesPost(regel, post);
+        }
+
+        if (regels.Count == 0)
+        {
+            regels.Add(new Regelinvoer());
         }
     }
 
@@ -491,17 +497,21 @@
         regels.Add(new Regelinvoer { Bedrag = Verschil == 0 ? null : Bedragen.Getal(Math.Abs(Verschil)) });
 
     /// <summary>
-    /// Boeken zoals het paneel staat: alleen posten (een verschil blijft op de post openstaan), of posten en regels
-    /// samen precies het bedrag.
+    /// Boeken zoals het paneel staat: alleen hele posten (een verschil blijft op de post openstaan, te veel wordt te
+    /// vorderen), of posten (ook een deel) en regels samen precies het bedrag.
     /// </summary>
     private async Task Boeken()
     {
         bezig = true;
-        var ingevuld = regels.Where(r => !string.IsNullOrWhiteSpace(r.Rekening) || r.Waarde != 0).ToList();
-        var uitkomst = paneelPosten.Count > 0 && ingevuld.All(r => string.IsNullOrWhiteSpace(r.Rekening))
-            ? await Bank.Afletteren(geopend!.Wie, Id, gekozen!.Mutatie.Id, paneelPosten)
-            : await Bank.Verdeel(geopend!.Wie, Id, gekozen!.Mutatie.Id, paneelPosten,
-                [.. ingevuld.Select(r => new Bankregelinvoer(r.Rekening ?? "", r.BtwCode, r.Waarde, string.IsNullOrWhiteSpace(r.Omschrijving) ? Standaardomschrijving(gekozen.Mutatie) : r.Omschrijving))]);
+        var ingevuld = regels.Where(r => r.Post is not null || !string.IsNullOrWhiteSpace(r.Rekening) || r.Waarde != 0).ToList();
+        var posten = ingevuld.Where(r => r.Post is not null).ToList();
+        var heel = posten.Count > 0 && posten.Count == ingevuld.Count
+                   && posten.All(r => gekozen!.OpenPosten.FirstOrDefault(p => p.Id == r.Post) is { } open && Math.Abs(open.Openstaand) == r.Waarde);
+        var uitkomst = heel
+            ? await Bank.Afletteren(geopend!.Wie, Id, gekozen!.Mutatie.Id, [.. posten.Select(r => r.Post!.Value)])
+            : await Bank.Verdeel(geopend!.Wie, Id, gekozen!.Mutatie.Id, [],
+                [.. ingevuld.Select(r => new Bankregelinvoer(r.Rekening ?? "", r.BtwCode, r.Waarde,
+                    string.IsNullOrWhiteSpace(r.Omschrijving) ? (r.Post is null ? Standaardomschrijving(gekozen.Mutatie) : null) : r.Omschrijving, r.Post))]);
         bezig = false;
         await Na(uitkomst);
     }
@@ -512,7 +522,7 @@
     /// </summary>
     private async Task BewaarAutoherkenning()
     {
-        if (gekozen is not { } g || regels.FirstOrDefault() is not { Rekening: { Length: > 0 } rekening } eerste)
+        if (gekozen is not { } g || regels.FirstOrDefault(r => r.Post is null) is not { Rekening: { Length: > 0 } rekening } eerste)
         {
             return;
         }
@@ -582,9 +592,8 @@
         // Gekozen voor het paneel: de posten erin, de rest op de regel.
         if (venster is { Kiezen: true })
         {
-            paneelPosten = [.. keuze.Posten];
+            NeemPosten(keuze.Posten);
             venster = null;
-            VulRest();
             return;
         }
 
