@@ -457,12 +457,14 @@ public sealed class InkoopDienst(
         var kosten = boeking.Regels.Where(r => functies[r] is not (Rekeningfunctie.Crediteuren or Rekeningfunctie.Voorbelasting or Rekeningfunctie.AfTeDragenBtw))
             .OrderBy(r => r.Regelnummer).ToList();
         var btw = boeking.Regels.Where(r => functies[r] == Rekeningfunctie.Voorbelasting).ToList();
+        // Zoals op het papier: een creditnota positief, een korting op een factuur negatief.
+        var teken = post.Bedrag > 0 ? -1 : 1;
         var regels = kosten.Select(r =>
         {
             // De btw per regel staat per btw-code in de boeking; bij één regel met die code is dat de btw van de regel.
             var eigen = kosten.Count(k => k.BtwCode == r.BtwCode) == 1 ? btw.FirstOrDefault(b => b.BtwCode == r.BtwCode)?.Bedrag : null;
             return new Factuurregel(r.Omschrijving == boeking.Omschrijving ? string.Empty : r.Omschrijving ?? string.Empty, r.Rekeningnummer, r.BtwCode ?? "I0",
-                Math.Abs(r.Bedrag), eigen is { } b ? Math.Abs(b) : null);
+                teken * r.Bedrag, eigen is { } b ? teken * b : null);
         }).ToList();
 
         // Met een periodeverdeling staan de kosten op de verdeelrekening; de kostenrekeningen per regel zijn bewaard.
@@ -651,13 +653,15 @@ public sealed class InkoopDienst(
         var variabelen = new Factuurvariabelen(invoer.Factuurnummer.Trim(), herkend?.Omschrijving, naam, invoer.Datum, invoer.Vervaldatum, kenmerk);
         var sjabloon = Omschrijvingssjabloon.IsSjabloon(invoer.Omschrijving) ? invoer.Omschrijving.Trim() : null;
         var omschrijving = string.IsNullOrWhiteSpace(invoer.Omschrijving) ? $"{naam} {invoer.Factuurnummer}".Trim() : Omschrijvingssjabloon.Vul(invoer.Omschrijving, variabelen);
-        var teken = invoer.Creditnota ? -1 : 1;
+        // Bedragen zoals op het papier: een negatieve regel is een korting (op een creditnota: een toeslag). Een creditnota
+        // waarvan de regels al negatief zijn ingevoerd, staat al goed.
+        var teken = invoer.Creditnota && invoer.Regels.Sum(r => r.Bedrag) > 0 ? -1 : 1;
         var factuur = new Factuur(Factuursoort.Inkoop, code, invoer.Factuurnummer.Trim(), invoer.Datum, invoer.Vervaldatum, Kort(omschrijving),
             [.. invoer.Regels.Select(r => r with
             {
                 Omschrijving = Kort(string.IsNullOrWhiteSpace(r.Omschrijving) ? omschrijving : Omschrijvingssjabloon.Vul(r.Omschrijving, variabelen)),
-                Bedrag = teken * Math.Abs(r.Bedrag),
-                Btw = r.Btw is { } btw ? teken * Math.Abs(btw) : null,
+                Bedrag = teken * r.Bedrag,
+                Btw = r.Btw is { } btw ? teken * btw : null,
             })],
             kenmerk);
         d.Soort = invoer.Creditnota ? Documentsoort.Creditnota : Documentsoort.Factuur;
@@ -690,7 +694,7 @@ public sealed class InkoopDienst(
         }
 
         var aangewezen = (invoer.Aanwijzingen ?? []).Select(a => a.Veld).ToHashSet();
-        var totaal = invoer.Regels.Sum(r => Math.Abs(r.Bedrag) + Math.Abs(r.Btw ?? 0));
+        var totaal = Math.Abs(invoer.Regels.Sum(r => r.Bedrag + (r.Btw ?? 0)));
         var enige = invoer.Regels.Count == 1 ? invoer.Regels[0] : null;
         decimal? exclusief = enige is null ? null : Math.Abs(enige.Bedrag);
         decimal? btw = enige?.Btw is { } b ? Math.Abs(b) : null;

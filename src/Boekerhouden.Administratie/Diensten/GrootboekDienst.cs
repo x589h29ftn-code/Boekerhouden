@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Boekerhouden.Administratie.Data;
+using Boekerhouden.Boekhouding.Facturen;
 using Boekerhouden.Boekhouding.Grootboek;
 using Microsoft.EntityFrameworkCore;
 
@@ -195,7 +196,8 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
             return Uitkomst<long>.Mislukt("Je hebt in deze administratie niet het recht om hier te boeken.");
         }
 
-        var fouten = Journaalcontrole.Controleer(post, await LaadSchema(db), dagboeken).ToList();
+        var schema = await LaadSchema(db);
+        var fouten = Journaalcontrole.Controleer(post, schema, dagboeken).ToList();
         if (await db.Boekingen.AnyAsync(b => b.Dagboek == post.Dagboek && b.Boekstuk == post.Boekstuk))
         {
             fouten.Add($"Boekstuk {post.Boekstuk} bestaat al in dagboek {post.Dagboek}.");
@@ -208,10 +210,39 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
 
         await using var transactie = await db.Database.BeginTransactionAsync();
         var boeking = await VoegToeAanKeten(db, administratie, post, wie);
+        await WerkOpenstaandePostenBij(db, post, schema);
         await db.SaveChangesAsync();
         await transactie.CommitAsync();
         await audit.Log(wie, AuditActies.Geboekt, $"{post.Dagboek} {boeking.Boekstuk}", $"{boeking.Omschrijving}; {post.TotaalDebet:0.00}", administratie);
         return Uitkomst<long>.Met(boeking.Volgnummer);
+    }
+
+    /// <summary>
+    /// Een regel op debiteuren of crediteuren met relatie en factuurnummer (bijv. een betaling of correctie in het
+    /// memoriaal) werkt de openstaande post van die factuur bij, net als afletteren via de bank. Bij een aanpassing
+    /// blijven die regels gelijk (<see cref="Boekingscorrectie"/>), dus alleen bij een nieuwe boeking.
+    /// </summary>
+    private static async Task WerkOpenstaandePostenBij(AdministratieDbContext db, Journaalpost post, Rekeningschema schema)
+    {
+        foreach (var regel in post.Regels)
+        {
+            Factuursoort? soort = schema.Zoek(regel.Rekeningnummer)?.Functie switch
+            {
+                Rekeningfunctie.Crediteuren => Factuursoort.Inkoop,
+                Rekeningfunctie.Debiteuren => Factuursoort.Verkoop,
+                _ => null,
+            };
+            if (soort is null || Leeg(regel.Relatie) is not { } relatie || Leeg(regel.Factuurnummer) is not { } nummer)
+            {
+                continue;
+            }
+
+            if (await db.OpenstaandePosten.Where(p => p.Soort == soort && p.Relatie == relatie && p.Factuurnummer == nummer)
+                    .OrderBy(p => p.Datum).FirstOrDefaultAsync() is { } open)
+            {
+                open.Openstaand += regel.Bedrag;
+            }
+        }
     }
 
     /// <summary>
