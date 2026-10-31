@@ -4,7 +4,7 @@
 
 <AdministratieKader Id="Id" Titel="Inkoop" Actief="/inkoopboek" BijOpenen="Open">
     <Acties>
-        <span class="form-check form-switch mb-0 small text-nowrap">
+        <span class="form-check mb-0 small text-nowrap">
             <input class="form-check-input" type="checkbox" id="alle-jaren" checked="@alleJaren" @onchange="WisselAlleJaren" />
             <label class="form-check-label text-secondary" for="alle-jaren">alle jaren</label>
         </span>
@@ -27,7 +27,7 @@
             <input class="form-control form-control-sm text-end zoek-bedrag" placeholder="van" aria-label="Bedrag van" @bind="bedragVan" @bind:event="oninput" />
             <span class="text-secondary small">–</span>
             <input class="form-control form-control-sm text-end zoek-bedrag" placeholder="tot" aria-label="Bedrag tot" @bind="bedragTot" @bind:event="oninput" />
-            <span class="form-check form-switch mb-0 small ms-2">
+            <span class="form-check mb-0 small ms-2">
                 <input class="form-check-input" type="checkbox" id="alleen-open" @bind="alleenOpen" />
                 <label class="form-check-label text-secondary" for="alleen-open">alleen open</label>
             </span>

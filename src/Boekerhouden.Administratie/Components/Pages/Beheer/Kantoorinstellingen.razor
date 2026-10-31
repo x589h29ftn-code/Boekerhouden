@@ -32,7 +32,7 @@
                     <option value="@procent">@naam</option>
                 }
             </select>
-            <span class="form-check form-switch mb-0 ms-3">
+            <span class="form-check mb-0 ms-3">
                 <input id="heleeuros" class="form-check-input" type="checkbox" @bind="heleEuros" />
                 <label class="form-check-label" for="heleeuros">Afronden op hele euro's</label>
             </span>
@@ -80,6 +80,6 @@
 
         var uitkomst = await Kantoor.Wijzig((await Status).User.AlsUitvoerder(), nieuw);
         fouten = uitkomst.Fouten;
-        bericht = uitkomst.IsGelukt ? "Opgeslagen." : null;
+        bericht = uitkomst.IsGelukt ? "Kantoorinstellingen opgeslagen." : null;
     }
 }

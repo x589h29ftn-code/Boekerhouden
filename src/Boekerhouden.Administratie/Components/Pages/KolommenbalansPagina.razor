@@ -16,7 +16,7 @@
             <button class="btn btn-outline-secondary @(perMaand ? null : "active")" @onclick="() => Zet(uitgebreid, false)">Totaal</button>
             <button class="btn btn-outline-secondary @(perMaand ? "active" : null)" title="Begin, de mutaties per maand en het eind" @onclick="() => Zet(uitgebreid, true)">Per maand</button>
         </div>
-        <span class="form-check form-switch mb-0 small text-nowrap">
+        <span class="form-check mb-0 small text-nowrap">
             <input class="form-check-input" type="checkbox" id="met-nul" @bind="metNul" />
             <label class="form-check-label text-secondary" for="met-nul">ook zonder saldo</label>
         </span>

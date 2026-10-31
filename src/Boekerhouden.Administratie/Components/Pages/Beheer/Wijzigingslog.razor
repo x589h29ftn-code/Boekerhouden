@@ -22,7 +22,7 @@
                 @foreach (var r in regels)
                 {
                     <tr>
-                        <td class="text-nowrap">@Weergave.DatumTijd(r.Tijdstip)</td>
+                        <td class="text-nowrap" title="@Weergave.DatumTijd(r.Tijdstip)">@Weergave.Moment(r.Tijdstip)</td>
                         <td class="text-nowrap">@r.Gebruiker</td>
                         <td class="text-nowrap">@r.Actie</td>
                         <td>@r.Onderwerp</td>

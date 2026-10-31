@@ -3,6 +3,7 @@
    horizontaal boven de inhoud (zo blijft de volle breedte voor de gegevens); de onderdelen van een groep verschijnen
    bij aanwijzen of aanklikken. *@
 @inject AdministratieDienst AdministratieDienst
+@inject TimeProvider Tijd
 
 @if (!geladen)
 {
@@ -29,7 +30,7 @@ else
                 var actief = zichtbaar.Any(i => i.Pad == Actief);
                 <div class="admmenu-groep @(actief ? "actief" : null) @(open == groep ? "open" : null)" @onmouseleave="() => Sluit(groep)">
                     <button type="button" class="admmenu-kop" aria-haspopup="true" aria-expanded="@(open == groep)" @onclick="() => Wissel(groep)">
-                        <Icoon Naam="@Groepsicoon(groep)" Klasse="groepsicoon" />@groep<span class="pijl"><Icoon Naam="chevron-down" /></span>
+                        @groep<span class="pijl"><Icoon Naam="chevron-down" /></span>
                     </button>
                     <div class="admmenu-items">
                         @foreach (var (pad, naam, _) in zichtbaar)
@@ -58,17 +59,19 @@ else
             @ChildContent(kop)
         </div>
     </div>
+    <footer class="statusbalk">
+        <span title="@(kop.KvkNummer is { } kvk ? $"KvK {kvk}" : null)">@kop.Naam</span>
+        <span class="scheiding">·</span>
+        <span>@Weergave.Tekst(kop.Ondernemingsvorm)</span>
+        <span class="ms-auto">@wie?.Naam</span>
+        <span class="scheiding">·</span>
+        <span>@Weergave.Tekst(kop.Rol)</span>
+        <span class="scheiding">·</span>
+        <span>@vandaag.ToString("dddd d MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("nl-NL"))</span>
+    </footer>
 }
 
 @code {
-    private static string Groepsicoon(string groep) => groep switch
-    {
-        "Boekhouden" => "notebook-pen",
-        "Dagboeken" => "book-open",
-        "Rapportages" => "chart-column",
-        _ => "settings",
-    };
-
     /// <summary>Het menu per groep: boekhouden (verwerken), dagboeken (terugvinden), rapportages en inrichting.</summary>
     private static readonly (string Groep, (string Pad, string Naam, Recht Recht)[] Items)[] Menu =
     [
@@ -106,6 +109,8 @@ else
 
     private bool geladen;
     private AdministratieKop? kop;
+    private Uitvoerder? wie;
+    private DateOnly vandaag;
 
     [CascadingParameter]
     private Task<AuthenticationState> Authenticatie { get; set; } = default!;
@@ -147,7 +152,8 @@ else
             return;
         }
 
-        var wie = (await Authenticatie).User.AlsUitvoerder();
+        wie = (await Authenticatie).User.AlsUitvoerder();
+        vandaag = DateOnly.FromDateTime(Tijd.GetLocalNow().DateTime);
         kop = await AdministratieDienst.Open(wie, Id);
         if (kop is not null)
         {

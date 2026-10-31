@@ -679,6 +679,126 @@ a.terug {
     font-size: .9rem;
 }
 
+/* Kopbalk: een woordmerk in plaats van een icoon met "Administratie"; rechts de naam van de gebruiker. */
+.woordmerk {
+    gap: .4rem !important;
+    align-items: baseline !important;
+    align-self: center;
+    letter-spacing: -.01em;
+}
+
+    .woordmerk:hover {
+        text-decoration: none;
+    }
+
+.woordmerk-naam {
+    font-weight: 600;
+    color: var(--bh-tekst);
+}
+
+    .woordmerk-naam::first-letter {
+        color: var(--bh-accent);
+    }
+
+.woordmerk-sub {
+    font-weight: 400;
+    font-size: .875rem;
+    color: var(--bh-zacht);
+}
+
+.gebruikersmenu summary {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .25rem .5rem;
+    border-radius: 3px;
+    color: var(--bh-tekst);
+    font-size: .9rem;
+    transition: background-color var(--bh-snel) ease;
+}
+
+    .gebruikersmenu summary:hover, .gebruikersmenu[open] summary {
+        background: #eef0f0;
+    }
+
+    .gebruikersmenu summary .icoon {
+        color: var(--bh-zacht);
+        transition: transform var(--bh-gewoon) var(--bh-curve);
+    }
+
+.gebruikersmenu[open] summary .icoon {
+    transform: rotate(180deg);
+}
+
+/* Statusbalk onderaan, zoals in een werkprogramma: administratie, rechtsvorm, gebruiker, rol en de datum. */
+.statusbalk {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1010;
+    display: flex;
+    align-items: center;
+    gap: .1rem;
+    height: 1.75rem;
+    padding: 0 1.5rem;
+    border-top: 1px solid var(--bh-lijn-sterk);
+    background: #efefec;
+    color: var(--bh-zacht);
+    font-size: .78rem;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+    .statusbalk .scheiding {
+        margin: 0 .45rem;
+        color: #b6bdc2;
+    }
+
+.administratie {
+    padding-bottom: 2rem;
+}
+
+/* Vinkjes in plaats van schuifschakelaars: kleiner, vierkant, zoals in desktopsoftware. */
+.form-check-input[type="checkbox"] {
+    border-radius: 2px;
+    border-color: #9aa4ab;
+}
+
+/* Tabellen: bedragen en datums zo smal als hun inhoud, ruimte na een bedrag; omschrijvingen krijgen de rest. */
+:is(.overzichtstabel, .table):not(.regeltabel, .bankregels) > tbody > tr > td.bedrag {
+    width: 1%;
+    white-space: nowrap;
+}
+
+    .overzichtstabel td.bedrag + td:not(.bedrag), .table td.bedrag + td:not(.bedrag) {
+        padding-left: 1.25rem;
+    }
+
+.overzichtstabel > thead th, .table > thead th {
+    white-space: nowrap;
+}
+
+/* Invoer in een regeltabel (bank, memoriaal, factuur): lichte velden die pas bij aanwijzen of invoeren een rand tonen,
+   zodat de regels lezen als een grootboekregel en niet als een rij kaders. */
+:is(.bankregels, .regeltabel) :is(.form-control, .form-select) {
+    border-color: transparent;
+    border-bottom-color: var(--bh-lijn-sterk);
+    border-radius: 0;
+    background-color: transparent;
+    transition: border-color var(--bh-snel) ease, background-color var(--bh-snel) ease;
+}
+
+    :is(.bankregels, .regeltabel) :is(.form-control, .form-select):hover {
+        border-color: var(--bh-lijn-sterk);
+        background-color: #fff;
+    }
+
+    :is(.bankregels, .regeltabel) :is(.form-control, .form-select):focus {
+        border-color: var(--bh-accent);
+        background-color: #fff;
+    }
+
 /* Dunne, grijze scrollbalken. */
 * {
     scrollbar-width: thin;

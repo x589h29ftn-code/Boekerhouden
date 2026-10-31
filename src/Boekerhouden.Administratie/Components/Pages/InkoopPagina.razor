@@ -16,7 +16,7 @@
         {
             <span><strong>@lijst.Count</strong> te verwerken</span>
             <span class="scheiding">·</span>
-            <span title="Het oudste document in Te verwerken">oudste ingelezen @Weergave.DatumTijd(lijst.Min(d => d.IngelezenOp))</span>
+            <span title="@Weergave.DatumTijd(lijst.Min(d => d.IngelezenOp))">oudste ingelezen @Weergave.Moment(lijst.Min(d => d.IngelezenOp))</span>
             @if (opnieuw is { } o)
             {
                 <span class="scheiding">·</span>
@@ -72,7 +72,7 @@
                                 <td class="text-nowrap">@(d.Factuurdatum is { } fd ? Weergave.Datum(fd) : null)</td>
                                 <td class="bedrag text-end"><Euro Waarde="d.Totaal" /></td>
                                 <td class="small text-secondary">@d.Melding</td>
-                                <td class="small text-secondary text-nowrap" title="@d.IngelezenDoor">@Weergave.DatumTijd(d.IngelezenOp)</td>
+                                <td class="small text-secondary text-nowrap" title="@d.IngelezenDoor, @Weergave.DatumTijd(d.IngelezenOp)">@Weergave.Moment(d.IngelezenOp)</td>
                             </tr>
                         }
                     </tbody>

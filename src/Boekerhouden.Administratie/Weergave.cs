@@ -15,6 +15,28 @@ public static class Weergave
 
     public static string Datum(DateOnly datum) => datum.ToString("dd-MM-yyyy", Nederlands);
 
+    /// <summary>
+    /// Een tijdstip zoals je het leest: "vandaag 18:32", "gisteren 09:05", binnen een week "di 14:10", anders de datum
+    /// met tijd. De volledige datum en tijd horen dan in de tooltip (<see cref="DatumTijd"/>).
+    /// </summary>
+    public static string Moment(DateTimeOffset tijdstip) => Moment(tijdstip, DateTimeOffset.UtcNow);
+
+    /// <inheritdoc cref="Moment(DateTimeOffset)"/>
+    public static string Moment(DateTimeOffset tijdstip, DateTimeOffset nu)
+    {
+        var lokaal = TimeZoneInfo.ConvertTime(tijdstip, Amsterdam);
+        var dag = DateOnly.FromDateTime(lokaal.DateTime);
+        var vandaag = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(nu, Amsterdam).DateTime);
+        var tijd = lokaal.ToString("HH:mm", Nederlands);
+        return (vandaag.DayNumber - dag.DayNumber) switch
+        {
+            0 => $"vandaag {tijd}",
+            1 => $"gisteren {tijd}",
+            > 1 and < 7 => $"{lokaal.ToString("ddd", Nederlands)} {tijd}",
+            _ => DatumTijd(tijdstip),
+        };
+    }
+
     /// <summary>Een bedrag op het scherm: zoals <see cref="Domain.Bedragen.Getal"/>, maar negatief met een echt minteken (−) in plaats van een koppelteken.</summary>
     public static string Bedrag(decimal bedrag) => Domain.Bedragen.Getal(bedrag).Replace('-', '\u2212');
 

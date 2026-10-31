@@ -77,7 +77,7 @@
                     <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="Alle mutaties in Te verwerken opnieuw herkennen: afletteren, regels (ook autoherkenning) en wat er geleerd is" aria-busy="@(bezig ? "true" : null)" @onclick="VerwerkOpnieuw">Opnieuw herkennen</button>
                 }
                 <button class="btn btn-sm btn-outline-secondary" title="De openstaande posten in een eigen venster, bijv. op een tweede beeldscherm" @onclick="OpenpostenExtern">Openstaande posten</button>
-                <span class="form-check form-switch mb-0">
+                <span class="form-check mb-0">
                     <input class="form-check-input" type="checkbox" id="ookgeboekt" checked="@ookGeboekt" @onchange="WisselGeboekt" />
                     <label class="form-check-label small text-secondary" for="ookgeboekt">ook geboekt</label>
                 </span>
@@ -278,7 +278,7 @@
                             @if (magRegels)
                             {
                                 <div class="mb-3 autoherkenning">
-                                    <label class="form-check form-switch mb-1">
+                                    <label class="form-check mb-1">
                                         <input class="form-check-input" type="checkbox" @bind="autoOpen" />
                                         <span class="form-check-label paneelkop">Autoherkenning</span>
                                     </label>

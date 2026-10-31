@@ -32,4 +32,14 @@ public sealed class WeergaveTests
         Assert.True(Domain.BedragParser.TryParse(Weergave.Bedrag(-25m), out var terug));
         Assert.Equal(-25m, terug);
     }
+
+    [Fact]
+    public void Een_tijdstip_zoals_je_het_leest()
+    {
+        var nu = new DateTimeOffset(2026, 10, 31, 17, 0, 0, TimeSpan.Zero);
+        Assert.Equal("vandaag 18:32", Weergave.Moment(new DateTimeOffset(2026, 10, 31, 17, 32, 0, TimeSpan.Zero), nu));
+        Assert.Equal("gisteren 09:05", Weergave.Moment(new DateTimeOffset(2026, 10, 30, 8, 5, 0, TimeSpan.Zero), nu));
+        Assert.Equal("di 14:10", Weergave.Moment(new DateTimeOffset(2026, 10, 27, 13, 10, 0, TimeSpan.Zero), nu));
+        Assert.Equal("01-10-2026 12:00", Weergave.Moment(new DateTimeOffset(2026, 10, 1, 10, 0, 0, TimeSpan.Zero), nu));
+    }
 }

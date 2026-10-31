@@ -41,7 +41,7 @@
                     <span class="text-secondary text-nowrap">@Weergave.Datum(b.Post.Datum)</span>
                     <span class="ms-2">@b.Post.Omschrijving</span>
                     <span class="small text-secondary ms-auto" title="Volgnummer @b.Volgnummer in de keten">
-                        @(detail.Versie > 1 ? $"versie {detail.Versie}, aangepast door" : "geboekt door") @b.GeboektDoor, @Weergave.DatumTijd(b.GeboektOp)
+                        @(detail.Versie > 1 ? $"versie {detail.Versie}, aangepast door" : "geboekt door") @b.GeboektDoor, <span title="@Weergave.DatumTijd(b.GeboektOp)">@Weergave.Moment(b.GeboektOp)</span>
                     </span>
                 </div>
                 @if (detail.Herstelt is { } hersteld)
@@ -82,7 +82,7 @@
                 </div>
                 @if (detail.Eerder is { Count: > 0 } eerder)
                 {
-                    <div class="form-check form-switch mt-3 small">
+                    <div class="form-check mt-3 small">
                         <input id="eerder" class="form-check-input" type="checkbox" @bind="toonEerder" />
                         <label class="form-check-label text-secondary" for="eerder">Eerdere versies (@eerder.Count)</label>
                     </div>

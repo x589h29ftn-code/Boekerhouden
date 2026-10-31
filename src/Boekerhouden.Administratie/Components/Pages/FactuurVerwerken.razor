@@ -247,7 +247,7 @@
                                 <label for="totaal">Bedrag</label>
                                 <div class="veld-rij">
                                     <input id="totaal" class="form-control veld-smal text-end @Doel("totaal")" title="Het totaal van de factuur, inclusief btw" @bind="factuurbedrag" @bind:event="oninput" data-doel="totaal" data-doelnaam="Bedrag inclusief btw" @onfocus='() => Kies("totaal", "Bedrag inclusief btw")' />
-                                    <span class="form-check form-switch mb-0">
+                                    <span class="form-check mb-0">
                                         <input id="creditnota" class="form-check-input" type="checkbox" checked="@(soort == Documentsoort.Creditnota)" @onchange="e => soort = e.Value is true ? Documentsoort.Creditnota : Documentsoort.Factuur" />
                                         <label class="form-check-label" for="creditnota">Creditnota</label>
                                     </span>
@@ -336,7 +336,7 @@
                             <div class="veld mt-3">
                                 <label for="verdelen">Periode verdelen</label>
                                 <div class="veld-rij flex-nowrap">
-                                    <span class="form-check form-switch mb-0">
+                                    <span class="form-check mb-0">
                                         <input id="verdelen" class="form-check-input" type="checkbox" checked="@verdelen" @onchange="e => ZetVerdelen(e.Value is true)" title="Transitorisch boeken: via vooruitbetaalde kosten en per maand naar de kosten" />
                                     </span>
                                     @if (verdelen)
@@ -1046,7 +1046,7 @@
         }
 
         // Door naar het document dat nu op deze plaats in Te verwerken staat (het volgende), of terug naar de lijst.
-        vorigeGeboekt = $"{(soort == Documentsoort.Creditnota ? "Creditnota " : null)}{Variabelen.Leverancier} {factuurnummer} is geboekt.".Trim();
+        vorigeGeboekt = $"{(soort == Documentsoort.Creditnota ? "Creditnota " : null)}{Variabelen.Leverancier} {factuurnummer} geboekt{(Totaal is { } t ? $" · {Bedragen.Euro(t)}" : null)}".Trim();
         await NaarVolgende(positie);
     }
 

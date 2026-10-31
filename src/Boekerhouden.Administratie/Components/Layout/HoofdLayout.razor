@@ -4,9 +4,8 @@
 @inject Werkomgeving Omgeving
 
 <header class="kopbalk">
-    <a class="merk" href="/">
-        <img src="_content/Boekerhouden.Huisstijl/favicon.svg" alt="" width="22" height="22" />
-        Administratie
+    <a class="merk woordmerk" href="/" title="Boekerhouden administratie">
+        <span class="woordmerk-naam">Boekerhouden</span><span class="woordmerk-sub">administratie</span>
     </a>
     <nav class="hoofdmenu" aria-label="Hoofdmenu">
         <a href="/" class="@(Onderdeel == "werk" ? "actief" : null)">Administraties</a>
@@ -16,7 +15,7 @@
     </nav>
     <AuthorizeView>
         <details class="uitklapmenu gebruikersmenu">
-            <summary title="@context.User.WeergaveNaam()" aria-label="Gebruikersmenu"><span class="initialen">@context.User.WeergaveInitialen()</span></summary>
+            <summary aria-label="Gebruikersmenu"><span class="gebruikersnaam">@context.User.WeergaveNaam()</span><Icoon Naam="chevron-down" /></summary>
             <div class="menu">
                 <div class="naam">@context.User.WeergaveNaam()</div>
                 @if (!Omgeving.Lokaal)

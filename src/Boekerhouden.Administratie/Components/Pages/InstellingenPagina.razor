@@ -68,7 +68,7 @@
         var uitkomst = await Inrichting.WijzigInstellingen(geopend!.Wie, Id,
             new Instellingen(gegevens!.Naam, gegevens.KvkNummer, gegevens.BtwNummer, [.. gegevens.Ibans.Split(',', ';')], afwijkend));
         fouten = uitkomst.Fouten;
-        bericht = uitkomst.IsGelukt ? "Opgeslagen." : null;
+        bericht = uitkomst.IsGelukt ? $"Instellingen van {gegevens.Naam} opgeslagen." : null;
     }
 
     private sealed class Gegevens

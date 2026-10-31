@@ -75,7 +75,7 @@
         <button class="btn btn-primary" @onclick="Opslaan" disabled="@bezig" title="@(Post is null ? null : "Dezelfde boeking krijgt een nieuwe versie; de vorige blijft bewaard")">@(Post is null ? "Boeken" : "Opslaan")</button>
         @if (Post is null)
         {
-            <span class="form-check form-switch mb-0 small text-nowrap ms-2">
+            <span class="form-check mb-0 small text-nowrap ms-2">
                 <input class="form-check-input" type="checkbox" id="herhalen" @bind="herhalen" />
                 <label class="form-check-label text-secondary" for="herhalen">elke maand</label>
             </span>
@@ -252,7 +252,7 @@
                 fouten = uitkomst.Fouten;
                 if (uitkomst.IsGelukt)
                 {
-                    await Opgeslagen.InvokeAsync($"{Dagboek} {post.Boekstuk} is geboekt.");
+                    await Opgeslagen.InvokeAsync($"{Dagboek} {post.Boekstuk} geboekt · {Bedragen.Euro(post.TotaalDebet)} · {Rekeningen(post)}");
                 }
             }
             else
@@ -262,7 +262,7 @@
                 fouten = uitkomst.Fouten;
                 if (uitkomst.IsGelukt)
                 {
-                    await Opgeslagen.InvokeAsync($"{Post.Dagboek} {Post.Boekstuk} is aangepast (versie {uitkomst.Waarde}).");
+                    await Opgeslagen.InvokeAsync($"{Post.Dagboek} {Post.Boekstuk} aangepast tot versie {uitkomst.Waarde} · {Bedragen.Euro(post.TotaalDebet)} · {Rekeningen(post)}");
                 }
             }
         }
@@ -271,6 +271,11 @@
             bezig = false;
         }
     }
+
+    /// <summary>De rekeningen van de boeking voor de bevestiging, bijv. "4300 Kantoorbenodigdheden, 1100 Bank".</summary>
+    private string Rekeningen(Journaalpost post) =>
+        string.Join(", ", post.Regels.Select(r => r.Rekeningnummer).Distinct().Take(3).Select(n => Schema.Zoek(n) is { } r ? $"{r.Nummer} {r.Naam}" : n))
+        + (post.Regels.Select(r => r.Rekeningnummer).Distinct().Count() > 3 ? " …" : null);
 
     private static string? Leeg(string? tekst) => string.IsNullOrWhiteSpace(tekst) ? null : tekst.Trim();
 
