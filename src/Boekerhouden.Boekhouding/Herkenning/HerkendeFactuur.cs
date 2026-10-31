@@ -53,7 +53,8 @@ public sealed record HerkendeFactuur(
     IReadOnlyList<string>? Postcodes = null,
     bool Verlegd = false,
     Factuurperiode? Periode = null,
-    bool Herinnering = false)
+    bool Herinnering = false,
+    string? Valuta = null)
 {
     public IReadOnlyList<Btwregel> Btwregels => Btw ?? [];
 

@@ -81,7 +81,8 @@ public static partial class Factuurtekst
             Postcodes: Postcode.Zoek(tekst),
             Verlegd: VerlegdPatroon().IsMatch(tekst),
             Periode: Periode(regels),
-            Herinnering: regels.Take(12).Any(r => HerinneringPatroon().IsMatch(r)) || AanmaningPatroon().IsMatch(tekst));
+            Herinnering: regels.Take(12).Any(r => HerinneringPatroon().IsMatch(r)) || AanmaningPatroon().IsMatch(tekst),
+            Valuta: Valuta(regels));
     }
 
     /// <summary>
@@ -580,6 +581,27 @@ public static partial class Factuurtekst
 
     [GeneratedRegex(@"btw\s*verlegd|verlegd\s*naar|verleggingsregeling|reverse[\s-]*charge|vat\s*reverse|art(?:icle|ikel)?\.?\s*196|autoliquidation|steuerschuldnerschaft", RegexOptions.IgnoreCase)]
     private static partial Regex VerlegdPatroon();
+
+    /// <summary>
+    /// Een andere valuta dan de euro: een valutacode of -teken bij een totaalbedrag ("Totaal incl. BTW  USD 500,00",
+    /// "Total $ 500.00"). Leeg bij euro's of als er niets staat.
+    /// </summary>
+    private static string? Valuta(List<string> regels)
+    {
+        foreach (var regel in regels.Where(r => InclusiefLabel().IsMatch(r) || ExclusiefLabel().IsMatch(r)))
+        {
+            if (ValutaPatroon().Match(regel) is { Success: true } m)
+            {
+                var code = m.Groups[1].Value.ToUpperInvariant() switch { "$" or "US$" => "USD", "£" => "GBP", var c => c };
+                return code == "EUR" ? null : code;
+            }
+        }
+
+        return null;
+    }
+
+    [GeneratedRegex(@"(?<![A-Za-z])(EUR|USD|US\$|GBP|CHF|SEK|NOK|DKK|PLN|CZK|HUF|JPY|CNY|CAD|AUD|\$|£)\s?-?[0-9]", RegexOptions.IgnoreCase)]
+    private static partial Regex ValutaPatroon();
 
     /// <summary>Een kop als HERINNERING of AANMANING bovenaan de factuur.</summary>
     [GeneratedRegex(@"\b(?:herinnering|betalingsherinnering|aanmaning|reminder|payment\s+reminder|mahnung)\b", RegexOptions.IgnoreCase)]

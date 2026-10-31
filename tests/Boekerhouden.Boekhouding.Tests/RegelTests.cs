@@ -91,6 +91,20 @@ public sealed class LeergeheugenTests
     }
 
     [Fact]
+    public void Bankkosten_zonder_tegenpartij_worden_onthouden_op_de_woorden_van_de_omschrijving()
+    {
+        var geheugen = new Leergeheugen();
+        Verwerkingsgegevens Kosten(string omschrijving) => new(Verwerkingssoort.Bankmutatie, null, null, -12.50m, omschrijving);
+        geheugen.Onthoud(Kosten("Kosten betaling buitenland CT-884200"), new Keuze("9000", null));
+
+        Assert.Equal("B|tekst|kosten betaling buitenland", Leergeheugen.Sleutel(Kosten("Kosten betaling buitenland DS-5510")));
+        Assert.Equal("9000", geheugen.Voorstel(Kosten("Kosten betaling buitenland DS-5510"))!.Keuze.Rekeningnummer);
+        Assert.Equal(Leergeheugen.Sleutel(Kosten("Kosten Rabo Zakelijk Betaalpakket september 2026")), Leergeheugen.Sleutel(Kosten("Kosten Rabo Zakelijk Betaalpakket oktober 2026")));
+        Assert.Null(Leergeheugen.Sleutel(Kosten("12345 / 2026")));
+        Assert.Null(Leergeheugen.Sleutel(new Verwerkingsgegevens(Verwerkingssoort.Inkoopfactuur, null, null, -12.50m, "Kosten betaling buitenland")));
+    }
+
+    [Fact]
     public void Zolang_het_pakket_leert_telt_elk_bedrag_mee_daarna_alleen_binnen_de_bandbreedte()
     {
         var geheugen = new Leergeheugen();

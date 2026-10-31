@@ -99,7 +99,8 @@ public static class UblFactuurLezer
 
             // Btw-categorie AE (verlegd) of K (intracommunautair): de afnemer berekent de btw.
             Verlegd: Kinderen(wortel, "TaxTotal").SelectMany(t => Kinderen(t, "TaxSubtotal"))
-                .Any(t => Tekst(Pad(t, "TaxCategory", "ID")) is "AE" or "K"));
+                .Any(t => Tekst(Pad(t, "TaxCategory", "ID")) is "AE" or "K"),
+            Valuta: Tekst(Kind(wortel, "DocumentCurrencyCode"))?.ToUpperInvariant() is { Length: 3 } valuta && valuta != "EUR" ? valuta : null);
     }
 
     private static XmlReaderSettings Instellingen(bool sluiten) =>

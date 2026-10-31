@@ -184,6 +184,18 @@ public sealed class FactuurkopTests
         Assert.False(factuur.Herinnering);
     }
 
+    [Fact]
+    public void Een_factuur_in_vreemde_valuta_gaat_nooit_automatisch()
+    {
+        var dollars = Factuurtekst.Analyseer(Kop.Replace("EUR", "USD", StringComparison.Ordinal));
+
+        Assert.Equal(("USD", 242m), (dollars.Valuta, dollars.TotaalInclusief));
+        Assert.Null(Factuurtekst.Analyseer(Kop).Valuta);
+        var voorstel = Inkoopverwerker.Verwerk(dollars, [new Relatie("ANKER", "Drukkerij Het Anker B.V.", ["NL44RABO0123456789"])], [], new Leergeheugen(), Testadministratie.Btw, []);
+        Assert.Contains("De factuur is in USD: vul de bedragen in euro's in (koers van de factuurdatum).", voorstel.Belemmeringen);
+        Assert.False(voorstel.Automatisch);
+    }
+
     [Theory]
     [InlineData("HERINNERING")]
     [InlineData("AANMANING")]

@@ -62,6 +62,12 @@ public static class Inkoopverwerker
             belemmeringen.Add("Kies een grootboekrekening.");
         }
 
+        // Een factuur in vreemde valuta: het bedrag in euro's (op de koers) vult de gebruiker in.
+        if (herkend.Valuta is { } valuta)
+        {
+            belemmeringen.Add($"De factuur is in {valuta}: vul de bedragen in euro's in (koers van de factuurdatum).");
+        }
+
         if (leverancier is not null && Dubbel(herkend, leverancier.Relatie.Code, bestaand) is { } dubbel)
         {
             belemmeringen.Add(herkend.Herinnering

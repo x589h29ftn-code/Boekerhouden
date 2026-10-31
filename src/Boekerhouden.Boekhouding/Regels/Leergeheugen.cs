@@ -84,8 +84,8 @@ public sealed class Leergeheugen
     public bool Adrescontrole { get; }
 
     /// <summary>
-    /// De sleutel waaronder een keuze wordt onthouden: de relatie, anders de tegenrekening, anders de naam. Leeg als
-    /// er niets is om op te herkennen.
+    /// De sleutel waaronder een keuze wordt onthouden: de relatie, anders de tegenrekening, anders de naam, en bij een
+    /// bankmutatie zonder tegenpartij de woorden van de omschrijving. Leeg als er niets is om op te herkennen.
     /// </summary>
     public static string? Sleutel(Verwerkingsgegevens gegevens)
     {
@@ -102,8 +102,29 @@ public sealed class Leergeheugen
         }
 
         var naam = Namen.Normaliseer(gegevens.Naam);
-        return naam.Length > 0 ? $"{soort}|naam|{naam}" : null;
+        if (naam.Length > 0)
+        {
+            return $"{soort}|naam|{naam}";
+        }
+
+        // Een bankmutatie zonder tegenpartij (bankkosten, pinbetaling): de woorden van de omschrijving, zonder
+        // getallen en maanden, zodat "Kosten betaling buitenland CT-884201" en "… DS-5510" dezelfde sleutel hebben.
+        return soort == "B" && Tekst(gegevens.Omschrijving) is { Length: > 0 } tekst ? $"B|tekst|{tekst}" : null;
     }
+
+    private static readonly HashSet<string> Maanden = new(StringComparer.Ordinal)
+    {
+        "januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december",
+        "jan", "feb", "mrt", "apr", "jun", "jul", "aug", "sep", "sept", "okt", "nov", "dec", "january", "february", "march", "june", "july", "august", "october",
+    };
+
+    private static string Tekst(string? omschrijving) =>
+        omschrijving is null
+            ? string.Empty
+            : string.Join(' ', omschrijving.ToLowerInvariant().Split(Scheiding, StringSplitOptions.RemoveEmptyEntries)
+                .Where(w => w.Length >= 3 && w.All(char.IsLetter) && !Maanden.Contains(w)).Take(5));
+
+    private static readonly char[] Scheiding = [' ', ',', '.', ':', ';', '/', '-', '(', ')', '\t'];
 
     /// <summary>De bevestiging zoals die bij deze gegevens hoort.</summary>
     public static Bevestiging Bij(Verwerkingsgegevens gegevens, Keuze keuze, string? omschrijving = null)
