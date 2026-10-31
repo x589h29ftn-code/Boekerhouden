@@ -17,6 +17,91 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.13");
 
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Abonnement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AangemaaktDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("AangemaaktOp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Actief")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Automatisch")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly>("Begin")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly?>("Einde")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Herhaling")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("LaatstGemaaktOp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("LayoutId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Naam")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Omschrijving")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Referentie")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Regels")
+                        .IsRequired()
+                        .HasMaxLength(100000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Relatie")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Tekst")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Verdeelrekening")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Verdelen")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Volgende")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdministratieId", "Actief");
+
+                    b.ToTable("Abonnementen", (string)null);
+                });
+
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Administratie", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1644,6 +1729,15 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.HasKey("UserId", "LoginProvider", "Name");
 
                     b.ToTable("AspNetUserTokens", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Abonnement", b =>
+                {
+                    b.HasOne("Boekerhouden.Administratie.Data.Administratie", null)
+                        .WithMany()
+                        .HasForeignKey("AdministratieId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Afschrift", b =>

@@ -275,3 +275,46 @@ public sealed class UblSchrijverTests
     public void Zonder_nummer_geen_e_factuur() =>
         Assert.Throws<InvalidOperationException>(() => UblFactuurSchrijver.Schrijf(Factuur(new Verkoopregel("A", 1m, 1m, "8000", "V21")) with { Nummer = null }, Eigen, Codes));
 }
+
+public sealed class AbonnementsplanTests
+{
+    [Fact]
+    public void Maandelijks_vanaf_de_31e_blijft_aan_het_eind_van_de_maand()
+    {
+        var plan = new Abonnementsplan(new(2026, 1, 31), Herhaling.Maand);
+
+        Assert.Equal([new(2026, 1, 31), new(2026, 2, 28), new(2026, 3, 31), new(2026, 4, 30)], Enumerable.Range(0, 4).Select(plan.Datum));
+        Assert.Equal((new DateOnly(2026, 2, 28), new DateOnly(2026, 3, 30)), plan.Periode(1));
+    }
+
+    [Fact]
+    public void Te_maken_tot_de_peildatum_vanaf_de_volgende_en_niet_na_het_einde()
+    {
+        var plan = new Abonnementsplan(new(2026, 1, 1), Herhaling.Kwartaal, Einde: new(2026, 9, 30));
+
+        Assert.Equal([0, 1], plan.TeMaken(0, new(2026, 5, 15)));
+        Assert.Equal([1, 2], plan.TeMaken(1, new(2026, 12, 31)));
+        Assert.Empty(plan.TeMaken(3, new(2027, 12, 31)));
+        Assert.Null(plan.Volgende(3));
+        Assert.Equal(new DateOnly(2026, 7, 1), plan.Volgende(2));
+        Assert.Empty(new Abonnementsplan(new(2026, 6, 1), Herhaling.Maand).TeMaken(0, new(2026, 5, 31)));
+    }
+
+    [Theory]
+    [InlineData(Herhaling.Maand, 2026, 10, 1, 0, "Huur oktober 2026")]
+    [InlineData(Herhaling.Kwartaal, 2026, 10, 1, 0, "Huur 4e kwartaal 2026")]
+    [InlineData(Herhaling.Halfjaar, 2026, 1, 1, 1, "Huur 2e halfjaar 2026")]
+    [InlineData(Herhaling.Jaar, 2026, 1, 1, 1, "Huur 2027")]
+    [InlineData(Herhaling.Jaar, 2026, 9, 1, 0, "Huur 1-9-2026 t/m 31-8-2027")]
+    public void De_periode_staat_in_de_omschrijving(Herhaling herhaling, int jaar, int maand, int dag, int volgnummer, string verwacht) =>
+        Assert.Equal(verwacht, new Abonnementsplan(new(jaar, maand, dag), herhaling).Vul("Huur #periode", volgnummer));
+
+    [Fact]
+    public void Andere_variabelen_en_onbekende_blijven_staan()
+    {
+        var plan = new Abonnementsplan(new(2026, 2, 1), Herhaling.Maand);
+
+        Assert.Equal("februari 2026 · 1e kwartaal 2026 · 2026 · 1-2-2026 t/m 28-2-2026 #onbekend", plan.Vul("#maand · #kwartaal · #jaar · #van t/m #tot #onbekend", 0));
+        Assert.Contains(new Abonnementsplan(new(2026, 2, 1), Herhaling.Maand, new(2026, 1, 1)).Controleer(), f => f.Contains("einddatum", StringComparison.Ordinal));
+    }
+}

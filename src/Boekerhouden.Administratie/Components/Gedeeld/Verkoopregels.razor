@@ -1,0 +1,114 @@
+@* De regels van een verkoopfactuur invullen (ook bij een terugkerende factuur): omschrijving, aantal, eenheid, prijs,
+   korting, omzetrekening en btw, met het bedrag per regel, de btw per tarief, het totaal en de vermeldingen die bij de
+   btw-codes op de factuur komen. *@
+@using Boekerhouden.Boekhouding.Btw
+@using Boekerhouden.Boekhouding.Grootboek
+@using Boekerhouden.Boekhouding.Verkoop
+
+<div class="card overzichtskaart">
+    <table class="table table-sm align-middle mb-0 overzichtstabel regeltabel verkoopregels">
+        <thead>
+            <tr>
+                <th>Omschrijving</th>
+                <th class="text-end" style="width:6rem">Aantal</th>
+                <th style="width:5.5rem">Eenheid</th>
+                <th class="text-end" style="width:7.5rem">Prijs</th>
+                <th class="text-end" style="width:5rem" title="Korting in procenten">Korting</th>
+                <th style="width:16rem">Omzetrekening</th>
+                <th style="width:9rem">Btw</th>
+                <th class="text-end" style="width:8rem">Bedrag</th>
+                <th style="width:1.75rem"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var regel in Regels)
+            {
+                <tr>
+                    <td><input class="form-control form-control-sm" @bind="regel.Omschrijving" @bind:event="oninput" aria-label="Omschrijving" placeholder="@Placeholder" /></td>
+                    <td><input class="form-control form-control-sm text-end" @bind="regel.Aantal" @bind:event="oninput" aria-label="Aantal" /></td>
+                    <td><input class="form-control form-control-sm" @bind="regel.Eenheid" aria-label="Eenheid" placeholder="uur, stuk" /></td>
+                    <td><input class="form-control form-control-sm text-end" @bind="regel.Prijs" @bind:event="oninput" aria-label="Prijs per eenheid exclusief btw" /></td>
+                    <td><input class="form-control form-control-sm text-end" @bind="regel.Korting" @bind:event="oninput" aria-label="Korting in procenten" placeholder="0" /></td>
+                    <td><RekeningKeuze @bind-Waarde="regel.Rekening" Schema="Schema" Kader="Kader" Label="Omzetrekening" /></td>
+                    <td>
+                        <select class="form-select form-select-sm" @bind="regel.BtwCode" aria-label="Btw-code">
+                            @foreach (var c in Codes.Where(c => c.Richting == BtwRichting.Verkoop && (c.Actief || c.Code == regel.BtwCode)))
+                            {
+                                <option value="@c.Code" title="@c.Omschrijving">@c.Kort</option>
+                            }
+                        </select>
+                    </td>
+                    <td class="bedrag text-end">@(regel.Domein() is { } d ? Weergave.Bedrag(d.Bedrag) : null)</td>
+                    <td><button class="btn btn-sm btn-link text-secondary p-0 regel-weg" title="Regel verwijderen" @onclick="() => Regels.Remove(regel)" disabled="@(Regels.Count <= 1)"><Icoon Naam="x" /></button></td>
+                </tr>
+            }
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="7"><button class="btn btn-sm btn-link nog-een-regel p-0" @onclick="RegelErbij">+ Nog een regel</button><span class="text-secondary small ms-3">Totaal exclusief btw</span></td>
+                <td class="bedrag text-end">@Weergave.Bedrag(Factuur.TotaalExclusief)</td>
+                <td></td>
+            </tr>
+            @foreach (var b in Btw.Where(b => b.Btw != 0))
+            {
+                <tr><td colspan="7" class="text-end text-secondary small">Btw @Btwpercentage.Tekst(b.Code.Percentage) over @Weergave.Bedrag(b.Grondslag)</td><td class="bedrag text-end">@Weergave.Bedrag(b.Btw)</td><td></td></tr>
+            }
+            <tr class="generaal">
+                <td colspan="7" class="text-end">Totaal</td>
+                <td class="bedrag text-end">@Weergave.Bedrag(Factuur.TotaalExclusief + Btw.Sum(b => b.Btw))</td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+@foreach (var v in Verkoopcontrole.Vermeldingen(Factuur, Codes))
+{
+    <div class="small text-secondary mt-2">Op de factuur: @v</div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public List<Verkoopregelinvoer> Regels { get; set; } = [];
+
+    [Parameter, EditorRequired]
+    public Rekeningschema Schema { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<BtwCode> Codes { get; set; } = [];
+
+    [Parameter]
+    public Geopend? Kader { get; set; }
+
+    /// <summary>De omzetrekening en btw-code voor een nieuwe regel als er nog geen vorige regel is (bijv. die van de klant).</summary>
+    [Parameter]
+    public string? Omzetrekening { get; set; }
+
+    [Parameter]
+    public string? BtwCode { get; set; }
+
+    [Parameter]
+    public string Placeholder { get; set; } = "Wat is er geleverd?";
+
+    private Verkoopfactuur Factuur => new("", new Partij("", new()), null, DateOnly.MinValue, DateOnly.MinValue, "", [.. Regels.Select(r => r.Domein()).OfType<Verkoopregel>()]);
+
+    private IReadOnlyList<Btwtotaal> Btw
+    {
+        get
+        {
+            try
+            {
+                return Factuur.Btw(Codes);
+            }
+            catch (ArgumentException)
+            {
+                return [];
+            }
+        }
+    }
+
+    private void RegelErbij()
+    {
+        var vorige = Regels.LastOrDefault();
+        Regels.Add(new Verkoopregelinvoer { Aantal = "1", Rekening = vorige?.Rekening ?? Omzetrekening, BtwCode = vorige?.BtwCode ?? BtwCode ?? "V21" });
+    }
+}

@@ -88,6 +88,8 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
 
     public DbSet<Factuurlayout> Factuurlayouts => Set<Factuurlayout>();
 
+    public DbSet<Abonnement> Abonnementen => Set<Abonnement>();
+
     /// <summary>De sleutels van ASP.NET Core Data Protection (cookies, tokens).</summary>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
@@ -428,6 +430,23 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.HasOne<Administratie>().WithMany().HasForeignKey(l => l.AdministratieId);
         });
 
+        builder.Entity<Abonnement>(e =>
+        {
+            e.ToTable("Abonnementen");
+            e.HasIndex(a => new { a.AdministratieId, a.Actief });
+            e.Property(a => a.Naam).HasMaxLength(200);
+            e.Property(a => a.Relatie).HasMaxLength(50);
+            e.Property(a => a.Herhaling).HasConversion<string>().HasMaxLength(20);
+            e.Property(a => a.Omschrijving).HasMaxLength(500);
+            e.Property(a => a.Regels).HasMaxLength(100_000);
+            e.Property(a => a.Referentie).HasMaxLength(100);
+            e.Property(a => a.Tekst).HasMaxLength(4000);
+            e.Property(a => a.Verdeelrekening).HasMaxLength(20);
+            e.Property(a => a.AangemaaktDoor).HasMaxLength(200);
+            e.HasOne<Administratie>().WithMany().HasForeignKey(a => a.AdministratieId);
+        });
+
+        builder.Entity<Abonnement>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Factuurlayout>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Verkoopdocument>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Verkoopdocumentregel>().HasQueryFilter(e => e.AdministratieId == Geopend);

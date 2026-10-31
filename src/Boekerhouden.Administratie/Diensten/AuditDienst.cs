@@ -114,5 +114,9 @@ public static class AuditActies
     public const string LayoutToegevoegd = "Factuurlay-out toegevoegd";
     public const string LayoutGewijzigd = "Factuurlay-out gewijzigd";
     public const string LayoutVerwijderd = "Factuurlay-out verwijderd";
+    public const string AbonnementToegevoegd = "Terugkerende factuur toegevoegd";
+    public const string AbonnementGewijzigd = "Terugkerende factuur gewijzigd";
+    public const string AbonnementVerwijderd = "Terugkerende factuur verwijderd";
+    public const string AbonnementenGemaakt = "Terugkerende facturen gemaakt";
     public const string KetenGecontroleerd = "Journaal gecontroleerd";
 }

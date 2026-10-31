@@ -811,3 +811,55 @@ public sealed class Factuurlayout : IVanAdministratie
 
     public string GewijzigdDoor { get; set; } = string.Empty;
 }
+
+/// <summary>
+/// Een terugkerende verkoopfactuur (huur, abonnement, vaste dienst): de klant, de regels en de planning. Elke keer
+/// wordt er een factuur van gemaakt (concept, of meteen definitief); <see cref="Volgende"/> is het volgnummer van de
+/// eerste die nog niet gemaakt is.
+/// </summary>
+public sealed class Abonnement : IVanAdministratie
+{
+    public Guid Id { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    public string Naam { get; set; } = string.Empty;
+
+    public string Relatie { get; set; } = string.Empty;
+
+    public Boekhouding.Verkoop.Herhaling Herhaling { get; set; }
+
+    public DateOnly Begin { get; set; }
+
+    public DateOnly? Einde { get; set; }
+
+    public int Volgende { get; set; }
+
+    /// <summary>De omschrijving van de factuur, met variabelen als <c>#periode</c>.</summary>
+    public string Omschrijving { get; set; } = string.Empty;
+
+    /// <summary>De regels (JSON van <c>Verkoopregel</c>), de omschrijvingen met variabelen.</summary>
+    public string Regels { get; set; } = "[]";
+
+    public string? Referentie { get; set; }
+
+    public string? Tekst { get; set; }
+
+    public Guid? LayoutId { get; set; }
+
+    /// <summary>De omzet van elke factuur verdelen over zijn periode (bijv. een jaarabonnement per maand).</summary>
+    public bool Verdelen { get; set; }
+
+    public string? Verdeelrekening { get; set; }
+
+    /// <summary>Meteen definitief maken (nummer, boeking); anders een concept om na te kijken.</summary>
+    public bool Automatisch { get; set; }
+
+    public bool Actief { get; set; } = true;
+
+    public DateTimeOffset AangemaaktOp { get; set; }
+
+    public string AangemaaktDoor { get; set; } = string.Empty;
+
+    public DateTimeOffset? LaatstGemaaktOp { get; set; }
+}

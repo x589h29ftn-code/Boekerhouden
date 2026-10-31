@@ -1,5 +1,6 @@
 @page "/a/{Id:guid}/verkoop"
 @inject VerkoopDienst Verkoop
+@inject AbonnementDienst Abonnementen
 @inject NavigationManager Navigatie
 
 <AdministratieKader Id="Id" Titel="Verkoop" Actief="/verkoop" BijOpenen="Open">
@@ -23,6 +24,12 @@
         }
     </Acties>
     <ChildContent>
+        @if (teMaken > 0)
+        {
+            <div class="bericht mb-3">
+                @teMaken terugkerende @(teMaken == 1 ? "factuur" : "facturen") klaar om te maken · <a href="/a/@Id/verkoop/terugkerend">bekijken en maken</a>
+            </div>
+        }
         @if (regels is null)
         {
             <Laadschets />
@@ -95,6 +102,7 @@
     private string zoek = "";
     private bool alleenOpen;
     private IReadOnlyList<Verkooplijstregel>? regels;
+    private int teMaken;
 
     private readonly Sortering<Verkooplijstregel> sortering = new(
         new("Nummer", r => r.Nummer ?? "", EerstOplopend: false),
@@ -125,7 +133,11 @@
         await Laad();
     }
 
-    private async Task Laad() => regels = await Verkoop.Lijst(geopend!.Wie, Id, van, tot);
+    private async Task Laad()
+    {
+        regels = await Verkoop.Lijst(geopend!.Wie, Id, van, tot);
+        teMaken = await Abonnementen.TeMaken(geopend.Wie, Id);
+    }
 
     private async Task KiesPeriode((DateOnly Van, DateOnly Tot) periode)
     {

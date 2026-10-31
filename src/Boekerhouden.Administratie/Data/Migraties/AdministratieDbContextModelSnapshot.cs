@@ -23,6 +23,91 @@ namespace Boekerhouden.Administratie.Data.Migraties
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Abonnement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AangemaaktDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("AangemaaktOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Actief")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Automatisch")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateOnly>("Begin")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("Einde")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Herhaling")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset?>("LaatstGemaaktOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("LayoutId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Naam")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Omschrijving")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Referentie")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Regels")
+                        .IsRequired()
+                        .HasMaxLength(100000)
+                        .HasColumnType("character varying(100000)");
+
+                    b.Property<string>("Relatie")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Tekst")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("Verdeelrekening")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<bool>("Verdelen")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Volgende")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdministratieId", "Actief");
+
+                    b.ToTable("Abonnementen", (string)null);
+                });
+
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Administratie", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1668,6 +1753,15 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.HasKey("UserId", "LoginProvider", "Name");
 
                     b.ToTable("AspNetUserTokens", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Abonnement", b =>
+                {
+                    b.HasOne("Boekerhouden.Administratie.Data.Administratie", null)
+                        .WithMany()
+                        .HasForeignKey("AdministratieId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Afschrift", b =>

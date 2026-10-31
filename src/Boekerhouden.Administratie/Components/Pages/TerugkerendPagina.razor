@@ -1,0 +1,344 @@
+@page "/a/{Id:guid}/verkoop/terugkerend"
+@using Boekerhouden.Boekhouding.Grootboek
+@using Boekerhouden.Boekhouding.Verkoop
+@inject AbonnementDienst Abonnementen
+@inject VerkoopDienst Verkoop
+@inject NavigationManager Navigatie
+
+<AdministratieKader Id="Id" Titel="Terugkerende facturen" Actief="/verkoop/terugkerend" BijOpenen="Open">
+    <Kenmerken>
+        @if (lijst is not null)
+        {
+            <span>@lijst.Count(a => a.Actief) actief</span>
+            @if (teMaken > 0)
+            {
+                <span class="scheiding">·</span>
+                <span>@teMaken @(teMaken == 1 ? "factuur" : "facturen") te maken t/m vandaag</span>
+            }
+        }
+    </Kenmerken>
+    <Acties>
+        @if (geopend?.Kop.Mag(Recht.Invoeren) == true)
+        {
+            @if (teMaken > 0)
+            {
+                <button class="btn btn-primary" disabled="@bezig" @onclick="Maak" title="Alle facturen tot en met vandaag maken: als concept, of meteen definitief waar dat aanstaat">Facturen maken</button>
+            }
+            <button class="btn btn-outline-secondary" @onclick="Nieuw"><Icoon Naam="plus" /> Nieuw</button>
+        }
+    </Acties>
+    <ChildContent>
+        <Foutmeldingen Fouten="fouten" />
+        @if (bericht is not null)
+        {
+            <div class="bericht mb-2">@bericht</div>
+        }
+        @foreach (var m in meldingen)
+        {
+            <div class="status let-op d-block mb-1">@m</div>
+        }
+        @if (lijst is null || gegevens is null)
+        {
+            <Laadschets />
+        }
+        else
+        {
+            @if (lijst.Count > 0)
+            {
+                <div class="card overzichtskaart mb-4">
+                    <table class="table align-middle mb-0 overzichtstabel" data-sleepbaar="terugkerend">
+                        <thead>
+                            <tr><th>Naam</th><th>Klant</th><th>Elke</th><th>Volgende factuur</th><th class="text-end">Bedrag excl. btw</th><th class="text-end">Gemaakt</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var a in lijst)
+                            {
+                                <tr class="klikbaar @(a.Id == bewerkt ? "gekozen" : null)" @onclick="() => Bewerk(a.Id)">
+                                    <td>@a.Naam@if (!a.Actief)
+                                        {
+                                            <span class="status ms-2">gestopt</span>
+                                        }
+                                        else if (a.Automatisch)
+                                        {
+                                            <span class="status ms-2" title="Elke factuur wordt meteen definitief">automatisch</span>
+                                        }</td>
+                                    <td title="@a.Relatie">@a.Klant</td>
+                                    <td>@Tekst(a.Herhaling)</td>
+                                    <td class="text-nowrap">@(a.VolgendeDatum is { } v ? Weergave.Datum(v) : "–")@if (a.TeMaken > 0)
+                                        {
+                                            <span class="status let-op ms-2">@a.TeMaken te maken</span>
+                                        }</td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(a.Bedrag)</td>
+                                    <td class="text-end text-secondary">@a.Gemaakt</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else if (formulier is null)
+            {
+                <div class="leeg-regel">Nog geen terugkerende facturen.</div>
+            }
+
+            @if (formulier is { } f)
+            {
+                <h2 class="h6 sectiekop">@(bewerkt is null ? "Nieuwe terugkerende factuur" : f.Naam)</h2>
+                <fieldset class="verkoopformulier" disabled="@(geopend?.Kop.Mag(Recht.Invoeren) != true)">
+                    <div class="formulier-rij">
+                        <label for="naam">Naam</label>
+                        <input id="naam" class="form-control form-control-sm" style="max-width:24rem" @bind="f.Naam" placeholder="bijv. Huur kantoor Laan 2" />
+                    </div>
+                    <div class="formulier-rij">
+                        <label for="klant">Klant</label>
+                        <select id="klant" class="form-select form-select-sm w-auto" @bind="f.Relatie">
+                            <option value="">Kies een klant…</option>
+                            @foreach (var k in gegevens.Klanten)
+                            {
+                                <option value="@k.Code">@k.Naam</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="formulier-rij">
+                        <label for="herhaling">Elke</label>
+                        <div class="d-flex gap-3 align-items-center flex-wrap">
+                            <select id="herhaling" class="form-select form-select-sm w-auto" @bind="f.Herhaling">
+                                @foreach (var h in Enum.GetValues<Herhaling>())
+                                {
+                                    <option value="@h">@Tekst(h)</option>
+                                }
+                            </select>
+                            <label class="small text-secondary" for="begin">eerste factuur</label>
+                            <DatumVeld Id="begin" @bind-Waarde="f.Begin" />
+                            <span class="form-check mb-0 small">
+                                <input class="form-check-input" type="checkbox" id="einde" @bind="f.MetEinde" />
+                                <label class="form-check-label text-secondary" for="einde">tot en met</label>
+                            </span>
+                            @if (f.MetEinde)
+                            {
+                                <DatumVeld @bind-Waarde="f.Einde" Label="Laatste factuurdatum" />
+                            }
+                        </div>
+                    </div>
+                    <div class="formulier-rij">
+                        <label for="omschrijving">Omschrijving</label>
+                        <input id="omschrijving" class="form-control form-control-sm" style="max-width:40rem" @bind="f.Omschrijving" placeholder="bijv. Huur #periode" title="@Variabelen" />
+                    </div>
+                    <div class="mt-3">
+                        <Verkoopregels Regels="f.Regels" Schema="gegevens.Schema" Codes="Codes" Kader="geopend" Omzetrekening="@gegevens.Omzetrekening" Placeholder="bijv. Huur #maand" />
+                    </div>
+                    <div class="formulier-rij mt-3">
+                        <span></span>
+                        <div class="d-flex flex-column gap-1">
+                            <span class="form-check mb-0 small">
+                                <input class="form-check-input" type="checkbox" id="automatisch" @bind="f.Automatisch" />
+                                <label class="form-check-label" for="automatisch">meteen definitief maken (anders een concept om na te kijken)</label>
+                            </span>
+                            <span class="d-flex gap-2 align-items-center flex-wrap">
+                                <span class="form-check mb-0 small">
+                                    <input class="form-check-input" type="checkbox" id="verdelen" @bind="f.Verdelen" />
+                                    <label class="form-check-label" for="verdelen">omzet verdelen over de periode van elke factuur</label>
+                                </span>
+                                @if (f.Verdelen)
+                                {
+                                    <span class="small text-secondary">via</span>
+                                    <span style="width:16rem"><RekeningKeuze @bind-Waarde="f.Verdeelrekening" Schema="gegevens.Schema" Kader="geopend" Label="Rekening voor de verdeling" /></span>
+                                }
+                            </span>
+                            @if (bewerkt is not null)
+                            {
+                                <span class="form-check mb-0 small">
+                                    <input class="form-check-input" type="checkbox" id="actief" @bind="f.Actief" />
+                                    <label class="form-check-label" for="actief">actief</label>
+                                </span>
+                            }
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mt-3">
+                        <button class="btn btn-primary" disabled="@bezig" @onclick="Bewaar">Opslaan</button>
+                        <button class="btn btn-link text-secondary" @onclick="() => (formulier, bewerkt) = (null, null)">Annuleren</button>
+                        @if (bewerkt is not null)
+                        {
+                            <VerwijderKnop Bezig="bezig" Bevestigd="Verwijder" />
+                        }
+                    </div>
+                </fieldset>
+            }
+        }
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private Verkoopcontext? gegevens;
+    private IReadOnlyList<Abonnementregel>? lijst;
+    private int teMaken;
+    private Guid? bewerkt;
+    private Formulier? formulier;
+    private bool bezig;
+    private IReadOnlyList<string>? fouten;
+    private IReadOnlyList<string> meldingen = [];
+    private string? bericht;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    /// <summary>Een nieuwe terugkerende factuur op basis van deze factuur.</summary>
+    [SupplyParameterFromQuery(Name = "factuur")]
+    public Guid? VanFactuur { get; set; }
+
+    private IReadOnlyList<Boekhouding.Btw.BtwCode> Codes => gegevens!.Btwtabel.Op(formulier?.Begin ?? DateOnly.FromDateTime(DateTime.Today));
+
+    private static string Variabelen => string.Join("\n", Abonnementsplan.Variabelen.Select(v => $"{v.Naam}: {v.Betekenis}"));
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        gegevens = await Verkoop.Context(g.Wie, Id);
+        await Laad();
+        if (VanFactuur is { } factuur && await Abonnementen.VanFactuur(g.Wie, Id, factuur) is { } voorstel)
+        {
+            (formulier, bewerkt) = (Formulier.Van(voorstel), null);
+        }
+    }
+
+    private async Task Laad()
+    {
+        lijst = await Abonnementen.Lijst(geopend!.Wie, Id);
+        teMaken = lijst.Sum(a => a.TeMaken);
+    }
+
+    private void Nieuw()
+    {
+        var vandaag = DateOnly.FromDateTime(DateTime.Today);
+        formulier = new Formulier { Begin = new DateOnly(vandaag.Year, vandaag.Month, 1).AddMonths(1), Omschrijving = "#periode", Verdeelrekening = gegevens!.Verdeelrekening };
+        formulier.Regels.Add(new Verkoopregelinvoer { Aantal = "1", Rekening = gegevens.Omzetrekening });
+        (bewerkt, fouten, bericht) = (null, null, null);
+    }
+
+    private async Task Bewerk(Guid id)
+    {
+        if (await Abonnementen.Open(geopend!.Wie, Id, id) is { } a)
+        {
+            (formulier, bewerkt, fouten, bericht) = (Formulier.Van(a.Invoer), id, null, null);
+        }
+    }
+
+    private async Task Bewaar()
+    {
+        var f = formulier!;
+        var (regels, regelfouten) = Verkoopregelinvoer.Lees(f.Regels);
+        if (regelfouten.Count > 0)
+        {
+            fouten = regelfouten;
+            return;
+        }
+
+        bezig = true;
+        try
+        {
+            var uitkomst = await Abonnementen.Bewaar(geopend!.Wie, Id, bewerkt, new Abonnementinvoer(f.Naam, f.Relatie, f.Herhaling, f.Begin, f.MetEinde ? f.Einde : null,
+                f.Omschrijving ?? "", regels, f.Automatisch, f.Verdelen, f.Verdeelrekening, Actief: f.Actief));
+            fouten = uitkomst.Fouten;
+            if (uitkomst.IsGelukt)
+            {
+                bericht = $"{f.Naam} opgeslagen.";
+                (formulier, bewerkt) = (null, null);
+                await Laad();
+            }
+        }
+        finally
+        {
+            bezig = false;
+        }
+    }
+
+    private async Task Verwijder()
+    {
+        var uitkomst = await Abonnementen.Verwijder(geopend!.Wie, Id, bewerkt!.Value);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            (formulier, bewerkt, bericht) = (null, null, "Verwijderd; de facturen die er al van gemaakt zijn, blijven.");
+            await Laad();
+        }
+    }
+
+    private async Task Maak()
+    {
+        bezig = true;
+        try
+        {
+            var uitkomst = await Abonnementen.Maak(geopend!.Wie, Id);
+            fouten = uitkomst.Fouten;
+            if (uitkomst.Waarde is { } verslag)
+            {
+                var concepten = verslag.Facturen.Count - verslag.Definitief;
+                bericht = $"{verslag.Facturen.Count} {(verslag.Facturen.Count == 1 ? "factuur" : "facturen")} gemaakt"
+                    + (verslag.Definitief > 0 ? $" · {verslag.Definitief} definitief ({string.Join(", ", verslag.Facturen.Where(x => x.Nummer is not null).Select(x => x.Nummer))})" : null)
+                    + (concepten > 0 ? $" · {concepten} als concept bij Verkoop" : null);
+                meldingen = verslag.Meldingen;
+                await Laad();
+            }
+        }
+        finally
+        {
+            bezig = false;
+        }
+    }
+
+    private static string Tekst(Herhaling h) => h switch
+    {
+        Herhaling.Kwartaal => "kwartaal",
+        Herhaling.Halfjaar => "halfjaar",
+        Herhaling.Jaar => "jaar",
+        _ => "maand",
+    };
+
+    private sealed class Formulier
+    {
+        public string Naam { get; set; } = "";
+
+        public string Relatie { get; set; } = "";
+
+        public Herhaling Herhaling { get; set; }
+
+        public DateOnly Begin { get; set; }
+
+        public bool MetEinde { get; set; }
+
+        public DateOnly Einde { get; set; }
+
+        public string? Omschrijving { get; set; }
+
+        public List<Verkoopregelinvoer> Regels { get; } = [];
+
+        public bool Automatisch { get; set; }
+
+        public bool Verdelen { get; set; }
+
+        public string? Verdeelrekening { get; set; }
+
+        public bool Actief { get; set; } = true;
+
+        public static Formulier Van(Abonnementinvoer a)
+        {
+            var f = new Formulier
+            {
+                Naam = a.Naam,
+                Relatie = a.Relatie,
+                Herhaling = a.Herhaling,
+                Begin = a.Begin,
+                MetEinde = a.Einde is not null,
+                Einde = a.Einde ?? a.Begin.AddYears(1).AddDays(-1),
+                Omschrijving = a.Omschrijving,
+                Automatisch = a.Automatisch,
+                Verdelen = a.Verdelen,
+                Verdeelrekening = a.Verdeelrekening,
+                Actief = a.Actief,
+            };
+            f.Regels.AddRange(a.Regels.Select(Verkoopregelinvoer.Van));
+            return f;
+        }
+    }
+}

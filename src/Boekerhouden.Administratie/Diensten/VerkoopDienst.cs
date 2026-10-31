@@ -240,6 +240,22 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
         return Uitkomst<Guid>.Met(document.Id);
     }
 
+    /// <summary>Een nieuw concept (nog niet toegevoegd aan de database), bijv. van een terugkerende factuur.</summary>
+    internal static Verkoopdocument NieuwConcept(Guid administratie, Verkoopinvoer invoer, Handelsrelatie relatie, Uitvoerder wie, DateTimeOffset nu, Guid? abonnement = null)
+    {
+        var document = new Verkoopdocument
+        {
+            Id = Guid.NewGuid(),
+            AdministratieId = administratie,
+            Status = Verkoopstatus.Concept,
+            AangemaaktOp = nu,
+            AangemaaktDoor = wie.Naam,
+            AbonnementId = abonnement,
+        };
+        Neem(document, invoer, relatie);
+        return document;
+    }
+
     private static void Neem(Verkoopdocument document, Verkoopinvoer invoer, Handelsrelatie relatie)
     {
         document.Relatie = relatie.Code;

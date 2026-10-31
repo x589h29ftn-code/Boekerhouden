@@ -85,6 +85,12 @@ function totp(sleutel) {
   const afdruk = await page.evaluate(() => [...document.querySelectorAll('iframe')].map(f => f.contentDocument?.body?.innerText || '').join(' '));
   if (!afdruk.includes('Factuurnummer')) log.push('afdrukken: de factuur staat niet in het frame');
 
+  // Terugkerend: van de factuur een maandelijkse maken.
+  await page.click('a:has-text("Herhalen")'); await page.waitForSelector('#naam'); await page.waitForTimeout(800);
+  await page.fill('#naam', 'Onderhoud installatie'); await page.fill('#omschrijving', 'Onderhoud #periode');
+  await page.click('fieldset button:has-text("Opslaan")'); await page.waitForTimeout(1200);
+  await page.screenshot({ path: `${uit}/${pre}-terugkerend.png` });
+
   // De factuurontwerper: een blok kiezen en verslepen.
   await page.goto(`${basis}/a/${id}/factuurlayout`); await page.waitForSelector('.ontwerpvlak .fp'); await page.waitForTimeout(1200);
   await page.screenshot({ path: `${uit}/${pre}-factuurlayout.png` });
