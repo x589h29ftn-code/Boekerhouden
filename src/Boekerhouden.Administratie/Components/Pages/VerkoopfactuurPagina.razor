@@ -7,6 +7,7 @@
 @inject VerkoopDienst Verkoop
 @inject InrichtingDienst Inrichting
 @inject FactuuropmaakDienst Opmaak
+@inject GrootboekDienst Grootboek
 @inject VerkoopimportDienst Import
 @inject NavigationManager Navigatie
 @inject IJSRuntime JS
@@ -76,22 +77,41 @@
         }
         else if (weergave is { Status: Verkoopstatus.Definitief } definitief)
         {
-            <div class="verkoop-definitief d-flex gap-4 align-items-start flex-wrap">
-                @if (voorbeeld is { } v)
-                {
-                    <div class="factuurvoorbeeld">
-                        <style>@((MarkupString)Export.FactuurHtml.Css(v.Ontwerp))</style>
-                        <div class="factuurvoorbeeld-pagina">@((MarkupString)Export.FactuurHtml.Pagina(v.Beeld, v.Ontwerp, v.Logo, ontwerper: false))</div>
-                    </div>
-                }
-                <div class="small text-secondary verkoop-info">
+            <div class="verkoop-maken verkoop-definitief">
+                <div class="verkoop-info">
+                    @if (boeking is { } geboekt)
+                    {
+                        <div class="card overzichtskaart mb-3">
+                            <table class="table table-sm align-middle mb-0 overzichtstabel">
+                                <thead>
+                                    <tr><th>Grootboek</th><th>Omschrijving</th><th>Btw</th><th class="text-end">Debet</th><th class="text-end">Credit</th></tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var r in geboekt.Regels)
+                                    {
+                                        <tr>
+                                            <td class="text-nowrap"><span class="rekeningnummer">@r.Rekeningnummer</span> @Schema.Zoek(r.Rekeningnummer)?.Naam</td>
+                                            <td class="omschrijving" title="@r.Omschrijving">@r.Omschrijving</td>
+                                            <td class="text-secondary">@r.BtwCode</td>
+                                            <td class="bedrag text-end">@(r.Bedrag > 0 ? Weergave.Bedrag(r.Bedrag) : null)</td>
+                                            <td class="bedrag text-end">@(r.Bedrag < 0 ? Weergave.Bedrag(-r.Bedrag) : null)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                                <tfoot>
+                                    <tr class="generaal">
+                                        <td colspan="3"><a class="text-reset" href="/a/@Id/boeking/@geboekt.Dagboek/@geboekt.Boekstuk" title="Naar de boeking">@geboekt.Dagboek @geboekt.Boekstuk</a></td>
+                                        <td class="bedrag text-end">@Weergave.Bedrag(geboekt.Regels.Where(r => r.Bedrag > 0).Sum(r => r.Bedrag))</td>
+                                        <td class="bedrag text-end">@Weergave.Bedrag(-geboekt.Regels.Where(r => r.Bedrag < 0).Sum(r => r.Bedrag))</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    }
+                    <div class="small text-secondary">
                     @if (definitief.Factuur.CreditVoor is { } bij)
                     {
                         <div>Bij factuur <a class="text-reset" href="/a/@Id/verkoop/@definitief.CreditVoorId">@bij</a></div>
-                    }
-                    @foreach (var r in definitief.Factuur.Regels)
-                    {
-                        <div title="@r.Omschrijving">@Weergave.Bedrag(r.Bedrag) op @r.Rekeningnummer @Schema.Zoek(r.Rekeningnummer)?.Naam · @BtwKort(r.BtwCode, definitief.Factuur.Datum)</div>
                     }
                     @if (definitief.Invoer.Verdeling is { } verdeeld)
                     {
@@ -103,7 +123,15 @@
                     {
                         <div>E-mail: @email</div>
                     }
+                    </div>
                 </div>
+                @if (voorbeeld is { } v)
+                {
+                    <div class="factuurvoorbeeld">
+                        <style>@((MarkupString)Export.FactuurHtml.Css(v.Ontwerp))</style>
+                        <div class="factuurvoorbeeld-pagina">@((MarkupString)Export.FactuurHtml.Pagina(v.Beeld, v.Ontwerp, v.Logo, ontwerper: false))</div>
+                    </div>
+                }
             </div>
         }
         else
@@ -255,6 +283,7 @@
     private Verkoopcontext? verkoop;
     private Verkoopweergave? weergave;
     private (Export.Verkoopbeeld Beeld, Factuurontwerp Ontwerp, Export.Logo? Logo)? voorbeeld;
+    private Journaalpost? boeking;
     private IReadOnlyList<Layoutregel> layouts = [];
     private Layoutgegevens? layoutVoorbeeld;
     private string? logoBron;
@@ -314,6 +343,7 @@
         verkoop = await Verkoop.Context(geopend!.Wie, Id);
         weergave = Factuur is { } id ? await Verkoop.Open(geopend.Wie, Id, id) : null;
         voorbeeld = weergave is { Status: Verkoopstatus.Definitief, Ingelezen: false } ? await Opmaak.Beeld(geopend.Wie, Id, weergave.Id) : null;
+        boeking = weergave?.Boeking is { } stuk ? (await Grootboek.Boeking(geopend.Wie, Id, stuk.Dagboek, stuk.Boekstuk))?.Boeking.Post : null;
         layouts = await Opmaak.Layouts(geopend.Wie, Id);
         if (weergave is not { Status: Verkoopstatus.Definitief })
         {

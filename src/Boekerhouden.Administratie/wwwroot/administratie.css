@@ -1090,7 +1090,7 @@ body.kolom-slepen { cursor: col-resize; user-select: none; }
 .factuurvoorbeeld { background: var(--bs-tertiary-bg, #eceae6); padding: 1rem; border-radius: .25rem; display: inline-block; }
 .factuurvoorbeeld-pagina { width: calc(210mm * .75); height: calc(297mm * .75); overflow: hidden; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.15); }
 .factuurvoorbeeld-pagina > div { transform: scale(.75); transform-origin: top left; width: 210mm; }
-.verkoop-info { max-width: 22rem; line-height: 1.6; }
+.verkoop-info { line-height: 1.6; }
 .knopgroep { display: inline-flex; gap: .5rem; }
 
 /* Factuur maken: links het formulier, rechts het voorbeeld dat meeloopt met wat je invult. */
