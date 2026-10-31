@@ -64,8 +64,8 @@
             <tfoot>
                 <tr class="generaal">
                     <td colspan="3"><button class="btn btn-sm btn-link nog-een-regel p-0" @onclick="RegelErbij">+ Nog een regel</button></td>
-                    <td class="bedrag text-end">@Bedragen.Getal(invoer.TotaalDebet)</td>
-                    <td class="bedrag text-end">@Bedragen.Getal(invoer.TotaalCredit)</td>
+                    <td class="bedrag text-end">@Weergave.Bedrag(invoer.TotaalDebet)</td>
+                    <td class="bedrag text-end">@Weergave.Bedrag(invoer.TotaalCredit)</td>
                     <td></td>
                 </tr>
             </tfoot>
@@ -92,7 +92,7 @@
         }
         @if (invoer.TotaalDebet != invoer.TotaalCredit)
         {
-            <span class="status let-op ms-2">verschil @Bedragen.Getal(invoer.TotaalDebet - invoer.TotaalCredit)</span>
+            <span class="status let-op ms-2">verschil @Weergave.Bedrag(invoer.TotaalDebet - invoer.TotaalCredit)</span>
         }
     </div>
 </div>

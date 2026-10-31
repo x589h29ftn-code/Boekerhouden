@@ -21,8 +21,8 @@
             <label class="form-check-label text-secondary" for="met-nul">ook zonder saldo</label>
         </span>
         <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
-        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De kolommenbalans als Excel" @onclick="Excel"><Icoon Naam="file-spreadsheet" /><span>Excel</span></button>
-        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De kolommenbalans als PDF (A4 liggend)" @onclick="Pdf"><Icoon Naam="file-text" /><span>PDF</span></button>
+        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De kolommenbalans als Excel" @onclick="Excel">Excel</button>
+        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De kolommenbalans als PDF (A4 liggend)" @onclick="Pdf">PDF</button>
     </Acties>
     <ChildContent>
         <Foutmeldingen Fouten="fouten" />
@@ -317,7 +317,7 @@
     /// <summary>Het resultaat zoals getoond: credit min debet in de W&amp;V-kolommen.</summary>
     private decimal Resultaat => Kolomtotaal(1) - Kolomtotaal(0);
 
-    private string Bedrag(decimal bedrag) => weergave.HeleEuros ? Bedragen.Heel(bedrag) : Bedragen.Getal(bedrag);
+    private string Bedrag(decimal bedrag) => weergave.HeleEuros ? Weergave.BedragHeel(bedrag) : Weergave.Bedrag(bedrag);
 
     private string? Getal(decimal bedrag) => bedrag == 0 ? null : Bedrag(bedrag);
 

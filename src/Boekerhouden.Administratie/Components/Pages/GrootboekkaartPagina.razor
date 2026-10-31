@@ -6,6 +6,18 @@
 @using Boekerhouden.Boekhouding.Grootboek
 
 <AdministratieKader Id="Id" Titel="Grootboekkaart" Actief="/grootboek" BijOpenen="Open">
+    <Kenmerken>
+        @if (kaart is { } k)
+        {
+            <span>@Weergave.Datum(k.Van) t/m @Weergave.Datum(k.Tot)</span>
+            <span class="scheiding">·</span>
+            <span>begin @Weergave.Bedrag(k.Beginsaldo)</span>
+            <span class="scheiding">·</span>
+            <span>@k.Mutaties.Count @(k.Mutaties.Count == 1 ? "mutatie" : "mutaties")</span>
+            <span class="scheiding">·</span>
+            <span>eind <strong>@Weergave.Bedrag(k.Eindsaldo)</strong></span>
+        }
+    </Kenmerken>
     <Acties>
         <select class="form-select form-select-sm w-auto" aria-label="Rekening" value="@Rekening" @onchange="KiesRekening">
             @foreach (var r in rekeningen)
@@ -14,8 +26,8 @@
             }
         </select>
         <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
-        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De grootboekkaart als Excel" @onclick="Excel"><Icoon Naam="file-spreadsheet" /><span>Excel</span></button>
-        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De grootboekkaart als PDF (A4 liggend)" @onclick="Pdf"><Icoon Naam="file-text" /><span>PDF</span></button>
+        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De grootboekkaart als Excel" @onclick="Excel">Excel</button>
+        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De grootboekkaart als PDF (A4 liggend)" @onclick="Pdf">PDF</button>
     </Acties>
     <ChildContent>
         @if (kaart is not null)
@@ -37,7 +49,7 @@
                 <div class="d-flex align-items-center gap-2 mb-2 small herboeken">
                     <span>@gekozen.Count @(gekozen.Count == 1 ? "regel" : "regels") (<Euro Waarde="Gekozen.Sum(m => m.Bedrag)" />) herboeken naar</span>
                     <div class="herboeken-rekening"><RekeningKeuze Id="herboek-rekening" @bind-Waarde="naarRekening" Schema="schema" Kader="geopend" /></div>
-                    <button class="btn btn-sm btn-primary" disabled="@(bezig || string.IsNullOrWhiteSpace(naarRekening))" aria-busy="@(bezig ? "true" : null)" @onclick="Herboek"><Icoon Naam="arrow-right-left" /><span>Herboeken</span></button>
+                    <button class="btn btn-sm btn-primary" disabled="@(bezig || string.IsNullOrWhiteSpace(naarRekening))" aria-busy="@(bezig ? "true" : null)" @onclick="Herboek">Herboeken</button>
                     <button class="btn btn-sm btn-link text-secondary" @onclick="() => gekozen.Clear()">annuleren</button>
                 </div>
             }
@@ -68,7 +80,7 @@
                                 <td></td>
                             }
                             <td>@Weergave.Datum(kaart.Van)</td><td colspan="6">Beginsaldo</td><td></td><td></td>
-                            <td class="bedrag text-end">@Bedragen.Getal(kaart.Beginsaldo)</td>
+                            <td class="bedrag text-end">@Weergave.Bedrag(kaart.Beginsaldo)</td>
                         </tr>
                         @foreach (var m in Zichtbaar)
                         {
@@ -82,11 +94,11 @@
                                 <td class="text-nowrap">@m.Boekstuk</td>
                                 <td class="text-truncate" title="@m.Omschrijving">@m.Omschrijving</td>
                                 <td class="text-secondary">@m.BtwCode</td>
-                                <td class="bedrag text-end">@(m.Btw is { } btw ? Bedragen.Getal(btw) : null)</td>
+                                <td class="bedrag text-end">@(m.Btw is { } btw ? Weergave.Bedrag(btw) : null)</td>
                                 <td class="text-secondary text-truncate" title="@m.Relatie">@m.Factuurnummer</td>
-                                <td class="bedrag text-end">@(m.Bedrag > 0 ? Bedragen.Getal(m.Bedrag) : null)</td>
-                                <td class="bedrag text-end">@(m.Bedrag < 0 ? Bedragen.Getal(-m.Bedrag) : null)</td>
-                                <td class="bedrag text-end">@Bedragen.Getal(m.Saldo)</td>
+                                <td class="bedrag text-end">@(m.Bedrag > 0 ? Weergave.Bedrag(m.Bedrag) : null)</td>
+                                <td class="bedrag text-end">@(m.Bedrag < 0 ? Weergave.Bedrag(-m.Bedrag) : null)</td>
+                                <td class="bedrag text-end">@Weergave.Bedrag(m.Saldo)</td>
                             </tr>
                         }
                     </tbody>
@@ -95,16 +107,16 @@
                         {
                             <tr class="text-secondary">
                                 <td colspan="@(MagHerboeken ? 8 : 7)">Gevonden: @Zichtbaar.Count() @(Zichtbaar.Count() == 1 ? "regel" : "regels")</td>
-                                <td class="bedrag text-end">@Bedragen.Getal(Zichtbaar.Where(m => m.Bedrag > 0).Sum(m => m.Bedrag))</td>
-                                <td class="bedrag text-end">@Bedragen.Getal(-Zichtbaar.Where(m => m.Bedrag < 0).Sum(m => m.Bedrag))</td>
+                                <td class="bedrag text-end">@Weergave.Bedrag(Zichtbaar.Where(m => m.Bedrag > 0).Sum(m => m.Bedrag))</td>
+                                <td class="bedrag text-end">@Weergave.Bedrag(-Zichtbaar.Where(m => m.Bedrag < 0).Sum(m => m.Bedrag))</td>
                                 <td></td>
                             </tr>
                         }
                         <tr class="generaal">
                             <td colspan="@(MagHerboeken ? 8 : 7)">Totaal en eindsaldo</td>
-                            <td class="bedrag text-end">@Bedragen.Getal(kaart.TotaalDebet)</td>
-                            <td class="bedrag text-end">@Bedragen.Getal(kaart.TotaalCredit)</td>
-                            <td class="bedrag text-end">@Bedragen.Getal(kaart.Eindsaldo)</td>
+                            <td class="bedrag text-end">@Weergave.Bedrag(kaart.TotaalDebet)</td>
+                            <td class="bedrag text-end">@Weergave.Bedrag(kaart.TotaalCredit)</td>
+                            <td class="bedrag text-end">@Weergave.Bedrag(kaart.Eindsaldo)</td>
                         </tr>
                     </tfoot>
                 </table>

@@ -109,7 +109,7 @@
                                 <div class="veld"><span class="veldnaam">Leverancier</span><span>@(verwerking.Relaties.FirstOrDefault(r => r.Code == g.Relatie)?.Naam ?? g.Relatie)</span></div>
                                 <div class="veld"><span class="veldnaam">Factuurdatum</span><span>@Weergave.Datum(g.Datum) <span class="text-secondary ms-3">vervalt @Weergave.Datum(g.Vervaldatum)</span></span></div>
                                 <div class="veld"><span class="veldnaam">Omschrijving</span><span>@g.Omschrijving</span></div>
-                                <div class="veld"><span class="veldnaam">Bedrag</span><span class="bedrag">@Bedragen.Getal(g.Totaal)@(g.Creditnota ? " (creditnota)" : null)</span></div>
+                                <div class="veld"><span class="veldnaam">Bedrag</span><span class="bedrag">@Weergave.Bedrag(g.Totaal)@(g.Creditnota ? " (creditnota)" : null)</span></div>
                                 <div class="veld"><span class="veldnaam">Boekstuk</span><span>@g.Dagboek @g.Boekstuk</span></div>
                                 @if (g.Verdeling is { } v)
                                 {
@@ -126,8 +126,8 @@
                                                 <td>@(r.Omschrijving.Length > 0 ? r.Omschrijving : g.Omschrijving)</td>
                                                 <td><span class="rekeningnummer">@r.Rekeningnummer</span> @verwerking.Schema.Zoek(r.Rekeningnummer)?.Naam</td>
                                                 <td title="@r.BtwCode">@(BtwCodes.Zoek(verwerking.Btwtabel.Op(g.Datum), r.BtwCode)?.Kort ?? r.BtwCode)</td>
-                                                <td class="bedrag text-end">@Bedragen.Getal(r.Bedrag)</td>
-                                                <td class="bedrag text-end">@(r.Btw is { } b ? Bedragen.Getal(b) : null)</td>
+                                                <td class="bedrag text-end">@Weergave.Bedrag(r.Bedrag)</td>
+                                                <td class="bedrag text-end">@(r.Btw is { } b ? Weergave.Bedrag(b) : null)</td>
                                             </tr>
                                         }
                                     </tbody>
@@ -261,7 +261,7 @@
                                         <option value="">niet verrekenen</option>
                                         @foreach (var f in openFacturen)
                                         {
-                                            <option value="@f.Post">@f.Factuurnummer · @Weergave.Datum(f.Datum) · open @Bedragen.Getal(-f.Openstaand)</option>
+                                            <option value="@f.Post">@f.Factuurnummer · @Weergave.Datum(f.Datum) · open @Weergave.Bedrag(-f.Openstaand)</option>
                                         }
                                     </select>
                                 </div>
@@ -326,10 +326,10 @@
                             <div class="d-flex align-items-start gap-3">
                                 <button class="btn btn-sm btn-link nog-een-regel" @onclick="RegelToevoegen">+ Nog een regel</button>
                                 <div class="ms-auto text-end small">
-                                    <div>Totaal incl. btw <span class="bedrag fw-semibold ms-2">@(Totaal is { } t ? Bedragen.Getal(t) : "–")</span></div>
+                                    <div>Totaal incl. btw <span class="bedrag fw-semibold ms-2">@(Totaal is { } t ? Weergave.Bedrag(t) : "–")</span></div>
                                     @if (Verschil is { } verschil && verschil != 0)
                                     {
-                                        <div class="status let-op" title="Totaal van de regels min het bedrag van de factuur">Verschil <span class="bedrag ms-2">@Bedragen.Getal(verschil)</span></div>
+                                        <div class="status let-op" title="Totaal van de regels min het bedrag van de factuur">Verschil <span class="bedrag ms-2">@Weergave.Bedrag(verschil)</span></div>
                                     }
                                 </div>
                             </div>

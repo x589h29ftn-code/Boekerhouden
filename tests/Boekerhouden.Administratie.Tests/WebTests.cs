@@ -92,7 +92,7 @@ public sealed class WebTests(AdministratieFixture app) : IClassFixture<Administr
         Assert.Contains("2 van 2", verwerken, StringComparison.Ordinal);
 
         var bank = await beheerder.GetStringAsync(new Uri($"/a/{id}/bank", UriKind.Relative));
-        Assert.Contains("Afschriften hierheen slepen of kiezen", bank, StringComparison.Ordinal);
+        Assert.Contains("Afschrift inlezen", bank, StringComparison.Ordinal);
         Assert.Contains($"href=\"/a/{id}/bank\"", koba, StringComparison.Ordinal);
 
         var buiten = await app.Gebruiker("Bert Buiten");

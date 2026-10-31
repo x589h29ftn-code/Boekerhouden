@@ -23,21 +23,21 @@
                             <tr>
                                 <td><a href="/a/@Id/grootboek?rekening=@r.Rekening.Nummer&jaar=@jaar"><span class="nr">@r.Rekening.Nummer</span> @r.Rekening.Naam</a></td>
                                 <td class="small text-secondary">@r.Rekening.RgsCode</td>
-                                <td class="bedrag text-end">@(r.Saldo > 0 ? Bedragen.Getal(r.Saldo) : null)</td>
-                                <td class="bedrag text-end">@(r.Saldo < 0 ? Bedragen.Getal(-r.Saldo) : null)</td>
+                                <td class="bedrag text-end">@(r.Saldo > 0 ? Weergave.Bedrag(r.Saldo) : null)</td>
+                                <td class="bedrag text-end">@(r.Saldo < 0 ? Weergave.Bedrag(-r.Saldo) : null)</td>
                             </tr>
                         }
                     </tbody>
                     <tfoot>
                         <tr class="fw-semibold">
                             <td colspan="2">Totaal</td>
-                            <td class="bedrag text-end">@Bedragen.Getal(proefbalans.Regels.Where(r => r.Saldo > 0).Sum(r => r.Saldo))</td>
-                            <td class="bedrag text-end">@Bedragen.Getal(-proefbalans.Regels.Where(r => r.Saldo < 0).Sum(r => r.Saldo))</td>
+                            <td class="bedrag text-end">@Weergave.Bedrag(proefbalans.Regels.Where(r => r.Saldo > 0).Sum(r => r.Saldo))</td>
+                            <td class="bedrag text-end">@Weergave.Bedrag(-proefbalans.Regels.Where(r => r.Saldo < 0).Sum(r => r.Saldo))</td>
                         </tr>
                     </tfoot>
                 </table>
             </div>
-            <p class="small text-secondary mt-2">Resultaat @jaar: <span class="bedrag text-body">@Bedragen.Getal(proefbalans.Resultaat)</span></p>
+            <p class="small text-secondary mt-2">Resultaat @jaar: <span class="bedrag text-body">@Weergave.Bedrag(proefbalans.Resultaat)</span></p>
         }
     </ChildContent>
 </AdministratieKader>

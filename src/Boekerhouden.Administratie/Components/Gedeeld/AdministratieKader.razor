@@ -46,7 +46,13 @@ else
                 {
                     <a class="terug" href="@terug" title="Terug" aria-label="Terug"><Icoon Naam="arrow-left" /></a>
                 }
-                <h1 class="h3 mb-0 me-auto">@Titel</h1>
+                <div class="me-auto paginakop">
+                    <h1 class="h3 mb-0">@Titel</h1>
+                    @if (Kenmerken is not null)
+                    {
+                        <div class="kopkenmerken">@Kenmerken</div>
+                    }
+                </div>
                 @Acties
             </div>
             @ChildContent(kop)
@@ -111,6 +117,10 @@ else
     public string Titel { get; set; } = "";
 
     /// <summary>Het pad van de pagina in het menu, bijv. "/grootboek"; leeg voor balans en W&amp;V.</summary>
+    /// <summary>Een regel onder de titel met wat je op deze pagina wilt weten, bijv. het saldo en de datum van het laatste afschrift.</summary>
+    [Parameter]
+    public RenderFragment? Kenmerken { get; set; }
+
     [Parameter]
     public string Actief { get; set; } = "";
 

@@ -1,7 +1,19 @@
 @* Een vlak om bestanden op te slepen of aan te klikken (het bestandsveld ligt er onzichtbaar over, zodat slepen en
-   kiezen gewoon werken). Tijdens het slepen licht het vlak op; tijdens het inlezen loopt er een balk. *@
+   kiezen gewoon werken). Tijdens het slepen licht het vlak op; tijdens het inlezen loopt er een balk.
+   Met Pagina geen vlak: je kiest met een knop (een label voor Id, bijv. in de kop) en sleept bestanden op de hele
+   pagina; tijdens het slepen verschijnt een rand met "Loslaten om in te lezen". *@
 @implements IAsyncDisposable
 @inject IJSRuntime JS
+
+@if (Pagina)
+{
+    <div @ref="vlak" class="paginasleep @(Bezig ? "bezig" : null)">
+        <InputFile id="@Id" class="paginasleep-veld" accept="@Accept" multiple="@Meerdere" OnChange="OnChange" disabled="@Bezig" aria-label="@Tekst" tabindex="-1" />
+        <div class="paginasleep-rand" aria-hidden="true"><span><Icoon Naam="upload" /> Loslaten om in te lezen</span></div>
+        <div class="paginasleep-balk"></div>
+    </div>
+    return;
+}
 
 <div @ref="vlak" class="sleepvlak @(Bezig ? "bezig" : null)">
     <InputFile id="@Id" accept="@Accept" multiple="@Meerdere" OnChange="OnChange" disabled="@Bezig" aria-label="@Tekst" />
@@ -39,6 +51,10 @@
     [Parameter]
     public bool Bezig { get; set; }
 
+    /// <summary>Geen vlak, maar slepen op de hele pagina; kiezen met een label voor <see cref="Id"/> elders (bijv. in de kop).</summary>
+    [Parameter]
+    public bool Pagina { get; set; }
+
     [Parameter]
     public EventCallback<InputFileChangeEventArgs> OnChange { get; set; }
 
@@ -47,7 +63,7 @@
         if (firstRender)
         {
             await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "./sleepvlak.js");
-            koppeling = await module.InvokeAsync<IJSObjectReference>("koppel", vlak);
+            koppeling = await module.InvokeAsync<IJSObjectReference>(Pagina ? "koppelPagina" : "koppel", vlak);
         }
     }
 

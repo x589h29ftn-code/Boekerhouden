@@ -28,6 +28,9 @@ public sealed record Bankregelinvoer(string Rekening, string? BtwCode, decimal B
 /// <summary>Het verschil bij afletteren op een rekening boeken in plaats van open te laten staan (bijv. betalingskorting).</summary>
 public sealed record Verschilafboeking(string Rekening, string? BtwCode, string? Omschrijving = null);
 
+/// <summary>De stand van één bankrekening: het laatste afschrift en wat er nog te verwerken is.</summary>
+public sealed record Bankstand(string Dagboek, string Naam, string Iban, DateOnly? Tot, decimal? Saldo, int TeVerwerken);
+
 /// <summary>Een bankmutatie in de lijst.</summary>
 public sealed record BankmutatieRegel(
     Guid Id,
@@ -510,6 +513,27 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
     }
 
     /// <summary>Het saldo van de vraagposten (wat bij afletteren niet op een factuur paste), met het rekeningnummer.</summary>
+    /// <summary>
+    /// Per bankdagboek met een IBAN: de datum en het eindsaldo van het laatste ingelezen afschrift en hoeveel mutaties
+    /// er nog te verwerken zijn (voor de kop van het bankscherm).
+    /// </summary>
+    public async Task<IReadOnlyList<Bankstand>> Stand(Uitvoerder wie, Guid administratie)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
+        var dagboeken = await db.Dagboeken.AsNoTracking().Where(d => d.Soort == Dagboeksoort.Bank && d.Iban != null).OrderBy(d => d.Code).ToListAsync();
+        var afschriften = await db.Afschriften.AsNoTracking().Where(a => a.Einddatum != null).ToListAsync();
+        var open = (await db.Banktransacties.AsNoTracking().Where(t => t.Status == Banktransactiestatus.TeVerwerken).Select(t => t.Dagboek).ToListAsync())
+            .CountBy(d => d).ToDictionary(x => x.Key, x => x.Value, StringComparer.Ordinal);
+        return
+        [
+            .. dagboeken.Select(d =>
+            {
+                var laatste = afschriften.Where(a => a.Dagboek == d.Code).OrderBy(a => a.Einddatum).ThenBy(a => a.IngelezenOp).LastOrDefault();
+                return new Bankstand(d.Code, d.Naam, d.Iban!, laatste?.Einddatum, laatste?.Eindsaldo, open.GetValueOrDefault(d.Code));
+            }),
+        ];
+    }
+
     public async Task<(string? Rekening, decimal Saldo)> Vraagposten(Uitvoerder wie, Guid administratie)
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);

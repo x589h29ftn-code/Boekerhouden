@@ -3,12 +3,12 @@
 
 <AdministratieKader Id="Id" Titel="Aansluitingen" Actief="/aansluitingen" BijOpenen="Open">
     <Acties>
-        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="Bijwerken" @onclick="Laad"><Icoon Naam="refresh-cw" /><span>Verversen</span></button>
+        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="Bijwerken" @onclick="Laad">Verversen</button>
     </Acties>
     <ChildContent>
         @if (lijst is { Count: 0 })
         {
-            <div class="card leeg"><Icoon Naam="scale" /><span>Geen bank, crediteuren, debiteuren of btw-rekeningen ingericht.</span></div>
+            <div class="leeg-regel">Geen bank, crediteuren, debiteuren of btw-rekeningen ingericht.</div>
         }
         else if (lijst is not null)
         {
@@ -23,9 +23,9 @@
                             <tr class="@(Doel(a) is null ? null : "klikbaar")" @onclick="() => Naar(a)">
                                 <td>@a.Onderwerp</td>
                                 <td class="text-secondary">@a.Rekening</td>
-                                <td class="bedrag text-end">@Bedragen.Getal(a.Grootboek)</td>
-                                <td class="bedrag text-end">@(a.Bron is { } bron ? Bedragen.Getal(bron) : null)</td>
-                                <td class="bedrag text-end @(a.Sluit ? null : "let-op")">@(a.Verschil is { } v ? Bedragen.Getal(v) : null)</td>
+                                <td class="bedrag text-end">@Weergave.Bedrag(a.Grootboek)</td>
+                                <td class="bedrag text-end">@(a.Bron is { } bron ? Weergave.Bedrag(bron) : null)</td>
+                                <td class="bedrag text-end @(a.Sluit ? null : "let-op")">@(a.Verschil is { } v ? Weergave.Bedrag(v) : null)</td>
                                 <td class="status">@(a.Sluit ? a.Toelichting : a.Toelichting is null ? "sluit niet" : $"sluit niet; {a.Toelichting}")</td>
                             </tr>
                         }

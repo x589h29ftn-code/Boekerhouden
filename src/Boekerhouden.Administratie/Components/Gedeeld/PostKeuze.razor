@@ -24,7 +24,7 @@
                 var p = treffers[i];
                 var n = i;
                 <li role="option" aria-selected="@(n == gemarkeerd)" class="@(n == gemarkeerd ? "gemarkeerd" : null)" @onmousedown="() => Kies(p.Id)" @onmousedown:preventDefault>
-                    <span class="nummer">@p.Factuurnummer</span> @Naam(p.Relatie) <span class="float-end text-secondary">@Domain.Bedragen.Getal(p.Openstaand)</span>
+                    <span class="nummer">@p.Factuurnummer</span> @Naam(p.Relatie) <span class="float-end text-secondary">@Weergave.Bedrag(p.Openstaand)</span>
                 </li>
             }
             <li class="rekeningkeuze-meer" @onmousedown="OpenVenster" @onmousedown:preventDefault>Alle openstaande posten… <span class="text-secondary">F2</span></li>

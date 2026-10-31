@@ -15,6 +15,12 @@ public static class Weergave
 
     public static string Datum(DateOnly datum) => datum.ToString("dd-MM-yyyy", Nederlands);
 
+    /// <summary>Een bedrag op het scherm: zoals <see cref="Domain.Bedragen.Getal"/>, maar negatief met een echt minteken (−) in plaats van een koppelteken.</summary>
+    public static string Bedrag(decimal bedrag) => Domain.Bedragen.Getal(bedrag).Replace('-', '\u2212');
+
+    /// <summary>Een bedrag in hele euro's op het scherm, negatief met een echt minteken.</summary>
+    public static string BedragHeel(decimal bedrag) => Domain.Bedragen.Heel(bedrag).Replace('-', '\u2212');
+
     /// <summary>
     /// Een datum zoals een Nederlander hem typt: dag-maand-jaar (<c>30-10-2026</c>, <c>30/10/26</c>, <c>30.10</c> = dit
     /// jaar, <c>301026</c>, <c>30102026</c>, <c>3010</c>); ook <c>2026-10-30</c>. Een jaar van twee cijfers is 20xx.

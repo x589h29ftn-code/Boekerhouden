@@ -3,70 +3,83 @@
 @inject InkoopDienst Inkoop
 
 <AdministratieKader Id="Id" Titel="Inkoop" Actief="/inkoop" BijOpenen="Open">
-    <div class="row g-4">
-        <div class="@(context.Mag(Recht.Invoeren) ? "col-lg-8" : "col-12")">
-            <div class="d-flex align-items-center gap-3 mb-2">
-                <h2 class="h6 text-secondary mb-0">Te verwerken</h2>
-                @if (stand is { } st)
-                {
-                    <span class="small text-secondary">Bezig: @st.Gedaan van @st.Totaal</span>
-                }
-                else if (opnieuw is { } o)
-                {
-                    <span class="small text-secondary">@Samenvatting(o)</span>
-                }
-                @if (context.Mag(Recht.Invoeren) && teVerwerken is { Count: > 0 })
-                {
-                    <button class="btn btn-sm btn-outline-secondary ms-auto" disabled="@bezig" title="Opnieuw door de facturen in Te verwerken, met wat het pakket nu weet (relaties, regels, wat er geleerd is)" @onclick="VerwerkOpnieuw">Opnieuw herkennen</button>
-                }
-            </div>
-            @if (teVerwerken is { Count: 0 })
+    <Kenmerken>
+        @if (stand is { } st)
+        {
+            <span>bezig: @st.Gedaan van @st.Totaal</span>
+        }
+        else if (teVerwerken is { Count: 0 })
+        {
+            <span>alles verwerkt</span>
+        }
+        else if (teVerwerken is { } lijst)
+        {
+            <span><strong>@lijst.Count</strong> te verwerken</span>
+            <span class="scheiding">·</span>
+            <span title="Het oudste document in Te verwerken">oudste ingelezen @Weergave.DatumTijd(lijst.Min(d => d.IngelezenOp))</span>
+            @if (opnieuw is { } o)
             {
-                <div class="card leeg mb-4"><Icoon Naam="circle-check" /><span>Niets te verwerken.</span></div>
+                <span class="scheiding">·</span>
+                <span>@Samenvatting(o)</span>
             }
-            else if (teVerwerken is not null)
+        }
+    </Kenmerken>
+    <Acties>
+        @if (geopend?.Kop.Mag(Recht.Invoeren) == true)
+        {
+            @if (teVerwerken is { Count: > 0 })
             {
-                <div class="card mb-4">
-                    <table class="table table-sm table-hover align-middle mb-0" data-sleepbaar="inkoop-werkvoorraad">
-                        <thead>
-                            <tr>
-                                <SorteerKop Sortering="sortering" Naam="Leverancier" Gewijzigd="StateHasChanged" />
-                                <SorteerKop Sortering="sortering" Naam="Factuurnummer" Gewijzigd="StateHasChanged" />
-                                <SorteerKop Sortering="sortering" Naam="Factuurdatum" Gewijzigd="StateHasChanged" />
-                                <SorteerKop Sortering="sortering" Naam="Bedrag" Klasse="text-end" Gewijzigd="StateHasChanged" />
-                                <SorteerKop Sortering="sortering" Naam="Waarom" Gewijzigd="StateHasChanged" />
-                                <SorteerKop Sortering="sortering" Naam="Ingelezen" Gewijzigd="StateHasChanged" />
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var d in sortering.Pas(teVerwerken))
-                            {
-                                <tr>
-                                    <td><a href="/a/@Id/inkoop/@d.Id">@(d.Leverancier ?? d.Bestandsnaam)</a></td>
-                                    <td>@d.Factuurnummer</td>
-                                    <td class="text-nowrap">@(d.Factuurdatum is { } fd ? Weergave.Datum(fd) : null)</td>
-                                    <td class="bedrag text-end"><Euro Waarde="d.Totaal" /></td>
-                                    <td class="small text-secondary">@d.Melding</td>
-                                    <td class="small text-secondary text-nowrap" title="@d.IngelezenDoor">@Weergave.DatumTijd(d.IngelezenOp)</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
+                <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="Opnieuw door de facturen in Te verwerken, met wat het pakket nu weet (relaties, regels, wat er geleerd is)" @onclick="VerwerkOpnieuw">Opnieuw herkennen</button>
             }
-        </div>
+            <label class="btn btn-sm btn-primary @(bezig ? "disabled" : null)" for="bestanden" aria-busy="@(bezig ? "true" : null)" title="PDF, e-factuur (UBL) of foto; slepen op de pagina kan ook">Facturen inlezen</label>
+        }
+    </Acties>
+    <ChildContent>
         @if (context.Mag(Recht.Invoeren))
         {
-            <div class="col-lg-4 inlezen">
-                <Sleepvlak Id="bestanden" Tekst="Facturen hierheen slepen of kiezen" Soorten="PDF, e-factuur (UBL) of foto" Accept=".pdf,.xml,.jpg,.jpeg,.png,application/pdf,application/xml,text/xml,image/jpeg,image/png" OnChange="LeesIn" Bezig="bezig" />
+            <div class="inlezen">
+                <Sleepvlak Id="bestanden" Pagina="true" Tekst="Facturen inlezen" Accept=".pdf,.xml,.jpg,.jpeg,.png,application/pdf,application/xml,text/xml,image/jpeg,image/png" OnChange="LeesIn" Bezig="bezig" />
                 @foreach (var u in uitkomsten.Where(u => u.Status == Documentstatus.Quarantaine || u.DocumentId is null))
                 {
-                    <div class="small mt-1 status let-op">@u.Melding</div>
+                    <div class="small mb-1 status let-op">@u.Melding</div>
                 }
             </div>
         }
-    </div>
-
+        @if (teVerwerken is { Count: 0 })
+        {
+            <div class="leeg-regel">Geen documenten te verwerken.</div>
+        }
+        else if (teVerwerken is not null)
+        {
+            <div class="card mb-4">
+                <table class="table table-sm table-hover align-middle mb-0" data-sleepbaar="inkoop-werkvoorraad">
+                <thead>
+                        <tr>
+                            <SorteerKop Sortering="sortering" Naam="Leverancier" Gewijzigd="StateHasChanged" />
+                            <SorteerKop Sortering="sortering" Naam="Factuurnummer" Gewijzigd="StateHasChanged" />
+                            <SorteerKop Sortering="sortering" Naam="Factuurdatum" Gewijzigd="StateHasChanged" />
+                            <SorteerKop Sortering="sortering" Naam="Bedrag" Klasse="text-end" Gewijzigd="StateHasChanged" />
+                            <SorteerKop Sortering="sortering" Naam="Waarom" Gewijzigd="StateHasChanged" />
+                            <SorteerKop Sortering="sortering" Naam="Ingelezen" Gewijzigd="StateHasChanged" />
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var d in sortering.Pas(teVerwerken))
+                        {
+                            <tr>
+                                <td><a href="/a/@Id/inkoop/@d.Id">@(d.Leverancier ?? d.Bestandsnaam)</a></td>
+                                <td>@d.Factuurnummer</td>
+                                <td class="text-nowrap">@(d.Factuurdatum is { } fd ? Weergave.Datum(fd) : null)</td>
+                                <td class="bedrag text-end"><Euro Waarde="d.Totaal" /></td>
+                                <td class="small text-secondary">@d.Melding</td>
+                                <td class="small text-secondary text-nowrap" title="@d.IngelezenDoor">@Weergave.DatumTijd(d.IngelezenOp)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </ChildContent>
 </AdministratieKader>
 
 @code {

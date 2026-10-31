@@ -73,7 +73,7 @@
                                 <td>@Weergave.DatumTijd(b.Tijdstip)</td>
                                 <td title="@schema?.Zoek(b.Bevestiging.Keuze.Rekeningnummer)?.Naam">@b.Bevestiging.Keuze.Rekeningnummer</td>
                                 <td>@b.Bevestiging.Keuze.BtwCode</td>
-                                <td class="bedrag text-end">@(b.Bevestiging.Bedrag is { } bedrag ? Bedragen.Getal(bedrag) : null)</td>
+                                <td class="bedrag text-end">@(b.Bevestiging.Bedrag is { } bedrag ? Weergave.Bedrag(bedrag) : null)</td>
                                 <td class="small">@(b.Bevestiging.Iban is { } iban ? Boekhouding.Relaties.Iban.Toon(iban) : null)</td>
                                 <td class="small">@string.Join(", ", (b.Bevestiging.Postcodes ?? []).Select(Boekhouding.Relaties.Postcode.Toon))</td>
                             </tr>

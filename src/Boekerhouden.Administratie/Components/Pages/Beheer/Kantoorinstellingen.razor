@@ -36,7 +36,7 @@
                 <input id="heleeuros" class="form-check-input" type="checkbox" @bind="heleEuros" />
                 <label class="form-check-label" for="heleeuros">Afronden op hele euro's</label>
             </span>
-            <span class="text-secondary small" title="Voorbeeld">@(heleEuros ? Bedragen.Heel(1200.45m) : Bedragen.Getal(1200.45m))</span>
+            <span class="text-secondary small" title="Voorbeeld">@(heleEuros ? Bedragen.Heel(1200.45m) : Weergave.Bedrag(1200.45m))</span>
             <button class="btn btn-outline-primary btn-sm ms-auto" @onclick="BewaarWeergave">Opslaan</button>
         </div>
     </div>

@@ -24,7 +24,7 @@
         <Foutmeldingen Fouten="fouten" />
         @if (lijst is { Relaties.Count: 0 })
         {
-            <div class="card leeg"><Icoon Naam="circle-check" /><span>Geen openstaande posten op @Weergave.Datum(peildatum).</span></div>
+            <div class="leeg-regel">Geen openstaande posten op @Weergave.Datum(peildatum).</div>
         }
         else if (lijst is not null)
         {
@@ -46,9 +46,9 @@
                                         <td class="text-nowrap">@Weergave.Datum(p.Vervaldatum)</td>
                                         <td>@p.Omschrijving</td>
                                         <td>@p.Factuurnummer</td>
-                                        <td class="bedrag text-end">@Bedragen.Getal(p.Factuurbedrag)</td>
-                                        <td class="bedrag text-end">@Bedragen.Getal(p.Betaald)</td>
-                                        <td class="bedrag text-end">@Bedragen.Getal(p.Openstaand)</td>
+                                        <td class="bedrag text-end">@Weergave.Bedrag(p.Factuurbedrag)</td>
+                                        <td class="bedrag text-end">@Weergave.Bedrag(p.Betaald)</td>
+                                        <td class="bedrag text-end">@Weergave.Bedrag(p.Openstaand)</td>
                                         <td class="text-end text-secondary">@p.Ouderdom</td>
                                     </tr>
                                 }
@@ -56,9 +56,9 @@
                             <tfoot>
                                 <tr>
                                     <td colspan="4">Totaal</td>
-                                    <td class="bedrag text-end">@Bedragen.Getal(r.Factuurbedrag)</td>
-                                    <td class="bedrag text-end">@Bedragen.Getal(r.Betaald)</td>
-                                    <td class="bedrag text-end">@Bedragen.Getal(r.Openstaand)</td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(r.Factuurbedrag)</td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(r.Betaald)</td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(r.Openstaand)</td>
                                     <td></td>
                                 </tr>
                             </tfoot>
@@ -72,9 +72,9 @@
                     <tfoot>
                         <tr class="generaal">
                             <td colspan="4">Totaal generaal (@lijst.Relaties.Count @(lijst.Relaties.Count == 1 ? "leverancier" : "leveranciers"), @lijst.Relaties.Sum(r => r.Posten.Count) posten)</td>
-                            <td class="bedrag text-end">@Bedragen.Getal(lijst.Factuurbedrag)</td>
-                            <td class="bedrag text-end">@Bedragen.Getal(lijst.Betaald)</td>
-                            <td class="bedrag text-end">@Bedragen.Getal(lijst.Openstaand)</td>
+                            <td class="bedrag text-end">@Weergave.Bedrag(lijst.Factuurbedrag)</td>
+                            <td class="bedrag text-end">@Weergave.Bedrag(lijst.Betaald)</td>
+                            <td class="bedrag text-end">@Weergave.Bedrag(lijst.Openstaand)</td>
                             <td></td>
                         </tr>
                     </tfoot>

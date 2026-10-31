@@ -26,3 +26,33 @@ export function koppel(vlak) {
         },
     };
 }
+
+// Slepen op de hele pagina: zolang er bestanden boven het venster hangen, krijgt het onzichtbare bestandsveld (dat het
+// hele venster bedekt) de muis en verschijnt de rand; loslaten valt dus op het bestandsveld en de browser leest in.
+export function koppelPagina(vlak) {
+    let diepte = 0;
+    const doel = document.documentElement;
+    const aan = (e) => {
+        if (!e.dataTransfer?.types?.includes('Files')) return;
+        diepte++;
+        vlak.classList.add('sleept');
+    };
+    const uit = () => {
+        diepte = Math.max(0, diepte - 1);
+        if (diepte === 0) vlak.classList.remove('sleept');
+    };
+    const weg = () => {
+        diepte = 0;
+        vlak.classList.remove('sleept');
+    };
+    doel.addEventListener('dragenter', aan);
+    doel.addEventListener('dragleave', uit);
+    doel.addEventListener('drop', weg);
+    return {
+        los: () => {
+            doel.removeEventListener('dragenter', aan);
+            doel.removeEventListener('dragleave', uit);
+            doel.removeEventListener('drop', weg);
+        },
+    };
+}

@@ -370,6 +370,8 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
         await bank.Lees(wie, id, Afschrift(belnet: "20,00"), "ing.mt940");
         var lijst = await dienst.Aansluitingen(wie, id);
 
+        var bankstand = Assert.Single(await bank.Stand(wie, id));
+        Assert.Equal((new DateOnly(2026, 3, 31), 5990.35m, 2), (bankstand.Tot, bankstand.Saldo, bankstand.TeVerwerken));
         var rekening = lijst.Single(a => a.Soort == Aansluitingsoort.Bank);
         Assert.Equal(5990.35m, rekening.Bron);
         Assert.False(rekening.Sluit);

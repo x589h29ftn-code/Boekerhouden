@@ -10,10 +10,37 @@
 @inject IServiceProvider Diensten
 
 <AdministratieKader Id="Id" Titel="Bank" Actief="/bank" BijOpenen="Open">
+    <Kenmerken>
+        @foreach (var b in stand)
+        {
+            <span>@b.Naam @Iban.Toon(b.Iban)</span>
+            <span class="scheiding">·</span>
+            @if (b.Tot is { } tot)
+            {
+                <span>afschrift t/m @Weergave.Datum(tot)</span>
+                <span class="scheiding">·</span>
+                <span>saldo <strong>@Weergave.Bedrag(b.Saldo ?? 0m)</strong></span>
+            }
+            else
+            {
+                <span>nog geen afschrift</span>
+            }
+            <span class="scheiding">·</span>
+            <span>@(b.TeVerwerken == 0 ? "alles verwerkt" : $"{b.TeVerwerken} te verwerken")</span>
+            <br />
+        }
+    </Kenmerken>
+    <Acties>
+        @if (geopend?.Kop.Mag(Recht.Invoeren) == true)
+        {
+            <label class="btn btn-sm btn-primary @(bezig ? "disabled" : null)" for="afschriften" aria-busy="@(bezig ? "true" : null)" title="MT940 of CAMT.053; slepen op de pagina kan ook">Afschrift inlezen</label>
+        }
+    </Acties>
+    <ChildContent>
     @if (context.Mag(Recht.Invoeren))
     {
-        <div class="mb-4 inlezen">
-            <Sleepvlak Id="afschriften" Tekst="Afschriften hierheen slepen of kiezen" Soorten="MT940 of CAMT.053" Accept=".mt940,.940,.sta,.swi,.txt,.xml,.camt" OnChange="LeesIn" Bezig="bezig" />
+        <div class="inlezen">
+            <Sleepvlak Id="afschriften" Pagina="true" Tekst="Afschriften inlezen" Accept=".mt940,.940,.sta,.swi,.txt,.xml,.camt" OnChange="LeesIn" Bezig="bezig" />
             @foreach (var (bestand, uitkomst) in uitkomsten)
             {
                 @if (uitkomst.Waarde is { } w)
@@ -47,9 +74,9 @@
             <div class="ms-auto d-flex align-items-center gap-3">
                 @if (mag && mutaties?.Any(m => m.Status == Banktransactiestatus.TeVerwerken) == true)
                 {
-                    <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="Alle mutaties in Te verwerken opnieuw herkennen: afletteren, regels (ook autoherkenning) en wat er geleerd is" aria-busy="@(bezig ? "true" : null)" @onclick="VerwerkOpnieuw"><Icoon Naam="refresh-cw" /><span>Opnieuw herkennen</span></button>
+                    <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="Alle mutaties in Te verwerken opnieuw herkennen: afletteren, regels (ook autoherkenning) en wat er geleerd is" aria-busy="@(bezig ? "true" : null)" @onclick="VerwerkOpnieuw">Opnieuw herkennen</button>
                 }
-                <button class="btn btn-sm btn-outline-secondary" title="De openstaande posten in een eigen venster, bijv. op een tweede beeldscherm" @onclick="OpenpostenExtern"><Icoon Naam="app-window" /><span>Openstaande posten</span></button>
+                <button class="btn btn-sm btn-outline-secondary" title="De openstaande posten in een eigen venster, bijv. op een tweede beeldscherm" @onclick="OpenpostenExtern">Openstaande posten</button>
                 <span class="form-check form-switch mb-0">
                     <input class="form-check-input" type="checkbox" id="ookgeboekt" checked="@ookGeboekt" @onchange="WisselGeboekt" />
                     <label class="form-check-label small text-secondary" for="ookgeboekt">ook geboekt</label>
@@ -64,12 +91,12 @@
         {
             <div class="small mb-2">
                 <a href="/a/@Id/grootboek?rekening=@vraagrekening">Vraagposten</a>
-                <span class="bedrag ms-2">@Bedragen.Getal(vraagsaldo)</span>
+                <span class="bedrag ms-2">@Weergave.Bedrag(vraagsaldo)</span>
             </div>
         }
         @if (posten is { Count: 0 })
         {
-            <div class="card leeg"><Icoon Naam="circle-check" /><span>@(lijst == Werklijst.OpenPosten ? "Geen openstaande posten." : "Geen deelbetalingen.")</span></div>
+            <div class="leeg-regel">@(lijst == Werklijst.OpenPosten ? "Geen openstaande posten." : "Geen deelbetalingen.")</div>
         }
         else if (posten is not null)
         {
@@ -119,7 +146,7 @@
     }
     else if (mutaties is { Count: 0 })
     {
-        <div class="card leeg"><Icoon Naam="circle-check" /><span>Niets te verwerken.</span></div>
+        <div class="leeg-regel">Alle mutaties zijn verwerkt.</div>
     }
     else if (mutaties is not null)
     {
@@ -174,7 +201,7 @@
                                 {
                                     <div class="d-flex align-items-center gap-2 py-1 kandidaat">
                                         <span>@string.Join(", ", k.Posten.Select(Post))</span>
-                                        <span class="small text-secondary" title="@(k.Verschil == 0 ? null : $"verschil {Bedragen.Getal(k.Verschil)}")">@k.Reden@(k.Zekerheid == Zekerheid.Zeker ? " · zeker" : null)</span>
+                                        <span class="small text-secondary" title="@(k.Verschil == 0 ? null : $"verschil {Weergave.Bedrag(k.Verschil)}")">@k.Reden@(k.Zekerheid == Zekerheid.Zeker ? " · zeker" : null)</span>
                                         @if (mag && k.Korting)
                                         {
                                             <button class="btn btn-sm btn-outline-primary ms-auto" @onclick="() => OpenVenster(k.Posten.Select(p => p.Id).ToList(), afboeken: true)">Afletteren…</button>
@@ -292,7 +319,7 @@
                                 </div>
                             }
                             <div>
-                                <label class="btn btn-sm btn-outline-secondary bestandknop @(bezig ? "disabled" : null)" for="factuur" title="De factuur bij deze mutatie inlezen (PDF, e-factuur of foto)"><Icoon Naam="paperclip" /><span>Factuur toevoegen</span></label>
+                                <label class="btn btn-sm btn-outline-secondary bestandknop @(bezig ? "disabled" : null)" for="factuur" title="De factuur bij deze mutatie inlezen (PDF, e-factuur of foto)">Factuur toevoegen</label>
                                 <InputFile id="factuur" class="visually-hidden" accept=".pdf,.xml,.jpg,.jpeg,.png,application/pdf,application/xml,text/xml,image/jpeg,image/png" OnChange="UploadFactuur" disabled="@bezig" />
                                 @if (factuurUitkomst is { } fu)
                                 {
@@ -316,6 +343,7 @@
         <OpenpostenVenster Verwerking="gekozen" Kader="geopend" Voorgekozen="v.Posten" Afboeken="v.Afboeken" Kiezen="v.Kiezen" Fouten="fouten"
                            Afletteren="AfletterenUitVenster" Gesloten="() => venster = null" />
     }
+    </ChildContent>
 </AdministratieKader>
 
 @code {
@@ -323,6 +351,9 @@
 
     private Geopend? geopend;
     private IReadOnlyList<BankmutatieRegel>? mutaties;
+
+    /// <summary>Per bankrekening het laatste afschrift en wat er te verwerken is: de regel onder de titel.</summary>
+    private IReadOnlyList<Bankstand> stand = [];
 
     /// <summary>De mutatie die net verwerkt is: hij licht op en schuift weg (zie uitstraling.css, tr.verwerkt).</summary>
     private Guid? verwerkt;
@@ -402,6 +433,7 @@
     private async Task Laad()
     {
         mutaties = await Bank.Lijst(geopend!.Wie, Id, ookGeboekt);
+        stand = await Bank.Stand(geopend.Wie, Id);
         if (lijst != Werklijst.Mutaties)
         {
             openPosten = await Bank.OpenPosten(geopend.Wie, Id);

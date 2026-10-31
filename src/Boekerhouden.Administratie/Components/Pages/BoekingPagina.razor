@@ -18,7 +18,7 @@
         }
         @if (detail is { Document: null, Herstelt: null } && !aanpassen && geopend?.Kop.Mag(Recht.Boekhouden) == true && IsMemoriaal)
         {
-            <a class="btn btn-sm btn-outline-secondary" href="/a/@Id/memoriaal?dagboek=@Uri.EscapeDataString(Dagboek)&kopie=@Uri.EscapeDataString(Boekstuk)" title="Een nieuwe boeking met dezelfde regels, een maand later"><Icoon Naam="copy" /><span>Kopiëren</span></a>
+            <a class="btn btn-sm btn-outline-secondary" href="/a/@Id/memoriaal?dagboek=@Uri.EscapeDataString(Dagboek)&kopie=@Uri.EscapeDataString(Boekstuk)" title="Een nieuwe boeking met dezelfde regels, een maand later">Kopiëren</a>
         }
     </Acties>
     <ChildContent>
@@ -66,16 +66,16 @@
                                     <td class="text-secondary">@r.BtwCode</td>
                                     <td class="text-secondary">@r.Relatie</td>
                                     <td class="text-secondary">@r.Factuurnummer</td>
-                                    <td class="bedrag text-end">@(r.Bedrag > 0 ? Bedragen.Getal(r.Bedrag) : null)</td>
-                                    <td class="bedrag text-end">@(r.Bedrag < 0 ? Bedragen.Getal(-r.Bedrag) : null)</td>
+                                    <td class="bedrag text-end">@(r.Bedrag > 0 ? Weergave.Bedrag(r.Bedrag) : null)</td>
+                                    <td class="bedrag text-end">@(r.Bedrag < 0 ? Weergave.Bedrag(-r.Bedrag) : null)</td>
                                 </tr>
                             }
                         </tbody>
                         <tfoot>
                             <tr class="generaal">
                                 <td colspan="5">Totaal</td>
-                                <td class="bedrag text-end">@Bedragen.Getal(b.Post.TotaalDebet)</td>
-                                <td class="bedrag text-end">@Bedragen.Getal(b.Post.TotaalDebet)</td>
+                                <td class="bedrag text-end">@Weergave.Bedrag(b.Post.TotaalDebet)</td>
+                                <td class="bedrag text-end">@Weergave.Bedrag(b.Post.TotaalDebet)</td>
                             </tr>
                         </tfoot>
                     </table>
@@ -103,8 +103,8 @@
                                                 <td><span class="rekeningnummer">@r.Rekeningnummer</span> @schema?.Zoek(r.Rekeningnummer)?.Naam</td>
                                                 <td>@(r.Omschrijving ?? v.Boeking.Post.Omschrijving)</td>
                                                 <td class="text-secondary">@r.BtwCode</td>
-                                                <td class="bedrag text-end">@(r.Bedrag > 0 ? Bedragen.Getal(r.Bedrag) : null)</td>
-                                                <td class="bedrag text-end">@(r.Bedrag < 0 ? Bedragen.Getal(-r.Bedrag) : null)</td>
+                                                <td class="bedrag text-end">@(r.Bedrag > 0 ? Weergave.Bedrag(r.Bedrag) : null)</td>
+                                                <td class="bedrag text-end">@(r.Bedrag < 0 ? Weergave.Bedrag(-r.Bedrag) : null)</td>
                                             </tr>
                                         }
                                         @if (v.Boeking.Post.Regels.Count == 0)

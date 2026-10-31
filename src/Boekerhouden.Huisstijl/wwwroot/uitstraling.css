@@ -231,18 +231,26 @@ a {
 
 /* Kaarten en tabellen: dunne lijnen, geen zware kaders. */
 .card {
+    --bs-card-border-radius: 3px;
+    --bs-card-inner-border-radius: 2px;
     border-color: var(--bh-lijn);
-    border-radius: .5rem;
-    box-shadow: 0 1px 2px rgba(20, 30, 35, .04);
+    border-radius: 3px;
+    box-shadow: none;
 }
 
-    .card > .table:first-child > thead > tr:first-child > th:first-child {
-        border-top-left-radius: .5rem;
-    }
+/* Lijsten zonder kaart eromheen: een witte strook met alleen een lijn boven en onder, zoals een grootboekblad. */
+.card:has(> .table), .card:has(> .table-responsive), .overzichtskaart {
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
+    border-color: var(--bh-lijn-sterk);
+}
 
-    .card > .table:first-child > thead > tr:first-child > th:last-child {
-        border-top-right-radius: .5rem;
-    }
+:root {
+    --bs-border-radius: 3px;
+    --bs-border-radius-sm: 2px;
+    --bs-border-radius-lg: 4px;
+}
 
 .table {
     --bs-table-border-color: #eceeef;
@@ -285,6 +293,43 @@ a {
 .overzichtstabel tr.indeling-kop.niveau-0 > td {
     font-size: .875rem;
     font-weight: 600;
+}
+
+/* Boekhoudconventies: rekeningnummers als gewone grijze cijfers voor de naam; een lijn boven de totalen en het
+   eindtotaal dubbel onderstreept (alleen onder de bedragen); naast elkaar staande bedragkolommen met een haarlijn. */
+.rekeningnummer {
+    min-width: 2.6rem;
+    margin-right: .5rem;
+    padding: 0;
+    border-radius: 0;
+    background: none;
+    color: var(--bh-zacht);
+    font-size: .875em;
+    text-align: left;
+}
+
+.overzichtstabel > tfoot td, .table > tfoot td {
+    background: transparent;
+    border-bottom: 0;
+}
+
+.overzichtstabel > tfoot > tr:first-child > td:is(.bedrag, .text-end):not(:empty),
+.table > tfoot > tr:first-child > td:is(.bedrag, .text-end):not(:empty) {
+    box-shadow: inset 0 1px 0 var(--bh-tekst);
+}
+
+.overzichtstabel > tfoot > tr.generaal > td, .table > tfoot > tr.generaal > td {
+    border-top: 0;
+}
+
+    .overzichtstabel > tfoot > tr.generaal > td:is(.bedrag, .text-end):not(:empty),
+    .table > tfoot > tr.generaal > td:is(.bedrag, .text-end):not(:empty) {
+        box-shadow: inset 0 1px 0 var(--bh-tekst);
+        border-bottom: 3px double var(--bh-tekst);
+    }
+
+.overzichtstabel td.bedrag + td.bedrag, .overzichtstabel th.text-end + th.text-end {
+    border-left: 1px solid #f0f1f0;
 }
 
 /* Sorteren: het pijltje draait in plaats van te wisselen; bij aanwijzen zie je waar je kunt sorteren. */
@@ -391,7 +436,7 @@ th[aria-sort="descending"] .sorteerpijl {
 }
 
 .administratie-inhoud, .beheer-inhoud, .pagina-binnen {
-    animation: bh-binnen var(--bh-gewoon) var(--bh-curve) both;
+    animation: bh-binnen var(--bh-gewoon) var(--bh-curve) backwards;
 }
 
 tr.verwerkt > td {
@@ -404,7 +449,7 @@ tr.verwerkt > td {
 }
 
 .bericht, .alert {
-    animation: bh-binnen var(--bh-gewoon) var(--bh-curve) both;
+    animation: bh-binnen var(--bh-gewoon) var(--bh-curve) backwards;
 }
 
 /* Laden: een schets van de tabel met een zachte glans, pas na een korte pauze (anders flitst hij bij snel laden). */
@@ -444,7 +489,7 @@ tr.verwerkt > td {
     gap: .4rem;
     padding: 2rem 1rem;
     color: var(--bh-zacht);
-    animation: bh-binnen var(--bh-gewoon) var(--bh-curve) both;
+    animation: bh-binnen var(--bh-gewoon) var(--bh-curve) backwards;
 }
 
     .leeg .icoon {
@@ -523,6 +568,115 @@ a.terug {
 /* Rekening of post kiezen: de knop met de puntjes. */
 .rekeningkeuze-alle .icoon {
     vertical-align: -.2em;
+}
+
+/* Paginakop: de titel met een regel eronder die iets zegt (saldo, laatste afschrift, wat er openstaat). */
+.paginakop {
+    min-width: 0;
+}
+
+.kopkenmerken {
+    margin-top: .1rem;
+    font-size: .875rem;
+    color: var(--bh-zacht);
+    font-variant-numeric: tabular-nums;
+}
+
+    .kopkenmerken .scheiding {
+        margin: 0 .45rem;
+        color: #b6bdc2;
+    }
+
+    .kopkenmerken strong {
+        font-weight: 500;
+        color: var(--bh-tekst);
+    }
+
+/* Bestanden slepen op de hele pagina: het onzichtbare bestandsveld bedekt het venster alleen tijdens het slepen. */
+.paginasleep-veld {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.paginasleep.sleept .paginasleep-veld {
+    pointer-events: auto;
+}
+
+.paginasleep-rand {
+    position: fixed;
+    inset: .5rem;
+    z-index: 1999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed var(--bh-accent);
+    border-radius: 4px;
+    background: rgba(246, 246, 244, .82);
+    color: var(--bh-accent-donker);
+    font-weight: 500;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--bh-snel) ease, visibility var(--bh-snel);
+}
+
+    .paginasleep-rand span {
+        display: inline-flex;
+        align-items: center;
+        gap: .5rem;
+        padding: .5rem 1rem;
+        background: #fff;
+        border: 1px solid var(--bh-lijn);
+        border-radius: 3px;
+    }
+
+.paginasleep.sleept .paginasleep-rand {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Tijdens het inlezen: een dun streepje dat bovenin het venster heen en weer loopt. */
+.paginasleep-balk {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1990;
+    height: 2px;
+    width: 0;
+    background: var(--bh-accent);
+}
+
+@keyframes bh-voortgang {
+    0% {
+        left: 0;
+        width: 0;
+    }
+
+    50% {
+        left: 20%;
+        width: 50%;
+    }
+
+    100% {
+        left: 100%;
+        width: 0;
+    }
+}
+
+.paginasleep.bezig .paginasleep-balk {
+    animation: bh-voortgang 1.1s ease-in-out infinite;
+}
+
+/* Een lege lijst: één rustige regel, links uitgelijnd zoals de tabel die er anders zou staan. */
+.leeg-regel {
+    padding: .6rem 0 1rem;
+    border-top: 1px solid var(--bh-lijn-sterk);
+    color: var(--bh-zacht);
+    font-size: .9rem;
 }
 
 /* Dunne, grijze scrollbalken. */
