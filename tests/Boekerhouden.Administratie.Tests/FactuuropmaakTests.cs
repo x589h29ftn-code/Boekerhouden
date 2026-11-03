@@ -160,6 +160,32 @@ public sealed class FactuuropmaakTests(AdministratieFixture app) : IClassFixture
     }
 
     [Fact]
+    public async Task Een_vast_bedrag_staat_op_de_factuur_zonder_aantal_eenheid_en_prijs()
+    {
+        var (wie, id, klant) = await Administratie();
+        var verkoop = app.Dienst<VerkoopDienst>();
+        var concept = await verkoop.Bewaar(wie, id, null, new Verkoopinvoer(klant, new(2026, 3, 1), new(2026, 3, 31), "Huur maart",
+            [new Verkoopregel("Huur bedrijfsruimte maart 2026", 1m, 1234.56m, "8000", "V21", "maand", Vast: true), new Verkoopregel("Schoonmaak", 3m, 17.25m, "8000", "V21", "uur")]));
+        Assert.True(concept.IsGelukt, string.Join("; ", concept.Fouten));
+        Assert.True((await verkoop.MaakDefinitief(wie, id, concept.Waarde)).IsGelukt);
+
+        var (beeld, _, _) = (await app.Dienst<FactuuropmaakDienst>().Beeld(wie, id, concept.Waarde))!.Value;
+        var html = (await app.Dienst<FactuuropmaakDienst>().Html(wie, id, concept.Waarde))!;
+
+        Assert.Equal([(true, null), (false, "uur")], beeld.Factuur.Regels.Select(r => (r.Vast, r.Eenheid)));
+        Assert.Contains("<td>Huur bedrijfsruimte maart 2026</td><td class=\"r\"></td><td></td><td class=\"r\"></td>", html, StringComparison.Ordinal);
+        Assert.Contains("1.234,56", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("maand</td>", html, StringComparison.Ordinal);
+        Assert.Contains("<td class=\"r\">17,25</td>", html, StringComparison.Ordinal);
+
+        // Op het scherm: aantal leeg = vast bedrag, de prijs is het bedrag en een eenheid telt niet.
+        var invoer = new Components.Gedeeld.Verkoopregelinvoer { Omschrijving = "Huur", Aantal = " ", Eenheid = "maand", Prijs = "1.234,56", Rekening = "8000" };
+        Assert.Equal(new Verkoopregel("Huur", 1m, 1234.56m, "8000", "V21", null, 0m, Vast: true), invoer.Domein());
+        Assert.Null(Components.Gedeeld.Verkoopregelinvoer.Van(invoer.Domein()!).Aantal);
+        Assert.Equal(["Regel 1: vul het bedrag in als getal."], Components.Gedeeld.Verkoopregelinvoer.Lees([new() { Prijs = "x" }]).Fouten);
+    }
+
+    [Fact]
     public async Task De_ontwerper_ziet_ook_uitgezette_blokken_en_kan_ze_kiezen()
     {
         var beeld = Verkoopbeeld.Voorbeeld(Afzender, BtwCodes.Standaard, new(2026, 10, 31));

@@ -795,7 +795,10 @@ public sealed class Verkoopdocumentregel : IVanAdministratie
 
     public string BtwCode { get; set; } = string.Empty;
 
-    public Boekhouding.Verkoop.Verkoopregel NaarDomein() => new(Omschrijving, Aantal, Prijs, Rekeningnummer, BtwCode, Eenheid, Korting);
+    /// <summary>Een vast bedrag: op de factuur alleen het bedrag, zonder aantal, eenheid en prijs.</summary>
+    public bool Vast { get; set; }
+
+    public Boekhouding.Verkoop.Verkoopregel NaarDomein() => new(Omschrijving, Aantal, Prijs, Rekeningnummer, BtwCode, Eenheid, Korting, Vast);
 }
 
 /// <summary>

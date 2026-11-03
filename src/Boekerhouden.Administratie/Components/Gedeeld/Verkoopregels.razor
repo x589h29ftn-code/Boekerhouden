@@ -25,9 +25,9 @@
             {
                 <tr>
                     <td><input class="form-control form-control-sm" @bind="regel.Omschrijving" @bind:event="oninput" @bind:after="Meld" aria-label="Omschrijving" placeholder="@Placeholder" /></td>
-                    <td><input class="form-control form-control-sm text-end" @bind="regel.Aantal" @bind:event="oninput" @bind:after="Meld" aria-label="Aantal" /></td>
-                    <td><input class="form-control form-control-sm" @bind="regel.Eenheid" @bind:event="oninput" @bind:after="Meld" aria-label="Eenheid" placeholder="uur, stuk" /></td>
-                    <td><input class="form-control form-control-sm text-end" @bind="regel.Prijs" @bind:event="oninput" @bind:after="Meld" aria-label="Prijs per eenheid exclusief btw" /></td>
+                    <td><input class="form-control form-control-sm text-end" @bind="regel.Aantal" @bind:event="oninput" @bind:after="Meld" aria-label="Aantal" placeholder="vast" title="Leeg = een vast bedrag: alleen het bedrag op de factuur" /></td>
+                    <td><input class="form-control form-control-sm" @bind="regel.Eenheid" @bind:event="oninput" @bind:after="Meld" aria-label="Eenheid" placeholder="@(regel.Vast ? null : "uur, stuk")" disabled="@regel.Vast" /></td>
+                    <td><input class="form-control form-control-sm text-end" @bind="regel.Prijs" @bind:event="oninput" @bind:after="Meld" aria-label="@(regel.Vast ? "Bedrag exclusief btw" : "Prijs per eenheid exclusief btw")" placeholder="@(regel.Vast ? "bedrag" : null)" /></td>
                     <td><input class="form-control form-control-sm text-end" @bind="regel.Korting" @bind:event="oninput" @bind:after="Meld" aria-label="Korting in procenten" placeholder="0" /></td>
                     <td><RekeningKeuze @bind-Waarde="regel.Rekening" @bind-Waarde:after="Meld" Schema="Schema" Kader="Kader" Label="Omzetrekening" /></td>
                     <td>

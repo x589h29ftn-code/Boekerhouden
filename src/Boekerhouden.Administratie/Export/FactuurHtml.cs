@@ -351,17 +351,17 @@ public static class FactuurHtml
             html.Append(CultureInfo.InvariantCulture, $"<tr><td>{Tekst(r.Omschrijving)}</td>");
             if (o.KolomAantal)
             {
-                html.Append(CultureInfo.InvariantCulture, $"""<td class="r">{r.Aantal.ToString("#,0.####", Nl).Replace('-', '−')}</td>""");
+                html.Append(CultureInfo.InvariantCulture, $"""<td class="r">{(r.Vast ? "" : r.Aantal.ToString("#,0.####", Nl).Replace('-', '−'))}</td>""");
             }
 
             if (o.KolomEenheid)
             {
-                html.Append(CultureInfo.InvariantCulture, $"<td>{E(r.Eenheid ?? "")}</td>");
+                html.Append(CultureInfo.InvariantCulture, $"<td>{(r.Vast ? "" : E(r.Eenheid ?? ""))}</td>");
             }
 
             if (o.KolomPrijs)
             {
-                html.Append(CultureInfo.InvariantCulture, $"""<td class="r">{Prijs(r.Prijs)}</td>""");
+                html.Append(CultureInfo.InvariantCulture, $"""<td class="r">{(r.Vast ? "" : Prijs(r.Prijs))}</td>""");
             }
 
             if (o.KolomKorting)

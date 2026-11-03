@@ -1573,6 +1573,9 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<bool>("Vast")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid>("VerkoopdocumentId")
                         .HasColumnType("uuid");
 

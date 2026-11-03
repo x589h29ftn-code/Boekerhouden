@@ -1557,6 +1557,9 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("Vast")
+                        .HasColumnType("INTEGER");
+
                     b.Property<Guid>("VerkoopdocumentId")
                         .HasColumnType("TEXT");
 

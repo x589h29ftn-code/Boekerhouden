@@ -80,10 +80,12 @@ function totp(sleutel) {
   await page.locator('input[aria-label=Eenheid]').first().fill('uur');
   await page.locator('input[aria-label="Prijs per eenheid exclusief btw"]').first().fill('85');
   await page.click('button:has-text("Nog een regel")');
-  await page.locator('input[aria-label=Omschrijving]').nth(1).fill('Materiaal');
-  await page.locator('input[aria-label=Aantal]').nth(1).fill('1');
-  await page.locator('input[aria-label="Prijs per eenheid exclusief btw"]').nth(1).fill('240');
-  await page.waitForTimeout(500);
+  // Een vast bedrag: aantal leeg, de prijs is het bedrag; op de factuur alleen het bedrag.
+  await page.locator('input[aria-label=Omschrijving]').nth(1).fill('Onderhoud maart 2026');
+  await page.locator('input[aria-label=Aantal]').nth(1).fill('');
+  await page.locator('input[aria-label="Bedrag exclusief btw"]').first().fill('240');
+  await page.waitForTimeout(800);
+  if (!(await page.locator('.verkoopregels tbody tr').nth(1).locator('td.bedrag').textContent()).includes('240')) log.push('vast bedrag niet berekend');
   await page.screenshot({ path: `${uit}/${pre}-verkoopfactuur-concept.png` });
   await page.click('button:has-text("Definitief maken")'); await page.waitForTimeout(2500);
   await page.screenshot({ path: `${uit}/${pre}-verkoopfactuur-definitief.png` });

@@ -23,22 +23,26 @@ public sealed class Verkoopregelinvoer
 
     public string BtwCode { get; set; } = "V21";
 
-    /// <summary>De regel als die te lezen is (aantal en prijs als getal), anders leeg.</summary>
+    /// <summary>Geen aantal: een vast bedrag, de prijs is het bedrag van de regel.</summary>
+    public bool Vast => string.IsNullOrWhiteSpace(Aantal);
+
+    /// <summary>De regel als die te lezen is (aantal, als het er is, en prijs als getal), anders leeg.</summary>
     public Verkoopregel? Domein()
     {
-        if (!BedragParser.TryParse(Aantal ?? "", out var aantal) || !BedragParser.TryParse(Prijs ?? "", out var prijs))
+        var aantal = 1m;
+        if ((!Vast && !BedragParser.TryParse(Aantal!, out aantal)) || !BedragParser.TryParse(Prijs ?? "", out var prijs))
         {
             return null;
         }
 
         var korting = string.IsNullOrWhiteSpace(Korting) ? 0m : BedragParser.TryParse(Korting.TrimEnd('%', ' '), out var k) ? k : -1m;
-        return new Verkoopregel(Omschrijving ?? "", aantal, prijs, Rekening ?? "", BtwCode, Eenheid, korting);
+        return new Verkoopregel(Omschrijving ?? "", aantal, prijs, Rekening ?? "", BtwCode, Vast ? null : Eenheid, korting, Vast);
     }
 
     public static Verkoopregelinvoer Van(Verkoopregel r) => new()
     {
         Omschrijving = r.Omschrijving,
-        Aantal = r.Aantal.ToString("0.####", Nl),
+        Aantal = r.Vast ? null : r.Aantal.ToString("0.####", Nl),
         Eenheid = r.Eenheid,
         Prijs = r.Prijs.ToString("0.00##", Nl),
         Korting = r.Korting == 0 ? null : r.Korting.ToString("0.##", Nl),
@@ -51,7 +55,7 @@ public sealed class Verkoopregelinvoer
     {
         ArgumentNullException.ThrowIfNull(regels);
         var lijst = regels.ToList();
-        var fouten = lijst.Select((r, i) => r.Domein() is null ? $"Regel {i + 1}: vul aantal en prijs in als getal." : null).OfType<string>().ToList();
+        var fouten = lijst.Select((r, i) => r.Domein() is null ? r.Vast ? $"Regel {i + 1}: vul het bedrag in als getal." : $"Regel {i + 1}: vul aantal en prijs in als getal." : null).OfType<string>().ToList();
         return (fouten.Count == 0 ? [.. lijst.Select(r => r.Domein()!)] : [], fouten);
     }
 }

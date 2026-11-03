@@ -39,6 +39,10 @@ public sealed record Partij(
 /// Eén regel van een verkoopfactuur: aantal × prijs (exclusief btw), eventueel met een korting in procenten, op een
 /// omzetrekening met een btw-code. Een creditfactuur heeft een negatief aantal.
 /// </summary>
+/// <param name="Vast">
+/// Een vast bedrag (bijv. een maand huur): het aantal is 1, de prijs is het bedrag en op de factuur staan aantal,
+/// eenheid en prijs niet, alleen het bedrag.
+/// </param>
 public sealed record Verkoopregel(
     string Omschrijving,
     decimal Aantal,
@@ -46,7 +50,8 @@ public sealed record Verkoopregel(
     string Rekeningnummer,
     string BtwCode,
     string? Eenheid = null,
-    decimal Korting = 0m)
+    decimal Korting = 0m,
+    bool Vast = false)
 {
     /// <summary>Het regelbedrag exclusief btw, op centen afgerond (half van nul af).</summary>
     public decimal Bedrag => Math.Round(Aantal * Prijs * (100m - Korting) / 100m, 2, MidpointRounding.AwayFromZero);
