@@ -108,6 +108,16 @@ function totp(sleutel) {
   await page.locator('tr:has-text("ingelezen")').first().click(); await page.waitForSelector('#nummer'); await page.waitForTimeout(1200);
   await page.screenshot({ path: `${uit}/${pre}-verkoopfactuur-ingelezen.png` });
 
+  // Optioneel: een echt PDF-afschrift (buiten git) omzetten naar MT940 en inlezen: BANKPDF=pad/naar/afschrift.pdf.
+  // Dan wordt het verzonnen afschrift hierna geweigerd (een tweede rekening), zoals bedoeld.
+  if (process.env.BANKPDF) {
+    await page.goto(`${basis}/a/${id}/bank`); await page.waitForTimeout(1500);
+    await page.setInputFiles('#bankpdf', process.env.BANKPDF); await page.waitForSelector('text=MT940 downloaden', { timeout: 15000 });
+    await page.screenshot({ path: `${uit}/${pre}-bank-pdf-omgezet.png` });
+    await page.click('button:has-text("Inlezen")'); await page.waitForTimeout(4000);
+    await page.screenshot({ path: `${uit}/${pre}-bank-pdf-ingelezen.png` });
+  }
+
   // Bankafschrift inlezen (slepen kan ook; het bestandsveld bedekt dan de pagina).
   await page.goto(`${basis}/a/${id}/bank`); await page.waitForTimeout(1500);
   await page.setInputFiles('#afschriften', path.join(fictief, 'ing-2026-03.mt940')); await page.waitForTimeout(3000);

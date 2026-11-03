@@ -77,7 +77,10 @@ public sealed record Bankverwerking(
 /// anders door de gebruiker. Elke boeking zet de journaalpost in de keten en werkt de openstaande posten bij, in één
 /// transactie.
 /// </summary>
-public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, AuditDienst audit, TimeProvider tijd)
+/// <summary>Een PDF-afschrift omgezet naar MT940: het bestand en wat erin staat.</summary>
+public sealed record Pdfomzetting(byte[] Mt940, string Bestandsnaam, Bankafschrift Afschrift);
+
+public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, AuditDienst audit, TimeProvider tijd, IEnumerable<Documenten.IVirusscanner> virusscanners)
 {
     /// <summary>Groter is geen bankafschrift.</summary>
     public const int MaximumBytes = 20 * 1024 * 1024;
@@ -97,7 +100,21 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         try
         {
             using var kopie = await LeesBegrensd(inhoud, annulering);
-            afschriften = Bankbestand.Lees(kopie);
+            if (IsPdf(kopie))
+            {
+                // Een afschrift dat alleen als PDF bestaat: eerst omzetten (zoals de knop PDF → MT940), dan gewoon inlezen.
+                var omgezet = await PdfNaarAfschrift(kopie.ToArray(), naam, annulering);
+                if (!omgezet.IsGelukt)
+                {
+                    return Uitkomst<Bankinlezing>.Mislukt([.. omgezet.Fouten]);
+                }
+
+                afschriften = Bankbestand.Lees(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(Mt940Schrijver.Schrijf(omgezet.Waarde!))));
+            }
+            else
+            {
+                afschriften = Bankbestand.Lees(kopie);
+            }
         }
         catch (BankbestandException fout)
         {
@@ -822,6 +839,69 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
 
     private static string? Kort(string? tekst, int lengte) =>
         tekst is null ? null : tekst.Length > lengte ? tekst[..lengte] : tekst;
+
+    /// <summary>
+    /// Zet een rekeningafschrift dat alleen als PDF bestaat om naar MT940 (om te bewaren of in een ander pakket in te
+    /// lezen). Eerst de virusscan; het afschrift moet sluiten (vorig saldo plus mutaties is het nieuwe saldo). Er wordt
+    /// niets ingelezen of bewaard.
+    /// </summary>
+    public async Task<Uitkomst<Pdfomzetting>> PdfNaarMt940(Uitvoerder wie, Guid administratie, Stream inhoud, string bestandsnaam, CancellationToken annulering = default)
+    {
+        ArgumentNullException.ThrowIfNull(inhoud);
+        await using (await toegang.Open(wie, administratie, Recht.Invoeren))
+        {
+        }
+
+        var naam = Path.GetFileName(bestandsnaam);
+        try
+        {
+            using var kopie = await LeesBegrensd(inhoud, annulering);
+            if (!IsPdf(kopie))
+            {
+                return Uitkomst<Pdfomzetting>.Mislukt($"{naam} is geen PDF.");
+            }
+
+            var omgezet = await PdfNaarAfschrift(kopie.ToArray(), naam, annulering);
+            if (!omgezet.IsGelukt)
+            {
+                return Uitkomst<Pdfomzetting>.Mislukt([.. omgezet.Fouten]);
+            }
+
+            var afschrift = omgezet.Waarde!;
+            var mt940 = System.Text.Encoding.UTF8.GetBytes(Mt940Schrijver.Schrijf(afschrift));
+            return Uitkomst<Pdfomzetting>.Met(new Pdfomzetting(mt940, $"{Path.GetFileNameWithoutExtension(naam)}.mt940", afschrift));
+        }
+        catch (BankbestandException fout)
+        {
+            return Uitkomst<Pdfomzetting>.Mislukt($"{naam}: {fout.Message}");
+        }
+    }
+
+    private async Task<Uitkomst<Bankafschrift>> PdfNaarAfschrift(byte[] pdf, string naam, CancellationToken annulering)
+    {
+        if (virusscanners.FirstOrDefault() is { } scanner)
+        {
+            var scan = await scanner.ScanAsync(new MemoryStream(pdf), annulering);
+            if (scan.Uitslag != Documenten.Scanuitslag.Schoon)
+            {
+                return Uitkomst<Bankafschrift>.Mislukt(scan.Uitslag == Documenten.Scanuitslag.Besmet
+                    ? $"{naam} bevat kwaadaardige inhoud ({scan.Toelichting}) en is niet gelezen."
+                    : $"{scan.Toelichting} {naam} is niet gelezen; probeer het later opnieuw.");
+            }
+        }
+
+        try
+        {
+            return Uitkomst<Bankafschrift>.Met(Documenten.PdfBankafschrift.Lees(pdf));
+        }
+        catch (Documenten.DocumentException fout)
+        {
+            return Uitkomst<Bankafschrift>.Mislukt($"{naam}: {fout.Message}");
+        }
+    }
+
+    private static bool IsPdf(MemoryStream inhoud) =>
+        inhoud.Length > 5 && inhoud.GetBuffer().AsSpan(0, (int)Math.Min(inhoud.Length, 1024)).IndexOf("%PDF-"u8) >= 0;
 
     private static async Task<MemoryStream> LeesBegrensd(Stream stream, CancellationToken annulering)
     {

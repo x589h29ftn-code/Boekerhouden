@@ -26,5 +26,6 @@
 
   <ItemGroup>
     <Compile Include="..\Boekerhouden.Documenten.Tests\OcrFactAttribute.cs" Link="OcrFactAttribute.cs" />
+    <Compile Include="..\Boekerhouden.Documenten.Tests\FictiefAfschrift.cs" Link="FictiefAfschrift.cs" />
   </ItemGroup>
 </Project>

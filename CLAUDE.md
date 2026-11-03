@@ -46,7 +46,7 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   advies), `Herkenning/` (factuurtekst, UBL, leverancier herkennen, inkoopvoorstel) en `Verkoop/` (verkoopfactuur, nummering per jaar,
   betalingskenmerk, btw-controle en vermeldingen, factuurontwerp, UBL schrijven, terugkerende planning, inlezen).
 - `src/Boekerhouden.Documenten` – documenten van buiten lezen voor de herkenning: tekst uit PDF (PdfPig, als `Tekstwoord`en
-  met hun plek), UBL als los bestand of als bijlage, OCR van scans en foto's (`TesseractOcr` als eigen proces, `OcrLezer`); begrensd (grootte, pagina's), XML altijd zonder DTD; vooraf een virusscan met ClamAV (clamd),
+  met hun plek), UBL als los bestand of als bijlage, OCR van scans en foto's (`TesseractOcr` als eigen proces, `OcrLezer`), een PDF-rekeningafschrift lezen (`PdfBankafschrift`, naar MT940 met `Mt940Schrijver`); begrensd (grootte, pagina's), XML altijd zonder DTD; vooraf een virusscan met ClamAV (clamd),
   *fail closed*. Beveiliging en besluiten B1–B5: `docs/administratie/beveiliging.md`.
 - `src/Boekerhouden.Administratie` – Blazor Server-app van het **administratiepakket** (eigen database
   `boekerhouden_administratie`): `Data/` (entiteiten, `AdministratieDbContext` met query filter per administratie,

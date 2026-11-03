@@ -33,14 +33,28 @@
     <Acties>
         @if (geopend?.Kop.Mag(Recht.Invoeren) == true)
         {
-            <label class="btn btn-sm btn-primary @(bezig ? "disabled" : null)" for="afschriften" aria-busy="@(bezig ? "true" : null)" title="MT940 of CAMT.053; slepen op de pagina kan ook">Afschrift inlezen</label>
+            <label class="btn btn-sm btn-outline-secondary @(bezig ? "disabled" : null)" for="bankpdf" title="Een rekeningafschrift dat alleen als PDF bestaat omzetten naar MT940 (om te bewaren of in te lezen)">PDF → MT940</label>
+            <InputFile id="bankpdf" class="d-none" accept=".pdf,application/pdf" OnChange="ZetPdfOm" disabled="@bezig" />
+            <label class="btn btn-sm btn-primary @(bezig ? "disabled" : null)" for="afschriften" aria-busy="@(bezig ? "true" : null)" title="MT940, CAMT.053 of een PDF-afschrift; slepen op de pagina kan ook">Afschrift inlezen</label>
         }
     </Acties>
     <ChildContent>
     @if (context.Mag(Recht.Invoeren))
     {
         <div class="inlezen">
-            <Sleepvlak Id="afschriften" Pagina="true" Tekst="Afschriften inlezen" Accept=".mt940,.940,.sta,.swi,.txt,.xml,.camt" OnChange="LeesIn" Bezig="bezig" />
+            <Sleepvlak Id="afschriften" Pagina="true" Tekst="Afschriften inlezen" Accept=".mt940,.940,.sta,.swi,.txt,.xml,.camt,.pdf" OnChange="LeesIn" Bezig="bezig" />
+            @if (omzetting is { } o)
+            {
+                <div class="bericht small mt-1 d-flex align-items-center flex-wrap gap-2">
+                    <span>@o.Bestandsnaam: @Boekhouding.Relaties.Iban.Toon(o.Afschrift.Iban)@(o.Afschrift.Nummer is { } nr ? $", afschrift {nr}" : null) · @o.Afschrift.Mutaties.Count mutaties · @(o.Afschrift.Begindatum is { } van ? Weergave.Datum(van) : null) t/m @(o.Afschrift.Einddatum is { } tot ? Weergave.Datum(tot) : null) · saldo @Weergave.Bedrag(o.Afschrift.Beginsaldo) → @Weergave.Bedrag(o.Afschrift.Eindsaldo), sluit</span>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="BewaarMt940">MT940 downloaden</button>
+                    <button class="btn btn-sm btn-primary" disabled="@bezig" @onclick="LeesOmzettingIn">Inlezen</button>
+                </div>
+            }
+            @if (omzetfout is not null)
+            {
+                <div class="small mt-1 status let-op d-block">@omzetfout</div>
+            }
             @foreach (var (bestand, uitkomst) in uitkomsten)
             {
                 @if (uitkomst.Waarde is { } w)
@@ -708,6 +722,55 @@
                 await Kies(daarna);
             }
         }
+    }
+
+    private Pdfomzetting? omzetting;
+    private string? omzetfout;
+
+    private async Task ZetPdfOm(InputFileChangeEventArgs e)
+    {
+        bezig = true;
+        (omzetting, omzetfout) = (null, null);
+        try
+        {
+            await using var stream = e.File.OpenReadStream(BankDienst.MaximumBytes);
+            var uitkomst = await Bank.PdfNaarMt940(geopend!.Wie, Id, stream, e.File.Name);
+            (omzetting, omzetfout) = (uitkomst.Waarde, uitkomst.IsGelukt ? null : string.Join(" ", uitkomst.Fouten));
+            if (omzetting is not null)
+            {
+                await BewaarMt940();
+            }
+        }
+        catch (IOException)
+        {
+            omzetfout = $"{e.File.Name} is groter dan {BankDienst.MaximumBytes / 1024 / 1024} MB.";
+        }
+        finally
+        {
+            bezig = false;
+        }
+    }
+
+    private async Task BewaarMt940()
+    {
+        if (omzetting is { } o)
+        {
+            await JS.Bewaar(o.Mt940, o.Bestandsnaam, "text/plain");
+        }
+    }
+
+    private async Task LeesOmzettingIn()
+    {
+        if (omzetting is not { } o)
+        {
+            return;
+        }
+
+        bezig = true;
+        uitkomsten = [(o.Bestandsnaam, await Bank.Lees(geopend!.Wie, Id, new MemoryStream(o.Mt940), o.Bestandsnaam))];
+        omzetting = null;
+        bezig = false;
+        await Laad();
     }
 
     private async Task LeesIn(InputFileChangeEventArgs e)
