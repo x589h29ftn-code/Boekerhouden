@@ -356,7 +356,7 @@ public sealed class BankboekerTests
         Assert.Equal(-199.65m, boeking.Regels.Single(r => r.Rekeningnummer == "1100").Bedrag);
         Assert.Equal(199.65m, boeking.Regels.Single(r => r.Rekeningnummer == "1600").Bedrag);
         Assert.True(Assert.Single(bijgewerkt).IsBetaald);
-        Assert.Equal("Kantoorhandel Jansen – Betaling inkoop", boeking.Omschrijving);
+        Assert.Equal("Kantoorhandel Jansen - Betaling inkoop", boeking.Omschrijving);
     }
 
     [Fact]

@@ -88,10 +88,18 @@ public sealed class InrichtingTests(AdministratieFixture app) : IClassFixture<Ad
         var dienst = app.Dienst<InrichtingDienst>();
 
         var fout = await dienst.VoegRegelToe(wie, id, new Verwerkingsregel("", "9999", "X", BedragVan: 30, BedragTot: 10));
-        Assert.Equal(["Geef de regel een naam.", "Rekening 9999 bestaat niet.", "Btw-code X bestaat niet.", "Het bedrag 'van' is hoger dan 'tot'."], fout.Fouten);
+        Assert.Equal(["Geef de regel een naam.", "Rekening 9999 bestaat niet.", "Btw-code X bestaat niet."], fout.Fouten);
         Assert.Equal("Een regel heeft minstens één voorwaarde nodig.", (await dienst.VoegRegelToe(wie, id, new Verwerkingsregel("Leeg", "4310"))).Fouten[0]);
         Assert.True((await dienst.VoegRegelToe(wie, id, Telefoon)).IsGelukt);
         Assert.True((await dienst.VoegRegelToe(wie, id, new Verwerkingsregel("Bankkosten", "9000", Soort: Verwerkingssoort.Bankmutatie, OmschrijvingBevat: "kosten"))).IsGelukt);
+
+        // Bedragen zonder teken: "0 t/m -30.000" (een afboeking naar de spaarrekening) wordt 0 t/m 30.000.
+        Assert.True((await dienst.VoegRegelToe(wie, id, new Verwerkingsregel("Spaarrekening", "1110", Soort: Verwerkingssoort.Bankmutatie, OmschrijvingBevat: "sparen",
+            BedragVan: 0m, BedragTot: -30_000m, Richting: Regelrichting.Betaling))).IsGelukt);
+        var spaar = (await dienst.Regels(wie, id)).Single(r => r.Regel.Naam == "Spaarrekening");
+        Assert.Equal((0m, 30_000m), (spaar.Regel.BedragVan, spaar.Regel.BedragTot));
+        Assert.True(spaar.Regel.Past(new Verwerkingsgegevens(Verwerkingssoort.Bankmutatie, null, null, -30_000m, "Naar sparen")));
+        await dienst.VerwijderRegel(wie, id, spaar.Id);
 
         var regels = await dienst.Regels(wie, id);
         await dienst.VerplaatsRegel(wie, id, regels[1].Id, omhoog: true);

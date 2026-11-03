@@ -4,6 +4,8 @@
 @using Boekerhouden.Boekhouding.Regels
 @using Boekerhouden.Boekhouding.Relaties
 @inject BankDienst Bank
+@inject GrootboekDienst Grootboek
+@inject BtwDienst Btwtabel
 @inject InkoopDienst Inkoop
 @inject InrichtingDienst Inrichting
 @inject IJSRuntime JS
@@ -164,22 +166,78 @@
     }
     else if (mutaties is not null)
     {
+        var zichtbaar = mutatiesortering.Pas(mutaties.Where(PastFilter)).ToList();
+        var teKiezen = zichtbaar.Where(m => m.Status == Banktransactiestatus.TeVerwerken).ToList();
         <div class="row g-3 bankwerk">
             <div class="col-lg-5">
+                @if (selectiebericht is not null)
+                {
+                    <div class="bericht small mb-2">@selectiebericht</div>
+                }
+                @if (gekozen is null)
+                {
+                    <Foutmeldingen Fouten="fouten" />
+                }
+                @if (mag && geselecteerd.Count > 0)
+                {
+                    var selectie = mutaties.Where(m => geselecteerd.Contains(m.Id)).ToList();
+                    <div class="card card-body selectiebalk mb-2">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <span class="small">@selectie.Count geselecteerd · <Euro Waarde="selectie.Sum(m => m.Bedrag)" /></span>
+                            <button class="btn btn-sm btn-link text-secondary p-0 ms-auto" @onclick="() => geselecteerd.Clear()">selectie wissen</button>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 mt-2">
+                            <div class="flex-grow-1"><RekeningKeuze Id="selectie-rekening" @bind-Waarde="selectieRekening" Schema="schema" Kader="geopend" Label="Rekening voor de selectie" /></div>
+                            <select class="form-select form-select-sm w-auto" @bind="selectieBtw" aria-label="Btw voor de selectie">
+                                <option value="">geen</option>
+                                @foreach (var c in btwcodes.Where(c => c.Actief))
+                                {
+                                    <option value="@c.Code" title="@c.Code · @c.Omschrijving">@c.Kort</option>
+                                }
+                            </select>
+                            <button class="btn btn-sm btn-primary" disabled="@(bezig || string.IsNullOrWhiteSpace(selectieRekening))" @onclick="BoekSelectie">Boeken</button>
+                        </div>
+                    </div>
+                }
                 <div class="card">
                     <table class="table table-sm table-hover align-middle mb-0 bankmutaties" data-sleepbaar="bankmutaties">
                         <thead>
                             <tr>
+                                @if (mag)
+                                {
+                                    <th class="kiesvak" data-breedte="34">
+                                        <input class="form-check-input" type="checkbox" aria-label="Alle zichtbare mutaties kiezen" title="Alle zichtbare mutaties"
+                                               checked="@(teKiezen.Count > 0 && teKiezen.All(m => geselecteerd.Contains(m.Id)))" @onchange="e => KiesAlles(teKiezen, e.Value is true)" />
+                                    </th>
+                                }
                                 <SorteerKop Sortering="mutatiesortering" Naam="Datum" Gewijzigd="StateHasChanged" />
-                                <SorteerKop Sortering="mutatiesortering" Naam="Tegenpartij" Tekst="Tegenpartij en omschrijving" Gewijzigd="StateHasChanged" />
+                                <SorteerKop Sortering="mutatiesortering" Naam="Tegenpartij" Tekst="Tegenpartij en omschrijving" Klasse="rekt" Gewijzigd="StateHasChanged" />
                                 <SorteerKop Sortering="mutatiesortering" Naam="Bedrag" Klasse="text-end" Gewijzigd="StateHasChanged" />
+                            </tr>
+                            <tr class="filterrij">
+                                @if (mag)
+                                {
+                                    <th></th>
+                                }
+                                <th><input class="form-control form-control-sm" placeholder="filter" aria-label="Filter op datum" @bind="filterDatum" @bind:event="oninput" /></th>
+                                <th><input class="form-control form-control-sm" placeholder="filter op naam of omschrijving" aria-label="Filter op naam of omschrijving" @bind="filterTekst" @bind:event="oninput" /></th>
+                                <th><input class="form-control form-control-sm text-end" placeholder="filter" aria-label="Filter op bedrag" title="Een bedrag (ook een deel, bijv. 199) of van-tot (bijv. 10-50); zonder minteken telt af en bij" @bind="filterBedrag" @bind:event="oninput" /></th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var m in mutatiesortering.Pas(mutaties))
+                            @foreach (var m in zichtbaar)
                             {
                                 var open = gekozen?.Mutatie.Id == m.Id;
                                 <tr class="@(m.Status == Banktransactiestatus.TeVerwerken ? "kiesbaar" : "geboekt") @(open ? "table-active" : null) @(verwerkt == m.Id ? "verwerkt" : null)" @onclick="() => Kies(m)">
+                                    @if (mag)
+                                    {
+                                        <td class="kiesvak" @onclick:stopPropagation>
+                                            @if (m.Status == Banktransactiestatus.TeVerwerken)
+                                            {
+                                                <input class="form-check-input" type="checkbox" aria-label="Kiezen" checked="@geselecteerd.Contains(m.Id)" @onchange="e => KiesMutatie(m.Id, e.Value is true)" />
+                                            }
+                                        </td>
+                                    }
                                     <td class="text-nowrap">@Weergave.Datum(m.Datum)</td>
                                     <td class="omschrijving" title="@string.Join(Environment.NewLine, new[] { m.TegenNaam, m.TegenIban is { } iban ? Iban.Toon(iban) : null, m.Omschrijving, m.Melding }.Where(t => !string.IsNullOrWhiteSpace(t)))"
                                         @ondblclick="() => KiesPosten(m)" @ondblclick:stopPropagation>
@@ -200,12 +258,47 @@
                 @if (gekozen is { } g)
                 {
                     <div class="card card-body verwerkpaneel">
-                        <div class="d-flex align-items-baseline gap-2 mb-1">
-                            <span class="fw-semibold text-truncate">@(g.Mutatie.TegenNaam ?? "Onbekende tegenpartij")</span>
-                            <span class="small text-secondary">@(g.Mutatie.TegenIban is { } tegen ? Iban.Toon(tegen) : null)</span>
-                            <span class="ms-auto bedrag fs-5"><Euro Waarde="g.Mutatie.Bedrag" /></span>
+                        <div class="d-flex align-items-start gap-3 mb-3">
+                            <div class="me-auto min-w-0">
+                                <div class="fw-semibold text-truncate">@(g.Mutatie.TegenNaam ?? "Onbekende tegenpartij")</div>
+                                <div class="bedrag fs-5"><Euro Waarde="g.Mutatie.Bedrag" /></div>
+                            </div>
+                            @if (g.Saldo is { } saldo)
+                            {
+                                <div class="banksaldo" title="Het saldo in het grootboek aan het eind van @saldo.Jaar, en op het afschrift voor en na deze mutatie">
+                                    <div class="fw-semibold"><span class="rekeningnummer">@saldo.Rekening</span> @saldo.Naam</div>
+                                    <dl>
+                                        <dt>Eindsaldo @saldo.Jaar</dt><dd><Euro Waarde="saldo.Eindsaldo" /></dd>
+                                        <dt>Voor boeking</dt><dd><Euro Waarde="saldo.VoorBoeking" /></dd>
+                                        <dt>Na boeking</dt><dd><Euro Waarde="saldo.NaBoeking" /></dd>
+                                    </dl>
+                                </div>
+                            }
                         </div>
-                        <div class="small text-secondary mb-3">@Weergave.Datum(g.Mutatie.Datum) · @g.Mutatie.Omschrijving</div>
+                        <div class="transactiegegevens mb-3">
+                            <div class="transactiegegevens-kop">Transactiegegevens</div>
+                            <dl>
+                                <dt>Datum</dt><dd>@Weergave.Datum(g.Mutatie.Datum)</dd>
+                                @if (g.Mutatie.TegenNaam is { Length: > 0 } tegenNaam)
+                                {
+                                    <dt>Naam</dt><dd>@tegenNaam</dd>
+                                }
+                                @if (g.Mutatie.TegenIban is { } tegen)
+                                {
+                                    <dt>Tegenrekening</dt><dd>@Iban.Toon(tegen)</dd>
+                                }
+                                <dt>Omschrijving</dt><dd>@g.Mutatie.Omschrijving</dd>
+                                @if (g.Mutatie.Betalingskenmerk is { Length: > 0 } kenmerk)
+                                {
+                                    <dt>Kenmerk</dt><dd>@kenmerk</dd>
+                                }
+                                @if (g.Mutatie.EndToEndId is { Length: > 0 } referentie)
+                                {
+                                    <dt>Referentie</dt><dd>@referentie</dd>
+                                }
+                                <dt>Bedrag</dt><dd><Euro Waarde="g.Mutatie.Bedrag" /></dd>
+                            </dl>
+                        </div>
                         <Foutmeldingen Fouten="fouten" />
                         @if (g.Voorstel.Afletteren.Kandidaten.Count > 0)
                         {
@@ -231,11 +324,7 @@
                         @if (mag)
                         {
                             <div class="mb-2">
-                                <div class="d-flex align-items-center">
-                                    <div class="paneelkop mb-0" title="@g.Voorstel.Advies.Reden">Regels</div>
-                                    <button class="btn btn-sm btn-link ms-auto" title="Meer openstaande posten tegelijk (of dubbelklik op de mutatie)" @onclick="KiesMeer">Posten kiezen…</button>
-                                    <button class="btn btn-sm btn-link" @onclick="RegelErbij">+ regel</button>
-                                </div>
+                                <div class="paneelkop mb-0" title="@g.Voorstel.Advies.Reden">Regels</div>
                                 <table class="table table-sm align-middle mb-0 bankregels">
                                     <thead>
                                         <tr><th>Factuurnummer</th><th>Rekening</th><th>Btw</th><th class="text-end">Bedrag</th><th>Omschrijving</th><th></th></tr>
@@ -284,6 +373,7 @@
                                 </table>
                             </div>
                             <div class="d-flex flex-wrap align-items-center gap-3 small mb-3 totalen">
+                                <button class="btn btn-sm btn-outline-primary" @onclick="RegelErbij"><Icoon Naam="plus" /> Regel toevoegen</button>
                                 <span>Posten <Euro Waarde="Postentotaal" /></span>
                                 <span>Regels <Euro Waarde="Regeltotaal" /></span>
                                 <span class="@(Verschil == 0 ? "text-secondary" : "status let-op")">Verschil <Euro Waarde="Verschil" /></span>
@@ -374,6 +464,100 @@
 
     private static readonly TimeSpan VerwerktDuur = TimeSpan.FromMilliseconds(280);
 
+    private readonly HashSet<Guid> geselecteerd = [];
+    private string? selectieRekening;
+    private string selectieBtw = "";
+    private string filterDatum = "";
+    private string filterTekst = "";
+    private string filterBedrag = "";
+
+    private Boekhouding.Grootboek.Rekeningschema? schema;
+    private IReadOnlyList<Boekhouding.Btw.BtwCode> btwcodes = [];
+
+    /// <summary>
+    /// De filters boven de kolommen: datum (zoals getoond, bijv. "03-2026"), tekst in naam, tegenrekening of
+    /// omschrijving (alle woorden), en het bedrag: een deel ("199"), of van-tot ("10-50"); zonder minteken telt het
+    /// bedrag af en bij, met minteken alleen afschrijvingen.
+    /// </summary>
+    private bool PastFilter(BankmutatieRegel m)
+    {
+        if (filterDatum.Length > 0 && !Weergave.Datum(m.Datum).Contains(filterDatum.Trim(), StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (filterTekst.Length > 0)
+        {
+            var tekst = $"{m.TegenNaam} {m.TegenIban} {m.Omschrijving}";
+            if (!filterTekst.Split(' ', StringSplitOptions.RemoveEmptyEntries).All(w => tekst.Contains(w, StringComparison.CurrentCultureIgnoreCase)))
+            {
+                return false;
+            }
+        }
+
+        var bedrag = filterBedrag.Trim();
+        if (bedrag.Length == 0)
+        {
+            return true;
+        }
+
+        var negatief = bedrag.StartsWith('-') || bedrag.StartsWith('\u2212');
+        if (negatief && m.Bedrag >= 0)
+        {
+            return false;
+        }
+
+        var zonderTeken = bedrag.TrimStart('-', '\u2212').Trim();
+        var grenzen = zonderTeken.Split('-', 2, StringSplitOptions.TrimEntries);
+        if (grenzen.Length == 2 && BedragParser.TryParse(grenzen[0], out var van) && BedragParser.TryParse(grenzen[1], out var tot))
+        {
+            var abs = Math.Abs(m.Bedrag);
+            return abs >= Math.Min(van, tot) && abs <= Math.Max(van, tot);
+        }
+
+        return Bedragen.Getal(Math.Abs(m.Bedrag)).Replace(".", "", StringComparison.Ordinal).Contains(zonderTeken.Replace(".", "", StringComparison.Ordinal), StringComparison.Ordinal);
+    }
+
+    private void KiesMutatie(Guid id, bool aan)
+    {
+        if (aan)
+        {
+            geselecteerd.Add(id);
+        }
+        else
+        {
+            geselecteerd.Remove(id);
+        }
+    }
+
+    private void KiesAlles(IReadOnlyList<BankmutatieRegel> lijst, bool aan)
+    {
+        foreach (var m in lijst)
+        {
+            KiesMutatie(m.Id, aan);
+        }
+    }
+
+    private async Task BoekSelectie()
+    {
+        bezig = true;
+        var aantal = geselecteerd.Count;
+        selectiebericht = null;
+        var uitkomst = await Bank.OpRekening(geopend!.Wie, Id, [.. geselecteerd], selectieRekening ?? "", string.IsNullOrEmpty(selectieBtw) ? null : selectieBtw);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            selectiebericht = $"{uitkomst.Waarde} van {aantal} mutaties geboekt op {selectieRekening} {schema?.Zoek(selectieRekening!)?.Naam}{(string.IsNullOrEmpty(selectieBtw) ? null : $", {selectieBtw}")}.";
+            geselecteerd.Clear();
+            gekozen = null;
+        }
+
+        bezig = false;
+        await Laad();
+    }
+
+    private string? selectiebericht;
+
     private readonly Sortering<BankmutatieRegel> mutatiesortering = new(
         new("Datum", m => m.Datum, EerstOplopend: false),
         new("Tegenpartij", m => (m.TegenNaam ?? m.Omschrijving).ToUpperInvariant()),
@@ -448,6 +632,13 @@
     {
         mutaties = await Bank.Lijst(geopend!.Wie, Id, ookGeboekt);
         stand = await Bank.Stand(geopend.Wie, Id);
+        schema ??= await Grootboek.Schema(geopend.Wie, Id);
+        if (btwcodes.Count == 0)
+        {
+            btwcodes = (await Btwtabel.Tabel()).Op(DateOnly.FromDateTime(DateTime.Today));
+        }
+
+        geselecteerd.IntersectWith(mutaties.Where(m => m.Status == Banktransactiestatus.TeVerwerken).Select(m => m.Id));
         if (lijst != Werklijst.Mutaties)
         {
             openPosten = await Bank.OpenPosten(geopend.Wie, Id);
@@ -547,7 +738,6 @@
         }
     }
 
-    private void KiesMeer() => venster = ([.. regels.Where(r => r.Post is not null).Select(r => r.Post!.Value)], false, true);
 
     /// <summary>Gekozen in het venster: per post een regel (een lege regel wordt eerst gebruikt), weggevinkte posten eraf.</summary>
     private void NeemPosten(IReadOnlyList<Guid> posten)
@@ -692,7 +882,7 @@
     {
         if (Diensten.GetService<IDocumentvenster>() is { } venster)
         {
-            venster.OpenOpenposten(Id, $"Openstaande posten – {geopend?.Kop.Naam}");
+            venster.OpenOpenposten(Id, $"Openstaande posten - {geopend?.Kop.Naam}");
             return;
         }
 
@@ -817,7 +1007,7 @@
         $"{gekozen?.Relaties.FirstOrDefault(r => r.Code == p.Relatie)?.Naam ?? p.Relatie} {p.Factuurnummer} {Bedragen.Getal(p.Openstaand)}";
 
     private static string Standaardomschrijving(BankmutatieRegel m) =>
-        string.Join(" – ", new[] { m.TegenNaam, m.Omschrijving }.Where(t => !string.IsNullOrWhiteSpace(t)));
+        string.Join(" - ", new[] { m.TegenNaam, m.Omschrijving }.Where(t => !string.IsNullOrWhiteSpace(t)));
 
     /// <summary>Een rekening op een regel; hoort er een btw-code bij de rekening, dan komt die mee.</summary>
     private void KiesRekening(Regelinvoer regel, string? waarde)

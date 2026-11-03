@@ -133,6 +133,14 @@ function totp(sleutel) {
     await page.screenshot({ path: `${uit}/${pre}-${naam}.png` });
   }
 
+  // Bank: filter op bedrag en twee mutaties kiezen om ze tegelijk te boeken.
+  await page.goto(`${basis}/a/${id}/bank`); await page.waitForTimeout(1500);
+  await page.fill('input[aria-label="Filter op bedrag"]', '-'); await page.waitForTimeout(400);
+  const vakjes = page.locator('table.bankmutaties tbody input[type=checkbox]');
+  for (let i = 0; i < Math.min(2, await vakjes.count()); i++) await vakjes.nth(i).check();
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${uit}/${pre}-bank-selectie.png` });
+
   console.log('administratie', id, log.length ? 'fouten in de browser: ' + log.join(' | ') : 'geen fouten in de browser');
   await browser.close();
 })();

@@ -116,7 +116,7 @@
                     @if (definitief.Invoer.Verdeling is { } verdeeld)
                     {
                         <div title="@string.Join(", ", definitief.Verdeelboekstukken)">
-                            Omzet verdeeld over @Weergave.Datum(verdeeld.Van) – @Weergave.Datum(verdeeld.Tot) via @verdeeld.Rekening (@definitief.Verdeelboekstukken.Count maanden)
+                            Omzet verdeeld over @Weergave.Datum(verdeeld.Van) - @Weergave.Datum(verdeeld.Tot) via @verdeeld.Rekening (@definitief.Verdeelboekstukken.Count maanden)
                         </div>
                     }
                     @if (definitief.Factuur.Klant.Email is { Length: > 0 } email)

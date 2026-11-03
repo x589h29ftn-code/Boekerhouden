@@ -165,7 +165,7 @@ public static class Bankboeker
 
     private static string Omschrijving(Bankmutatie mutatie)
     {
-        var tekst = string.Join(" – ", new[] { mutatie.TegenNaam, mutatie.Omschrijving }.Where(t => !string.IsNullOrWhiteSpace(t)));
+        var tekst = string.Join(" - ", new[] { mutatie.TegenNaam, mutatie.Omschrijving }.Where(t => !string.IsNullOrWhiteSpace(t)));
         return tekst.Length switch
         {
             0 => "Bankmutatie",

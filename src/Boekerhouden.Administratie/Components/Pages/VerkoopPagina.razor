@@ -135,7 +135,7 @@
     [SupplyParameterFromQuery(Name = "tot")]
     public string? TotTekst { get; set; }
 
-    private string Periodetekst => van.Month == 1 && van.Day == 1 && tot == new DateOnly(van.Year, 12, 31) ? van.Year.ToString(System.Globalization.CultureInfo.InvariantCulture) : $"{Weergave.Datum(van)} – {Weergave.Datum(tot)}";
+    private string Periodetekst => van.Month == 1 && van.Day == 1 && tot == new DateOnly(van.Year, 12, 31) ? van.Year.ToString(System.Globalization.CultureInfo.InvariantCulture) : $"{Weergave.Datum(van)} - {Weergave.Datum(tot)}";
 
     private async Task Open(Geopend g)
     {

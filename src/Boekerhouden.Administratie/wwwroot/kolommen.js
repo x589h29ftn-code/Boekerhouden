@@ -31,7 +31,16 @@ export function maak(tabel, sleutel) {
 
     tabel.dataset.kolommen = sleutel;
     const koppen = [...tabel.tHead.rows[0].cells];
-    const oorspronkelijk = koppen.map(k => Math.round(k.getBoundingClientRect().width));
+    // Een kolom met data-breedte (bijv. een vakje om te kiezen) houdt die breedte; de andere zoals ze nu getekend zijn.
+    const gemeten = koppen.map(k => Math.round(k.getBoundingClientRect().width));
+    const oorspronkelijk = koppen.map((k, i) => k.dataset.breedte ? Number(k.dataset.breedte) : gemeten[i]);
+    const over = gemeten.reduce((a, b) => a + b, 0) - oorspronkelijk.reduce((a, b) => a + b, 0);
+    if (over > 0) {
+        // De ruimte die een vaste kolom overhoudt, gaat naar de kolom met class "rekt" (de omschrijving), anders de breedste.
+        const rekt = koppen.findIndex(k => k.classList.contains("rekt"));
+        const breedste = rekt >= 0 ? rekt : oorspronkelijk.indexOf(Math.max(...oorspronkelijk.filter((_, i) => !koppen[i].dataset.breedte)));
+        oorspronkelijk[breedste] += over;
+    }
     const bewaard = lees(sleutel);
     tabel.style.tableLayout = "fixed";
     zet(tabel, koppen, bewaard && bewaard.length === koppen.length ? bewaard : oorspronkelijk);

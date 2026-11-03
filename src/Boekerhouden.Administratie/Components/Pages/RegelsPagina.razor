@@ -164,7 +164,7 @@
 
         if (r.BedragVan is not null || r.BedragTot is not null)
         {
-            delen.Add($"bedrag {(r.BedragVan is { } v ? Bedragen.Getal(v) : "…")} – {(r.BedragTot is { } t ? Bedragen.Getal(t) : "…")}");
+            delen.Add($"bedrag {(r.BedragVan is { } v ? Bedragen.Getal(v) : "…")} - {(r.BedragTot is { } t ? Bedragen.Getal(t) : "…")}");
         }
 
         if (r.TegenIban is { } i)

@@ -326,7 +326,7 @@
                             <div class="d-flex align-items-start gap-3">
                                 <button class="btn btn-sm btn-link nog-een-regel" @onclick="RegelToevoegen">+ Nog een regel</button>
                                 <div class="ms-auto text-end small">
-                                    <div>Totaal incl. btw <span class="bedrag fw-semibold ms-2">@(Totaal is { } t ? Weergave.Bedrag(t) : "–")</span></div>
+                                    <div>Totaal incl. btw <span class="bedrag fw-semibold ms-2">@(Totaal is { } t ? Weergave.Bedrag(t) : "-")</span></div>
                                     @if (Verschil is { } verschil && verschil != 0)
                                     {
                                         <div class="status let-op" title="Totaal van de regels min het bedrag van de factuur">Verschil <span class="bedrag ms-2">@Weergave.Bedrag(verschil)</span></div>

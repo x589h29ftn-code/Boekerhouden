@@ -41,7 +41,9 @@ public sealed record BankmutatieRegel(
     string? TegenNaam,
     string? TegenIban,
     Banktransactiestatus Status,
-    string? Melding);
+    string? Melding,
+    string? Betalingskenmerk = null,
+    string? EndToEndId = null);
 
 /// <summary>Een openstaande post in de werklijst, met de naam van de relatie en het document.</summary>
 /// <param name="Openstaand">Zoals in het grootboek: te ontvangen positief, te betalen negatief.</param>
@@ -69,7 +71,17 @@ public sealed record Bankverwerking(
     IReadOnlyList<OpenPost> OpenPosten,
     IReadOnlyList<Relatie> Relaties,
     Rekeningschema Schema,
-    IReadOnlyList<BtwCode> BtwCodes);
+    IReadOnlyList<BtwCode> BtwCodes,
+    Banksaldo? Saldo = null);
+
+/// <summary>
+/// De stand van de bankrekening bij een mutatie: het saldo in het grootboek aan het eind van het jaar, en het saldo op
+/// het afschrift voor en na deze mutatie.
+/// </summary>
+public sealed record Banksaldo(string Rekening, string Naam, int Jaar, decimal Eindsaldo, decimal VoorBoeking, decimal NaBoeking);
+
+/// <summary>Een PDF-afschrift omgezet naar MT940: het bestand en wat erin staat.</summary>
+public sealed record Pdfomzetting(byte[] Mt940, string Bestandsnaam, Bankafschrift Afschrift);
 
 /// <summary>
 /// De bank: afschriften inlezen (MT940 of CAMT.053) met saldocontrole, aansluiting en zonder dubbele mutaties; dan
@@ -77,9 +89,6 @@ public sealed record Bankverwerking(
 /// anders door de gebruiker. Elke boeking zet de journaalpost in de keten en werkt de openstaande posten bij, in één
 /// transactie.
 /// </summary>
-/// <summary>Een PDF-afschrift omgezet naar MT940: het bestand en wat erin staat.</summary>
-public sealed record Pdfomzetting(byte[] Mt940, string Bestandsnaam, Bankafschrift Afschrift);
-
 public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, AuditDienst audit, TimeProvider tijd, IEnumerable<Documenten.IVirusscanner> virusscanners)
 {
     /// <summary>Groter is geen bankafschrift.</summary>
@@ -312,7 +321,26 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         // Alle openstaande posten: eerst die in de richting van de mutatie, dan de rest (bijv. een creditnota).
         var posten = context.OpenPosten.Where(p => !p.IsBetaald)
             .OrderByDescending(p => Math.Sign(p.Openstaand) == Math.Sign(t.Bedrag)).ThenBy(p => p.Datum).ToList();
-        return new Bankverwerking(Regel(t), Voorstel(t, context), posten, context.Relaties, schema, context.Btw.Op(t.Datum));
+        return new Bankverwerking(Regel(t), Voorstel(t, context), posten, context.Relaties, schema, context.Btw.Op(t.Datum), await Saldo(db, t, schema));
+    }
+
+    private static async Task<Banksaldo?> Saldo(AdministratieDbContext db, Banktransactie t, Rekeningschema schema)
+    {
+        var rekening = await db.Dagboeken.AsNoTracking().Where(d => d.Code == t.Dagboek).Select(d => d.Rekeningnummer).FirstOrDefaultAsync();
+        if (rekening is null || await db.Afschriften.AsNoTracking().FirstOrDefaultAsync(a => a.Id == t.AfschriftId) is not { } afschrift)
+        {
+            return null;
+        }
+
+        // SQLite telt geen decimals op: eerst ophalen, dan optellen.
+        var eindeJaar = new DateOnly(t.Datum.Year, 12, 31);
+        var grootboek = (await (from r in db.GeldendeRegels
+                                join b in db.Boekingen on r.BoekingId equals b.Id
+                                where r.Rekeningnummer == rekening && b.Datum <= eindeJaar
+                                select r.Bedrag).ToListAsync()).Sum();
+        var eerder = (await db.Banktransacties.AsNoTracking().Where(x => x.AfschriftId == t.AfschriftId && x.Volgorde < t.Volgorde).Select(x => x.Bedrag).ToListAsync()).Sum();
+        var voor = afschrift.Beginsaldo + eerder;
+        return new Banksaldo(rekening, schema.Zoek(rekening)?.Naam ?? "Bank", t.Datum.Year, grootboek, voor, voor + t.Bedrag);
     }
 
     /// <summary>
@@ -475,6 +503,37 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         var relatie = relaties.FirstOrDefault(r => r.HeeftIban(t.TegenIban));
         return await BoekOpRekening(db, administratie, t, rekening.Trim(), string.IsNullOrWhiteSpace(btwCode) ? null : btwCode.Trim(),
             string.IsNullOrWhiteSpace(omschrijving) ? null : omschrijving.Trim(), relatie, wie, reden: null);
+    }
+
+    /// <summary>
+    /// Boekt meer mutaties in één keer op dezelfde rekening met dezelfde btw-code (bijv. alle pinbetalingen bij de
+    /// supermarkt op kantinekosten); elke mutatie wordt een eigen boeking met zijn eigen omschrijving. Geeft het aantal
+    /// geboekte mutaties (een mutatie die intussen al geboekt is, slaat hij over); lukt er geen, dan de fouten.
+    /// </summary>
+    public async Task<Uitkomst<int>> OpRekening(Uitvoerder wie, Guid administratie, IReadOnlyList<Guid> mutaties, string rekening, string? btwCode)
+    {
+        ArgumentNullException.ThrowIfNull(mutaties);
+        if (mutaties.Count == 0)
+        {
+            return Uitkomst<int>.Mislukt("Kies een of meer mutaties.");
+        }
+
+        var geboekt = 0;
+        var fouten = new List<string>();
+        foreach (var mutatie in mutaties.Distinct())
+        {
+            var uitkomst = await OpRekening(wie, administratie, mutatie, rekening, btwCode, null);
+            if (uitkomst.IsGelukt)
+            {
+                geboekt++;
+            }
+            else
+            {
+                fouten.AddRange(uitkomst.Fouten);
+            }
+        }
+
+        return geboekt == 0 ? Uitkomst<int>.Mislukt([.. fouten.Distinct()]) : Uitkomst<int>.Met(geboekt);
     }
 
     /// <summary>
@@ -835,7 +894,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         await db.Banktransacties.FirstOrDefaultAsync(t => t.Id == mutatie && t.Status == Banktransactiestatus.TeVerwerken);
 
     private static BankmutatieRegel Regel(Banktransactie t) =>
-        new(t.Id, t.Dagboek, t.Datum, t.Bedrag, t.Omschrijving, t.TegenNaam, t.TegenIban, t.Status, t.Melding);
+        new(t.Id, t.Dagboek, t.Datum, t.Bedrag, t.Omschrijving, t.TegenNaam, t.TegenIban, t.Status, t.Melding, t.Betalingskenmerk, t.EndToEndId);
 
     private static string? Kort(string? tekst, int lengte) =>
         tekst is null ? null : tekst.Length > lengte ? tekst[..lengte] : tekst;

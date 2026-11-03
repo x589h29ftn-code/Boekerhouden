@@ -308,6 +308,19 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
     {
         ArgumentNullException.ThrowIfNull(regel);
         await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
+
+        // Bedragen gelden zonder teken (de richting zegt of het een betaling of ontvangst is): "0 t/m -30.000" is
+        // hetzelfde als 0 t/m 30.000, en omgekeerd ingevulde grenzen worden omgedraaid.
+        if (regel.BedragVan is { } ruwVan && regel.BedragTot is { } ruwTot)
+        {
+            var (a, b) = (Math.Abs(ruwVan), Math.Abs(ruwTot));
+            regel = regel with { BedragVan = Math.Min(a, b), BedragTot = Math.Max(a, b) };
+        }
+        else
+        {
+            regel = regel with { BedragVan = regel.BedragVan is { } v ? Math.Abs(v) : null, BedragTot = regel.BedragTot is { } t ? Math.Abs(t) : null };
+        }
+
         var fouten = new List<string>();
         if (string.IsNullOrWhiteSpace(regel.Naam))
         {
@@ -327,11 +340,6 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
         if (regel.BtwCode is not null && BtwCodes.Zoek((await BtwDienst.Lees(db)).Codes, regel.BtwCode) is null)
         {
             fouten.Add($"Btw-code {regel.BtwCode} bestaat niet.");
-        }
-
-        if (regel.BedragVan is { } van && regel.BedragTot is { } tot && van > tot)
-        {
-            fouten.Add("Het bedrag 'van' is hoger dan 'tot'.");
         }
 
         if (regel.TegenIban is { } iban && !Iban.IsGeldig(iban))

@@ -64,7 +64,7 @@
                                         }</td>
                                     <td title="@a.Relatie">@a.Klant</td>
                                     <td>@Tekst(a.Herhaling)</td>
-                                    <td class="text-nowrap">@(a.VolgendeDatum is { } v ? Weergave.Datum(v) : "–")@if (a.TeMaken > 0)
+                                    <td class="text-nowrap">@(a.VolgendeDatum is { } v ? Weergave.Datum(v) : "-")@if (a.TeMaken > 0)
                                         {
                                             <span class="status let-op ms-2">@a.TeMaken te maken</span>
                                         }</td>
