@@ -1254,6 +1254,10 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasColumnType("integer")
                         .HasDefaultValue(100);
 
+                    b.Property<string>("Standaardomschrijving")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<string>("Verschilrekening")
                         .HasColumnType("text");
 

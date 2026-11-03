@@ -35,12 +35,21 @@ function totp(sleutel) {
   await page.fill('#naam', 'Voorbeeld Handel B.V.'); await page.click('text=Aanmaken');
   await page.waitForURL(/\/a\/[0-9a-f-]+$/); const id = page.url().split('/a/')[1];
 
-  // Inkoopfactuur (UBL) inlezen en boeken.
+  // Standaardomschrijving van het kantoor (Beheer, Instellingen).
+  await page.goto(basis + '/beheer/instellingen'); await page.waitForSelector('#standaardomschrijving'); await page.waitForTimeout(800);
+  await page.fill('#standaardomschrijving', '#leverancier #factuurnummer #maand'); await page.waitForTimeout(400);
+  await page.screenshot({ path: `${uit}/${pre}-kantoorinstellingen.png`, fullPage: true });
+  await page.click('button.btn-primary:has-text("Opslaan")'); await page.waitForTimeout(1000);
+
+  // Inkoopfactuur (UBL) inlezen en boeken; de omschrijving is de standaard van het kantoor.
   await page.goto(`${basis}/a/${id}/inkoop`); await page.waitForTimeout(1200);
   await page.setInputFiles('#bestanden', path.join(fictief, 'belnet-2026-0411.xml')); await page.waitForTimeout(3000);
   await page.goto(`${basis}/a/${id}/inkoop`); await page.waitForTimeout(1200);
   if (await page.locator('table tbody a').count() > 0) {
     await page.locator('table tbody a').first().click(); await page.waitForSelector('#nummer'); await page.waitForTimeout(1500);
+    await page.screenshot({ path: `${uit}/${pre}-inkoop-verwerken.png` });
+    if (await page.locator('button:has-text("Automatisch herkennen")').count() === 0) log.push('knop Automatisch herkennen ontbreekt');
+    if ((await page.inputValue('#omschrijving')) !== '#leverancier #factuurnummer #maand') log.push('standaardomschrijving niet voorgesteld: ' + await page.inputValue('#omschrijving'));
     const rek = page.locator('input[aria-label=Rekening]').first();
     if (!(await rek.inputValue())) { await rek.click(); await rek.fill('4310'); await page.keyboard.press('Tab'); }
     await page.click('button.btn-primary:has-text("oeken")'); await page.waitForTimeout(2000);

@@ -10,6 +10,10 @@
 
 <AdministratieKader Id="Id" Titel="Factuur verwerken" Actief="/inkoop" BijOpenen="Open" Terug="@Terug">
     <Acties>
+        @if (werkvoorraad is { Count: > 0 } && geopend?.Kop.Mag(Recht.Invoeren) == true)
+        {
+            <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De hele werkvoorraad opnieuw herkennen met wat het pakket nu weet (relaties, regels, wat er geleerd is) en wat kan automatisch boeken" @onclick="HerkenWerkvoorraad">Automatisch herkennen</button>
+        }
         @if (werkvoorraad is { Count: > 0 } && Positie is { } positie)
         {
             <span class="bladeren">
@@ -546,7 +550,7 @@
         factuurnummer = herkend?.Factuurnummer ?? "";
         datum = herkend?.Factuurdatum ?? DateOnly.FromDateTime(DateTime.Today);
         vervaldatum = voorstel?.Factuur?.Vervaldatum ?? herkend?.Vervaldatum ?? datum.AddDays(30);
-        omschrijving = voorstel?.Advies.Omschrijving ?? herkend?.Omschrijving ?? "";
+        omschrijving = voorstel?.Advies.Omschrijving ?? verwerking.Standaardomschrijving ?? herkend?.Omschrijving ?? "";
         kenmerk = herkend?.Betalingskenmerk;
         var rekening = voorstel?.Advies.Rekeningnummer ?? "";
         // Btw verlegd ("reverse charge"): de verlegde code (binnenland, EU of buiten de EU), geen btw op de factuur.
@@ -1196,6 +1200,33 @@
     }
 
     /// <summary>Naar de vorige of volgende factuur in de werkvoorraad, zonder te boeken.</summary>
+    /// <summary>
+    /// De werkvoorraad opnieuw herkennen (zoals op de inkooppagina): wat nu automatisch kan, wordt geboekt. Staat deze
+    /// factuur nog in de werkvoorraad, dan opnieuw met het nieuwe voorstel; anders door naar de eerste die overblijft.
+    /// </summary>
+    private async Task HerkenWerkvoorraad()
+    {
+        bezig = true;
+        var uitkomst = await Inkoop.VerwerkOpnieuw(geopend!.Wie, Id);
+        bezig = false;
+        var melding = $"Automatisch herkend: {InkoopPagina.Samenvatting(uitkomst)}.";
+        var over = await Inkoop.Lijst(geopend.Wie, Id, Documentstatus.TeVerwerken);
+        if (over.Any(d => d.Id == DocumentId))
+        {
+            await Open(geopend);
+            vorigeGeboekt = melding;
+        }
+        else if (over.Count > 0)
+        {
+            (naBoeken, vorigeGeboekt) = (true, melding);
+            Navigatie.NavigateTo($"/a/{Id}/inkoop/{over[0].Id}");
+        }
+        else
+        {
+            Navigatie.NavigateTo($"/a/{Id}/inkoop");
+        }
+    }
+
     private void Ga(int stap)
     {
         if (werkvoorraad is not { Count: > 0 } || Positie is not { } positie || positie + stap < 0 || positie + stap >= werkvoorraad.Count)

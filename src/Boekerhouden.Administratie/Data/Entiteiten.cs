@@ -539,8 +539,11 @@ public sealed class Kantoorinstellingen
     /// <summary>Bedragen in de overzichten afgerond op hele euro's (1.200 in plaats van 1.200,45).</summary>
     public bool OverzichtHeleEuros { get; set; }
 
+    /// <summary>De standaardomschrijving van een inkoopfactuur, met variabelen; leeg = uit.</summary>
+    public string? Standaardomschrijving { get; set; }
+
     public Boekhouding.Regels.Verwerkingsinstellingen NaarDomein() =>
-        new(DrempelAutomatisch, Bandbreedte, LimietAutomatisch, Betalingstermijn, Adrescontrole, Documentmap, Betaalverschil, Verschilrekening);
+        new(DrempelAutomatisch, Bandbreedte, LimietAutomatisch, Betalingstermijn, Adrescontrole, Documentmap, Betaalverschil, Verschilrekening, Standaardomschrijving);
 }
 
 /// <summary>Een aangewezen plek op de factuur van een leverancier (zoektemplate), per veld de laatste.</summary>

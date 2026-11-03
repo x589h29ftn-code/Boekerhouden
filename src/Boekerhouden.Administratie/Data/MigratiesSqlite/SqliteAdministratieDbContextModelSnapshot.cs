@@ -1242,6 +1242,10 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(100);
 
+                    b.Property<string>("Standaardomschrijving")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Verschilrekening")
                         .HasColumnType("TEXT");
 

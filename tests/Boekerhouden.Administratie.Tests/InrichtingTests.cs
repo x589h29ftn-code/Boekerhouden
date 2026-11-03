@@ -157,6 +157,50 @@ public sealed class InrichtingTests(AdministratieFixture app) : IClassFixture<Ad
     }
 
     [Fact]
+    public async Task Standaardomschrijving_van_het_kantoor_voor_factuur_en_grootboekregels()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var kantoor = app.Dienst<KantoorDienst>();
+        var medewerker = await app.Gebruiker("Mia Medewerker");
+        var standaard = Verwerkingsinstellingen.Standaard with { Omschrijving = "#leverancier #factuurnummer #maand" };
+
+        await Assert.ThrowsAsync<GeenToegangException>(() => kantoor.Wijzig(medewerker, standaard));
+        Assert.Equal(["De standaardomschrijving kent #maandd niet."], (await kantoor.Wijzig(wie, standaard with { Omschrijving = "#leverancier #maandd" })).Fouten);
+        try
+        {
+            Assert.True((await kantoor.Wijzig(wie, standaard)).IsGelukt);
+            Assert.Equal("#leverancier #factuurnummer #maand", (await kantoor.Instellingen()).Omschrijving);
+            var dienst = app.Dienst<InrichtingDienst>();
+            var inkoop = app.Dienst<InkoopDienst>();
+            await dienst.VoegRelatieToe(wie, id, new("Belnet B.V.", "NL123456782B01", null, "4310"), "NL63TRIO0212345678");
+
+            // Zonder regel: het scherm krijgt de standaard als voorstel; zelf boeken met een lege omschrijving geeft ook de standaard.
+            var mei = await inkoop.Lees(wie, id, new MemoryStream(InkoopTests.Belnet("BN-2026-0511", "2026-05-01")), "belnet-mei.xml", null);
+            Assert.False(mei.IsGeboekt, mei.Melding);
+            Assert.Equal("#leverancier #factuurnummer #maand", (await inkoop.Verwerking(wie, id, mei.DocumentId!.Value))!.Standaardomschrijving);
+            var relatie = (await dienst.Relaties(wie, id)).Single(r => r.Naam == "Belnet B.V.").Code;
+            var geboekt = await inkoop.Boek(wie, id, mei.DocumentId.Value, new Factuurinvoer(relatie, null, "BN-2026-0511", new(2026, 5, 1), new(2026, 5, 15), "",
+                [new Boekhouding.Facturen.Factuurregel("", "4310", "I21", 20.65m, 4.34m)]));
+            Assert.True(geboekt.IsGelukt, string.Join("; ", geboekt.Fouten));
+
+            // Automatisch geboekt met een regel zonder eigen omschrijving: ook de standaard, op de factuur en de kostenregel.
+            await dienst.VoegRegelToe(wie, id, Telefoon);
+            var april = await inkoop.Lees(wie, id, new MemoryStream(InkoopTests.Belnet()), "belnet.xml", null);
+            Assert.True(april.IsGeboekt, april.Melding);
+
+            var posten = (await app.Dienst<GrootboekDienst>().Posten(wie, id, "INK")).Select(p => p.Post).ToList();
+            Assert.Equal(["Belnet B.V. BN-2026-0411 april", "Belnet B.V. BN-2026-0511 mei"], posten.Select(p => p.Omschrijving).Order());
+            // Een kostenregel zonder eigen omschrijving toont die van de boeking; niet die van de factuurregel.
+            Assert.All(posten, p => Assert.Equal(p.Omschrijving, p.Regels.Single(r => r.Rekeningnummer == "4310").Omschrijving ?? p.Omschrijving));
+        }
+        finally
+        {
+            await kantoor.Wijzig(wie, Verwerkingsinstellingen.Standaard);
+        }
+    }
+
+    [Fact]
     public async Task Kantoorinstellingen_gelden_tenzij_de_administratie_afwijkt()
     {
         var wie = await app.Beheerder();

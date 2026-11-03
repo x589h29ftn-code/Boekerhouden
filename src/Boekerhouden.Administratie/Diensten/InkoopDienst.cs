@@ -112,7 +112,8 @@ public sealed record Verwerking(
     Rekeningschema Schema,
     IReadOnlyList<BtwCode> BtwCodes,
     Btwtabel Btwtabel,
-    IReadOnlyList<Factuurveld>? UitZoektemplate = null);
+    IReadOnlyList<Factuurveld>? UitZoektemplate = null,
+    string? Standaardomschrijving = null);
 
 /// <summary>
 /// Inkoopfacturen: inlezen (eerst de virusscan, dan pas openen), herkennen, het voorstel (regel &gt; geleerd &gt;
@@ -374,7 +375,8 @@ public sealed class InkoopDienst(
 
         var voorstel = herkend is null ? null : Voorstel(herkend, context);
         var (schema, _) = await GrootboekDienst.Inrichting(db);
-        return new Verwerking(Regel(d), herkend, voorstel, context.Relaties, schema, context.Btw.Op(herkend?.Factuurdatum ?? DateOnly.MaxValue), context.Btw, uitTemplate);
+        return new Verwerking(Regel(d), herkend, voorstel, context.Relaties, schema, context.Btw.Op(herkend?.Factuurdatum ?? DateOnly.MaxValue), context.Btw, uitTemplate,
+            context.Instellingen.Omschrijving);
     }
 
     /// <summary>Bewaart een document zonder boeking: privé, of geen boeking nodig. Het blijft in te zien en is terug te zetten.</summary>
@@ -632,7 +634,9 @@ public sealed class InkoopDienst(
         var kenmerk = string.IsNullOrWhiteSpace(invoer.Betalingskenmerk) ? null : invoer.Betalingskenmerk.Trim();
         var variabelen = new Factuurvariabelen(invoer.Factuurnummer.Trim(), herkend?.Omschrijving, naam, invoer.Datum, invoer.Vervaldatum, kenmerk);
         var sjabloon = Omschrijvingssjabloon.IsSjabloon(invoer.Omschrijving) ? invoer.Omschrijving.Trim() : null;
-        var omschrijving = string.IsNullOrWhiteSpace(invoer.Omschrijving) ? $"{naam} {invoer.Factuurnummer}".Trim() : Omschrijvingssjabloon.Vul(invoer.Omschrijving, variabelen);
+        var omschrijving = !string.IsNullOrWhiteSpace(invoer.Omschrijving) ? Omschrijvingssjabloon.Vul(invoer.Omschrijving, variabelen)
+            : context.Instellingen.Omschrijving is { Length: > 0 } standaard && Omschrijvingssjabloon.Vul(standaard, variabelen) is { Length: > 0 } gevuld ? gevuld
+            : $"{naam} {invoer.Factuurnummer}".Trim();
         // Bedragen zoals op het papier: een negatieve regel is een korting (op een creditnota: een toeslag). Een creditnota
         // waarvan de regels al negatief zijn ingevoerd, staat al goed.
         var teken = invoer.Creditnota && invoer.Regels.Sum(r => r.Bedrag) > 0 ? -1 : 1;
@@ -1161,7 +1165,7 @@ public sealed class InkoopDienst(
 
     private static Inkoopvoorstel Voorstel(HerkendeFactuur herkend, Inkoopcontext context) =>
         Inkoopverwerker.Verwerk(herkend, context.Relaties, context.Regels, context.Geheugen, context.Btw.Op(herkend.Factuurdatum ?? DateOnly.MaxValue), context.Bestaand,
-            context.Instellingen.Betalingstermijn, periodeOpen: null, context.Instellingen.Limiet);
+            context.Instellingen.Betalingstermijn, periodeOpen: null, context.Instellingen.Limiet, context.Instellingen.Omschrijving);
 
     private static string Kort(string tekst) => tekst.Length > 200 ? tekst[..200] : tekst;
 

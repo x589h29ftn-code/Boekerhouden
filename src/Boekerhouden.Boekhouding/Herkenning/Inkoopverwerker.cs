@@ -43,7 +43,8 @@ public static class Inkoopverwerker
         IEnumerable<BestaandeFactuur> bestaand,
         int betalingstermijn = 30,
         Func<DateOnly, bool>? periodeOpen = null,
-        decimal? limietAutomatisch = null)
+        decimal? limietAutomatisch = null,
+        string? standaardomschrijving = null)
     {
         ArgumentNullException.ThrowIfNull(herkend);
         ArgumentNullException.ThrowIfNull(bestaand);
@@ -126,13 +127,20 @@ public static class Inkoopverwerker
             }
             else
             {
+                // Met een omschrijving uit een regel of de standaard krijgen ook de grootboekregels die omschrijving.
+                var sjabloon = advies.Omschrijving ?? standaardomschrijving;
+                if (sjabloon is { Length: > 0 })
+                {
+                    factuurregels = [.. factuurregels.Select(r => r with { Omschrijving = string.Empty })];
+                }
+
                 factuur = new Factuur(
                     Factuursoort.Inkoop,
                     leverancier.Relatie.Code,
                     herkend.Factuurnummer ?? string.Empty,
                     factuurdatum,
                     herkend.Vervaldatum is { } verval && verval >= factuurdatum ? verval : factuurdatum.AddDays(betalingstermijn),
-                    Omschrijving(herkend, leverancier.Relatie, advies.Omschrijving, betalingstermijn),
+                    Omschrijving(herkend, leverancier.Relatie, sjabloon, betalingstermijn),
                     factuurregels,
                     herkend.Betalingskenmerk);
                 if (factuur.Totaal(btwCodes) != totaal)

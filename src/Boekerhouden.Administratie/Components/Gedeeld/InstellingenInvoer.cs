@@ -35,6 +35,9 @@ public sealed class InstellingenInvoer
 
     public string? Verschilrekening { get; set; }
 
+    /// <summary>Alleen op kantoorniveau: de standaardomschrijving van een inkoopfactuur; leeg = uit.</summary>
+    public string? Omschrijving { get; set; }
+
     public static InstellingenInvoer Van(Verwerkingsinstellingen i)
     {
         ArgumentNullException.ThrowIfNull(i);
@@ -48,6 +51,7 @@ public sealed class InstellingenInvoer
             Documentmap = i.Documentmap,
             Betaalverschil = i.Betaalverschil is { } b ? Bedragen.Getal(b) : null,
             Verschilrekening = i.Verschilrekening,
+            Omschrijving = i.Omschrijving,
         };
     }
 
@@ -81,7 +85,8 @@ public sealed class InstellingenInvoer
             Adrescontrole != Uit,
             string.IsNullOrWhiteSpace(Documentmap) ? null : Documentmap.Trim(),
             Getal(Betaalverschil, "Het betaalverschil", fouten),
-            string.IsNullOrWhiteSpace(Verschilrekening) ? null : Verschilrekening.Trim());
+            string.IsNullOrWhiteSpace(Verschilrekening) ? null : Verschilrekening.Trim(),
+            string.IsNullOrWhiteSpace(Omschrijving) ? null : Omschrijving.Trim());
     }
 
     /// <summary>Als afwijkingen van het kantoor; een leeg veld volgt het kantoor.</summary>

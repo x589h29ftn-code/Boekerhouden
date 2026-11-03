@@ -63,6 +63,18 @@
                placeholder="@(Grijs(Kantoor?.Documentmap) ?? @"bijv. C:\Users\naam\OneDrive\Klanten\#administratie\#jaar\#soort")"
                title="@string.Join(", ", Documentpad.Variabelen.Select(v => $"{v.Naam} = {v.Betekenis}"))" />
     </div>
+    @if (Kantoor is null)
+    {
+        <div class="col-12">
+            <label class="form-label" for="standaardomschrijving">Standaardomschrijving inkoopfactuur</label>
+            <input id="standaardomschrijving" class="form-control" @bind="Invoer.Omschrijving" @bind:event="oninput" maxlength="200" placeholder="uit (bijv. #leverancier #factuurnummer #maand)"
+                   title="@string.Join(", ", Omschrijvingssjabloon.Variabelen.Select(v => $"{v.Naam} = {v.Betekenis}"))" />
+            @if (Omschrijvingssjabloon.IsSjabloon(Invoer.Omschrijving))
+            {
+                <div class="small text-secondary mt-1" title="Voorbeeld">@Omschrijvingssjabloon.Vul(Invoer.Omschrijving!, Voorbeeld)</div>
+            }
+        </div>
+    }
 </div>
 
 @code {
@@ -72,6 +84,8 @@
     /// <summary>De instellingen van het kantoor, als de velden bij een administratie horen.</summary>
     [Parameter]
     public Verwerkingsinstellingen? Kantoor { get; set; }
+
+    private static readonly Factuurvariabelen Voorbeeld = new("2026-0042", "Kantoorartikelen", "Kantoorhandel Jansen", new DateOnly(2026, 3, 14), new DateOnly(2026, 4, 13), null);
 
     private static readonly System.Globalization.CultureInfo Nl = System.Globalization.CultureInfo.GetCultureInfo("nl-NL");
 

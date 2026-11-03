@@ -17,6 +17,11 @@ namespace Boekerhouden.Boekhouding.Regels;
 /// automatisch afgeletterd en het verschil afgeboekt op <paramref name="Verschilrekening"/>; leeg of 0 = uit.
 /// </param>
 /// <param name="Verschilrekening">De grootboekrekening voor kleine betaalverschillen.</param>
+/// <param name="Omschrijving">
+/// De standaardomschrijving van een inkoopfactuur en zijn grootboekregels, met variabelen (zie
+/// <see cref="Facturen.Omschrijvingssjabloon"/>), bijv. "#leverancier #factuurnummer #maand"; leeg = uit. Een
+/// verwerkingsregel met een eigen omschrijving gaat voor. Alleen op kantoorniveau.
+/// </param>
 public sealed record Verwerkingsinstellingen(
     int Drempel = 2,
     decimal Bandbreedte = Leergeheugen.StandaardBandbreedte,
@@ -25,7 +30,8 @@ public sealed record Verwerkingsinstellingen(
     bool Adrescontrole = true,
     string? Documentmap = null,
     decimal? Betaalverschil = null,
-    string? Verschilrekening = null)
+    string? Verschilrekening = null,
+    string? Omschrijving = null)
 {
     public static Verwerkingsinstellingen Standaard { get; } = new();
 
@@ -64,6 +70,15 @@ public sealed record Verwerkingsinstellingen(
         }
 
         fouten.AddRange(Facturen.Documentpad.Controleer(Documentmap));
+        if (Omschrijving is { Length: > 200 })
+        {
+            fouten.Add("De standaardomschrijving is langer dan 200 tekens.");
+        }
+
+        foreach (var onbekend in Facturen.Omschrijvingssjabloon.Onbekend(Omschrijving))
+        {
+            fouten.Add($"De standaardomschrijving kent #{onbekend} niet.");
+        }
         return fouten;
     }
 }
@@ -97,6 +112,7 @@ public sealed record AfwijkendeInstellingen(
             Adrescontrole ?? kantoor.Adrescontrole,
             string.IsNullOrWhiteSpace(Documentmap) ? kantoor.Documentmap : Documentmap,
             Betaalverschil ?? kantoor.Betaalverschil,
-            string.IsNullOrWhiteSpace(Verschilrekening) ? kantoor.Verschilrekening : Verschilrekening);
+            string.IsNullOrWhiteSpace(Verschilrekening) ? kantoor.Verschilrekening : Verschilrekening,
+            kantoor.Omschrijving);
     }
 }

@@ -238,6 +238,18 @@ public sealed class InkoopverwerkerTests
     }
 
     [Fact]
+    public void Standaardomschrijving_tenzij_de_regel_een_eigen_omschrijving_heeft()
+    {
+        var standaard = Inkoopverwerker.Verwerk(Ubl(), Relaties, [Telefoon], new Leergeheugen(), Testadministratie.Btw, [],
+            standaardomschrijving: "#leverancier #factuurnummer #maand");
+        var eigen = Inkoopverwerker.Verwerk(Ubl(), Relaties, [Telefoon with { Omschrijving = "Telefoon #maand" }], new Leergeheugen(), Testadministratie.Btw, [],
+            standaardomschrijving: "#leverancier #factuurnummer #maand");
+
+        Assert.Equal("Belnet B.V. BN-2026-0411 april", standaard.Factuur!.Omschrijving);
+        Assert.Equal("Telefoon april", eigen.Factuur!.Omschrijving);
+    }
+
+    [Fact]
     public void Dubbele_factuur_en_gesloten_periode_houden_automatisch_verwerken_tegen()
     {
         var voorstel = Inkoopverwerker.Verwerk(Ubl(), Relaties, [Telefoon], new Leergeheugen(), Testadministratie.Btw,
