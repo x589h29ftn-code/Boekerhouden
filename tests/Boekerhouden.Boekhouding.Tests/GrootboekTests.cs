@@ -353,3 +353,42 @@ public sealed class PeriodeTests
         Assert.Equal((DateOnly.Parse(nieuwVan, CultureInfo.InvariantCulture), DateOnly.Parse(nieuwTot, CultureInfo.InvariantCulture)),
             Periode.Schuif(DateOnly.Parse(van, CultureInfo.InvariantCulture), DateOnly.Parse(tot, CultureInfo.InvariantCulture), stappen));
 }
+
+public sealed class JaarvergelijkingTests
+{
+    private static readonly Rekening Bank = new("1100", "Bank", Rekeningsoort.Balans, "BLimBanRba");
+    private static readonly Rekening Omzet = new("8000", "Omzet", Rekeningsoort.Resultaat, "WOmzNop");
+    private static readonly Rekening Huur = new("4100", "Huur", Rekeningsoort.Resultaat, "WBedHuiHur");
+    private static readonly Rekening Nieuw = new("4300", "Kantoor", Rekeningsoort.Resultaat, "WBedKanKan");
+
+    [Fact]
+    public void Beide_jaren_naast_elkaar_ook_rekeningen_die_maar_in_een_jaar_voorkomen()
+    {
+        var nu = new Kolommenbalans(new(2026, 1, 1), new(2026, 12, 31), [new(Bank, 5000m, 0m), new(Omzet, 0m, 1200m), new(Nieuw, 50m, 0m)]);
+        var toen = new Kolommenbalans(new(2025, 1, 1), new(2025, 12, 31), [new(Bank, 3000m, 0m), new(Omzet, 0m, 1000m), new(Huur, 600m, 0m)]);
+
+        var regels = Jaarvergelijking.Maak(nu, toen);
+
+        Assert.Equal(["1100", "4100", "4300", "8000"], regels.Select(r => r.Rekening.Nummer));
+        Assert.Equal((5000m, 3000m, 66.7m), (regels[0].Huidig, regels[0].Vorig, regels[0].Procent));
+        Assert.Equal((0m, 600m, -100m), (regels[1].Huidig, regels[1].Vorig, regels[1].Procent));
+        Assert.Equal((50m, 0m, (decimal?)null), (regels[2].Huidig, regels[2].Vorig, regels[2].Procent));
+        Assert.Equal((-1200m, -1000m, 20m), (regels[3].Huidig, regels[3].Vorig, regels[3].Procent));
+    }
+
+    [Theory]
+    [InlineData(400, 500, -20)]
+    [InlineData(-1200, -1000, 20)]
+    [InlineData(-800, -1000, -20)]
+    [InlineData(100, 300, -66.7)]
+    public void Procent_is_de_groei_van_het_bedrag(decimal huidig, decimal vorig, decimal procent) =>
+        Assert.Equal(procent, Jaarvergelijking.Procent(huidig, vorig));
+
+    [Fact]
+    public void Geen_procent_zonder_vorig_jaar_of_als_het_saldo_van_kant_wisselt()
+    {
+        Assert.Null(Jaarvergelijking.Procent(100m, 0m));
+        Assert.Null(Jaarvergelijking.Procent(-100m, 100m));
+        Assert.Equal(0m, Jaarvergelijking.Procent(100m, 100m));
+    }
+}

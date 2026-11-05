@@ -16,6 +16,13 @@
             <button class="btn btn-outline-secondary @(perMaand ? null : "active")" @onclick="() => Zet(uitgebreid, false)">Totaal</button>
             <button class="btn btn-outline-secondary @(perMaand ? "active" : null)" title="Begin, de mutaties per maand en het eind" @onclick="() => Zet(uitgebreid, true)">Per maand</button>
         </div>
+        @if (!perMaand)
+        {
+            <span class="form-check mb-0 small text-nowrap">
+                <input class="form-check-input" type="checkbox" id="vorig-jaar" checked="@vergelijk" @onchange="WisselVergelijking" />
+                <label class="form-check-label text-secondary" for="vorig-jaar" title="Dezelfde periode een jaar eerder ernaast, met het verschil in procenten">vorig jaar</label>
+            </span>
+        }
         <span class="form-check mb-0 small text-nowrap">
             <input class="form-check-input" type="checkbox" id="met-nul" @bind="metNul" />
             <label class="form-check-label text-secondary" for="met-nul">ook zonder saldo</label>
@@ -29,6 +36,58 @@
         @if (melding is not null)
         {
             <div class="bericht">@melding</div>
+        }
+        else if (!perMaand && vergelijk && vergelijking is not null)
+        {
+            <div class="card overzichtskaart">
+                <table class="table align-middle mb-0 overzichtstabel kolommenbalans jaarvergelijking" style="@Letter" data-sleepbaar="jaarvergelijking">
+                    <thead>
+                        <tr>
+                            <th>Grootboek</th>
+                            <th class="text-end" title="@Weergave.Datum(van) t/m @Weergave.Datum(tot)">@Kolomkop(van, tot)</th>
+                            <th class="text-end" title="@Weergave.Datum(van.AddYears(-1)) t/m @Weergave.Datum(tot.AddYears(-1))">@Kolomkop(van.AddYears(-1), tot.AddYears(-1))</th>
+                            <th class="text-end" title="Hoeveel het bedrag groter of kleiner werd, in procenten van vorig jaar">Verschil</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in Presentatie(vergelijking.Where(r => metNul || r.Huidig != 0 || r.Vorig != 0), r => r.Rekening))
+                        {
+                            @if (p.Regel is { } r)
+                            {
+                                <tr class="klikbaar" title="@r.Rekening.RgsCode" @onclick="() => NaarKaart(r.Rekening.Nummer, van, tot)">
+                                    <td class="@(uitgebreid ? "ingesprongen" : null)"><span class="rekeningnummer">@r.Rekening.Nummer</span> @r.Rekening.Naam</td>
+                                    <td class="bedrag text-end">@Getal(W(r.Rekening, 0))</td>
+                                    <td class="bedrag text-end">@Getal(W(r.Rekening, 1))</td>
+                                    <td class="bedrag text-end text-secondary">@Procent(W(r.Rekening, 0), W(r.Rekening, 1))</td>
+                                </tr>
+                            }
+                            else if (p.Soort == Presentatiesoort.Kop)
+                            {
+                                <tr class="indeling-kop niveau-@p.Niveau"><td colspan="4">@p.Tekst</td></tr>
+                            }
+                            else
+                            {
+                                var nu = p.Onder.Sum(x => W(x.Rekening, 0));
+                                var toen = p.Onder.Sum(x => W(x.Rekening, 1));
+                                <tr class="indeling-subtotaal niveau-@p.Niveau">
+                                    <td>@p.Tekst</td>
+                                    <td class="bedrag text-end">@Getal(nu)</td>
+                                    <td class="bedrag text-end">@Getal(toen)</td>
+                                    <td class="bedrag text-end text-secondary">@Procent(nu, toen)</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr class="generaal">
+                            <td title="Winst positief">Resultaat</td>
+                            <td class="bedrag text-end">@Bedrag(VergelijkResultaat(0))</td>
+                            <td class="bedrag text-end">@Bedrag(VergelijkResultaat(1))</td>
+                            <td class="bedrag text-end text-secondary">@Procent(VergelijkResultaat(0), VergelijkResultaat(1))</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
         }
         else if (!perMaand && koba is not null)
         {
@@ -175,6 +234,10 @@
     private bool perMaand;
     private string? melding;
     private Boekhouding.Grootboek.Kolommenbalans? koba;
+
+    /// <summary>Vorig jaar ernaast (alleen bij Totaal): per rekening het saldo nu en een jaar eerder, met het verschil in procenten.</summary>
+    private bool vergelijk;
+    private IReadOnlyList<Vergelijkingsregel>? vergelijking;
     private Maandoverzicht? maanden;
     private Overzichtsweergave weergave = Overzichtsweergave.Standaard;
 
@@ -198,28 +261,41 @@
     [SupplyParameterFromQuery(Name = "weergave")]
     public string? WeergaveKeuze { get; set; }
 
+    /// <summary><c>jaar</c> = vorig jaar ernaast (bij Totaal).</summary>
+    [SupplyParameterFromQuery(Name = "vergelijk")]
+    public string? VergelijkKeuze { get; set; }
+
     private async Task Open(Geopend g)
     {
         geopend = g;
         (van, tot) = Weergave.Periode(VanTekst, TotTekst) ?? Periode.Jaar((await Grootboek.Boekjaren(g.Wie, Id))[0]);
-        (uitgebreid, perMaand) = (Indeling == "rgs", WeergaveKeuze == "maand");
+        (uitgebreid, perMaand, vergelijk) = (Indeling == "rgs", WeergaveKeuze == "maand", VergelijkKeuze == "jaar");
         weergave = await Kantoor.Weergave();
         await Laad();
     }
 
-    private Task Laad() => Laad(uitgebreid, perMaand);
+    private Task Laad() => Laad(uitgebreid, perMaand, vergelijk);
 
     /// <summary>
     /// Haalt de cijfers voor de gekozen weergave op en zet pas daarna weergave en cijfers samen om. Zo tekent de pagina
     /// nooit de nieuwe weergave met de cijfers van de vorige (bijv. per maand met de vier kolommen van het totaal).
     /// </summary>
-    private async Task Laad(bool rgs, bool maand)
+    private async Task Laad(bool rgs, bool maand, bool vgl)
     {
         if (!maand)
         {
             var nieuw = await Grootboek.Kolommenbalans(geopend!.Wie, Id, van, tot);
-            (koba, uitgebreid, perMaand, melding) = (nieuw, rgs, false, null);
-            Bereken(nieuw.Regels.Select(r => (r.Rekening, new[] { r.WinstEnVerliesDebet, r.WinstEnVerliesCredit, r.BalansDebet, r.BalansCredit })));
+            var naast = vgl ? Jaarvergelijking.Maak(nieuw, await Grootboek.Kolommenbalans(geopend.Wie, Id, van.AddYears(-1), tot.AddYears(-1))) : null;
+            (koba, vergelijking, uitgebreid, perMaand, vergelijk, melding) = (nieuw, naast, rgs, false, vgl, null);
+            if (naast is not null)
+            {
+                Bereken(naast.Select(r => (r.Rekening, new[] { r.Huidig, r.Vorig })));
+            }
+            else
+            {
+                Bereken(nieuw.Regels.Select(r => (r.Rekening, new[] { r.WinstEnVerliesDebet, r.WinstEnVerliesCredit, r.BalansDebet, r.BalansCredit })));
+            }
+
             return;
         }
 
@@ -269,9 +345,28 @@
         }
     }
 
+    private async Task WisselVergelijking()
+    {
+        await Laad(uitgebreid, false, !vergelijk);
+        Navigatie.NavigateTo(Adres(), replace: true);
+    }
+
+    /// <summary>Het resultaat van een jaar in de vergelijking zoals getoond: winst positief (de W&amp;V-saldi omgekeerd).</summary>
+    private decimal VergelijkResultaat(int kolom) => -(vergelijking ?? []).Where(r => !r.Rekening.IsBalans).Sum(r => W(r.Rekening, kolom));
+
+    /// <summary>De kop van een jaarkolom: het jaar bij een heel kalenderjaar, anders de periode.</summary>
+    private static string Kolomkop(DateOnly begin, DateOnly eind) =>
+        begin.Day == 1 && begin.Month == 1 && eind == new DateOnly(begin.Year, 12, 31)
+            ? begin.Year.ToString(Nederlands)
+            : $"{begin:dd-MM} t/m {eind:dd-MM-yyyy}";
+
+    /// <summary>Het verschil in procenten met een plus of een echt minteken, bijv. "+20,0%" of "−12,5%"; leeg als dat niets zegt.</summary>
+    private static string? Procent(decimal huidig, decimal vorig) =>
+        Jaarvergelijking.Procent(huidig, vorig) is { } p ? (p > 0 ? "+" : p < 0 ? "\u2212" : null) + Math.Abs(p).ToString("0.0", Nederlands) + "%" : null;
+
     private async Task Zet(bool rgs, bool maand)
     {
-        await Laad(rgs, maand);
+        await Laad(rgs, maand, vergelijk);
         Navigatie.NavigateTo(Adres(), replace: true);
     }
 
@@ -283,7 +378,7 @@
     }
 
     private string Adres() =>
-        $"/a/{Id}/kolommenbalans?{Weergave.Periodequery(van, tot)}{(uitgebreid ? "&indeling=rgs" : null)}{(perMaand ? "&weergave=maand" : null)}";
+        $"/a/{Id}/kolommenbalans?{Weergave.Periodequery(van, tot)}{(uitgebreid ? "&indeling=rgs" : null)}{(perMaand ? "&weergave=maand" : null)}{(vergelijk && !perMaand ? "&vergelijk=jaar" : null)}";
 
     /// <summary>Inzoomen: de grootboekkaart van de rekening over de periode (daar is de periode weer te wijzigen).</summary>
     private void NaarKaart(string rekening, DateOnly kaartVan, DateOnly kaartTot) =>
