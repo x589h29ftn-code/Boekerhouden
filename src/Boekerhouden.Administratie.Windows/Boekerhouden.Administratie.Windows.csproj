@@ -17,6 +17,11 @@
     <ProjectReference Include="..\Boekerhouden.Administratie\Boekerhouden.Administratie.csproj" />
   </ItemGroup>
 
+  <!-- De knoppenproef van de proefstand (Proef.cs); niet in wwwroot, want de app zelf gebruikt hem niet. -->
+  <ItemGroup>
+    <EmbeddedResource Include="proef.js" LogicalName="proef.js" />
+  </ItemGroup>
+
   <!-- Het WebView2-pakket verwijst altijd ook naar zijn WPF-onderdeel; deze app is WinForms en heeft dat niet nodig. -->
   <Target Name="ZonderWebView2Wpf" BeforeTargets="ResolveAssemblyReferences">
     <ItemGroup>

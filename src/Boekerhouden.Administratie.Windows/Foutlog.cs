@@ -5,9 +5,17 @@ internal static class Foutlog
 {
     public static string Map { get; set; } = Path.GetTempPath();
 
+    /// <summary>Geen melding in beeld (bij de proef: niemand klikt hem weg); alleen het log.</summary>
+    public static bool Stil { get; set; }
+
     public static void Toon(Exception fout, string? melding = null)
     {
         Schrijf(fout);
+        if (Stil)
+        {
+            return;
+        }
+
         MessageBox.Show($"{melding ?? "Er ging iets mis."}{Environment.NewLine}{Environment.NewLine}{fout.Message}{Environment.NewLine}{Environment.NewLine}Details staan in {Path.Combine(Map, "fouten.log")}.",
             "Boekerhouden Administratie", MessageBoxButtons.OK, MessageBoxIcon.Error);
     }

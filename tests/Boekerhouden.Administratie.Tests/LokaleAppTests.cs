@@ -8,6 +8,7 @@ using Boekerhouden.Documenten;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
+using Xunit.Abstractions;
 
 namespace Boekerhouden.Administratie.Tests;
 
@@ -15,7 +16,7 @@ namespace Boekerhouden.Administratie.Tests;
 /// De Windows-app zonder venster: dezelfde diensten als in het venster, met een SQLite-bestand en de lokale gebruiker,
 /// zonder inloggen en zonder server.
 /// </summary>
-public sealed class LokaleAppTests : IAsyncLifetime
+public sealed class LokaleAppTests(ITestOutputHelper uitvoer) : IAsyncLifetime
 {
     private readonly string map = Path.Combine(Path.GetTempPath(), "lokale-app-" + Guid.NewGuid().ToString("N"));
     private ServiceProvider? diensten;
@@ -35,6 +36,39 @@ public sealed class LokaleAppTests : IAsyncLifetime
 
         SqliteConnection.ClearAllPools();
         Directory.Delete(map, recursive: true);
+    }
+
+    [Fact]
+    public async Task Proefgegevens_voor_de_stresstest_van_de_Windows_app()
+    {
+        var wie = diensten!.GetRequiredService<LokaleSessie>().Gebruiker.AlsUitvoerder();
+
+        var uitkomst = await Proefgegevens.Vul(diensten!, wie, Proefomvang.Klein, 2026);
+
+        Assert.Equal((1 + 3 * 3, 12, 3), (uitkomst.Boekingen, uitkomst.Mutaties, uitkomst.Facturen));
+        Assert.Equal(4, uitkomst.Tijden.Count);
+        var grootboek = diensten!.GetRequiredService<GrootboekDienst>();
+        Assert.Equal(1234.56m, (await grootboek.Proefbalans(wie, uitkomst.Administratie, 2025)).Regels.Single(r => r.Rekening.Nummer == "0500").Saldo * -1);
+        Assert.Equal(-1234.56m, (await grootboek.Kaart(wie, uitkomst.Administratie, "0500", new(2026, 1, 1), new(2026, 12, 31))).Beginsaldo);
+        Assert.Empty(await grootboek.ControleerKeten(wie, uitkomst.Administratie));
+        var bank = diensten!.GetRequiredService<BankDienst>();
+        Assert.Equal(12, (await bank.Lijst(wie, uitkomst.Administratie, ookGeboekt: true)).Count);
+        Assert.Equal(Proefgegevens.EigenIban, Assert.Single(await bank.Stand(wie, uitkomst.Administratie)).Iban);
+        Assert.Equal(3, (await diensten!.GetRequiredService<InkoopDienst>().Lijst(wie, uitkomst.Administratie)).Count);
+    }
+
+    /// <summary>De volle proef van de Windows-app (twee jaar, honderden mutaties) op SQLite, met de tijden; alleen met BOEKERHOUDEN_STRESS.</summary>
+    [StressFact]
+    public async Task Volle_proef_van_de_Windows_app_op_SQLite()
+    {
+        var wie = diensten!.GetRequiredService<LokaleSessie>().Gebruiker.AlsUitvoerder();
+        var uitkomst = await Proefgegevens.Vul(diensten!, wie, new Proefomvang(), 2026);
+        foreach (var (stap, ms) in uitkomst.Tijden)
+        {
+            uitvoer.WriteLine($"{stap}: {ms} ms");
+        }
+
+        Assert.Empty(await diensten!.GetRequiredService<GrootboekDienst>().ControleerKeten(wie, uitkomst.Administratie));
     }
 
     [Fact]

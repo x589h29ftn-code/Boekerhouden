@@ -9,7 +9,7 @@ internal sealed class HoofdVenster : Form
 {
     private const string Naam = "Boekerhouden Administratie";
 
-    public HoofdVenster(IServiceProvider diensten, string? proefmap = null, Guid? proefadministratie = null)
+    public HoofdVenster(IServiceProvider diensten, string? proefmap = null, Lokaal.Proefuitkomst? proefgegevens = null)
     {
         Text = Naam;
         Size = new Size(1440, 960);
@@ -23,7 +23,7 @@ internal sealed class HoofdVenster : Form
                 Text = e.WebView.CoreWebView2.DocumentTitle is { Length: > 0 } titel && titel != Naam ? $"{titel} – {Naam}" : Naam;
             if (proefmap is not null)
             {
-                _ = Proef.Voer(this, e.WebView, proefmap, proefadministratie);
+                _ = Proef.Voer(this, e.WebView, proefmap, proefgegevens);
             }
         };
         Controls.Add(webview);

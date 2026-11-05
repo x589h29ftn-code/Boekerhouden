@@ -133,5 +133,8 @@ scripts/ui/herstart.sh && node scripts/ui/schermafbeeldingen.js /tmp/schermen vo
   nieuwe weergave op en zet dan weergave en cijfers samen om. Wie eerst de schakelaar omzet en daarna laadt, laat de
   pagina één keer tekenen met de cijfers van de vorige weergave (kolommenbalans: index buiten de array, tabel weg, alleen
   de tweede keer). `scripts/ui/schakelaars.js` klikt alle schakelaars op alle pagina's heen en terug en meldt fouten.
+- **Windows-app nalopen**: de CI-job `windows-app-proef` vult de app met twee jaar gegevens en klikt elke pagina na
+  (`Proef.cs`, `proef.js`); bij een rode job staan in het artefact `windows-app-proef` het verslag `proef.txt` (met de
+  pagina en knop van de fout) en schermafdrukken. Een nieuwe pagina hoort in `Proef.Paginas`.
 - **Processen stoppen**: `pkill -f` met een patroon dat ook in de eigen opdrachtregel staat, stopt de eigen shell;
   gebruik `pgrep` met een specifiek pad (zoals in `scripts/ui/herstart.sh`).

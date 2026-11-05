@@ -60,7 +60,8 @@ jobs:
           path: publiceer/Boekerhouden-Administratie-win-x64.zip
           retention-days: 30
 
-  # Proef op Windows: de app opent zijn venster en toont het eerste scherm (met een schermafdruk als bewijs).
+  # Proef op Windows: de app vult een administratie met twee jaar gegevens, opent elke pagina (laadtijd) en klikt alle
+  # schakelaars heen en terug; verslag (proef.txt) en schermafdrukken als artefact.
   windows-app-proef:
     needs: windows-app
     runs-on: windows-latest
@@ -73,11 +74,11 @@ jobs:
           Expand-Archive Boekerhouden-Administratie-win-x64.zip -DestinationPath app
           $map = Join-Path $env:RUNNER_TEMP "proef"
           $proces = Start-Process "app\Boekerhouden Administratie\Boekerhouden.Administratie.Windows.exe" -ArgumentList "--proef", "`"$map`"" -PassThru
-          if (-not $proces.WaitForExit(180000)) { Stop-Process $proces -Force; throw "De Windows-app reageerde niet." }
+          if (-not $proces.WaitForExit(900000)) { Stop-Process $proces -Force; throw "De Windows-app reageerde niet." }
           if (Test-Path "$map\fouten.log") { Get-Content "$map\fouten.log" }
           if (Test-Path "$map\proef.txt") { Get-Content "$map\proef.txt" }
-          if ($proces.ExitCode -ne 0) { throw "De Windows-app toonde het eerste scherm niet (code $($proces.ExitCode))." }
-          Write-Host "De Windows-app opent en toont de administraties."
+          if ($proces.ExitCode -ne 0) { throw "De proef van de Windows-app vond fouten (code $($proces.ExitCode)), zie hierboven." }
+          Write-Host "De Windows-app doorstond de proef."
       - if: always()
         uses: actions/upload-artifact@v4
         with:

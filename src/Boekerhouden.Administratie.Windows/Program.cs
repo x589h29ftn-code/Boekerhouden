@@ -8,7 +8,7 @@ namespace Boekerhouden.Administratie.Windows;
 /// <summary>
 /// De Windows-app van het administratiepakket voor tests op één pc: een eigen venster met dezelfde schermen als de
 /// webapp, zonder webserver, zonder databaseserver (één SQLite-bestand) en zonder inloggen.
-/// Met <c>--proef &lt;map&gt;</c> start de app in die map, controleert dat het eerste scherm verschijnt en sluit weer
+/// Met <c>--proef &lt;map&gt;</c> start de app in die map, vult een administratie, loopt alle pagina's en knoppen langs en sluit weer
 /// (voor de CI).
 /// </summary>
 internal static class Program
@@ -54,9 +54,9 @@ internal static class Program
             return 1;
         }
 
-        // De proef boekt vooraf iets, zodat ook een scherm met gegevens te controleren is.
-        var proefadministratie = proef is null ? (Guid?)null : Proef.Voorbereiden(diensten).GetAwaiter().GetResult();
-        using var venster = new HoofdVenster(diensten, proef, proefadministratie);
+        // De proef vult vooraf een administratie met twee jaar gegevens, zodat de schermen iets te tonen hebben.
+        var proefgegevens = proef is null ? null : Proef.Voorbereiden(diensten).GetAwaiter().GetResult();
+        using var venster = new HoofdVenster(diensten, proef, proefgegevens);
         Application.Run(venster);
         return venster.Uitslag;
     }
