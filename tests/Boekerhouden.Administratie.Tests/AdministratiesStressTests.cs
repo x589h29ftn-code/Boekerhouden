@@ -240,7 +240,9 @@ public sealed class AdministratiesStressTests(AdministratieFixture app, ITestOut
         uitvoer.WriteLine($"Vullen: {aantal} administraties × {jaren} jaar, {boekingen:N0} boekingen in {klok.Elapsed.TotalSeconds:0} s");
         await using (var db = await app.Dienst<Toegang>().Open(wie, ids[0], Recht.Lezen))
         {
-            var grootte = await db.Database.SqlQueryRaw<long>("SELECT pg_database_size(current_database()) AS \"Value\"").SingleAsync();
+            var grootte = AdministratieFixture.IsSqlite
+                ? await db.Database.SqlQueryRaw<long>("SELECT page_count * page_size AS \"Value\" FROM pragma_page_count(), pragma_page_size()").SingleAsync()
+                : await db.Database.SqlQueryRaw<long>("SELECT pg_database_size(current_database()) AS \"Value\"").SingleAsync();
             uitvoer.WriteLine($"Database: {grootte / 1024 / 1024:N0} MB");
         }
 
