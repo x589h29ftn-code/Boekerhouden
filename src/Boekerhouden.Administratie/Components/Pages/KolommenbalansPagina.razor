@@ -207,24 +207,31 @@
         await Laad();
     }
 
-    private async Task Laad()
+    private Task Laad() => Laad(uitgebreid, perMaand);
+
+    /// <summary>
+    /// Haalt de cijfers voor de gekozen weergave op en zet pas daarna weergave en cijfers samen om. Zo tekent de pagina
+    /// nooit de nieuwe weergave met de cijfers van de vorige (bijv. per maand met de vier kolommen van het totaal).
+    /// </summary>
+    private async Task Laad(bool rgs, bool maand)
     {
-        melding = null;
-        if (!perMaand)
+        if (!maand)
         {
-            koba = await Grootboek.Kolommenbalans(geopend!.Wie, Id, van, tot);
-            Bereken(koba.Regels.Select(r => (r.Rekening, new[] { r.WinstEnVerliesDebet, r.WinstEnVerliesCredit, r.BalansDebet, r.BalansCredit })));
+            var nieuw = await Grootboek.Kolommenbalans(geopend!.Wie, Id, van, tot);
+            (koba, uitgebreid, perMaand, melding) = (nieuw, rgs, false, null);
+            Bereken(nieuw.Regels.Select(r => (r.Rekening, new[] { r.WinstEnVerliesDebet, r.WinstEnVerliesCredit, r.BalansDebet, r.BalansCredit })));
             return;
         }
 
         try
         {
-            maanden = await Grootboek.Maandoverzicht(geopend!.Wie, Id, van, tot);
-            Bereken(maanden.Regels.Select(r => (r.Rekening, (decimal[])[r.Begin, .. r.PerMaand, r.Eind])));
+            var nieuw = await Grootboek.Maandoverzicht(geopend!.Wie, Id, van, tot);
+            (maanden, uitgebreid, perMaand, melding) = (nieuw, rgs, true, null);
+            Bereken(nieuw.Regels.Select(r => (r.Rekening, (decimal[])[r.Begin, .. r.PerMaand, r.Eind])));
         }
         catch (ArgumentException)
         {
-            (maanden, melding) = (null, $"Per maand kan over hoogstens {Maandoverzicht.MaximumMaanden} maanden; kies een kortere periode.");
+            (maanden, uitgebreid, perMaand, melding) = (null, rgs, true, $"Per maand kan over hoogstens {Maandoverzicht.MaximumMaanden} maanden; kies een kortere periode.");
         }
     }
 
@@ -264,9 +271,8 @@
 
     private async Task Zet(bool rgs, bool maand)
     {
-        (uitgebreid, perMaand) = (rgs, maand);
+        await Laad(rgs, maand);
         Navigatie.NavigateTo(Adres(), replace: true);
-        await Laad();
     }
 
     private async Task KiesPeriode((DateOnly Van, DateOnly Tot) periode)
@@ -310,7 +316,7 @@
         }
     }
 
-    private decimal W(Rekening rekening, int kolom) => waarden.TryGetValue(rekening.Nummer, out var k) ? k[kolom] : 0m;
+    private decimal W(Rekening rekening, int kolom) => waarden.TryGetValue(rekening.Nummer, out var k) && kolom < k.Length ? k[kolom] : 0m;
 
     private decimal Kolomtotaal(int kolom) => koba!.Regels.Sum(r => W(r.Rekening, kolom));
 

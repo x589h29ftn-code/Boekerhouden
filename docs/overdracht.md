@@ -129,5 +129,9 @@ scripts/ui/herstart.sh && node scripts/ui/schermafbeeldingen.js /tmp/schermen vo
   een andere bovenaan). De voettekst staat daarom in de paginamarge (`@page { @bottom-center { content: ... } }`).
 - **JavaScript koppelen binnen `AdministratieKader`**: de pagina krijgt geen `OnAfterRender` als de kader zijn inhoud
   pas later toont; maak er een eigen component van die zichzelf koppelt (zoals `Ontwerpvlak`).
+- **Weergave wisselen**: haal bij een schakelaar (Totaal/Per maand, Grootboek/Uitgebreid) eerst de cijfers voor de
+  nieuwe weergave op en zet dan weergave en cijfers samen om. Wie eerst de schakelaar omzet en daarna laadt, laat de
+  pagina één keer tekenen met de cijfers van de vorige weergave (kolommenbalans: index buiten de array, tabel weg, alleen
+  de tweede keer). `scripts/ui/schakelaars.js` klikt alle schakelaars op alle pagina's heen en terug en meldt fouten.
 - **Processen stoppen**: `pkill -f` met een patroon dat ook in de eigen opdrachtregel staat, stopt de eigen shell;
   gebruik `pgrep` met een specifiek pad (zoals in `scripts/ui/herstart.sh`).

@@ -8,6 +8,7 @@ schermafbeeldingen van voor en na te maken.
 dotnet build src/Boekerhouden.Administratie
 scripts/ui/herstart.sh                                  # lege database, app op http://localhost:5090
 node scripts/ui/schermafbeeldingen.js /tmp/schermen voor   # PNG's per scherm
+scripts/ui/herstart.sh && node scripts/ui/schakelaars.js /tmp/schermen   # alle schakelaars heen en terug, meldt fouten
 ```
 
 `herstart.sh` moet vóór elke run: het script maakt de eerste gebruiker aan, en dat kan alleen op een lege database.

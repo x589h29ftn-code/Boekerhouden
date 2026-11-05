@@ -57,6 +57,11 @@
     --kleur-lijn: var(--bh-lijn);
 }
 
+/* Eén stap kleiner dan de browser (15 in plaats van 16 pixels): alles in rem schaalt mee, zoom van de gebruiker ook. */
+html {
+    font-size: 93.75%;
+}
+
 html, body {
     font-family: var(--bs-body-font-family);
     background: var(--bh-vlak);
