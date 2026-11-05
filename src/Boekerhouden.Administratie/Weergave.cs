@@ -40,6 +40,10 @@ public static class Weergave
     /// <summary>Een bedrag op het scherm: zoals <see cref="Domain.Bedragen.Getal"/>, maar negatief met een echt minteken (−) in plaats van een koppelteken.</summary>
     public static string Bedrag(decimal bedrag) => Domain.Bedragen.Getal(bedrag).Replace('-', '\u2212');
 
+    /// <summary>Een percentage met een plus of een echt minteken en één decimaal, bijv. "+20,0%" of "−12,5%"; leeg zonder waarde.</summary>
+    public static string? Procent(decimal? procent) =>
+        procent is { } p ? (p > 0 ? "+" : p < 0 ? "\u2212" : null) + Math.Abs(p).ToString("0.0", Nederlands) + "%" : null;
+
     /// <summary>Een bedrag in hele euro's op het scherm, negatief met een echt minteken.</summary>
     public static string BedragHeel(decimal bedrag) => Domain.Bedragen.Heel(bedrag).Replace('-', '\u2212');
 

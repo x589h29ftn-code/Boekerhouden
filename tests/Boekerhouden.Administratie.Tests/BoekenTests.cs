@@ -315,6 +315,36 @@ public sealed class BoekenTests(AdministratieFixture app) : IClassFixture<Admini
     }
 
     [Fact]
+    public async Task Kolommenbalans_met_vorig_jaar_naar_Excel_en_html()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Vergelijking Export B.V.");
+        var grootboek = app.Dienst<GrootboekDienst>();
+        Assert.True((await grootboek.Boek(wie, id, Post("2025-0001", new(2025, 6, 1), ("1100", 1000m), ("8000", -1000m)))).IsGelukt);
+        Assert.True((await grootboek.Boek(wie, id, Post("2026-0001", new(2026, 6, 1), ("1100", 1200m), ("8000", -1200m)))).IsGelukt);
+        var overzicht = app.Dienst<OverzichtDienst>();
+
+        using (var boek = new ClosedXML.Excel.XLWorkbook(new MemoryStream(await overzicht.VergelijkingExcel(wie, id, new(2026, 1, 1), new(2026, 12, 31)))))
+        {
+            var blad = boek.Worksheets.First();
+            Assert.Equal(("2026", "2025", "Verschil"), (blad.Cell(4, 3).GetString(), blad.Cell(4, 4).GetString(), blad.Cell(4, 5).GetString()));
+            var omzet = blad.RowsUsed().Single(r => r.Cell(1).GetString() == "8000");
+            Assert.Equal((-1200m, -1000m, 0.2m), (omzet.Cell(3).GetValue<decimal>(), omzet.Cell(4).GetValue<decimal>(), omzet.Cell(5).GetValue<decimal>()));
+            var resultaat = blad.RowsUsed().Single(r => r.Cell(1).GetString() == "Resultaat");
+            Assert.Equal((1200m, 1000m), (resultaat.Cell(3).GetValue<decimal>(), resultaat.Cell(4).GetValue<decimal>()));
+        }
+
+        var html = Export.OverzichtExport.VergelijkingHtml(
+            Boekhouding.Grootboek.Jaarvergelijking.Maak(await grootboek.Kolommenbalans(wie, id, new(2026, 1, 1), new(2026, 12, 31)),
+                await grootboek.Kolommenbalans(wie, id, new(2025, 1, 1), new(2025, 12, 31))),
+            new(2026, 1, 1), new(2026, 12, 31), "Vergelijking Export B.V.");
+        Assert.Contains("+20,0%", html, StringComparison.Ordinal);
+        Assert.Contains("Kolommenbalans met vorig jaar", html, StringComparison.Ordinal);
+        var buiten = await app.Gebruiker("Buiten Vergelijking");
+        await Assert.ThrowsAsync<GeenToegangException>(() => overzicht.VergelijkingExcel(buiten, id, new(2026, 1, 1), new(2026, 12, 31)));
+    }
+
+    [Fact]
     public async Task Meerdere_memorialen_voor_lonen_en_accountant()
     {
         var wie = await app.Beheerder();

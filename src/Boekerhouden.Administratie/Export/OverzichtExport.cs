@@ -107,6 +107,60 @@ public static class OverzichtExport
         return Bewaar(boek, blad);
     }
 
+    /// <summary>De kolommenbalans met vorig jaar ernaast: per rekening beide saldi (debet positief) en het verschil in procenten.</summary>
+    public static byte[] VergelijkingExcel(IReadOnlyList<Vergelijkingsregel> regels, DateOnly van, DateOnly tot, string administratie)
+    {
+        ArgumentNullException.ThrowIfNull(regels);
+        using var boek = new XLWorkbook();
+        var blad = boek.AddWorksheet("Vergelijking");
+        Kop(blad, "Kolommenbalans met vorig jaar", administratie, van, tot);
+        string[] koppen = ["Rekening", "Omschrijving", Jaarvergelijking.Kolomkop(van, tot), Jaarvergelijking.Kolomkop(van.AddYears(-1), tot.AddYears(-1)), "Verschil"];
+        var rij = Koppen(blad, 4, koppen);
+        foreach (var r in Vergelijkingsregels(regels))
+        {
+            blad.Cell(rij, 1).Value = r.Rekening.Nummer;
+            blad.Cell(rij, 2).Value = r.Rekening.Naam;
+            Zet(blad, rij, 3, r.Huidig);
+            Zet(blad, rij, 4, r.Vorig);
+            ZetProcent(blad, rij, 5, r.Procent);
+            rij++;
+        }
+
+        var (nu, toen) = Jaarvergelijking.Resultaat(regels);
+        blad.Cell(rij, 1).Value = "Resultaat";
+        blad.Cell(rij, 3).Value = nu;
+        blad.Cell(rij, 4).Value = toen;
+        ZetProcent(blad, rij, 5, Jaarvergelijking.Procent(nu, toen));
+        blad.Row(rij).Style.Font.Bold = true;
+        foreach (var kolom in new[] { 3, 4 })
+        {
+            blad.Column(kolom).Style.NumberFormat.Format = Getalnotatie;
+        }
+
+        blad.Column(5).Style.NumberFormat.Format = "+0.0%;-0.0%;0.0%";
+        return Bewaar(boek, blad);
+    }
+
+    public static string VergelijkingHtml(IReadOnlyList<Vergelijkingsregel> regels, DateOnly van, DateOnly tot, string administratie)
+    {
+        ArgumentNullException.ThrowIfNull(regels);
+        var html = Begin("Kolommenbalans met vorig jaar", administratie, van, tot);
+        html.Append("""<table><colgroup><col style="width:8%"><col><col style="width:15%"><col style="width:15%"><col style="width:11%"></colgroup>""");
+        html.Append(CultureInfo.InvariantCulture,
+            $"""<thead><tr><th>Rekening</th><th>Omschrijving</th><th class="r">{E(Jaarvergelijking.Kolomkop(van, tot))}</th><th class="r">{E(Jaarvergelijking.Kolomkop(van.AddYears(-1), tot.AddYears(-1)))}</th><th class="r">Verschil</th></tr></thead><tbody>""");
+        foreach (var r in Vergelijkingsregels(regels))
+        {
+            html.Append(CultureInfo.InvariantCulture,
+                $"""<tr><td>{E(r.Rekening.Nummer)}</td><td>{E(r.Rekening.Naam)}</td><td class="r">{Leeg(r.Huidig)}</td><td class="r">{Leeg(r.Vorig)}</td><td class="r zacht">{E(Weergave.Procent(r.Procent) ?? "")}</td></tr>""");
+        }
+
+        var (nu, toen) = Jaarvergelijking.Resultaat(regels);
+        html.Append(CultureInfo.InvariantCulture,
+            $"""<tr class="totaal"><td colspan="2">Resultaat</td><td class="r">{Bedrag(nu)}</td><td class="r">{Bedrag(toen)}</td><td class="r">{E(Weergave.Procent(Jaarvergelijking.Procent(nu, toen)) ?? "")}</td></tr>""");
+        html.Append("</tbody></table></body></html>");
+        return html.ToString();
+    }
+
     public static string KaartHtml(Grootboekkaart kaart, string administratie)
     {
         ArgumentNullException.ThrowIfNull(kaart);
@@ -146,6 +200,19 @@ public static class OverzichtExport
 
         html.Append("</tbody></table></body></html>");
         return html.ToString();
+    }
+
+    /// <summary>Alleen de rekeningen met een saldo in een van beide jaren, op nummer.</summary>
+    private static IEnumerable<Vergelijkingsregel> Vergelijkingsregels(IEnumerable<Vergelijkingsregel> regels) =>
+        regels.Where(r => r.Huidig != 0 || r.Vorig != 0).OrderBy(r => r.Rekening.Nummer, Rekeningnummers.Volgorde);
+
+    /// <summary>Een percentage als getal in Excel (20% = 0,2), zodat ermee te rekenen is; leeg als het niets zegt.</summary>
+    private static void ZetProcent(IXLWorksheet blad, int rij, int kolom, decimal? procent)
+    {
+        if (procent is { } p)
+        {
+            blad.Cell(rij, kolom).Value = p / 100m;
+        }
     }
 
     /// <summary>Alleen de rekeningen met een saldo of mutaties, op nummer.</summary>

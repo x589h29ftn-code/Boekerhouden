@@ -30,6 +30,19 @@ public static class Jaarvergelijking
         ];
     }
 
+    /// <summary>Het resultaat van een jaar in de vergelijking: winst positief (de saldi van de resultaatrekeningen, omgekeerd).</summary>
+    public static (decimal Huidig, decimal Vorig) Resultaat(IEnumerable<Vergelijkingsregel> regels)
+    {
+        var resultaat = regels.Where(r => !r.Rekening.IsBalans).ToList();
+        return (-resultaat.Sum(r => r.Huidig), -resultaat.Sum(r => r.Vorig));
+    }
+
+    /// <summary>De kop van een jaarkolom: het jaar bij een heel kalenderjaar (2026), anders de periode (01-01 t/m 30-06-2026).</summary>
+    public static string Kolomkop(DateOnly van, DateOnly tot) =>
+        van.Day == 1 && van.Month == 1 && tot == new DateOnly(van.Year, 12, 31)
+            ? van.Year.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            : $"{van.ToString("dd-MM", System.Globalization.CultureInfo.InvariantCulture)} t/m {tot.ToString("dd-MM-yyyy", System.Globalization.CultureInfo.InvariantCulture)}";
+
     /// <summary>
     /// Hoeveel het bedrag groter of kleiner werd, in procenten van vorig jaar en op één decimaal: omzet van 1.000 naar
     /// 1.200 credit is +20%, kosten van 500 naar 400 debet is −20%. Leeg als vorig jaar 0 was of het saldo van kant

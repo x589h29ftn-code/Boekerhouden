@@ -28,8 +28,8 @@
             <label class="form-check-label text-secondary" for="met-nul">ook zonder saldo</label>
         </span>
         <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
-        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De kolommenbalans als Excel" @onclick="Excel">Excel</button>
-        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De kolommenbalans als PDF (A4 liggend)" @onclick="Pdf">PDF</button>
+        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De kolommenbalans als Excel (met vorig jaar als dat aan staat)" @onclick="Excel">Excel</button>
+        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De kolommenbalans als PDF, A4 liggend (met vorig jaar als dat aan staat)" @onclick="Pdf">PDF</button>
     </Acties>
     <ChildContent>
         <Foutmeldingen Fouten="fouten" />
@@ -314,12 +314,20 @@
     private bool bezig;
     private IReadOnlyList<string>? fouten;
 
+    /// <summary>Excel en PDF volgen het scherm: met vorig jaar ernaast als dat aan staat (bij Totaal).</summary>
+    private bool MetVorigJaar => vergelijk && !perMaand;
+
+    private string Bestandsnaam => $"Kolommenbalans {(MetVorigJaar ? "met vorig jaar " : null)}{van:yyyy-MM-dd} {tot:yyyy-MM-dd}";
+
     private async Task Excel()
     {
         bezig = true;
         try
         {
-            await JS.Bewaar(await Overzicht.KolommenbalansExcel(geopend!.Wie, Id, van, tot), $"Kolommenbalans {van:yyyy-MM-dd} {tot:yyyy-MM-dd}.xlsx", Download.Excel);
+            var inhoud = MetVorigJaar
+                ? await Overzicht.VergelijkingExcel(geopend!.Wie, Id, van, tot)
+                : await Overzicht.KolommenbalansExcel(geopend!.Wie, Id, van, tot);
+            await JS.Bewaar(inhoud, $"{Bestandsnaam}.xlsx", Download.Excel);
         }
         finally
         {
@@ -332,11 +340,13 @@
         bezig = true;
         try
         {
-            var uitkomst = await Overzicht.KolommenbalansPdf(geopend!.Wie, Id, van, tot);
+            var uitkomst = MetVorigJaar
+                ? await Overzicht.VergelijkingPdf(geopend!.Wie, Id, van, tot)
+                : await Overzicht.KolommenbalansPdf(geopend!.Wie, Id, van, tot);
             fouten = uitkomst.Fouten;
             if (uitkomst.IsGelukt)
             {
-                await JS.Bewaar(uitkomst.Waarde!, $"Kolommenbalans {van:yyyy-MM-dd} {tot:yyyy-MM-dd}.pdf", Download.Pdf);
+                await JS.Bewaar(uitkomst.Waarde!, $"{Bestandsnaam}.pdf", Download.Pdf);
             }
         }
         finally
@@ -354,15 +364,10 @@
     /// <summary>Het resultaat van een jaar in de vergelijking zoals getoond: winst positief (de W&amp;V-saldi omgekeerd).</summary>
     private decimal VergelijkResultaat(int kolom) => -(vergelijking ?? []).Where(r => !r.Rekening.IsBalans).Sum(r => W(r.Rekening, kolom));
 
-    /// <summary>De kop van een jaarkolom: het jaar bij een heel kalenderjaar, anders de periode.</summary>
-    private static string Kolomkop(DateOnly begin, DateOnly eind) =>
-        begin.Day == 1 && begin.Month == 1 && eind == new DateOnly(begin.Year, 12, 31)
-            ? begin.Year.ToString(Nederlands)
-            : $"{begin:dd-MM} t/m {eind:dd-MM-yyyy}";
+    private static string Kolomkop(DateOnly begin, DateOnly eind) => Jaarvergelijking.Kolomkop(begin, eind);
 
-    /// <summary>Het verschil in procenten met een plus of een echt minteken, bijv. "+20,0%" of "−12,5%"; leeg als dat niets zegt.</summary>
-    private static string? Procent(decimal huidig, decimal vorig) =>
-        Jaarvergelijking.Procent(huidig, vorig) is { } p ? (p > 0 ? "+" : p < 0 ? "\u2212" : null) + Math.Abs(p).ToString("0.0", Nederlands) + "%" : null;
+    /// <summary>Het verschil in procenten zoals getoond, bijv. "+20,0%"; leeg als dat niets zegt.</summary>
+    private static string? Procent(decimal huidig, decimal vorig) => Weergave.Procent(Jaarvergelijking.Procent(huidig, vorig));
 
     private async Task Zet(bool rgs, bool maand)
     {
