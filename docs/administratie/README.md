@@ -290,12 +290,30 @@ Aan het eind van het jaar staat de saldibalans **met RGS-codes** in de administr
 samenstelpakket haalt die op als import, zonder sjabloon. De codes zijn hetzelfde, dus het rubriceren is al
 gedaan.
 
+### 3.11 Auditfile (XAF)
+
+- **Maken**: op *Balans en W&V* geeft de knop *Auditfile* het gekozen boekjaar als XML Auditfile Financieel 3.2
+  (`Auditfile {naam} {jaar}.xaf`). Erin: bedrijfsgegevens, relaties (klant, leverancier of beide, met IBAN),
+  het rekeningschema met de RGS-code als `leadReference`, de btw-codes, de beginbalans (balanssaldi tot het
+  boekjaar; de W&V van eerdere jaren op de rekening *onverdeeld resultaat*) en alle geldende boekingen van het jaar
+  per dagboek, met relatie en factuurnummer per regel. Recht: inzien (`AuditfileDienst.Maak`, in het wijzigingslog).
+- **Inlezen** als nieuwe administratie: *Nieuwe administratie* → *Auditfile inlezen* (XAF 3.1 en 3.2; 4.0 zo goed
+  als het gaat). Eerst wordt alles gecontroleerd: XML zonder DTD, de totalen in de kop, elke boeking en de
+  beginbalans in evenwicht, alle rekeningen bekend. Bij één fout wordt niets ingelezen. Daarna: rekeningen met RGS
+  (uit `RGScode`, `leadReference` of `leadCode`) en een afgeleide functie (bank, kas, debiteuren, crediteuren, btw),
+  dagboeken naar het soort (`jrnTp` B bank, C kas, P inkoop, S verkoop, anders memoriaal), relaties, de beginbalans als
+  memoriaalboeking `BEG` en alle boekingen in de hash-keten. Openstaande posten worden afgeleid uit de
+  debiteuren- en crediteurenregels met relatie en factuurnummer. Wie inleest wordt lid met de rol kantoor
+  (`AuditfileDienst.LeesIn`, domein in `Boekhouding/Auditfiles`).
+- Niet in de auditfile: de btw-code per boekingsregel (de btw-rekeningen zelf staan er wel in), documenten en
+  bankafschriften.
+
 ## 4. Techniek
 
 - **Zelfde stack** als de samenstel-app ([§7 onderzoek](../onderzoek/07-technische-architectuur.md)): .NET 10, Blazor
   Server, PostgreSQL (een **eigen database** `boekerhouden_administratie`), Identity en het wijzigingslog.
 - **Domein zonder I/O** in `Boekerhouden.Boekhouding`, met namespaces `Grootboek`, `Btw`, `Relaties`,
-  `Facturen`, `Bank`, `Afletteren`, `Regels` en `Herkenning`. Bankbestanden en UBL worden gelezen uit een `TextReader`/`Stream`.
+  `Facturen`, `Bank`, `Afletteren`, `Regels`, `Herkenning`, `Verkoop` en `Auditfiles`. Bankbestanden en UBL worden gelezen uit een `TextReader`/`Stream`.
 - **Pakketten** (alle open source, licentie gecontroleerd vóór het toevoegen):
 
   | Doel | Pakket | Licentie |

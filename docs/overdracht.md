@@ -46,6 +46,9 @@ Laatst gebouwd (oktober 2026), in deze volgorde:
      PDF, afdrukken, e-factuur (UBL Peppol BIS 3) en e-mail als .eml;
    - terugkerende facturen (maand, kwartaal, halfjaar, jaar; `#periode`), ook meteen definitief en verdeeld;
    - verkoopfacturen uit een ander pakket inlezen (UBL, PDF, scan), vanzelf boeken als alles klopt.
+5. **Einde klantrelatie en overstappen** (README §3.9 en §3.11): administraties archiveren (alleen inzien) en door
+   de beheerder verwijderen (tombstone `VerwijderdeAdministraties` voor de triggers); een boekjaar als auditfile
+   (XAF 3.2) en een auditfile inlezen als nieuwe administratie.
 
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).

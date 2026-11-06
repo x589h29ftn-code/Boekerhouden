@@ -1,9 +1,12 @@
 @page "/a/{Id:guid}"
 @inject GrootboekDienst Grootboek
+@inject AuditfileDienst Auditfiles
+@inject IJSRuntime JS
 
 <AdministratieKader Id="Id" Titel="Balans en W&V" BijOpenen="Open">
     <Acties>
         <JaarKeuze Jaren="jaren" @bind-Jaar="jaar" @bind-Jaar:after="Laad" />
+        <button class="btn btn-outline-secondary" disabled="@bezig" title="Het boekjaar als XML Auditfile Financieel (XAF 3.2), voor de Belastingdienst, de accountant of een ander pakket" @onclick="MaakAuditfile">Auditfile</button>
     </Acties>
     <ChildContent>
         @if (overzicht is not null)
@@ -41,4 +44,14 @@
     }
 
     private async Task Laad() => overzicht = await Grootboek.Jaaroverzicht(geopend!.Wie, Id, jaar);
+
+    private bool bezig;
+
+    private async Task MaakAuditfile()
+    {
+        bezig = true;
+        var bestand = await Auditfiles.Maak(geopend!.Wie, Id, jaar);
+        await JS.Bewaar(bestand.Inhoud, bestand.Bestandsnaam, "application/xml");
+        bezig = false;
+    }
 }

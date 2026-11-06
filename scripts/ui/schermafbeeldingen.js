@@ -177,6 +177,17 @@ function totp(sleutel) {
   if (await page.locator('table.bankmutaties tbody tr', { hasText: 'dubbel?' }).count() > 0) log.push('mogelijk dubbele mutaties niet verwijderd');
   await page.screenshot({ path: `${uit}/${pre}-bank-dubbel-verwijderd.png` });
 
+  // Auditfile: het boekjaar 2026 downloaden en als nieuwe administratie weer inlezen.
+  await page.goto(`${basis}/a/${id}`); await page.waitForTimeout(1500);
+  const jaarkeuze = page.locator('select').first(); if (await jaarkeuze.count()) { try { await jaarkeuze.selectOption('2026'); await page.waitForTimeout(800); } catch { } }
+  const [download] = await Promise.all([page.waitForEvent('download'), page.click('button:has-text("Auditfile")')]);
+  const xaf = path.join(uit, await download.suggestedFilename()); await download.saveAs(xaf);
+  if (!require('fs').readFileSync(xaf, 'utf8').includes('XAF/3.2')) log.push('auditfile zonder XAF 3.2');
+  await page.goto(basis + '/administraties/nieuw'); await page.waitForSelector('#auditfile', { state: 'attached' }); await page.waitForTimeout(800);
+  await page.screenshot({ path: `${uit}/${pre}-administratie-nieuw.png` });
+  await page.setInputFiles('#auditfile', xaf); await page.waitForURL(/\/a\/[0-9a-f-]+$/, { timeout: 30000 }); await page.waitForTimeout(1500);
+  await page.screenshot({ path: `${uit}/${pre}-auditfile-ingelezen.png` });
+
   // Administraties: een tweede administratie archiveren (alleen inzien), tonen met "Ook gearchiveerd" en verwijderen.
   await page.goto(basis + '/administraties/nieuw'); await page.waitForSelector('#naam'); await page.waitForTimeout(800);
   await page.fill('#naam', 'Oude Klant B.V.'); await page.click('text=Aanmaken'); await page.waitForURL(/\/a\/[0-9a-f-]+$/);
