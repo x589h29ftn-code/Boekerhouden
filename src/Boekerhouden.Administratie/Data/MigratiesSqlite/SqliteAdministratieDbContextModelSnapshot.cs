@@ -421,6 +421,9 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasMaxLength(1000)
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("MogelijkDubbel")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Omschrijving")
                         .IsRequired()
                         .HasMaxLength(1000)

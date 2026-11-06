@@ -611,6 +611,9 @@ public enum Banktransactiestatus
 {
     TeVerwerken,
     Geboekt,
+
+    /// <summary>Door de gebruiker verwijderd (bijv. dubbel ingelezen): niet meer in de lijsten, wel voor het saldo van het afschrift en de sleutel.</summary>
+    Verwijderd,
 }
 
 /// <summary>Een mutatie van een bankafschrift. Wordt één keer geboekt; de sleutel voorkomt dat hij twee keer wordt ingelezen.</summary>
@@ -653,6 +656,12 @@ public sealed class Banktransactie : IVanAdministratie
     public string? Melding { get; set; }
 
     public Guid? BoekingId { get; set; }
+
+    /// <summary>
+    /// Bij het inlezen stond er al een mutatie met dezelfde datum en hetzelfde bedrag (een ander bestand dat overlapt):
+    /// niet automatisch verwerken tot de gebruiker hem verwijdert of zegt dat hij niet dubbel is.
+    /// </summary>
+    public bool MogelijkDubbel { get; set; }
 
     public Boekhouding.Bank.Bankmutatie NaarDomein() => new(Datum, Bedrag, Omschrijving, TegenIban, TegenNaam, Betalingskenmerk, EndToEndId);
 }

@@ -152,6 +152,23 @@ function totp(sleutel) {
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${uit}/${pre}-bank-selectie.png` });
 
+  // Bank: hetzelfde afschrift nog eens, maar in een andere opmaak (andere omschrijvingen): melding van de overlap,
+  // de mutaties staan als mogelijk dubbel, kiezen en verwijderen.
+  const fs = require('fs');
+  const overlap = path.join(uit, 'ing-2026-03-andere-opmaak.mt940');
+  fs.writeFileSync(overlap, fs.readFileSync(path.join(fictief, 'ing-2026-03.mt940'), 'latin1')
+    .replace('maand maart/', 'MAART/').replace('Betaling inkoop/', 'BETALING INKOOP/').replace('/REMI/STRD/CUR/1234567890123456/', '/REMI/USTD//Factuur 20260001/'), 'latin1');
+  await page.goto(`${basis}/a/${id}/bank`); await page.waitForTimeout(1500);
+  await page.setInputFiles('#afschriften', overlap); await page.waitForTimeout(3000);
+  if (await page.locator('text=mogelijk dubbel').count() === 0) log.push('geen melding mogelijk dubbel');
+  await page.screenshot({ path: `${uit}/${pre}-bank-overlap.png` });
+  await page.locator('table.bankmutaties tbody tr', { hasText: 'dubbel?' }).first().click(); await page.waitForTimeout(1200);
+  await page.screenshot({ path: `${uit}/${pre}-bank-dubbel-paneel.png` });
+  await page.click('.dubbelbericht button:has-text("selecteren")'); await page.waitForTimeout(400);
+  await page.click('.selectiebalk button:has-text("Verwijderen")'); await page.click('.selectiebalk button:has-text("Ja, verwijderen")'); await page.waitForTimeout(1500);
+  if (await page.locator('table.bankmutaties tbody tr', { hasText: 'dubbel?' }).count() > 0) log.push('mogelijk dubbele mutaties niet verwijderd');
+  await page.screenshot({ path: `${uit}/${pre}-bank-dubbel-verwijderd.png` });
+
   console.log('administratie', id, log.length ? 'fouten in de browser: ' + log.join(' | ') : 'geen fouten in de browser');
   await browser.close();
 })();

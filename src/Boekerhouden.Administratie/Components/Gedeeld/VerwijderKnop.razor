@@ -11,8 +11,8 @@
 else
 {
     <button class="btn btn-sm btn-link text-secondary verwijderknop @Klasse" disabled="@Bezig"
-            title="@(Geboekt ? "De boeking wordt teruggedraaid (tegenboeking) en de factuur verdwijnt" : "De factuur verdwijnt uit de administratie")"
-            @onclick="() => bevestigen = true">Verwijderen</button>
+            title="@(Titel ?? (Geboekt ? "De boeking wordt teruggedraaid (tegenboeking) en de factuur verdwijnt" : "De factuur verdwijnt uit de administratie"))"
+            @onclick="() => bevestigen = true">@Tekst</button>
 }
 
 @code {
@@ -20,6 +20,14 @@ else
 
     [Parameter]
     public bool Geboekt { get; set; }
+
+    /// <summary>De tooltip van de knop; leeg = die voor een factuur.</summary>
+    [Parameter]
+    public string? Titel { get; set; }
+
+    /// <summary>Het opschrift van de knop.</summary>
+    [Parameter]
+    public string Tekst { get; set; } = "Verwijderen";
 
     /// <summary>Extra klassen, bijv. <c>ms-auto</c> om rechts te staan.</summary>
     [Parameter]

@@ -429,6 +429,9 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
+                    b.Property<bool>("MogelijkDubbel")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Omschrijving")
                         .IsRequired()
                         .HasMaxLength(1000)

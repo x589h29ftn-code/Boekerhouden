@@ -13,8 +13,12 @@ namespace Boekerhouden.Administratie.Diensten;
 
 /// <summary>Wat er met een ingelezen bankbestand gebeurd is.</summary>
 /// <param name="Dubbel">Mutaties die al eerder waren ingelezen (en dus overgeslagen).</param>
+/// <param name="MogelijkDubbel">
+/// Nieuwe mutaties met dezelfde datum en hetzelfde bedrag als een eerder ingelezen mutatie (een overlappend bestand
+/// met een andere opmaak): ingelezen, maar niet automatisch verwerkt.
+/// </param>
 /// <param name="Meldingen">Bijv. dat een afschrift niet aansluit op het vorige.</param>
-public sealed record Bankinlezing(int Afschriften, int Nieuw, int Dubbel, int Automatisch, IReadOnlyList<string> Meldingen);
+public sealed record Bankinlezing(int Afschriften, int Nieuw, int Dubbel, int Automatisch, IReadOnlyList<string> Meldingen, int MogelijkDubbel = 0);
 
 /// <summary>Wat een nieuwe ronde automatisch verwerken opleverde: hoeveel er bekeken en hoeveel er geboekt zijn.</summary>
 public sealed record Herverwerking(int Bekeken, int Geboekt);
@@ -43,7 +47,8 @@ public sealed record BankmutatieRegel(
     Banktransactiestatus Status,
     string? Melding,
     string? Betalingskenmerk = null,
-    string? EndToEndId = null);
+    string? EndToEndId = null,
+    bool MogelijkDubbel = false);
 
 /// <summary>Een openstaande post in de werklijst, met de naam van de relatie en het document.</summary>
 /// <param name="Openstaand">Zoals in het grootboek: te ontvangen positief, te betalen negatief.</param>
@@ -157,6 +162,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         var meldingen = new List<string>();
         var nieuw = new List<Banktransactie>();
         var dubbel = 0;
+        var mogelijkDubbel = 0;
         var gezien = new HashSet<string>(StringComparer.Ordinal);
         foreach (var afschrift in afschriften)
         {
@@ -168,7 +174,15 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
                 .ToHashSet(StringComparer.Ordinal);
             var regels = afschrift.Mutaties.Select((m, i) => (Mutatie: m, Sleutel: sleutels[i], Volgorde: i + 1))
                 .Where(x => !bekend.Contains(x.Sleutel) && gezien.Add(x.Sleutel)).ToList();
-            dubbel += afschrift.Mutaties.Count - regels.Count;
+            var alIngelezen = afschrift.Mutaties.Count - regels.Count;
+            dubbel += alIngelezen;
+            var verdacht = await Overlap(db, iban, afschrift, [.. regels.Select(r => r.Mutatie)], annulering);
+            mogelijkDubbel += verdacht.Dubbel.Count;
+            if (verdacht.Melding(naam, alIngelezen) is { } overlap)
+            {
+                meldingen.Add(overlap);
+            }
+
             if (regels.Count == 0)
             {
                 continue;
@@ -215,6 +229,8 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
                     EndToEndId = Kort(mutatie.EndToEndId, 100),
                     Sleutel = sleutel,
                     Status = Banktransactiestatus.TeVerwerken,
+                    MogelijkDubbel = verdacht.Dubbel.TryGetValue(mutatie, out var eerder),
+                    Melding = eerder is null ? null : Kort(eerder, 1000),
                 };
                 db.Banktransacties.Add(transactie);
                 nieuw.Add(transactie);
@@ -226,7 +242,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         }
 
         var automatisch = await VerwerkAutomatisch(db, administratie, nieuw, wie, annulering);
-        return Uitkomst<Bankinlezing>.Met(new Bankinlezing(afschriften.Count, nieuw.Count, dubbel, automatisch, meldingen));
+        return Uitkomst<Bankinlezing>.Met(new Bankinlezing(afschriften.Count, nieuw.Count, dubbel, automatisch, meldingen, mogelijkDubbel));
     }
 
     /// <summary>
@@ -248,7 +264,8 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
     {
         var automatisch = 0;
         var context = await Context(db, administratie);
-        foreach (var transactie in transacties.OrderBy(t => t.Datum).ThenBy(t => t.Volgorde))
+        // Een mogelijk dubbele mutatie nooit vanzelf boeken: anders staat dezelfde betaling twee keer in de boeken.
+        foreach (var transactie in transacties.Where(t => !t.MogelijkDubbel).OrderBy(t => t.Datum).ThenBy(t => t.Volgorde))
         {
             var voorstel = Voorstel(transactie, context);
             var uitkomst = KleinVerschil(voorstel, context) is { } klein
@@ -298,10 +315,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
         var query = db.Banktransacties.AsNoTracking();
-        if (!ookGeboekt)
-        {
-            query = query.Where(t => t.Status == Banktransactiestatus.TeVerwerken);
-        }
+        query = ookGeboekt ? query.Where(t => t.Status != Banktransactiestatus.Verwijderd) : query.Where(t => t.Status == Banktransactiestatus.TeVerwerken);
 
         var lijst = await query.OrderByDescending(t => t.Datum).ThenByDescending(t => t.Volgorde).Take(1000).ToListAsync();
         return [.. lijst.Select(Regel)];
@@ -338,8 +352,12 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
                                 join b in db.Boekingen on r.BoekingId equals b.Id
                                 where r.Rekeningnummer == rekening && b.Datum <= eindeJaar
                                 select r.Bedrag).ToListAsync()).Sum();
-        var eerder = (await db.Banktransacties.AsNoTracking().Where(x => x.AfschriftId == t.AfschriftId && x.Volgorde < t.Volgorde).Select(x => x.Bedrag).ToListAsync()).Sum();
-        var voor = afschrift.Beginsaldo + eerder;
+        // Mutaties die bij het inlezen al bekend waren, staan niet bij dit afschrift. Ontbreken er vooraan (een bestand
+        // dat overlapt met het vorige), dan terugrekenen vanaf het eindsaldo; anders vooruit vanaf het beginsaldo.
+        var mutaties = await db.Banktransacties.AsNoTracking().Where(x => x.AfschriftId == t.AfschriftId).Select(x => new { x.Volgorde, x.Bedrag }).ToListAsync();
+        var voor = mutaties.Min(x => x.Volgorde) > 1
+            ? afschrift.Eindsaldo - mutaties.Where(x => x.Volgorde >= t.Volgorde).Sum(x => x.Bedrag)
+            : afschrift.Beginsaldo + mutaties.Where(x => x.Volgorde < t.Volgorde).Sum(x => x.Bedrag);
         return new Banksaldo(rekening, schema.Zoek(rekening)?.Naam ?? "Bank", t.Datum.Year, grootboek, voor, voor + t.Bedrag);
     }
 
@@ -562,7 +580,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         }
 
         var context = await Context(db, administratie);
-        var kandidaten = await db.Banktransacties.Where(t => t.Status == Banktransactiestatus.TeVerwerken && (open.Openstaand > 0 ? t.Bedrag > 0 : t.Bedrag < 0))
+        var kandidaten = await db.Banktransacties.Where(t => t.Status == Banktransactiestatus.TeVerwerken && !t.MogelijkDubbel && (open.Openstaand > 0 ? t.Bedrag > 0 : t.Bedrag < 0))
             .OrderBy(t => t.Datum).ToListAsync();
         foreach (var t in kandidaten)
         {
@@ -831,6 +849,140 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
     }
 
     /// <summary>Sluit het beginsaldo aan op het eindsaldo van het vorige afschrift van deze rekening? Anders een melding.</summary>
+    /// <summary>
+    /// Verwijdert mutaties die nog te verwerken zijn (bijv. dubbel ingelezen uit een overlappend bestand). Ze verdwijnen
+    /// uit de lijsten, maar blijven bewaard voor het saldo van het afschrift en om ze bij opnieuw inlezen te herkennen.
+    /// Een geboekte mutatie kan niet weg. Geeft het aantal verwijderde.
+    /// </summary>
+    public async Task<Uitkomst<int>> Verwijder(Uitvoerder wie, Guid administratie, IReadOnlyList<Guid> mutaties)
+    {
+        ArgumentNullException.ThrowIfNull(wie);
+        ArgumentNullException.ThrowIfNull(mutaties);
+        await using var db = await toegang.Open(wie, administratie, Recht.Invoeren);
+        var gekozen = await db.Banktransacties.Where(t => mutaties.Contains(t.Id)).ToListAsync();
+        if (gekozen.Count == 0)
+        {
+            return Uitkomst<int>.Mislukt("Kies de mutaties die weg moeten.");
+        }
+
+        if (gekozen.Where(t => t.Status == Banktransactiestatus.Geboekt).ToList() is { Count: > 0 } geboekt)
+        {
+            return Uitkomst<int>.Mislukt(geboekt.Count == 1
+                ? $"De mutatie van {Weergave.Datum(geboekt[0].Datum)} ({Domain.Bedragen.Euro(geboekt[0].Bedrag)}) is al geboekt en kan niet weg."
+                : $"{geboekt.Count} mutaties zijn al geboekt en kunnen niet weg. Er is niets verwijderd.");
+        }
+
+        var weg = gekozen.Where(t => t.Status == Banktransactiestatus.TeVerwerken).ToList();
+        foreach (var t in weg)
+        {
+            t.Status = Banktransactiestatus.Verwijderd;
+            t.Melding = Kort($"Verwijderd door {wie.Naam} op {Weergave.Datum(DateOnly.FromDateTime(tijd.GetLocalNow().Date))}.", 1000);
+        }
+
+        await db.SaveChangesAsync();
+        if (weg.Count > 0)
+        {
+            await audit.Log(wie, AuditActies.BankmutatiesVerwijderd, $"{weg.Count} {(weg.Count == 1 ? "mutatie" : "mutaties")}",
+                string.Join("; ", weg.OrderBy(t => t.Datum).Select(t => $"{t.Dagboek} {t.Datum:dd-MM-yyyy} {t.Bedrag:0.00} {t.TegenNaam}".TrimEnd())), administratie);
+        }
+
+        return Uitkomst<int>.Met(weg.Count);
+    }
+
+    /// <summary>De gebruiker heeft gekeken: deze mutatie is niet dubbel. Daarna verwerkt het pakket hem gewoon.</summary>
+    public async Task<Uitkomst> GeenDubbel(Uitvoerder wie, Guid administratie, Guid mutatie)
+    {
+        ArgumentNullException.ThrowIfNull(wie);
+        await using var db = await toegang.Open(wie, administratie, Recht.Invoeren);
+        if (await db.Banktransacties.FirstOrDefaultAsync(t => t.Id == mutatie && t.Status == Banktransactiestatus.TeVerwerken) is not { } t)
+        {
+            return Uitkomst.Mislukt("De mutatie is niet (meer) te verwerken.");
+        }
+
+        if (!t.MogelijkDubbel)
+        {
+            return Uitkomst.Gelukt;
+        }
+
+        t.MogelijkDubbel = false;
+        t.Melding = null;
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.GeenDubbeleBankmutatie, $"{t.Dagboek} {t.Datum:dd-MM-yyyy} {t.Bedrag:0.00}", t.TegenNaam, administratie);
+        await VerwerkAutomatisch(db, administratie, [t], wie, CancellationToken.None);
+        return Uitkomst.Gelukt;
+    }
+
+    /// <summary>Wat een nieuw afschrift gemeen heeft met wat er van die rekening al is ingelezen.</summary>
+    private sealed record Overlapping(IReadOnlyList<Afschrift> Afschriften, Dictionary<Bankmutatie, string> Dubbel, Bankafschrift Afschrift, string Rekening)
+    {
+        /// <summary>Een melding als het afschrift overlapt met eerder ingelezen afschriften of mutaties; anders leeg.</summary>
+        public string? Melding(string bestand, int alIngelezen)
+        {
+            if (Afschriften.Count == 0 && alIngelezen == 0 && Dubbel.Count == 0)
+            {
+                return null;
+            }
+
+            var periode = Afschrift.Begindatum is { } b && Afschrift.Einddatum is { } e ? $" ({Weergave.Datum(b)} t/m {Weergave.Datum(e)})" : null;
+            var met = Afschriften.Count == 0 ? "eerder ingelezen mutaties"
+                : string.Join(", ", Afschriften.Select(a => a.Begindatum is { } ab && a.Einddatum is { } ae
+                    ? $"{a.Bestandsnaam} ({Weergave.Datum(ab)} t/m {Weergave.Datum(ae)})" : a.Bestandsnaam));
+            var delen = new List<string>();
+            if (alIngelezen > 0)
+            {
+                delen.Add($"{alIngelezen} {(alIngelezen == 1 ? "mutatie was" : "mutaties waren")} al ingelezen en {(alIngelezen == 1 ? "is" : "zijn")} overgeslagen");
+            }
+
+            if (Dubbel.Count > 0)
+            {
+                delen.Add($"{Dubbel.Count} {(Dubbel.Count == 1 ? "mutatie lijkt" : "mutaties lijken")} dubbel (zelfde datum en bedrag) en {(Dubbel.Count == 1 ? "staat" : "staan")} als mogelijk dubbel in Te verwerken: controleer en verwijder ze");
+            }
+
+            return $"{bestand}: het afschrift van {Boekhouding.Relaties.Iban.Toon(Rekening)}{periode} overlapt met {met}" + (delen.Count > 0 ? $"; {string.Join("; ", delen)}." : ".");
+        }
+    }
+
+    /// <summary>
+    /// Zoekt bij de nieuwe mutaties van een afschrift naar eerder ingelezen mutaties van dezelfde rekening met dezelfde
+    /// datum en hetzelfde bedrag (en dezelfde tegenrekening als beide die hebben): bij een overlappend bestand uit een
+    /// ander formaat (bijv. eerst PDF, dan MT940) verschilt de omschrijving vaak net, zodat de sleutel ze niet herkent.
+    /// Elke eerdere mutatie telt maar voor één nieuwe.
+    /// </summary>
+    private static async Task<Overlapping> Overlap(AdministratieDbContext db, string iban, Bankafschrift afschrift, IReadOnlyList<Bankmutatie> nieuw, CancellationToken annulering)
+    {
+        var data = afschrift.Mutaties.Select(m => m.Datum).ToList();
+        var van = afschrift.Begindatum is { } b && (data.Count == 0 || b < data.Min()) ? b : data.DefaultIfEmpty(DateOnly.MaxValue).Min();
+        var tot = afschrift.Einddatum is { } e && (data.Count == 0 || e > data.Max()) ? e : data.DefaultIfEmpty(DateOnly.MinValue).Max();
+        // Een afschrift overlapt als zijn periode echt in die van een ander valt; aansluitend (eind = begin) is normaal.
+        var afschriften = (await db.Afschriften.AsNoTracking().Where(a => a.Iban == iban && a.Begindatum != null && a.Einddatum != null).ToListAsync(annulering))
+            .Where(a => afschrift.Begindatum is { } ab && afschrift.Einddatum is { } ae && a.Begindatum < ae && a.Einddatum > ab).OrderBy(a => a.Begindatum).ToList();
+
+        var dubbel = new Dictionary<Bankmutatie, string>(ReferenceEqualityComparer.Instance);
+        if (nieuw.Count == 0)
+        {
+            return new(afschriften, dubbel, afschrift, iban);
+        }
+
+        var eerder = await db.Banktransacties.AsNoTracking()
+            .Where(t => t.Iban == iban && t.Status != Banktransactiestatus.Verwijderd && t.Datum >= van && t.Datum <= tot)
+            .Join(db.Afschriften, t => t.AfschriftId, a => a.Id, (t, a) => new { t.Id, t.Datum, t.Bedrag, t.TegenIban, t.TegenNaam, a.Bestandsnaam })
+            .ToListAsync(annulering);
+        var gebruikt = new HashSet<Guid>();
+        foreach (var m in nieuw)
+        {
+            var tegen = m.TegenIban is { } ti ? Iban.Normaliseer(ti) : null;
+            var gelijk = eerder.FirstOrDefault(x => !gebruikt.Contains(x.Id) && x.Datum == m.Datum && x.Bedrag == m.Bedrag
+                && (x.TegenIban is null || tegen is null || x.TegenIban == tegen));
+            if (gelijk is not null)
+            {
+                gebruikt.Add(gelijk.Id);
+                dubbel[m] = $"Mogelijk dubbel: op {Weergave.Datum(gelijk.Datum)} staat al {Domain.Bedragen.Euro(gelijk.Bedrag)}{(gelijk.TegenNaam is { Length: > 0 } n ? $" van {n}" : null)}, ingelezen uit {gelijk.Bestandsnaam}.";
+            }
+        }
+
+        return new(afschriften, dubbel, afschrift, iban);
+    }
+
     private static async Task<string?> Aansluiting(AdministratieDbContext db, string iban, Bankafschrift afschrift)
     {
         if (afschrift.Begindatum is not { } begin)
@@ -894,7 +1046,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         await db.Banktransacties.FirstOrDefaultAsync(t => t.Id == mutatie && t.Status == Banktransactiestatus.TeVerwerken);
 
     private static BankmutatieRegel Regel(Banktransactie t) =>
-        new(t.Id, t.Dagboek, t.Datum, t.Bedrag, t.Omschrijving, t.TegenNaam, t.TegenIban, t.Status, t.Melding, t.Betalingskenmerk, t.EndToEndId);
+        new(t.Id, t.Dagboek, t.Datum, t.Bedrag, t.Omschrijving, t.TegenNaam, t.TegenIban, t.Status, t.Melding, t.Betalingskenmerk, t.EndToEndId, t.MogelijkDubbel);
 
     private static string? Kort(string? tekst, int lengte) =>
         tekst is null ? null : tekst.Length > lengte ? tekst[..lengte] : tekst;

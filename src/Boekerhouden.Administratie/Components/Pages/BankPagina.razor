@@ -64,7 +64,7 @@
                     <div class="small mt-1">@bestand: @Samenvatting(w)</div>
                     @foreach (var m in w.Meldingen)
                     {
-                        <div class="small status let-op">@m</div>
+                        <div class="small status let-op d-block text-wrap">@m</div>
                     }
                 }
                 else
@@ -174,6 +174,13 @@
                 {
                     <div class="bericht small mb-2">@selectiebericht</div>
                 }
+                @if (mag && mutaties.Count(m => m.MogelijkDubbel && m.Status == Banktransactiestatus.TeVerwerken) is > 0 and var dubbel)
+                {
+                    <div class="small mb-2 d-flex align-items-center gap-2 dubbelbericht">
+                        <span class="status let-op">@dubbel @(dubbel == 1 ? "mutatie" : "mutaties") mogelijk dubbel</span>
+                        <button class="btn btn-sm btn-link p-0" @onclick="KiesDubbel">selecteren</button>
+                    </div>
+                }
                 @if (gekozen is null)
                 {
                     <Foutmeldingen Fouten="fouten" />
@@ -196,6 +203,9 @@
                                 }
                             </select>
                             <button class="btn btn-sm btn-primary" disabled="@(bezig || string.IsNullOrWhiteSpace(selectieRekening))" @onclick="BoekSelectie">Boeken</button>
+                        </div>
+                        <div class="d-flex mt-1">
+                            <VerwijderKnop Klasse="ms-auto p-0" Bezig="bezig" Titel="De gekozen mutaties verdwijnen uit Te verwerken (bijv. dubbel ingelezen); een geboekte mutatie kan niet weg" Bevestigd="VerwijderSelectie" />
                         </div>
                     </div>
                 }
@@ -241,6 +251,10 @@
                                     <td class="text-nowrap">@Weergave.Datum(m.Datum)</td>
                                     <td class="omschrijving" title="@string.Join(Environment.NewLine, new[] { m.TegenNaam, m.TegenIban is { } iban ? Iban.Toon(iban) : null, m.Omschrijving, m.Melding }.Where(t => !string.IsNullOrWhiteSpace(t)))"
                                         @ondblclick="() => KiesPosten(m)" @ondblclick:stopPropagation>
+                                        @if (m.MogelijkDubbel && m.Status == Banktransactiestatus.TeVerwerken)
+                                        {
+                                            <span class="status let-op me-1">dubbel?</span>
+                                        }
                                         @if (m.TegenNaam is { Length: > 0 })
                                         {
                                             <span>@m.TegenNaam</span>
@@ -299,6 +313,17 @@
                                 <dt>Bedrag</dt><dd><Euro Waarde="g.Mutatie.Bedrag" /></dd>
                             </dl>
                         </div>
+                        @if (mag && g.Mutatie.Status == Banktransactiestatus.TeVerwerken)
+                        {
+                            <div class="d-flex align-items-center gap-2 mb-3 dubbelcontrole">
+                                @if (g.Mutatie.MogelijkDubbel)
+                                {
+                                    <span class="small status let-op me-auto">@g.Mutatie.Melding</span>
+                                    <button class="btn btn-sm btn-outline-secondary text-nowrap" disabled="@bezig" @onclick="GeenDubbel">Niet dubbel</button>
+                                }
+                                <VerwijderKnop Klasse="@(g.Mutatie.MogelijkDubbel ? null : "ms-auto")" Bezig="bezig" Titel="De mutatie verdwijnt uit Te verwerken (bijv. dubbel ingelezen)" Bevestigd="VerwijderGekozen" />
+                            </div>
+                        }
                         <Foutmeldingen Fouten="fouten" />
                         @if (g.Voorstel.Afletteren.Kandidaten.Count > 0)
                         {
@@ -557,6 +582,53 @@
     }
 
     private string? selectiebericht;
+
+    private void KiesDubbel()
+    {
+        foreach (var m in (mutaties ?? []).Where(m => m.MogelijkDubbel && m.Status == Banktransactiestatus.TeVerwerken))
+        {
+            geselecteerd.Add(m.Id);
+        }
+    }
+
+    private Task VerwijderSelectie() => Verwijder([.. geselecteerd]);
+
+    private Task VerwijderGekozen() => gekozen is { } g ? Verwijder([g.Mutatie.Id]) : Task.CompletedTask;
+
+    private async Task Verwijder(IReadOnlyList<Guid> weg)
+    {
+        bezig = true;
+        selectiebericht = null;
+        var uitkomst = await Bank.Verwijder(geopend!.Wie, Id, weg);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            selectiebericht = uitkomst.Waarde == 1 ? "1 mutatie verwijderd." : $"{uitkomst.Waarde} mutaties verwijderd.";
+            geselecteerd.ExceptWith(weg);
+            if (gekozen is { } g && weg.Contains(g.Mutatie.Id))
+            {
+                gekozen = null;
+            }
+        }
+
+        bezig = false;
+        await Laad();
+    }
+
+    private async Task GeenDubbel()
+    {
+        if (gekozen is not { } g)
+        {
+            return;
+        }
+
+        bezig = true;
+        var uitkomst = await Bank.GeenDubbel(geopend!.Wie, Id, g.Mutatie.Id);
+        fouten = uitkomst.Fouten;
+        bezig = false;
+        await Laad();
+        gekozen = (mutaties ?? []).FirstOrDefault(m => m.Id == g.Mutatie.Id) is { Status: Banktransactiestatus.TeVerwerken } ? await Bank.Verwerking(geopend.Wie, Id, g.Mutatie.Id) : null;
+    }
 
     private readonly Sortering<BankmutatieRegel> mutatiesortering = new(
         new("Datum", m => m.Datum, EerstOplopend: false),
@@ -998,6 +1070,11 @@
         if (w.Dubbel > 0)
         {
             delen.Add($"{w.Dubbel} al ingelezen");
+        }
+
+        if (w.MogelijkDubbel > 0)
+        {
+            delen.Add($"{w.MogelijkDubbel} mogelijk dubbel");
         }
 
         return string.Join(", ", delen);
