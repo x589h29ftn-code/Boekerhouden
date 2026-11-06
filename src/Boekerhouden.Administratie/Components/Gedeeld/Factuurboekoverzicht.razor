@@ -6,18 +6,9 @@
 @inject NavigationManager Navigatie
 
 <AdministratieKader Id="Id" Titel="@(Inkoop ? "Inkoop" : "Verkoop")" Actief="@($"/{Pad}")" BijOpenen="Open">
-    <Acties>
-        <span class="form-check mb-0 small text-nowrap">
-            <input class="form-check-input" type="checkbox" id="alle-jaren" checked="@alleJaren" @onchange="WisselAlleJaren" />
-            <label class="form-check-label text-secondary" for="alle-jaren">Alle jaren</label>
-        </span>
-        @if (!alleJaren)
-        {
-            <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
-        }
-    </Acties>
     <ChildContent>
-        <div class="zoekbalk d-flex align-items-center flex-wrap gap-2 mb-3">
+        @* Eén werkbalk: zoeken en filters links, de periode rechts. *@
+        <div class="zoekbalk werkbalk d-flex align-items-center flex-wrap gap-2">
             <input class="form-control form-control-sm zoek-tekst" type="search" placeholder="@($"Zoek op {Relatienaam}, factuurnummer, boekstuk of omschrijving")" aria-label="Zoeken" @bind="tekst" @bind:event="oninput" />
             <select class="form-select form-select-sm w-auto" aria-label="@Relatienaam" @bind="relatie">
                 <option value="">Alle @(Inkoop ? "leveranciers" : "klanten")</option>
@@ -26,11 +17,11 @@
                     <option value="@l.Relatie">@l.Naam</option>
                 }
             </select>
-            <span class="text-secondary small ms-2">Bedrag</span>
+            <span class="text-secondary small ms-1">Bedrag</span>
             <input class="form-control form-control-sm text-end zoek-bedrag" placeholder="van" aria-label="Bedrag van" @bind="bedragVan" @bind:event="oninput" />
             <span class="text-secondary small">-</span>
             <input class="form-control form-control-sm text-end zoek-bedrag" placeholder="tot" aria-label="Bedrag tot" @bind="bedragTot" @bind:event="oninput" />
-            <span class="form-check mb-0 small ms-2">
+            <span class="form-check small ms-1">
                 <input class="form-check-input" type="checkbox" id="alleen-open" @bind="alleenOpen" />
                 <label class="form-check-label text-secondary" for="alleen-open">Alleen open</label>
             </span>
@@ -38,6 +29,16 @@
             {
                 <button class="btn btn-sm btn-link text-secondary" @onclick="WisFilter">Wissen</button>
             }
+            <span class="ms-auto d-inline-flex align-items-center gap-3">
+                <span class="form-check small text-nowrap">
+                    <input class="form-check-input" type="checkbox" id="alle-jaren" checked="@alleJaren" @onchange="WisselAlleJaren" />
+                    <label class="form-check-label text-secondary" for="alle-jaren">Alle jaren</label>
+                </span>
+                @if (!alleJaren)
+                {
+                    <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
+                }
+            </span>
         </div>
         @if (regels is { Count: 0 })
         {

@@ -991,3 +991,95 @@ tr[tabindex]:focus-visible {
     margin-left: 0;
     margin-right: .25rem;
 }
+
+/* ---------------------------------------------------------------------------------------------------------------
+   Afwerking: één maatvoering, één linkerlijn, één hoogte voor knoppen en velden.
+   Afstanden alleen uit de reeks 4, 8, 12, 16, 24, 32 px; de opbouw van een pagina is altijd: titel en kenmerken,
+   (meldingen), tabbladen of werkbalk, de lijst.
+   --------------------------------------------------------------------------------------------------------------- */
+:root {
+    --r1: 4px;
+    --r2: 8px;
+    --r3: 12px;
+    --r4: 16px;
+    --r5: 24px;
+    --r6: 32px;
+    --bh-hoogte: 30px;
+}
+
+/* Paginakop: vaste ruimte eronder, de knoppen rechts op de hoogte van de titel. */
+.administratie-inhoud > .d-flex:first-child {
+    margin-bottom: var(--r5) !important;
+    gap: var(--r3) !important;
+}
+
+.werklijsten, .zoekbalk, .werkbalk {
+    margin-bottom: var(--r3) !important;
+}
+
+/* Eén linkerlijn: in een lijst zonder kaart begint de eerste kolom gelijk met de titel en eindigt de laatste kolom
+   (meestal een bedrag) gelijk met de knoppen rechts. */
+:is(.card:has(> .table), .overzichtskaart) > .table > :is(thead, tbody, tfoot) > tr > :first-child {
+    padding-left: 0;
+}
+
+:is(.card:has(> .table), .overzichtskaart) > .table > :is(thead, tbody, tfoot) > tr > :last-child {
+    padding-right: 0;
+}
+
+/* Knoppen en velden in werkbalken even hoog; vinkjes op dezelfde lijn als de velden. */
+.btn-sm, .form-control-sm, .form-select-sm, .administratie-inhoud > .d-flex:first-child .btn {
+    min-height: var(--bh-hoogte);
+}
+
+.btn-sm, .administratie-inhoud > .d-flex:first-child .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--r1);
+}
+
+    .btn-sm.btn-link {
+        min-height: 0;
+    }
+
+:is(.zoekbalk, .werkbalk, .werklijsten, .administratie-inhoud > .d-flex:first-child) .form-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: var(--bh-hoogte);
+    margin-bottom: 0;
+    padding-left: 0;
+}
+
+    :is(.zoekbalk, .werkbalk, .werklijsten, .administratie-inhoud > .d-flex:first-child) .form-check .form-check-input {
+        float: none;
+        margin: 0;
+    }
+
+/* Kopjes in panelen: één stijl (klein, halfvet, grijs), geen hoofdletters. */
+.transactiegegevens-kop, .verwerkpaneel .paneelkop, .verwerkpaneel > .fw-semibold.small {
+    font-size: .8125rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    color: var(--bh-zacht) !important;
+}
+
+/* Een lege lijst: rustig in het midden, met de actie die erbij hoort. */
+.leeg-blok {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--r3);
+    padding: var(--r6) var(--r4);
+    border-top: 1px solid var(--bh-lijn-sterk);
+    color: var(--bh-zacht);
+    text-align: center;
+}
+
+    .leeg-blok .icoon {
+        width: 1.75rem;
+        height: 1.75rem;
+        color: #a3acb5;
+    }

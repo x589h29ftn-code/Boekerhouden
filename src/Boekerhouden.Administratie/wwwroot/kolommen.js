@@ -39,7 +39,8 @@ export function maak(tabel, sleutel) {
     tabel.dataset.kolommen = sleutel;
     const koppen = [...tabel.tHead.rows[0].cells];
     // Een kolom met data-breedte (bijv. een vakje om te kiezen) houdt die breedte; de andere zoals ze nu getekend zijn.
-    const gemeten = koppen.map(k => Math.round(k.getBoundingClientRect().width));
+    // Naar beneden afronden: anders is de som een paar pixels breder dan de ruimte en valt de laatste kolom net af.
+    const gemeten = koppen.map(k => Math.floor(k.getBoundingClientRect().width));
     const oorspronkelijk = koppen.map((k, i) => k.dataset.breedte ? Number(k.dataset.breedte) : gemeten[i]);
     const over = gemeten.reduce((a, b) => a + b, 0) - oorspronkelijk.reduce((a, b) => a + b, 0);
     if (over > 0) {
@@ -47,6 +48,13 @@ export function maak(tabel, sleutel) {
         const rekt = koppen.findIndex(k => k.classList.contains("rekt"));
         const breedste = rekt >= 0 ? rekt : oorspronkelijk.indexOf(Math.max(...oorspronkelijk.filter((_, i) => !koppen[i].dataset.breedte)));
         oorspronkelijk[breedste] += over;
+    }
+    // Wat door het afronden overblijft (een paar pixels), krijgt de breedste kolom: dan eindigt de tabel precies rechts.
+    const ruimte = Math.floor(tabel.parentElement ? tabel.parentElement.clientWidth : 0);
+    const rest = ruimte - oorspronkelijk.reduce((a, b) => a + b, 0);
+    if (rest > 0 && rest <= koppen.length + 2) {
+        const breedste = oorspronkelijk.indexOf(Math.max(...oorspronkelijk.filter((_, i) => !koppen[i].dataset.breedte)));
+        oorspronkelijk[breedste] += rest;
     }
     const bewaard = lees(sleutel);
     const rekbaar = koppen.findIndex(k => k.classList.contains("rekt"));

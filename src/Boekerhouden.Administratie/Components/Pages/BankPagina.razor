@@ -92,7 +92,7 @@
                 {
                     <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="Alle mutaties in Te verwerken opnieuw herkennen: afletteren, regels (ook autoherkenning) en wat er geleerd is" aria-busy="@(bezig ? "true" : null)" @onclick="VerwerkOpnieuw">Opnieuw herkennen</button>
                 }
-                <button class="btn btn-sm btn-outline-secondary" title="De openstaande posten in een eigen venster, bijv. op een tweede beeldscherm" @onclick="OpenpostenExtern">Openstaande posten</button>
+                <button class="btn btn-sm btn-outline-secondary" title="De openstaande posten in een eigen venster, bijv. op een tweede beeldscherm" @onclick="OpenpostenExtern"><Icoon Naam="app-window" /><span>Posten in venster</span></button>
                 <span class="form-check mb-0">
                     <input class="form-check-input" type="checkbox" id="ookgeboekt" checked="@ookGeboekt" @onchange="WisselGeboekt" />
                     <label class="form-check-label small text-secondary" for="ookgeboekt">Ook geboekt</label>
@@ -228,15 +228,16 @@
                                     <td class="text-nowrap">@Weergave.Datum(m.Datum)</td>
                                     <td class="omschrijving" title="@string.Join(Environment.NewLine, new[] { m.TegenNaam, m.TegenIban is { } iban ? Iban.Toon(iban) : null, m.Omschrijving, m.Melding }.Where(t => !string.IsNullOrWhiteSpace(t)))"
                                         @ondblclick="() => KiesPosten(m)" @ondblclick:stopPropagation>
-                                        @if (m.MogelijkDubbel && m.Status == Banktransactiestatus.TeVerwerken)
-                                        {
-                                            <span class="status let-op me-1">dubbel?</span>
-                                        }
-                                        @if (m.TegenNaam is { Length: > 0 })
-                                        {
-                                            <span>@m.TegenNaam</span>
-                                        }
-                                        <span class="small text-secondary ms-1">@m.Omschrijving</span>
+                                        <span class="regeltekst">
+                                            <span class="regeltekst-tekst">@if (m.TegenNaam is { Length: > 0 })
+                                                {
+                                                    <span>@m.TegenNaam</span>
+                                                }<span class="small text-secondary ms-1">@m.Omschrijving</span></span>
+                                            @if (m.MogelijkDubbel && m.Status == Banktransactiestatus.TeVerwerken)
+                                            {
+                                                <span class="status let-op">dubbel?</span>
+                                            }
+                                        </span>
                                     </td>
                                     <td class="bedrag text-end text-nowrap"><Euro Waarde="m.Bedrag" /></td>
                                 </tr>
@@ -276,6 +277,10 @@
                             <div class="me-auto min-w-0">
                                 <div class="fw-semibold text-truncate">@(g.Mutatie.TegenNaam ?? "Onbekende tegenpartij")</div>
                                 <div class="bedrag fs-5"><Euro Waarde="g.Mutatie.Bedrag" /></div>
+                                @if (mag && g.Mutatie.Status == Banktransactiestatus.TeVerwerken)
+                                {
+                                    <VerwijderKnop Klasse="p-0 mt-1" Bezig="bezig" Titel="De mutatie verdwijnt uit Te verwerken (bijv. dubbel ingelezen)" Bevestigd="VerwijderGekozen" />
+                                }
                             </div>
                             @if (g.Saldo is { } saldo)
                             {
@@ -313,15 +318,11 @@
                                 <dt>Bedrag</dt><dd><Euro Waarde="g.Mutatie.Bedrag" /></dd>
                             </dl>
                         </div>
-                        @if (mag && g.Mutatie.Status == Banktransactiestatus.TeVerwerken)
+                        @if (mag && g.Mutatie.Status == Banktransactiestatus.TeVerwerken && g.Mutatie.MogelijkDubbel)
                         {
                             <div class="d-flex align-items-center gap-2 mb-3 dubbelcontrole">
-                                @if (g.Mutatie.MogelijkDubbel)
-                                {
-                                    <span class="small status let-op me-auto">@g.Mutatie.Melding</span>
-                                    <button class="btn btn-sm btn-outline-secondary text-nowrap" disabled="@bezig" @onclick="GeenDubbel">Niet dubbel</button>
-                                }
-                                <VerwijderKnop Klasse="@(g.Mutatie.MogelijkDubbel ? null : "ms-auto")" Bezig="bezig" Titel="De mutatie verdwijnt uit Te verwerken (bijv. dubbel ingelezen)" Bevestigd="VerwijderGekozen" />
+                                <span class="small status let-op me-auto">@g.Mutatie.Melding</span>
+                                <button class="btn btn-sm btn-outline-secondary text-nowrap" disabled="@bezig" @onclick="GeenDubbel">Niet dubbel</button>
                             </div>
                         }
                         <Foutmeldingen Fouten="fouten" />
