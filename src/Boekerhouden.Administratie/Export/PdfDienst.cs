@@ -65,12 +65,39 @@ public sealed partial class PdfDienst(IOptions<PdfOpties> opties, ILogger<PdfDie
             tijdslimiet.CancelAfter(TimeSpan.FromSeconds(opties.Value.TijdslimietSeconden));
             try
             {
-                await proces.WaitForExitAsync(tijdslimiet.Token);
+                // Klaar als de browser stopt, of zodra de PDF compleet op schijf staat: op sommige (Linux-)machines
+                // schrijft de browser de PDF maar sluit hij daarna niet af; dan sluiten we hem zelf.
+                var gestopt = proces.WaitForExitAsync(tijdslimiet.Token);
+                long vorige = -1;
+                while (!gestopt.IsCompleted)
+                {
+                    await Task.WhenAny(gestopt, Task.Delay(200, tijdslimiet.Token));
+                    if (gestopt.IsCompleted)
+                    {
+                        break;
+                    }
+
+                    tijdslimiet.Token.ThrowIfCancellationRequested();
+                    var lengte = Compleet(uitvoer);
+                    if (lengte > 0 && lengte == vorige)
+                    {
+                        proces.Kill(entireProcessTree: true);
+                        break;
+                    }
+
+                    vorige = lengte;
+                }
+
+                await gestopt.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+                tijdslimiet.Token.ThrowIfCancellationRequested();
             }
             catch (OperationCanceledException) when (!stoppen.IsCancellationRequested)
             {
-                proces.Kill(entireProcessTree: true);
-                return Uitkomst<byte[]>.Mislukt("Het maken van de PDF duurde te lang.");
+                if (Compleet(uitvoer) <= 0)
+                {
+                    proces.Kill(entireProcessTree: true);
+                    return Uitkomst<byte[]>.Mislukt("Het maken van de PDF duurde te lang.");
+                }
             }
 
             if (!File.Exists(uitvoer))
@@ -104,10 +131,34 @@ public sealed partial class PdfDienst(IOptions<PdfOpties> opties, ILogger<PdfDie
     [LoggerMessage(Level = LogLevel.Debug, Message = "Tijdelijke map {Map} niet opgeruimd")]
     private static partial void NietOpgeruimd(ILogger log, Exception fout, string map);
 
+    /// <summary>De lengte van de PDF als die compleet is (eindigt op %%EOF), anders 0.</summary>
+    private static long Compleet(string pad)
+    {
+        try
+        {
+            var info = new FileInfo(pad);
+            if (!info.Exists || info.Length < 16)
+            {
+                return 0;
+            }
+
+            using var bestand = new FileStream(pad, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            var staart = new byte[Math.Min(64, bestand.Length)];
+            bestand.Seek(-staart.Length, SeekOrigin.End);
+            bestand.ReadExactly(staart);
+            return Encoding.ASCII.GetString(staart).Contains("%%EOF", StringComparison.Ordinal) ? info.Length : 0;
+        }
+        catch (IOException)
+        {
+            return 0;
+        }
+    }
+
     internal static IEnumerable<string> Argumenten(string profiel, string uitvoer, string invoer) =>
     [
         "--headless",
         "--disable-gpu",
+        "--disable-dev-shm-usage",
         "--no-pdf-header-footer",
         "--no-first-run",
         "--no-default-browser-check",
