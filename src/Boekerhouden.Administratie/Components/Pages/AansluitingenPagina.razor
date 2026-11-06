@@ -1,5 +1,6 @@
 @page "/a/{Id:guid}/aansluitingen"
 @inject AansluitingDienst Aansluiting
+@inject BankDienst Bank
 
 <AdministratieKader Id="Id" Titel="Aansluitingen" Actief="/aansluitingen" BijOpenen="Open">
     <Acties>
@@ -28,10 +29,39 @@
                                 <td class="bedrag text-end @(a.Sluit ? null : "let-op")">@(a.Verschil is { } v ? Weergave.Bedrag(v) : null)</td>
                                 <td class="status">@(a.Sluit ? a.Toelichting : a.Toelichting is null ? "sluit niet" : $"sluit niet; {a.Toelichting}")</td>
                             </tr>
+                            @foreach (var bv in a.Verschillen ?? [])
+                            {
+                                <tr class="bankverschil">
+                                    <td class="ps-4 text-truncate" title="@bv.Omschrijving">
+                                        <span class="text-secondary me-2">@Weergave.Datum(bv.Datum)</span>@bv.Omschrijving
+                                    </td>
+                                    <td class="text-secondary">
+                                        @if (bv.Boekstuk is { } stuk && stuk.Split(' ', 2) is [var dagboek, var boekstuk])
+                                        {
+                                            <a href="/a/@Id/boeking/@dagboek/@boekstuk" title="Naar de boeking">@stuk</a>
+                                        }
+                                    </td>
+                                    <td class="bedrag text-end">@(bv.Soort == Bankverschilsoort.ZonderMutatie ? Weergave.Bedrag(bv.Grootboek) : bv.Grootboek == 0 ? null : Weergave.Bedrag(bv.Grootboek))</td>
+                                    <td class="bedrag text-end">@(bv.Soort == Bankverschilsoort.ZonderMutatie ? null : Weergave.Bedrag(bv.Bedrag))</td>
+                                    <td></td>
+                                    <td>
+                                        <span class="status @(bv.Soort == Bankverschilsoort.ZonderMutatie ? null : "let-op")">@Uitleg(bv)</span>
+                                        @if (mag && bv.Soort == Bankverschilsoort.NietInGrootboek && bv.Mutatie is { } mutatie)
+                                        {
+                                            <button class="btn btn-sm btn-link p-0 ms-2 regelactie" disabled="@bezig" title="De mutatie komt terug in Te verwerken om opnieuw te boeken" @onclick="() => Terug(mutatie)">opnieuw verwerken</button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
                         }
                     </tbody>
                 </table>
             </div>
+            @if (bericht is not null)
+            {
+                <div class="bericht small mt-2">@bericht</div>
+            }
+            <Foutmeldingen Fouten="fouten" />
         }
     </ChildContent>
 </AdministratieKader>
@@ -40,6 +70,25 @@
     private Geopend? geopend;
     private IReadOnlyList<Aansluiting>? lijst;
     private bool bezig;
+    private bool mag;
+    private string? bericht;
+    private IReadOnlyList<string> fouten = [];
+
+    private static string Uitleg(Bankverschil v) => v.Soort switch
+    {
+        Bankverschilsoort.NietInGrootboek => "geboekte mutatie staat niet op de bank",
+        Bankverschilsoort.Afwijkend => "op de bank met een ander bedrag",
+        _ => "boeking op de bank zonder mutatie",
+    };
+
+    private async Task Terug(Guid mutatie)
+    {
+        bezig = true;
+        var uitkomst = await Bank.TerugNaarTeVerwerken(geopend!.Wie, Id, mutatie);
+        fouten = uitkomst.Fouten;
+        bericht = uitkomst.IsGelukt ? "De mutatie staat weer in Te verwerken bij de bank." : null;
+        await Laad();
+    }
 
     [Inject]
     private NavigationManager Navigatie { get; set; } = default!;
@@ -50,6 +99,7 @@
     private async Task Open(Geopend g)
     {
         geopend = g;
+        mag = g.Kop.Mag(Recht.Invoeren);
         await Laad();
     }
 

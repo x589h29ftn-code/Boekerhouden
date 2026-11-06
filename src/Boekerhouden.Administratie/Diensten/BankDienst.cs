@@ -889,6 +889,35 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         return Uitkomst<int>.Met(weg.Count);
     }
 
+    /// <summary>
+    /// Zet een geboekte mutatie terug naar Te verwerken als zijn boeking niet meer op de bank staat (vervallen of
+    /// verwijderd, zie de aansluiting): dan kan hij opnieuw geboekt worden. Staat de boeking nog op de bank, dan niet.
+    /// </summary>
+    public async Task<Uitkomst> TerugNaarTeVerwerken(Uitvoerder wie, Guid administratie, Guid mutatie)
+    {
+        ArgumentNullException.ThrowIfNull(wie);
+        await using var db = await toegang.Open(wie, administratie, Recht.Invoeren);
+        if (await db.Banktransacties.FirstOrDefaultAsync(t => t.Id == mutatie && t.Status == Banktransactiestatus.Geboekt) is not { } t)
+        {
+            return Uitkomst.Mislukt("Deze mutatie is niet geboekt.");
+        }
+
+        var rekening = await db.Dagboeken.AsNoTracking().Where(d => d.Code == t.Dagboek).Select(d => d.Rekeningnummer).FirstOrDefaultAsync();
+        var opBank = t.BoekingId is { } id
+            ? (await db.GeldendeRegels.AsNoTracking().Where(r => r.BoekingId == id && r.Rekeningnummer == rekening).Select(r => r.Bedrag).ToListAsync()).Sum()
+            : 0m;
+        if (opBank != 0)
+        {
+            return Uitkomst.Mislukt("De boeking van deze mutatie staat nog op de bank; pas die boeking aan.");
+        }
+
+        var stuk = t.BoekingId is { } vorige ? await db.Boekingen.AsNoTracking().Where(b => b.Id == vorige).Select(b => b.Dagboek + " " + b.Boekstuk).FirstOrDefaultAsync() : null;
+        (t.Status, t.BoekingId, t.Melding) = (Banktransactiestatus.TeVerwerken, null, Kort($"De boeking{(stuk is null ? null : $" {stuk}")} stond niet meer op de bank; opnieuw te verwerken.", 1000));
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.BankmutatieTerug, $"{t.Dagboek} {t.Datum:dd-MM-yyyy} {t.Bedrag:0.00}", stuk, administratie);
+        return Uitkomst.Gelukt;
+    }
+
     /// <summary>De gebruiker heeft gekeken: deze mutatie is niet dubbel. Daarna verwerkt het pakket hem gewoon.</summary>
     public async Task<Uitkomst> GeenDubbel(Uitvoerder wie, Guid administratie, Guid mutatie)
     {

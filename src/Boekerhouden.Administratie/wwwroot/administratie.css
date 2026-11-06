@@ -1122,3 +1122,7 @@ body.kolom-slepen { cursor: col-resize; user-select: none; }
 .bankmutaties .filterrij th { padding-top: .2rem; padding-bottom: .35rem; font-weight: normal; }
 .bankmutaties .filterrij input { font-size: .8rem; padding: .1rem .35rem; }
 .selectiebalk { padding: .6rem .75rem; }
+
+/* Aansluitingen: de verschillen tussen bankmutaties en het bankdagboek onder de bank. */
+.aansluitingen .bankverschil td { font-size: .875rem; border-top: 0; padding-top: .15rem; padding-bottom: .15rem; }
+.aansluitingen .bankverschil td:first-child { max-width: 28rem; }

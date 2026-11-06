@@ -92,6 +92,7 @@ public static class AuditActies
     public const string IngelogdMetPasskey = "Ingelogd met passkey";
     public const string AfschriftIngelezen = "Bankafschrift ingelezen";
     public const string BankmutatiesVerwijderd = "Bankmutaties verwijderd";
+    public const string BankmutatieTerug = "Bankmutatie terug naar Te verwerken";
     public const string GeenDubbeleBankmutatie = "Bankmutatie is niet dubbel";
     public const string BankdagboekGekoppeld = "Bankdagboek gekoppeld aan rekening";
     public const string Afgeletterd = "Afgeletterd";
