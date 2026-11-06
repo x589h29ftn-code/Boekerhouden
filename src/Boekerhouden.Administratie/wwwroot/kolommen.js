@@ -52,8 +52,10 @@ export function maak(tabel, sleutel) {
     // Wat door het afronden overblijft (een paar pixels), krijgt de breedste kolom: dan eindigt de tabel precies rechts.
     const ruimte = Math.floor(tabel.parentElement ? tabel.parentElement.clientWidth : 0);
     const rest = ruimte - oorspronkelijk.reduce((a, b) => a + b, 0);
-    if (rest > 0 && rest <= koppen.length + 2) {
-        const breedste = oorspronkelijk.indexOf(Math.max(...oorspronkelijk.filter((_, i) => !koppen[i].dataset.breedte)));
+    // Is de tabel breder dan de ruimte (bijv. door vaste kolombreedtes), dan gaat het verschil van de breedste kolom af,
+    // zolang die nog leesbaar blijft: anders valt de laatste kolom rechts buiten beeld.
+    const breedste = oorspronkelijk.indexOf(Math.max(...oorspronkelijk.filter((_, i) => !koppen[i].dataset.breedte)));
+    if (ruimte > 0 && breedste >= 0 && ((rest > 0 && rest <= koppen.length + 2) || (rest < 0 && oorspronkelijk[breedste] + rest >= 80))) {
         oorspronkelijk[breedste] += rest;
     }
     const bewaard = lees(sleutel);

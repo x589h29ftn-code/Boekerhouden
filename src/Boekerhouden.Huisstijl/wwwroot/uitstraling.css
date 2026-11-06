@@ -1023,7 +1023,8 @@ tr[tabindex]:focus-visible {
 }
 
 :is(.card:has(> .table), .overzichtskaart) > .table > :is(thead, tbody, tfoot) > tr > :last-child {
-    padding-right: 0;
+    /* 2px: de randen maken de tabel een pixel breder dan zijn vak; zonder deze ruimte valt de laatste letter net af. */
+    padding-right: 2px;
 }
 
 /* Knoppen en velden in werkbalken even hoog; vinkjes op dezelfde lijn als de velden. */

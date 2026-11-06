@@ -124,7 +124,7 @@ public sealed class WebTests(AdministratieFixture app) : IClassFixture<Administr
 
         Assert.Contains("NL91 ABNA 0417 1643 00", relaties, StringComparison.Ordinal);
         Assert.Contains("naam bevat ‘Belnet’", regels, StringComparison.Ordinal);
-        Assert.Contains("Regel toevoegen", regels, StringComparison.Ordinal);
+        Assert.Contains("Nieuwe regel", regels, StringComparison.Ordinal);
         Assert.Contains("Inrichting Voorbeeld B.V.", instellingen, StringComparison.Ordinal);
         Assert.Contains("Limiet automatisch boeken", instellingen, StringComparison.Ordinal);
 
@@ -135,7 +135,7 @@ public sealed class WebTests(AdministratieFixture app) : IClassFixture<Administr
         var instellingenOndernemer = await client.GetStringAsync(new Uri($"/a/{id}/instellingen", UriKind.Relative));
 
         Assert.Contains("Belnet is telefoon", regelsOndernemer, StringComparison.Ordinal);
-        Assert.DoesNotContain("Regel toevoegen", regelsOndernemer, StringComparison.Ordinal);
+        Assert.DoesNotContain("Nieuwe regel", regelsOndernemer, StringComparison.Ordinal);
         Assert.Contains("De instellingen zijn voor het kantoor.", instellingenOndernemer, StringComparison.Ordinal);
         Assert.DoesNotContain("Limiet automatisch boeken", instellingenOndernemer, StringComparison.Ordinal);
     }

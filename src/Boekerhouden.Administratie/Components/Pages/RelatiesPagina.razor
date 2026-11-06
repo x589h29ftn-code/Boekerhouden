@@ -10,7 +10,7 @@
     }
     @if (context.Mag(Recht.Invoeren))
     {
-        <div class="card card-body mb-3">
+        <Uitklapformulier Tekst="Nieuwe relatie">
             <div class="row g-2 align-items-end">
                 <div class="col-md-3"><label class="form-label" for="naam">Naam</label><input id="naam" class="form-control" @bind="nieuw.Naam" /></div>
                 <div class="col-md-3"><label class="form-label" for="iban">IBAN</label><input id="iban" class="form-control" @bind="nieuw.Iban" /></div>
@@ -18,7 +18,7 @@
                 <div class="col-md-2"><label class="form-label" for="rek">Standaardrekening</label><input id="rek" class="form-control" @bind="nieuw.Tegenrekening" /></div>
                 <div class="col-md-2"><button class="btn btn-outline-primary w-100" @onclick="VoegToe">Toevoegen</button></div>
             </div>
-        </div>
+        </Uitklapformulier>
     }
     @if (relaties is { Count: 0 })
     {

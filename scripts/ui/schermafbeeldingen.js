@@ -177,6 +177,32 @@ function totp(sleutel) {
   if (await page.locator('table.bankmutaties tbody tr', { hasText: 'dubbel?' }).count() > 0) log.push('mogelijk dubbele mutaties niet verwijderd');
   await page.screenshot({ path: `${uit}/${pre}-bank-dubbel-verwijderd.png` });
 
+  // Met ALLE=1: van elke pagina een schermafbeelding (alle-<naam>.png), ook de pagina's achter een regel.
+  if (process.env.ALLE) {
+    const paginas = [['start', '/'], ['administratie', `/a/${id}`], ['nieuwe-administratie', '/administraties/nieuw'],
+      ['bank', `/a/${id}/bank`], ['bank-openstaand', `/a/${id}/bank/openstaand`], ['inkoop', `/a/${id}/inkoop`], ['inkoopboek', `/a/${id}/inkoopboek`],
+      ['verkoop', `/a/${id}/verkoop`], ['verkoopboek', `/a/${id}/verkoopboek`], ['verkoop-nieuw', `/a/${id}/verkoop/nieuw`], ['terugkerend', `/a/${id}/verkoop/terugkerend`],
+      ['memoriaal', `/a/${id}/memoriaal`], ['journaal', `/a/${id}/journaal`], ['grootboek', `/a/${id}/grootboek?rekening=1100&van=2026-01-01&tot=2026-12-31`],
+      ['proefbalans', `/a/${id}/proefbalans`], ['kolommenbalans', `/a/${id}/kolommenbalans`], ['aansluitingen', `/a/${id}/aansluitingen`],
+      ['crediteuren', `/a/${id}/crediteuren`], ['debiteuren', `/a/${id}/debiteuren`], ['relaties', `/a/${id}/relaties`], ['regels', `/a/${id}/regels`],
+      ['rekeningschema', `/a/${id}/rekeningschema`], ['instellingen', `/a/${id}/instellingen`], ['factuurlayout', `/a/${id}/factuurlayout`],
+      ['beheer-gebruikers', '/beheer/gebruikers'], ['beheer-instellingen', '/beheer/instellingen'], ['beheer-btw', '/beheer/btw'], ['beheer-wijzigingslog', '/beheer/wijzigingslog'],
+      ['account-beveiliging', '/account/beveiliging']];
+    for (const [naam, pad] of paginas) {
+      await page.goto(basis + pad); await page.waitForTimeout(1800);
+      await page.screenshot({ path: `${uit}/alle-${naam}.png` });
+    }
+    // De pagina's achter een regel: een relatie, een boeking, een verkoopfactuur, een inkoopfactuur.
+    for (const [naam, lijst, regel] of [['relatie', 'relaties', 'table tbody tr'], ['boeking', 'journaal', 'table tbody tr'],
+      ['verkoopfactuur', 'verkoop', 'table tbody tr'], ['inkoopfactuur', 'inkoopboek', 'table tbody tr']]) {
+      await page.goto(`${basis}/a/${id}/${lijst}`); await page.waitForTimeout(1500);
+      if (await page.locator(regel).count() > 0) {
+        await page.locator(regel).first().click(); await page.waitForTimeout(2000);
+        await page.screenshot({ path: `${uit}/alle-${naam}.png` });
+      }
+    }
+  }
+
   console.log('administratie', id, log.length ? 'fouten in de browser: ' + log.join(' | ') : 'geen fouten in de browser');
   await browser.close();
 })();

@@ -1165,3 +1165,18 @@ body *:not(#geen):not(.factuurvoorbeeld-pagina *, .ontwerpvlak-pagina *)::after 
 .bankmutaties tr:focus-visible .kiesvak .form-check-input { opacity: 1; }
 .bankmutaties td.datum { color: var(--bh-zacht); }
 .inleesregel .let-op { cursor: help; text-decoration: underline dotted; text-underline-offset: .2em; }
+
+/* Een formulier achter een knop: binnen een kaart zonder eigen kader. */
+.card-body > .uitklapformulier { margin: 0 !important; padding: 0; border: 0; background: transparent; }
+.card-body > .uitklapknop { margin-bottom: 0 !important; }
+
+/* Links in lijsten in de kleur van de tekst; pas bij aanwijzen de linkkleur met onderstreping. */
+:is(.table, .overzichtstabel) td a:not(.btn), :is(.table, .overzichtstabel) td a:not(.btn) * { color: inherit; }
+:is(.table, .overzichtstabel) td a:not(.btn):hover { color: var(--bh-accent); text-decoration: underline; }
+
+/* Wijzigingslog: één regel per wijziging, de rest in de tooltip. */
+.wijzigingslog { table-layout: fixed; }
+.wijzigingslog td.enkel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Een kopje in een lang formulier (bijv. Gegevens, Verwerken). */
+.formuliersectie { margin-bottom: var(--r2); padding-bottom: var(--r1); border-bottom: 1px solid var(--bh-lijn); color: var(--bh-zacht); font-size: .8125rem; }

@@ -171,7 +171,7 @@ class Viewer {
     }
 
     zetDoel(naam) {
-        this.doel.textContent = naam ? `→ ${naam}` : '';
+        this.doel.textContent = naam ? `Invullen: ${naam}` : '';
     }
 
     selecteerbaar(item) {

@@ -8,7 +8,7 @@
     @if (context.Mag(Recht.Boekhouden))
     {
         <Foutmeldingen Fouten="fouten" />
-        <div class="card card-body mb-3">
+        <Uitklapformulier Tekst="Nieuwe rekening">
             <div class="row g-2 align-items-end">
                 <div class="col-sm-2">
                     <label class="form-label" for="nummer">Nummer</label>
@@ -43,7 +43,7 @@
                     <button class="btn btn-outline-primary w-100" @onclick="VoegToe">Toevoegen</button>
                 </div>
             </div>
-        </div>
+        </Uitklapformulier>
     }
     @if (schema is not null)
     {

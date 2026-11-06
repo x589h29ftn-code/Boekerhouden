@@ -35,6 +35,7 @@
                 </tbody>
             </table>
             <div class="card-body border-top">
+                <Uitklapformulier Tekst="Nieuwe gebruiker">
                 <div class="row g-2">
                     <div class="col-6"><input class="form-control form-control-sm" placeholder="Naam" @bind="naam" aria-label="Naam" /></div>
                     <div class="col-2"><input class="form-control form-control-sm" placeholder="Initialen" @bind="initialen" aria-label="Initialen" /></div>
@@ -51,6 +52,7 @@
                     </span>
                     <button class="btn btn-sm btn-outline-primary ms-auto" @onclick="MaakGebruiker">Gebruiker toevoegen</button>
                 </div>
+                </Uitklapformulier>
             </div>
         </div>
     </div>
@@ -69,6 +71,7 @@
                 </tbody>
             </table>
             <div class="card-body border-top">
+                <Uitklapformulier Tekst="Nieuw lidmaatschap">
                 <div class="row g-2">
                     <div class="col-5">
                         <select class="form-select form-select-sm" @bind="lidGebruiker" aria-label="Gebruiker">
@@ -100,6 +103,7 @@
                 <div class="text-end mt-2">
                     <button class="btn btn-sm btn-outline-primary" @onclick="ZetLid">Lid maken</button>
                 </div>
+                </Uitklapformulier>
             </div>
         </div>
     </div>

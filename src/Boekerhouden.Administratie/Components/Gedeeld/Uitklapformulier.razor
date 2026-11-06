@@ -1,0 +1,33 @@
+@* Een formulier om iets toe te voegen dat pas opengaat als je erom vraagt: eerst alleen een knop ("Nieuwe rekening"),
+   na klikken het formulier met rechtsonder Sluiten. Zo staat er geen leeg formulier boven elke lijst. *@
+
+@if (open)
+{
+    <div class="card card-body mb-3 uitklapformulier">
+        @ChildContent
+        <div class="d-flex justify-content-end mt-2">
+            <button type="button" class="btn btn-sm btn-link text-secondary p-0" @onclick="() => open = false">Sluiten</button>
+        </div>
+    </div>
+}
+else
+{
+    <button type="button" class="btn btn-sm btn-outline-secondary mb-3 uitklapknop" @onclick="() => open = true"><Icoon Naam="plus" /><span>@Tekst</span></button>
+}
+
+@code {
+    private bool open;
+
+    /// <summary>De tekst op de knop, bijv. "Nieuwe rekening".</summary>
+    [Parameter, EditorRequired]
+    public string Tekst { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Meteen open (bijv. als er nog niets is).</summary>
+    [Parameter]
+    public bool Open { get; set; }
+
+    protected override void OnInitialized() => open = Open;
+}

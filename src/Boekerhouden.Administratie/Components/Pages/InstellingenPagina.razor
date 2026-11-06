@@ -15,7 +15,8 @@
             <div class="bericht mb-2">@bericht</div>
         }
         <div class="card card-body" style="max-width: 52rem">
-            <div class="row g-2 mb-3">
+            <div class="formuliersectie">Gegevens</div>
+            <div class="row g-2 mb-4">
                 <div class="col-12"><label class="form-label" for="naam">Naam</label><input id="naam" class="form-control" @bind="gegevens.Naam" /></div>
                 <div class="col-md-6"><label class="form-label" for="kvk">KvK-nummer</label><input id="kvk" class="form-control" @bind="gegevens.KvkNummer" /></div>
                 <div class="col-md-6"><label class="form-label" for="btw">Btw-nummer</label><input id="btw" class="form-control" @bind="gegevens.BtwNummer" /></div>
@@ -28,6 +29,7 @@
                 <div class="col-md-4"><label class="form-label" for="telefoon">Telefoon</label><input id="telefoon" class="form-control" @bind="gegevens.Telefoon" /></div>
                 <div class="col-md-4"><label class="form-label" for="website">Website</label><input id="website" class="form-control" @bind="gegevens.Website" /></div>
             </div>
+            <div class="formuliersectie" title="Leeg = zoals het kantoor (grijs in het veld)">Verwerken</div>
             <div class="mb-3">
                 <InstellingenVelden Invoer="instellingen" Kantoor="kantoor" />
             </div>

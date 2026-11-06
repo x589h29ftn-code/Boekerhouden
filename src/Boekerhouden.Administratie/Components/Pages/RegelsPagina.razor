@@ -43,9 +43,8 @@
     }
     @if (context.Mag(Recht.Boekhouden))
     {
-        <div class="card">
-            <div class="card-header fw-semibold">Nieuwe regel</div>
-            <div class="card-body">
+        <Uitklapformulier Tekst="Nieuwe regel">
+            <div>
                 <div class="row g-2 mb-2">
                     <div class="col-md-4"><label class="form-label" for="naam">Naam</label><input id="naam" class="form-control" @bind="invoer.Naam" /></div>
                     <div class="col-md-2">
@@ -90,7 +89,7 @@
                     <button class="btn btn-outline-primary ms-auto" @onclick="VoegToe">Regel toevoegen</button>
                 </div>
             </div>
-        </div>
+        </Uitklapformulier>
     }
 </AdministratieKader>
 
