@@ -942,9 +942,9 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
     }
 
     /// <summary>Wat een nieuw afschrift gemeen heeft met wat er van die rekening al is ingelezen.</summary>
-    private sealed record Overlapping(IReadOnlyList<Afschrift> Afschriften, Dictionary<Bankmutatie, string> Dubbel, Bankafschrift Afschrift, string Rekening)
+    private sealed record Overlapping(IReadOnlyList<Afschrift> Afschriften, Dictionary<Bankmutatie, string> Dubbel)
     {
-        /// <summary>Een melding als het afschrift overlapt met eerder ingelezen afschriften of mutaties; anders leeg.</summary>
+        /// <summary>Een korte melding als het afschrift overlapt met eerder ingelezen afschriften of mutaties; anders leeg.</summary>
         public string? Melding(string bestand, int alIngelezen)
         {
             if (Afschriften.Count == 0 && alIngelezen == 0 && Dubbel.Count == 0)
@@ -952,22 +952,21 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
                 return null;
             }
 
-            var periode = Afschrift.Begindatum is { } b && Afschrift.Einddatum is { } e ? $" ({Weergave.Datum(b)} t/m {Weergave.Datum(e)})" : null;
             var met = Afschriften.Count == 0 ? "eerder ingelezen mutaties"
                 : string.Join(", ", Afschriften.Select(a => a.Begindatum is { } ab && a.Einddatum is { } ae
                     ? $"{a.Bestandsnaam} ({Weergave.Datum(ab)} t/m {Weergave.Datum(ae)})" : a.Bestandsnaam));
             var delen = new List<string>();
             if (alIngelezen > 0)
             {
-                delen.Add($"{alIngelezen} {(alIngelezen == 1 ? "mutatie was" : "mutaties waren")} al ingelezen en {(alIngelezen == 1 ? "is" : "zijn")} overgeslagen");
+                delen.Add($"{alIngelezen} al ingelezen");
             }
 
             if (Dubbel.Count > 0)
             {
-                delen.Add($"{Dubbel.Count} {(Dubbel.Count == 1 ? "mutatie lijkt" : "mutaties lijken")} dubbel (zelfde datum en bedrag) en {(Dubbel.Count == 1 ? "staat" : "staan")} als mogelijk dubbel in Te verwerken: controleer en verwijder ze");
+                delen.Add($"{Dubbel.Count} mogelijk dubbel");
             }
 
-            return $"{bestand}: het afschrift van {Boekhouding.Relaties.Iban.Toon(Rekening)}{periode} overlapt met {met}" + (delen.Count > 0 ? $"; {string.Join("; ", delen)}." : ".");
+            return $"{bestand} overlapt met {met}" + (delen.Count > 0 ? $": {string.Join(", ", delen)}." : ".");
         }
     }
 
@@ -989,7 +988,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         var dubbel = new Dictionary<Bankmutatie, string>(ReferenceEqualityComparer.Instance);
         if (nieuw.Count == 0)
         {
-            return new(afschriften, dubbel, afschrift, iban);
+            return new(afschriften, dubbel);
         }
 
         var eerder = await db.Banktransacties.AsNoTracking()
@@ -1009,7 +1008,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             }
         }
 
-        return new(afschriften, dubbel, afschrift, iban);
+        return new(afschriften, dubbel);
     }
 
     private static async Task<string?> Aansluiting(AdministratieDbContext db, string iban, Bankafschrift afschrift)

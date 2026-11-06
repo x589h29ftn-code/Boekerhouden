@@ -132,12 +132,12 @@
                         <div class="d-flex flex-column gap-1">
                             <span class="form-check mb-0 small">
                                 <input class="form-check-input" type="checkbox" id="automatisch" @bind="f.Automatisch" />
-                                <label class="form-check-label" for="automatisch">meteen definitief maken (anders een concept om na te kijken)</label>
+                                <label class="form-check-label" for="automatisch" title="Anders een concept om na te kijken">Meteen definitief maken</label>
                             </span>
                             <span class="d-flex gap-2 align-items-center flex-wrap">
                                 <span class="form-check mb-0 small">
                                     <input class="form-check-input" type="checkbox" id="verdelen" @bind="f.Verdelen" />
-                                    <label class="form-check-label" for="verdelen">omzet verdelen over de periode van elke factuur</label>
+                                    <label class="form-check-label" for="verdelen">Omzet verdelen over de periode van elke factuur</label>
                                 </span>
                                 @if (f.Verdelen)
                                 {
@@ -149,7 +149,7 @@
                             {
                                 <span class="form-check mb-0 small">
                                     <input class="form-check-input" type="checkbox" id="actief" @bind="f.Actief" />
-                                    <label class="form-check-label" for="actief">actief</label>
+                                    <label class="form-check-label" for="actief">Actief</label>
                                 </span>
                             }
                         </div>

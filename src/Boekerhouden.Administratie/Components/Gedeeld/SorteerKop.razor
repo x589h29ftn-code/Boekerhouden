@@ -1,7 +1,7 @@
 @* Een kolomkop om op te sorteren: klikken sorteert, nog eens klikken keert om; het pijltje toont de richting.
    Gewijzigd tekent de tabel opnieuw: geef de pagina mee (Gewijzigd="StateHasChanged"), anders tekent alleen de kop. *@
 
-<th class="sorteerbaar @Klasse" aria-sort="@(Sortering.Kolom == Naam ? (Sortering.Oplopend ? "ascending" : "descending") : null)" title="Sorteren" @onclick="Wissel">
+<th class="sorteerbaar @Klasse" data-breedte="@Breedte" aria-sort="@(Sortering.Kolom == Naam ? (Sortering.Oplopend ? "ascending" : "descending") : null)" title="Sorteren" @onclick="Wissel">
     @(Tekst ?? Naam)<span class="sorteerpijl"><Icoon Naam="arrow-up" /></span>
 </th>
 
@@ -18,6 +18,10 @@
 
     [Parameter]
     public string? Klasse { get; set; }
+
+    /// <summary>Een vaste breedte in pixels (voor de versleepbare kolommen, zie kolommen.js); leeg = zoals getekend.</summary>
+    [Parameter]
+    public int? Breedte { get; set; }
 
     [Parameter, EditorRequired]
     public EventCallback Gewijzigd { get; set; }

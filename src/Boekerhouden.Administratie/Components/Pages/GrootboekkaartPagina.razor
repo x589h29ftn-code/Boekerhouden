@@ -50,7 +50,7 @@
                     <span>@gekozen.Count @(gekozen.Count == 1 ? "regel" : "regels") (<Euro Waarde="Gekozen.Sum(m => m.Bedrag)" />) herboeken naar</span>
                     <div class="herboeken-rekening"><RekeningKeuze Id="herboek-rekening" @bind-Waarde="naarRekening" Schema="schema" Kader="geopend" /></div>
                     <button class="btn btn-sm btn-primary" disabled="@(bezig || string.IsNullOrWhiteSpace(naarRekening))" aria-busy="@(bezig ? "true" : null)" @onclick="Herboek">Herboeken</button>
-                    <button class="btn btn-sm btn-link text-secondary" @onclick="() => gekozen.Clear()">annuleren</button>
+                    <button class="btn btn-sm btn-link text-secondary" @onclick="() => gekozen.Clear()">Annuleren</button>
                 </div>
             }
             <div class="card overzichtskaart">

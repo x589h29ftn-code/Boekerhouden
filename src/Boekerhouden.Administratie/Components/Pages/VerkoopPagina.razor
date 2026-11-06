@@ -37,7 +37,7 @@
         @if (teMaken > 0)
         {
             <div class="bericht mb-3">
-                @teMaken terugkerende @(teMaken == 1 ? "factuur" : "facturen") klaar om te maken · <a href="/a/@Id/verkoop/terugkerend">bekijken en maken</a>
+                @teMaken terugkerende @(teMaken == 1 ? "factuur" : "facturen") klaar om te maken · <a href="/a/@Id/verkoop/terugkerend">Bekijken en maken</a>
             </div>
         }
         @if (regels is null)
@@ -54,7 +54,7 @@
                 <input class="form-control form-control-sm zoek-tekst" type="search" placeholder="Zoek op klant, nummer of omschrijving" aria-label="Zoeken" @bind="zoek" @bind:event="oninput" />
                 <span class="form-check mb-0 small ms-2">
                     <input class="form-check-input" type="checkbox" id="alleen-open" @bind="alleenOpen" />
-                    <label class="form-check-label text-secondary" for="alleen-open">alleen open</label>
+                    <label class="form-check-label text-secondary" for="alleen-open">Alleen open</label>
                 </span>
             </div>
             var zichtbaar = sortering.Pas(regels.Where(Past)).ToList();

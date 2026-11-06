@@ -84,7 +84,7 @@
                         <span class="me-auto" title="Aangemaakt op @Weergave.DatumTijd(p.Aangemaakt)">@p.Naam</span>
                         <form method="post" @formname="@($"passkey-weg-{p.Id}")" @onsubmit="() => Verwijder(p.Id)">
                             <AntiforgeryToken />
-                            <button class="btn btn-sm btn-link text-secondary p-0" type="submit">verwijderen</button>
+                            <button class="btn btn-sm btn-link text-secondary p-0" type="submit">Verwijderen</button>
                         </form>
                     </li>
                 }

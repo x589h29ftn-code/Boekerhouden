@@ -32,7 +32,7 @@
                         {
                             <span class="status">geldt nu</span>
                         }
-                        <span class="acties"><button class="btn btn-sm btn-link text-secondary p-0 ms-2" @onclick="() => VerwijderTarief(t.Id)">verwijderen</button></span>
+                        <span class="acties"><button class="btn btn-sm btn-link text-secondary p-0 ms-2" @onclick="() => VerwijderTarief(t.Id)">Verwijderen</button></span>
                     </td>
                 </tr>
             }
@@ -90,10 +90,10 @@
                         {
                             <span class="form-check d-inline-block mb-0 me-2">
                                 <input class="form-check-input" type="checkbox" id="actief-@c.Code" @bind="bewerkActief" />
-                                <label class="form-check-label small" for="actief-@c.Code">actief</label>
+                                <label class="form-check-label small" for="actief-@c.Code">Actief</label>
                             </span>
                             <button class="btn btn-sm btn-primary" @onclick="BewaarCode">Opslaan</button>
-                            <button class="btn btn-sm btn-link text-secondary" @onclick="() => bewerk = null">annuleren</button>
+                            <button class="btn btn-sm btn-link text-secondary" @onclick="() => bewerk = null">Annuleren</button>
                         }
                         else
                         {

@@ -113,13 +113,13 @@
                                     <InputFile id="logo" class="form-control form-control-sm" accept="image/png,image/jpeg" OnChange="ZetLogo" />
                                     @if (logo is not null)
                                     {
-                                        <button class="btn btn-sm btn-link text-secondary px-0 mt-1" @onclick="VerwijderLogo">logo verwijderen</button>
+                                        <button class="btn btn-sm btn-link text-secondary px-0 mt-1" @onclick="VerwijderLogo">Logo verwijderen</button>
                                     }
                                 </div>
                             }
                             @if (blok.Soort == Bloksoort.Tekst)
                             {
-                                <button class="btn btn-sm btn-link text-secondary px-0 mt-2" @onclick="VerwijderBlok">tekstblok verwijderen</button>
+                                <button class="btn btn-sm btn-link text-secondary px-0 mt-2" @onclick="VerwijderBlok">Tekstblok verwijderen</button>
                             }
                         }
                         else
@@ -161,7 +161,7 @@
                             </div>
                             <div class="d-flex flex-wrap gap-2 mt-3">
                                 <button class="btn btn-sm btn-outline-secondary" @onclick="TekstblokErbij">+ Tekstblok</button>
-                                <button class="btn btn-sm btn-link text-secondary" @onclick="Herstel" title="Terug naar de standaardlay-out (logo blijft)">standaard herstellen</button>
+                                <button class="btn btn-sm btn-link text-secondary" @onclick="Herstel" title="Terug naar de standaardlay-out (logo blijft)">Standaard herstellen</button>
                             </div>
                             @if (huidig?.Id is { } bewaard && !huidig.Standaard)
                             {

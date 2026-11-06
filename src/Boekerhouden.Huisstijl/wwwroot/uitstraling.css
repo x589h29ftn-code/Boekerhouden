@@ -27,24 +27,30 @@
 }
 
 :root {
-    --bh-accent: #1d5c63;
-    --bh-accent-donker: #154449;
-    --bh-accent-zacht: #e5eeee;
+    --bh-accent: #24426e;
+    --bh-accent-donker: #1a3152;
+    --bh-accent-zacht: #e8eef7;
     --bh-tekst: #1e2428;
     --bh-zacht: #66717a;
     --bh-lijn: #e3e6e8;
     --bh-lijn-sterk: #cfd5d9;
     --bh-vlak: #f6f6f4;
     --bh-kop: #fafaf9;
+    /* Eigen gezicht: inktblauw als hoofdkleur, een warme roestkleur als enige accent (actief menu, let op), een
+       donkere kopbalk zoals in kantoorsoftware. */
+    --bh-inkt: #172238;
+    --bh-inkt-tekst: #c9d2e0;
+    --bh-warm: #b4532a;
+    --bh-warm-zacht: #fbf1ea;
     --bh-snel: 120ms;
     --bh-gewoon: 180ms;
     --bh-curve: cubic-bezier(.2, .7, .2, 1);
     --bs-primary: var(--bh-accent);
-    --bs-primary-rgb: 29, 92, 99;
+    --bs-primary-rgb: 36, 66, 110;
     --bs-link-color: var(--bh-accent);
-    --bs-link-color-rgb: 29, 92, 99;
+    --bs-link-color-rgb: 36, 66, 110;
     --bs-link-hover-color: var(--bh-accent-donker);
-    --bs-link-hover-color-rgb: 21, 68, 73;
+    --bs-link-hover-color-rgb: 26, 49, 82;
     /* Het lettertype van het systeem: Segoe UI (Variable) op Windows, het Apple-lettertype op de Mac; IBM Plex Sans
        (meegeleverd) waar geen van beide is. Zo voelt het pakket als de rest van de kantoorsoftware. */
     --bs-body-font-family: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, "IBM Plex Sans", Roboto, Arial, sans-serif;
@@ -52,7 +58,7 @@
     --bs-secondary-color: var(--bh-zacht);
     --bs-border-color: var(--bh-lijn);
     --bs-tertiary-bg: #f3f4f3;
-    --bs-focus-ring-color: rgba(29, 92, 99, .25);
+    --bs-focus-ring-color: rgba(36, 66, 110, .25);
     --kleur-zacht: var(--bh-zacht);
     --kleur-lijn: var(--bh-lijn);
 }
@@ -102,7 +108,7 @@ a {
     font-variant-numeric: tabular-nums;
 }
 
-/* Iconen: één lijnset (Lucide, iconen.svg); kleur en dikte volgen de tekst. */
+/* Iconen: één set (Phosphor regular, iconen.svg, gevulde lijnen in de kleur van de tekst); kleur en grootte volgen de tekst. */
 .icoon {
     width: 1em;
     height: 1em;
@@ -144,7 +150,7 @@ a {
     --bs-btn-active-border-color: var(--bh-accent-donker);
     --bs-btn-disabled-bg: var(--bh-accent);
     --bs-btn-disabled-border-color: var(--bh-accent);
-    --bs-btn-focus-shadow-rgb: 29, 92, 99;
+    --bs-btn-focus-shadow-rgb: 36, 66, 110;
     font-weight: 500;
 }
 
@@ -155,7 +161,7 @@ a {
     --bs-btn-hover-border-color: var(--bh-accent);
     --bs-btn-active-bg: var(--bh-accent-donker);
     --bs-btn-active-border-color: var(--bh-accent-donker);
-    --bs-btn-focus-shadow-rgb: 29, 92, 99;
+    --bs-btn-focus-shadow-rgb: 36, 66, 110;
 }
 
 .btn-outline-secondary {
@@ -170,7 +176,7 @@ a {
     --bs-btn-active-border-color: #c2c9ce;
     --bs-btn-disabled-color: #9aa3a9;
     --bs-btn-disabled-border-color: var(--bh-lijn);
-    --bs-btn-focus-shadow-rgb: 29, 92, 99;
+    --bs-btn-focus-shadow-rgb: 36, 66, 110;
 }
 
     .btn-outline-secondary.active, .btn-check:checked + .btn-outline-secondary {
@@ -261,7 +267,7 @@ a {
 
 .table {
     --bs-table-border-color: #eceeef;
-    --bs-table-hover-bg: rgba(29, 92, 99, .045);
+    --bs-table-hover-bg: rgba(36, 66, 110, .045);
     --bs-table-active-bg: var(--bh-accent-zacht);
 }
 
@@ -821,3 +827,161 @@ a.terug {
         transition-duration: 1ms !important;
     }
 }
+
+
+/* ---------------------------------------------------------------------------------------------------------------
+   Eigen gezicht (november 2026): een donkere kopbalk met een eigen merkteken, kenmerken in de paginakop als losse
+   gegevens (geen keten met puntjes), cijfers in tabellen even breed alleen waar dat moet (bedragen), datums gewoon,
+   "let op" in één warme kleur, en een bevestiging als korte melding linksonder.
+   --------------------------------------------------------------------------------------------------------------- */
+.kopbalk {
+    background: var(--bh-inkt);
+    border-bottom: 0;
+    color: #fff;
+}
+
+    .kopbalk .merk, .kopbalk .woordmerk-naam {
+        color: #fff;
+    }
+
+.woordmerk::before {
+    content: "";
+    align-self: center;
+    width: 1.15rem;
+    height: 1.15rem;
+    margin-right: .15rem;
+    border-radius: 3px;
+    background: var(--bh-warm) url("favicon-merk.svg") center / 100% no-repeat;
+}
+
+.woordmerk-naam::first-letter {
+    color: inherit;
+}
+
+.kopbalk .woordmerk-sub {
+    color: var(--bh-inkt-tekst);
+    opacity: .75;
+}
+
+.hoofdmenu a {
+    color: var(--bh-inkt-tekst);
+}
+
+    .hoofdmenu a:hover {
+        color: #fff;
+    }
+
+    .hoofdmenu a.actief {
+        color: #fff;
+        border-bottom-color: var(--bh-warm);
+    }
+
+.kopbalk .gebruikersmenu summary {
+    color: #fff;
+}
+
+    .kopbalk .gebruikersmenu summary:hover {
+        background: rgba(255, 255, 255, .08);
+    }
+
+/* Paginakop: de kenmerken als losse gegevens met een dunne scheidslijn, niet als zin met puntjes. */
+.kopkenmerken {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    row-gap: .15rem;
+}
+
+    .kopkenmerken .scheiding {
+        display: inline-block;
+        width: 1px;
+        height: .85em;
+        margin: 0 .75rem;
+        background: var(--bh-lijn-sterk);
+        color: transparent;
+        overflow: hidden;
+        vertical-align: -.05em;
+    }
+
+/* Cijfers even breed alleen bij bedragen; een datum of nummer in gewone cijfers leest rustiger. */
+.overzichtstabel td, .table td {
+    font-variant-numeric: normal;
+}
+
+.bedrag, .overzichtstabel td.bedrag, .table td.bedrag, .kopkenmerken strong {
+    font-variant-numeric: tabular-nums;
+}
+
+/* "Let op" in één kleur: de warme accentkleur, nooit rood. */
+.status.let-op, .let-op {
+    color: var(--bh-warm) !important;
+}
+
+span.status.let-op {
+    padding: 0 .3rem;
+    border-radius: 2px;
+    background: var(--bh-warm-zacht);
+}
+
+/* Een bevestiging na een handeling: klein, linksonder boven de statusbalk, verdwijnt vanzelf. */
+.melding-kort {
+    position: fixed;
+    left: 1.25rem;
+    bottom: 2.5rem;
+    z-index: 1030;
+    max-width: 28rem;
+    padding: .5rem .85rem;
+    border-radius: 3px;
+    background: var(--bh-inkt);
+    color: #fff;
+    font-size: .875rem;
+    box-shadow: 0 4px 16px rgba(23, 34, 56, .18);
+    animation: bh-melding 4.5s var(--bh-curve) forwards;
+    pointer-events: none;
+}
+
+@keyframes bh-melding {
+    0% { opacity: 0; transform: translateY(6px); }
+    5% { opacity: 1; transform: none; }
+    85% { opacity: 1; }
+    100% { opacity: 0; visibility: hidden; }
+}
+
+/* Een balk die onderaan blijft staan zolang er iets gekozen is (bijv. bankmutaties), boven de statusbalk. */
+.actiebalk {
+    position: sticky;
+    bottom: 2rem;
+    z-index: 1015;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .5rem .75rem;
+    margin-top: .5rem;
+    padding: .55rem .85rem;
+    border: 1px solid var(--bh-lijn-sterk);
+    border-radius: 3px;
+    background: #fff;
+    box-shadow: 0 -2px 12px rgba(23, 34, 56, .08);
+}
+
+/* Toetsenbord: de regel met de focus krijgt een rand in de hoofdkleur. */
+tr[tabindex]:focus-visible {
+    outline: 2px solid var(--bh-accent);
+    outline-offset: -2px;
+}
+
+.toetshint {
+    color: var(--bh-zacht);
+    font-size: .75rem;
+}
+
+    .toetshint kbd {
+        padding: 0 .3rem;
+        border: 1px solid var(--bh-lijn-sterk);
+        border-radius: 2px;
+        background: #fff;
+        color: var(--bh-tekst);
+        font-family: inherit;
+        font-size: .7rem;
+        box-shadow: none;
+    }

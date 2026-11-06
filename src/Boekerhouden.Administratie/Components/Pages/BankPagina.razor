@@ -35,7 +35,7 @@
     <Acties>
         @if (geopend?.Kop.Mag(Recht.Invoeren) == true)
         {
-            <label class="btn btn-sm btn-outline-secondary @(bezig ? "disabled" : null)" for="bankpdf" title="Een rekeningafschrift dat alleen als PDF bestaat omzetten naar MT940 (om te bewaren of in te lezen)">PDF → MT940</label>
+            <label class="btn btn-sm btn-outline-secondary @(bezig ? "disabled" : null)" for="bankpdf" title="Een rekeningafschrift dat alleen als PDF bestaat omzetten naar MT940 (om te bewaren of in te lezen)">PDF omzetten</label>
             <InputFile id="bankpdf" class="d-none" accept=".pdf,application/pdf" OnChange="ZetPdfOm" disabled="@bezig" />
             <label class="btn btn-sm btn-primary @(bezig ? "disabled" : null)" for="afschriften" aria-busy="@(bezig ? "true" : null)" title="MT940, CAMT.053 of een PDF-afschrift; slepen op de pagina kan ook">Afschrift inlezen</label>
         }
@@ -48,7 +48,7 @@
             @if (omzetting is { } o)
             {
                 <div class="bericht small mt-1 d-flex align-items-center flex-wrap gap-2">
-                    <span>@o.Bestandsnaam: @Boekhouding.Relaties.Iban.Toon(o.Afschrift.Iban)@(o.Afschrift.Nummer is { } nr ? $", afschrift {nr}" : null) · @o.Afschrift.Mutaties.Count mutaties · @(o.Afschrift.Begindatum is { } van ? Weergave.Datum(van) : null) t/m @(o.Afschrift.Einddatum is { } tot ? Weergave.Datum(tot) : null) · saldo @Weergave.Bedrag(o.Afschrift.Beginsaldo) → @Weergave.Bedrag(o.Afschrift.Eindsaldo), sluit</span>
+                    <span title="@Omzettitel(o)">@Boekhouding.Relaties.Iban.Toon(o.Afschrift.Iban), @(o.Afschrift.Begindatum is { } van ? Weergave.Datum(van) : null) t/m @(o.Afschrift.Einddatum is { } tot ? Weergave.Datum(tot) : null), @o.Afschrift.Mutaties.Count mutaties, sluit op @Weergave.Bedrag(o.Afschrift.Eindsaldo)</span>
                     <button class="btn btn-sm btn-outline-secondary" @onclick="BewaarMt940">MT940 downloaden</button>
                     <button class="btn btn-sm btn-primary" disabled="@bezig" @onclick="LeesOmzettingIn">Inlezen</button>
                 </div>
@@ -95,7 +95,7 @@
                 <button class="btn btn-sm btn-outline-secondary" title="De openstaande posten in een eigen venster, bijv. op een tweede beeldscherm" @onclick="OpenpostenExtern">Openstaande posten</button>
                 <span class="form-check mb-0">
                     <input class="form-check-input" type="checkbox" id="ookgeboekt" checked="@ookGeboekt" @onchange="WisselGeboekt" />
-                    <label class="form-check-label small text-secondary" for="ookgeboekt">ook geboekt</label>
+                    <label class="form-check-label small text-secondary" for="ookgeboekt">Ook geboekt</label>
                 </span>
             </div>
         }
@@ -169,45 +169,21 @@
         var zichtbaar = mutatiesortering.Pas(mutaties.Where(PastFilter)).ToList();
         var teKiezen = zichtbaar.Where(m => m.Status == Banktransactiestatus.TeVerwerken).ToList();
         <div class="row g-3 bankwerk">
-            <div class="col-lg-5">
+            <div class="@(gekozen is null ? "col-12" : "col-lg-5")">
                 @if (selectiebericht is not null)
                 {
-                    <div class="bericht small mb-2">@selectiebericht</div>
+                    <div class="melding-kort" role="status" @key="meldingnummer">@selectiebericht</div>
                 }
                 @if (mag && mutaties.Count(m => m.MogelijkDubbel && m.Status == Banktransactiestatus.TeVerwerken) is > 0 and var dubbel)
                 {
                     <div class="small mb-2 d-flex align-items-center gap-2 dubbelbericht">
                         <span class="status let-op">@dubbel @(dubbel == 1 ? "mutatie" : "mutaties") mogelijk dubbel</span>
-                        <button class="btn btn-sm btn-link p-0" @onclick="KiesDubbel">selecteren</button>
+                        <button class="btn btn-sm btn-link p-0" @onclick="KiesDubbel">Selecteren</button>
                     </div>
                 }
                 @if (gekozen is null)
                 {
                     <Foutmeldingen Fouten="fouten" />
-                }
-                @if (mag && geselecteerd.Count > 0)
-                {
-                    var selectie = mutaties.Where(m => geselecteerd.Contains(m.Id)).ToList();
-                    <div class="card card-body selectiebalk mb-2">
-                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                            <span class="small">@selectie.Count geselecteerd · <Euro Waarde="selectie.Sum(m => m.Bedrag)" /></span>
-                            <button class="btn btn-sm btn-link text-secondary p-0 ms-auto" @onclick="() => geselecteerd.Clear()">selectie wissen</button>
-                        </div>
-                        <div class="d-flex align-items-center gap-2 mt-2">
-                            <div class="flex-grow-1"><RekeningKeuze Id="selectie-rekening" @bind-Waarde="selectieRekening" Schema="schema" Kader="geopend" Label="Rekening voor de selectie" /></div>
-                            <select class="form-select form-select-sm w-auto" @bind="selectieBtw" aria-label="Btw voor de selectie">
-                                <option value="">geen</option>
-                                @foreach (var c in btwcodes.Where(c => c.Actief))
-                                {
-                                    <option value="@c.Code" title="@c.Code · @c.Omschrijving">@c.Kort</option>
-                                }
-                            </select>
-                            <button class="btn btn-sm btn-primary" disabled="@(bezig || string.IsNullOrWhiteSpace(selectieRekening))" @onclick="BoekSelectie">Boeken</button>
-                        </div>
-                        <div class="d-flex mt-1">
-                            <VerwijderKnop Klasse="ms-auto p-0" Bezig="bezig" Titel="De gekozen mutaties verdwijnen uit Te verwerken (bijv. dubbel ingelezen); een geboekte mutatie kan niet weg" Bevestigd="VerwijderSelectie" />
-                        </div>
-                    </div>
                 }
                 <div class="card">
                     <table class="table table-sm table-hover align-middle mb-0 bankmutaties" data-sleepbaar="bankmutaties">
@@ -220,9 +196,9 @@
                                                checked="@(teKiezen.Count > 0 && teKiezen.All(m => geselecteerd.Contains(m.Id)))" @onchange="e => KiesAlles(teKiezen, e.Value is true)" />
                                     </th>
                                 }
-                                <SorteerKop Sortering="mutatiesortering" Naam="Datum" Gewijzigd="StateHasChanged" />
+                                <SorteerKop Sortering="mutatiesortering" Naam="Datum" Breedte="112" Gewijzigd="StateHasChanged" />
                                 <SorteerKop Sortering="mutatiesortering" Naam="Tegenpartij" Tekst="Tegenpartij en omschrijving" Klasse="rekt" Gewijzigd="StateHasChanged" />
-                                <SorteerKop Sortering="mutatiesortering" Naam="Bedrag" Klasse="text-end" Gewijzigd="StateHasChanged" />
+                                <SorteerKop Sortering="mutatiesortering" Naam="Bedrag" Klasse="text-end" Breedte="128" Gewijzigd="StateHasChanged" />
                             </tr>
                             <tr class="filterrij">
                                 @if (mag)
@@ -238,7 +214,8 @@
                             @foreach (var m in zichtbaar)
                             {
                                 var open = gekozen?.Mutatie.Id == m.Id;
-                                <tr class="@(m.Status == Banktransactiestatus.TeVerwerken ? "kiesbaar" : "geboekt") @(open ? "table-active" : null) @(verwerkt == m.Id ? "verwerkt" : null)" @onclick="() => Kies(m)">
+                                <tr class="@(m.Status == Banktransactiestatus.TeVerwerken ? "kiesbaar" : "geboekt") @(open ? "table-active" : null) @(verwerkt == m.Id ? "verwerkt" : null)" @onclick="() => Kies(m)"
+                                    tabindex="0" data-toetsrij @key="m.Id">
                                     @if (mag)
                                     {
                                         <td class="kiesvak" @onclick:stopPropagation>
@@ -267,8 +244,31 @@
                         </tbody>
                     </table>
                 </div>
+                @if (mag && teKiezen.Count > 0)
+                {
+                    <div class="toetshint mt-1" aria-hidden="true"><kbd>↑</kbd> <kbd>↓</kbd> naar een mutatie, <kbd>Enter</kbd> openen, <kbd>Spatie</kbd> aanvinken</div>
+                }
+                @if (mag && geselecteerd.Count > 0)
+                {
+                    var selectie = mutaties.Where(m => geselecteerd.Contains(m.Id)).ToList();
+                    <div class="actiebalk" role="region" aria-label="Gekozen mutaties">
+                        <span class="small fw-semibold text-nowrap">@selectie.Count gekozen</span>
+                        <span class="small bedrag text-nowrap"><Euro Waarde="selectie.Sum(m => m.Bedrag)" /></span>
+                        <div class="flex-grow-1" style="min-width:14rem"><RekeningKeuze Id="selectie-rekening" @bind-Waarde="selectieRekening" Schema="schema" Kader="geopend" Label="Rekening voor de selectie" /></div>
+                        <select class="form-select form-select-sm w-auto" @bind="selectieBtw" aria-label="Btw voor de selectie">
+                            <option value="">Geen btw</option>
+                            @foreach (var c in btwcodes.Where(c => c.Actief))
+                            {
+                                <option value="@c.Code" title="@c.Code · @c.Omschrijving">@c.Kort</option>
+                            }
+                        </select>
+                        <button class="btn btn-sm btn-primary" disabled="@(bezig || string.IsNullOrWhiteSpace(selectieRekening))" @onclick="BoekSelectie">Boeken</button>
+                        <VerwijderKnop Klasse="p-0" Bezig="bezig" Titel="De gekozen mutaties verdwijnen uit Te verwerken (bijv. dubbel ingelezen); een geboekte mutatie kan niet weg" Bevestigd="VerwijderSelectie" />
+                        <button class="btn btn-sm btn-link text-secondary p-0" @onclick="() => geselecteerd.Clear()">Selectie wissen</button>
+                    </div>
+                }
             </div>
-            <div class="col-lg-7">
+            <div class="@(gekozen is null ? "d-none" : "col-lg-7")">
                 @if (gekozen is { } g)
                 {
                     <div class="card card-body verwerkpaneel">
@@ -441,7 +441,7 @@
                                             </div>
                                         </div>
                                         <div class="d-flex align-items-center gap-2 mt-2">
-                                            <span class="small text-secondary">@(regels.FirstOrDefault(r => r.Post is null) is { Rekening: { Length: > 0 } ar } ag ? $"→ {Rekeningnaam(g, ar)}{(ag.BtwCode is { Length: > 0 } ab ? $", {ab}" : null)}" : "Kies hierboven de rekening.")</span>
+                                            <span class="small text-secondary">@(regels.FirstOrDefault(r => r.Post is null) is { Rekening: { Length: > 0 } ar } ag ? $"Naar {Rekeningnaam(g, ar)}{(ag.BtwCode is { Length: > 0 } ab ? $", {ab}" : null)}" : "Kies hierboven de rekening.")</span>
                                             <button class="btn btn-sm btn-outline-primary ms-auto" disabled="@(bezig || string.IsNullOrWhiteSpace(regels.FirstOrDefault(r => r.Post is null)?.Rekening))" @onclick="BewaarAutoherkenning">Opslaan en toepassen</button>
                                         </div>
                                     }
@@ -572,6 +572,7 @@
         fouten = uitkomst.Fouten;
         if (uitkomst.IsGelukt)
         {
+            meldingnummer++;
             selectiebericht = $"{uitkomst.Waarde} van {aantal} mutaties geboekt op {selectieRekening} {schema?.Zoek(selectieRekening!)?.Naam}{(string.IsNullOrEmpty(selectieBtw) ? null : $", {selectieBtw}")}.";
             geselecteerd.Clear();
             gekozen = null;
@@ -582,6 +583,12 @@
     }
 
     private string? selectiebericht;
+
+    private static string Omzettitel(Pdfomzetting o) =>
+        $"{o.Bestandsnaam}{(o.Afschrift.Nummer is { } nr ? $", afschrift {nr}" : null)}; beginsaldo {Weergave.Bedrag(o.Afschrift.Beginsaldo)}, eindsaldo {Weergave.Bedrag(o.Afschrift.Eindsaldo)}";
+
+    /// <summary>Elke nieuwe bevestiging een nieuw element, zodat de korte melding opnieuw verschijnt.</summary>
+    private int meldingnummer;
 
     private void KiesDubbel()
     {
@@ -603,6 +610,7 @@
         fouten = uitkomst.Fouten;
         if (uitkomst.IsGelukt)
         {
+            meldingnummer++;
             selectiebericht = uitkomst.Waarde == 1 ? "1 mutatie verwijderd." : $"{uitkomst.Waarde} mutaties verwijderd.";
             geselecteerd.ExceptWith(weg);
             if (gekozen is { } g && weg.Contains(g.Mutatie.Id))
@@ -877,7 +885,7 @@
 
         var inNaam = tekst is { Length: > 0 } && g.Mutatie.TegenNaam?.Contains(tekst, StringComparison.OrdinalIgnoreCase) == true;
         var regel = new Verwerkingsregel(
-            $"{(string.IsNullOrEmpty(tekst) ? Iban.Toon(g.Mutatie.TegenIban!) : tekst)} → {Rekeningnaam(g, rekening)}",
+            $"{(string.IsNullOrEmpty(tekst) ? Iban.Toon(g.Mutatie.TegenIban!) : tekst)} naar {Rekeningnaam(g, rekening)}",
             rekening,
             string.IsNullOrWhiteSpace(eerste.BtwCode) ? null : eerste.BtwCode,
             Automatisch: autoAutomatisch,

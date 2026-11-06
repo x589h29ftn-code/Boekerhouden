@@ -74,7 +74,7 @@
                                 <td class="small text-secondary">@Rekeningindeling.Groep(r with { RgsCode = string.IsNullOrWhiteSpace(bewerk.Rgs) ? null : bewerk.Rgs.Trim() }).Naam</td>
                                 <td class="text-nowrap">
                                     <button class="btn btn-sm btn-primary" @onclick="Bewaar">Opslaan</button>
-                                    <button class="btn btn-sm btn-link text-secondary" @onclick="() => (bewerk, fouten) = (null, null)">annuleren</button>
+                                    <button class="btn btn-sm btn-link text-secondary" @onclick="() => (bewerk, fouten) = (null, null)">Annuleren</button>
                                 </td>
                             </tr>
                         }

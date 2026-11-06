@@ -24,6 +24,13 @@ function zet(tabel, koppen, breedtes) {
     tabel.style.width = breedtes.reduce((a, b) => a + b, 0) + "px";
 }
 
+// Zonder eigen breedtes: de tabel vult de beschikbare ruimte en alleen de kolom met class "rekt" groeit of krimpt mee
+// (bijv. als er rechts een paneel bij komt); de andere kolommen houden hun breedte.
+function vul(tabel, koppen, breedtes, rekt) {
+    koppen.forEach((k, i) => k.style.width = i === rekt ? "" : breedtes[i] + "px");
+    tabel.style.width = "100%";
+}
+
 export function maak(tabel, sleutel) {
     if (!tabel || !tabel.tHead || tabel.dataset.kolommen) {
         return;
@@ -42,8 +49,14 @@ export function maak(tabel, sleutel) {
         oorspronkelijk[breedste] += over;
     }
     const bewaard = lees(sleutel);
+    const rekbaar = koppen.findIndex(k => k.classList.contains("rekt"));
+    const standaard = () => rekbaar >= 0 ? vul(tabel, koppen, oorspronkelijk, rekbaar) : zet(tabel, koppen, oorspronkelijk);
     tabel.style.tableLayout = "fixed";
-    zet(tabel, koppen, bewaard && bewaard.length === koppen.length ? bewaard : oorspronkelijk);
+    if (bewaard && bewaard.length === koppen.length) {
+        zet(tabel, koppen, bewaard);
+    } else {
+        standaard();
+    }
 
     koppen.forEach((kop, i) => {
         const greep = document.createElement("span");
@@ -54,7 +67,7 @@ export function maak(tabel, sleutel) {
         greep.addEventListener("dblclick", e => {
             e.stopPropagation();
             try { localStorage.removeItem(voorvoegsel + sleutel); } catch { /* geen opslag */ }
-            zet(tabel, koppen, oorspronkelijk);
+            standaard();
         });
         greep.addEventListener("pointerdown", e => {
             e.preventDefault();

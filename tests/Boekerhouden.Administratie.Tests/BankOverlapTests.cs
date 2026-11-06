@@ -44,8 +44,7 @@ public sealed class BankOverlapTests(AdministratieFixture app) : IClassFixture<A
 
         Assert.Equal((2, 2, 0), (tweede.Nieuw, tweede.Dubbel, tweede.MogelijkDubbel));
         var melding = Assert.Single(tweede.Meldingen);
-        Assert.Contains("overlapt met maart-1.mt940 (28-02-2026 t/m 10-03-2026)", melding, StringComparison.Ordinal);
-        Assert.Contains("2 mutaties waren al ingelezen en zijn overgeslagen", melding, StringComparison.Ordinal);
+        Assert.Equal("maart-2.mt940 overlapt met maart-1.mt940 (28-02-2026 t/m 10-03-2026): 2 al ingelezen.", melding);
         Assert.Equal(5, (await bank.Lijst(wie, id, ookGeboekt: true)).Count);
 
         // Het saldo voor en na de boeking klopt ook bij het tweede afschrift, waar de eerste mutaties ontbreken.
@@ -68,7 +67,7 @@ public sealed class BankOverlapTests(AdministratieFixture app) : IClassFixture<A
         var gelezen = (await bank.Lees(wie, id, Afschrift(new(2026, 3, 8), new(2026, 3, 20), anders: true), "maart.mt940")).Waarde!;
 
         Assert.Equal((4, 0, 2), (gelezen.Nieuw, gelezen.Dubbel, gelezen.MogelijkDubbel));
-        Assert.Contains("2 mutaties lijken dubbel", Assert.Single(gelezen.Meldingen), StringComparison.Ordinal);
+        Assert.EndsWith(": 2 mogelijk dubbel.", Assert.Single(gelezen.Meldingen), StringComparison.Ordinal);
         var lijst = await bank.Lijst(wie, id);
         var dubbel = lijst.Where(m => m.MogelijkDubbel).ToList();
         Assert.Equal([1210m, -4.58m], dubbel.OrderBy(m => m.Datum).Select(m => m.Bedrag));

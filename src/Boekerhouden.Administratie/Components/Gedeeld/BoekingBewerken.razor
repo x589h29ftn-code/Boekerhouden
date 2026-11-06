@@ -63,7 +63,7 @@
             </tbody>
             <tfoot>
                 <tr class="generaal">
-                    <td colspan="3"><button class="btn btn-sm btn-link nog-een-regel p-0" @onclick="RegelErbij">+ Nog een regel</button></td>
+                    <td colspan="3"><button class="btn btn-sm btn-link nog-een-regel p-0" @onclick="RegelErbij"><Icoon Naam="plus" /> Nog een regel</button></td>
                     <td class="bedrag text-end">@Weergave.Bedrag(invoer.TotaalDebet)</td>
                     <td class="bedrag text-end">@Weergave.Bedrag(invoer.TotaalCredit)</td>
                     <td></td>
@@ -77,7 +77,7 @@
         {
             <span class="form-check mb-0 small text-nowrap ms-2">
                 <input class="form-check-input" type="checkbox" id="herhalen" @bind="herhalen" />
-                <label class="form-check-label text-secondary" for="herhalen">elke maand</label>
+                <label class="form-check-label text-secondary" for="herhalen">Elke maand</label>
             </span>
             @if (herhalen)
             {

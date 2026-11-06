@@ -27,7 +27,10 @@
                                 <td class="bedrag text-end">@Weergave.Bedrag(a.Grootboek)</td>
                                 <td class="bedrag text-end">@(a.Bron is { } bron ? Weergave.Bedrag(bron) : null)</td>
                                 <td class="bedrag text-end @(a.Sluit ? null : "let-op")">@(a.Verschil is { } v ? Weergave.Bedrag(v) : null)</td>
-                                <td class="status">@(a.Sluit ? a.Toelichting : a.Toelichting is null ? "sluit niet" : $"sluit niet; {a.Toelichting}")</td>
+                                <td class="small text-secondary">@if (!a.Sluit)
+                                    {
+                                        <span class="status let-op me-2">Sluit niet</span>
+                                    }@a.Toelichting</td>
                             </tr>
                             @foreach (var bv in a.Verschillen ?? [])
                             {
@@ -48,7 +51,7 @@
                                         <span class="status @(bv.Soort == Bankverschilsoort.ZonderMutatie ? null : "let-op")">@Uitleg(bv)</span>
                                         @if (mag && bv.Soort == Bankverschilsoort.NietInGrootboek && bv.Mutatie is { } mutatie)
                                         {
-                                            <button class="btn btn-sm btn-link p-0 ms-2 regelactie" disabled="@bezig" title="De mutatie komt terug in Te verwerken om opnieuw te boeken" @onclick="() => Terug(mutatie)">opnieuw verwerken</button>
+                                            <button class="btn btn-sm btn-link p-0 ms-2 regelactie" disabled="@bezig" title="De mutatie komt terug in Te verwerken om opnieuw te boeken" @onclick="() => Terug(mutatie)">Opnieuw verwerken</button>
                                         }
                                     </td>
                                 </tr>

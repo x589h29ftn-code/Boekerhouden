@@ -30,7 +30,7 @@ Laatst gebouwd (oktober 2026), in deze volgorde:
 
    Met `ScenarioTests`.
 3. **Uitstraling** (minder "gegenereerd", zakelijker):
-   - iconenset (Lucide) en een eigen accentkleur (petrol);
+   - iconenset (Phosphor) en een eigen palet (inktblauw met roest als accent, donkere kopbalk);
    - het systeemlettertype (Segoe UI op Windows) met IBM Plex Sans als terugval;
    - boekhoudconventies: echt minteken, dubbele lijn onder het totaal;
    - koppen met kenmerken (saldo, laatste afschrift);

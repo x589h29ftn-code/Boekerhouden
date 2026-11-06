@@ -144,6 +144,14 @@ function totp(sleutel) {
     await page.screenshot({ path: `${uit}/${pre}-${naam}.png` });
   }
 
+  // Bank met het toetsenbord: naar de tweede regel, spatie zet het vinkje, Enter opent het paneel.
+  await page.goto(`${basis}/a/${id}/bank`); await page.waitForTimeout(1500);
+  await page.locator('table.bankmutaties tbody tr').first().focus();
+  await page.keyboard.press('ArrowDown'); await page.keyboard.press(' '); await page.waitForTimeout(300);
+  if (!(await page.locator('table.bankmutaties tbody tr').nth(1).locator('input[type=checkbox]').isChecked())) log.push('spatie zet geen vinkje');
+  await page.keyboard.press('Enter'); await page.waitForTimeout(1200);
+  if (await page.locator('.verwerkpaneel').count() === 0) log.push('Enter opent het paneel niet');
+
   // Bank: filter op bedrag en twee mutaties kiezen om ze tegelijk te boeken.
   await page.goto(`${basis}/a/${id}/bank`); await page.waitForTimeout(1500);
   await page.fill('input[aria-label="Filter op bedrag"]', '-'); await page.waitForTimeout(400);
@@ -165,7 +173,7 @@ function totp(sleutel) {
   await page.locator('table.bankmutaties tbody tr', { hasText: 'dubbel?' }).first().click(); await page.waitForTimeout(1200);
   await page.screenshot({ path: `${uit}/${pre}-bank-dubbel-paneel.png` });
   await page.click('.dubbelbericht button:has-text("selecteren")'); await page.waitForTimeout(400);
-  await page.click('.selectiebalk button:has-text("Verwijderen")'); await page.click('.selectiebalk button:has-text("Ja, verwijderen")'); await page.waitForTimeout(1500);
+  await page.click('.actiebalk button:has-text("Verwijderen")'); await page.click('.actiebalk button:has-text("Ja, verwijderen")'); await page.waitForTimeout(1500);
   if (await page.locator('table.bankmutaties tbody tr', { hasText: 'dubbel?' }).count() > 0) log.push('mogelijk dubbele mutaties niet verwijderd');
   await page.screenshot({ path: `${uit}/${pre}-bank-dubbel-verwijderd.png` });
 
