@@ -292,7 +292,7 @@ gedaan.
 
 ### 3.11 Auditfile (XAF)
 
-- **Maken**: op *Balans en W&V* geeft de knop *Auditfile* het gekozen boekjaar als XML Auditfile Financieel 3.2
+- **Maken**: op *Balans en W&V* (`/a/{id}/balans`) geeft de knop *Auditfile* het gekozen boekjaar als XML Auditfile Financieel 3.2
   (`Auditfile {naam} {jaar}.xaf`). Erin: bedrijfsgegevens, relaties (klant, leverancier of beide, met IBAN),
   het rekeningschema met de RGS-code als `leadReference`, de btw-codes, de beginbalans (balanssaldi tot het
   boekjaar; de W&V van eerdere jaren op de rekening *onverdeeld resultaat*) en alle geldende boekingen van het jaar
@@ -307,6 +307,27 @@ gedaan.
   (`AuditfileDienst.LeesIn`, domein in `Boekhouding/Auditfiles`).
 - Niet in de auditfile: de btw-code per boekingsregel (de btw-rekeningen zelf staan er wel in), documenten en
   bankafschriften.
+
+### 3.12 Dashboard
+
+De startpagina van een administratie (`/a/{id}`; *Balans en W&V* staat op `/a/{id}/balans`). Elke gebruiker kiest
+zelf welke widgets er staan en in welke volgorde (*Aanpassen*: toevoegen, weghalen, verplaatsen, *Standaard*); de
+indeling wordt per gebruiker en administratie bewaard (`Dashboardindelingen`, in het wijzigingslog). Recht: inzien.
+
+| Widget | Wat |
+|---|---|
+| Bank en kas | saldo per bank- en kasrekening volgens het grootboek; wijkt het laatste afschrift af, dan staat dat erbij |
+| Bankmutaties te verwerken | aantal, de oudste datum en hoeveel mogelijk dubbel |
+| Inkoopfacturen te verwerken | aantal en totaalbedrag |
+| Btw | saldo van de btw-rekeningen (voorbelasting en af te dragen) tot en met de afgelopen maand of het afgelopen kwartaal (keuze per widget): te betalen of terug te vragen; daaronder wat er in de lopende periode al bij komt |
+| Omzet en resultaat per maand | grafiek van het jaar: omzet (RGS `WOmz`) en inkoop (`WKpr`) of alle kosten als staafjes, het resultaat als lijn; ook als tabel |
+| Openstaande debiteuren / crediteuren | totaal, aantal en wat vervallen is |
+| Kerncijfers | omzet, kosten en resultaat van 1 januari tot vandaag, naast dezelfde periode vorig jaar |
+| Verkoop | conceptfacturen en terugkerende facturen die gemaakt moeten worden |
+| Aansluitingen | welke saldo-aansluitingen niet sluiten |
+
+`DashboardDienst` (cijfers en indeling), domein: `Grootboek/Maandcijfers` en `Btw/Aangifteperiode`. De grafiek is
+SVG zonder script (`Maandgrafiek.razor`); de kleuren zijn gecontroleerd op kleurenblindheid en contrast.
 
 ## 4. Techniek
 

@@ -927,3 +927,16 @@ public sealed class Verkoopbestand : IVanAdministratie
 
     public byte[] Inhoud { get; set; } = [];
 }
+
+/// <summary>De indeling van het dashboard van een administratie, per gebruiker: welke widgets in welke volgorde.</summary>
+public sealed class Dashboardindeling : IVanAdministratie
+{
+    public Guid AdministratieId { get; set; }
+
+    public Guid GebruikerId { get; set; }
+
+    /// <summary>De widgets in volgorde, met een eventuele keuze erachter, bijv. <c>bank,btw:maand,maandgrafiek</c>.</summary>
+    public string Widgets { get; set; } = string.Empty;
+
+    public DateTimeOffset GewijzigdOp { get; set; }
+}

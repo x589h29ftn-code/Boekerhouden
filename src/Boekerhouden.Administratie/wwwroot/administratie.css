@@ -1186,3 +1186,57 @@ body *:not(#geen):not(.factuurvoorbeeld-pagina *, .ontwerpvlak-pagina *)::after 
 .administratielijst tr:hover .regelacties, .administratielijst tr:focus-within .regelacties { opacity: 1; }
 .administratielijst tr.gearchiveerd > td, .administratielijst tr.gearchiveerd > td a { color: var(--bh-zacht); }
 .administratielijst tr.verwijderregel > td { background: var(--bh-warm-zacht); }
+
+/* Dashboard: widgets in een raster van vier (twee op een smal scherm, één op een telefoon); de grafiek is twee breed.
+   Rustig: grijze kop, één kerngetal, verder gewone tekst; de pijl naar de pagina pas bij aanwijzen. */
+.dashboard {
+    --grafiek-1: #3168b8; /* omzet */
+    --grafiek-2: #c9622c; /* inkoop of kosten */
+    --grafiek-3: #17946a; /* resultaat */
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--r3); align-items: start;
+}
+@media (max-width: 1199.98px) { .dashboard { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 575.98px) { .dashboard { grid-template-columns: minmax(0, 1fr); } .dashboard .breed { grid-column: auto !important; } }
+.dashboard .breed { grid-column: span 2; }
+.dashboard .leeg-blok.breed { grid-column: 1 / -1; }
+.widget { background: #fff; border: 1px solid var(--bh-lijn); border-radius: var(--bs-border-radius-lg); padding: var(--r2) var(--r3) var(--r3); min-width: 0; }
+.widgetkop { display: flex; align-items: center; gap: var(--r1); min-height: 1.75rem; margin-bottom: var(--r1); }
+.widgetkop h2 { font-size: .8125rem; font-weight: 400; color: var(--bh-zacht); margin: 0; margin-right: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.widgetlink { color: var(--bh-zacht); opacity: 0; transition: opacity var(--bh-snel) ease; line-height: 1; }
+.widget:hover .widgetlink, .widgetlink:focus-visible { opacity: 1; }
+.widgetlink:hover { color: var(--bh-accent); }
+.widgetacties { display: inline-flex; align-items: center; gap: .25rem; }
+.widgetacties .icoonknop { border: 0; background: transparent; color: var(--bh-zacht); padding: .125rem .25rem; line-height: 1; border-radius: var(--bs-border-radius-sm); }
+.widgetacties .icoonknop:hover:not(:disabled) { color: var(--bh-accent); background: var(--bh-accent-zacht); }
+.widgetacties .icoonknop:disabled { opacity: .35; }
+.dashboard.aanpassen .widget:not(.toevoegen) { border-style: dashed; border-color: var(--bh-lijn-sterk); }
+.dashboard .widget.toevoegen { background: transparent; border-style: dashed; }
+.kerngetal { font-size: 1.75rem; line-height: 1.2; color: var(--bh-tekst); margin-bottom: .25rem; letter-spacing: -.01em; }
+.widgetregel { font-size: .875rem; color: var(--bh-tekst); }
+.widget .zacht { color: var(--bh-zacht); }
+.widgettabel { width: 100%; font-size: .875rem; margin-top: var(--r1); font-variant-numeric: tabular-nums; }
+.widgettabel td, .widgettabel th { padding: .1875rem 0; border-top: 1px solid #eceeef; }
+.widgettabel thead th { border-top: 0; font-weight: 400; color: var(--bh-zacht); font-size: .8125rem; }
+.widgettabel td + td, .widgettabel th + th { padding-left: var(--r2); white-space: nowrap; }
+.widgettabel tr.totaal td { border-top-color: var(--bh-lijn-sterk); }
+.widgettabel a { color: inherit; }
+.widgettabel a:hover { color: var(--bh-accent); }
+
+/* De grafiek omzet, inkoop en resultaat per maand. */
+.maandgrafiek .grafiekkop { display: flex; align-items: center; gap: var(--r3); font-size: .8125rem; color: var(--bh-zacht); margin-bottom: var(--r1); }
+.maandgrafiek .legenda { display: inline-flex; align-items: center; gap: .375rem; }
+.maandgrafiek .sleutel.staaf { width: 10px; height: 10px; border-radius: 2px; }
+.maandgrafiek .sleutel.omzet { background: var(--grafiek-1); }
+.maandgrafiek .sleutel.kosten { background: var(--grafiek-2); }
+.maandgrafiek .sleutel.lijn { width: 14px; height: 2px; background: var(--grafiek-3); border-radius: 1px; }
+.maandgrafiek svg { display: block; width: 100%; height: auto; overflow: visible; }
+.maandgrafiek .raster { stroke: #eceeef; stroke-width: 1; shape-rendering: crispEdges; }
+.maandgrafiek .raster.nul { stroke: var(--bh-lijn-sterk); }
+.maandgrafiek .as { fill: var(--bh-zacht); font-size: 11px; font-variant-numeric: tabular-nums; }
+.maandgrafiek .staaf.omzet { fill: var(--grafiek-1); }
+.maandgrafiek .staaf.kosten { fill: var(--grafiek-2); }
+.maandgrafiek .lijn { fill: none; stroke: var(--grafiek-3); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.maandgrafiek .punt { fill: var(--grafiek-3); stroke: #fff; stroke-width: 2; }
+.maandgrafiek .raakvlak { fill: transparent; }
+.maandgrafiek .raakvlak:hover { fill: rgba(36, 66, 110, .05); }
+.maandgrafiek .grafiektabel { font-size: .875rem; font-variant-numeric: tabular-nums; }

@@ -1,0 +1,158 @@
+@* Omzet en inkoop (of alle kosten) per maand als staafjes, het resultaat als lijn; één as in euro's. Als SVG zonder
+   script (CSP): per maand een onzichtbaar vlak met een tooltip met alle bedragen. Kleuren: --grafiek-1..3 in
+   administratie.css (gecontroleerd op kleurenblindheid en contrast). Met Tabel dezelfde cijfers als tabel. *@
+@using System.Globalization
+@using Boekerhouden.Boekhouding.Grootboek
+
+<div class="maandgrafiek">
+    <div class="grafiekkop">
+        <span class="legenda"><span class="sleutel staaf omzet"></span>Omzet</span>
+        <span class="legenda"><span class="sleutel staaf kosten"></span>@KostenNaam</span>
+        <span class="legenda"><span class="sleutel lijn"></span>Resultaat</span>
+        <button type="button" class="btn btn-link btn-sm p-0 ms-auto text-secondary" @onclick="() => tabel = !tabel">@(tabel ? "Grafiek" : "Tabel")</button>
+    </div>
+    @if (tabel)
+    {
+        <table class="table table-sm mb-0 grafiektabel">
+            <thead><tr><th>Maand</th><th class="text-end">Omzet</th><th class="text-end">@KostenNaam</th><th class="text-end">Resultaat</th></tr></thead>
+            <tbody>
+                @foreach (var m in Maanden)
+                {
+                    <tr><td>@Maandnaam(m.Maand)</td><td class="text-end">@Weergave.Bedrag(m.Omzet)</td><td class="text-end">@Weergave.Bedrag(Kosten(m))</td><td class="text-end">@Weergave.Bedrag(m.Resultaat)</td></tr>
+                }
+            </tbody>
+            <tfoot><tr><td>Totaal</td><td class="text-end">@Weergave.Bedrag(Maanden.Sum(m => m.Omzet))</td><td class="text-end">@Weergave.Bedrag(Maanden.Sum(Kosten))</td><td class="text-end">@Weergave.Bedrag(Maanden.Sum(m => m.Resultaat))</td></tr></tfoot>
+        </table>
+    }
+    else
+    {
+        <svg viewBox="0 0 @Breedte @Hoogte" role="img" aria-label="@($"Omzet, {KostenNaam.ToLowerInvariant()} en resultaat per maand")">
+            @foreach (var t in Ticks)
+            {
+                <line class="raster @(t == 0 ? "nul" : null)" x1="@G(Links)" x2="@G(Breedte - Rechts)" y1="@G(Y(t))" y2="@G(Y(t))" />
+                @Label(Links - 8, Y(t) + 4, "end", Asgetal(t))
+            }
+            @for (var i = 0; i < Maanden.Count; i++)
+            {
+                var m = Maanden[i];
+                var midden = Links + (i + .5) * Band;
+                @Label(midden, Hoogte - 6, "middle", Maandnaam(m.Maand)[..3])
+                <path class="staaf omzet" d="@Staaf(midden - Staafbreedte - 1, m.Omzet)" />
+                <path class="staaf kosten" d="@Staaf(midden + 1, Kosten(m))" />
+            }
+            @if (Lijnpunten.Count > 1)
+            {
+                <polyline class="lijn" points="@string.Join(' ', Lijnpunten.Select(p => $"{G(p.X)},{G(p.Y)}"))" />
+            }
+            @foreach (var p in Lijnpunten)
+            {
+                <circle class="punt" cx="@G(p.X)" cy="@G(p.Y)" r="4" />
+            }
+            @for (var i = 0; i < Maanden.Count; i++)
+            {
+                var m = Maanden[i];
+                <rect class="raakvlak" x="@G(Links + i * Band)" y="0" width="@G(Band)" height="@G(Hoogte - Onder)">
+                    <title>@Maandnaam(m.Maand)&#10;Omzet: @Weergave.Bedrag(m.Omzet)&#10;@KostenNaam: @Weergave.Bedrag(Kosten(m))&#10;Resultaat: @Weergave.Bedrag(m.Resultaat)</title>
+                </rect>
+            }
+        </svg>
+    }
+</div>
+
+@code {
+    private const double Breedte = 720;
+    private const double Hoogte = 240;
+    private const double Links = 64;
+    private const double Rechts = 8;
+    private const double Boven = 10;
+    private const double Onder = 26;
+    private const double Staafbreedte = 16;
+
+    private static readonly CultureInfo Nederlands = CultureInfo.GetCultureInfo("nl-NL");
+
+    private bool tabel;
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<Maandcijfer> Maanden { get; set; } = [];
+
+    /// <summary>Alle kosten in plaats van alleen de inkoop (kostprijs van de omzet).</summary>
+    [Parameter]
+    public bool AlleKosten { get; set; }
+
+    /// <summary>Tot en met deze maand loopt de resultaatlijn (later in het jaar is er nog niets).</summary>
+    [Parameter]
+    public DateOnly Tot { get; set; } = DateOnly.MaxValue;
+
+    private string KostenNaam => AlleKosten ? "Kosten" : "Inkoop";
+
+    private decimal Kosten(Maandcijfer m) => AlleKosten ? m.Kosten : m.Inkoop;
+
+    private double Band => (Breedte - Links - Rechts) / Math.Max(Maanden.Count, 1);
+
+    private List<(double X, double Y)> Lijnpunten =>
+        [.. Maanden.Select((m, i) => (m, i)).Where(x => x.m.Maand <= Tot).Select(x => (Links + (x.i + .5) * Band, Y((double)x.m.Resultaat)))];
+
+    private (double Min, double Max, double Stap) schaal;
+
+    protected override void OnParametersSet()
+    {
+        var waarden = Maanden.SelectMany(m => new[] { m.Omzet, Kosten(m), m.Resultaat }).Select(w => (double)w).Append(0).ToList();
+        schaal = Schaal(waarden.Min(), waarden.Max());
+    }
+
+    private IEnumerable<double> Ticks
+    {
+        get
+        {
+            for (var t = schaal.Min; t <= schaal.Max + (schaal.Stap / 2); t += schaal.Stap)
+            {
+                yield return Math.Round(t, 2);
+            }
+        }
+    }
+
+    /// <summary>Een nette as: 4 tot 6 stappen van 1, 2, 2,5 of 5 maal een macht van tien, met 0 erin.</summary>
+    private static (double Min, double Max, double Stap) Schaal(double min, double max)
+    {
+        if (max - min < 1)
+        {
+            return (0, 1000, 250);
+        }
+
+        var ruw = (max - min) / 4;
+        var macht = Math.Pow(10, Math.Floor(Math.Log10(ruw)));
+        var stap = new[] { 1, 2, 2.5, 5, 10 }.Select(f => f * macht).First(s => s >= ruw);
+        return (Math.Floor(min / stap) * stap, Math.Ceiling(max / stap) * stap, stap);
+    }
+
+    private double Y(double waarde) => Boven + ((schaal.Max - waarde) / (schaal.Max - schaal.Min) * (Hoogte - Boven - Onder));
+
+    /// <summary>Een staaf vanaf 0 met afgeronde hoeken aan de kant van de waarde, recht op de nullijn.</summary>
+    private string Staaf(double x, decimal bedrag)
+    {
+        var nul = Y(0);
+        var eind = Y((double)bedrag);
+        var hoogte = Math.Abs(nul - eind);
+        if (hoogte < .5)
+        {
+            return "";
+        }
+
+        var r = Math.Min(4, Math.Min(hoogte, Staafbreedte / 2));
+        var richting = eind < nul ? 1 : -1;
+        var w = Staafbreedte;
+        return $"M{G(x)},{G(nul)} V{G(eind + (richting * r))} Q{G(x)},{G(eind)} {G(x + r)},{G(eind)} H{G(x + w - r)} Q{G(x + w)},{G(eind)} {G(x + w)},{G(eind + (richting * r))} V{G(nul)} Z";
+    }
+
+    /// <summary>Een asbijschrift; als markup omdat Razor een &lt;text&gt;-element met attributen niet toestaat.</summary>
+    private static MarkupString Label(double x, double y, string anker, string tekst) =>
+        new($"<text class=\"as\" x=\"{G(x)}\" y=\"{G(y)}\" text-anchor=\"{anker}\">{System.Net.WebUtility.HtmlEncode(tekst)}</text>");
+
+    private static string G(double getal) => getal.ToString("0.#", CultureInfo.InvariantCulture);
+
+    private static string Asgetal(double waarde) => Math.Abs(waarde) >= 1_000_000
+        ? (waarde / 1_000_000).ToString("0.#", Nederlands) + " mln"
+        : waarde.ToString("#,0", Nederlands);
+
+    private static string Maandnaam(DateOnly maand) => maand.ToString("MMMM", Nederlands);
+}

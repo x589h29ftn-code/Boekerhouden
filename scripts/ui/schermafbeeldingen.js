@@ -177,8 +177,25 @@ function totp(sleutel) {
   if (await page.locator('table.bankmutaties tbody tr', { hasText: 'dubbel?' }).count() > 0) log.push('mogelijk dubbele mutaties niet verwijderd');
   await page.screenshot({ path: `${uit}/${pre}-bank-dubbel-verwijderd.png` });
 
+  // Dashboard: de standaardwidgets, dan aanpassen (btw per maand, verkoop erbij, grafiek met alle kosten) en de tabel.
+  await page.goto(`${basis}/a/${id}`); await page.waitForSelector('.dashboard'); await page.waitForTimeout(1200);
+  if (await page.locator('.maandgrafiek svg').count() === 0) log.push('dashboard zonder maandgrafiek');
+  await page.screenshot({ path: `${uit}/${pre}-dashboard.png` });
+  await page.locator('.maandgrafiek .raakvlak').nth(new Date().getMonth()).hover(); await page.waitForTimeout(300);
+  await page.click('button:has-text("Aanpassen")'); await page.waitForTimeout(500);
+  await page.locator('[data-widget="btw"] select').selectOption('maand'); await page.waitForTimeout(600);
+  await page.locator('[data-widget="maandgrafiek"] select').selectOption('kosten'); await page.waitForTimeout(600);
+  await page.click('.widget.toevoegen button:has-text("Verkoop")'); await page.waitForTimeout(600);
+  await page.locator('[data-widget="kerncijfers"] button[title="Weghalen"]').click(); await page.waitForTimeout(300);
+  await page.screenshot({ path: `${uit}/${pre}-dashboard-aanpassen.png` });
+  await page.click('button:has-text("Klaar")'); await page.waitForTimeout(800);
+  await page.reload(); await page.waitForSelector('.dashboard'); await page.waitForTimeout(1200);
+  if (await page.locator('[data-widget="verkoop"]').count() === 0) log.push('dashboardindeling niet bewaard');
+  await page.locator('.maandgrafiek button:has-text("Tabel")').click(); await page.waitForTimeout(400);
+  await page.screenshot({ path: `${uit}/${pre}-dashboard-aangepast.png`, fullPage: true });
+
   // Auditfile: het boekjaar 2026 downloaden en als nieuwe administratie weer inlezen.
-  await page.goto(`${basis}/a/${id}`); await page.waitForTimeout(1500);
+  await page.goto(`${basis}/a/${id}/balans`); await page.waitForTimeout(1500);
   const jaarkeuze = page.locator('select').first(); if (await jaarkeuze.count()) { try { await jaarkeuze.selectOption('2026'); await page.waitForTimeout(800); } catch { } }
   const [download] = await Promise.all([page.waitForEvent('download'), page.click('button:has-text("Auditfile")')]);
   const xaf = path.join(uit, await download.suggestedFilename()); await download.saveAs(xaf);
@@ -206,7 +223,7 @@ function totp(sleutel) {
 
   // Met ALLE=1: van elke pagina een schermafbeelding (alle-<naam>.png), ook de pagina's achter een regel.
   if (process.env.ALLE) {
-    const paginas = [['start', '/'], ['administratie', `/a/${id}`], ['nieuwe-administratie', '/administraties/nieuw'],
+    const paginas = [['start', '/'], ['administratie', `/a/${id}`], ['balans', `/a/${id}/balans`], ['nieuwe-administratie', '/administraties/nieuw'],
       ['bank', `/a/${id}/bank`], ['bank-openstaand', `/a/${id}/bank/openstaand`], ['inkoop', `/a/${id}/inkoop`], ['inkoopboek', `/a/${id}/inkoopboek`],
       ['verkoop', `/a/${id}/verkoop`], ['verkoopboek', `/a/${id}/verkoopboek`], ['verkoop-nieuw', `/a/${id}/verkoop/nieuw`], ['terugkerend', `/a/${id}/verkoop/terugkerend`],
       ['memoriaal', `/a/${id}/memoriaal`], ['journaal', `/a/${id}/journaal`], ['grootboek', `/a/${id}/grootboek?rekening=1100&van=2026-01-01&tot=2026-12-31`],

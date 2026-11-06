@@ -1,0 +1,283 @@
+@page "/a/{Id:guid}"
+@inject DashboardDienst Dashboards
+
+<AdministratieKader Id="Id" Titel="Dashboard" BijOpenen="Open">
+    <Acties>
+        @if (aanpassen)
+        {
+            <button class="btn btn-link text-secondary" @onclick="ZetStandaard">Standaard</button>
+            <button class="btn btn-link text-secondary" @onclick="Annuleer">Annuleren</button>
+            <button class="btn btn-primary" disabled="@bezig" @onclick="Bewaar">Klaar</button>
+        }
+        else
+        {
+            <button class="btn btn-outline-secondary" @onclick="BeginAanpassen"><Icoon Naam="sliders-horizontal" /> Aanpassen</button>
+        }
+    </Acties>
+    <ChildContent>
+        <Foutmeldingen Fouten="fouten" />
+        @if (dashboard is null)
+        {
+            <Laadschets />
+        }
+        else
+        {
+            <div class="dashboard @(aanpassen ? "aanpassen" : null)">
+                @for (var i = 0; i < indeling.Count; i++)
+                {
+                    var index = i;
+                    var keuze = indeling[i];
+                    <section class="widget @(Breed(keuze.Soort) ? "breed" : null)" data-widget="@keuze.Soort.ToString().ToLowerInvariant()" @key="keuze.Soort">
+                        <header class="widgetkop">
+                            <h2>@Titel(keuze)</h2>
+                            @if (aanpassen)
+                            {
+                                <span class="widgetacties">
+                                    @if (Widgetkeuze.Opties(keuze.Soort) is { Count: > 0 } opties)
+                                    {
+                                        <select class="form-select form-select-sm w-auto" aria-label="Keuze" value="@keuze.Geldig" @onchange="e => ZetOptie(index, e.Value as string)">
+                                            @foreach (var o in opties)
+                                            {
+                                                <option value="@o">@Optienaam(o)</option>
+                                            }
+                                        </select>
+                                    }
+                                    <button class="icoonknop" title="Eerder" aria-label="Eerder" disabled="@(index == 0)" @onclick="() => Verplaats(index, -1)"><Icoon Naam="arrow-up" /></button>
+                                    <button class="icoonknop" title="Later" aria-label="Later" disabled="@(index == indeling.Count - 1)" @onclick="() => Verplaats(index, 1)"><Icoon Naam="arrow-down" /></button>
+                                    <button class="icoonknop" title="Weghalen" aria-label="Weghalen" @onclick="() => Haalweg(index)"><Icoon Naam="x" /></button>
+                                </span>
+                            }
+                            else if (Link(keuze.Soort) is { } pad)
+                            {
+                                <a class="widgetlink" href="@($"/a/{Id}{pad}")" title="Openen" aria-label="Openen"><Icoon Naam="chevron-right" /></a>
+                            }
+                        </header>
+                        <div class="widgetinhoud">
+                            @Inhoud(keuze)
+                        </div>
+                    </section>
+                }
+                @if (aanpassen && Beschikbaar.Any())
+                {
+                    <section class="widget toevoegen breed">
+                        <header class="widgetkop"><h2>Toevoegen</h2></header>
+                        <div class="widgetinhoud d-flex flex-wrap gap-2">
+                            @foreach (var soort in Beschikbaar)
+                            {
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => Voegtoe(soort)"><Icoon Naam="plus" /> @Naam(soort)</button>
+                            }
+                        </div>
+                    </section>
+                }
+                @if (indeling.Count == 0 && !aanpassen)
+                {
+                    <div class="leeg-blok breed">Er staat niets op het dashboard. Kies Aanpassen om widgets toe te voegen.</div>
+                }
+            </div>
+        }
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private IReadOnlyList<Widgetkeuze> opgeslagen = [];
+    private List<Widgetkeuze> indeling = [];
+    private Dashboard? dashboard;
+    private bool aanpassen;
+    private bool bezig;
+    private IReadOnlyList<string>? fouten;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private IEnumerable<Widget> Beschikbaar => Enum.GetValues<Widget>().Where(w => indeling.All(k => k.Soort != w));
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        opgeslagen = await Dashboards.Indeling(g.Wie, Id);
+        indeling = [.. opgeslagen];
+        await Laad();
+    }
+
+    private async Task Laad() => dashboard = await Dashboards.Laad(geopend!.Wie, Id, indeling);
+
+    private void BeginAanpassen() => (aanpassen, fouten) = (true, null);
+
+    private async Task Annuleer()
+    {
+        (aanpassen, indeling) = (false, [.. opgeslagen]);
+        await Laad();
+    }
+
+    private async Task ZetStandaard()
+    {
+        indeling = [.. DashboardDienst.Standaard];
+        await Laad();
+    }
+
+    private async Task Bewaar()
+    {
+        bezig = true;
+        var uitkomst = await Dashboards.BewaarIndeling(geopend!.Wie, Id, indeling);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            (aanpassen, opgeslagen) = (false, [.. indeling]);
+        }
+
+        bezig = false;
+    }
+
+    private void Verplaats(int index, int richting) =>
+        (indeling[index], indeling[index + richting]) = (indeling[index + richting], indeling[index]);
+
+    private void Haalweg(int index) => indeling.RemoveAt(index);
+
+    private async Task Voegtoe(Widget soort)
+    {
+        var keuze = new Widgetkeuze(soort);
+        indeling.Add(keuze with { Optie = keuze.Geldig });
+        await Laad();
+    }
+
+    private async Task ZetOptie(int index, string? optie)
+    {
+        indeling[index] = indeling[index] with { Optie = optie };
+        await Laad();
+    }
+
+    private static bool Breed(Widget soort) => soort is Widget.Maandgrafiek;
+
+    private static string Naam(Widget soort) => soort switch
+    {
+        Widget.Liquide => "Bank en kas",
+        Widget.Btw => "Btw",
+        Widget.Inkoop => "Inkoopfacturen te verwerken",
+        Widget.Bankmutaties => "Bankmutaties te verwerken",
+        Widget.Debiteuren => "Openstaande debiteuren",
+        Widget.Crediteuren => "Openstaande crediteuren",
+        Widget.Maandgrafiek => "Omzet en resultaat per maand",
+        Widget.Kerncijfers => "Kerncijfers",
+        Widget.Verkoop => "Verkoop",
+        Widget.Aansluitingen => "Aansluitingen",
+        _ => soort.ToString(),
+    };
+
+    private static string Optienaam(string optie) => optie switch
+    {
+        Widgetkeuze.Maand => "Per maand",
+        Widgetkeuze.Kwartaal => "Per kwartaal",
+        Widgetkeuze.Inkoop => "Met inkoop",
+        Widgetkeuze.Kosten => "Met alle kosten",
+        _ => optie,
+    };
+
+    private string Titel(Widgetkeuze keuze) => keuze.Soort switch
+    {
+        Widget.Btw when dashboard?.Btw is { } btw => $"Btw {btw.Afgelopen.Naam}",
+        Widget.Maandgrafiek when dashboard?.Maandgrafiek is { } grafiek => $"Omzet, {(keuze.Geldig == Widgetkeuze.Kosten ? "kosten" : "inkoop")} en resultaat {grafiek.Jaar}",
+        Widget.Kerncijfers when dashboard?.Kerncijfers is { } k => $"Kerncijfers t/m {Weergave.Datum(k.Dit.Tot)}",
+        _ => Naam(keuze.Soort),
+    };
+
+    private static string? Link(Widget soort) => soort switch
+    {
+        Widget.Liquide or Widget.Bankmutaties => "/bank",
+        Widget.Btw or Widget.Aansluitingen => "/aansluitingen",
+        Widget.Inkoop => "/inkoop",
+        Widget.Debiteuren => "/debiteuren",
+        Widget.Crediteuren => "/crediteuren",
+        Widget.Maandgrafiek => "/kolommenbalans",
+        Widget.Kerncijfers => "/balans",
+        Widget.Verkoop => "/verkoop",
+        _ => null,
+    };
+
+    private static string Aantal(int aantal, string enkel, string meer) => $"{aantal} {(aantal == 1 ? enkel : meer)}";
+
+    private RenderFragment Inhoud(Widgetkeuze keuze) => keuze.Soort switch
+    {
+        Widget.Liquide when dashboard!.Liquide is { } rekeningen => @<div>
+            <div class="kerngetal">@Weergave.Bedrag(rekeningen.Sum(r => r.Saldo))</div>
+            <table class="widgettabel">
+                @foreach (var r in rekeningen)
+                {
+                    <tr title="@(r.Afschrift is { } a ? $"Laatste afschrift t/m {Weergave.Datum(a.Datum)}: {Weergave.Bedrag(a.Saldo)}" : $"Rekening {r.Rekening}")">
+                        <td>@r.Naam</td>
+                        <td class="text-end">
+                            @if (r.Afschrift is { } afschrift && afschrift.Saldo != r.Saldo)
+                            {
+                                <span class="let-op me-2">afschrift @Weergave.Bedrag(afschrift.Saldo)</span>
+                            }
+                            @Weergave.Bedrag(r.Saldo)
+                        </td>
+                    </tr>
+                }
+            </table>
+        </div>,
+        Widget.Btw when dashboard!.Btw is { } btw => @<div>
+            <div class="kerngetal">@Weergave.Bedrag(Math.Abs(btw.TeBetalen))</div>
+            <div class="widgetregel">@(btw.TeBetalen >= 0 ? "te betalen" : "terug te vragen"), saldo per @Weergave.Datum(btw.Afgelopen.Tot)</div>
+            <div class="widgetregel zacht" title="De btw die in de lopende periode al is geboekt">@btw.Lopend.Naam tot nu: @Weergave.Bedrag(Math.Abs(btw.Lopende)) @(btw.Lopende >= 0 ? "te betalen" : "terug")</div>
+        </div>,
+        Widget.Inkoop when dashboard!.Inkoop is { } inkoop => @<div>
+            <div class="kerngetal">@inkoop.Aantal</div>
+            <div class="widgetregel">@(inkoop.Aantal == 0 ? "alles verwerkt" : $"{(inkoop.Aantal == 1 ? "factuur" : "facturen")}, samen {Weergave.Bedrag(inkoop.Totaal)}")</div>
+        </div>,
+        Widget.Bankmutaties when dashboard!.Bankmutaties is { } mutaties => @<div>
+            <div class="kerngetal">@mutaties.Aantal</div>
+            <div class="widgetregel">
+                @if (mutaties.Oudste is { } oudste)
+                {
+                    <span>oudste van @Weergave.Datum(oudste)</span>
+                }
+                else
+                {
+                    <span>alles verwerkt</span>
+                }
+            </div>
+            @if (mutaties.MogelijkDubbel > 0)
+            {
+                <div class="widgetregel let-op">@Aantal(mutaties.MogelijkDubbel, "mogelijk dubbel", "mogelijk dubbel")</div>
+            }
+        </div>,
+        Widget.Debiteuren when dashboard!.Debiteuren is { } open => Openstaand(open),
+        Widget.Crediteuren when dashboard!.Crediteuren is { } open => Openstaand(open),
+        Widget.Maandgrafiek when dashboard!.Maandgrafiek is { } grafiek => @<Maandgrafiek Maanden="grafiek.Maanden" AlleKosten="@(keuze.Geldig == Widgetkeuze.Kosten)" Tot="dashboard!.Vandaag" />,
+        Widget.Kerncijfers when dashboard!.Kerncijfers is { } k => @<table class="widgettabel">
+            <thead><tr><th></th><th class="text-end">@k.Dit.Van.Year</th><th class="text-end">@k.Vorig.Van.Year</th></tr></thead>
+            <tbody>
+                <tr><td>Omzet</td><td class="text-end">@Weergave.BedragHeel(k.Dit.Omzet)</td><td class="text-end zacht">@Weergave.BedragHeel(k.Vorig.Omzet)</td></tr>
+                <tr><td>Kosten</td><td class="text-end">@Weergave.BedragHeel(k.Dit.Kosten)</td><td class="text-end zacht">@Weergave.BedragHeel(k.Vorig.Kosten)</td></tr>
+                <tr class="totaal"><td>Resultaat</td><td class="text-end">@Weergave.BedragHeel(k.Dit.Resultaat)</td><td class="text-end zacht">@Weergave.BedragHeel(k.Vorig.Resultaat)</td></tr>
+            </tbody>
+        </table>,
+        Widget.Verkoop when dashboard!.Verkoop is { } verkoop => @<table class="widgettabel">
+            <tr><td><a href="/a/@Id/verkoop">Conceptfacturen</a></td><td class="text-end">@verkoop.Concepten</td></tr>
+            <tr><td><a href="/a/@Id/verkoop/terugkerend">Terugkerend te maken</a></td><td class="text-end">@verkoop.Terugkerend</td></tr>
+        </table>,
+        Widget.Aansluitingen when dashboard!.Aansluitingen is { } aansluiting => @<div>
+            @if (aansluiting.SluitenNiet.Count == 0)
+            {
+                <div class="kerngetal">Sluit</div>
+                <div class="widgetregel">@Aantal(aansluiting.Totaal, "aansluiting", "aansluitingen") gecontroleerd</div>
+            }
+            else
+            {
+                <div class="kerngetal">@aansluiting.SluitenNiet.Count</div>
+                <div class="widgetregel let-op" title="@string.Join(", ", aansluiting.SluitenNiet)">@(aansluiting.SluitenNiet.Count == 1 ? "sluit niet" : "sluiten niet"): @string.Join(", ", aansluiting.SluitenNiet)</div>
+            }
+        </div>,
+        _ => @<div class="widgetregel zacht">Bezig met laden</div>,
+    };
+
+    private static RenderFragment Openstaand(Openstaand open) => @<div>
+        <div class="kerngetal">@Weergave.Bedrag(open.Totaal)</div>
+        <div class="widgetregel">@(open.Aantal == 1 ? "1 factuur" : $"{open.Aantal} facturen")</div>
+        @if (open.AantalVervallen > 0)
+        {
+            <div class="widgetregel let-op">@open.AantalVervallen vervallen, samen @Weergave.Bedrag(open.Vervallen)</div>
+        }
+    </div>;
+}

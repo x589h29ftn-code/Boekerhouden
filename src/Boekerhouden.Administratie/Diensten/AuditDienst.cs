@@ -60,6 +60,7 @@ public static class AuditActies
     public const string AdministratieVerwijderd = "Administratie verwijderd";
     public const string AuditfileGemaakt = "Auditfile gemaakt";
     public const string AuditfileIngelezen = "Auditfile ingelezen";
+    public const string DashboardGewijzigd = "Dashboard aangepast";
     public const string LidToegevoegd = "Lid toegevoegd";
     public const string RekeningToegevoegd = "Grootboekrekening toegevoegd";
     public const string RekeningGewijzigd = "Grootboekrekening gewijzigd";

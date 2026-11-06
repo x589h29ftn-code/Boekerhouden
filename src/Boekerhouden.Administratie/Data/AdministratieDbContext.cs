@@ -76,6 +76,8 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
 
     public DbSet<Zoekplek> Zoekplekken => Set<Zoekplek>();
 
+    public DbSet<Dashboardindeling> Dashboardindelingen => Set<Dashboardindeling>();
+
     public DbSet<Afschrift> Afschriften => Set<Afschrift>();
 
     public DbSet<Btwcodedefinitie> Btwcodes => Set<Btwcodedefinitie>();
@@ -473,6 +475,15 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.HasOne<Verkoopdocument>().WithOne().HasForeignKey<Verkoopbestand>(b => b.VerkoopdocumentId).OnDelete(DeleteBehavior.Cascade);
         });
 
+        builder.Entity<Dashboardindeling>(e =>
+        {
+            e.ToTable("Dashboardindelingen");
+            e.HasKey(d => new { d.AdministratieId, d.GebruikerId });
+            e.Property(d => d.Widgets).HasMaxLength(1000);
+            e.HasOne<Administratie>().WithMany().HasForeignKey(d => d.AdministratieId);
+        });
+
+        builder.Entity<Dashboardindeling>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Verkoopbestand>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Abonnement>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Factuurlayout>().HasQueryFilter(e => e.AdministratieId == Geopend);

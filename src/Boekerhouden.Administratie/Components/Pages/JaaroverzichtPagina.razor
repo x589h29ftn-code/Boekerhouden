@@ -1,9 +1,9 @@
-@page "/a/{Id:guid}"
+@page "/a/{Id:guid}/balans"
 @inject GrootboekDienst Grootboek
 @inject AuditfileDienst Auditfiles
 @inject IJSRuntime JS
 
-<AdministratieKader Id="Id" Titel="Balans en W&V" BijOpenen="Open">
+<AdministratieKader Id="Id" Titel="Balans en W&V" Actief="/balans" BijOpenen="Open">
     <Acties>
         <JaarKeuze Jaren="jaren" @bind-Jaar="jaar" @bind-Jaar:after="Laad" />
         <button class="btn btn-outline-secondary" disabled="@bezig" title="Het boekjaar als XML Auditfile Financieel (XAF 3.2), voor de Belastingdienst, de accountant of een ander pakket" @onclick="MaakAuditfile">Auditfile</button>

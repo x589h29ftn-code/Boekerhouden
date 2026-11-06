@@ -861,6 +861,27 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.ToTable("Dagboeken", (string)null);
                 });
 
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Dashboardindeling", b =>
+                {
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("GebruikerId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("GewijzigdOp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Widgets")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("AdministratieId", "GebruikerId");
+
+                    b.ToTable("Dashboardindelingen", (string)null);
+                });
+
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Document", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1873,6 +1894,15 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                 });
 
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Dagboekdefinitie", b =>
+                {
+                    b.HasOne("Boekerhouden.Administratie.Data.Administratie", null)
+                        .WithMany()
+                        .HasForeignKey("AdministratieId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Dashboardindeling", b =>
                 {
                     b.HasOne("Boekerhouden.Administratie.Data.Administratie", null)
                         .WithMany()

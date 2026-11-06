@@ -119,6 +119,7 @@ public static class Opstart
         services.AddSingleton<VerkoopimportDienst>();
         services.AddSingleton<BankDienst>();
         services.AddSingleton<AuditfileDienst>();
+        services.AddSingleton<DashboardDienst>();
         services.AddSingleton<BtwDienst>();
         services.AddSingleton<InrichtingDienst>();
         services.AddSingleton<KantoorDienst>();

@@ -49,6 +49,8 @@ Laatst gebouwd (oktober 2026), in deze volgorde:
 5. **Einde klantrelatie en overstappen** (README §3.9 en §3.11): administraties archiveren (alleen inzien) en door
    de beheerder verwijderen (tombstone `VerwijderdeAdministraties` voor de triggers); een boekjaar als auditfile
    (XAF 3.2) en een auditfile inlezen als nieuwe administratie.
+6. **Dashboard** (README §3.12): startpagina van een administratie met widgets die elke gebruiker zelf kiest
+   (bank, btw, te verwerken, openstaand, grafiek per maand, kerncijfers, verkoop, aansluitingen).
 
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).

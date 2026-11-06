@@ -94,7 +94,7 @@ else
         ]),
         ("Rapportages",
         [
-            ("", "Balans en W&V", Recht.Lezen),
+            ("/balans", "Balans en W&V", Recht.Lezen),
             ("/kolommenbalans", "Kolommenbalans", Recht.Lezen),
             ("/debiteuren", "Openstaande debiteuren", Recht.Lezen),
             ("/crediteuren", "Openstaande crediteuren", Recht.Lezen),
@@ -129,7 +129,7 @@ else
     [Parameter, EditorRequired]
     public string Titel { get; set; } = "";
 
-    /// <summary>Het pad van de pagina in het menu, bijv. "/grootboek"; leeg voor balans en W&amp;V.</summary>
+    /// <summary>Het pad van de pagina in het menu, bijv. "/grootboek"; leeg voor het dashboard.</summary>
     /// <summary>Een regel onder de titel met wat je op deze pagina wilt weten, bijv. het saldo en de datum van het laatste afschrift.</summary>
     [Parameter]
     public RenderFragment? Kenmerken { get; set; }
