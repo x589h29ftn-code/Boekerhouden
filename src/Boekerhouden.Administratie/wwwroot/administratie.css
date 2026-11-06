@@ -1132,3 +1132,17 @@ body.kolom-slepen { cursor: col-resize; user-select: none; }
 .regeltekst { display: flex; align-items: baseline; gap: .5rem; min-width: 0; }
 .regeltekst-tekst { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .regeltekst > .status { flex: none; }
+
+/* Gewicht: geen vetgedrukte tekst of getallen (ook geen totalen; die herken je aan de lijnen erboven en eronder).
+   Alleen de paginatitel en de naam bovenin een verwerkpaneel zijn licht vet, zodat je ziet waar je bent. De factuur
+   zelf (voorbeeld en ontwerper) houdt de opmaak van zijn lay-out. :not(#geen) geeft deze regels voorrang op
+   losse regels met !important. */
+body *:not(#geen):not(.factuurvoorbeeld-pagina, .factuurvoorbeeld-pagina *, .ontwerpvlak-pagina, .ontwerpvlak-pagina *),
+body *:not(#geen):not(.factuurvoorbeeld-pagina *, .ontwerpvlak-pagina *)::before,
+body *:not(#geen):not(.factuurvoorbeeld-pagina *, .ontwerpvlak-pagina *)::after {
+    font-weight: 400 !important;
+}
+
+.administratie .paginakop h1:not(#geen), .administratie .verwerkpaneel .paneelnaam:not(#geen) {
+    font-weight: 500 !important;
+}

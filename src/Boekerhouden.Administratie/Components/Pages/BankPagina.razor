@@ -275,7 +275,7 @@
                     <div class="card card-body verwerkpaneel">
                         <div class="d-flex align-items-start gap-3 mb-3">
                             <div class="me-auto min-w-0">
-                                <div class="fw-semibold text-truncate">@(g.Mutatie.TegenNaam ?? "Onbekende tegenpartij")</div>
+                                <div class="paneelnaam text-truncate">@(g.Mutatie.TegenNaam ?? "Onbekende tegenpartij")</div>
                                 <div class="bedrag fs-5"><Euro Waarde="g.Mutatie.Bedrag" /></div>
                                 @if (mag && g.Mutatie.Status == Banktransactiestatus.TeVerwerken)
                                 {
