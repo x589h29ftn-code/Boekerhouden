@@ -144,6 +144,13 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("GearchiveerdDoor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("GearchiveerdOp")
+                        .HasColumnType("INTEGER");
+
                     b.PrimitiveCollection<string>("Ibans")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -1574,6 +1581,30 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.HasIndex("VerkoopdocumentId");
 
                     b.ToTable("Verkoopdocumentregels", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.VerwijderdeAdministratie", b =>
+                {
+                    b.Property<Guid>("AdministratieId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Naam")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("VerwijderdDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("VerwijderdOp")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("AdministratieId");
+
+                    b.ToTable("VerwijderdeAdministraties", (string)null);
                 });
 
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Zoekplek", b =>

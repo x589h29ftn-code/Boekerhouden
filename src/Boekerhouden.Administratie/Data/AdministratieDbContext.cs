@@ -72,6 +72,8 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
 
     public DbSet<Kantoorinstellingen> Kantoorinstellingen => Set<Kantoorinstellingen>();
 
+    public DbSet<VerwijderdeAdministratie> VerwijderdeAdministraties => Set<VerwijderdeAdministratie>();
+
     public DbSet<Zoekplek> Zoekplekken => Set<Zoekplek>();
 
     public DbSet<Afschrift> Afschriften => Set<Afschrift>();
@@ -124,6 +126,15 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(a => a.Email).HasMaxLength(200);
             e.Property(a => a.Telefoon).HasMaxLength(50);
             e.Property(a => a.Website).HasMaxLength(200);
+            e.Property(a => a.GearchiveerdDoor).HasMaxLength(200);
+        });
+
+        builder.Entity<VerwijderdeAdministratie>(e =>
+        {
+            e.ToTable("VerwijderdeAdministraties");
+            e.HasKey(v => v.AdministratieId);
+            e.Property(v => v.Naam).HasMaxLength(300);
+            e.Property(v => v.VerwijderdDoor).HasMaxLength(200);
         });
 
         builder.Entity<Kantoorinstellingen>(e =>

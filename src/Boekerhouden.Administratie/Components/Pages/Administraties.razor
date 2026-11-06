@@ -3,8 +3,12 @@
 
 <PageTitle>Administraties - Administratie</PageTitle>
 
-<div class="d-flex align-items-center mb-3 gap-2">
+<div class="d-flex align-items-center mb-3 gap-3">
     <h1 class="h3 mb-0 me-auto">Administraties</h1>
+    <span class="form-check small text-nowrap mb-0">
+        <input class="form-check-input" type="checkbox" id="ook-gearchiveerd" @bind="ookGearchiveerd" @bind:after="Laad" />
+        <label class="form-check-label text-secondary" for="ook-gearchiveerd">Ook gearchiveerd</label>
+    </span>
     <input class="form-control w-auto" type="search" placeholder="Zoek op naam" aria-label="Zoeken"
            @bind="zoek" @bind:event="oninput" @bind:after="Laad" />
     <AuthorizeView Roles="@Rollen.Kantoor">
@@ -12,40 +16,89 @@
     </AuthorizeView>
 </div>
 
+@if (melding is not null)
+{
+    <div class="melding-kort" role="status" @key="meldingnummer">@melding</div>
+}
+<Foutmeldingen Fouten="fouten" />
+
 @if (lijst is null)
 {
     <Laadschets />
 }
 else if (lijst.Count == 0)
 {
-    <div class="card card-body text-center text-secondary py-5">
+    <div class="leeg-blok">
         @if (string.IsNullOrWhiteSpace(zoek))
         {
-            <p class="mb-0">Je hebt nog geen toegang tot een administratie.</p>
+            <span>Je hebt nog geen toegang tot een administratie.</span>
         }
         else
         {
-            <p class="mb-0">Geen administraties gevonden voor ‘@zoek’.</p>
+            <span>Geen administraties gevonden voor ‘@zoek’.</span>
         }
     </div>
 }
 else
 {
     <div class="card">
-        <table class="table table-sm table-hover align-middle mb-0" data-sleepbaar="administraties">
+        <table class="table table-sm table-hover align-middle mb-0 administratielijst" data-sleepbaar="administraties">
             <thead>
-                <tr><th>Naam</th><th>Rechtsvorm</th><th>KvK</th><th>Btw-nummer</th><th>Jouw rol</th></tr>
+                <tr><th>Naam</th><th>Rechtsvorm</th><th>KvK</th><th>Btw-nummer</th><th>Jouw rol</th><th class="rekt"></th></tr>
             </thead>
             <tbody>
                 @foreach (var a in lijst)
                 {
-                    <tr>
+                    <tr class="@(a.Gearchiveerd is null ? null : "gearchiveerd")">
                         <td><a href="/a/@a.Id">@a.Naam</a></td>
                         <td>@Weergave.Tekst(a.Ondernemingsvorm)</td>
                         <td>@a.KvkNummer</td>
                         <td>@a.BtwNummer</td>
                         <td><span class="status">@Weergave.Tekst(a.Rol)</span></td>
+                        <td class="text-end text-nowrap">
+                            @if (a.Gearchiveerd is { } op)
+                            {
+                                <span class="status me-2" title="Gearchiveerd @Weergave.DatumTijd(op): alleen inzien">gearchiveerd</span>
+                            }
+                            <span class="regelacties">
+                                @if (a.Rol == Lidmaatschapsrol.Kantoor)
+                                {
+                                    @if (a.Gearchiveerd is null)
+                                    {
+                                        <button class="btn btn-sm btn-link text-secondary p-0" disabled="@bezig" title="Einde van de klantrelatie: daarna alleen inzien" @onclick="() => Archiveer(a)">Archiveren</button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-link text-secondary p-0" disabled="@bezig" @onclick="() => Herstel(a)">Uit archief halen</button>
+                                    }
+                                }
+                                @if (beheerder)
+                                {
+                                    <button class="btn btn-sm btn-link text-secondary p-0 ms-3" disabled="@bezig" @onclick="() => KiesVerwijderen(a)">Verwijderen</button>
+                                }
+                            </span>
+                        </td>
                     </tr>
+                    @if (verwijderen is { } v && v.Id == a.Id && voorwaarden is { } w)
+                    {
+                        <tr class="verwijderregel">
+                            <td colspan="6">
+                                <div class="d-flex align-items-center flex-wrap gap-3 py-1">
+                                    <span class="small">@w.Boekingen @(w.Boekingen == 1 ? "boeking" : "boekingen")@(w.Bewaarplicht is { } tot ? $", bewaarplicht tot {Weergave.Datum(tot)}" : null). Alles gaat weg; het wijzigingslog blijft.</span>
+                                    <input class="form-control form-control-sm w-auto" placeholder="Typ de naam ter bevestiging" aria-label="Naam ter bevestiging" @bind="bevestigNaam" @bind:event="oninput" />
+                                    @if (w.Bewaarplicht is { } eind && eind >= DateOnly.FromDateTime(DateTime.Today))
+                                    {
+                                        <span class="form-check small mb-0">
+                                            <input class="form-check-input" type="checkbox" id="bewaarplicht" @bind="bewaarplichtGezien" />
+                                            <label class="form-check-label" for="bewaarplicht">Ik weet dat de bewaarplicht nog loopt</label>
+                                        </span>
+                                    }
+                                    <button class="btn btn-sm btn-danger" disabled="@(bezig || bevestigNaam?.Trim() != w.Naam)" @onclick="Verwijder">Definitief verwijderen</button>
+                                    <button class="btn btn-sm btn-link text-secondary p-0" @onclick="() => verwijderen = null">Annuleren</button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
                 }
             </tbody>
         </table>
@@ -55,6 +108,16 @@ else
 @code {
     private IReadOnlyList<AdministratieKop>? lijst;
     private string? zoek;
+    private bool ookGearchiveerd;
+    private bool beheerder;
+    private bool bezig;
+    private string? melding;
+    private int meldingnummer;
+    private IReadOnlyList<string>? fouten;
+    private AdministratieKop? verwijderen;
+    private Verwijdervoorwaarden? voorwaarden;
+    private string? bevestigNaam;
+    private bool bewaarplichtGezien;
     private Uitvoerder wie = Uitvoerder.Systeem;
 
     [CascadingParameter]
@@ -62,9 +125,71 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        wie = (await Authenticatie).User.AlsUitvoerder();
+        var gebruiker = (await Authenticatie).User;
+        wie = gebruiker.AlsUitvoerder();
+        beheerder = gebruiker.IsInRole(Rollen.Beheerder);
         await Laad();
     }
 
-    private async Task Laad() => lijst = await AdministratieDienst.Lijst(wie, zoek);
+    private async Task Laad() => lijst = await AdministratieDienst.Lijst(wie, zoek, ookGearchiveerd);
+
+    private void Meld(string tekst)
+    {
+        meldingnummer++;
+        melding = tekst;
+    }
+
+    private async Task Archiveer(AdministratieKop a)
+    {
+        bezig = true;
+        var uitkomst = await AdministratieDienst.Archiveer(wie, a.Id);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            Meld($"{a.Naam} is gearchiveerd.");
+        }
+
+        bezig = false;
+        await Laad();
+    }
+
+    private async Task Herstel(AdministratieKop a)
+    {
+        bezig = true;
+        var uitkomst = await AdministratieDienst.Herstel(wie, a.Id);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            Meld($"{a.Naam} is weer in gebruik.");
+        }
+
+        bezig = false;
+        await Laad();
+    }
+
+    private async Task KiesVerwijderen(AdministratieKop a)
+    {
+        (verwijderen, bevestigNaam, bewaarplichtGezien, fouten) = (a, null, false, null);
+        voorwaarden = await AdministratieDienst.Voorwaarden(wie, a.Id);
+    }
+
+    private async Task Verwijder()
+    {
+        if (verwijderen is not { } a)
+        {
+            return;
+        }
+
+        bezig = true;
+        var uitkomst = await AdministratieDienst.Verwijder(wie, a.Id, bevestigNaam ?? "", bewaarplichtGezien);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            Meld($"{a.Naam} is verwijderd.");
+            verwijderen = null;
+        }
+
+        bezig = false;
+        await Laad();
+    }
 }

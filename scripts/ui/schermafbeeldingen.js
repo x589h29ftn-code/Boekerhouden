@@ -177,6 +177,22 @@ function totp(sleutel) {
   if (await page.locator('table.bankmutaties tbody tr', { hasText: 'dubbel?' }).count() > 0) log.push('mogelijk dubbele mutaties niet verwijderd');
   await page.screenshot({ path: `${uit}/${pre}-bank-dubbel-verwijderd.png` });
 
+  // Administraties: een tweede administratie archiveren (alleen inzien), tonen met "Ook gearchiveerd" en verwijderen.
+  await page.goto(basis + '/administraties/nieuw'); await page.waitForSelector('#naam'); await page.waitForTimeout(800);
+  await page.fill('#naam', 'Oude Klant B.V.'); await page.click('text=Aanmaken'); await page.waitForURL(/\/a\/[0-9a-f-]+$/);
+  await page.goto(basis + '/'); await page.waitForTimeout(1500);
+  const oud = page.locator('table.administratielijst tbody tr', { hasText: 'Oude Klant B.V.' });
+  await oud.hover(); await oud.locator('button:has-text("Archiveren")').click(); await page.waitForTimeout(1200);
+  if (await page.locator('table.administratielijst tbody tr', { hasText: 'Oude Klant B.V.' }).count() > 0) log.push('gearchiveerde administratie staat nog in de lijst');
+  await page.check('#ook-gearchiveerd'); await page.waitForTimeout(1000);
+  await page.locator('table.administratielijst tbody tr', { hasText: 'Oude Klant B.V.' }).hover();
+  await page.screenshot({ path: `${uit}/${pre}-administraties-archief.png` });
+  await page.locator('table.administratielijst tbody tr', { hasText: 'Oude Klant B.V.' }).locator('button:has-text("Verwijderen")').click(); await page.waitForTimeout(800);
+  await page.fill('input[aria-label="Naam ter bevestiging"]', 'Oude Klant B.V.'); await page.waitForTimeout(300);
+  await page.screenshot({ path: `${uit}/${pre}-administratie-verwijderen.png` });
+  await page.click('button:has-text("Definitief verwijderen")'); await page.waitForTimeout(1500);
+  if (await page.locator('table.administratielijst tbody tr', { hasText: 'Oude Klant B.V.' }).count() > 0) log.push('administratie niet verwijderd');
+
   // Met ALLE=1: van elke pagina een schermafbeelding (alle-<naam>.png), ook de pagina's achter een regel.
   if (process.env.ALLE) {
     const paginas = [['start', '/'], ['administratie', `/a/${id}`], ['nieuwe-administratie', '/administraties/nieuw'],

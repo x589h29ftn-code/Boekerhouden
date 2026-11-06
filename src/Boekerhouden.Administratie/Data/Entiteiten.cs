@@ -108,6 +108,29 @@ public sealed class Administratie
     public DateTimeOffset AangemaaktOp { get; set; }
 
     public string AangemaaktDoor { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gearchiveerd (einde van de klantrelatie): alleen nog inzien, niets wijzigen, en niet in de gewone lijst. Leeg =
+    /// in gebruik.
+    /// </summary>
+    public DateTimeOffset? GearchiveerdOp { get; set; }
+
+    public string? GearchiveerdDoor { get; set; }
+}
+
+/// <summary>
+/// Een verwijderde administratie: wie en wanneer. Zolang deze rij er is, staat de database toe dat de boekingen van die
+/// administratie worden verwijderd (de triggers weigeren dat verder altijd); het wijzigingslog blijft bewaard.
+/// </summary>
+public sealed class VerwijderdeAdministratie
+{
+    public Guid AdministratieId { get; set; }
+
+    public string Naam { get; set; } = string.Empty;
+
+    public DateTimeOffset VerwijderdOp { get; set; }
+
+    public string VerwijderdDoor { get; set; } = string.Empty;
 }
 
 public sealed class Lidmaatschap

@@ -136,7 +136,7 @@ public sealed class KantoorDienst(IDbContextFactory<AdministratieDbContext> dbFa
         return anders.Count == 0 ? "geen wijziging" : string.Join("; ", anders);
     }
 
-    private async Task<bool> IsBeheerder(Uitvoerder wie)
+    internal async Task<bool> IsBeheerder(Uitvoerder wie)
     {
         if (wie.Id is not { } id)
         {

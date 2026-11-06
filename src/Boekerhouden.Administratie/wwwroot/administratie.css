@@ -1180,3 +1180,9 @@ body *:not(#geen):not(.factuurvoorbeeld-pagina *, .ontwerpvlak-pagina *)::after 
 
 /* Een kopje in een lang formulier (bijv. Gegevens, Verwerken). */
 .formuliersectie { margin-bottom: var(--r2); padding-bottom: var(--r1); border-bottom: 1px solid var(--bh-lijn); color: var(--bh-zacht); font-size: .8125rem; }
+
+/* Administraties: acties op een regel pas bij aanwijzen; een gearchiveerde administratie in grijs. */
+.administratielijst .regelacties { opacity: 0; transition: opacity var(--bh-snel) ease; }
+.administratielijst tr:hover .regelacties, .administratielijst tr:focus-within .regelacties { opacity: 1; }
+.administratielijst tr.gearchiveerd > td, .administratielijst tr.gearchiveerd > td a { color: var(--bh-zacht); }
+.administratielijst tr.verwijderregel > td { background: var(--bh-warm-zacht); }

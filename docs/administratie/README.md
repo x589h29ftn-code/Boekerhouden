@@ -273,6 +273,16 @@ debiteuren, een betaling bij crediteuren. Elke kandidaat krijgt een **zekerheid*
   kantoor) en **beheerder** (gebruikers en leden, wijzigingslog; ziet géén cijfers zonder lidmaatschap).
 - Elke handeling die gegevens wijzigt, staat in het **wijzigingslog** (wie, wat, onderwerp), zoals in de
   samenstel-app.
+- **Einde van de klantrelatie** (beveiliging §4.12): het kantoor **archiveert** een administratie (op
+  *Administraties*, bij aanwijzen van de regel). Een gearchiveerde administratie is alleen nog in te zien (`Toegang`
+  weigert elk ander recht, ook `Toegang.MagIn`; de paginakop toont *gearchiveerd, alleen inzien*) en staat alleen
+  in de lijst met *Ook gearchiveerd*. *Uit archief halen* maakt hem weer gewoon bruikbaar. **Verwijderen** kan alleen
+  de beheerder: een administratie met boekingen moet eerst gearchiveerd zijn, de naam moet worden overgetypt, en loopt
+  de fiscale bewaarplicht nog (7 jaar na het eind van het jaar van de laatste boeking), dan moet dat apart worden
+  bevestigd. Alles van de administratie gaat weg (boekingen, documenten, bank, verkoop, relaties, instellingen); het
+  wijzigingslog blijft, met *Administratie verwijderd* erin. In de database staat de verwijdering in
+  `VerwijderdeAdministraties`; alleen voor zo'n administratie laten de triggers het verwijderen van boekingen toe
+  (`AdministratieDienst.Archiveer`, `Herstel`, `Voorwaarden`, `Verwijder`).
 
 ### 3.10 Koppeling met het samenstelpakket
 

@@ -194,7 +194,7 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
         var dagboeken = await LaadDagboeken(db);
         var dagboek = dagboeken.FirstOrDefault(d => d.Code == post.Dagboek);
         var nodig = dagboek?.Soort == Dagboeksoort.Memoriaal ? Recht.Boekhouden : Recht.Invoeren;
-        if (!Toegang.Mag((await toegang.Rol(wie, administratie))!.Value, nodig))
+        if (!await toegang.MagIn(wie, administratie, nodig))
         {
             return Uitkomst<long>.Mislukt("Je hebt in deze administratie niet het recht om hier te boeken.");
         }
@@ -473,7 +473,7 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
         var dagboeken = await LaadDagboeken(db);
         var nodig = dagboeken.FirstOrDefault(d => d.Code == dagboek)?.Soort == Dagboeksoort.Memoriaal ? Recht.Boekhouden : Recht.Invoeren;
-        if (!Toegang.Mag((await toegang.Rol(wie, administratie))!.Value, nodig))
+        if (!await toegang.MagIn(wie, administratie, nodig))
         {
             return Uitkomst<int>.Mislukt("Je hebt in deze administratie niet het recht om hier te boeken.");
         }

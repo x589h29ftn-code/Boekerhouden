@@ -48,7 +48,10 @@ else
                     <a class="terug" href="@terug" title="Terug" aria-label="Terug"><Icoon Naam="arrow-left" /></a>
                 }
                 <div class="me-auto paginakop">
-                    <h1 class="h3 mb-0">@Titel</h1>
+                    <h1 class="h3 mb-0">@Titel@if (kop.Gearchiveerd is not null)
+                        {
+                            <span class="status ms-2 fs-6" title="Uit het archief halen kan bij Administraties">gearchiveerd, alleen inzien</span>
+                        }</h1>
                     @if (Kenmerken is not null)
                     {
                         <div class="kopkenmerken">@Kenmerken</div>

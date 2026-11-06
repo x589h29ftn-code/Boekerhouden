@@ -255,6 +255,8 @@ Documenten van buiten zijn de grootste technische aanvalsroute.
   - export (XAF, PDF's en bijlagen) aan de ondernemer;
   - daarna alleen-lezen tot het einde van de bewaartermijn;
   - dan verwijderen, met een vermelding in het log.
+  - In het pakket: *Archiveren* (alleen inzien) en *Verwijderen* door de beheerder, met bevestiging van de naam en van
+    de nog lopende bewaarplicht; zie README §3.9.
 - **Bewustwording**: phishing en factuurfraude kort uitleggen aan medewerkers en ondernemers. Het pakket helpt
   met de signalen uit §4.4.
 

@@ -64,6 +64,23 @@ public sealed class Toegang(IDbContextFactory<AdministratieDbContext> dbFactory)
                       select (Lidmaatschapsrol?)l.Rol).SingleOrDefaultAsync();
     }
 
+    /// <summary>Of de gebruiker dit mag in de administratie: lid, het recht, en (behalve lezen) niet gearchiveerd.</summary>
+    public async Task<bool> MagIn(Uitvoerder wie, Guid administratie, Recht recht)
+    {
+        if (await Rol(wie, administratie) is not { } rol || !Mag(rol, recht))
+        {
+            return false;
+        }
+
+        if (recht == Recht.Lezen)
+        {
+            return true;
+        }
+
+        await using var db = await dbFactory.CreateDbContextAsync();
+        return !await db.Administraties.AnyAsync(a => a.Id == administratie && a.GearchiveerdOp != null);
+    }
+
     /// <summary>Opent de administratie; een <see cref="GeenToegangException"/> zonder lidmaatschap of recht.</summary>
     public async Task<AdministratieDbContext> Open(Uitvoerder wie, Guid administratie, Recht recht)
     {
@@ -79,6 +96,13 @@ public sealed class Toegang(IDbContextFactory<AdministratieDbContext> dbFactory)
         }
 
         var db = await dbFactory.CreateDbContextAsync();
+        // Een gearchiveerde administratie is alleen nog in te zien.
+        if (recht != Recht.Lezen && await db.Administraties.AnyAsync(a => a.Id == administratie && a.GearchiveerdOp != null))
+        {
+            await db.DisposeAsync();
+            throw new GeenToegangException("Deze administratie is gearchiveerd: alleen inzien.");
+        }
+
         db.Geopend = administratie;
         return db;
     }

@@ -150,6 +150,13 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("GearchiveerdDoor")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset?>("GearchiveerdOp")
+                        .HasColumnType("timestamp with time zone");
+
                     b.PrimitiveCollection<List<string>>("Ibans")
                         .IsRequired()
                         .HasColumnType("text[]");
@@ -1590,6 +1597,30 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.HasIndex("VerkoopdocumentId");
 
                     b.ToTable("Verkoopdocumentregels", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.VerwijderdeAdministratie", b =>
+                {
+                    b.Property<Guid>("AdministratieId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Naam")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("VerwijderdDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("VerwijderdOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("AdministratieId");
+
+                    b.ToTable("VerwijderdeAdministraties", (string)null);
                 });
 
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Zoekplek", b =>
