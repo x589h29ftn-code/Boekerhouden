@@ -1118,7 +1118,7 @@ body.kolom-slepen { cursor: col-resize; user-select: none; }
 .transactiegegevens dd { margin: 0; overflow-wrap: anywhere; }
 
 /* Bankmutaties: een vinkje per mutatie om er meer tegelijk te boeken, en een filter boven elke kolom. */
-.bankmutaties .kiesvak { width: 1%; white-space: nowrap; padding-right: .25rem; }
+.bankmutaties .kiesvak { width: 1%; white-space: nowrap; padding-right: 0; }
 .bankmutaties .filterrij th { padding-top: .2rem; padding-bottom: .35rem; font-weight: normal; }
 .bankmutaties .filterrij input { font-size: .8rem; padding: .1rem .35rem; }
 .selectiebalk { padding: .6rem .75rem; }
@@ -1146,3 +1146,22 @@ body *:not(#geen):not(.factuurvoorbeeld-pagina *, .ontwerpvlak-pagina *)::after 
 .administratie .paginakop h1:not(#geen), .administratie .verwerkpaneel .paneelnaam:not(#geen) {
     font-weight: 500 !important;
 }
+
+/* Bankmutaties rustig: filters als lichte velden met alleen een lijn bij aanwijzen of typen, vinkjes pas bij aanwijzen
+   (of zodra er iets gekozen is), de datum in grijs. */
+.bankmutaties .filterrij th { background: transparent; border-bottom: 1px solid var(--bh-lijn); }
+.bankmutaties .filterrij input {
+    height: auto; min-height: 0; padding: .15rem 0; border: 0; border-bottom: 1px solid transparent; border-radius: 0;
+    background: transparent; box-shadow: none; font-size: .8125rem;
+}
+.bankmutaties .filterrij input::placeholder { color: #a9b0b7; }
+.bankmutaties .filterrij input:hover, .bankmutaties .filterrij input:focus, .bankmutaties .filterrij input:not(:placeholder-shown) {
+    border-bottom-color: var(--bh-lijn-sterk); box-shadow: none;
+}
+.bankmutaties .filterrij input:focus { border-bottom-color: var(--bh-accent); }
+.bankmutaties .kiesvak .form-check-input { opacity: 0; transition: opacity var(--bh-snel) ease; }
+.bankmutaties tr:hover .kiesvak .form-check-input, .bankmutaties.met-keuze .kiesvak .form-check-input,
+.bankmutaties .kiesvak .form-check-input:checked, .bankmutaties .kiesvak .form-check-input:focus-visible,
+.bankmutaties tr:focus-visible .kiesvak .form-check-input { opacity: 1; }
+.bankmutaties td.datum { color: var(--bh-zacht); }
+.inleesregel .let-op { cursor: help; text-decoration: underline dotted; text-underline-offset: .2em; }

@@ -172,7 +172,7 @@ function totp(sleutel) {
   await page.screenshot({ path: `${uit}/${pre}-bank-overlap.png` });
   await page.locator('table.bankmutaties tbody tr', { hasText: 'dubbel?' }).first().click(); await page.waitForTimeout(1200);
   await page.screenshot({ path: `${uit}/${pre}-bank-dubbel-paneel.png` });
-  await page.click('.dubbelbericht button:has-text("selecteren")'); await page.waitForTimeout(400);
+  await page.click('button.dubbelbericht'); await page.waitForTimeout(400);
   await page.click('.actiebalk button:has-text("Verwijderen")'); await page.click('.actiebalk button:has-text("Ja, verwijderen")'); await page.waitForTimeout(1500);
   if (await page.locator('table.bankmutaties tbody tr', { hasText: 'dubbel?' }).count() > 0) log.push('mogelijk dubbele mutaties niet verwijderd');
   await page.screenshot({ path: `${uit}/${pre}-bank-dubbel-verwijderd.png` });

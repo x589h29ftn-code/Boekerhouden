@@ -917,10 +917,9 @@ a.terug {
     color: var(--bh-warm) !important;
 }
 
+/* Een label als "dubbel?" of "Sluit niet": alleen de warme kleur, klein, geen gekleurd vlak. */
 span.status.let-op {
-    padding: 0 .3rem;
-    border-radius: 2px;
-    background: var(--bh-warm-zacht);
+    font-size: .8125rem;
 }
 
 /* Een bevestiging na een handeling: klein, linksonder boven de statusbalk, verdwijnt vanzelf. */

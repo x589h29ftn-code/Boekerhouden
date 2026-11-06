@@ -61,11 +61,13 @@
             {
                 @if (uitkomst.Waarde is { } w)
                 {
-                    <div class="small mt-1">@bestand: @Samenvatting(w)</div>
-                    @foreach (var m in w.Meldingen)
-                    {
-                        <div class="small status let-op d-block text-wrap">@m</div>
-                    }
+                    <div class="small mt-1 inleesregel">
+                        <span>@bestand: @Samenvatting(w)</span>
+                        @if (w.Meldingen.Count > 0)
+                        {
+                            <span class="let-op ms-2" title="@string.Join(Environment.NewLine, w.Meldingen)">@Meldingtekst(w)</span>
+                        }
+                    </div>
                 }
                 else
                 {
@@ -88,6 +90,10 @@
                 <span class="small text-secondary ms-3">@InkoopPagina.Samenvatting(o)</span>
             }
             <div class="ms-auto d-flex align-items-center gap-3">
+                @if (mag && (mutaties?.Count(m => m.MogelijkDubbel && m.Status == Banktransactiestatus.TeVerwerken) ?? 0) is > 0 and var dubbel)
+                {
+                    <button class="btn btn-sm btn-link p-0 let-op dubbelbericht" title="Alle mogelijk dubbele mutaties aanvinken" @onclick="KiesDubbel">@dubbel mogelijk dubbel</button>
+                }
                 @if (mag && mutaties?.Any(m => m.Status == Banktransactiestatus.TeVerwerken) == true)
                 {
                     <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="Alle mutaties in Te verwerken opnieuw herkennen: afletteren, regels (ook autoherkenning) en wat er geleerd is" aria-busy="@(bezig ? "true" : null)" @onclick="VerwerkOpnieuw">Opnieuw herkennen</button>
@@ -174,24 +180,17 @@
                 {
                     <div class="melding-kort" role="status" @key="meldingnummer">@selectiebericht</div>
                 }
-                @if (mag && mutaties.Count(m => m.MogelijkDubbel && m.Status == Banktransactiestatus.TeVerwerken) is > 0 and var dubbel)
-                {
-                    <div class="small mb-2 d-flex align-items-center gap-2 dubbelbericht">
-                        <span class="status let-op">@dubbel @(dubbel == 1 ? "mutatie" : "mutaties") mogelijk dubbel</span>
-                        <button class="btn btn-sm btn-link p-0" @onclick="KiesDubbel">Selecteren</button>
-                    </div>
-                }
                 @if (gekozen is null)
                 {
                     <Foutmeldingen Fouten="fouten" />
                 }
                 <div class="card">
-                    <table class="table table-sm table-hover align-middle mb-0 bankmutaties" data-sleepbaar="bankmutaties">
+                    <table class="table table-sm table-hover align-middle mb-0 bankmutaties @(geselecteerd.Count > 0 ? "met-keuze" : null)" data-sleepbaar="bankmutaties">
                         <thead>
                             <tr>
                                 @if (mag)
                                 {
-                                    <th class="kiesvak" data-breedte="34">
+                                    <th class="kiesvak" data-breedte="24">
                                         <input class="form-check-input" type="checkbox" aria-label="Alle zichtbare mutaties kiezen" title="Alle zichtbare mutaties"
                                                checked="@(teKiezen.Count > 0 && teKiezen.All(m => geselecteerd.Contains(m.Id)))" @onchange="e => KiesAlles(teKiezen, e.Value is true)" />
                                     </th>
@@ -205,9 +204,9 @@
                                 {
                                     <th></th>
                                 }
-                                <th><input class="form-control form-control-sm" placeholder="filter" aria-label="Filter op datum" @bind="filterDatum" @bind:event="oninput" /></th>
-                                <th><input class="form-control form-control-sm" placeholder="filter op naam of omschrijving" aria-label="Filter op naam of omschrijving" @bind="filterTekst" @bind:event="oninput" /></th>
-                                <th><input class="form-control form-control-sm text-end" placeholder="filter" aria-label="Filter op bedrag" title="Een bedrag (ook een deel, bijv. 199) of van-tot (bijv. 10-50); zonder minteken telt af en bij" @bind="filterBedrag" @bind:event="oninput" /></th>
+                                <th><input class="form-control form-control-sm" placeholder="Filter" aria-label="Filter op datum" @bind="filterDatum" @bind:event="oninput" /></th>
+                                <th><input class="form-control form-control-sm" placeholder="Filter op naam of omschrijving" aria-label="Filter op naam of omschrijving" @bind="filterTekst" @bind:event="oninput" /></th>
+                                <th><input class="form-control form-control-sm text-end" placeholder="Filter" aria-label="Filter op bedrag" title="Een bedrag (ook een deel, bijv. 199) of van-tot (bijv. 10-50); zonder minteken telt af en bij" @bind="filterBedrag" @bind:event="oninput" /></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -225,7 +224,7 @@
                                             }
                                         </td>
                                     }
-                                    <td class="text-nowrap">@Weergave.Datum(m.Datum)</td>
+                                    <td class="text-nowrap datum">@Weergave.Datum(m.Datum)</td>
                                     <td class="omschrijving" title="@string.Join(Environment.NewLine, new[] { m.TegenNaam, m.TegenIban is { } iban ? Iban.Toon(iban) : null, m.Omschrijving, m.Melding }.Where(t => !string.IsNullOrWhiteSpace(t)))"
                                         @ondblclick="() => KiesPosten(m)" @ondblclick:stopPropagation>
                                         <span class="regeltekst">
@@ -245,10 +244,6 @@
                         </tbody>
                     </table>
                 </div>
-                @if (mag && teKiezen.Count > 0)
-                {
-                    <div class="toetshint mt-1" aria-hidden="true"><kbd>↑</kbd> <kbd>↓</kbd> naar een mutatie, <kbd>Enter</kbd> openen, <kbd>Spatie</kbd> aanvinken</div>
-                }
                 @if (mag && geselecteerd.Count > 0)
                 {
                     var selectie = mutaties.Where(m => geselecteerd.Contains(m.Id)).ToList();
@@ -1067,6 +1062,11 @@
         bezig = false;
         await Laad();
     }
+
+    /// <summary>Kort wat er bij het inlezen opviel; de volledige meldingen staan in de tooltip.</summary>
+    private static string Meldingtekst(Bankinlezing w) =>
+        w.Meldingen.Count == 1 && w.Meldingen[0].Contains(" overlapt met ", StringComparison.Ordinal) ? "overlapt met een eerder afschrift"
+        : w.Meldingen.Count == 1 ? "1 melding" : $"{w.Meldingen.Count} meldingen";
 
     private static string Samenvatting(Bankinlezing w)
     {
