@@ -985,3 +985,9 @@ tr[tabindex]:focus-visible {
         font-size: .7rem;
         box-shadow: none;
     }
+
+/* Bij een rechts uitgelijnde kolomkop staat het sorteerpijltje links van de tekst: de tekst eindigt gelijk met de bedragen. */
+.sorteerpijl.links {
+    margin-left: 0;
+    margin-right: .25rem;
+}

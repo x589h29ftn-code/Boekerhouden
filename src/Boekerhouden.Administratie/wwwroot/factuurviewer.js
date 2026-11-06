@@ -36,7 +36,7 @@ class Viewer {
             balk.append(b);
             return b;
         };
-        knop('−', 'Kleiner', () => this.zoomNaar(this.zoom / 1.2));
+        knop('-', 'Kleiner', () => this.zoomNaar(this.zoom / 1.2));
         knop('+', 'Groter', () => this.zoomNaar(this.zoom * 1.2));
         knop('↔', 'Passend', () => this.zoomNaar(1));
         knop('⟳', 'Draaien (een kwartslag met de klok mee)', () => this.draaiKwart());

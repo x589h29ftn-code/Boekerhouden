@@ -351,7 +351,7 @@ public static class FactuurHtml
             html.Append(CultureInfo.InvariantCulture, $"<tr><td>{Tekst(r.Omschrijving)}</td>");
             if (o.KolomAantal)
             {
-                html.Append(CultureInfo.InvariantCulture, $"""<td class="r">{(r.Vast ? "" : r.Aantal.ToString("#,0.####", Nl).Replace('-', '−'))}</td>""");
+                html.Append(CultureInfo.InvariantCulture, $"""<td class="r">{(r.Vast ? "" : r.Aantal.ToString("#,0.####", Nl))}</td>""");
             }
 
             if (o.KolomEenheid)
@@ -439,9 +439,9 @@ public static class FactuurHtml
         return Convert.ToBase64String(geheugen.ToArray());
     }
 
-    private static string Bedrag(decimal bedrag) => bedrag.ToString("#,0.00", Nl).Replace('-', '−');
+    private static string Bedrag(decimal bedrag) => bedrag.ToString("#,0.00", Nl);
 
-    private static string Prijs(decimal prijs) => (decimal.Round(prijs, 2) == prijs ? prijs.ToString("#,0.00", Nl) : prijs.ToString("#,0.00##", Nl)).Replace('-', '−');
+    private static string Prijs(decimal prijs) => (decimal.Round(prijs, 2) == prijs ? prijs.ToString("#,0.00", Nl) : prijs.ToString("#,0.00##", Nl));
 
     private static string Datum(DateOnly datum) => datum.ToString("d MMMM yyyy", Nl);
 

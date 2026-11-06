@@ -156,7 +156,7 @@ public sealed class FactuuropmaakTests(AdministratieFixture app) : IClassFixture
         Assert.Contains("Creditfactuur", html, StringComparison.Ordinal);
         Assert.Contains("Bij factuur", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Wij verzoeken u", html, StringComparison.Ordinal);
-        Assert.Contains("−1.083,00", html, StringComparison.Ordinal);
+        Assert.Contains("-1.083,00", html, StringComparison.Ordinal);
     }
 
     [Fact]

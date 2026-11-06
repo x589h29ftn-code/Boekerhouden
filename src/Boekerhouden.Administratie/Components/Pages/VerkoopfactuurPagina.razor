@@ -659,7 +659,7 @@
 
     private static string Aantal(decimal aantal) => aantal.ToString("0.####", Nl);
 
-    private static string Prijs(decimal prijs) => decimal.Round(prijs, 2) == prijs ? Weergave.Bedrag(prijs) : prijs.ToString("#,0.00##", Nl).Replace('-', '−');
+    private static string Prijs(decimal prijs) => decimal.Round(prijs, 2) == prijs ? Weergave.Bedrag(prijs) : prijs.ToString("#,0.00##", Nl);
 
     /// <summary>Het formulier zoals de gebruiker het invult (tekst, nog niet gecontroleerd).</summary>
     private sealed class Formulier

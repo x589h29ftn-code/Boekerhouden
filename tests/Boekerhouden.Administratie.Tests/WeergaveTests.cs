@@ -26,9 +26,9 @@ public sealed class WeergaveTests
     [Fact]
     public void Bedragen_op_het_scherm_met_een_echt_minteken()
     {
-        Assert.Equal("\u22121.234,56", Weergave.Bedrag(-1234.56m));
+        Assert.Equal("-1.234,56", Weergave.Bedrag(-1234.56m));
         Assert.Equal("1.234,56", Weergave.Bedrag(1234.56m));
-        Assert.Equal("\u221281", Weergave.BedragHeel(-80.5m));
+        Assert.Equal("-81", Weergave.BedragHeel(-80.5m));
         Assert.True(Domain.BedragParser.TryParse(Weergave.Bedrag(-25m), out var terug));
         Assert.Equal(-25m, terug);
     }

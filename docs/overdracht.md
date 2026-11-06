@@ -32,7 +32,7 @@ Laatst gebouwd (oktober 2026), in deze volgorde:
 3. **Uitstraling** (minder "gegenereerd", zakelijker):
    - iconenset (Phosphor) en een eigen palet (inktblauw met roest als accent, donkere kopbalk);
    - het systeemlettertype (Segoe UI op Windows) met IBM Plex Sans als terugval;
-   - boekhoudconventies: echt minteken, dubbele lijn onder het totaal;
+   - boekhoudconventies: gewoon minteken (-), dubbele lijn onder het totaal;
    - koppen met kenmerken (saldo, laatste afschrift);
    - slepen op de hele pagina, statusbalk, vinkjes in plaats van schakelaars, lichte invoervelden;
    - "vandaag 18:32" en bevestigingen met inhoud.
@@ -115,7 +115,7 @@ scripts/ui/herstart.sh && node scripts/ui/schermafbeeldingen.js /tmp/schermen vo
   venster. In `uitstraling.css` daarom `backwards`.
 - **Iconen**: alleen uit `iconen.svg` via `<Icoon Naam="..." />`; `UitstralingTests` controleert dat elk gebruikt icoon
   erin staat en dat het bestand geldige XML is (een kapot bestand maakt alle iconen onzichtbaar).
-- **Bedragen tonen versus invoeren**: op het scherm `Weergave.Bedrag` (echt minteken −); in invoervelden en exports
+- **Bedragen tonen versus invoeren**: op het scherm `Weergave.Bedrag` (gewoon minteken -, geen lang minteken); in invoervelden en exports
   `Bedragen.Getal` (koppelteken). `BedragParser` leest beide.
 - **SQLite** telt geen decimals op in de database: eerst ophalen, dan optellen (zie `AansluitingDienst`). Na een
   modelwijziging altijd beide migraties maken (PostgreSQL en SQLite).

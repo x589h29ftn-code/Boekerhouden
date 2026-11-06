@@ -2,7 +2,15 @@
    Gewijzigd tekent de tabel opnieuw: geef de pagina mee (Gewijzigd="StateHasChanged"), anders tekent alleen de kop. *@
 
 <th class="sorteerbaar @Klasse" data-breedte="@Breedte" aria-sort="@(Sortering.Kolom == Naam ? (Sortering.Oplopend ? "ascending" : "descending") : null)" title="Sorteren" @onclick="Wissel">
-    @(Tekst ?? Naam)<span class="sorteerpijl"><Icoon Naam="arrow-up" /></span>
+    @* Rechts uitgelijnd (bedragen): het pijltje links van de tekst, zodat de tekst gelijk eindigt met de bedragen. *@
+    @if (Rechts)
+    {
+        <span class="sorteerpijl links"><Icoon Naam="arrow-up" /></span>@(Tekst ?? Naam)
+    }
+    else
+    {
+        @(Tekst ?? Naam)<span class="sorteerpijl"><Icoon Naam="arrow-up" /></span>
+    }
 </th>
 
 @code {
@@ -25,6 +33,8 @@
 
     [Parameter, EditorRequired]
     public EventCallback Gewijzigd { get; set; }
+
+    private bool Rechts => Klasse?.Contains("text-end", StringComparison.Ordinal) == true;
 
     private async Task Wissel()
     {

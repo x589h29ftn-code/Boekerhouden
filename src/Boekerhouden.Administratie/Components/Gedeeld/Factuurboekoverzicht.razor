@@ -53,7 +53,14 @@
                             @foreach (var k in Kolommen)
                             {
                                 <th class="sorteerbaar @(k.Bedrag ? "text-end" : null)" aria-sort="@(sortering == k.Naam ? (oplopend ? "ascending" : "descending") : null)" title="Sorteren" @onclick="() => Sorteer(k)">
-                                    @(k.Naam == "Relatie" ? (Inkoop ? "Leverancier" : "Klant") : k.Naam)<span class="sorteerpijl"><Icoon Naam="arrow-up" /></span>
+                                    @if (k.Bedrag)
+                                    {
+                                        <span class="sorteerpijl links"><Icoon Naam="arrow-up" /></span>@k.Naam
+                                    }
+                                    else
+                                    {
+                                        @(k.Naam == "Relatie" ? (Inkoop ? "Leverancier" : "Klant") : k.Naam)<span class="sorteerpijl"><Icoon Naam="arrow-up" /></span>
+                                    }
                                 </th>
                             }
                         </tr>

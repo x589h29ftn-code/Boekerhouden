@@ -238,7 +238,7 @@ else
                 VoegToe(regels, knoop, 0);
             }
 
-            regels.Add(new TotaalRegel(zijde == "B" ? "Saldo balans (activa − passiva)" : "Saldo winst-en-verliesrekening", o!.Balans!.Totaal(zijde)));
+            regels.Add(new TotaalRegel(zijde == "B" ? "Saldo balans (activa - passiva)" : "Saldo winst-en-verliesrekening", o!.Balans!.Totaal(zijde)));
         }
 
         var ongekoppeld = o!.Rekeningen.Where(r => r.Koppeling is null && (r.HeeftSaldo || r.Correcties != 0)).ToList();
