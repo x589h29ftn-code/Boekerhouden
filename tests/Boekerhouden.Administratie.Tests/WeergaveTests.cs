@@ -42,4 +42,16 @@ public sealed class WeergaveTests
         Assert.Equal("di 14:10", Weergave.Moment(new DateTimeOffset(2026, 10, 27, 13, 10, 0, TimeSpan.Zero), nu));
         Assert.Equal("01-10-2026 12:00", Weergave.Moment(new DateTimeOffset(2026, 10, 1, 10, 0, 0, TimeSpan.Zero), nu));
     }
+
+    [Fact]
+    public void Bedragen_onder_elkaar_in_hele_euros_tellen_op_tot_het_afgeronde_totaal()
+    {
+        decimal[] bedragen = [10.40m, 10.40m, 10.40m, -0.60m];
+
+        var heel = Weergave.HeleEuros(bedragen);
+
+        Assert.Equal(Domain.Afronding.OpHeleEuro(bedragen.Sum()), heel.Sum());
+        Assert.Equal([11m, 11m, 10m, -1m], heel);
+        Assert.Empty(Weergave.HeleEuros([]));
+    }
 }

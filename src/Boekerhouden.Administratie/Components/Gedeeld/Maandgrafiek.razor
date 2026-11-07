@@ -16,12 +16,17 @@
         <table class="table table-sm mb-0 grafiektabel">
             <thead><tr><th>Maand</th><th class="text-end">Omzet</th><th class="text-end">@KostenNaam</th><th class="text-end">Resultaat</th></tr></thead>
             <tbody>
-                @foreach (var m in Maanden)
+                @{
+                    var omzet = Weergave.HeleEuros(Maanden.Select(m => m.Omzet));
+                    var kosten = Weergave.HeleEuros(Maanden.Select(Kosten));
+                    var resultaat = Weergave.HeleEuros(Maanden.Select(m => m.Resultaat));
+                }
+                @for (var i = 0; i < Maanden.Count; i++)
                 {
-                    <tr><td>@Maandnaam(m.Maand)</td><td class="text-end">@Weergave.Bedrag(m.Omzet)</td><td class="text-end">@Weergave.Bedrag(Kosten(m))</td><td class="text-end">@Weergave.Bedrag(m.Resultaat)</td></tr>
+                    <tr><td>@Maandnaam(Maanden[i].Maand)</td><td class="text-end">@Weergave.BedragHeel(omzet[i])</td><td class="text-end">@Weergave.BedragHeel(kosten[i])</td><td class="text-end">@Weergave.BedragHeel(resultaat[i])</td></tr>
                 }
             </tbody>
-            <tfoot><tr><td>Totaal</td><td class="text-end">@Weergave.Bedrag(Maanden.Sum(m => m.Omzet))</td><td class="text-end">@Weergave.Bedrag(Maanden.Sum(Kosten))</td><td class="text-end">@Weergave.Bedrag(Maanden.Sum(m => m.Resultaat))</td></tr></tfoot>
+            <tfoot><tr><td>Totaal</td><td class="text-end">@Weergave.BedragHeel(Maanden.Sum(m => m.Omzet))</td><td class="text-end">@Weergave.BedragHeel(Maanden.Sum(Kosten))</td><td class="text-end">@Weergave.BedragHeel(Maanden.Sum(m => m.Resultaat))</td></tr></tfoot>
         </table>
     }
     else
@@ -52,7 +57,7 @@
             {
                 var m = Maanden[i];
                 <rect class="raakvlak" x="@G(Links + i * Band)" y="0" width="@G(Band)" height="@G(Hoogte - Onder)">
-                    <title>@Maandnaam(m.Maand)&#10;Omzet: @Weergave.Bedrag(m.Omzet)&#10;@KostenNaam: @Weergave.Bedrag(Kosten(m))&#10;Resultaat: @Weergave.Bedrag(m.Resultaat)</title>
+                    <title>@Maandnaam(m.Maand)&#10;Omzet: @Weergave.BedragHeel(m.Omzet)&#10;@KostenNaam: @Weergave.BedragHeel(Kosten(m))&#10;Resultaat: @Weergave.BedragHeel(m.Resultaat)</title>
                 </rect>
             }
         </svg>

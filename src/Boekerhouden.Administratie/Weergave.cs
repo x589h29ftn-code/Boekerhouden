@@ -48,6 +48,17 @@ public static class Weergave
     public static string BedragHeel(decimal bedrag) => Domain.Bedragen.Heel(bedrag);
 
     /// <summary>
+    /// Bedragen die onder elkaar staan, afgerond op hele euro's zodat ze optellen tot het afgeronde totaal
+    /// (<see cref="Domain.Afronding.OpHeleEuros"/>).
+    /// </summary>
+    public static IReadOnlyList<decimal> HeleEuros(IEnumerable<decimal> bedragen)
+    {
+        var lijst = bedragen.ToList();
+        var afgerond = Domain.Afronding.OpHeleEuros(lijst.Select((b, i) => KeyValuePair.Create(i, b)));
+        return [.. lijst.Select((_, i) => afgerond[i])];
+    }
+
+    /// <summary>
     /// Een datum zoals een Nederlander hem typt: dag-maand-jaar (<c>30-10-2026</c>, <c>30/10/26</c>, <c>30.10</c> = dit
     /// jaar, <c>301026</c>, <c>30102026</c>, <c>3010</c>); ook <c>2026-10-30</c>. Een jaar van twee cijfers is 20xx.
     /// </summary>

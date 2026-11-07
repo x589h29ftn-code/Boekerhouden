@@ -199,31 +199,31 @@
     private RenderFragment Inhoud(Widgetkeuze keuze) => keuze.Soort switch
     {
         Widget.Liquide when dashboard!.Liquide is { } rekeningen => @<div>
-            <div class="kerngetal">@Weergave.Bedrag(rekeningen.Sum(r => r.Saldo))</div>
+            <div class="kerngetal">@Weergave.BedragHeel(rekeningen.Sum(r => r.Saldo))</div>
             <table class="widgettabel">
-                @foreach (var r in rekeningen)
+                @foreach (var (r, heel) in rekeningen.Zip(Weergave.HeleEuros(rekeningen.Select(r => r.Saldo))))
                 {
-                    <tr title="@(r.Afschrift is { } a ? $"Laatste afschrift t/m {Weergave.Datum(a.Datum)}: {Weergave.Bedrag(a.Saldo)}" : $"Rekening {r.Rekening}")">
+                    <tr title="@(r.Afschrift is { } a ? $"Laatste afschrift t/m {Weergave.Datum(a.Datum)}: {Weergave.BedragHeel(a.Saldo)}" : $"Rekening {r.Rekening}")">
                         <td>@r.Naam</td>
                         <td class="text-end">
                             @if (r.Afschrift is { } afschrift && afschrift.Saldo != r.Saldo)
                             {
-                                <span class="let-op me-2">afschrift @Weergave.Bedrag(afschrift.Saldo)</span>
+                                <span class="let-op me-2">afschrift @Weergave.BedragHeel(afschrift.Saldo)</span>
                             }
-                            @Weergave.Bedrag(r.Saldo)
+                            @Weergave.BedragHeel(heel)
                         </td>
                     </tr>
                 }
             </table>
         </div>,
         Widget.Btw when dashboard!.Btw is { } btw => @<div>
-            <div class="kerngetal">@Weergave.Bedrag(Math.Abs(btw.TeBetalen))</div>
+            <div class="kerngetal">@Weergave.BedragHeel(Math.Abs(btw.TeBetalen))</div>
             <div class="widgetregel">@(btw.TeBetalen >= 0 ? "te betalen" : "terug te vragen"), saldo per @Weergave.Datum(btw.Afgelopen.Tot)</div>
-            <div class="widgetregel zacht" title="De btw die in de lopende periode al is geboekt">@btw.Lopend.Naam tot nu: @Weergave.Bedrag(Math.Abs(btw.Lopende)) @(btw.Lopende >= 0 ? "te betalen" : "terug")</div>
+            <div class="widgetregel zacht" title="De btw die in de lopende periode al is geboekt">@btw.Lopend.Naam tot nu: @Weergave.BedragHeel(Math.Abs(btw.Lopende)) @(btw.Lopende >= 0 ? "te betalen" : "terug")</div>
         </div>,
         Widget.Inkoop when dashboard!.Inkoop is { } inkoop => @<div>
             <div class="kerngetal">@inkoop.Aantal</div>
-            <div class="widgetregel">@(inkoop.Aantal == 0 ? "alles verwerkt" : $"{(inkoop.Aantal == 1 ? "factuur" : "facturen")}, samen {Weergave.Bedrag(inkoop.Totaal)}")</div>
+            <div class="widgetregel">@(inkoop.Aantal == 0 ? "alles verwerkt" : $"{(inkoop.Aantal == 1 ? "factuur" : "facturen")}, samen {Weergave.BedragHeel(inkoop.Totaal)}")</div>
         </div>,
         Widget.Bankmutaties when dashboard!.Bankmutaties is { } mutaties => @<div>
             <div class="kerngetal">@mutaties.Aantal</div>
@@ -273,11 +273,11 @@
     };
 
     private static RenderFragment Openstaand(Openstaand open) => @<div>
-        <div class="kerngetal">@Weergave.Bedrag(open.Totaal)</div>
+        <div class="kerngetal">@Weergave.BedragHeel(open.Totaal)</div>
         <div class="widgetregel">@(open.Aantal == 1 ? "1 factuur" : $"{open.Aantal} facturen")</div>
         @if (open.AantalVervallen > 0)
         {
-            <div class="widgetregel let-op">@open.AantalVervallen vervallen, samen @Weergave.Bedrag(open.Vervallen)</div>
+            <div class="widgetregel let-op">@open.AantalVervallen vervallen, samen @Weergave.BedragHeel(open.Vervallen)</div>
         }
     </div>;
 }
