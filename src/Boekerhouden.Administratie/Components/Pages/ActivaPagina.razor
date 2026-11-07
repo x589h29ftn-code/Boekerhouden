@@ -3,6 +3,8 @@
 @inject ActivaDienst Activa
 @inject GrootboekDienst Grootboek
 @inject NavigationManager Navigatie
+@inject OverzichtDienst Overzicht
+@inject IJSRuntime JS
 
 <AdministratieKader Id="Id" Titel="Vaste activa" Actief="/activa" BijOpenen="Open">
     <Kenmerken>
@@ -26,6 +28,8 @@
         @if (staat is not null)
         {
             <JaarKeuze Jaren="jaren" Jaar="jaar" JaarChanged="KiesJaar" />
+            <button class="btn btn-outline-secondary" disabled="@bezig" title="De activastaat als Excel" @onclick="Excel">Excel</button>
+            <button class="btn btn-outline-secondary" disabled="@bezig" title="De activastaat als PDF, A4 liggend" @onclick="Pdf">PDF</button>
         }
         else if (mag)
         {
@@ -284,6 +288,37 @@
     {
         var nieuw = await Activa.Activastaat(geopend!.Wie, Id, j);
         (jaar, staat) = (j, nieuw);
+    }
+
+    private async Task Excel()
+    {
+        bezig = true;
+        try
+        {
+            await JS.Bewaar(await Overzicht.ActivastaatExcel(geopend!.Wie, Id, jaar), $"Activastaat {jaar}.xlsx", Download.Excel);
+        }
+        finally
+        {
+            bezig = false;
+        }
+    }
+
+    private async Task Pdf()
+    {
+        bezig = true;
+        try
+        {
+            var uitkomst = await Overzicht.ActivastaatPdf(geopend!.Wie, Id, jaar);
+            fouten = uitkomst.Fouten;
+            if (uitkomst.IsGelukt)
+            {
+                await JS.Bewaar(uitkomst.Waarde!, $"Activastaat {jaar}.pdf", Download.Pdf);
+            }
+        }
+        finally
+        {
+            bezig = false;
+        }
     }
 
     private async Task OpenAfschrijven()

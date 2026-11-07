@@ -72,7 +72,8 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
 9. **Perioden afsluiten en vaste activa** (README §3.13 en §3.14): een blokkeerdatum per maand (heropenen met
    reden; elke dienst die boekt controleert, de keten is het vangnet) en een module vaste activa (activakaart vanuit
    een aanschaf op een activarekening, afschrijvingsplan, afschrijven per maand/kwartaal/jaar (ook vanaf de kaart), desinvesteren:
-   verkoop, inruil, sloop, ook een deel, met de boeking vooraf en terugdraaien, activastaat met aansluiting op het grootboek). `PeriodeTests`, `ActivaTests`.
+   verkoop, inruil, sloop, ook een deel, met de boeking vooraf en terugdraaien, direct activeren bij het boeken,
+   aanschaf en factuur op de kaart, activastaat naar Excel en PDF, activastaat met aansluiting op het grootboek). `PeriodeTests`, `ActivaTests`.
 
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).
@@ -96,7 +97,7 @@ Afgesproken of voorgesteld maar nog niet gebouwd, ongeveer in volgorde van wens:
 | Gepland (README §5) | Regels splitsen per leverancier, verzamel-PDF splitsen, vreemde valuta, ontbrekende factuur |
 | Dashboard: vervolg | Voorgesteld, nog niet gevraagd: afwijking marge in procentpunten; in de kwartaalweergave ook vorig jaar per kwartaal; btw-frequentie (maand/kwartaal) als instelling van de administratie in plaats van per widget |
 | Auditfile: vervolg | De btw-code per boekingsregel zit niet in de XAF-export; XAF 4.0 is alleen met een zelfgemaakt voorbeeld getest |
-| Vaste activa: vervolg | Degressief en fiscaal naast commercieel, overzicht investeringsaftrek, activastaat naar Excel/PDF, actief vanaf de inkoopfactuur |
+| Vaste activa: vervolg | Degressief en fiscaal naast commercieel, overzicht investeringsaftrek (KIA) |
 | Hulppagina | De uitleg hoort in `/hulp` (CLAUDE.md, rustige uitstraling); in het administratiepakket nog niet gebouwd |
 
 ## 3. Werkwijze met de gebruiker

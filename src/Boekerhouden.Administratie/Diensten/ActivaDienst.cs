@@ -672,6 +672,60 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
             })];
     }
 
+    /// <summary>
+    /// De activarekeningen van de administratie (inventaris, gebouwen, vervoer- en transportmiddelen, immateriële vaste
+    /// activa: RGS <c>BMva…Vvp</c> of <c>BIva…Vvp</c>, plus rekeningen die al bij een actief horen): bij een regel daarop
+    /// biedt het pakket aan om direct te activeren.
+    /// </summary>
+    public async Task<IReadOnlySet<string>> Activarekeningen(Uitvoerder wie, Guid administratie)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
+        var (schema, _) = await GrootboekDienst.Inrichting(db);
+        var gebruikt = await db.Activa.AsNoTracking().Select(a => a.Activarekening).Distinct().ToListAsync();
+        return schema.Alle.Where(r => IsActivarekening(r) || gebruikt.Contains(r.Nummer)).Select(r => r.Nummer).ToHashSet();
+    }
+
+    /// <summary>De boekingen (dagboek en boekstuk) met een aanschaf op een activarekening die nog geen actief is.</summary>
+    public async Task<IReadOnlySet<string>> TeActiveren(Uitvoerder wie, Guid administratie) =>
+        (await Kandidaten(wie, administratie)).Select(k => k.Boekstuk).ToHashSet();
+
+    /// <summary>De activa die uit deze boeking (bijv. "INK 2026-0012") zijn gemaakt.</summary>
+    public async Task<IReadOnlyList<(Guid Id, int Nummer, string Omschrijving)>> UitBoeking(Uitvoerder wie, Guid administratie, string boekstuk)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
+        return [.. (await db.Activa.AsNoTracking().Where(a => a.Bron == boekstuk).OrderBy(a => a.Nummer).Select(a => new { a.Id, a.Nummer, a.Omschrijving }).ToListAsync())
+            .Select(a => (a.Id, a.Nummer, a.Omschrijving))];
+    }
+
+    /// <summary>
+    /// Direct activeren: van elke aanschaf op een activarekening in deze boeking een actief met het voorstel (rekeningen
+    /// uit RGS of het vorige actief op die rekening, looptijd idem, afschrijven vanaf de maand van aanschaf). Looptijd en
+    /// restwaarde zijn daarna op de kaart aan te passen zolang er nog niet is afgeschreven.
+    /// </summary>
+    public async Task<Uitkomst<IReadOnlyList<Guid>>> Activeer(Uitvoerder wie, Guid administratie, string boekstuk)
+    {
+        ArgumentNullException.ThrowIfNull(wie);
+        var kandidaten = (await Kandidaten(wie, administratie)).Where(k => k.Boekstuk == boekstuk).ToList();
+        if (kandidaten.Count == 0)
+        {
+            return Uitkomst<IReadOnlyList<Guid>>.Mislukt($"In {boekstuk} staat geen aanschaf op een activarekening die nog geen actief is.");
+        }
+
+        var ids = new List<Guid>();
+        foreach (var k in kandidaten)
+        {
+            var uitkomst = await Bewaar(wie, administratie, null, k.Voorstel);
+            if (!uitkomst.IsGelukt)
+            {
+                return Uitkomst<IReadOnlyList<Guid>>.Mislukt([$"{k.Omschrijving} ({k.Rekening}): {string.Join(" ", uitkomst.Fouten)}"]);
+            }
+
+            ids.Add(uitkomst.Waarde);
+        }
+
+        return Uitkomst<IReadOnlyList<Guid>>.Met(ids);
+    }
+
     /// <summary>De afschrijvings- en kostenrekening en looptijd die bij een activarekening passen (voor het formulier).</summary>
     public async Task<(string? Afschrijving, string? Kosten, int Looptijd)> Rekeningvoorstel(Uitvoerder wie, Guid administratie, string activarekening)
     {

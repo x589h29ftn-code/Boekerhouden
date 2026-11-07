@@ -4,6 +4,7 @@
 @using Boekerhouden.Boekhouding.Herkenning
 @implements IAsyncDisposable
 @inject InkoopDienst Inkoop
+@inject ActivaDienst Activa
 @inject NavigationManager Navigatie
 @inject IJSRuntime JS
 @inject IServiceProvider Diensten
@@ -361,6 +362,21 @@
                                     </div>
                                 </div>
                             }
+                            @if (OpActivarekening && !aanpassen && geopend?.Kop.Mag(Recht.Boekhouden) == true)
+                            {
+                                <div class="veld">
+                                    <label for="activeren">Activeren</label>
+                                    <div class="veld-rij flex-nowrap">
+                                        <span class="form-check mb-0">
+                                            <input id="activeren" class="form-check-input" type="checkbox" @bind="activeren" title="Na het boeken meteen een vast actief van elke regel op een activarekening (inventaris, gebouwen, vervoermiddelen …), met afschrijvingsplan" />
+                                        </span>
+                                        @if (activeren)
+                                        {
+                                            <span class="small text-secondary">@string.Join(", ", regels.Where(r => activarekeningen.Contains(r.Rekening.Trim())).Select(r => r.Rekening.Trim()).Distinct())</span>
+                                        }
+                                    </div>
+                                </div>
+                            }
                             @foreach (var s in Signalen)
                             {
                                 <div class="status let-op mb-1">@s</div>
@@ -417,6 +433,12 @@
 
     // Periodeverdeling (transitorisch): van, tot en met, en de balansrekening ertussen (bijv. vooruitbetaalde kosten).
     private bool verdelen;
+
+    /// <summary>Na het boeken direct een vast actief maken van de regels op een activarekening.</summary>
+    private bool activeren = true;
+    private IReadOnlySet<string> activarekeningen = new HashSet<string>();
+
+    private bool OpActivarekening => regels.Any(r => activarekeningen.Contains(r.Rekening.Trim()));
     private DateOnly verdeelVan;
     private DateOnly verdeelTot;
     private string verdeelRekening = "";
@@ -536,6 +558,7 @@
     {
         geopend = g;
         geladen = DocumentId;
+        activarekeningen = await Activa.Activarekeningen(g.Wie, Id);
         werkvoorraad = await Inkoop.Lijst(g.Wie, Id, Documentstatus.TeVerwerken);
         verwerking = await Inkoop.Verwerking(g.Wie, Id, DocumentId);
         if (verwerking is null)
@@ -1051,6 +1074,14 @@
 
         // Door naar het document dat nu op deze plaats in Te verwerken staat (het volgende), of terug naar de lijst.
         vorigeGeboekt = $"{(soort == Documentsoort.Creditnota ? "Creditnota " : null)}{Variabelen.Leverancier} {factuurnummer} geboekt{(Totaal is { } t ? $" · {Bedragen.Euro(t)}" : null)}".Trim();
+        if (activeren && OpActivarekening && soort != Documentsoort.Creditnota && geopend.Kop.Mag(Recht.Boekhouden)
+            && await Inkoop.Geboekt(geopend.Wie, Id, DocumentId) is { } geboekt)
+        {
+            var actief = await Activa.Activeer(geopend.Wie, Id, $"{geboekt.Dagboek} {geboekt.Boekstuk}");
+            vorigeGeboekt += actief.IsGelukt
+                ? $" · {actief.Waarde!.Count} {(actief.Waarde.Count == 1 ? "vast actief" : "vaste activa")} gemaakt (Boekhouden, Vaste activa)"
+                : $" · niet geactiveerd: {string.Join(" ", actief.Fouten)}";
+        }
         await NaarVolgende(positie);
     }
 

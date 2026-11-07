@@ -161,6 +161,118 @@ public static class OverzichtExport
         return html.ToString();
     }
 
+    private static readonly string[] Activastaatkoppen =
+        ["Actief", "Boekwaarde 1-1", "Investeringen", "Desinvesteringen", "Afschrijvingen", "Boekwaarde 31-12", "Aanschafwaarde", "Cum. afschrijving"];
+
+    private static decimal[] Activastaatbedragen(Boekhouding.Activa.Activastaatregel r) =>
+        [r.BoekwaardeBegin, r.Investering, r.DesinvesteringAanschaf - r.DesinvesteringAfschrijving, r.Afschrijving, r.BoekwaardeEind, r.AanschafEind, r.AfschrijvingEind];
+
+    /// <summary>De activastaat van een jaar: per activarekening de activa met subtotaal, en het totaal; bedragen als getal.</summary>
+    public static byte[] ActivastaatExcel(IReadOnlyList<Diensten.Activastaatgroep> groepen, int jaar, string administratie)
+    {
+        ArgumentNullException.ThrowIfNull(groepen);
+        using var boek = new XLWorkbook();
+        var blad = boek.AddWorksheet("Activastaat");
+        Kop(blad, $"Activastaat {jaar}", administratie, new DateOnly(jaar, 1, 1), new DateOnly(jaar, 12, 31));
+        var rij = Koppen(blad, 4, Activastaatkoppen);
+        void Regel(string naam, decimal[] bedragen, bool vet)
+        {
+            blad.Cell(rij, 1).Value = naam;
+            for (var i = 0; i < bedragen.Length; i++)
+            {
+                blad.Cell(rij, i + 2).Value = bedragen[i];
+            }
+
+            blad.Row(rij).Style.Font.Bold = vet;
+            rij++;
+        }
+
+        foreach (var g in groepen)
+        {
+            blad.Cell(rij, 1).Value = $"{g.Activarekening} {g.Naam}";
+            blad.Cell(rij, 1).Style.Font.Bold = true;
+            rij++;
+            foreach (var p in g.Posten)
+            {
+                Regel($"   {p.Nummer} {p.Omschrijving}", Activastaatbedragen(p.Regel), false);
+            }
+
+            Regel($"Totaal {g.Naam.ToLowerInvariant()}", Activastaatbedragen(g.Totaal), true);
+            if (!g.Sluit)
+            {
+                blad.Cell(rij, 1).Value = "Volgens het grootboek (sluit niet)";
+                blad.Cell(rij, 7).Value = g.GrootboekAanschaf;
+                blad.Cell(rij, 8).Value = g.GrootboekAfschrijving;
+                rij++;
+            }
+        }
+
+        if (groepen.Count > 1)
+        {
+            Regel("Totaal", Activastaatbedragen(groepen.Aggregate(Boekhouding.Activa.Activastaatregel.Nul, (som, g) => som + g.Totaal)), true);
+        }
+
+        for (var kolom = 2; kolom <= Activastaatkoppen.Length; kolom++)
+        {
+            blad.Column(kolom).Style.NumberFormat.Format = Getalnotatie;
+        }
+
+        return Bewaar(boek, blad);
+    }
+
+    /// <summary>De activastaat als A4-document (liggend) voor de PDF.</summary>
+    public static string ActivastaatHtml(IReadOnlyList<Diensten.Activastaatgroep> groepen, int jaar, string administratie)
+    {
+        ArgumentNullException.ThrowIfNull(groepen);
+        var html = Begin($"Activastaat {jaar}", administratie, new DateOnly(jaar, 1, 1), new DateOnly(jaar, 12, 31));
+        html.Append("""<table><colgroup><col>""");
+        html.Append(string.Concat(Enumerable.Repeat("""<col style="width:10.5%">""", Activastaatkoppen.Length - 1)));
+        html.Append("</colgroup><thead><tr>");
+        html.Append(CultureInfo.InvariantCulture, $"<th>{E(Activastaatkoppen[0])}</th>");
+        foreach (var kop in Activastaatkoppen.Skip(1))
+        {
+            // Op papier over twee regels, anders lopen de koppen in elkaar over.
+            var delen = kop.Split(' ', 2);
+            html.Append(CultureInfo.InvariantCulture, $"""<th class="r">{E(delen[0])}{(delen.Length > 1 ? $"<br>{E(delen[1])}" : "")}</th>""");
+        }
+
+        html.Append("</tr></thead><tbody>");
+        void Regel(string naam, decimal[] bedragen, string? klasse)
+        {
+            html.Append(CultureInfo.InvariantCulture, $"""<tr{(klasse is null ? "" : $" class=\"{klasse}\"")}><td>{E(naam)}</td>""");
+            foreach (var b in bedragen)
+            {
+                html.Append(CultureInfo.InvariantCulture, $"""<td class="r">{Leeg(b)}</td>""");
+            }
+
+            html.Append("</tr>");
+        }
+
+        foreach (var g in groepen)
+        {
+            html.Append(CultureInfo.InvariantCulture, $"""<tr><td colspan="{Activastaatkoppen.Length}"><strong>{E(g.Activarekening)} {E(g.Naam)}</strong></td></tr>""");
+            foreach (var p in g.Posten)
+            {
+                Regel($"{p.Nummer} {p.Omschrijving}", Activastaatbedragen(p.Regel), null);
+            }
+
+            Regel($"Totaal {g.Naam.ToLowerInvariant()}", Activastaatbedragen(g.Totaal), "totaal");
+            if (!g.Sluit)
+            {
+                html.Append(CultureInfo.InvariantCulture,
+                    $"""<tr class="zacht"><td colspan="6">Volgens het grootboek (sluit niet)</td><td class="r">{Bedrag(g.GrootboekAanschaf)}</td><td class="r">{Bedrag(g.GrootboekAfschrijving)}</td></tr>""");
+            }
+        }
+
+        if (groepen.Count > 1)
+        {
+            Regel("Totaal", Activastaatbedragen(groepen.Aggregate(Boekhouding.Activa.Activastaatregel.Nul, (som, g) => som + g.Totaal)), "totaal");
+        }
+
+        html.Append("</tbody></table></body></html>");
+        return html.ToString();
+    }
+
     public static string KaartHtml(Grootboekkaart kaart, string administratie)
     {
         ArgumentNullException.ThrowIfNull(kaart);

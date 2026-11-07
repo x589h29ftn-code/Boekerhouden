@@ -297,4 +297,65 @@ public sealed class ActivaTests(AdministratieFixture app) : IClassFixture<Admini
         await using var db = await app.Dienst<Toegang>().Open(beheerder, id, Recht.Lezen);
         Assert.Equal(2, await db.AuditRegels.CountAsync(a => a.AdministratieId == id && a.Actie == AuditActies.ActivumToegevoegd));
     }
+
+    [Fact]
+    public async Task Direct_activeren_vanuit_de_boeking()
+    {
+        var (wie, id) = await Administratie();
+        var dienst = app.Dienst<ActivaDienst>();
+
+        Assert.Superset(new HashSet<string> { "0200", "0300" }, (HashSet<string>)await dienst.Activarekeningen(wie, id));
+        Assert.DoesNotContain("1100", await dienst.Activarekeningen(wie, id));
+        Assert.Equal(["MEM 2026-0001", "MEM 2026-0002"], (await dienst.TeActiveren(wie, id)).Order());
+
+        var geactiveerd = await dienst.Activeer(wie, id, "MEM 2026-0001");
+        Assert.True(geactiveerd.IsGelukt, string.Join("; ", geactiveerd.Fouten));
+        var laptop = (await dienst.Open(wie, id, Assert.Single(geactiveerd.Waarde!)))!;
+        Assert.Equal(("Laptop", 1200m, "0210", "4800", 60, "MEM 2026-0001"),
+            (laptop.Invoer.Omschrijving, laptop.Invoer.Aanschafwaarde, laptop.Invoer.Afschrijvingsrekening, laptop.Invoer.Kostenrekening, laptop.Invoer.Looptijd, laptop.Invoer.Bron));
+        Assert.Equal((laptop.Id, 1), (await dienst.UitBoeking(wie, id, "MEM 2026-0001")).Select(a => (a.Id, a.Nummer)).Single());
+        Assert.Equal(["MEM 2026-0002"], await dienst.TeActiveren(wie, id));
+
+        // Een tweede keer, of een boeking zonder activarekening, kan niet.
+        Assert.False((await dienst.Activeer(wie, id, "MEM 2026-0001")).IsGelukt);
+        Assert.False((await dienst.Activeer(wie, id, "MEM 2099-0001")).IsGelukt);
+
+        // Een volgende aanschaf op dezelfde rekening krijgt de looptijd van het vorige actief.
+        Assert.True((await dienst.Bewaar(wie, id, laptop.Id, laptop.Invoer with { Looptijd = 36 })).IsGelukt);
+        Assert.True((await app.Dienst<GrootboekDienst>().Boek(wie, id, new Journaalpost("MEM", "2026-0003", new(2026, 5, 1), "Bureau",
+            [new Journaalregel("0200", 800m, "Bureau"), new Journaalregel("1800", -800m)]))).IsGelukt);
+        var bureau = (await dienst.Activeer(wie, id, "MEM 2026-0003")).Waarde!.Single();
+        Assert.Equal(36, (await dienst.Open(wie, id, bureau))!.Invoer.Looptijd);
+
+        // Alleen het kantoor activeert.
+        var ondernemer = await app.Gebruiker("Ondernemer Activeren");
+        await app.Dienst<AdministratieDienst>().ZetLid(id, ondernemer.Id!.Value, Lidmaatschapsrol.Ondernemer, wie);
+        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.Activeer(ondernemer, id, "MEM 2026-0002"));
+    }
+
+    [Fact]
+    public async Task Activastaat_naar_Excel_en_PDF()
+    {
+        var (wie, id) = await Administratie();
+        await Activa(wie, id);
+        var dienst = app.Dienst<ActivaDienst>();
+        Assert.True((await dienst.Afschrijven(wie, id, new DateOnly(2026, 6, 30), Afschrijvingsfrequentie.Maand)).IsGelukt);
+        var staat = await dienst.Activastaat(wie, id, 2026);
+
+        using var excel = new ClosedXML.Excel.XLWorkbook(new MemoryStream(Export.OverzichtExport.ActivastaatExcel(staat, 2026, "Bakkerij Voorbeeld")));
+        var blad = excel.Worksheet("Activastaat");
+        Assert.Equal("Activastaat 2026", blad.Cell(1, 1).GetString());
+        var cellen = blad.CellsUsed().Select(c => c.GetString()).ToList();
+        Assert.Contains("0200 Inventaris", cellen);
+        Assert.Contains(cellen, c => c.Trim() == "1 Laptop");
+        Assert.Contains("Totaal", cellen);
+        var totaal = blad.RowsUsed().Last();
+        Assert.Equal(25200m, totaal.Cell(3).GetValue<decimal>());
+
+        var html = Export.OverzichtExport.ActivastaatHtml(staat, 2026, "Bakkerij Voorbeeld");
+        Assert.Contains("Activastaat 2026", html, StringComparison.Ordinal);
+        Assert.Contains("Bestelauto", html, StringComparison.Ordinal);
+        Assert.Contains("Boekwaarde<br>31-12", html, StringComparison.Ordinal);
+        Assert.Contains(Domain.Bedragen.Getal(25200m), html, StringComparison.Ordinal);
+    }
 }

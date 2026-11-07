@@ -1,6 +1,7 @@
 @page "/a/{Id:guid}/memoriaal"
 @using Boekerhouden.Boekhouding.Grootboek
 @inject GrootboekDienst Grootboek
+@inject ActivaDienst Activa
 @inject TimeProvider Tijd
 @inject NavigationManager Navigatie
 
@@ -79,7 +80,10 @@
                                 <tr class="klikbaar @(p.Post.Boekstuk == gekozen?.Post.Boekstuk ? "gemarkeerd" : null)" @onclick="() => Kies(p)" title="Geboekt door @p.GeboektDoor op @Weergave.DatumTijd(p.GeboektOp)">
                                     <td class="text-nowrap">@Weergave.Datum(p.Post.Datum)</td>
                                     <td class="text-nowrap">@p.Post.Boekstuk</td>
-                                    <td>@p.Post.Omschrijving</td>
+                                    <td>@p.Post.Omschrijving@if (teActiveren.Contains($"{p.Post.Dagboek} {p.Post.Boekstuk}"))
+                                        {
+                                            <button class="btn btn-sm btn-link p-0 ms-2 regelactie" disabled="@bezigActiveren" title="Een vast actief maken van de aanschaf op de activarekening" @onclick="() => Activeer(p.Post)" @onclick:stopPropagation>Activeren</button>
+                                        }</td>
                                     <td class="bedrag text-end text-nowrap">@Weergave.Bedrag(p.Post.TotaalDebet)</td>
                                 </tr>
                             }
@@ -136,6 +140,7 @@
         schema = await Grootboek.Schema(g.Wie, Id);
         vandaag = DateOnly.FromDateTime(Tijd.GetLocalNow().Date);
         await Laad();
+        teActiveren = await Activa.TeActiveren(g.Wie, Id);
         if (KopieVan is not null && posten?.FirstOrDefault(p => p.Post.Boekstuk == KopieVan) is { } bron)
         {
             Kopieer(bron.Post);
@@ -185,6 +190,22 @@
         (gekozen, kopie) = (null, null);
         await Laad();
         bericht = melding;
+        teActiveren = await Activa.TeActiveren(geopend!.Wie, Id);
+    }
+
+    /// <summary>Boekingen met een aanschaf op een activarekening die nog geen vast actief is.</summary>
+    private IReadOnlySet<string> teActiveren = new HashSet<string>();
+    private bool bezigActiveren;
+
+    private async Task Activeer(Journaalpost post)
+    {
+        bezigActiveren = true;
+        var uitkomst = await Activa.Activeer(geopend!.Wie, Id, $"{post.Dagboek} {post.Boekstuk}");
+        bericht = uitkomst.IsGelukt
+            ? $"{post.Boekstuk}: {uitkomst.Waarde!.Count} {(uitkomst.Waarde.Count == 1 ? "vast actief" : "vaste activa")} gemaakt (Boekhouden, Vaste activa)."
+            : string.Join(" ", uitkomst.Fouten);
+        teActiveren = await Activa.TeActiveren(geopend.Wie, Id);
+        bezigActiveren = false;
     }
 
     private async Task VoegDagboekToe()

@@ -1,6 +1,7 @@
 @page "/a/{Id:guid}/boeking/{Dagboek}/{Boekstuk}"
 @using Boekerhouden.Boekhouding.Grootboek
 @inject GrootboekDienst Grootboek
+@inject ActivaDienst Activa
 
 <AdministratieKader Id="Id" Titel="Boeking" Actief="/journaal" BijOpenen="Open" Terug="@Terug">
     <Acties>
@@ -19,6 +20,14 @@
         @if (detail is { Document: null, Herstelt: null } && !aanpassen && geopend?.Kop.Mag(Recht.Boekhouden) == true && IsMemoriaal)
         {
             <a class="btn btn-sm btn-outline-secondary" href="/a/@Id/memoriaal?dagboek=@Uri.EscapeDataString(Dagboek)&kopie=@Uri.EscapeDataString(Boekstuk)" title="Een nieuwe boeking met dezelfde regels, een maand later">Kopiëren</a>
+        }
+        @foreach (var a in activa)
+        {
+            <a class="btn btn-sm btn-outline-secondary" href="/a/@Id/activa/@a.Id" title="Het vaste actief uit deze boeking">Actief @a.Nummer</a>
+        }
+        @if (kanActiveren && geopend?.Kop.Mag(Recht.Boekhouden) == true)
+        {
+            <button class="btn btn-sm btn-outline-secondary" disabled="@bezigActiveren" title="Een vast actief maken van de aanschaf op de activarekening, met afschrijvingsplan" @onclick="Activeer">Activeren</button>
         }
     </Acties>
     <ChildContent>
@@ -177,7 +186,32 @@
         schema = await Grootboek.Schema(geopend.Wie, Id);
         dagboeken = await Grootboek.Dagboeken(geopend.Wie, Id);
         (aanpassen, geladen) = (false, true);
+        var stuk = $"{Dagboek} {Boekstuk}";
+        activa = await Activa.UitBoeking(geopend.Wie, Id, stuk);
+        kanActiveren = (await Activa.TeActiveren(geopend.Wie, Id)).Contains(stuk);
     }
+
+    private IReadOnlyList<(Guid Id, int Nummer, string Omschrijving)> activa = [];
+    private bool kanActiveren;
+    private bool bezigActiveren;
+
+    private async Task Activeer()
+    {
+        bezigActiveren = true;
+        var uitkomst = await Activa.Activeer(geopend!.Wie, Id, $"{Dagboek} {Boekstuk}");
+        bezigActiveren = false;
+        if (uitkomst.IsGelukt && uitkomst.Waarde is [var enige])
+        {
+            Navigatie.NavigateTo($"/a/{Id}/activa/{enige}");
+            return;
+        }
+
+        await Laad();
+        bericht = uitkomst.IsGelukt ? $"{uitkomst.Waarde!.Count} vaste activa gemaakt." : string.Join(" ", uitkomst.Fouten);
+    }
+
+    [Inject]
+    private NavigationManager Navigatie { get; set; } = default!;
 
     /// <summary>Net als bij boeken: het memoriaal is voor het kantoor, de andere dagboeken ook voor de ondernemer.</summary>
     private bool MagAanpassen(AdministratieKop kop) =>

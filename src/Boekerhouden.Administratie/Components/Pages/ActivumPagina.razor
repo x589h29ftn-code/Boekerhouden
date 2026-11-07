@@ -35,12 +35,18 @@
         }
     </Kenmerken>
     <Acties>
+        @if (aanschaf?.Document is { } factuur)
+        {
+            <button class="btn btn-outline-secondary @(toonFactuur ? "active" : null)" title="@aanschaf.Documentnaam" @onclick="() => toonFactuur = !toonFactuur">Factuur</button>
+        }
         @if (mag && detail is { TeBoeken: > 0 } t)
         {
             <button class="btn btn-outline-secondary" disabled="@bezig" title="@t.TeBoeken @(t.TeBoeken == 1 ? "maand" : "maanden"), elk een eigen memoriaalboeking" @onclick="AfschrijvenTotVorigeMaand">Afschrijven t/m @VorigeMaand.ToString("MMMM", Nederlands)</button>
         }
     </Acties>
     <ChildContent>
+        <div class="verwerken">
+        <div class="verwerken-formulier">
         <Foutmeldingen Fouten="fouten" />
         @if (bericht is not null)
         {
@@ -140,6 +146,43 @@
                     }
                 </div>
             </fieldset>
+
+            @if (aanschaf is { Boeking: var ab })
+            {
+                <h2 class="h6 sectiekop mt-4">Aanschaf</h2>
+                <div class="d-flex align-items-center flex-wrap gap-2 mb-2 small">
+                    <a href="/a/@Id/boeking/@ab.Post.Dagboek/@ab.Post.Boekstuk">@ab.Post.Dagboek @ab.Post.Boekstuk</a>
+                    <span class="text-secondary">@Weergave.Datum(ab.Post.Datum)</span>
+                    <span>@ab.Post.Omschrijving</span>
+                    @if (aanschaf.Document is { } doc && geopend is not null)
+                    {
+                        <span class="ms-auto d-flex gap-3">
+                            <a href="/a/@Id/inkoop/@doc">Factuur openen</a>
+                            <DocumentOpenen Wie="geopend.Wie" Administratie="Id" Document="doc" Tekst="Origineel" Klasse="btn btn-link btn-sm p-0" />
+                        </span>
+                    }
+                </div>
+                <div class="card overzichtskaart aanschafboeking">
+                    <table class="table table-sm align-middle mb-0 overzichtstabel">
+                        <thead>
+                            <tr><th>Grootboek</th><th>Omschrijving</th><th>Btw</th><th>Relatie</th><th class="text-end">Debet</th><th class="text-end">Credit</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in ab.Post.Regels)
+                            {
+                                <tr class="@(r.Rekeningnummer == f.Activarekening ? null : "text-secondary")">
+                                    <td><span class="rekeningnummer">@r.Rekeningnummer</span>@(schema.Zoek(r.Rekeningnummer)?.Naam)</td>
+                                    <td>@r.Omschrijving</td>
+                                    <td>@r.BtwCode</td>
+                                    <td>@r.Relatie</td>
+                                    <td class="bedrag text-end">@(r.Bedrag > 0 ? Weergave.Bedrag(r.Bedrag) : null)</td>
+                                    <td class="bedrag text-end">@(r.Bedrag < 0 ? Weergave.Bedrag(-r.Bedrag) : null)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
 
             @if (detail is { BuitenGebruikOp: null } && mag)
             {
@@ -319,6 +362,12 @@
                 </div>
             }
         }
+        </div>
+        @if (toonFactuur && aanschaf?.Document is { } document && geopend is not null)
+        {
+            <Factuurbeeld @key="document" Wie="geopend.Wie" Administratie="Id" Document="document" />
+        }
+        </div>
     </ChildContent>
 </AdministratieKader>
 
@@ -401,6 +450,8 @@
     private Activumdetail? detail;
     private Formulier? f;
     private Desinvesteringsformulier weg = new();
+    private Boekingsdetail? aanschaf;
+    private bool toonFactuur;
     private Desinvesteringsvoorstel? voorstel;
     private readonly HashSet<int> openJaren = [];
     private bool mag;
@@ -456,6 +507,11 @@
             }
 
             f = Formulier.Van(detail.Invoer);
+            if (detail.Invoer.Bron is { } bron && bron.Split(' ', 2) is [var dagboek, var boekstuk])
+            {
+                aanschaf = await Grootboek.Boeking(g.Wie, Id, dagboek, boekstuk);
+            }
+
             await StartDesinvestering();
             return;
         }

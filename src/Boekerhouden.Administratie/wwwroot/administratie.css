@@ -1255,7 +1255,7 @@ a.kerngetal:hover { color: var(--bh-accent); }
 .maandgrafiek .grafiektabel { font-size: .875rem; font-variant-numeric: tabular-nums; }
 
 /* Perioden en vaste activa: acties op een regel pas bij aanwijzen; het afschrijvingsplan per jaar, open te klikken. */
-.perioden .regelactie, .activakandidaten .regelactie, .desinvesteringen .regelactie { opacity: 0; transition: opacity var(--bh-snel) ease; }
-.perioden tr:is(:hover, :focus-within) .regelactie, .activakandidaten tr:is(:hover, :focus-within) .regelactie, .desinvesteringen tr:is(:hover, :focus-within) .regelactie { opacity: 1; }
+.perioden .regelactie, .activakandidaten .regelactie, .desinvesteringen .regelactie, .memoriaal-lijst .regelactie { opacity: 0; transition: opacity var(--bh-snel) ease; }
+.perioden tr:is(:hover, :focus-within) .regelactie, .activakandidaten tr:is(:hover, :focus-within) .regelactie, .desinvesteringen tr:is(:hover, :focus-within) .regelactie, .memoriaal-lijst tr:is(:hover, :focus-within) .regelactie { opacity: 1; }
 .afschrijvingsplan .pijl { display: inline-block; width: 1.25rem; color: var(--bh-zacht); }
 .activastaat td:first-child { white-space: nowrap; }
