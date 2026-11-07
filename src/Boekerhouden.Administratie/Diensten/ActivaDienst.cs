@@ -342,10 +342,14 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
         }
 
         await transactie.CommitAsync();
+        var boekingen = perioden.Sum(p => (p.Maanden.Select(m => m.Activum.Id).Distinct().Count() + ActivaPerBoeking - 1) / ActivaPerBoeking);
         await audit.Log(wie, AuditActies.AfschrijvingenGeboekt, $"t/m {Weergave.Datum(perioden[^1].Datum)}",
-            $"{perioden.Count} {(perioden.Count == 1 ? "boeking" : "boekingen")}; {perioden.Sum(p => p.Maanden.Sum(m => m.Bedrag)):0.00}", administratie);
-        return Uitkomst<int>.Met(perioden.Count);
+            $"{boekingen} {(boekingen == 1 ? "boeking" : "boekingen")}; {perioden.Sum(p => p.Maanden.Sum(m => m.Bedrag)):0.00}", administratie);
+        return Uitkomst<int>.Met(boekingen);
     }
+
+    /// <summary>Hoeveel activa hoogstens in één afschrijvingsboeking staan (twee regels per actief).</summary>
+    internal const int ActivaPerBoeking = 200;
 
     private static Dagboek? Memoriaal(IReadOnlyList<Dagboek> dagboeken) =>
         dagboeken.Where(d => d.Soort == Dagboeksoort.Memoriaal).OrderBy(d => d.Code != "MEM").FirstOrDefault();
@@ -361,26 +365,32 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
 
         foreach (var periode in perioden)
         {
-            var boekstuk = await GrootboekDienst.VolgendBoekstuk(db, memoriaal.Code, periode.Datum.Year);
-            var regels = periode.Maanden.GroupBy(m => m.Activum).SelectMany(g =>
+            // Per actief twee regels; meer dan ActivaPerBoeking activa gaan in meer boekingen (een boeking heeft een maximum aan regels).
+            var delen = periode.Maanden.GroupBy(m => m.Activum).Chunk(ActivaPerBoeking).ToList();
+            for (var d = 0; d < delen.Count; d++)
             {
-                var bedrag = g.Sum(m => m.Bedrag);
-                var omschrijving = Kort($"Afschrijving {g.Key.Nummer} {g.Key.Omschrijving}");
-                return new[] { new Journaalregel(g.Key.Kostenrekening, bedrag, omschrijving), new Journaalregel(g.Key.Afschrijvingsrekening, -bedrag, omschrijving) };
-            });
-            var post = new Journaalpost(memoriaal.Code, boekstuk, periode.Datum, periode.Omschrijving, [.. regels]);
-            if (Journaalcontrole.Controleer(post, schema, dagboeken) is { Count: > 0 } fouten)
-            {
-                return fouten;
-            }
+                var boekstuk = await GrootboekDienst.VolgendBoekstuk(db, memoriaal.Code, periode.Datum.Year);
+                var regels = delen[d].SelectMany(g =>
+                {
+                    var bedrag = g.Sum(m => m.Bedrag);
+                    var omschrijving = Kort($"Afschrijving {g.Key.Nummer} {g.Key.Omschrijving}");
+                    return new[] { new Journaalregel(g.Key.Kostenrekening, bedrag, omschrijving), new Journaalregel(g.Key.Afschrijvingsrekening, -bedrag, omschrijving) };
+                });
+                var omschrijvingBoeking = delen.Count == 1 ? periode.Omschrijving : $"{periode.Omschrijving} ({d + 1}/{delen.Count})";
+                var post = new Journaalpost(memoriaal.Code, boekstuk, periode.Datum, omschrijvingBoeking, [.. regels]);
+                if (Journaalcontrole.Controleer(post, schema, dagboeken) is { Count: > 0 } fouten)
+                {
+                    return fouten;
+                }
 
-            await grootboek.VoegToeAanKeten(db, administratie, post, wie);
-            foreach (var m in periode.Maanden)
-            {
-                db.Afschrijvingen.Add(new Afschrijving { AdministratieId = administratie, ActivumId = m.Activum.Id, Maand = m.Maand, Bedrag = m.Bedrag, Boekstuk = $"{memoriaal.Code} {boekstuk}" });
-            }
+                await grootboek.VoegToeAanKeten(db, administratie, post, wie);
+                foreach (var m in delen[d].SelectMany(g => g))
+                {
+                    db.Afschrijvingen.Add(new Afschrijving { AdministratieId = administratie, ActivumId = m.Activum.Id, Maand = m.Maand, Bedrag = m.Bedrag, Boekstuk = $"{memoriaal.Code} {boekstuk}" });
+                }
 
-            await db.SaveChangesAsync();
+                await db.SaveChangesAsync();
+            }
         }
 
         return [];
@@ -758,6 +768,47 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
         var soort = rgs[4..7];
         var kosten = (rgs.StartsWith("BIva", StringComparison.Ordinal) ? "WAfsAiv" : "WAfsAmv") + soort;
         return (schema.Alle.FirstOrDefault(r => r.RgsCode == stam + "Cae")?.Nummer, schema.Alle.FirstOrDefault(r => r.RgsCode == kosten)?.Nummer, 60);
+    }
+
+    /// <summary>Eén regel van de activa-aansluiting: een rekening met het bedrag volgens de activa (tekenconventie van het grootboek).</summary>
+    internal sealed record Aansluitregel(string Onderwerp, string Rekening, decimal Bron, string? Toelichting);
+
+    /// <summary>
+    /// De activa tegenover het grootboek, zoals het nu staat: per activarekening de aanschafwaarde (debet) en per
+    /// afschrijvingsrekening de cumulatieve afschrijving (credit), na alle geboekte afschrijvingen en desinvesteringen.
+    /// Ook activarekeningen zonder activa (een aanschaf die nog niet geactiveerd is). Voor <see cref="AansluitingDienst"/>.
+    /// </summary>
+    internal static async Task<IReadOnlyList<Aansluitregel>> Aansluiting(AdministratieDbContext db, Rekeningschema schema)
+    {
+        var activa = await db.Activa.AsNoTracking().ToListAsync();
+        var geboekt = await Geboekt(db);
+        var stappen = await Stappen(db);
+        var stand = activa.Select(a => (a, Stand: Stand(a, geboekt.GetValueOrDefault(a.Id) ?? [], stappen.GetValueOrDefault(a.Id) ?? []))).ToList();
+        var regels = new List<Aansluitregel>();
+        var activarekeningen = schema.Alle.Where(IsActivarekening).Select(r => r.Nummer).Union(activa.Select(a => a.Activarekening)).Distinct().ToList();
+        // Aanschaffingen (debet) op de activarekeningen; die zonder actief zijn nog niet geactiveerd.
+        var bronnen = activa.Select(a => a.Bron).OfType<string>().ToHashSet();
+        var aanschaffingen = await db.GeldendeRegels.AsNoTracking().Where(r => activarekeningen.Contains(r.Rekeningnummer) && r.Bedrag > 0)
+            .Join(db.Boekingen.AsNoTracking().Where(b => b.Herstelt == null), r => r.BoekingId, b => b.Id, (r, b) => new { r.Rekeningnummer, Stuk = b.Dagboek + " " + b.Boekstuk })
+            .ToListAsync();
+        foreach (var nummer in activarekeningen.Where(n => aanschaffingen.Any(x => x.Rekeningnummer == n) || activa.Any(a => a.Activarekening == n)).Order(Rekeningnummers.Volgorde))
+        {
+            var hier = stand.Where(x => x.a.Activarekening == nummer).ToList();
+            var aantal = hier.Count(x => x.a.BuitenGebruikOp is null);
+            var open = aanschaffingen.Count(x => x.Rekeningnummer == nummer && !bronnen.Contains(x.Stuk));
+            regels.Add(new Aansluitregel(schema.Zoek(nummer)?.Naam ?? nummer, nummer, hier.Sum(x => x.Stand.Aanschaf),
+                $"{aantal} {(aantal == 1 ? "actief" : "activa")}" + (open > 0 ? $", {open} {(open == 1 ? "aanschaf" : "aanschaffingen")} nog niet geactiveerd" : "")));
+        }
+
+        foreach (var groep in stand.GroupBy(x => x.a.Afschrijvingsrekening).OrderBy(g => g.Key, Rekeningnummers.Volgorde))
+        {
+            var achter = groep.Count(x => x.a.BuitenGebruikOp is null && x.a.Methode != Afschrijvingsmethode.Geen
+                && Afschrijvingsplan.Maak(x.a.NaarDomein(), geboekt.GetValueOrDefault(x.a.Id) ?? [], stappen.GetValueOrDefault(x.a.Id)).Any(m => !m.Geboekt && m.Bedrag != 0 && m.Maand < new DateOnly(DateTime.Today.Year, DateTime.Today.Month, 1)));
+            regels.Add(new Aansluitregel(schema.Zoek(groep.Key)?.Naam ?? groep.Key, groep.Key, -groep.Sum(x => x.Stand.Afgeschreven),
+                achter > 0 ? $"bij {achter} {(achter == 1 ? "actief" : "activa")} nog afschrijvingen te boeken" : "cumulatieve afschrijving"));
+        }
+
+        return regels;
     }
 
     /// <summary>Hoeveel activa afschrijvingen hebben tot en met <paramref name="tot"/> die nog niet geboekt zijn (voor het afsluiten van een periode).</summary>

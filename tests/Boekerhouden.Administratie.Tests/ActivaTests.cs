@@ -358,4 +358,38 @@ public sealed class ActivaTests(AdministratieFixture app) : IClassFixture<Admini
         Assert.Contains("Boekwaarde<br>31-12", html, StringComparison.Ordinal);
         Assert.Contains(Domain.Bedragen.Getal(25200m), html, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Aansluiting_van_de_activa_op_het_grootboek()
+    {
+        var (wie, id) = await Administratie();
+        var (_, auto) = await Activa(wie, id);
+        var dienst = app.Dienst<ActivaDienst>();
+        Assert.True((await dienst.Afschrijven(wie, id, new DateOnly(2026, 6, 30), Afschrijvingsfrequentie.Maand)).IsGelukt);
+        Assert.True((await dienst.Desinvesteer(wie, id, auto, Verkoop(new(2026, 7, 10), 5000m, deel: 25m))).IsGelukt);
+        var aansluiting = app.Dienst<AansluitingDienst>();
+
+        var activa = (await aansluiting.Aansluitingen(wie, id)).Where(a => a.Soort == Aansluitingsoort.Activa).ToList();
+        Assert.Equal(["0200", "0300", "0210", "0310"], activa.Select(a => a.Rekening));
+        Assert.All(activa, a => Assert.True(a.Sluit, $"{a.Rekening}: {a.Grootboek} / {a.Bron}"));
+        Assert.Equal(18000m, activa.Single(a => a.Rekening == "0300").Bron);
+        Assert.True(activa.Single(a => a.Rekening == "0310").Bron < 0);
+
+        // Een aanschaf die nog geen actief is, en een boeking buiten de activa om op de afschrijvingsrekening, sluiten niet.
+        var grootboek = app.Dienst<GrootboekDienst>();
+        Assert.True((await grootboek.Boek(wie, id, new Journaalpost("MEM", "2026-0090", new(2026, 8, 1), "Printer",
+            [new Journaalregel("0200", 300m, "Printer"), new Journaalregel("1800", -300m)]))).IsGelukt);
+        Assert.True((await grootboek.Boek(wie, id, new Journaalpost("MEM", "2026-0091", new(2026, 8, 1), "Correctie",
+            [new Journaalregel("4810", 50m), new Journaalregel("0310", -50m)]))).IsGelukt);
+        activa = [.. (await aansluiting.Aansluitingen(wie, id)).Where(a => a.Soort == Aansluitingsoort.Activa)];
+        var inventaris = activa.Single(a => a.Rekening == "0200");
+        Assert.Equal((false, 300m), (inventaris.Sluit, inventaris.Verschil));
+        Assert.Contains("1 aanschaf nog niet geactiveerd", inventaris.Toelichting, StringComparison.Ordinal);
+        Assert.Equal((false, -50m), (activa.Single(a => a.Rekening == "0310").Sluit, activa.Single(a => a.Rekening == "0310").Verschil));
+        Assert.True(activa.Single(a => a.Rekening == "0300").Sluit);
+
+        // Geactiveerd: de inventaris sluit weer.
+        Assert.True((await dienst.Activeer(wie, id, "MEM 2026-0090")).IsGelukt);
+        Assert.True((await aansluiting.Aansluitingen(wie, id)).Single(a => a.Rekening == "0200").Sluit);
+    }
 }

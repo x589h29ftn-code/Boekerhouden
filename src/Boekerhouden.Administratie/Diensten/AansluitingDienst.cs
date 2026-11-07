@@ -13,6 +13,9 @@ public enum Aansluitingsoort
     Debiteuren,
     Vraagposten,
     Btw,
+
+    /// <summary>Een activarekening (aanschafwaarde) of afschrijvingsrekening tegen de vaste activa.</summary>
+    Activa,
 }
 
 /// <summary>Wat er bij de controle van een bankmutatie tegen het bankdagboek niet klopt.</summary>
@@ -58,7 +61,8 @@ public sealed record Aansluiting(Aansluitingsoort Soort, string Onderwerp, strin
 
 /// <summary>
 /// De saldo-aansluitingen van een administratie, zoals het nu staat: elke bank op het laatste ingelezen afschrift,
-/// crediteuren en debiteuren op de openstaande posten, de vraagposten (horen leeg te zijn) en de btw-rekeningen.
+/// crediteuren en debiteuren op de openstaande posten, de vaste activa op de activa- en afschrijvingsrekeningen, de
+/// vraagposten (horen leeg te zijn) en de btw-rekeningen.
 /// </summary>
 public sealed class AansluitingDienst(Toegang toegang)
 {
@@ -115,6 +119,14 @@ public sealed class AansluitingDienst(Toegang toegang)
             var aantal = posten.Count(p => p != 0);
             lijst.Add(new Aansluiting(soort, naam, Nummers(rekeningen), Saldo(rekeningen), posten.Sum(),
                 $"{aantal} openstaande {(aantal == 1 ? "post" : "posten")}"));
+        }
+
+        // Vaste activa: elke activarekening op de aanschafwaarde van de activa, elke afschrijvingsrekening op de
+        // cumulatieve afschrijving (na afschrijvingen en desinvesteringen).
+        foreach (var r in await ActivaDienst.Aansluiting(db, schema))
+        {
+            var bedragen = await db.GeldendeRegels.AsNoTracking().Where(x => x.Rekeningnummer == r.Rekening).Select(x => x.Bedrag).ToListAsync();
+            lijst.Add(new Aansluiting(Aansluitingsoort.Activa, r.Onderwerp, r.Rekening, bedragen.Sum(), r.Bron, r.Toelichting));
         }
 
         if (schema.MetFunctie(Rekeningfunctie.Vraagposten).ToList() is { Count: > 0 } vraag)

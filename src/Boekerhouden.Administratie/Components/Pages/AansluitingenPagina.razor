@@ -118,6 +118,7 @@
     {
         Aansluitingsoort.Bank => $"/a/{Id}/bank",
         Aansluitingsoort.Crediteuren => $"/a/{Id}/crediteuren",
+        Aansluitingsoort.Activa => $"/a/{Id}/activa",
         _ when a.Rekening is { } r && !r.Contains(',', StringComparison.Ordinal) => $"/a/{Id}/grootboek?rekening={Uri.EscapeDataString(r)}",
         _ => null,
     };
