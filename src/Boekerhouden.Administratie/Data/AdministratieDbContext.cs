@@ -82,6 +82,8 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
 
     public DbSet<Afschrijving> Afschrijvingen => Set<Afschrijving>();
 
+    public DbSet<ActivumDesinvestering> Desinvesteringen => Set<ActivumDesinvestering>();
+
     public DbSet<Afschrift> Afschriften => Set<Afschrift>();
 
     public DbSet<Btwcodedefinitie> Btwcodes => Set<Btwcodedefinitie>();
@@ -499,12 +501,10 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(a => a.Kostenrekening).HasMaxLength(20);
             e.Property(a => a.Bron).HasMaxLength(100);
             e.Property(a => a.Notitie).HasMaxLength(1000);
-            e.Property(a => a.Desinvesteringsboeking).HasMaxLength(100);
             e.Property(a => a.AangemaaktDoor).HasMaxLength(200);
             e.Property(a => a.Aanschafwaarde).HasPrecision(18, 2);
             e.Property(a => a.Restwaarde).HasPrecision(18, 2);
             e.Property(a => a.AfgeschrevenVoorBegin).HasPrecision(18, 2);
-            e.Property(a => a.Opbrengst).HasPrecision(18, 2);
             e.HasOne<Administratie>().WithMany().HasForeignKey(a => a.AdministratieId);
         });
 
@@ -519,6 +519,27 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.HasOne<Administratie>().WithMany().HasForeignKey(a => a.AdministratieId);
         });
 
+        builder.Entity<ActivumDesinvestering>(e =>
+        {
+            e.ToTable("Desinvesteringen");
+            e.HasIndex(d => d.ActivumId);
+            e.HasIndex(d => new { d.AdministratieId, d.Boekstuk });
+            e.Property(d => d.Soort).HasConversion<string>().HasMaxLength(20);
+            e.Property(d => d.Deel).HasPrecision(5, 2);
+            e.Property(d => d.Aanschaf).HasPrecision(18, 2);
+            e.Property(d => d.Afschrijving).HasPrecision(18, 2);
+            e.Property(d => d.Restwaarde).HasPrecision(18, 2);
+            e.Property(d => d.Opbrengst).HasPrecision(18, 2);
+            e.Property(d => d.Opbrengstrekening).HasMaxLength(20);
+            e.Property(d => d.Resultaatrekening).HasMaxLength(20);
+            e.Property(d => d.Boekstuk).HasMaxLength(100);
+            e.Property(d => d.Tegenboeking).HasMaxLength(100);
+            e.Property(d => d.GeboektDoor).HasMaxLength(200);
+            e.HasOne<Activum>().WithMany().HasForeignKey(d => d.ActivumId);
+            e.HasOne<Administratie>().WithMany().HasForeignKey(d => d.AdministratieId);
+        });
+
+        builder.Entity<ActivumDesinvestering>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Activum>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Afschrijving>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Dashboardindeling>().HasQueryFilter(e => e.AdministratieId == Geopend);

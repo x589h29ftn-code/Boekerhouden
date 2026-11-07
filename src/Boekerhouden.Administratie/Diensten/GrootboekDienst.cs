@@ -499,7 +499,7 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
     private static async Task<bool> HoortBijActiva(AdministratieDbContext db, Boeking boeking)
     {
         var stuk = $"{boeking.Dagboek} {boeking.Boekstuk}";
-        return await db.Afschrijvingen.AnyAsync(a => a.Boekstuk == stuk) || await db.Activa.AnyAsync(a => a.Desinvesteringsboeking == stuk);
+        return await db.Afschrijvingen.AnyAsync(a => a.Boekstuk == stuk) || await db.Desinvesteringen.AnyAsync(d => d.Boekstuk == stuk || d.Tegenboeking == stuk);
     }
 
     /// <summary>Waarom een boeking niet via <see cref="PasAan"/> aan te passen is, of leeg als dat wel kan.</summary>

@@ -377,14 +377,14 @@ de btw-aangifte of de jaarrekening. Zo ook hier, per maand (Inrichting, *Periode
 - Op of vóór de blokkeerdatum weigert het pakket elke boeking en elke wijziging: memoriaal (ook *Elke maand*),
   aanpassen (de oude én de nieuwe datum), herboeken, inkoop boeken, aanpassen en terugdraaien, bank (afletteren,
   verdelen, op rekening, ook automatisch: de mutatie blijft dan in Te verwerken), verkoop definitief (ook de eerste
-  maand van een periodeverdeling), afschrijvingen en buiten gebruik stellen. Elke dienst controleert vooraf
+  maand van een periodeverdeling), afschrijvingen en desinvesteringen. Elke dienst controleert vooraf
   (`GrootboekDienst.Afgesloten`, met een gewone melding); als vangnet weigert de keten zelf (`VoegToeAanKeten` en
   `NieuweVersie` gooien `PeriodeAfgeslotenException`). Domein: `Grootboek/Afsluiting`. Getest in `PeriodeTests`.
 
 ### 3.14 Vaste activa
 
 Opgezet zoals gebruikelijk in boekhoudpakketten: een activakaart per bedrijfsmiddel met een afschrijvingsplan, de
-afschrijvingen als memoriaalboeking per periode, buiten gebruik stellen met boekresultaat en een activastaat
+afschrijvingen als memoriaalboeking per periode, desinvesteren (ook voor een deel) met boekresultaat en een activastaat
 (verloopoverzicht) voor de jaarrekening (Boekhouden, *Vaste activa*, `/a/{id}/activa`).
 
 | Onderdeel | Hoe |
@@ -393,9 +393,11 @@ afschrijvingen als memoriaalboeking per periode, buiten gebruik stellen met boek
 | Uit een aanschaf | Elke debetregel op een activarekening (RGS `BMva…Vvp` of `BIva…Vvp`, of een rekening die al bij een actief hoort) die nog geen actief is, staat onder *Aanschaffingen op activarekeningen* (bijv. de inkoopfactuur van een laptop op 0200). *Opnemen* opent de kaart met omschrijving, datum, bedrag en boeking ingevuld, en de rekeningen erbij: zoals bij het vorige actief op die rekening, anders uit RGS (`BMvaBeiVvp` → `BMvaBeiCae` en `WAfsAmvBei`), met 60 maanden (`Kandidaten`) |
 | Afschrijvingsplan | Lineair per maand, tot op de cent verdeeld (de laatste maand sluit precies); per jaar in te klappen, met de boeking per maand. Na de eerste boeking liggen aanschaf, begin, methode en rekeningen vast; looptijd en restwaarde mogen nog: wat er nog af moet, gaat over de resterende maanden (schattingswijziging, alleen vooruit). Domein: `Activa/Afschrijvingsplan` |
 | Afschrijven | *Afschrijven*: t/m een datum, per maand, kwartaal of jaar; eerst een voorstel (per periode de datum, het aantal activa en het bedrag), dan één memoriaalboeking per periode op de laatste dag, met per actief kosten tegen cumulatieve afschrijving. Alleen hele perioden; niet in een afgesloten periode. Een afschrijvingsboeking pas je niet aan en herboek je niet in het memoriaal (`Afschrijven`, tabel `Afschrijvingen`) |
-| Buiten gebruik | Verkoop, sloop of inruil: datum, opbrengst zonder btw (die de verkoopfactuur op een tussenrekening zette), de rekening waar die opbrengst staat en de rekening voor het boekresultaat. Eerst moeten de afschrijvingen t/m die maand geboekt zijn. Eén memoriaalboeking: cumulatieve afschrijving en aanschafwaarde van de balans, de opbrengst van de tussenrekening, het verschil met de boekwaarde als boekwinst of -verlies. *Weer in gebruik* draait het terug met een tegenboeking (`BuitenGebruik`, `WeerInGebruik`; domein `Activa/Desinvestering`) |
+| Restwaarde | Een eigen veld op de kaart (leeg = 0); het plan schrijft af tot de restwaarde. In de lijst een kolom *Restwaarde*, op de kaart in de kop met de boekwaarde en de afschrijving per maand. Na een gedeeltelijke desinvestering staat erbij wat de restwaarde nu is |
+| Afschrijven per maand | Op de kaart de knop *Afschrijven t/m* (de vorige maand): alleen dit actief, elke maand een eigen memoriaalboeking. Op de lijst *Afschrijven* voor alle activa, per maand (standaard), kwartaal of jaar |
+| Desinvesteren | Op de kaart *Desinvesteren*: **verkoop**, **inruil** (de inruilwaarde als opbrengst) of **sloop/afstoten** zonder opbrengst; **het hele actief of een deel** (in procenten: aanschafwaarde, cumulatieve afschrijving en restwaarde gaan naar rato mee, het plan loopt door met de rest); datum, opbrengst zonder btw en de rekening waarop die nu staat (een tussenrekening van de verkoop- of inkoopfactuur), de rekening voor het boekresultaat (de vorige keuze wordt voorgesteld). Zijn de afschrijvingen tot en met die maand nog niet geboekt, dan boekt het pakket die eerst (vinkje, per maand). Vooraf staat **de boeking die erbij hoort**: boekwaarde (aanschaf − afschrijving), opbrengst, boekwinst of -verlies, en de regels met rekening, omschrijving, debet en credit. Op de kaart de lijst *Desinvesteringen* met de boeking; de laatste is terug te draaien met een tegenboeking (niet als er daarna al is afgeschreven). Tabel `Desinvesteringen` (`VoorstelDesinvestering`, `Desinvesteer`, `TerugdraaienDesinvestering`; domein `Activa/Desinvestering`) |
 | Activastaat | Per jaar en per activarekening: boekwaarde 1-1, investeringen, desinvesteringen (boekwaarde), afschrijvingen, boekwaarde 31-12, aanschafwaarde en cumulatieve afschrijving, met subtotalen en een totaal. Wijkt het grootboek op 31-12 af van de staat (bijv. een aanschaf zonder actief, of een boeking buiten de activa om), dan staat dat bij de groep (`Activastaat`; domein `Activa/Activastaat`) |
-| Rechten en log | Inzien: iedereen met toegang; kaart, afschrijven en buiten gebruik: het kantoor (recht Boekhouden). Alles in het wijzigingslog. Getest in `ActivaTests` (domein en dienst, ook op SQLite) |
+| Rechten en log | Inzien: iedereen met toegang; kaart, afschrijven en desinvesteren: het kantoor (recht Boekhouden). Alles in het wijzigingslog. Getest in `ActivaTests` (domein en dienst, ook op SQLite) |
 
 Nog niet: degressief afschrijven, fiscale afschrijving naast de commerciële (met de grenzen voor goodwill en
 gebouwen) en een overzicht voor de investeringsaftrek, de activastaat naar Excel en PDF, en een actief rechtstreeks
@@ -415,7 +417,7 @@ vanaf de inkoopfactuur aanmaken.
 | A8 ✅ | **Bank in de app**: inlezen, afletteren (automatisch en met voorstellen), handmatig boeken, werklijsten met *factuur uploaden* | Bank bijna vanzelf bij |
 | A9 ✅ | **Verkoop**: factuur maken, nummeren (20260001), btw-controle, PDF in een eigen lay-out (ontwerper), e-factuur (UBL), e-mail, debiteurenlijst, creditfactuur, periodeverdeling, terugkerende facturen, inlezen uit een ander pakket | Factureren |
 | A10 | **Btw-aangifte en periodes**: aangifte per rubriek, afdrachtboeking; perioden afsluiten is gebouwd (§3.13) | Aangifte klaarzetten |
-| A13 ✅ | **Vaste activa** (§3.14): activakaart, afschrijvingsplan, afschrijven per maand/kwartaal/jaar, buiten gebruik met boekresultaat, activastaat met aansluiting | Afschrijvingen zonder spreadsheet |
+| A13 ✅ | **Vaste activa** (§3.14): activakaart, afschrijvingsplan, afschrijven per maand/kwartaal/jaar, desinvesteren (verkoop, inruil, sloop, ook een deel) met de boeking vooraf, activastaat met aansluiting | Afschrijvingen zonder spreadsheet |
 | A11 ✅ | **Scans**: Tesseract voor scans en foto's (`TesseractOcr`, `OcrLezer`); in de Windows-app als Tesseract op de pc staat | Ook papieren bonnen |
 | A12 | **Saldibalans naar het samenstelpakket** | Jaarrekening zonder export |
 | gepland | **Regels splitsen per leverancier** (wens gebruiker, oktober 2026): de factuurregels uitlezen en per leverancier een vaste verdeling over rekeningen leren (energie: levering en netbeheer; telefoon: abonnement en toestel; groothandel: 9% en 21%), en die de volgende keer voorstellen | Ook gesplitste facturen vanzelf |

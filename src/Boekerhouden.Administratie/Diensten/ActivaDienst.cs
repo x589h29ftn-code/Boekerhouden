@@ -28,22 +28,65 @@ public sealed record ActivumInvoer(
             Kostenrekening.Trim(), AfgeschrevenVoorBegin);
 }
 
-/// <summary>Een actief in de lijst.</summary>
-/// <param name="Afgeschreven">Totaal geboekt (ook vóór de eerste maand).</param>
+/// <summary>Een actief in de lijst, met de stand van nu (na gedeeltelijke desinvesteringen).</summary>
+/// <param name="Afgeschreven">Cumulatieve afschrijving nu (ook vóór de eerste maand, min wat met een desinvestering wegging).</param>
 /// <param name="PerMaand">De afschrijving van de volgende maand volgens het plan; 0 als hij klaar is.</param>
 /// <param name="Achterstand">Maanden tot en met de vorige maand die nog niet geboekt zijn.</param>
+/// <param name="Gedesinvesteerd">Voor een deel gedesinvesteerd (verkocht, ingeruild of gesloopt).</param>
 public sealed record Activaregel(
-    Guid Id, int Nummer, string Omschrijving, DateOnly Aanschafdatum, decimal Aanschafwaarde, decimal Afgeschreven, decimal PerMaand,
-    string Activarekening, DateOnly? BuitenGebruikOp, int Achterstand)
+    Guid Id, int Nummer, string Omschrijving, DateOnly Aanschafdatum, decimal Aanschafwaarde, decimal Afgeschreven, decimal Restwaarde, decimal PerMaand,
+    string Activarekening, DateOnly? BuitenGebruikOp, int Achterstand, bool Gedesinvesteerd = false)
 {
     public decimal Boekwaarde => BuitenGebruikOp is null ? Aanschafwaarde - Afgeschreven : 0m;
 }
 
-/// <summary>Een actief met zijn plan; <see cref="Vast"/> als er al afschrijvingen geboekt zijn (aanschaf en rekeningen liggen dan vast).</summary>
+/// <summary>Een desinvestering van een actief zoals geboekt.</summary>
+/// <param name="Deel">In procenten.</param>
+/// <param name="Tegenboeking">Teruggedraaid met deze boeking; leeg = geldt.</param>
+/// <param name="Laatste">De laatste die nog geldt: alleen die kan worden teruggedraaid.</param>
+public sealed record Desinvesteringsregel(
+    long Id, DateOnly Datum, Desinvesteringssoort Soort, decimal Deel, decimal Aanschaf, decimal Afschrijving, decimal Opbrengst, string Boekstuk,
+    string? Tegenboeking, bool Laatste)
+{
+    public decimal Boekwaarde => Aanschaf - Afschrijving;
+
+    public decimal Resultaat => Opbrengst - Boekwaarde;
+}
+
+/// <summary>Een actief met zijn plan; <see cref="Vast"/> als er al geboekt is (aanschaf en rekeningen liggen dan vast).</summary>
 /// <param name="Boekstukken">Per geboekte maand de boeking, bijv. "MEM 2026-0040".</param>
+/// <param name="Aanschafwaarde">Nu, na gedeeltelijke desinvesteringen.</param>
+/// <param name="Afgeschreven">Cumulatieve afschrijving nu.</param>
+/// <param name="Restwaarde">Restwaarde nu.</param>
+/// <param name="TeBoeken">De maanden tot en met de vorige maand die nog niet geboekt zijn.</param>
 public sealed record Activumdetail(
     Guid Id, int Nummer, ActivumInvoer Invoer, IReadOnlyList<Afschrijvingsmaand> Plan, IReadOnlyDictionary<DateOnly, string> Boekstukken,
-    DateOnly? BuitenGebruikOp, decimal? Opbrengst, string? Desinvesteringsboeking, bool Vast, DateTimeOffset AangemaaktOp, string AangemaaktDoor);
+    DateOnly? BuitenGebruikOp, IReadOnlyList<Desinvesteringsregel> Desinvesteringen, bool Vast, DateTimeOffset AangemaaktOp, string AangemaaktDoor,
+    decimal Aanschafwaarde, decimal Afgeschreven, decimal Restwaarde, int TeBoeken)
+{
+    public decimal Boekwaarde => Aanschafwaarde - Afgeschreven;
+
+    /// <summary>De afschrijving van de eerste maand die nog niet geboekt is.</summary>
+    public decimal PerMaand => BuitenGebruikOp is null ? Plan.FirstOrDefault(m => !m.Geboekt)?.Bedrag ?? 0m : 0m;
+}
+
+/// <summary>Wat de gebruiker bij desinvesteren invult.</summary>
+/// <param name="Deel">In procenten: 100 = het hele actief.</param>
+/// <param name="Opbrengst">Zonder btw; 0 bij sloop.</param>
+/// <param name="Opbrengstrekening">Waar de opbrengst nu op staat (een tussenrekening van de verkoop- of inkoopfactuur).</param>
+/// <param name="Resultaatrekening">Voor de boekwinst of het boekverlies (winst-en-verliesrekening).</param>
+/// <param name="EerstAfschrijven">De afschrijvingen tot en met de maand van de desinvestering eerst boeken (per maand).</param>
+public sealed record Desinvesteringsinvoer(
+    DateOnly Datum, Desinvesteringssoort Soort, decimal Deel, decimal Opbrengst, string? Opbrengstrekening, string? Resultaatrekening, bool EerstAfschrijven = true);
+
+/// <summary>Een regel van de boeking zoals hij zal worden: rekening met naam, omschrijving en bedrag (debet positief).</summary>
+public sealed record Voorstelregel(string Rekening, string Naam, string? Omschrijving, decimal Bedrag);
+
+/// <summary>Wat een desinvestering zal boeken, zonder iets te wijzigen.</summary>
+/// <param name="EerstAfschrijven">De afschrijvingen per maand die eerst nog geboekt moeten worden.</param>
+/// <param name="Fouten">Waarom het (nog) niet kan; leeg = boeken kan.</param>
+public sealed record Desinvesteringsvoorstel(
+    IReadOnlyList<Afschrijvingsvoorstel> EerstAfschrijven, Desinvesteringsbedragen? Bedragen, string Omschrijving, IReadOnlyList<Voorstelregel> Boeking, IReadOnlyList<string> Fouten);
 
 /// <summary>Een aanschaf op een activarekening die nog niet als actief is opgenomen, met een voorstel.</summary>
 public sealed record Activakandidaat(string Boekstuk, DateOnly Datum, string Omschrijving, string Rekening, decimal Bedrag, ActivumInvoer Voorstel);
@@ -67,7 +110,7 @@ public sealed record Activastaatgroep(
 
 /// <summary>
 /// Vaste activa (Boekhouden, Vaste activa): de activakaart met het afschrijvingsplan, afschrijvingen boeken in het
-/// memoriaal (per maand, kwartaal of jaar), buiten gebruik stellen met het boekresultaat, de activastaat met de
+/// memoriaal (per maand, kwartaal of jaar), desinvesteren (verkoop, inruil, sloop, ook voor een deel) met het boekresultaat, de activastaat met de
 /// aansluiting op het grootboek, en voorstellen uit aanschaffingen die al op een activarekening geboekt zijn.
 /// Inzien voor iedereen met toegang; wijzigen en boeken alleen het kantoor (recht Boekhouden).
 /// </summary>
@@ -82,16 +125,21 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
         var activa = await db.Activa.AsNoTracking().OrderBy(a => a.Nummer).ToListAsync();
         var geboekt = await Geboekt(db);
-        var vorigeMaand = new DateOnly(Vandaag.Year, Vandaag.Month, 1).AddMonths(-1);
+        var stappen = await Stappen(db);
+        var vorigeMaand = VorigeMaand;
         return [.. activa.Select(a =>
         {
-            var plan = Afschrijvingsplan.Maak(a.NaarDomein(), geboekt.GetValueOrDefault(a.Id) ?? []);
-            var afgeschreven = a.AfgeschrevenVoorBegin + plan.Where(m => m.Geboekt).Sum(m => m.Bedrag);
+            var g = geboekt.GetValueOrDefault(a.Id) ?? [];
+            var d = stappen.GetValueOrDefault(a.Id) ?? [];
+            var plan = Afschrijvingsplan.Maak(a.NaarDomein(), g, d);
+            var (aanschaf, afgeschreven, rest) = a.BuitenGebruikOp is null ? Stand(a, g, d) : (a.Aanschafwaarde, a.AfgeschrevenVoorBegin + g.Values.Sum(), 0m);
             var open = a.BuitenGebruikOp is null ? plan.Where(m => !m.Geboekt).ToList() : [];
-            return new Activaregel(a.Id, a.Nummer, a.Omschrijving, a.Aanschafdatum, a.Aanschafwaarde, afgeschreven, open.FirstOrDefault()?.Bedrag ?? 0m,
-                a.Activarekening, a.BuitenGebruikOp, open.Count(m => m.Maand <= vorigeMaand));
+            return new Activaregel(a.Id, a.Nummer, a.Omschrijving, a.Aanschafdatum, aanschaf, afgeschreven, rest, open.FirstOrDefault()?.Bedrag ?? 0m,
+                a.Activarekening, a.BuitenGebruikOp, open.Count(m => m.Maand <= vorigeMaand), d.Count > 0);
         })];
     }
+
+    private DateOnly VorigeMaand => new DateOnly(Vandaag.Year, Vandaag.Month, 1).AddMonths(-1);
 
     public async Task<Activumdetail?> Open(Uitvoerder wie, Guid administratie, Guid id)
     {
@@ -102,15 +150,31 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
         }
 
         var rijen = await db.Afschrijvingen.AsNoTracking().Where(x => x.ActivumId == id).ToListAsync();
-        var plan = Afschrijvingsplan.Maak(a.NaarDomein(), rijen.ToDictionary(r => r.Maand, r => r.Bedrag));
+        var desinvesteringen = await db.Desinvesteringen.AsNoTracking().Where(x => x.ActivumId == id).OrderBy(x => x.Datum).ThenBy(x => x.Id).ToListAsync();
+        var geboekt = rijen.ToDictionary(r => r.Maand, r => r.Bedrag);
+        var stappen = desinvesteringen.Where(x => x.Tegenboeking is null).Select(x => x.NaarStap()).ToList();
+        var plan = Afschrijvingsplan.Maak(a.NaarDomein(), geboekt, stappen);
         if (a.BuitenGebruikOp is { } weg)
         {
             plan = [.. plan.Where(m => m.Geboekt || m.Maand <= weg)];
         }
 
-        return new Activumdetail(a.Id, a.Nummer, Invoer(a), plan, rijen.ToDictionary(r => r.Maand, r => r.Boekstuk), a.BuitenGebruikOp, a.Opbrengst,
-            a.Desinvesteringsboeking, rijen.Count > 0, a.AangemaaktOp, a.AangemaaktDoor);
+        var laatste = desinvesteringen.LastOrDefault(x => x.Tegenboeking is null)?.Id;
+        var (aanschaf, afgeschreven, rest) = Stand(a, geboekt, stappen);
+        return new Activumdetail(a.Id, a.Nummer, Invoer(a), plan, rijen.ToDictionary(r => r.Maand, r => r.Boekstuk), a.BuitenGebruikOp,
+            [.. desinvesteringen.Select(x => new Desinvesteringsregel(x.Id, x.Datum, x.Soort, x.Deel, x.Aanschaf, x.Afschrijving, x.Opbrengst, x.Boekstuk, x.Tegenboeking, x.Id == laatste))],
+            rijen.Count > 0 || desinvesteringen.Count > 0, a.AangemaaktOp, a.AangemaaktDoor, aanschaf, afgeschreven, rest,
+            a.BuitenGebruikOp is null ? plan.Count(m => !m.Geboekt && m.Maand <= VorigeMaand) : 0);
     }
+
+    /// <summary>Aanschafwaarde, cumulatieve afschrijving en restwaarde nu: na de geboekte afschrijvingen en desinvesteringen.</summary>
+    private static (decimal Aanschaf, decimal Afgeschreven, decimal Restwaarde) Stand(ActivumEntiteit a, IReadOnlyDictionary<DateOnly, decimal> geboekt, IReadOnlyList<Desinvesteringsstap> stappen) =>
+        (a.Aanschafwaarde - stappen.Sum(d => d.Aanschaf), a.AfgeschrevenVoorBegin + geboekt.Values.Sum() - stappen.Sum(d => d.Afschrijving), a.Restwaarde - stappen.Sum(d => d.Restwaarde));
+
+    /// <summary>Per actief de desinvesteringen die gelden (niet teruggedraaid).</summary>
+    private static async Task<Dictionary<Guid, List<Desinvesteringsstap>>> Stappen(AdministratieDbContext db) =>
+        (await db.Desinvesteringen.AsNoTracking().Where(d => d.Tegenboeking == null).OrderBy(d => d.Datum).ToListAsync())
+            .GroupBy(d => d.ActivumId).ToDictionary(g => g.Key, g => g.Select(d => d.NaarStap()).ToList());
 
     private static ActivumInvoer Invoer(ActivumEntiteit a) =>
         new(a.Omschrijving, a.Aanschafdatum, a.Aanschafwaarde, a.Restwaarde, a.BeginAfschrijving, a.Looptijd, a.Methode, a.Activarekening, a.Afschrijvingsrekening,
@@ -148,8 +212,9 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
 
             a = gevonden;
             var geboekt = await db.Afschrijvingen.AsNoTracking().Where(x => x.ActivumId == bestaand).ToDictionaryAsync(x => x.Maand, x => x.Bedrag);
+            var stappen = (await Stappen(db)).GetValueOrDefault(bestaand) ?? [];
             var oud = a.NaarDomein();
-            if (geboekt.Count > 0 || a.BuitenGebruikOp is not null)
+            if (geboekt.Count > 0 || stappen.Count > 0 || a.BuitenGebruikOp is not null)
             {
                 if (oud with { Omschrijving = domein.Omschrijving, Restwaarde = domein.Restwaarde, Looptijd = domein.Looptijd } != domein)
                 {
@@ -161,7 +226,7 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
                     return Uitkomst<Guid>.Mislukt("Dit actief is buiten gebruik; alleen de omschrijving en de notitie kunnen nog.");
                 }
 
-                if (domein.Afschrijfbaar - domein.AfgeschrevenVoorBegin - geboekt.Values.Sum() < 0)
+                if (domein.Afschrijfbaar - domein.AfgeschrevenVoorBegin - geboekt.Values.Sum() - stappen.Sum(d => d.Aanschaf - d.Afschrijving - d.Restwaarde) < 0)
                 {
                     return Uitkomst<Guid>.Mislukt("Er is al meer afgeschreven dan de aanschafwaarde min deze restwaarde.");
                 }
@@ -196,7 +261,7 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
             return Uitkomst.Mislukt("Dit actief bestaat niet (meer).");
         }
 
-        if (a.BuitenGebruikOp is not null || await db.Afschrijvingen.AnyAsync(x => x.ActivumId == id))
+        if (a.BuitenGebruikOp is not null || await db.Afschrijvingen.AnyAsync(x => x.ActivumId == id) || await db.Desinvesteringen.AnyAsync(x => x.ActivumId == id))
         {
             return Uitkomst.Mislukt("Voor dit actief is al geboekt; verwijderen kan niet meer.");
         }
@@ -212,22 +277,28 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
     /// die nog niet geboekt zijn, per hele periode (maand, kwartaal of jaar) waarvan het eind niet na de maand van
     /// <paramref name="tot"/> ligt.
     /// </summary>
-    public async Task<IReadOnlyList<Afschrijvingsvoorstel>> TeAfschrijven(Uitvoerder wie, Guid administratie, DateOnly tot, Afschrijvingsfrequentie frequentie)
+    /// <param name="alleen">Alleen dit actief (de knop op de activakaart); leeg = alle activa.</param>
+    public async Task<IReadOnlyList<Afschrijvingsvoorstel>> TeAfschrijven(Uitvoerder wie, Guid administratie, DateOnly tot, Afschrijvingsfrequentie frequentie, Guid? alleen = null)
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
-        return [.. (await Perioden(db, tot, frequentie)).Select(p => new Afschrijvingsvoorstel(p.Datum, p.Omschrijving, p.Maanden.Select(m => m.Activum.Id).Distinct().Count(), p.Maanden.Sum(m => m.Bedrag)))];
+        return [.. (await Perioden(db, tot, frequentie, alleen)).Select(Voorstel)];
     }
+
+    private static Afschrijvingsvoorstel Voorstel(Afschrijvingsperiode p) =>
+        new(p.Datum, p.Omschrijving, p.Maanden.Select(m => m.Activum.Id).Distinct().Count(), p.Maanden.Sum(m => m.Bedrag));
 
     private sealed record Teboeken(ActivumEntiteit Activum, DateOnly Maand, decimal Bedrag);
 
     private sealed record Afschrijvingsperiode(DateOnly Datum, string Omschrijving, IReadOnlyList<Teboeken> Maanden);
 
-    private static async Task<IReadOnlyList<Afschrijvingsperiode>> Perioden(AdministratieDbContext db, DateOnly tot, Afschrijvingsfrequentie frequentie)
+    private static async Task<IReadOnlyList<Afschrijvingsperiode>> Perioden(AdministratieDbContext db, DateOnly tot, Afschrijvingsfrequentie frequentie, Guid? alleen = null)
     {
         var eind = Afsluiting.Maandeinde(tot);
-        var activa = await db.Activa.Where(a => a.BuitenGebruikOp == null && a.Methode != Afschrijvingsmethode.Geen).OrderBy(a => a.Nummer).ToListAsync();
+        var activa = await db.Activa.Where(a => a.BuitenGebruikOp == null && a.Methode != Afschrijvingsmethode.Geen && (alleen == null || a.Id == alleen))
+            .OrderBy(a => a.Nummer).ToListAsync();
         var geboekt = await Geboekt(db);
-        var maanden = activa.SelectMany(a => Afschrijvingsplan.Maak(a.NaarDomein(), geboekt.GetValueOrDefault(a.Id) ?? [])
+        var stappen = await Stappen(db);
+        var maanden = activa.SelectMany(a => Afschrijvingsplan.Maak(a.NaarDomein(), geboekt.GetValueOrDefault(a.Id) ?? [], stappen.GetValueOrDefault(a.Id))
                 .Where(m => !m.Geboekt && m.Bedrag != 0 && Afschrijvingsplan.Periodeeinde(m.Maand, frequentie) <= eind)
                 .Select(m => new Teboeken(a, m.Maand, m.Bedrag)))
             .ToList();
@@ -247,27 +318,45 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
     /// dag, met per actief de kosten (debet) tegen de cumulatieve afschrijving (credit). Niet in een afgesloten periode.
     /// Geeft het aantal boekingen.
     /// </summary>
-    public async Task<Uitkomst<int>> Afschrijven(Uitvoerder wie, Guid administratie, DateOnly tot, Afschrijvingsfrequentie frequentie)
+    public async Task<Uitkomst<int>> Afschrijven(Uitvoerder wie, Guid administratie, DateOnly tot, Afschrijvingsfrequentie frequentie, Guid? alleen = null)
     {
         ArgumentNullException.ThrowIfNull(wie);
         await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
         var (schema, dagboeken) = await GrootboekDienst.Inrichting(db);
-        if (dagboeken.Where(d => d.Soort == Dagboeksoort.Memoriaal).OrderBy(d => d.Code != "MEM").FirstOrDefault() is not { } memoriaal)
+        if (Memoriaal(dagboeken) is not { } memoriaal)
         {
             return Uitkomst<int>.Mislukt("Deze administratie heeft geen memoriaal.");
         }
 
         await using var transactie = await db.Database.BeginTransactionAsync();
         await db.Vergrendel(administratie);
-        var perioden = await Perioden(db, tot, frequentie);
+        var perioden = await Perioden(db, tot, frequentie, alleen);
         if (perioden.Count == 0)
         {
             return Uitkomst<int>.Mislukt($"Er is tot en met {Weergave.Datum(Afsluiting.Maandeinde(tot))} niets meer af te schrijven.");
         }
 
+        if (await BoekAfschrijvingen(db, administratie, memoriaal, schema, dagboeken, perioden, wie) is { Count: > 0 } fouten)
+        {
+            return Uitkomst<int>.Mislukt([.. fouten]);
+        }
+
+        await transactie.CommitAsync();
+        await audit.Log(wie, AuditActies.AfschrijvingenGeboekt, $"t/m {Weergave.Datum(perioden[^1].Datum)}",
+            $"{perioden.Count} {(perioden.Count == 1 ? "boeking" : "boekingen")}; {perioden.Sum(p => p.Maanden.Sum(m => m.Bedrag)):0.00}", administratie);
+        return Uitkomst<int>.Met(perioden.Count);
+    }
+
+    private static Dagboek? Memoriaal(IReadOnlyList<Dagboek> dagboeken) =>
+        dagboeken.Where(d => d.Soort == Dagboeksoort.Memoriaal).OrderBy(d => d.Code != "MEM").FirstOrDefault();
+
+    /// <summary>Boekt de perioden in het memoriaal (binnen de transactie van de aanroeper); geeft de fouten, leeg = gelukt.</summary>
+    private async Task<IReadOnlyList<string>> BoekAfschrijvingen(
+        AdministratieDbContext db, Guid administratie, Dagboek memoriaal, Rekeningschema schema, IReadOnlyList<Dagboek> dagboeken, IReadOnlyList<Afschrijvingsperiode> perioden, Uitvoerder wie)
+    {
         if (await GrootboekDienst.Afgesloten(db, administratie, [.. perioden.Select(p => p.Datum)]) is { } afgesloten)
         {
-            return Uitkomst<int>.Mislukt(afgesloten);
+            return [afgesloten];
         }
 
         foreach (var periode in perioden)
@@ -282,7 +371,7 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
             var post = new Journaalpost(memoriaal.Code, boekstuk, periode.Datum, periode.Omschrijving, [.. regels]);
             if (Journaalcontrole.Controleer(post, schema, dagboeken) is { Count: > 0 } fouten)
             {
-                return Uitkomst<int>.Mislukt([.. fouten]);
+                return fouten;
             }
 
             await grootboek.VoegToeAanKeten(db, administratie, post, wie);
@@ -294,115 +383,199 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
             await db.SaveChangesAsync();
         }
 
-        await transactie.CommitAsync();
-        await audit.Log(wie, AuditActies.AfschrijvingenGeboekt, $"t/m {Weergave.Datum(perioden[^1].Datum)}",
-            $"{perioden.Count} {(perioden.Count == 1 ? "boeking" : "boekingen")}; {perioden.Sum(p => p.Maanden.Sum(m => m.Bedrag)):0.00}", administratie);
-        return Uitkomst<int>.Met(perioden.Count);
+        return [];
     }
 
     /// <summary>
-    /// Stelt een actief buiten gebruik (verkoop, sloop): een memoriaalboeking op de datum die aanschaf en afschrijving
-    /// van de balans haalt, de opbrengst van zijn rekening haalt en het boekresultaat boekt. De afschrijvingen tot en
-    /// met die maand moeten eerst geboekt zijn.
+    /// Wat een desinvestering zou boeken: eerst de afschrijvingen die nog open staan tot en met de maand (per maand),
+    /// dan de bedragen (naar rato bij een deel) en de memoriaalboeking. Wijzigt niets; met de fouten als het nog niet kan.
     /// </summary>
-    /// <param name="opbrengstrekening">Waar de opbrengst (zonder btw) nu op staat, bijv. een tussenrekening van de verkoopfactuur.</param>
-    /// <param name="resultaatrekening">Waar de boekwinst of het boekverlies op komt (winst-en-verliesrekening).</param>
-    public async Task<Uitkomst> BuitenGebruik(Uitvoerder wie, Guid administratie, Guid id, DateOnly datum, decimal opbrengst, string? opbrengstrekening, string resultaatrekening)
+    public async Task<Desinvesteringsvoorstel> VoorstelDesinvestering(Uitvoerder wie, Guid administratie, Guid id, Desinvesteringsinvoer invoer)
     {
-        ArgumentNullException.ThrowIfNull(wie);
-        await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
+        ArgumentNullException.ThrowIfNull(invoer);
+        await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
+        return (await Desinvestering(db, administratie, id, invoer)).Voorstel;
+    }
+
+    private sealed record Desinvesteringsplan(Desinvesteringsvoorstel Voorstel, ActivumEntiteit? Activum, IReadOnlyList<Afschrijvingsperiode> Eerst, Dagboek? Memoriaal);
+
+    private static async Task<Desinvesteringsplan> Desinvestering(AdministratieDbContext db, Guid administratie, Guid id, Desinvesteringsinvoer invoer)
+    {
         var (schema, dagboeken) = await GrootboekDienst.Inrichting(db);
+        var fouten = new List<string>();
         if (await db.Activa.FirstOrDefaultAsync(x => x.Id == id) is not { } a)
         {
-            return Uitkomst.Mislukt("Dit actief bestaat niet (meer).");
+            return new(new([], null, "", [], ["Dit actief bestaat niet (meer)."]), null, [], null);
         }
 
-        var fouten = new List<string>();
+        var memoriaal = Memoriaal(dagboeken);
+        if (memoriaal is null)
+        {
+            fouten.Add("Deze administratie heeft geen memoriaal.");
+        }
+
         if (a.BuitenGebruikOp is not null)
         {
-            fouten.Add("Dit actief is al buiten gebruik.");
+            fouten.Add("Dit actief is al helemaal gedesinvesteerd.");
         }
 
-        if (datum < a.Aanschafdatum)
+        if (invoer.Datum < a.Aanschafdatum)
         {
-            fouten.Add("Buiten gebruik stellen kan niet vóór de aanschaf.");
+            fouten.Add("Desinvesteren kan niet vóór de aanschaf.");
         }
 
+        if (invoer.Deel is <= 0 or > 100)
+        {
+            fouten.Add("Het deel ligt tussen 0 en 100%.");
+        }
+
+        var opbrengst = invoer.Soort == Desinvesteringssoort.Sloop ? 0m : invoer.Opbrengst;
         if (opbrengst < 0)
         {
             fouten.Add("De opbrengst is 0 of meer.");
         }
 
-        if (schema.Zoek(resultaatrekening?.Trim()) is not { IsBalans: false, Functie: Rekeningfunctie.Geen })
+        var resultaatrekening = schema.Zoek(invoer.Resultaatrekening?.Trim());
+        if (resultaatrekening is not { IsBalans: false, Functie: Rekeningfunctie.Geen })
         {
             fouten.Add("Kies voor het boekresultaat een rekening in de winst-en-verliesrekening.");
         }
 
-        if (opbrengst != 0 && schema.Zoek(opbrengstrekening?.Trim()) is not { Functie: Rekeningfunctie.Geen })
+        var opbrengstrekening = opbrengst == 0 ? null : schema.Zoek(invoer.Opbrengstrekening?.Trim());
+        if (opbrengst != 0 && opbrengstrekening is not { Functie: Rekeningfunctie.Geen })
         {
-            fouten.Add("Kies de rekening waarop de opbrengst nu staat (geen bank, debiteuren, crediteuren of btw).");
+            fouten.Add(invoer.Soort == Desinvesteringssoort.Inruil
+                ? "Kies de rekening waarop de inruilwaarde nu staat (geen bank, debiteuren, crediteuren of btw)."
+                : "Kies de rekening waarop de opbrengst nu staat (geen bank, debiteuren, crediteuren of btw).");
         }
 
-        if (dagboeken.Where(d => d.Soort == Dagboeksoort.Memoriaal).OrderBy(d => d.Code != "MEM").FirstOrDefault() is not { } memoriaal)
-        {
-            fouten.Add("Deze administratie heeft geen memoriaal.");
-            return Uitkomst.Mislukt([.. fouten]);
-        }
-
+        // Eerst de afschrijvingen tot en met de maand van de desinvestering.
         var geboekt = await db.Afschrijvingen.AsNoTracking().Where(x => x.ActivumId == id).ToDictionaryAsync(x => x.Maand, x => x.Bedrag);
-        var maand = new DateOnly(datum.Year, datum.Month, 1);
-        if (Afschrijvingsplan.Maak(a.NaarDomein(), geboekt).FirstOrDefault(m => !m.Geboekt && m.Maand <= maand) is { } open)
+        var stappen = (await Stappen(db)).GetValueOrDefault(id) ?? [];
+        var maand = new DateOnly(invoer.Datum.Year, invoer.Datum.Month, 1);
+        var eerst = a.BuitenGebruikOp is null ? await Perioden(db, invoer.Datum, Afschrijvingsfrequentie.Maand, id) : [];
+        if (eerst.Count > 0 && !invoer.EerstAfschrijven)
         {
-            fouten.Add($"Boek eerst de afschrijvingen tot en met {maand.ToString("MMMM yyyy", Nederlands)} (vanaf {open.Maand.ToString("MMMM yyyy", Nederlands)} staat nog open).");
+            fouten.Add($"Boek eerst de afschrijvingen tot en met {maand.ToString("MMMM yyyy", Nederlands)}.");
         }
 
-        if (await GrootboekDienst.Afgesloten(db, administratie, datum) is { } afgesloten)
+        var (aanschaf, afgeschreven, rest) = Stand(a, geboekt, stappen);
+        afgeschreven += eerst.Sum(p => p.Maanden.Sum(m => m.Bedrag));
+        if (await GrootboekDienst.Afgesloten(db, administratie, invoer.Datum) is { } afgesloten)
         {
             fouten.Add(afgesloten);
         }
 
-        if (fouten.Count > 0)
+        if (fouten.Count > 0 && (aanschaf <= 0 || invoer.Deel is <= 0 or > 100))
         {
-            return Uitkomst.Mislukt([.. fouten]);
+            return new(new([.. eerst.Select(Voorstel)], null, "", [], fouten), a, eerst, memoriaal);
         }
 
-        var afgeschreven = a.AfgeschrevenVoorBegin + geboekt.Values.Sum();
-        var omschrijving = Kort($"Buiten gebruik {a.Nummer} {a.Omschrijving}");
+        var bedragen = Boekhouding.Activa.Desinvestering.Bereken(aanschaf, afgeschreven, rest, invoer.Deel / 100m, opbrengst);
+        var omschrijving = Kort(Boekhouding.Activa.Desinvestering.Omschrijving(invoer.Soort, invoer.Deel / 100m, a.Nummer, a.Omschrijving));
+        IReadOnlyList<Voorstelregel> boeking = [];
+        if (resultaatrekening is not null && (opbrengst == 0 || opbrengstrekening is not null))
+        {
+            boeking = [.. Boekhouding.Activa.Desinvestering.Regels(a.NaarDomein(), bedragen, opbrengstrekening?.Nummer, resultaatrekening.Nummer, omschrijving)
+                .Select(r => new Voorstelregel(r.Rekeningnummer, schema.Zoek(r.Rekeningnummer)?.Naam ?? r.Rekeningnummer, r.Omschrijving, r.Bedrag))];
+        }
+
+        return new(new([.. eerst.Select(Voorstel)], bedragen, omschrijving, boeking, fouten), a, eerst, memoriaal);
+    }
+
+    /// <summary>
+    /// Desinvesteert een actief (geheel of een deel): verkoop, inruil of sloop. Boekt zo nodig eerst de afschrijvingen
+    /// tot en met die maand (per maand), dan één memoriaalboeking op de datum die het deel van de aanschafwaarde en de
+    /// cumulatieve afschrijving van de balans haalt, de opbrengst van zijn rekening haalt en het boekresultaat boekt.
+    /// Bij een deel gaat het plan verder met de rest.
+    /// </summary>
+    public async Task<Uitkomst> Desinvesteer(Uitvoerder wie, Guid administratie, Guid id, Desinvesteringsinvoer invoer)
+    {
+        ArgumentNullException.ThrowIfNull(wie);
+        ArgumentNullException.ThrowIfNull(invoer);
+        await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
         await using var transactie = await db.Database.BeginTransactionAsync();
         await db.Vergrendel(administratie);
-        var boekstuk = await GrootboekDienst.VolgendBoekstuk(db, memoriaal.Code, datum.Year);
-        var post = new Journaalpost(memoriaal.Code, boekstuk, datum, omschrijving,
-            Desinvestering.Regels(a.NaarDomein(), afgeschreven, opbrengst, opbrengstrekening?.Trim(), resultaatrekening!.Trim(), omschrijving));
+        var plan = await Desinvestering(db, administratie, id, invoer);
+        if (plan.Voorstel.Fouten.Count > 0 || plan.Voorstel.Bedragen is not { } bedragen || plan.Activum is not { } a || plan.Memoriaal is not { } memoriaal)
+        {
+            return Uitkomst.Mislukt([.. plan.Voorstel.Fouten.DefaultIfEmpty("Deze desinvestering kan niet worden geboekt.")]);
+        }
+
+        var (schema, dagboeken) = await GrootboekDienst.Inrichting(db);
+        if (plan.Eerst.Count > 0 && await BoekAfschrijvingen(db, administratie, memoriaal, schema, dagboeken, plan.Eerst, wie) is { Count: > 0 } afschrijffouten)
+        {
+            return Uitkomst.Mislukt([.. afschrijffouten]);
+        }
+
+        var boekstuk = await GrootboekDienst.VolgendBoekstuk(db, memoriaal.Code, invoer.Datum.Year);
+        var post = new Journaalpost(memoriaal.Code, boekstuk, invoer.Datum, plan.Voorstel.Omschrijving,
+            [.. plan.Voorstel.Boeking.Select(r => new Journaalregel(r.Rekening, r.Bedrag, r.Omschrijving))]);
         if (Journaalcontrole.Controleer(post, schema, dagboeken) is { Count: > 0 } controle)
         {
             return Uitkomst.Mislukt([.. controle]);
         }
 
         await grootboek.VoegToeAanKeten(db, administratie, post, wie);
-        (a.BuitenGebruikOp, a.Opbrengst, a.Desinvesteringsboeking) = (datum, opbrengst, $"{memoriaal.Code} {boekstuk}");
+        var opbrengst = invoer.Soort == Desinvesteringssoort.Sloop ? null : invoer.Opbrengstrekening?.Trim();
+        db.Desinvesteringen.Add(new ActivumDesinvestering
+        {
+            AdministratieId = administratie,
+            ActivumId = a.Id,
+            Datum = invoer.Datum,
+            Soort = invoer.Soort,
+            Deel = invoer.Deel,
+            Aanschaf = bedragen.Aanschaf,
+            Afschrijving = bedragen.Afschrijving,
+            Restwaarde = bedragen.Restwaarde,
+            Opbrengst = bedragen.Opbrengst,
+            Opbrengstrekening = bedragen.Opbrengst == 0 ? null : opbrengst,
+            Resultaatrekening = invoer.Resultaatrekening!.Trim(),
+            Boekstuk = $"{memoriaal.Code} {boekstuk}",
+            GeboektOp = tijd.GetUtcNow(),
+            GeboektDoor = wie.Naam,
+        });
+        if (invoer.Deel == 100)
+        {
+            a.BuitenGebruikOp = invoer.Datum;
+        }
+
         await db.SaveChangesAsync();
         await transactie.CommitAsync();
-        var boekwaarde = a.Aanschafwaarde - afgeschreven;
-        await audit.Log(wie, AuditActies.ActivumBuitenGebruik, $"{a.Nummer} {a.Omschrijving}",
-            $"{Weergave.Datum(datum)}; boekwaarde {boekwaarde:0.00}, opbrengst {opbrengst:0.00}; {memoriaal.Code} {boekstuk}", administratie);
+        await audit.Log(wie, AuditActies.ActivumGedesinvesteerd, $"{a.Nummer} {a.Omschrijving}",
+            $"{post.Omschrijving}; {Weergave.Datum(invoer.Datum)}; boekwaarde {bedragen.Boekwaarde:0.00}, opbrengst {bedragen.Opbrengst:0.00}, resultaat {bedragen.Resultaat:0.00}; {memoriaal.Code} {boekstuk}"
+            + (plan.Eerst.Count > 0 ? $"; eerst {plan.Eerst.Count} afschrijvingsboeking(en)" : ""), administratie);
         return Uitkomst.Gelukt;
     }
 
-    /// <summary>Maakt buiten gebruik stellen ongedaan: een tegenboeking van de desinvestering op dezelfde datum.</summary>
-    public async Task<Uitkomst> WeerInGebruik(Uitvoerder wie, Guid administratie, Guid id)
+    /// <summary>
+    /// Draait de laatste desinvestering van een actief terug: een tegenboeking op dezelfde datum; het actief staat weer
+    /// zoals ervoor (de afschrijvingen die eerst zijn geboekt, blijven staan).
+    /// </summary>
+    public async Task<Uitkomst> TerugdraaienDesinvestering(Uitvoerder wie, Guid administratie, long desinvestering)
     {
         ArgumentNullException.ThrowIfNull(wie);
         await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
-        if (await db.Activa.FirstOrDefaultAsync(x => x.Id == id) is not { BuitenGebruikOp: not null, Desinvesteringsboeking: { } stuk } a)
-        {
-            return Uitkomst.Mislukt("Dit actief is niet buiten gebruik.");
-        }
-
         await using var transactie = await db.Database.BeginTransactionAsync();
         await db.Vergrendel(administratie);
-        if (await GrootboekDienst.GeldendeBoeking(db, stuk) is not { Regels.Count: > 0 } boeking)
+        if (await db.Desinvesteringen.FirstOrDefaultAsync(d => d.Id == desinvestering && d.Tegenboeking == null) is not { } d)
         {
-            return Uitkomst.Mislukt($"Boeking {stuk} bestaat niet meer.");
+            return Uitkomst.Mislukt("Deze desinvestering bestaat niet (meer) of is al teruggedraaid.");
+        }
+
+        if (await db.Desinvesteringen.AnyAsync(x => x.ActivumId == d.ActivumId && x.Tegenboeking == null && (x.Datum > d.Datum || (x.Datum == d.Datum && x.Id > d.Id))))
+        {
+            return Uitkomst.Mislukt("Draai eerst de latere desinvestering van dit actief terug.");
+        }
+
+        if (await db.Afschrijvingen.AnyAsync(x => x.ActivumId == d.ActivumId && x.Maand > d.Datum))
+        {
+            return Uitkomst.Mislukt("Na deze desinvestering is er al afgeschreven; die afschrijvingen gaan uit van wat er toen over was.");
+        }
+
+        if (await GrootboekDienst.GeldendeBoeking(db, d.Boekstuk) is not { Regels.Count: > 0 } boeking)
+        {
+            return Uitkomst.Mislukt($"Boeking {d.Boekstuk} bestaat niet meer.");
         }
 
         if (await GrootboekDienst.Afgesloten(db, administratie, boeking.Datum) is { } afgesloten)
@@ -411,13 +584,23 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
         }
 
         var boekstuk = await GrootboekDienst.VolgendBoekstuk(db, boeking.Dagboek, boeking.Datum.Year);
-        var tegen = boeking.NaarDomein().Tegenboeking(boekstuk, boeking.Datum, Kort($"Terugdraaien {stuk}: {boeking.Omschrijving}"));
+        var tegen = boeking.NaarDomein().Tegenboeking(boekstuk, boeking.Datum, Kort($"Terugdraaien {d.Boekstuk}: {boeking.Omschrijving}"));
         (await grootboek.VoegToeAanKeten(db, administratie, tegen, wie)).Herstelt = boeking.Id;
-        (a.BuitenGebruikOp, a.Opbrengst, a.Desinvesteringsboeking) = (null, null, null);
+        d.Tegenboeking = $"{boeking.Dagboek} {boekstuk}";
+        var a = await db.Activa.SingleAsync(x => x.Id == d.ActivumId);
+        a.BuitenGebruikOp = null;
         await db.SaveChangesAsync();
         await transactie.CommitAsync();
-        await audit.Log(wie, AuditActies.ActivumWeerInGebruik, $"{a.Nummer} {a.Omschrijving}", $"tegenboeking {boeking.Dagboek} {boekstuk}", administratie);
+        await audit.Log(wie, AuditActies.DesinvesteringTeruggedraaid, $"{a.Nummer} {a.Omschrijving}", $"{d.Boekstuk}; tegenboeking {d.Tegenboeking}", administratie);
         return Uitkomst.Gelukt;
+    }
+
+    /// <summary>De rekeningen van de vorige desinvestering in deze administratie, als voorstel (opbrengst, resultaat).</summary>
+    public async Task<(string? Opbrengst, string? Resultaat)> VorigeDesinvesteringsrekeningen(Uitvoerder wie, Guid administratie)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
+        var vorige = await db.Desinvesteringen.AsNoTracking().OrderByDescending(d => d.Id).Select(d => new { d.Opbrengstrekening, d.Resultaatrekening }).FirstOrDefaultAsync();
+        return (vorige?.Opbrengstrekening, vorige?.Resultaatrekening);
     }
 
     /// <summary>
@@ -430,11 +613,12 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
         var (schema, _) = await GrootboekDienst.Inrichting(db);
         var activa = await db.Activa.AsNoTracking().OrderBy(a => a.Nummer).ToListAsync();
         var geboekt = await Geboekt(db);
+        var stappen = await Stappen(db);
         var eind = new DateOnly(jaar, 12, 31);
         var groepen = new List<Activastaatgroep>();
         foreach (var groep in activa.GroupBy(a => (a.Activarekening, a.Afschrijvingsrekening)).OrderBy(g => g.Key.Activarekening, Rekeningnummers.Volgorde))
         {
-            var posten = groep.Select(a => (a, Regel: Boekhouding.Activa.Activastaat.Regel(a.NaarDomein(), geboekt.GetValueOrDefault(a.Id) ?? [], a.BuitenGebruikOp, jaar)))
+            var posten = groep.Select(a => (a, Regel: Boekhouding.Activa.Activastaat.Regel(a.NaarDomein(), geboekt.GetValueOrDefault(a.Id) ?? [], stappen.GetValueOrDefault(a.Id) ?? [], jaar)))
                 .Where(p => p.Regel is not null).Select(p => new Activastaatpost(p.a.Id, p.a.Nummer, p.a.Omschrijving, p.Regel!)).ToList();
             if (posten.Count == 0)
             {
@@ -471,7 +655,8 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
             return [];
         }
 
-        var bronnen = activa.Select(a => a.Bron).Concat(activa.Select(a => a.Desinvesteringsboeking)).OfType<string>().ToHashSet();
+        var desinvesteringen = await db.Desinvesteringen.AsNoTracking().Select(d => new { d.Boekstuk, d.Tegenboeking }).ToListAsync();
+        var bronnen = activa.Select(a => a.Bron).Concat(desinvesteringen.Select(d => d.Boekstuk)).Concat(desinvesteringen.Select(d => d.Tegenboeking)).OfType<string>().ToHashSet();
         var regels = await db.GeldendeRegels.AsNoTracking().Where(r => rekeningen.Contains(r.Rekeningnummer) && r.Bedrag > 0)
             .Join(db.Boekingen.AsNoTracking(), r => r.BoekingId, b => b.Id, (r, b) => new { b.Dagboek, b.Boekstuk, b.Datum, b.Omschrijving, Regel = r.Omschrijving, r.Rekeningnummer, r.Bedrag, b.Herstelt })
             .ToListAsync();
@@ -527,7 +712,8 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
         var maand = new DateOnly(tot.Year, tot.Month, 1);
         var activa = await db.Activa.AsNoTracking().Where(a => a.BuitenGebruikOp == null && a.Methode != Afschrijvingsmethode.Geen).ToListAsync();
         var geboekt = await Geboekt(db);
-        return activa.Count(a => Afschrijvingsplan.Maak(a.NaarDomein(), geboekt.GetValueOrDefault(a.Id) ?? []).Any(m => !m.Geboekt && m.Maand <= maand));
+        var stappen = await Stappen(db);
+        return activa.Count(a => Afschrijvingsplan.Maak(a.NaarDomein(), geboekt.GetValueOrDefault(a.Id) ?? [], stappen.GetValueOrDefault(a.Id)).Any(m => !m.Geboekt && m.Bedrag != 0 && m.Maand <= maand));
     }
 
     private static string Kort(string tekst) => tekst.Length > 200 ? tekst[..200] : tekst;

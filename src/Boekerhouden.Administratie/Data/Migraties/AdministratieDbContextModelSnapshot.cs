@@ -156,10 +156,6 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.Property<DateOnly?>("BuitenGebruikOp")
                         .HasColumnType("date");
 
-                    b.Property<string>("Desinvesteringsboeking")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
                     b.Property<string>("Kostenrekening")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -185,10 +181,6 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
-                    b.Property<decimal?>("Opbrengst")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
                     b.Property<decimal>("Restwaarde")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
@@ -199,6 +191,83 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .IsUnique();
 
                     b.ToTable("Activa", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.ActivumDesinvestering", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("Aanschaf")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("ActivumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Afschrijving")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Boekstuk")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateOnly>("Datum")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("Deel")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<string>("GeboektDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("GeboektOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("Opbrengst")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Opbrengstrekening")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<decimal>("Restwaarde")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Resultaatrekening")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Soort")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Tegenboeking")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActivumId");
+
+                    b.HasIndex("AdministratieId", "Boekstuk");
+
+                    b.ToTable("Desinvesteringen", (string)null);
                 });
 
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Administratie", b =>
@@ -2016,6 +2085,21 @@ namespace Boekerhouden.Administratie.Data.Migraties
 
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Activum", b =>
                 {
+                    b.HasOne("Boekerhouden.Administratie.Data.Administratie", null)
+                        .WithMany()
+                        .HasForeignKey("AdministratieId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.ActivumDesinvestering", b =>
+                {
+                    b.HasOne("Boekerhouden.Administratie.Data.Activum", null)
+                        .WithMany()
+                        .HasForeignKey("ActivumId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("Boekerhouden.Administratie.Data.Administratie", null)
                         .WithMany()
                         .HasForeignKey("AdministratieId")

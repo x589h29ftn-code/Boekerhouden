@@ -18,10 +18,28 @@
             @if (d.BuitenGebruikOp is { } weg)
             {
                 <span class="scheiding">·</span>
-                <span>buiten gebruik @Weergave.Datum(weg)</span>
+                <span>gedesinvesteerd @Weergave.Datum(weg)</span>
+            }
+            else
+            {
+                <span class="scheiding">·</span>
+                <span title="Aanschafwaarde @Weergave.Bedrag(d.Aanschafwaarde), afgeschreven @Weergave.Bedrag(d.Afgeschreven)">boekwaarde @Weergave.Bedrag(d.Boekwaarde)</span>
+                @if (d.PerMaand != 0)
+                {
+                    <span class="scheiding">·</span>
+                    <span>per maand @Weergave.Bedrag(d.PerMaand)</span>
+                }
+                <span class="scheiding">·</span>
+                <span>restwaarde @Weergave.Bedrag(d.Restwaarde)</span>
             }
         }
     </Kenmerken>
+    <Acties>
+        @if (mag && detail is { TeBoeken: > 0 } t)
+        {
+            <button class="btn btn-outline-secondary" disabled="@bezig" title="@t.TeBoeken @(t.TeBoeken == 1 ? "maand" : "maanden"), elk een eigen memoriaalboeking" @onclick="AfschrijvenTotVorigeMaand">Afschrijven t/m @VorigeMaand.ToString("MMMM", Nederlands)</button>
+        }
+    </Acties>
     <ChildContent>
         <Foutmeldingen Fouten="fouten" />
         @if (bericht is not null)
@@ -68,11 +86,22 @@
                             <span class="small text-secondary">in</span>
                             <input id="looptijd" class="form-control form-control-sm text-end" style="width:5rem" aria-label="Looptijd in maanden" @bind="f.Looptijd" disabled="@IsWeg" />
                             <span class="small text-secondary" title="@(f.Looptijd is > 0 and var l ? $"{l / 12m:0.#} jaar" : null)">maanden</span>
-                            <span class="small text-secondary ms-2">restwaarde</span>
-                            <input id="restwaarde" class="form-control form-control-sm text-end" style="width:8rem" aria-label="Restwaarde" @bind="f.Restwaarde" disabled="@IsWeg" />
                         }
                     </div>
                 </div>
+                @if (f.Methode == Afschrijvingsmethode.Lineair)
+                {
+                    <div class="formulier-rij">
+                        <label for="restwaarde">Restwaarde</label>
+                        <div class="d-flex gap-2 align-items-center">
+                            <input id="restwaarde" class="form-control form-control-sm text-end" style="width:9rem" placeholder="0,00" @bind="f.Restwaarde" disabled="@IsWeg" />
+                            @if (detail is { Desinvesteringen.Count: > 0 } d && d.Restwaarde != (f.Invoer()?.Restwaarde ?? 0m))
+                            {
+                                <span class="small text-secondary" title="Na de gedeeltelijke desinvestering">nu @Weergave.Bedrag(d.Restwaarde)</span>
+                            }
+                        </div>
+                    </div>
+                }
                 <div class="formulier-rij">
                     <label for="activarekening">Activarekening</label>
                     <span style="width:22rem"><RekeningKeuze Id="activarekening" Waarde="@f.Activarekening" WaardeChanged="KiesActivarekening" Schema="schema" Kader="geopend" Label="Activarekening" /></span>
@@ -112,36 +141,138 @@
                 </div>
             </fieldset>
 
-            @if (detail is { } d && mag)
+            @if (detail is { BuitenGebruikOp: null } && mag)
             {
                 <div class="mt-4">
-                    @if (d.BuitenGebruikOp is { } wegOp)
-                    {
-                        <div class="small">
-                            Buiten gebruik @Weergave.Datum(wegOp)@(d.Opbrengst is > 0 and var o ? $", opbrengst {Weergave.Bedrag(o)}" : null)
-                            @if (d.Desinvesteringsboeking is { } stuk && stuk.Split(' ', 2) is [var desDagboek, var desBoekstuk])
-                            {
-                                <span class="scheiding">·</span>
-                                <a href="/a/@Id/boeking/@desDagboek/@desBoekstuk">@stuk</a>
-                            }
-                            <button class="btn btn-sm btn-link p-0 ms-3" disabled="@bezig" @onclick="WeerInGebruik">Weer in gebruik</button>
-                        </div>
-                    }
-                    else
-                    {
-                        <Uitklapformulier Tekst="Buiten gebruik stellen">
-                            <div class="d-flex gap-2 align-items-center flex-wrap">
-                                <DatumVeld Id="weg" @bind-Waarde="weg.Datum" Label="Datum" />
-                                <span class="small text-secondary">opbrengst</span>
-                                <input class="form-control form-control-sm text-end" style="width:8rem" aria-label="Opbrengst zonder btw" placeholder="0,00" @bind="weg.Opbrengst" />
-                                <span class="small text-secondary">staat op</span>
-                                <span style="width:16rem"><RekeningKeuze @bind-Waarde="weg.Opbrengstrekening" Schema="schema" Kader="geopend" Label="Rekening met de opbrengst" /></span>
-                                <span class="small text-secondary">resultaat naar</span>
-                                <span style="width:16rem"><RekeningKeuze @bind-Waarde="weg.Resultaatrekening" Schema="schema" Kader="geopend" Label="Rekening voor het boekresultaat" /></span>
-                                <button class="btn btn-sm btn-primary" disabled="@bezig" @onclick="BuitenGebruik">Boeken</button>
+                    <Uitklapformulier Tekst="Desinvesteren">
+                        <div class="verkoopformulier desinvesteren">
+                            <div class="formulier-rij">
+                                <label for="soort">Soort</label>
+                                <div class="d-flex gap-2 align-items-center flex-wrap">
+                                    <select id="soort" class="form-select form-select-sm w-auto" @bind="weg.Soort" @bind:after="Herbereken">
+                                        <option value="@Desinvesteringssoort.Verkoop">verkoop</option>
+                                        <option value="@Desinvesteringssoort.Inruil">inruil</option>
+                                        <option value="@Desinvesteringssoort.Sloop">sloop of afstoten zonder opbrengst</option>
+                                    </select>
+                                    <select class="form-select form-select-sm w-auto" aria-label="Deel" @bind="weg.Omvang" @bind:after="Herbereken">
+                                        <option value="geheel">het hele actief</option>
+                                        <option value="deel">een deel</option>
+                                    </select>
+                                    @if (weg.Gedeeltelijk)
+                                    {
+                                        <input class="form-control form-control-sm text-end" style="width:5rem" aria-label="Deel in procenten" @bind="weg.Deel" @bind:after="Herbereken" />
+                                        <span class="small text-secondary">%</span>
+                                    }
+                                </div>
                             </div>
-                        </Uitklapformulier>
-                    }
+                            <div class="formulier-rij">
+                                <label for="wegdatum">Datum</label>
+                                <span style="width:9.5rem"><DatumVeld Id="wegdatum" Waarde="weg.Datum" WaardeChanged="KiesDatum" /></span>
+                            </div>
+                            @if (weg.Soort != Desinvesteringssoort.Sloop)
+                            {
+                                <div class="formulier-rij">
+                                    <label for="opbrengst">@(weg.Soort == Desinvesteringssoort.Inruil ? "Inruilwaarde" : "Opbrengst")</label>
+                                    <div class="d-flex gap-2 align-items-center flex-wrap">
+                                        <input id="opbrengst" class="form-control form-control-sm text-end" style="width:9rem" placeholder="0,00" title="Zonder btw" @bind="weg.Opbrengst" @bind:after="Herbereken" />
+                                        <span class="small text-secondary">staat op</span>
+                                        <span style="width:20rem"><RekeningKeuze Waarde="@weg.Opbrengstrekening" WaardeChanged="KiesOpbrengstrekening" Schema="schema" Kader="geopend" Label="Rekening met de opbrengst" /></span>
+                                    </div>
+                                </div>
+                            }
+                            <div class="formulier-rij">
+                                <label>Boekresultaat</label>
+                                <span style="width:20rem"><RekeningKeuze Waarde="@weg.Resultaatrekening" WaardeChanged="KiesResultaatrekening" Schema="schema" Kader="geopend" Label="Rekening voor de boekwinst of het boekverlies" /></span>
+                            </div>
+                            @if (voorstel is { } v)
+                            {
+                                @if (v.EerstAfschrijven.Count > 0)
+                                {
+                                    <div class="formulier-rij">
+                                        <span></span>
+                                        <span class="form-check mb-0 small">
+                                            <input class="form-check-input" type="checkbox" id="eerst" @bind="weg.EerstAfschrijven" @bind:after="Herbereken" />
+                                            <label class="form-check-label" for="eerst">Eerst afschrijven t/m @v.EerstAfschrijven[^1].Datum.ToString("MMMM yyyy", Nederlands): @v.EerstAfschrijven.Count @(v.EerstAfschrijven.Count == 1 ? "maand" : "maanden"), @Weergave.Bedrag(v.EerstAfschrijven.Sum(e => e.Bedrag))</label>
+                                        </span>
+                                    </div>
+                                }
+                                @if (v.Bedragen is { } b)
+                                {
+                                    <div class="formulier-rij">
+                                        <span></span>
+                                        <span class="small">
+                                            Boekwaarde @Weergave.Bedrag(b.Boekwaarde)
+                                            <span class="text-secondary" title="Aanschafwaarde min cumulatieve afschrijving">(@Weergave.Bedrag(b.Aanschaf) − @Weergave.Bedrag(b.Afschrijving))</span>,
+                                            @(weg.Soort == Desinvesteringssoort.Inruil ? "inruilwaarde" : "opbrengst") @Weergave.Bedrag(b.Opbrengst):
+                                            @(b.Resultaat >= 0 ? "boekwinst" : "boekverlies") @Weergave.Bedrag(Math.Abs(b.Resultaat))
+                                        </span>
+                                    </div>
+                                }
+                                @if (v.Boeking.Count > 0)
+                                {
+                                    <table class="table table-sm align-middle mb-2 mt-2 overzichtstabel desinvesteringsboeking">
+                                        <thead>
+                                            <tr><th>Rekening</th><th>Omschrijving</th><th class="text-end">Debet</th><th class="text-end">Credit</th></tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var r in v.Boeking)
+                                            {
+                                                <tr>
+                                                    <td><span class="rekeningnummer">@r.Rekening</span>@r.Naam</td>
+                                                    <td class="text-secondary">@r.Omschrijving</td>
+                                                    <td class="bedrag text-end">@(r.Bedrag > 0 ? Weergave.Bedrag(r.Bedrag) : null)</td>
+                                                    <td class="bedrag text-end">@(r.Bedrag < 0 ? Weergave.Bedrag(-r.Bedrag) : null)</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                }
+                                @foreach (var fout in v.Fouten)
+                                {
+                                    <div class="small text-secondary">@fout</div>
+                                }
+                            }
+                            <div class="mt-2">
+                                <button class="btn btn-sm btn-primary" disabled="@(bezig || voorstel is not { Fouten.Count: 0, Boeking.Count: > 0 })" @onclick="Desinvesteer">Boeken</button>
+                            </div>
+                        </div>
+                    </Uitklapformulier>
+                </div>
+            }
+
+            @if (detail is { Desinvesteringen.Count: > 0 } dd)
+            {
+                <h2 class="h6 sectiekop mt-4">Desinvesteringen</h2>
+                <div class="card overzichtskaart">
+                    <table class="table table-sm align-middle mb-0 overzichtstabel desinvesteringen">
+                        <thead>
+                            <tr><th>Datum</th><th>Soort</th><th class="text-end">Boekwaarde</th><th class="text-end">Opbrengst</th><th class="text-end">Resultaat</th><th>Boeking</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var x in dd.Desinvesteringen)
+                            {
+                                <tr class="@(x.Tegenboeking is null ? null : "text-secondary")">
+                                    <td>@Weergave.Datum(x.Datum)</td>
+                                    <td>@Soort(x.Soort)@(x.Deel == 100 ? null : $" {x.Deel:0.##}%")</td>
+                                    <td class="bedrag text-end" title="Aanschafwaarde @Weergave.Bedrag(x.Aanschaf), afgeschreven @Weergave.Bedrag(x.Afschrijving)">@Weergave.Bedrag(x.Boekwaarde)</td>
+                                    <td class="bedrag text-end"><Euro Waarde="x.Opbrengst" LeegBijNul="true" /></td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(x.Resultaat)</td>
+                                    <td>@if (x.Boekstuk.Split(' ', 2) is [var xd, var xb])
+                                        {
+                                            <a href="/a/@Id/boeking/@xd/@xb">@x.Boekstuk</a>
+                                        }</td>
+                                    <td class="text-end">@if (x.Tegenboeking is { } tegen)
+                                        {
+                                            <span class="status" title="Tegenboeking @tegen">teruggedraaid</span>
+                                        }
+                                        else if (x.Laatste && mag)
+                                        {
+                                            <button class="btn btn-sm btn-link p-0 regelactie" disabled="@bezig" @onclick="() => Terugdraaien(x.Id)">Terugdraaien</button>
+                                        }</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 </div>
             }
 
@@ -243,19 +374,34 @@
         }
     }
 
-    private sealed class Uitgebruik
+    private sealed class Desinvesteringsformulier
     {
+        public Desinvesteringssoort Soort { get; set; }
+        /// <summary>"geheel" of "deel" (een keuzelijst bindt niet goed aan true/false).</summary>
+        public string Omvang { get; set; } = "geheel";
+
+        public bool Gedeeltelijk => Omvang == "deel";
+        public string? Deel { get; set; } = "50";
         public DateOnly Datum { get; set; } = DateOnly.FromDateTime(DateTime.Today);
         public string? Opbrengst { get; set; }
         public string? Opbrengstrekening { get; set; }
         public string? Resultaatrekening { get; set; }
+        public bool EerstAfschrijven { get; set; } = true;
+
+        public Desinvesteringsinvoer Invoer()
+        {
+            var deel = !Gedeeltelijk ? 100m : BedragParser.TryParse(Deel ?? "", out var d) ? d : -1m;
+            var opbrengst = string.IsNullOrWhiteSpace(Opbrengst) ? 0m : BedragParser.TryParse(Opbrengst, out var o) ? o : -1m;
+            return new Desinvesteringsinvoer(Datum, Soort, deel, opbrengst, Opbrengstrekening, Resultaatrekening, EerstAfschrijven);
+        }
     }
 
     private Geopend? geopend;
     private Rekeningschema? schema;
     private Activumdetail? detail;
     private Formulier? f;
-    private Uitgebruik weg = new();
+    private Desinvesteringsformulier weg = new();
+    private Desinvesteringsvoorstel? voorstel;
     private readonly HashSet<int> openJaren = [];
     private bool mag;
     private bool bezig;
@@ -281,6 +427,15 @@
 
     private bool IsWeg => detail?.BuitenGebruikOp is not null;
 
+    private static DateOnly VorigeMaand => DateOnly.FromDateTime(DateTime.Today) is var d ? new DateOnly(d.Year, d.Month, 1).AddDays(-1) : default;
+
+    private static string Soort(Desinvesteringssoort soort) => soort switch
+    {
+        Desinvesteringssoort.Inruil => "inruil",
+        Desinvesteringssoort.Sloop => "sloop",
+        _ => "verkoop",
+    };
+
     /// <summary>Het plan: zoals opgeslagen, of bij een nieuw actief een voorbeeld uit het formulier.</summary>
     private IReadOnlyList<Afschrijvingsmaand>? Plan =>
         detail is not null ? detail.Plan
@@ -301,6 +456,7 @@
             }
 
             f = Formulier.Van(detail.Invoer);
+            await StartDesinvestering();
             return;
         }
 
@@ -368,28 +524,79 @@
         }
     }
 
-    private async Task BuitenGebruik()
+    /// <summary>Het jaar met de eerste maand die nog niet geboekt is staat open; de rekeningen van de vorige desinvestering als voorstel.</summary>
+    private async Task StartDesinvestering()
     {
-        var opbrengst = string.IsNullOrWhiteSpace(weg.Opbrengst) ? 0m : BedragParser.TryParse(weg.Opbrengst, out var b) ? b : -1m;
-        bezig = true;
-        var uitkomst = await Activa.BuitenGebruik(geopend!.Wie, Id, detail!.Id, weg.Datum, opbrengst, weg.Opbrengstrekening, weg.Resultaatrekening ?? "");
-        fouten = uitkomst.Fouten;
-        bezig = false;
-        if (uitkomst.IsGelukt)
+        openJaren.Clear();
+        openJaren.Add(detail!.Plan.FirstOrDefault(m => !m.Geboekt)?.Maand.Year ?? DateTime.Today.Year);
+        if (weg.Resultaatrekening is null && weg.Opbrengstrekening is null)
         {
-            await Herlaad($"Buiten gebruik per {Weergave.Datum(weg.Datum)}.");
+            (weg.Opbrengstrekening, weg.Resultaatrekening) = await Activa.VorigeDesinvesteringsrekeningen(geopend!.Wie, Id);
+        }
+
+        await Herbereken();
+    }
+
+    private async Task Herbereken()
+    {
+        if (detail is { BuitenGebruikOp: null } && mag)
+        {
+            voorstel = await Activa.VoorstelDesinvestering(geopend!.Wie, Id, detail.Id, weg.Invoer());
         }
     }
 
-    private async Task WeerInGebruik()
+    private async Task KiesDatum(DateOnly datum)
+    {
+        weg.Datum = datum;
+        await Herbereken();
+    }
+
+    private async Task KiesOpbrengstrekening(string? rekening)
+    {
+        weg.Opbrengstrekening = rekening;
+        await Herbereken();
+    }
+
+    private async Task KiesResultaatrekening(string? rekening)
+    {
+        weg.Resultaatrekening = rekening;
+        await Herbereken();
+    }
+
+    private async Task Desinvesteer()
     {
         bezig = true;
-        var uitkomst = await Activa.WeerInGebruik(geopend!.Wie, Id, detail!.Id);
+        var uitkomst = await Activa.Desinvesteer(geopend!.Wie, Id, detail!.Id, weg.Invoer());
         fouten = uitkomst.Fouten;
         bezig = false;
         if (uitkomst.IsGelukt)
         {
-            await Herlaad("Weer in gebruik; de boeking is tegengeboekt.");
+            weg = new() { Opbrengstrekening = weg.Opbrengstrekening, Resultaatrekening = weg.Resultaatrekening };
+            await Herlaad("Gedesinvesteerd.");
+        }
+    }
+
+    private async Task Terugdraaien(long desinvestering)
+    {
+        bezig = true;
+        var uitkomst = await Activa.TerugdraaienDesinvestering(geopend!.Wie, Id, desinvestering);
+        fouten = uitkomst.Fouten;
+        bezig = false;
+        if (uitkomst.IsGelukt)
+        {
+            await Herlaad("Teruggedraaid met een tegenboeking.");
+        }
+    }
+
+    private async Task AfschrijvenTotVorigeMaand()
+    {
+        bezig = true;
+        var uitkomst = await Activa.Afschrijven(geopend!.Wie, Id, VorigeMaand, Afschrijvingsfrequentie.Maand, detail!.Id);
+        fouten = uitkomst.Fouten;
+        bezig = false;
+        if (uitkomst.IsGelukt)
+        {
+            await Herlaad($"{uitkomst.Waarde} {(uitkomst.Waarde == 1 ? "afschrijvingsboeking" : "afschrijvingsboekingen")} in het memoriaal.");
         }
     }
 
@@ -398,5 +605,6 @@
         detail = await Activa.Open(geopend!.Wie, Id, detail!.Id);
         f = Formulier.Van(detail!.Invoer);
         bericht = melding;
+        await StartDesinvestering();
     }
 }

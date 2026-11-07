@@ -71,8 +71,8 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
 
 9. **Perioden afsluiten en vaste activa** (README §3.13 en §3.14): een blokkeerdatum per maand (heropenen met
    reden; elke dienst die boekt controleert, de keten is het vangnet) en een module vaste activa (activakaart vanuit
-   een aanschaf op een activarekening, afschrijvingsplan, afschrijven per maand/kwartaal/jaar, buiten gebruik met
-   boekresultaat, activastaat met aansluiting op het grootboek). `PeriodeTests`, `ActivaTests`.
+   een aanschaf op een activarekening, afschrijvingsplan, afschrijven per maand/kwartaal/jaar (ook vanaf de kaart), desinvesteren:
+   verkoop, inruil, sloop, ook een deel, met de boeking vooraf en terugdraaien, activastaat met aansluiting op het grootboek). `PeriodeTests`, `ActivaTests`.
 
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).

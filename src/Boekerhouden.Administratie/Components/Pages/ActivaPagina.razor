@@ -148,7 +148,7 @@
                 <div class="card overzichtskaart">
                     <table class="table align-middle mb-0 overzichtstabel activa" data-sleepbaar="activa">
                         <thead>
-                            <tr><th>Nr.</th><th>Omschrijving</th><th>Aanschaf</th><th class="text-end">Aanschafwaarde</th><th class="text-end">Afgeschreven</th><th class="text-end">Boekwaarde</th><th class="text-end">Per maand</th><th></th></tr>
+                            <tr><th>Nr.</th><th>Omschrijving</th><th>Aanschaf</th><th class="text-end">Aanschafwaarde</th><th class="text-end">Afgeschreven</th><th class="text-end">Boekwaarde</th><th class="text-end">Restwaarde</th><th class="text-end">Per maand</th><th></th></tr>
                         </thead>
                         <tbody>
                             @foreach (var a in lijst)
@@ -160,10 +160,11 @@
                                     <td class="bedrag text-end">@Weergave.Bedrag(a.Aanschafwaarde)</td>
                                     <td class="bedrag text-end">@Weergave.Bedrag(a.Afgeschreven)</td>
                                     <td class="bedrag text-end">@Weergave.Bedrag(a.Boekwaarde)</td>
+                                    <td class="bedrag text-end"><Euro Waarde="a.BuitenGebruikOp is null ? a.Restwaarde : 0m" LeegBijNul="true" /></td>
                                     <td class="bedrag text-end"><Euro Waarde="a.PerMaand" LeegBijNul="true" /></td>
                                     <td>@if (a.BuitenGebruikOp is { } weg)
                                         {
-                                            <span class="status">buiten gebruik @Weergave.Datum(weg)</span>
+                                            <span class="status">gedesinvesteerd @Weergave.Datum(weg)</span>
                                         }
                                         else if (a.Achterstand > 0)
                                         {
@@ -172,6 +173,10 @@
                                         else if (a.PerMaand == 0)
                                         {
                                             <span class="status">afgeschreven</span>
+                                        }
+                                        else if (a.Gedesinvesteerd)
+                                        {
+                                            <span class="status">deels gedesinvesteerd</span>
                                         }</td>
                                 </tr>
                             }

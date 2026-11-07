@@ -129,6 +129,9 @@ public sealed class ActivaTests(AdministratieFixture app) : IClassFixture<Admini
         Assert.True((await dienst.Verwijder(wie, id, los.Waarde)).IsGelukt);
     }
 
+    private static Desinvesteringsinvoer Verkoop(DateOnly datum, decimal opbrengst, decimal deel = 100m, string? opbrengstrekening = "1800", string? resultaat = "4900", bool eerst = true) =>
+        new(datum, Desinvesteringssoort.Verkoop, deel, opbrengst, opbrengstrekening, resultaat, eerst);
+
     [Fact]
     public async Task Verkopen_geeft_een_boekresultaat_en_de_activastaat_sluit_op_het_grootboek()
     {
@@ -139,36 +142,112 @@ public sealed class ActivaTests(AdministratieFixture app) : IClassFixture<Admini
         Assert.True((await app.Dienst<GrootboekDienst>().Boek(wie, id, new Journaalpost("MEM", "2026-0003", new(2026, 6, 15), "Verkoop laptop",
             [new Journaalregel("1100", 1000m), new Journaalregel("1800", -1000m)]))).IsGelukt);
 
-        var teVroeg = await dienst.BuitenGebruik(wie, id, laptop, new DateOnly(2026, 6, 15), 1000m, "1800", "4900");
-        Assert.Contains(teVroeg.Fouten, f => f.StartsWith("Boek eerst de afschrijvingen tot en met juni 2026", StringComparison.Ordinal));
-        Assert.True((await dienst.Afschrijven(wie, id, new DateOnly(2026, 6, 30), Afschrijvingsfrequentie.Maand)).IsGelukt);
-        Assert.Contains((await dienst.BuitenGebruik(wie, id, laptop, new DateOnly(2026, 6, 15), 1000m, null, "4900")).Fouten, f => f.Contains("opbrengst", StringComparison.Ordinal));
-        Assert.Contains((await dienst.BuitenGebruik(wie, id, laptop, new DateOnly(2026, 6, 15), 1000m, "1800", "0200")).Fouten, f => f.Contains("boekresultaat", StringComparison.Ordinal));
+        // Zonder eerst afschrijven kan het niet; met die keuze boekt het pakket maart tot en met juni eerst (per maand).
+        Assert.Contains((await dienst.Desinvesteer(wie, id, laptop, Verkoop(new(2026, 6, 15), 1000m, eerst: false))).Fouten,
+            f => f.StartsWith("Boek eerst de afschrijvingen tot en met juni 2026", StringComparison.Ordinal));
+        Assert.Contains((await dienst.VoorstelDesinvestering(wie, id, laptop, Verkoop(new(2026, 6, 15), 1000m, opbrengstrekening: null))).Fouten, f => f.Contains("opbrengst", StringComparison.Ordinal));
+        Assert.Contains((await dienst.VoorstelDesinvestering(wie, id, laptop, Verkoop(new(2026, 6, 15), 1000m, resultaat: "0200"))).Fouten, f => f.Contains("boekresultaat", StringComparison.Ordinal));
 
-        var verkocht = await dienst.BuitenGebruik(wie, id, laptop, new DateOnly(2026, 6, 15), 1000m, "1800", "4900");
+        // Het voorstel: 4 maanden eerst, boekwaarde 1.066,67 (1.200 - 133,33), verlies 66,67, en de boeking die erbij hoort.
+        var voorstel = await dienst.VoorstelDesinvestering(wie, id, laptop, Verkoop(new(2026, 6, 15), 1000m));
+        Assert.Empty(voorstel.Fouten);
+        Assert.Equal(4, voorstel.EerstAfschrijven.Count);
+        Assert.Equal((1200m, 133.33m, 1066.67m, -66.67m), (voorstel.Bedragen!.Aanschaf, voorstel.Bedragen.Afschrijving, voorstel.Bedragen.Boekwaarde, voorstel.Bedragen.Resultaat));
+        Assert.Equal([("0210", 133.33m), ("0200", -1200m), ("1800", 1000m), ("4900", 66.67m)], voorstel.Boeking.Select(r => (r.Rekening, r.Bedrag)));
+        Assert.Equal("Verkoop 1 Laptop", voorstel.Omschrijving);
+
+        var verkocht = await dienst.Desinvesteer(wie, id, laptop, Verkoop(new(2026, 6, 15), 1000m));
         Assert.True(verkocht.IsGelukt, string.Join("; ", verkocht.Fouten));
-
-        // Afgeschreven 4 maanden = 133,33; boekwaarde 1.066,67; opbrengst 1.000: verlies 66,67.
         Assert.Equal(66.67m, await Saldo(wie, id, "4900"));
-        Assert.Equal(24000m, await Saldo(wie, id, "0300"));
         Assert.Equal(0m, await Saldo(wie, id, "0200"));
         Assert.Equal(0m, await Saldo(wie, id, "0210"));
-        Assert.Equal(0m, (await dienst.Lijst(wie, id)).Single(a => a.Id == laptop).Boekwaarde);
+        Assert.Equal(0m, await Saldo(wie, id, "1800") + 24000m + 1200m);
+        var regel = (await dienst.Lijst(wie, id)).Single(a => a.Id == laptop);
+        Assert.Equal((0m, new DateOnly(2026, 6, 15)), (regel.Boekwaarde, regel.BuitenGebruikOp));
+        Assert.Contains("helemaal gedesinvesteerd", (await dienst.VoorstelDesinvestering(wie, id, laptop, Verkoop(new(2026, 7, 1), 0m))).Fouten[0], StringComparison.Ordinal);
 
-        // Na buiten gebruik wordt hij niet meer afgeschreven; de auto wel.
-        Assert.Equal(1, (await dienst.TeAfschrijven(wie, id, new DateOnly(2026, 7, 31), Afschrijvingsfrequentie.Maand)).Single().Activa);
+        // Daarna wordt hij niet meer afgeschreven; de auto wel.
+        Assert.All(await dienst.TeAfschrijven(wie, id, new DateOnly(2026, 7, 31), Afschrijvingsfrequentie.Maand), v => Assert.Equal(1, v.Activa));
 
         var staat = await dienst.Activastaat(wie, id, 2026);
-        Assert.Equal(["0200", "0300"], staat.Select(g => g.Activarekening));
         Assert.All(staat, g => Assert.True(g.Sluit, $"{g.Activarekening}: {g.GrootboekAanschaf}/{g.Totaal.AanschafEind}, {g.GrootboekAfschrijving}/{g.Totaal.AfschrijvingEind}"));
         var inventaris = staat[0].Totaal;
         Assert.Equal((1200m, 133.33m, 1200m, 133.33m, 0m), (inventaris.Investering, inventaris.Afschrijving, inventaris.DesinvesteringAanschaf, inventaris.DesinvesteringAfschrijving, inventaris.BoekwaardeEind));
 
-        // Ongedaan maken: tegenboeking, weer in gebruik.
-        Assert.True((await dienst.WeerInGebruik(wie, id, laptop)).IsGelukt);
+        // Terugdraaien: tegenboeking, weer in gebruik; de eerst geboekte afschrijvingen blijven.
+        var detail = (await dienst.Open(wie, id, laptop))!;
+        var desinvestering = Assert.Single(detail.Desinvesteringen);
+        Assert.True(desinvestering.Laatste);
+        Assert.True((await dienst.TerugdraaienDesinvestering(wie, id, desinvestering.Id)).IsGelukt);
+        Assert.False((await dienst.TerugdraaienDesinvestering(wie, id, desinvestering.Id)).IsGelukt);
         Assert.Equal(0m, await Saldo(wie, id, "4900"));
         Assert.Equal(1200m, await Saldo(wie, id, "0200"));
-        Assert.Null((await dienst.Open(wie, id, laptop))!.BuitenGebruikOp);
+        Assert.Equal(-133.33m, await Saldo(wie, id, "0210"));
+        detail = (await dienst.Open(wie, id, laptop))!;
+        Assert.Null(detail.BuitenGebruikOp);
+        Assert.NotNull(detail.Desinvesteringen.Single().Tegenboeking);
+        Assert.All(await dienst.Activastaat(wie, id, 2026), g => Assert.True(g.Sluit));
+    }
+
+    [Fact]
+    public async Task Een_deel_verkopen_en_de_rest_ruilen_we_later_in()
+    {
+        var (wie, id) = await Administratie();
+        var (_, auto) = await Activa(wie, id);
+        var dienst = app.Dienst<ActivaDienst>();
+        // Bestelauto 24.000, rest 4.000, 60 maanden vanaf april: 333,33 per maand. 25% verkocht op 10 juni.
+        var deel = await dienst.Desinvesteer(wie, id, auto, Verkoop(new(2026, 6, 10), 4000m, deel: 25m));
+        Assert.True(deel.IsGelukt, string.Join("; ", deel.Fouten));
+
+        var detail = (await dienst.Open(wie, id, auto))!;
+        var afgeschreven = Afschrijvingsplan.Verdeel(20000m, 60).Take(3).Sum();
+        Assert.Equal((18000m, 3000m), (detail.Aanschafwaarde, detail.Restwaarde));
+        Assert.Equal(afgeschreven - Math.Round(afgeschreven * 0.25m, 2), detail.Afgeschreven);
+        Assert.Null(detail.BuitenGebruikOp);
+        // Het plan gaat verder met de rest en eindigt op de nieuwe restwaarde.
+        Assert.Equal(3000m, detail.Plan[^1].Boekwaarde);
+        Assert.InRange(detail.PerMaand, Math.Round((18000m - 3000m - detail.Afgeschreven) / 57m, 2) - 0.01m, Math.Round((18000m - 3000m - detail.Afgeschreven) / 57m, 2) + 0.01m);
+        Assert.True((await dienst.Lijst(wie, id)).Single(a => a.Id == auto).Gedesinvesteerd);
+        Assert.Equal(18000m, await Saldo(wie, id, "0300"));
+        Assert.Equal(-detail.Afgeschreven, await Saldo(wie, id, "0310"));
+
+        // Aanpassen van de restwaarde mag nog; aanschaf niet meer.
+        Assert.False((await dienst.Bewaar(wie, id, auto, detail.Invoer with { Aanschafwaarde = 20000m })).IsGelukt);
+
+        // Afschrijven vanaf de kaart (alleen dit actief), dan de rest inruilen: de inruilwaarde staat op 1800.
+        Assert.True((await dienst.Afschrijven(wie, id, new DateOnly(2026, 8, 31), Afschrijvingsfrequentie.Maand, auto)).IsGelukt);
+        Assert.Empty(await dienst.TeAfschrijven(wie, id, new DateOnly(2026, 8, 31), Afschrijvingsfrequentie.Maand, auto));
+        Assert.NotEmpty(await dienst.TeAfschrijven(wie, id, new DateOnly(2026, 8, 31), Afschrijvingsfrequentie.Maand));
+        var inruil = new Desinvesteringsinvoer(new(2026, 9, 1), Desinvesteringssoort.Inruil, 100m, 15000m, "1800", "4900");
+        var voorstel = await dienst.VoorstelDesinvestering(wie, id, auto, inruil);
+        Assert.Equal("Inruil 2 Bestelauto", voorstel.Omschrijving);
+        Assert.Single(voorstel.EerstAfschrijven);
+        Assert.True((await dienst.Desinvesteer(wie, id, auto, inruil)).IsGelukt);
+        Assert.Equal(0m, await Saldo(wie, id, "0300"));
+        Assert.Equal(0m, await Saldo(wie, id, "0310"));
+
+        // Alleen de laatste desinvestering is terug te draaien.
+        detail = (await dienst.Open(wie, id, auto))!;
+        Assert.Equal([false, true], detail.Desinvesteringen.Select(d => d.Laatste));
+        Assert.False((await dienst.TerugdraaienDesinvestering(wie, id, detail.Desinvesteringen[0].Id)).IsGelukt);
+        Assert.All(await dienst.Activastaat(wie, id, 2026), g => Assert.True(g.Sluit, $"{g.Activarekening}: {g.GrootboekAanschaf}/{g.Totaal.AanschafEind}, {g.GrootboekAfschrijving}/{g.Totaal.AfschrijvingEind}"));
+    }
+
+    [Fact]
+    public async Task Sloop_heeft_geen_opbrengst_en_een_deel_boven_100_kan_niet()
+    {
+        var (wie, id) = await Administratie();
+        var (laptop, _) = await Activa(wie, id);
+        var dienst = app.Dienst<ActivaDienst>();
+
+        Assert.Contains((await dienst.VoorstelDesinvestering(wie, id, laptop, Verkoop(new(2026, 4, 1), 0m, deel: 120m))).Fouten, f => f.Contains("100%", StringComparison.Ordinal));
+        Assert.Contains((await dienst.VoorstelDesinvestering(wie, id, laptop, Verkoop(new(2026, 2, 1), 0m))).Fouten, f => f.Contains("vóór de aanschaf", StringComparison.Ordinal));
+        var sloop = new Desinvesteringsinvoer(new(2026, 4, 20), Desinvesteringssoort.Sloop, 100m, 500m, "1800", "4900");
+        var voorstel = await dienst.VoorstelDesinvestering(wie, id, laptop, sloop);
+        Assert.Equal(0m, voorstel.Bedragen!.Opbrengst);
+        Assert.DoesNotContain(voorstel.Boeking, r => r.Rekening == "1800");
+        Assert.True((await dienst.Desinvesteer(wie, id, laptop, sloop)).IsGelukt);
+        Assert.Equal(1200m - Afschrijvingsplan.Verdeel(1200m, 36).Take(2).Sum(), await Saldo(wie, id, "4900"));
     }
 
     [Fact]
@@ -203,7 +282,9 @@ public sealed class ActivaTests(AdministratieFixture app) : IClassFixture<Admini
         Assert.NotEmpty(await dienst.Activastaat(ondernemer, id, 2026));
         await Assert.ThrowsAsync<GeenToegangException>(() => dienst.Bewaar(ondernemer, id, null, invoer));
         await Assert.ThrowsAsync<GeenToegangException>(() => dienst.Afschrijven(ondernemer, id, new DateOnly(2026, 4, 30), Afschrijvingsfrequentie.Maand));
-        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.BuitenGebruik(ondernemer, id, laptop, new DateOnly(2026, 4, 1), 0m, null, "4900"));
+        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.Desinvesteer(ondernemer, id, laptop, Verkoop(new(2026, 4, 1), 0m)));
+        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.TerugdraaienDesinvestering(ondernemer, id, 1));
+        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.VoorstelDesinvestering(vreemde, id, laptop, Verkoop(new(2026, 4, 1), 0m)));
         await Assert.ThrowsAsync<GeenToegangException>(() => dienst.Verwijder(ondernemer, id, laptop));
         await Assert.ThrowsAsync<GeenToegangException>(() => dienst.Lijst(vreemde, id));
         await Assert.ThrowsAsync<GeenToegangException>(() => dienst.Kandidaten(vreemde, id));

@@ -98,15 +98,52 @@ public sealed class ActivaTests
     {
         var geboekt = Enumerable.Range(0, 22).ToDictionary(i => new DateOnly(2026, 3, 1).AddMonths(i), _ => 25m);
 
-        var jaar1 = Activastaat.Regel(Laptop(), geboekt, null, 2026)!;
+        var jaar1 = Activastaat.Regel(Laptop(), geboekt, [], 2026)!;
         Assert.Equal((0m, 0m, 1000m, 250m, 750m), (jaar1.AanschafBegin, jaar1.AfschrijvingBegin, jaar1.Investering, jaar1.Afschrijving, jaar1.BoekwaardeEind));
 
         // In 2027 verkocht na 12 maanden: alles gaat eraf.
-        var jaar2 = Activastaat.Regel(Laptop(), geboekt, new DateOnly(2027, 12, 15), 2027)!;
+        Desinvesteringsstap[] verkocht = [new(new DateOnly(2027, 12, 15), 1000m, 550m, 0m)];
+        var jaar2 = Activastaat.Regel(Laptop(), geboekt, verkocht, 2027)!;
         Assert.Equal((1000m, 250m, 300m, 1000m, 550m, 0m), (jaar2.AanschafBegin, jaar2.AfschrijvingBegin, jaar2.Afschrijving, jaar2.DesinvesteringAanschaf, jaar2.DesinvesteringAfschrijving, jaar2.BoekwaardeEind));
 
-        Assert.Null(Activastaat.Regel(Laptop(), geboekt, new DateOnly(2027, 12, 15), 2028));
-        Assert.Null(Activastaat.Regel(Laptop(), geboekt, null, 2025));
+        Assert.Null(Activastaat.Regel(Laptop(), geboekt, verkocht, 2028));
+        Assert.Null(Activastaat.Regel(Laptop(), geboekt, [], 2025));
         Assert.Equal((1000m, 550m), ((jaar1 + jaar2).Investering, (jaar1 + jaar2).Afschrijving));
+    }
+
+    [Fact]
+    public void Gedeeltelijke_desinvestering_naar_rato_en_het_plan_gaat_verder_met_de_rest()
+    {
+        // 1.200 in 12 maanden, restwaarde 200; na 4 maanden (afgeschreven 333,33) 40% verkocht voor 300.
+        var activum = Laptop(1200m, rest: 200m, looptijd: 12);
+        var geboekt = Afschrijvingsplan.Maak(activum).Take(4).ToDictionary(m => m.Maand, m => m.Bedrag);
+        var afgeschreven = geboekt.Values.Sum();
+
+        var deel = Desinvestering.Bereken(activum.Aanschafwaarde, afgeschreven, activum.Restwaarde, 0.4m, 300m);
+        Assert.Equal((480m, Math.Round(afgeschreven * 0.4m, 2), 80m), (deel.Aanschaf, deel.Afschrijving, deel.Restwaarde));
+        Assert.Equal(300m - (480m - deel.Afschrijving), deel.Resultaat);
+        var regels = Desinvestering.Regels(activum, deel, "1800", "9100", "Verkoop 40% 1 Laptop");
+        Assert.Equal(0m, regels.Sum(r => r.Bedrag));
+        Assert.Equal(-480m, regels.Single(r => r.Rekeningnummer == "0200").Bedrag);
+
+        // Daarna: aanschaf 720, rest 120, wat nog af moet over de laatste 8 maanden, eindigend op de restwaarde.
+        var plan = Afschrijvingsplan.Maak(activum, geboekt, [new(new DateOnly(2026, 6, 20), deel.Aanschaf, deel.Afschrijving, deel.Restwaarde)]);
+        Assert.Equal(12, plan.Count);
+        Assert.Equal(120m, plan[^1].Boekwaarde);
+        Assert.Equal(720m - 120m, plan[^1].Cumulatief);
+
+        Assert.Equal("Verkoop 40% 1 Laptop", Desinvestering.Omschrijving(Desinvesteringssoort.Verkoop, 0.4m, 1, "Laptop"));
+        Assert.Equal("Sloop 1 Laptop", Desinvestering.Omschrijving(Desinvesteringssoort.Sloop, 1m, 1, "Laptop"));
+        Assert.Throws<ArgumentOutOfRangeException>(() => Desinvestering.Bereken(1m, 0m, 0m, 1.5m, 0m));
+    }
+
+    [Fact]
+    public void Helemaal_gedesinvesteerd_geeft_geen_open_maanden_meer()
+    {
+        var geboekt = Afschrijvingsplan.Maak(Laptop()).Take(3).ToDictionary(m => m.Maand, m => m.Bedrag);
+        var plan = Afschrijvingsplan.Maak(Laptop(), geboekt, [new(new DateOnly(2026, 5, 10), 1000m, geboekt.Values.Sum(), 0m)]);
+
+        Assert.All(plan, m => Assert.True(m.Geboekt));
+        Assert.Equal(3, plan.Count);
     }
 }

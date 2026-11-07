@@ -33,31 +33,32 @@ public sealed record Activastaatregel(
 public static class Activastaat
 {
     /// <summary>
-    /// De regel van een actief in een jaar, uit de geboekte afschrijvingen (dus zoals het in het grootboek staat). Leeg
-    /// als het actief in dat jaar niet op de balans stond (nog niet gekocht of al eerder buiten gebruik).
+    /// De regel van een actief in een jaar, uit de geboekte afschrijvingen en desinvesteringen (dus zoals het in het
+    /// grootboek staat). Leeg als het actief in dat jaar niet op de balans stond (nog niet gekocht of al helemaal weg).
     /// </summary>
     /// <param name="geboekt">De geboekte afschrijvingen per maand.</param>
-    /// <param name="buitenGebruik">De datum van buiten gebruik stellen, of leeg.</param>
-    public static Activastaatregel? Regel(Activum activum, IReadOnlyDictionary<DateOnly, decimal> geboekt, DateOnly? buitenGebruik, int jaar)
+    public static Activastaatregel? Regel(Activum activum, IReadOnlyDictionary<DateOnly, decimal> geboekt, IReadOnlyList<Desinvesteringsstap> desinvesteringen, int jaar)
     {
         ArgumentNullException.ThrowIfNull(activum);
         ArgumentNullException.ThrowIfNull(geboekt);
+        ArgumentNullException.ThrowIfNull(desinvesteringen);
         var (begin, eind) = (new DateOnly(jaar, 1, 1), new DateOnly(jaar, 12, 31));
-        if (activum.Aanschafdatum > eind || buitenGebruik < begin)
+        var ervoor = desinvesteringen.Where(d => d.Datum < begin).ToList();
+        var erin = desinvesteringen.Where(d => d.Datum >= begin && d.Datum <= eind).ToList();
+        if (activum.Aanschafdatum > eind || (ervoor.Count > 0 && ervoor.Sum(d => d.Aanschaf) >= activum.Aanschafwaarde))
         {
             return null;
         }
 
         var al = activum.Aanschafdatum < begin;
-        var afschrijvingBegin = (al ? activum.AfgeschrevenVoorBegin : 0m) + geboekt.Where(g => g.Key < begin).Sum(g => g.Value);
+        var afschrijvingBegin = (al ? activum.AfgeschrevenVoorBegin : 0m) + geboekt.Where(g => g.Key < begin).Sum(g => g.Value) - ervoor.Sum(d => d.Afschrijving);
         var afschrijving = (al ? 0m : activum.AfgeschrevenVoorBegin) + geboekt.Where(g => g.Key >= begin && g.Key <= eind).Sum(g => g.Value);
-        var weg = buitenGebruik is { } d && d <= eind;
         return new Activastaatregel(
-            al ? activum.Aanschafwaarde : 0m,
+            al ? activum.Aanschafwaarde - ervoor.Sum(d => d.Aanschaf) : 0m,
             afschrijvingBegin,
             al ? 0m : activum.Aanschafwaarde,
             afschrijving,
-            weg ? activum.Aanschafwaarde : 0m,
-            weg ? afschrijvingBegin + afschrijving : 0m);
+            erin.Sum(d => d.Aanschaf),
+            erin.Sum(d => d.Afschrijving));
     }
 }

@@ -989,12 +989,8 @@ public sealed class Activum : IVanAdministratie
 
     public string? Notitie { get; set; }
 
-    /// <summary>Buiten gebruik (verkocht, gesloopt): de datum, de opbrengst zonder btw en de boeking.</summary>
+    /// <summary>Helemaal buiten gebruik (verkocht, ingeruild, gesloopt): de datum; de boekingen staan in <see cref="ActivumDesinvestering"/>.</summary>
     public DateOnly? BuitenGebruikOp { get; set; }
-
-    public decimal? Opbrengst { get; set; }
-
-    public string? Desinvesteringsboeking { get; set; }
 
     public DateTimeOffset AangemaaktOp { get; set; }
 
@@ -1020,4 +1016,45 @@ public sealed class Afschrijving : IVanAdministratie
 
     /// <summary>Dagboek en boekstuk, bijv. "MEM 2026-0040".</summary>
     public string Boekstuk { get; set; } = string.Empty;
+}
+
+/// <summary>Een (gedeeltelijke) desinvestering van een actief: verkoop, inruil of sloop, met de bedragen en de boeking.</summary>
+public sealed class ActivumDesinvestering : IVanAdministratie
+{
+    public long Id { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    public Guid ActivumId { get; set; }
+
+    public DateOnly Datum { get; set; }
+
+    public Boekhouding.Activa.Desinvesteringssoort Soort { get; set; }
+
+    /// <summary>Welk deel van het actief, in procenten (100 = alles).</summary>
+    public decimal Deel { get; set; }
+
+    public decimal Aanschaf { get; set; }
+
+    public decimal Afschrijving { get; set; }
+
+    public decimal Restwaarde { get; set; }
+
+    public decimal Opbrengst { get; set; }
+
+    public string? Opbrengstrekening { get; set; }
+
+    public string Resultaatrekening { get; set; } = string.Empty;
+
+    /// <summary>Dagboek en boekstuk, bijv. "MEM 2026-0041".</summary>
+    public string Boekstuk { get; set; } = string.Empty;
+
+    /// <summary>Teruggedraaid met deze tegenboeking; telt dan niet meer mee.</summary>
+    public string? Tegenboeking { get; set; }
+
+    public DateTimeOffset GeboektOp { get; set; }
+
+    public string GeboektDoor { get; set; } = string.Empty;
+
+    public Boekhouding.Activa.Desinvesteringsstap NaarStap() => new(Datum, Aanschaf, Afschrijving, Restwaarde);
 }

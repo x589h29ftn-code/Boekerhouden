@@ -136,6 +136,6 @@ public static class AuditActies
     public const string ActivumGewijzigd = "Vast actief gewijzigd";
     public const string ActivumVerwijderd = "Vast actief verwijderd";
     public const string AfschrijvingenGeboekt = "Afschrijvingen geboekt";
-    public const string ActivumBuitenGebruik = "Vast actief buiten gebruik";
-    public const string ActivumWeerInGebruik = "Vast actief weer in gebruik";
+    public const string ActivumGedesinvesteerd = "Vast actief gedesinvesteerd";
+    public const string DesinvesteringTeruggedraaid = "Desinvestering teruggedraaid";
 }
