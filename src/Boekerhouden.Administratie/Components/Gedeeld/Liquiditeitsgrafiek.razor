@@ -1,0 +1,91 @@
+@* Het saldo van alle bank- en kasrekeningen samen aan het eind van elke maand, als lijn met een licht vlak eronder.
+   Eén reeks, dus geen legenda (de titel zegt wat het is). Per maand een tooltip met de saldi per rekening; aanklikken
+   gaat naar de kolommenbalans van die maand. Met Tabel dezelfde cijfers als tabel. *@
+@using static Boekerhouden.Administratie.Components.Gedeeld.Grafiek
+
+<div class="maandgrafiek liquiditeitsgrafiek">
+    <div class="grafiekkop">
+        <span>Saldo aan het eind van de maand</span>
+        <button type="button" class="btn btn-link btn-sm p-0 ms-auto text-secondary" @onclick="() => tabel = !tabel">@(tabel ? "Grafiek" : "Tabel")</button>
+    </div>
+    @if (tabel)
+    {
+        <table class="table table-sm mb-0 grafiektabel">
+            <thead><tr><th>Maand</th><th class="text-end">Saldo</th><th class="text-end">Mutatie</th></tr></thead>
+            <tbody>
+                @for (var i = 0; i < Maanden.Count; i++)
+                {
+                    var m = Maanden[i];
+                    <tr>
+                        <td><a href="@Adres(m)">@Maandnaam(m.Maand) @m.Maand.Year</a></td>
+                        <td class="text-end">@Weergave.BedragHeel(m.Saldo)</td>
+                        <td class="text-end zacht">@(i == 0 ? "" : Weergave.BedragHeel(Domain.Afronding.OpHeleEuro(m.Saldo) - Domain.Afronding.OpHeleEuro(Maanden[i - 1].Saldo)))</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <svg viewBox="0 0 @Breedte @Hoogte" role="img" aria-label="Saldo van bank en kas aan het eind van elke maand">
+            @foreach (var t in vlak.Ticks)
+            {
+                <line class="raster @(t == 0 ? "nul" : null)" x1="@G(Links)" x2="@G(Breedte - Rechts)" y1="@G(vlak.Y(t))" y2="@G(vlak.Y(t))" />
+                @Label(Links - 8, vlak.Y(t) + 4, "end", Asgetal(t))
+            }
+            @for (var i = 0; i < Maanden.Count; i++)
+            {
+                @Label(vlak.Midden(i), Hoogte - 6, "middle", Maandkort(Maanden[i].Maand, OverJaren))
+            }
+            @if (Maanden.Count > 1)
+            {
+                <path class="vlak" d="@Vlakpad" />
+                <polyline class="lijn" points="@string.Join(' ', Maanden.Select((m, i) => $"{G(vlak.Midden(i))},{G(vlak.Y(m.Saldo))}"))" />
+            }
+            @for (var i = 0; i < Maanden.Count; i++)
+            {
+                <circle class="punt" cx="@G(vlak.Midden(i))" cy="@G(vlak.Y(Maanden[i].Saldo))" r="4" />
+            }
+            @for (var i = 0; i < Maanden.Count; i++)
+            {
+                var m = Maanden[i];
+                <a href="@Adres(m)">
+                    <rect class="raakvlak" x="@G(Links + i * vlak.Band)" y="0" width="@G(vlak.Band)" height="@G(Hoogte - Onder)">
+                        <title>@Tooltip(m)</title>
+                    </rect>
+                </a>
+            }
+        </svg>
+    }
+</div>
+
+@code {
+    private bool tabel;
+    private Grafiek vlak = new([], 12);
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<Diensten.Liquiditeitsmaand> Maanden { get; set; } = [];
+
+    /// <summary>Waar een maand naartoe gaat (de kolommenbalans van die maand).</summary>
+    [Parameter, EditorRequired]
+    public Func<Diensten.Liquiditeitsmaand, string> Adres { get; set; } = _ => "";
+
+    private bool OverJaren => Maanden.Select(m => m.Maand.Year).Distinct().Count() > 1;
+
+    /// <summary>Het vlak onder de lijn tot de nullijn.</summary>
+    private string Vlakpad
+    {
+        get
+        {
+            var nul = G(vlak.Y(0d));
+            var punten = string.Join(" L", Maanden.Select((m, i) => $"{G(vlak.Midden(i))},{G(vlak.Y(m.Saldo))}"));
+            return $"M{G(vlak.Midden(0))},{nul} L{punten} L{G(vlak.Midden(Maanden.Count - 1))},{nul} Z";
+        }
+    }
+
+    private static string Tooltip(Diensten.Liquiditeitsmaand m) =>
+        $"{Maandnaam(m.Maand)} {m.Maand.Year} (t/m {Weergave.Datum(m.Tot)}): {Weergave.BedragHeel(m.Saldo)}" +
+        string.Concat(m.PerRekening.Select(r => $"\n{r.Naam}: {Weergave.BedragHeel(r.Saldo)}"));
+
+    protected override void OnParametersSet() => vlak = new Grafiek(Maanden.Select(m => m.Saldo), Maanden.Count);
+}

@@ -181,7 +181,21 @@ function totp(sleutel) {
   await page.goto(`${basis}/a/${id}`); await page.waitForSelector('.dashboard'); await page.waitForTimeout(1200);
   if (await page.locator('.maandgrafiek svg').count() === 0) log.push('dashboard zonder maandgrafiek');
   await page.screenshot({ path: `${uit}/${pre}-dashboard.png` });
-  await page.locator('.maandgrafiek .raakvlak').nth(new Date().getMonth()).hover(); await page.waitForTimeout(300);
+  // Doorklikken: een maand in de grafiek naar de kolommenbalans van die maand, ook als daar eerder 2025 open stond.
+  await page.goto(`${basis}/a/${id}/kolommenbalans?van=2025-01-01&tot=2025-12-31`); await page.waitForTimeout(1000);
+  await page.goto(`${basis}/a/${id}`); await page.waitForSelector('.dashboard'); await page.waitForTimeout(1200);
+  const maand = new Date().getMonth();
+  await page.locator('[data-widget="maandgrafiek"] .raakvlak').nth(maand).click(); await page.waitForURL(/kolommenbalans\?van=/); await page.waitForTimeout(1200);
+  const mm = String(maand + 1).padStart(2, '0');
+  if (!page.url().includes(`van=${new Date().getFullYear()}-${mm}-01`)) log.push('maand in de grafiek gaat niet naar de juiste periode: ' + page.url());
+  await page.screenshot({ path: `${uit}/${pre}-dashboard-doorklik-maand.png` });
+  await page.goto(`${basis}/a/${id}`); await page.waitForSelector('.dashboard'); await page.waitForTimeout(1200);
+  await page.click('[data-widget="inkoop"] a.kerngetal'); await page.waitForURL(/\/inkoop$/);
+  await page.goto(`${basis}/a/${id}`); await page.waitForSelector('.dashboard'); await page.waitForTimeout(1200);
+  await page.click('[data-widget="bankmutaties"] a.kerngetal'); await page.waitForURL(/\/bank$/);
+  await page.goto(`${basis}/a/${id}`); await page.waitForSelector('.dashboard'); await page.waitForTimeout(1200);
+  await page.locator('[data-widget="liquiditeit"] .raakvlak').last().hover(); await page.waitForTimeout(300);
+  await page.screenshot({ path: `${uit}/${pre}-dashboard-liquiditeit.png`, fullPage: true });
   await page.click('button:has-text("Aanpassen")'); await page.waitForTimeout(500);
   await page.locator('[data-widget="btw"] select').selectOption('maand'); await page.waitForTimeout(600);
   await page.locator('[data-widget="maandgrafiek"] select').selectOption('kosten'); await page.waitForTimeout(600);
@@ -191,7 +205,7 @@ function totp(sleutel) {
   await page.click('button:has-text("Klaar")'); await page.waitForTimeout(800);
   await page.reload(); await page.waitForSelector('.dashboard'); await page.waitForTimeout(1200);
   if (await page.locator('[data-widget="verkoop"]').count() === 0) log.push('dashboardindeling niet bewaard');
-  await page.locator('.maandgrafiek button:has-text("Tabel")').click(); await page.waitForTimeout(400);
+  await page.locator('[data-widget="maandgrafiek"] button:has-text("Tabel")').click(); await page.waitForTimeout(400);
   await page.screenshot({ path: `${uit}/${pre}-dashboard-aangepast.png`, fullPage: true });
 
   // Auditfile: het boekjaar 2026 downloaden en als nieuwe administratie weer inlezen.

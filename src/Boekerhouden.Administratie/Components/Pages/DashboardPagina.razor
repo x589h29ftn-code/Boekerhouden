@@ -49,7 +49,7 @@
                             }
                             else if (Link(keuze.Soort) is { } pad)
                             {
-                                <a class="widgetlink" href="@($"/a/{Id}{pad}")" title="Openen" aria-label="Openen"><Icoon Naam="chevron-right" /></a>
+                                <a class="widgetlink" href="@pad" title="Openen" aria-label="Openen"><Icoon Naam="chevron-right" /></a>
                             }
                         </header>
                         <div class="widgetinhoud">
@@ -147,7 +147,7 @@
         await Laad();
     }
 
-    private static bool Breed(Widget soort) => soort is Widget.Maandgrafiek;
+    private static bool Breed(Widget soort) => soort is Widget.Maandgrafiek or Widget.Liquiditeit;
 
     private static string Naam(Widget soort) => soort switch
     {
@@ -161,6 +161,7 @@
         Widget.Kerncijfers => "Kerncijfers",
         Widget.Verkoop => "Verkoop",
         Widget.Aansluitingen => "Aansluitingen",
+        Widget.Liquiditeit => "Liquiditeit",
         _ => soort.ToString(),
     };
 
@@ -178,19 +179,40 @@
         Widget.Btw when dashboard?.Btw is { } btw => $"Btw {btw.Afgelopen.Naam}",
         Widget.Maandgrafiek when dashboard?.Maandgrafiek is { } grafiek => $"Omzet, {(keuze.Geldig == Widgetkeuze.Kosten ? "kosten" : "inkoop")} en resultaat {grafiek.Jaar}",
         Widget.Kerncijfers when dashboard?.Kerncijfers is { } k => $"Kerncijfers t/m {Weergave.Datum(k.Dit.Tot)}",
+        Widget.Liquiditeit => "Liquiditeit, bank en kas per maand",
         _ => Naam(keuze.Soort),
     };
 
-    private static string? Link(Widget soort) => soort switch
+    /// <summary>Een pagina van deze administratie.</summary>
+    private string Pad(string pad) => $"/a/{Id}{pad}";
+
+    /// <summary>
+    /// De kolommenbalans van een vaste periode: het dashboard geeft de periode altijd mee, zodat de pagina niet opent
+    /// op het jaar waarin de gebruiker daar het laatst werkte.
+    /// </summary>
+    private string Kolommenbalans(DateOnly van, DateOnly tot, bool perMaand = false, bool vorigJaar = false) =>
+        Pad($"/kolommenbalans?{Weergave.Periodequery(van, tot)}{(perMaand ? "&weergave=maand" : null)}{(vorigJaar ? "&vergelijk=jaar" : null)}");
+
+    private string Grootboekkaart(string rekening, DateOnly van, DateOnly tot) =>
+        Pad($"/grootboek?rekening={Uri.EscapeDataString(rekening)}&{Weergave.Periodequery(van, tot)}");
+
+    private DateOnly Vandaag => dashboard?.Vandaag ?? DateOnly.FromDateTime(DateTime.Today);
+
+    private DateOnly Nieuwjaar => new(Vandaag.Year, 1, 1);
+
+    /// <summary>Waar de pijl in de kop van een widget naartoe gaat.</summary>
+    private string? Link(Widget soort) => soort switch
     {
-        Widget.Liquide or Widget.Bankmutaties => "/bank",
-        Widget.Btw or Widget.Aansluitingen => "/aansluitingen",
-        Widget.Inkoop => "/inkoop",
-        Widget.Debiteuren => "/debiteuren",
-        Widget.Crediteuren => "/crediteuren",
-        Widget.Maandgrafiek => "/kolommenbalans",
-        Widget.Kerncijfers => "/balans",
-        Widget.Verkoop => "/verkoop",
+        Widget.Liquide or Widget.Bankmutaties => Pad("/bank"),
+        Widget.Aansluitingen => Pad("/aansluitingen"),
+        Widget.Btw when dashboard?.Btw is { } btw => Kolommenbalans(btw.Afgelopen.Van, btw.Afgelopen.Tot),
+        Widget.Inkoop => Pad("/inkoop"),
+        Widget.Debiteuren => Pad("/debiteuren"),
+        Widget.Crediteuren => Pad("/crediteuren"),
+        Widget.Maandgrafiek => Kolommenbalans(Nieuwjaar, new DateOnly(Vandaag.Year, 12, 31), perMaand: true),
+        Widget.Kerncijfers => Kolommenbalans(Nieuwjaar, Vandaag, vorigJaar: true),
+        Widget.Verkoop => Pad($"/verkoop?{Weergave.Periodequery(Nieuwjaar, new DateOnly(Vandaag.Year, 12, 31))}"),
+        Widget.Liquiditeit when dashboard?.Liquiditeit is [var eerste, ..] => Kolommenbalans(eerste.Maand, Vandaag, perMaand: true),
         _ => null,
     };
 
@@ -199,16 +221,16 @@
     private RenderFragment Inhoud(Widgetkeuze keuze) => keuze.Soort switch
     {
         Widget.Liquide when dashboard!.Liquide is { } rekeningen => @<div>
-            <div class="kerngetal">@Weergave.BedragHeel(rekeningen.Sum(r => r.Saldo))</div>
+            <a class="kerngetal" href="@Pad("/bank")">@Weergave.BedragHeel(rekeningen.Sum(r => r.Saldo))</a>
             <table class="widgettabel">
                 @foreach (var (r, heel) in rekeningen.Zip(Weergave.HeleEuros(rekeningen.Select(r => r.Saldo))))
                 {
                     <tr title="@(r.Afschrift is { } a ? $"Laatste afschrift t/m {Weergave.Datum(a.Datum)}: {Weergave.BedragHeel(a.Saldo)}" : $"Rekening {r.Rekening}")">
-                        <td>@r.Naam</td>
+                        <td><a href="@Grootboekkaart(r.Rekening, Nieuwjaar, Vandaag)">@r.Naam</a></td>
                         <td class="text-end">
                             @if (r.Afschrift is { } afschrift && afschrift.Saldo != r.Saldo)
                             {
-                                <span class="let-op me-2">afschrift @Weergave.BedragHeel(afschrift.Saldo)</span>
+                                <a class="let-op me-2" href="@Pad("/aansluitingen")">afschrift @Weergave.BedragHeel(afschrift.Saldo)</a>
                             }
                             @Weergave.BedragHeel(heel)
                         </td>
@@ -217,16 +239,16 @@
             </table>
         </div>,
         Widget.Btw when dashboard!.Btw is { } btw => @<div>
-            <div class="kerngetal">@Weergave.BedragHeel(Math.Abs(btw.TeBetalen))</div>
+            <a class="kerngetal" href="@Kolommenbalans(btw.Afgelopen.Van, btw.Afgelopen.Tot)">@Weergave.BedragHeel(Math.Abs(btw.TeBetalen))</a>
             <div class="widgetregel">@(btw.TeBetalen >= 0 ? "te betalen" : "terug te vragen"), saldo per @Weergave.Datum(btw.Afgelopen.Tot)</div>
-            <div class="widgetregel zacht" title="De btw die in de lopende periode al is geboekt">@btw.Lopend.Naam tot nu: @Weergave.BedragHeel(Math.Abs(btw.Lopende)) @(btw.Lopende >= 0 ? "te betalen" : "terug")</div>
+            <a class="widgetregel zacht d-block" href="@Kolommenbalans(btw.Lopend.Van, btw.Lopend.Tot)" title="De btw die in de lopende periode al is geboekt">@btw.Lopend.Naam tot nu: @Weergave.BedragHeel(Math.Abs(btw.Lopende)) @(btw.Lopende >= 0 ? "te betalen" : "terug")</a>
         </div>,
         Widget.Inkoop when dashboard!.Inkoop is { } inkoop => @<div>
-            <div class="kerngetal">@inkoop.Aantal</div>
+            <a class="kerngetal" href="@Pad("/inkoop")">@inkoop.Aantal</a>
             <div class="widgetregel">@(inkoop.Aantal == 0 ? "alles verwerkt" : $"{(inkoop.Aantal == 1 ? "factuur" : "facturen")}, samen {Weergave.BedragHeel(inkoop.Totaal)}")</div>
         </div>,
         Widget.Bankmutaties when dashboard!.Bankmutaties is { } mutaties => @<div>
-            <div class="kerngetal">@mutaties.Aantal</div>
+            <a class="kerngetal" href="@Pad("/bank")">@mutaties.Aantal</a>
             <div class="widgetregel">
                 @if (mutaties.Oudste is { } oudste)
                 {
@@ -239,14 +261,22 @@
             </div>
             @if (mutaties.MogelijkDubbel > 0)
             {
-                <div class="widgetregel let-op">@Aantal(mutaties.MogelijkDubbel, "mogelijk dubbel", "mogelijk dubbel")</div>
+                <a class="widgetregel let-op d-block" href="@Pad("/bank")">@Aantal(mutaties.MogelijkDubbel, "mogelijk dubbel", "mogelijk dubbel")</a>
             }
         </div>,
-        Widget.Debiteuren when dashboard!.Debiteuren is { } open => Openstaand(open),
-        Widget.Crediteuren when dashboard!.Crediteuren is { } open => Openstaand(open),
-        Widget.Maandgrafiek when dashboard!.Maandgrafiek is { } grafiek => @<Maandgrafiek Maanden="grafiek.Maanden" AlleKosten="@(keuze.Geldig == Widgetkeuze.Kosten)" Tot="dashboard!.Vandaag" />,
+        Widget.Debiteuren when dashboard!.Debiteuren is { } open => Openstaand(open, Pad("/debiteuren")),
+        Widget.Crediteuren when dashboard!.Crediteuren is { } open => Openstaand(open, Pad("/crediteuren")),
+        Widget.Maandgrafiek when dashboard!.Maandgrafiek is { } grafiek => @<Maandgrafiek Maanden="grafiek.Maanden" AlleKosten="@(keuze.Geldig == Widgetkeuze.Kosten)" Tot="Vandaag"
+            Adres="@(m => Kolommenbalans(m, m.AddMonths(1).AddDays(-1)))" />,
+        Widget.Liquiditeit when dashboard!.Liquiditeit is { } maanden => @<Liquiditeitsgrafiek Maanden="maanden" Adres="@(m => Kolommenbalans(m.Maand, m.Tot))" />,
         Widget.Kerncijfers when dashboard!.Kerncijfers is { } k => @<table class="widgettabel">
-            <thead><tr><th></th><th class="text-end">@k.Dit.Van.Year</th><th class="text-end">@k.Vorig.Van.Year</th></tr></thead>
+            <thead>
+                <tr>
+                    <th></th>
+                    <th class="text-end"><a href="@Kolommenbalans(k.Dit.Van, k.Dit.Tot)">@k.Dit.Van.Year</a></th>
+                    <th class="text-end"><a href="@Kolommenbalans(k.Vorig.Van, k.Vorig.Tot)">@k.Vorig.Van.Year</a></th>
+                </tr>
+            </thead>
             <tbody>
                 <tr><td>Omzet</td><td class="text-end">@Weergave.BedragHeel(k.Dit.Omzet)</td><td class="text-end zacht">@Weergave.BedragHeel(k.Vorig.Omzet)</td></tr>
                 <tr><td>Kosten</td><td class="text-end">@Weergave.BedragHeel(k.Dit.Kosten)</td><td class="text-end zacht">@Weergave.BedragHeel(k.Vorig.Kosten)</td></tr>
@@ -254,30 +284,30 @@
             </tbody>
         </table>,
         Widget.Verkoop when dashboard!.Verkoop is { } verkoop => @<table class="widgettabel">
-            <tr><td><a href="/a/@Id/verkoop">Conceptfacturen</a></td><td class="text-end">@verkoop.Concepten</td></tr>
-            <tr><td><a href="/a/@Id/verkoop/terugkerend">Terugkerend te maken</a></td><td class="text-end">@verkoop.Terugkerend</td></tr>
+            <tr><td><a href="@Link(Widget.Verkoop)">Conceptfacturen</a></td><td class="text-end">@verkoop.Concepten</td></tr>
+            <tr><td><a href="@Pad("/verkoop/terugkerend")">Terugkerend te maken</a></td><td class="text-end">@verkoop.Terugkerend</td></tr>
         </table>,
         Widget.Aansluitingen when dashboard!.Aansluitingen is { } aansluiting => @<div>
             @if (aansluiting.SluitenNiet.Count == 0)
             {
-                <div class="kerngetal">Sluit</div>
+                <a class="kerngetal" href="@Pad("/aansluitingen")">Sluit</a>
                 <div class="widgetregel">@Aantal(aansluiting.Totaal, "aansluiting", "aansluitingen") gecontroleerd</div>
             }
             else
             {
-                <div class="kerngetal">@aansluiting.SluitenNiet.Count</div>
+                <a class="kerngetal" href="@Pad("/aansluitingen")">@aansluiting.SluitenNiet.Count</a>
                 <div class="widgetregel let-op" title="@string.Join(", ", aansluiting.SluitenNiet)">@(aansluiting.SluitenNiet.Count == 1 ? "sluit niet" : "sluiten niet"): @string.Join(", ", aansluiting.SluitenNiet)</div>
             }
         </div>,
         _ => @<div class="widgetregel zacht">Bezig met laden</div>,
     };
 
-    private static RenderFragment Openstaand(Openstaand open) => @<div>
-        <div class="kerngetal">@Weergave.BedragHeel(open.Totaal)</div>
+    private static RenderFragment Openstaand(Openstaand open, string adres) => @<div>
+        <a class="kerngetal" href="@adres">@Weergave.BedragHeel(open.Totaal)</a>
         <div class="widgetregel">@(open.Aantal == 1 ? "1 factuur" : $"{open.Aantal} facturen")</div>
         @if (open.AantalVervallen > 0)
         {
-            <div class="widgetregel let-op">@open.AantalVervallen vervallen, samen @Weergave.BedragHeel(open.Vervallen)</div>
+            <a class="widgetregel let-op d-block" href="@adres">@open.AantalVervallen vervallen, samen @Weergave.BedragHeel(open.Vervallen)</a>
         }
     </div>;
 }

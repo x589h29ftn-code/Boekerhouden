@@ -48,6 +48,7 @@ public sealed class DashboardDienstTests(VasteDagFixture app) : IClassFixture<Va
             Memoriaal("2026-0004", new(2026, 8, 5), ("1100", 2420m), ("8000", -2000m), ("1510", -420m)),
             Memoriaal("2026-0005", new(2026, 8, 6), ("4100", 300m), ("1100", -300m)),
             Memoriaal("2026-0006", new(2026, 10, 2), ("1100", 1210m), ("8000", -1000m), ("1510", -210m)),
+            Memoriaal("2026-0007", new(2026, 12, 1), ("1100", 1000m), ("8000", -1000m)),
         ];
         foreach (var post in posten)
         {
@@ -58,8 +59,16 @@ public sealed class DashboardDienstTests(VasteDagFixture app) : IClassFixture<Va
         var dashboard = await dienst.Laad(wie, id, Alles);
 
         Assert.Equal(new DateOnly(2026, 10, 15), dashboard.Vandaag);
+        // Per vandaag: de boeking van 1 december telt nog niet mee.
         var bank = Assert.Single(dashboard.Liquide!);
         Assert.Equal(("BNK", "1100", 9704m, false), (bank.Dagboek, bank.Rekening, bank.Saldo, bank.Afschrift.HasValue));
+
+        // Liquiditeit: de laatste twaalf maanden (november 2025 tot en met oktober 2026, die tot vandaag), cumulatief.
+        var liquiditeit = dashboard.Liquiditeit!;
+        Assert.Equal(12, liquiditeit.Count);
+        Assert.Equal((new DateOnly(2025, 11, 1), new DateOnly(2025, 11, 30), 6500m), (liquiditeit[0].Maand, liquiditeit[0].Tot, liquiditeit[0].Saldo));
+        Assert.Equal([6500m, 6500m, 6500m, 6500m, 6500m, 6500m, 6500m, 6500m, 6374m, 8494m, 8494m, 9704m], liquiditeit.Select(m => m.Saldo));
+        Assert.Equal((new DateOnly(2026, 10, 15), "Bank", 9704m), (liquiditeit[11].Tot, liquiditeit[11].PerRekening.Single().Naam, liquiditeit[11].PerRekening.Single().Saldo));
 
         // Btw t/m het 3e kwartaal: 210 + 420 af te dragen, het 1e kwartaal (210 - 84) in juli betaald; in oktober 210 erbij.
         var btw = dashboard.Btw!;
@@ -71,6 +80,7 @@ public sealed class DashboardDienstTests(VasteDagFixture app) : IClassFixture<Va
         Assert.Equal((2026, 12), (jaar, maanden.Count));
         Assert.Equal((1000m, 400m, 600m), (maanden[1].Omzet, maanden[1].Inkoop, maanden[1].Resultaat));
         Assert.Equal((2000m, 0m, 300m, 1700m), (maanden[7].Omzet, maanden[7].Inkoop, maanden[7].OverigeKosten, maanden[7].Resultaat));
+        Assert.Equal(1000m, maanden[11].Omzet);
 
         // Kerncijfers t/m vandaag naast dezelfde periode vorig jaar (de omzet van november 2025 telt niet mee).
         var (dit, vorig) = dashboard.Kerncijfers!.Value;
@@ -80,6 +90,23 @@ public sealed class DashboardDienstTests(VasteDagFixture app) : IClassFixture<Va
         Assert.Equal((0, 0), dashboard.Verkoop!.Value);
         Assert.Equal((0, 0, (DateOnly?)null), dashboard.Bankmutaties!.Value);
         Assert.Equal(new Openstaand(0, 0m, 0, 0m), dashboard.Debiteuren);
+    }
+
+    [Fact]
+    public async Task Altijd_vanaf_vandaag_ook_als_er_dit_jaar_nog_niets_is_geboekt()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Dashboard Vorig Jaar B.V.");
+        Assert.True((await app.Dienst<GrootboekDienst>().Boek(wie, id, Memoriaal("2025-0001", new(2025, 6, 1), ("1100", 800m), ("8000", -800m)))).IsGelukt);
+
+        var dashboard = await app.Dienst<DashboardDienst>().Laad(wie, id, Alles);
+
+        Assert.Equal(2026, dashboard.Maandgrafiek!.Value.Jaar);
+        Assert.All(dashboard.Maandgrafiek.Value.Maanden, m => Assert.Equal(0m, m.Omzet));
+        var (dit, vorig) = dashboard.Kerncijfers!.Value;
+        Assert.Equal((new DateOnly(2026, 1, 1), new DateOnly(2026, 10, 15), 0m), (dit.Van, dit.Tot, dit.Omzet));
+        Assert.Equal((new DateOnly(2025, 10, 15), 800m), (vorig.Tot, vorig.Omzet));
+        Assert.All(dashboard.Liquiditeit!, m => Assert.Equal(800m, m.Saldo));
     }
 
     [Fact]

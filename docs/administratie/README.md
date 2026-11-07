@@ -325,6 +325,14 @@ indeling wordt per gebruiker en administratie bewaard (`Dashboardindelingen`, in
 | Kerncijfers | omzet, kosten en resultaat van 1 januari tot vandaag, naast dezelfde periode vorig jaar |
 | Verkoop | conceptfacturen en terugkerende facturen die gemaakt moeten worden |
 | Aansluitingen | welke saldo-aansluitingen niet sluiten |
+| Liquiditeit | het saldo van alle bank- en kasrekeningen samen aan het eind van elke maand, de laatste twaalf maanden (de lopende maand tot vandaag), als lijn; per maand de saldi per rekening in de tooltip |
+
+Het dashboard rekent **altijd vanaf vandaag**: het lopende jaar, saldi per vandaag, de btw-periode die net voorbij is,
+los van het jaar waarin de gebruiker elders (bijv. in de kolommenbalans) werkt. Alles is **door te klikken**, met de
+periode in het adres zodat de pagina niet op een eerder gekozen jaar opent: te verwerken inkoop naar *Inkoop*,
+bankmutaties naar *Bank*, een bankrekening naar zijn grootboekkaart van dit jaar, de btw naar de kolommenbalans van de
+aangifteperiode, een maand in de grafieken naar de kolommenbalans van die maand, kerncijfers naar de kolommenbalans
+met vorig jaar ernaast, conceptfacturen naar *Verkoop* van dit jaar.
 
 `DashboardDienst` (cijfers en indeling), domein: `Grootboek/Maandcijfers` en `Btw/Aangifteperiode`. De grafiek is
 SVG zonder script (`Maandgrafiek.razor`); de kleuren zijn gecontroleerd op kleurenblindheid en contrast.

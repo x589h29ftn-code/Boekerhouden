@@ -1211,6 +1211,12 @@ body *:not(#geen):not(.factuurvoorbeeld-pagina *, .ontwerpvlak-pagina *)::after 
 .widgetacties .icoonknop:disabled { opacity: .35; }
 .dashboard.aanpassen .widget:not(.toevoegen) { border-style: dashed; border-color: var(--bh-lijn-sterk); }
 .dashboard .widget.toevoegen { background: transparent; border-style: dashed; }
+a.kerngetal { display: inline-block; text-decoration: none; }
+a.kerngetal:hover { color: var(--bh-accent); }
+.widget a.widgetregel { text-decoration: none; }
+.widget a.widgetregel:hover { text-decoration: underline; }
+.widgettabel th a { color: inherit; text-decoration: none; }
+.widgettabel th a:hover { color: var(--bh-accent); text-decoration: underline; }
 .kerngetal { font-size: 1.75rem; line-height: 1.2; color: var(--bh-tekst); margin-bottom: .25rem; letter-spacing: -.01em; }
 .widgetregel { font-size: .875rem; color: var(--bh-tekst); }
 .widget .zacht { color: var(--bh-zacht); }
@@ -1239,4 +1245,10 @@ body *:not(#geen):not(.factuurvoorbeeld-pagina *, .ontwerpvlak-pagina *)::after 
 .maandgrafiek .punt { fill: var(--grafiek-3); stroke: #fff; stroke-width: 2; }
 .maandgrafiek .raakvlak { fill: transparent; }
 .maandgrafiek .raakvlak:hover { fill: rgba(36, 66, 110, .05); }
+.maandgrafiek a { cursor: pointer; }
+.liquiditeitsgrafiek .lijn { stroke: var(--grafiek-1); }
+.liquiditeitsgrafiek .punt { fill: var(--grafiek-1); }
+.liquiditeitsgrafiek .vlak { fill: var(--grafiek-1); opacity: .1; }
+.grafiektabel a { color: inherit; }
+.grafiektabel a:hover { color: var(--bh-accent); }
 .maandgrafiek .grafiektabel { font-size: .875rem; font-variant-numeric: tabular-nums; }
