@@ -325,7 +325,13 @@ indeling wordt per gebruiker en administratie bewaard (`Dashboardindelingen`, in
 | Kerncijfers | omzet, kosten en resultaat van 1 januari tot vandaag, naast dezelfde periode vorig jaar |
 | Verkoop | conceptfacturen en terugkerende facturen die gemaakt moeten worden |
 | Aansluitingen | welke saldo-aansluitingen niet sluiten |
+| Brutomarge | per margegroep omzet, inkoop, brutomarge en marge in % van de omzet: van 1 januari tot vandaag tegen dezelfde periode vorig jaar met de afwijking, of per kwartaal van dit jaar (keuze per widget) |
 | Liquiditeit | het saldo van alle bank- en kasrekeningen samen aan het eind van elke maand, de laatste twaalf maanden (de lopende maand tot vandaag), als lijn; per maand de saldi per rekening in de tooltip |
+
+**Margegroepen**: in het rekeningschema krijgt een resultaatrekening een margegroep (bijv. *Product X*; vrije naam,
+eerder gebruikte namen worden voorgesteld). Een rekening met een RGS-code die met `WOmz` begint telt als omzet van de
+groep, elke andere resultaatrekening als inkoop (kostprijs). Rekeningen zonder groep tellen niet mee in de widget
+(`GrootboekDienst.ZetMargegroep`, recht Boekhouden, in het wijzigingslog; domein `Grootboek/Marges`).
 
 Het dashboard rekent **altijd vanaf vandaag**: het lopende jaar, saldi per vandaag, de btw-periode die net voorbij is,
 los van het jaar waarin de gebruiker elders (bijv. in de kolommenbalans) werkt. Alles is **door te klikken**, met de

@@ -1117,6 +1117,10 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasMaxLength(30)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Margegroep")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Naam")
                         .IsRequired()
                         .HasMaxLength(200)

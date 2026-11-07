@@ -1225,6 +1225,7 @@ a.kerngetal:hover { color: var(--bh-accent); }
 .widgettabel thead th { border-top: 0; font-weight: 400; color: var(--bh-zacht); font-size: .8125rem; }
 .widgettabel td + td, .widgettabel th + th { padding-left: var(--r2); white-space: nowrap; }
 .widgettabel tr.totaal td { border-top-color: var(--bh-lijn-sterk); }
+.margetabel td.procent { padding-left: var(--r1); font-size: .8125rem; }
 .widgettabel a { color: inherit; }
 .widgettabel a:hover { color: var(--bh-accent); }
 

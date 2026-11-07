@@ -208,6 +208,25 @@ function totp(sleutel) {
   await page.locator('[data-widget="maandgrafiek"] button:has-text("Tabel")').click(); await page.waitForTimeout(400);
   await page.screenshot({ path: `${uit}/${pre}-dashboard-aangepast.png`, fullPage: true });
 
+  // Margegroepen: omzet 8000 en telefoon 4310 in de groep Advies, dan de widget Brutomarge op het dashboard.
+  for (const rekening of ['8000', '4310']) {
+    await page.goto(`${basis}/a/${id}/rekeningschema`); await page.waitForSelector('table.rekeningschema'); await page.waitForTimeout(800);
+    await page.locator('table.rekeningschema tbody tr', { has: page.locator(`td:first-child a:text-is("${rekening}")`) }).locator('td').nth(1).click(); await page.waitForTimeout(400);
+    await page.fill('input[aria-label="Margegroep"]', 'Advies'); await page.click('tr.bewerken button:has-text("Opslaan")'); await page.waitForTimeout(800);
+  }
+  await page.screenshot({ path: `${uit}/${pre}-rekeningschema-margegroep.png` });
+  await page.goto(`${basis}/a/${id}`); await page.waitForSelector('.dashboard'); await page.waitForTimeout(1200);
+  await page.click('button:has-text("Aanpassen")'); await page.waitForTimeout(500);
+  await page.click('.widget.toevoegen button:has-text("Brutomarge")'); await page.waitForTimeout(800);
+  await page.click('button:has-text("Klaar")'); await page.waitForTimeout(800);
+  if (await page.locator('[data-widget="marge"] td', { hasText: 'Advies' }).count() === 0) log.push('margewidget zonder groep Advies');
+  await page.locator('[data-widget="marge"]').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${uit}/${pre}-dashboard-marge.png`, fullPage: true });
+  await page.click('button:has-text("Aanpassen")'); await page.waitForTimeout(500);
+  await page.locator('[data-widget="marge"] select').selectOption('kwartaal'); await page.waitForTimeout(800);
+  await page.click('button:has-text("Klaar")'); await page.waitForTimeout(800);
+  await page.locator('[data-widget="marge"]').screenshot({ path: `${uit}/${pre}-dashboard-marge-kwartaal.png` });
+
   // Auditfile: het boekjaar 2026 downloaden en als nieuwe administratie weer inlezen.
   await page.goto(`${basis}/a/${id}/balans`); await page.waitForTimeout(1500);
   const jaarkeuze = page.locator('select').first(); if (await jaarkeuze.count()) { try { await jaarkeuze.selectOption('2026'); await page.waitForTimeout(800); } catch { } }

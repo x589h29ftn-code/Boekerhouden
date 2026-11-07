@@ -41,4 +41,27 @@ public sealed class DashboardcijfersTests
         Assert.Equal(425m, maanden[1].Kosten);
         Assert.Equal((-100m, -100m), (maanden[2].Omzet, maanden[2].Resultaat));
     }
+
+    [Fact]
+    public void Brutomarge_per_margegroep_omzet_op_WOmz_de_rest_als_inkoop()
+    {
+        Rekening[] rekeningen =
+        [
+            new("8000", "Omzet X", Rekeningsoort.Resultaat, "WOmzNopOlh", Margegroep: "Product X"),
+            new("7000", "Inkoop X", Rekeningsoort.Resultaat, "WKprInhInh", Margegroep: "Product X"),
+            new("7100", "Vracht X", Rekeningsoort.Resultaat, "WKprKuwKuw", Margegroep: "product x"),
+            new("8100", "Omzet Y", Rekeningsoort.Resultaat, "WOmzNodOdh", Margegroep: "Dienst Y"),
+            new("4100", "Huur", Rekeningsoort.Resultaat, "WBedHuiBeh"),
+            new("1100", "Bank", Rekeningsoort.Balans, "BLimBanRba", Margegroep: "Product X"),
+        ];
+
+        var marges = Marges.PerGroep([(rekeningen[0], -1000m), (rekeningen[1], 550m), (rekeningen[2], 50m), (rekeningen[3], -200m), (rekeningen[4], 300m), (rekeningen[5], 999m)]);
+
+        Assert.Equal(["Dienst Y", "Product X"], marges.Keys);
+        Assert.Equal((1000m, 600m, 400m, 40.0m), (marges["Product X"].Omzet, marges["Product X"].Inkoop, marges["Product X"].Brutomarge, marges["Product X"].Percentage));
+        Assert.Equal((200m, 0m, 100.0m), (marges["Dienst Y"].Omzet, marges["Dienst Y"].Inkoop, marges["Dienst Y"].Percentage));
+        Assert.Null(new Marge(0m, 50m).Percentage);
+        Assert.Equal(33.3m, new Marge(300m, 200m).Percentage);
+        Assert.Equal(new Marge(1200m, 600m), marges["Product X"] + marges["Dienst Y"]);
+    }
 }

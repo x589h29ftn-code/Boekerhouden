@@ -34,13 +34,15 @@ public enum Rekeningfunctie
 /// <summary>Een grootboekrekening van de administratie, gekoppeld aan een RGS-code.</summary>
 /// <param name="RgsCode">De RGS-code (niveau 3 of 4), bijv. <c>WBedAlkTel</c>; leeg als (nog) niet gekoppeld.</param>
 /// <param name="BtwCode">De btw-code die bij deze rekening hoort (bijv. <c>I21</c>); leeg = variabel, per boeking te kiezen.</param>
+/// <param name="Margegroep">Bij een omzet- of inkooprekening: de groep voor de brutomarge (bijv. "Product X"); zie <see cref="Marges"/>.</param>
 public sealed record Rekening(
     string Nummer,
     string Naam,
     Rekeningsoort Soort,
     string? RgsCode = null,
     Rekeningfunctie Functie = Rekeningfunctie.Geen,
-    string? BtwCode = null)
+    string? BtwCode = null,
+    string? Margegroep = null)
 {
     public bool IsBalans => Soort == Rekeningsoort.Balans;
 }

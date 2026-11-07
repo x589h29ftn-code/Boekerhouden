@@ -145,6 +145,41 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
     }
 
     /// <summary>
+    /// De margegroep van een resultaatrekening (bijv. "Product X"): omzet- en inkooprekeningen met dezelfde groep vormen
+    /// samen de brutomarge op het dashboard. Leeg haalt de rekening uit de groep. Alleen met het recht Boekhouden.
+    /// </summary>
+    public async Task<Uitkomst> ZetMargegroep(Uitvoerder wie, Guid administratie, string nummer, string? groep)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
+        if (await db.Rekeningen.FirstOrDefaultAsync(r => r.Nummer == nummer) is not { } rekening)
+        {
+            return Uitkomst.Mislukt($"Rekening {nummer} bestaat niet.");
+        }
+
+        var nieuw = Leeg(groep);
+        if (nieuw is not null && rekening.Soort == Rekeningsoort.Balans)
+        {
+            return Uitkomst.Mislukt($"Rekening {nummer} is een balansrekening; alleen omzet- en inkooprekeningen horen bij een margegroep.");
+        }
+
+        if (nieuw is { Length: > 100 })
+        {
+            return Uitkomst.Mislukt("De naam van de margegroep is te lang (hoogstens 100 tekens).");
+        }
+
+        if (nieuw == rekening.Margegroep)
+        {
+            return Uitkomst.Gelukt;
+        }
+
+        var oud = rekening.Margegroep;
+        rekening.Margegroep = nieuw;
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.RekeningGewijzigd, nummer, $"margegroep {oud ?? "-"} → {nieuw ?? "-"}", administratie);
+        return Uitkomst.Gelukt;
+    }
+
+    /// <summary>
     /// Een extra memoriaal, bijv. <c>MLON</c> "Memoriaal lonen" of <c>MACC</c> "Memoriaal accountant": om de boekingen
     /// van het kantoor te ordenen. Een code van 2 tot 10 letters of cijfers; alleen met het recht Boekhouden.
     /// </summary>

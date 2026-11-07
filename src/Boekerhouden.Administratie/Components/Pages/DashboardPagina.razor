@@ -147,7 +147,7 @@
         await Laad();
     }
 
-    private static bool Breed(Widget soort) => soort is Widget.Maandgrafiek or Widget.Liquiditeit;
+    private static bool Breed(Widget soort) => soort is Widget.Maandgrafiek or Widget.Liquiditeit or Widget.Marge;
 
     private static string Naam(Widget soort) => soort switch
     {
@@ -162,6 +162,7 @@
         Widget.Verkoop => "Verkoop",
         Widget.Aansluitingen => "Aansluitingen",
         Widget.Liquiditeit => "Liquiditeit",
+        Widget.Marge => "Brutomarge",
         _ => soort.ToString(),
     };
 
@@ -171,6 +172,7 @@
         Widgetkeuze.Kwartaal => "Per kwartaal",
         Widgetkeuze.Inkoop => "Met inkoop",
         Widgetkeuze.Kosten => "Met alle kosten",
+        Widgetkeuze.VorigJaar => "Tegen vorig jaar",
         _ => optie,
     };
 
@@ -180,6 +182,9 @@
         Widget.Maandgrafiek when dashboard?.Maandgrafiek is { } grafiek => $"Omzet, {(keuze.Geldig == Widgetkeuze.Kosten ? "kosten" : "inkoop")} en resultaat {grafiek.Jaar}",
         Widget.Kerncijfers when dashboard?.Kerncijfers is { } k => $"Kerncijfers t/m {Weergave.Datum(k.Dit.Tot)}",
         Widget.Liquiditeit => "Liquiditeit, bank en kas per maand",
+        Widget.Marge when dashboard?.Marge is { } marge => keuze.Geldig == Widgetkeuze.Kwartaal
+            ? $"Brutomarge per kwartaal {marge.Van.Year}"
+            : $"Brutomarge t/m {Weergave.Datum(marge.Tot)}, tegen vorig jaar",
         _ => Naam(keuze.Soort),
     };
 
@@ -213,6 +218,7 @@
         Widget.Kerncijfers => Kolommenbalans(Nieuwjaar, Vandaag, vorigJaar: true),
         Widget.Verkoop => Pad($"/verkoop?{Weergave.Periodequery(Nieuwjaar, new DateOnly(Vandaag.Year, 12, 31))}"),
         Widget.Liquiditeit when dashboard?.Liquiditeit is [var eerste, ..] => Kolommenbalans(eerste.Maand, Vandaag, perMaand: true),
+        Widget.Marge => Kolommenbalans(Nieuwjaar, Vandaag, vorigJaar: true),
         _ => null,
     };
 
@@ -299,8 +305,96 @@
                 <div class="widgetregel let-op" title="@string.Join(", ", aansluiting.SluitenNiet)">@(aansluiting.SluitenNiet.Count == 1 ? "sluit niet" : "sluiten niet"): @string.Join(", ", aansluiting.SluitenNiet)</div>
             }
         </div>,
+        Widget.Marge when dashboard!.Marge is { Groepen.Count: 0 } => @<div class="widgetregel zacht">Geen margegroepen in het <a href="@Pad("/rekeningschema")">rekeningschema</a></div>,
+        Widget.Marge when dashboard!.Marge is { } marge && keuze.Geldig == Widgetkeuze.Kwartaal => Kwartaalmarge(marge),
+        Widget.Marge when dashboard!.Marge is { } marge => Margetegenvorigjaar(marge),
         _ => @<div class="widgetregel zacht">Bezig met laden</div>,
     };
+
+    /// <summary>Een marge in procenten van de omzet, bijv. "34,5%"; leeg zonder omzet.</summary>
+    private static string Procent(decimal? procent) =>
+        procent is { } p ? p.ToString("0.0", System.Globalization.CultureInfo.GetCultureInfo("nl-NL")) + "%" : "";
+
+    private static string Afwijking(decimal bedrag) => bedrag > 0 ? "+" + Weergave.BedragHeel(bedrag) : Weergave.BedragHeel(bedrag);
+
+    private RenderFragment Margetegenvorigjaar(Margestand marge) => @<table class="widgettabel margetabel">
+        @{
+            var omzet = Weergave.HeleEuros(marge.Groepen.Select(g => g.Dit.Omzet));
+            var inkoop = Weergave.HeleEuros(marge.Groepen.Select(g => g.Dit.Inkoop));
+            var bruto = Weergave.HeleEuros(marge.Groepen.Select(g => g.Dit.Brutomarge));
+            var vorig = Weergave.HeleEuros(marge.Groepen.Select(g => g.Vorig.Brutomarge));
+        }
+        <thead>
+            <tr>
+                <th></th>
+                <th class="text-end">Omzet</th>
+                <th class="text-end">Inkoop</th>
+                <th class="text-end"><a href="@Kolommenbalans(marge.Van, marge.Tot)">Brutomarge</a></th>
+                <th class="text-end">%</th>
+                <th class="text-end"><a href="@Kolommenbalans(marge.VorigVan, marge.VorigTot)">Vorig jaar</a></th>
+                <th class="text-end">%</th>
+                <th class="text-end">Afwijking</th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (var i = 0; i < marge.Groepen.Count; i++)
+            {
+                var g = marge.Groepen[i];
+                <tr>
+                    <td>@g.Groep</td>
+                    <td class="text-end">@Weergave.BedragHeel(omzet[i])</td>
+                    <td class="text-end">@Weergave.BedragHeel(inkoop[i])</td>
+                    <td class="text-end">@Weergave.BedragHeel(bruto[i])</td>
+                    <td class="text-end">@Procent(g.Dit.Percentage)</td>
+                    <td class="text-end zacht" title="@($"Omzet {Weergave.BedragHeel(g.Vorig.Omzet)}, inkoop {Weergave.BedragHeel(g.Vorig.Inkoop)}")">@Weergave.BedragHeel(vorig[i])</td>
+                    <td class="text-end zacht">@Procent(g.Vorig.Percentage)</td>
+                    <td class="text-end">@Afwijking(bruto[i] - vorig[i])</td>
+                </tr>
+            }
+            @if (marge.Groepen.Count > 1)
+            {
+                var t = marge.Totaal;
+                <tr class="totaal">
+                    <td>Totaal</td>
+                    <td class="text-end">@Weergave.BedragHeel(t.Dit.Omzet)</td>
+                    <td class="text-end">@Weergave.BedragHeel(t.Dit.Inkoop)</td>
+                    <td class="text-end">@Weergave.BedragHeel(t.Dit.Brutomarge)</td>
+                    <td class="text-end">@Procent(t.Dit.Percentage)</td>
+                    <td class="text-end zacht">@Weergave.BedragHeel(t.Vorig.Brutomarge)</td>
+                    <td class="text-end zacht">@Procent(t.Vorig.Percentage)</td>
+                    <td class="text-end">@Afwijking(Domain.Afronding.OpHeleEuro(t.Dit.Brutomarge) - Domain.Afronding.OpHeleEuro(t.Vorig.Brutomarge))</td>
+                </tr>
+            }
+        </tbody>
+    </table>;
+
+    private RenderFragment Kwartaalmarge(Margestand marge) => @<table class="widgettabel margetabel">
+        <thead>
+            <tr>
+                <th></th>
+                @for (var k = 0; k < marge.Totaal.Kwartalen.Count; k++)
+                {
+                    var van = new DateOnly(marge.Van.Year, (k * 3) + 1, 1);
+                    var tot = k == marge.Totaal.Kwartalen.Count - 1 ? marge.Tot : van.AddMonths(3).AddDays(-1);
+                    <th class="text-end" colspan="2"><a href="@Kolommenbalans(van, tot)">@($"{k + 1}e kwartaal")</a></th>
+                }
+                <th class="text-end" colspan="2"><a href="@Kolommenbalans(marge.Van, marge.Tot)">@marge.Van.Year</a></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var g in marge.Groepen.Count > 1 ? [.. marge.Groepen, marge.Totaal] : marge.Groepen)
+            {
+                <tr class="@(ReferenceEquals(g, marge.Totaal) ? "totaal" : null)">
+                    <td>@g.Groep</td>
+                    @foreach (var k in g.Kwartalen.Append(g.Dit))
+                    {
+                        <td class="text-end" title="@($"Omzet {Weergave.BedragHeel(k.Omzet)}, inkoop {Weergave.BedragHeel(k.Inkoop)}")">@Weergave.BedragHeel(k.Brutomarge)</td>
+                        <td class="text-end zacht procent">@Procent(k.Percentage)</td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>;
 
     private static RenderFragment Openstaand(Openstaand open, string adres) => @<div>
         <a class="kerngetal" href="@adres">@Weergave.BedragHeel(open.Totaal)</a>

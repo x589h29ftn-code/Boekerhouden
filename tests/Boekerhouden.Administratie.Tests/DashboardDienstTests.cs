@@ -110,6 +110,69 @@ public sealed class DashboardDienstTests(VasteDagFixture app) : IClassFixture<Va
     }
 
     [Fact]
+    public async Task Brutomarge_per_margegroep_tegen_vorig_jaar_en_per_kwartaal()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Dashboard Marge B.V.");
+        var grootboek = app.Dienst<GrootboekDienst>();
+        foreach (var (rekening, groep) in new[] { ("8010", "Product X"), ("7000", "Product X"), ("8000", "Diensten") })
+        {
+            Assert.True((await grootboek.ZetMargegroep(wie, id, rekening, groep)).IsGelukt);
+        }
+
+        Journaalpost[] posten =
+        [
+            Memoriaal("2025-0001", new(2025, 3, 10), ("1300", 1000m), ("8010", -1000m)),
+            Memoriaal("2025-0002", new(2025, 3, 11), ("7000", 600m), ("1600", -600m)),
+            Memoriaal("2025-0003", new(2025, 11, 1), ("1300", 500m), ("8010", -500m)),
+            Memoriaal("2026-0001", new(2026, 2, 10), ("1300", 2000m), ("8010", -2000m)),
+            Memoriaal("2026-0002", new(2026, 2, 11), ("7000", 1200m), ("1600", -1200m)),
+            Memoriaal("2026-0003", new(2026, 5, 1), ("1300", 300m), ("8000", -300m)),
+            Memoriaal("2026-0004", new(2026, 8, 1), ("1300", 1000m), ("8010", -1000m)),
+            Memoriaal("2026-0005", new(2026, 8, 2), ("7000", 500m), ("1600", -500m)),
+            Memoriaal("2026-0006", new(2026, 10, 2), ("1300", 400m), ("8010", -400m)),
+            Memoriaal("2026-0007", new(2026, 11, 2), ("1300", 900m), ("8010", -900m)),
+        ];
+        foreach (var post in posten)
+        {
+            Assert.True((await grootboek.Boek(wie, id, post)).IsGelukt);
+        }
+
+        var marge = (await app.Dienst<DashboardDienst>().Laad(wie, id, [new Widgetkeuze(Widget.Marge)])).Marge!;
+
+        Assert.Equal((new DateOnly(2026, 1, 1), new DateOnly(2026, 10, 15), new DateOnly(2025, 10, 15)), (marge.Van, marge.Tot, marge.VorigTot));
+        Assert.Equal(["Diensten", "Product X"], marge.Groepen.Select(g => g.Groep));
+        var x = marge.Groepen[1];
+        Assert.Equal((3400m, 1700m, 1700m, 50.0m), (x.Dit.Omzet, x.Dit.Inkoop, x.Dit.Brutomarge, x.Dit.Percentage));
+        Assert.Equal((1000m, 600m, 40.0m, 1300m), (x.Vorig.Omzet, x.Vorig.Inkoop, x.Vorig.Percentage, x.Afwijking));
+        Assert.Equal([800m, 0m, 500m, 400m], x.Kwartalen.Select(k => k.Brutomarge));
+        Assert.Equal([300m, 0m], marge.Groepen[0].Kwartalen.Skip(1).Take(2).Select(k => k.Omzet));
+        Assert.Equal((3700m, 1700m, 2000m), (marge.Totaal.Dit.Omzet, marge.Totaal.Dit.Inkoop, marge.Totaal.Dit.Brutomarge));
+        Assert.Equal("Product X", (await grootboek.Schema(wie, id)).Zoek("7000")!.Margegroep);
+    }
+
+    [Fact]
+    public async Task Een_margegroep_alleen_op_resultaatrekeningen_en_met_het_recht_boekhouden()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Dashboard Margegroep B.V.");
+        var ondernemer = await app.Gebruiker("Otto Ondernemer");
+        await app.Dienst<AdministratieDienst>().ZetLid(id, ondernemer.Id!.Value, Lidmaatschapsrol.Ondernemer, wie);
+        var grootboek = app.Dienst<GrootboekDienst>();
+
+        Assert.Contains("balansrekening", (await grootboek.ZetMargegroep(wie, id, "1100", "Product X")).Fouten[0], StringComparison.Ordinal);
+        Assert.Contains("te lang", (await grootboek.ZetMargegroep(wie, id, "8000", new string('x', 101))).Fouten[0], StringComparison.Ordinal);
+        Assert.Equal(["Rekening 9999 bestaat niet."], (await grootboek.ZetMargegroep(wie, id, "9999", "X")).Fouten);
+        await Assert.ThrowsAsync<GeenToegangException>(() => grootboek.ZetMargegroep(ondernemer, id, "8000", "X"));
+
+        Assert.True((await grootboek.ZetMargegroep(wie, id, "8000", "  Advies ")).IsGelukt);
+        Assert.Equal("Advies", (await grootboek.Schema(wie, id)).Zoek("8000")!.Margegroep);
+        Assert.True((await grootboek.ZetMargegroep(wie, id, "8000", " ")).IsGelukt);
+        Assert.Null((await grootboek.Schema(wie, id)).Zoek("8000")!.Margegroep);
+        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.RekeningGewijzigd && r.Details == "margegroep - → Advies");
+    }
+
+    [Fact]
     public async Task Te_verwerken_en_openstaand_gelijk_aan_de_andere_schermen()
     {
         var wie = await app.Beheerder();

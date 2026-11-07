@@ -167,7 +167,10 @@ public sealed class Grootboekrekening : IVanAdministratie
     /// <summary>De btw-code die bij de rekening hoort; leeg = variabel.</summary>
     public string? BtwCode { get; set; }
 
-    public Rekening NaarDomein() => new(Nummer, Naam, Soort, RgsCode, Functie, BtwCode);
+    /// <summary>De margegroep (bijv. "Product X") van een omzet- of inkooprekening; leeg = geen.</summary>
+    public string? Margegroep { get; set; }
+
+    public Rekening NaarDomein() => new(Nummer, Naam, Soort, RgsCode, Functie, BtwCode, Margegroep);
 }
 
 public sealed class Dagboekdefinitie : IVanAdministratie

@@ -50,7 +50,7 @@
         <div class="card">
             <table class="table table-sm align-middle mb-0 overzichtstabel rekeningschema" data-sleepbaar="rekeningschema">
                 <thead>
-                    <tr><th>Nummer</th><th>Naam</th><th>Btw</th><th>Soort</th><th>RGS</th><th>Indeling</th><th>Functie</th></tr>
+                    <tr><th>Nummer</th><th>Naam</th><th>Btw</th><th>Soort</th><th>RGS</th><th>Indeling</th><th>Margegroep</th><th>Functie</th></tr>
                 </thead>
                 <tbody>
                     @foreach (var r in schema.Alle)
@@ -72,6 +72,12 @@
                                 <td class="text-secondary">@(r.IsBalans ? "balans" : "resultaat")</td>
                                 <td><input class="form-control form-control-sm" @bind="bewerk.Rgs" @bind:event="oninput" aria-label="RGS-code" placeholder="@(r.IsBalans ? "BLimBanRba" : "WBedKanKan")" /></td>
                                 <td class="small text-secondary">@Rekeningindeling.Groep(r with { RgsCode = string.IsNullOrWhiteSpace(bewerk.Rgs) ? null : bewerk.Rgs.Trim() }).Naam</td>
+                                <td>
+                                    @if (!r.IsBalans)
+                                    {
+                                        <input class="form-control form-control-sm" @bind="bewerk.Margegroep" aria-label="Margegroep" list="margegroepen" />
+                                    }
+                                </td>
                                 <td class="text-nowrap">
                                     <button class="btn btn-sm btn-primary" @onclick="Bewaar">Opslaan</button>
                                     <button class="btn btn-sm btn-link text-secondary" @onclick="() => (bewerk, fouten) = (null, null)">Annuleren</button>
@@ -80,19 +86,26 @@
                         }
                         else
                         {
-                            <tr class="@(magWijzigen ? "klikbaar" : null)" @onclick="() => Bewerk(r)" title="@(magWijzigen ? "Naam, btw-code en RGS-code wijzigen" : null)">
+                            <tr class="@(magWijzigen ? "klikbaar" : null)" @onclick="() => Bewerk(r)" title="@(magWijzigen ? "Naam, btw-code, RGS-code en margegroep wijzigen" : null)">
                                 <td><a href="/a/@Id/grootboek?rekening=@r.Nummer" @onclick:stopPropagation>@r.Nummer</a></td>
                                 <td>@r.Naam</td>
                                 <td class="text-secondary">@r.BtwCode</td>
                                 <td class="text-secondary">@(r.IsBalans ? "balans" : "resultaat")</td>
                                 <td class="small">@r.RgsCode</td>
                                 <td class="small text-secondary">@Rekeningindeling.Groep(r).Naam</td>
+                                <td class="small" title="@(r.Margegroep is null ? null : Marges.IsOmzet(r) ? "Omzet in de brutomarge" : "Inkoop in de brutomarge")">@r.Margegroep</td>
                                 <td class="small text-secondary">@Weergave.Tekst(r.Functie)</td>
                             </tr>
                         }
                     }
                 </tbody>
             </table>
+            <datalist id="margegroepen">
+                @foreach (var g in schema.Alle.Select(r => r.Margegroep).OfType<string>().Distinct().Order())
+                {
+                    <option value="@g"></option>
+                }
+            </datalist>
         </div>
     }
 </AdministratieKader>
@@ -137,13 +150,18 @@
     {
         if (magWijzigen)
         {
-            (bewerk, fouten) = (new Bewerking { Nummer = rekening.Nummer, Naam = rekening.Naam, Rgs = rekening.RgsCode, Btw = rekening.BtwCode }, null);
+            (bewerk, fouten) = (new Bewerking { Nummer = rekening.Nummer, Naam = rekening.Naam, Rgs = rekening.RgsCode, Btw = rekening.BtwCode, Margegroep = rekening.Margegroep }, null);
         }
     }
 
     private async Task Bewaar()
     {
         var uitkomst = await Grootboek.WijzigRekening(geopend!.Wie, Id, bewerk!.Nummer, bewerk.Naam, bewerk.Rgs, bewerk.Btw);
+        if (uitkomst.IsGelukt)
+        {
+            uitkomst = await Grootboek.ZetMargegroep(geopend.Wie, Id, bewerk.Nummer, bewerk.Margegroep);
+        }
+
         fouten = uitkomst.Fouten;
         if (uitkomst.IsGelukt)
         {
@@ -161,5 +179,7 @@
         public string? Rgs { get; set; }
 
         public string? Btw { get; set; }
+
+        public string? Margegroep { get; set; }
     }
 }

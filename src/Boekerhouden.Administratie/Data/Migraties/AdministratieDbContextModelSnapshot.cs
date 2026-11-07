@@ -1129,6 +1129,10 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
+                    b.Property<string>("Margegroep")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<string>("Naam")
                         .IsRequired()
                         .HasMaxLength(200)

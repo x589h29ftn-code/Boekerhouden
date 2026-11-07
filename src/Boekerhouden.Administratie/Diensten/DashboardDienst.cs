@@ -39,6 +39,9 @@ public enum Widget
 
     /// <summary>Het saldo van alle bank- en kasrekeningen samen aan het eind van elke maand, de laatste twaalf maanden.</summary>
     Liquiditeit,
+
+    /// <summary>Omzet, inkoop en brutomarge per margegroep: tegen vorig jaar of per kwartaal.</summary>
+    Marge,
 }
 
 /// <summary>Een widget op het dashboard, met de keuze die erbij hoort (btw per maand of kwartaal; grafiek met inkoop of alle kosten).</summary>
@@ -48,12 +51,14 @@ public sealed record Widgetkeuze(Widget Soort, string? Optie = null)
     public const string Kwartaal = "kwartaal";
     public const string Inkoop = "inkoop";
     public const string Kosten = "kosten";
+    public const string VorigJaar = "vorigjaar";
 
     /// <summary>De keuzes per widget, de eerste is de standaard.</summary>
     public static IReadOnlyList<string> Opties(Widget soort) => soort switch
     {
         Widget.Btw => [Kwartaal, Maand],
         Widget.Maandgrafiek => [Inkoop, Kosten],
+        Widget.Marge => [VorigJaar, Kwartaal],
         _ => [],
     };
 
@@ -111,6 +116,17 @@ public sealed record Periodecijfers(DateOnly Van, DateOnly Tot, decimal Omzet, d
 /// </summary>
 public sealed record Liquiditeitsmaand(DateOnly Maand, DateOnly Tot, decimal Saldo, IReadOnlyList<(string Naam, decimal Saldo)> PerRekening);
 
+/// <summary>De marge van een groep (of het totaal): dit jaar tot vandaag, dezelfde periode vorig jaar en per kwartaal.</summary>
+/// <param name="Kwartalen">De kwartalen van dit jaar tot en met het lopende (dat tot vandaag).</param>
+public sealed record Margegroepcijfers(string Groep, Marge Dit, Marge Vorig, IReadOnlyList<Marge> Kwartalen)
+{
+    /// <summary>Brutomarge dit jaar min vorig jaar.</summary>
+    public decimal Afwijking => Dit.Brutomarge - Vorig.Brutomarge;
+}
+
+/// <summary>De brutomarge per margegroep en in totaal (alleen de rekeningen met een groep).</summary>
+public sealed record Margestand(DateOnly Van, DateOnly Tot, DateOnly VorigVan, DateOnly VorigTot, IReadOnlyList<Margegroepcijfers> Groepen, Margegroepcijfers Totaal);
+
 /// <summary>
 /// Alles wat het dashboard laat zien, altijd vanaf vandaag gerekend (los van het jaar dat elders in het pakket open
 /// staat); een onderdeel is leeg als de widget niet gekozen is.
@@ -127,7 +143,8 @@ public sealed record Dashboard(
     (Periodecijfers Dit, Periodecijfers Vorig)? Kerncijfers = null,
     (int Concepten, int Terugkerend)? Verkoop = null,
     (int Totaal, IReadOnlyList<string> SluitenNiet)? Aansluitingen = null,
-    IReadOnlyList<Liquiditeitsmaand>? Liquiditeit = null);
+    IReadOnlyList<Liquiditeitsmaand>? Liquiditeit = null,
+    Margestand? Marge = null);
 
 /// <summary>
 /// Het dashboard van een administratie: per gebruiker een eigen keuze en volgorde van widgets, en de cijfers daarvoor.
@@ -218,6 +235,7 @@ public sealed class DashboardDienst(
                 Widget.Crediteuren => dashboard with { Crediteuren = await Open(db, Factuursoort.Inkoop, vandaag) },
                 Widget.Maandgrafiek => dashboard with { Maandgrafiek = (vandaag.Year, await Maandgrafiek(wie, administratie, vandaag.Year)) },
                 Widget.Kerncijfers => dashboard with { Kerncijfers = await Kerncijfers(wie, administratie, vandaag) },
+                Widget.Marge => dashboard with { Marge = await Marge(wie, administratie, vandaag) },
                 Widget.Verkoop => dashboard with
                 {
                     Verkoop = (await db.Verkoopdocumenten.CountAsync(v => v.Status == Verkoopstatus.Concept), await abonnementen.TeMaken(wie, administratie, vandaag)),
@@ -323,10 +341,36 @@ public sealed class DashboardDienst(
     private async Task<IReadOnlyList<Maandcijfer>> Maandgrafiek(Uitvoerder wie, Guid administratie, int jaar) =>
         Maandcijfers.Uit(await grootboek.Maandoverzicht(wie, administratie, new DateOnly(jaar, 1, 1), new DateOnly(jaar, 12, 31)));
 
+    /// <summary>
+    /// De brutomarge per margegroep van 1 januari tot en met vandaag, dezelfde periode vorig jaar en per kwartaal van dit
+    /// jaar (het lopende kwartaal tot vandaag).
+    /// </summary>
+    private async Task<Margestand> Marge(Uitvoerder wie, Guid administratie, DateOnly vandaag)
+    {
+        var (van, vorigVan, vorigTot) = (new DateOnly(vandaag.Year, 1, 1), new DateOnly(vandaag.Year - 1, 1, 1), VorigJaar(vandaag));
+        var dit = await grootboek.Maandoverzicht(wie, administratie, van, vandaag);
+        var vorig = Marges.PerGroep(await grootboek.Maandoverzicht(wie, administratie, vorigVan, vorigTot), 0, vorigTot.Month - 1);
+        var jaar = Marges.PerGroep(dit, 0, dit.Maanden.Count - 1);
+        var kwartalen = Enumerable.Range(0, ((vandaag.Month - 1) / 3) + 1)
+            .Select(k => Marges.PerGroep(dit, k * 3, Math.Min((k * 3) + 2, dit.Maanden.Count - 1))).ToList();
+        var namen = dit.Regels.Select(r => r.Rekening.Margegroep).OfType<string>().Where(g => g.Length > 0)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase).Order(StringComparer.CurrentCultureIgnoreCase).ToList();
+        var groepen = namen.Select(g => new Margegroepcijfers(g, jaar.GetValueOrDefault(g, Boekhouding.Grootboek.Marge.Nul), vorig.GetValueOrDefault(g, Boekhouding.Grootboek.Marge.Nul),
+            [.. kwartalen.Select(k => k.GetValueOrDefault(g, Boekhouding.Grootboek.Marge.Nul))])).ToList();
+        var totaal = new Margegroepcijfers("Totaal",
+            groepen.Aggregate(Boekhouding.Grootboek.Marge.Nul, (s, g) => s + g.Dit),
+            groepen.Aggregate(Boekhouding.Grootboek.Marge.Nul, (s, g) => s + g.Vorig),
+            [.. Enumerable.Range(0, kwartalen.Count).Select(k => groepen.Aggregate(Boekhouding.Grootboek.Marge.Nul, (s, g) => s + g.Kwartalen[k]))]);
+        return new Margestand(van, vandaag, vorigVan, vorigTot, groepen, totaal);
+    }
+
+    /// <summary>Dezelfde dag vorig jaar (29 februari wordt 28 februari).</summary>
+    private static DateOnly VorigJaar(DateOnly dag) => dag.Month == 2 && dag.Day == 29 ? new DateOnly(dag.Year - 1, 2, 28) : dag.AddYears(-1);
+
     /// <summary>Van 1 januari tot en met vandaag, naast dezelfde periode vorig jaar.</summary>
     private async Task<(Periodecijfers, Periodecijfers)> Kerncijfers(Uitvoerder wie, Guid administratie, DateOnly vandaag)
     {
-        var vorigTot = vandaag.Month == 2 && vandaag.Day == 29 ? new DateOnly(vandaag.Year - 1, 2, 28) : vandaag.AddYears(-1);
+        var vorigTot = VorigJaar(vandaag);
         return (await Periode(wie, administratie, new DateOnly(vandaag.Year, 1, 1), vandaag),
             await Periode(wie, administratie, new DateOnly(vandaag.Year - 1, 1, 1), vorigTot));
     }
