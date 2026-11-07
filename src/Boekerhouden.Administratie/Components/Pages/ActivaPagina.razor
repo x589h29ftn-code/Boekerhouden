@@ -1,0 +1,319 @@
+@page "/a/{Id:guid}/activa"
+@using Boekerhouden.Boekhouding.Activa
+@inject ActivaDienst Activa
+@inject GrootboekDienst Grootboek
+@inject NavigationManager Navigatie
+
+<AdministratieKader Id="Id" Titel="Vaste activa" Actief="/activa" BijOpenen="Open">
+    <Kenmerken>
+        @if (lijst is not null)
+        {
+            <span>@lijst.Count(a => a.BuitenGebruikOp is null) in gebruik</span>
+            <span class="scheiding">·</span>
+            <span>boekwaarde @Weergave.Bedrag(lijst.Sum(a => a.Boekwaarde))</span>
+            @if (lijst.Any(a => a.Achterstand > 0))
+            {
+                <span class="scheiding">·</span>
+                <span>afschrijvingen t/m @Weergave.Datum(VorigeMaand) nog te boeken</span>
+            }
+        }
+    </Kenmerken>
+    <Acties>
+        <div class="btn-group" role="group" aria-label="Weergave">
+            <button class="btn btn-outline-secondary @(staat is null ? "active" : null)" disabled="@bezig" @onclick="() => Wissel(false)">Activa</button>
+            <button class="btn btn-outline-secondary @(staat is not null ? "active" : null)" disabled="@bezig" @onclick="() => Wissel(true)">Activastaat</button>
+        </div>
+        @if (staat is not null)
+        {
+            <JaarKeuze Jaren="jaren" Jaar="jaar" JaarChanged="KiesJaar" />
+        }
+        else if (mag)
+        {
+            <button class="btn btn-outline-secondary" disabled="@bezig" @onclick="OpenAfschrijven">Afschrijven</button>
+            <a class="btn btn-outline-secondary" href="/a/@Id/activa/nieuw"><Icoon Naam="plus" /> Nieuw</a>
+        }
+    </Acties>
+    <ChildContent>
+        <Foutmeldingen Fouten="fouten" />
+        @if (bericht is not null)
+        {
+            <div class="bericht mb-2">@bericht</div>
+        }
+        @if (afschrijven)
+        {
+            <div class="card card-body mb-3 afschrijfpaneel">
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <label class="small text-secondary" for="tot">Afschrijven t/m</label>
+                    <DatumVeld Id="tot" Waarde="tot" WaardeChanged="KiesTot" />
+                    <select class="form-select form-select-sm w-auto" aria-label="Per" value="@frequentie" @onchange="KiesFrequentie">
+                        <option value="@Afschrijvingsfrequentie.Maand">per maand</option>
+                        <option value="@Afschrijvingsfrequentie.Kwartaal">per kwartaal</option>
+                        <option value="@Afschrijvingsfrequentie.Jaar">per jaar</option>
+                    </select>
+                </div>
+                @if (voorstel is { Count: 0 })
+                {
+                    <div class="small text-secondary mt-2">Niets meer af te schrijven t/m @Weergave.Datum(tot).</div>
+                }
+                else if (voorstel is not null)
+                {
+                    <table class="table table-sm align-middle mb-0 mt-2 overzichtstabel">
+                        <tbody>
+                            @foreach (var v in voorstel)
+                            {
+                                <tr><td class="text-nowrap">@Weergave.Datum(v.Datum)</td><td>@v.Omschrijving</td><td class="text-secondary">@v.Activa @(v.Activa == 1 ? "actief" : "activa")</td><td class="bedrag text-end">@Weergave.Bedrag(v.Bedrag)</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                <div class="d-flex gap-2 mt-2">
+                    <button class="btn btn-sm btn-primary" disabled="@(bezig || voorstel is not { Count: > 0 })" @onclick="Boek">@(voorstel is { Count: > 1 } ? $"{voorstel.Count} boekingen maken" : "Boeken")</button>
+                    <button class="btn btn-sm btn-link text-secondary" @onclick="() => afschrijven = false">Sluiten</button>
+                </div>
+            </div>
+        }
+        @if (staat is not null)
+        {
+            @if (staat.Count == 0)
+            {
+                <div class="leeg-regel">Geen activa in @jaar.</div>
+            }
+            else
+            {
+                <div class="card overzichtskaart">
+                    <table class="table align-middle mb-0 overzichtstabel activastaat">
+                        <thead>
+                            <tr>
+                                <th>Actief</th>
+                                <th class="text-end">Boekwaarde 1-1</th>
+                                <th class="text-end">Investeringen</th>
+                                <th class="text-end">Desinvesteringen</th>
+                                <th class="text-end">Afschrijvingen</th>
+                                <th class="text-end">Boekwaarde 31-12</th>
+                                <th class="text-end">Aanschafwaarde</th>
+                                <th class="text-end">Cum. afschrijving</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var g in staat)
+                            {
+                                <tr class="indeling-kop niveau-1"><td colspan="8" title="@g.Activarekening / @g.Afschrijvingsrekening"><span class="rekeningnummer">@g.Activarekening</span>@g.Naam</td></tr>
+                                @foreach (var p in g.Posten)
+                                {
+                                    <tr class="klikbaar" @onclick="() => Navigatie.NavigateTo(Pad(p.Id))">
+                                        <td class="ps-4"><span class="text-secondary me-2">@p.Nummer</span>@p.Omschrijving</td>
+                                        @Kolommen(p.Regel)
+                                    </tr>
+                                }
+                                <tr class="indeling-subtotaal niveau-1">
+                                    <td class="ps-4">Totaal @g.Naam.ToLowerInvariant()</td>
+                                    @Kolommen(g.Totaal)
+                                </tr>
+                                @if (!g.Sluit)
+                                {
+                                    <tr>
+                                        <td class="ps-4"><span class="status let-op me-2">Sluit niet</span>Grootboek</td>
+                                        <td colspan="5"></td>
+                                        <td class="bedrag text-end">@Weergave.Bedrag(g.GrootboekAanschaf)</td>
+                                        <td class="bedrag text-end">@Weergave.Bedrag(g.GrootboekAfschrijving)</td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                        @if (staat.Count > 1)
+                        {
+                            <tfoot>
+                                <tr class="generaal">
+                                    <td>Totaal</td>
+                                    @Kolommen(staat.Aggregate(Activastaatregel.Nul, (som, g) => som + g.Totaal))
+                                </tr>
+                            </tfoot>
+                        }
+                    </table>
+                </div>
+            }
+        }
+        else if (lijst is null)
+        {
+            <Laadschets />
+        }
+        else
+        {
+            @if (lijst.Count == 0)
+            {
+                <div class="leeg-regel">Nog geen vaste activa.</div>
+            }
+            else
+            {
+                <div class="card overzichtskaart">
+                    <table class="table align-middle mb-0 overzichtstabel activa" data-sleepbaar="activa">
+                        <thead>
+                            <tr><th>Nr.</th><th>Omschrijving</th><th>Aanschaf</th><th class="text-end">Aanschafwaarde</th><th class="text-end">Afgeschreven</th><th class="text-end">Boekwaarde</th><th class="text-end">Per maand</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var a in lijst)
+                            {
+                                <tr class="klikbaar" @onclick="() => Navigatie.NavigateTo(Pad(a.Id))">
+                                    <td class="text-secondary">@a.Nummer</td>
+                                    <td title="@a.Activarekening">@a.Omschrijving</td>
+                                    <td>@Weergave.Datum(a.Aanschafdatum)</td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(a.Aanschafwaarde)</td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(a.Afgeschreven)</td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(a.Boekwaarde)</td>
+                                    <td class="bedrag text-end"><Euro Waarde="a.PerMaand" LeegBijNul="true" /></td>
+                                    <td>@if (a.BuitenGebruikOp is { } weg)
+                                        {
+                                            <span class="status">buiten gebruik @Weergave.Datum(weg)</span>
+                                        }
+                                        else if (a.Achterstand > 0)
+                                        {
+                                            <span class="status">@a.Achterstand @(a.Achterstand == 1 ? "maand" : "maanden") te boeken</span>
+                                        }
+                                        else if (a.PerMaand == 0)
+                                        {
+                                            <span class="status">afgeschreven</span>
+                                        }</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            @if (kandidaten is { Count: > 0 })
+            {
+                <h2 class="h6 sectiekop mt-4">Aanschaffingen op activarekeningen</h2>
+                <div class="card overzichtskaart">
+                    <table class="table align-middle mb-0 overzichtstabel activakandidaten">
+                        <tbody>
+                            @foreach (var k in kandidaten)
+                            {
+                                <tr>
+                                    <td class="text-nowrap">@Weergave.Datum(k.Datum)</td>
+                                    <td class="text-secondary text-nowrap">@k.Boekstuk</td>
+                                    <td>@k.Omschrijving</td>
+                                    <td class="text-secondary">@k.Rekening</td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(k.Bedrag)</td>
+                                    <td class="text-end">@if (mag)
+                                        {
+                                            <a class="regelactie" href="/a/@Id/activa/nieuw?bron=@Uri.EscapeDataString(k.Boekstuk)&rekening=@Uri.EscapeDataString(k.Rekening)">Opnemen</a>
+                                        }</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private IReadOnlyList<Activaregel>? lijst;
+    private IReadOnlyList<Activakandidaat>? kandidaten;
+    private IReadOnlyList<Activastaatgroep>? staat;
+    private IReadOnlyList<int> jaren = [];
+    private int jaar;
+    private bool mag;
+    private bool bezig;
+    private bool afschrijven;
+    private DateOnly tot;
+    private Afschrijvingsfrequentie frequentie;
+    private IReadOnlyList<Afschrijvingsvoorstel>? voorstel;
+    private string? bericht;
+    private IReadOnlyList<string> fouten = [];
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "weergave")]
+    public string? WeergaveKeuze { get; set; }
+
+    private static DateOnly VorigeMaand => DateOnly.FromDateTime(DateTime.Today) is var d ? new DateOnly(d.Year, d.Month, 1).AddDays(-1) : default;
+
+    private string Pad(Guid activum) => $"/a/{Id}/activa/{activum}";
+
+    private RenderFragment Kolommen(Activastaatregel r) =>
+        @<text>
+            <td class="bedrag text-end"><Euro Waarde="r.BoekwaardeBegin" LeegBijNul="true" /></td>
+            <td class="bedrag text-end"><Euro Waarde="r.Investering" LeegBijNul="true" /></td>
+            <td class="bedrag text-end" title="Aanschafwaarde @Weergave.Bedrag(r.DesinvesteringAanschaf), afgeschreven @Weergave.Bedrag(r.DesinvesteringAfschrijving)"><Euro Waarde="r.DesinvesteringAanschaf - r.DesinvesteringAfschrijving" LeegBijNul="true" /></td>
+            <td class="bedrag text-end"><Euro Waarde="r.Afschrijving" LeegBijNul="true" /></td>
+            <td class="bedrag text-end">@Weergave.Bedrag(r.BoekwaardeEind)</td>
+            <td class="bedrag text-end text-secondary">@Weergave.Bedrag(r.AanschafEind)</td>
+            <td class="bedrag text-end text-secondary">@Weergave.Bedrag(r.AfschrijvingEind)</td>
+        </text>;
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        mag = g.Kop.Mag(Recht.Boekhouden);
+        jaren = await Grootboek.Boekjaren(g.Wie, Id);
+        jaar = jaren.FirstOrDefault(DateTime.Today.Year);
+        (tot, frequentie) = (VorigeMaand, Afschrijvingsfrequentie.Maand);
+        if (WeergaveKeuze == "staat")
+        {
+            staat = await Activa.Activastaat(g.Wie, Id, jaar);
+        }
+
+        await Laad();
+    }
+
+    private async Task Laad()
+    {
+        lijst = await Activa.Lijst(geopend!.Wie, Id);
+        kandidaten = await Activa.Kandidaten(geopend.Wie, Id);
+    }
+
+    /// <summary>Eerst de cijfers van de nieuwe weergave, dan weergave en cijfers samen om.</summary>
+    private async Task Wissel(bool naarStaat)
+    {
+        bezig = true;
+        staat = naarStaat ? await Activa.Activastaat(geopend!.Wie, Id, jaar) : null;
+        afschrijven = false;
+        bezig = false;
+        Navigatie.NavigateTo(naarStaat ? $"/a/{Id}/activa?weergave=staat" : $"/a/{Id}/activa", replace: true);
+    }
+
+    private async Task KiesJaar(int j)
+    {
+        var nieuw = await Activa.Activastaat(geopend!.Wie, Id, j);
+        (jaar, staat) = (j, nieuw);
+    }
+
+    private async Task OpenAfschrijven()
+    {
+        (bericht, fouten) = (null, []);
+        afschrijven = true;
+        await Voorstel();
+    }
+
+    private async Task KiesTot(DateOnly d)
+    {
+        tot = d;
+        await Voorstel();
+    }
+
+    private async Task KiesFrequentie(ChangeEventArgs e)
+    {
+        frequentie = Enum.TryParse<Afschrijvingsfrequentie>(e.Value?.ToString(), out var f) ? f : Afschrijvingsfrequentie.Maand;
+        await Voorstel();
+    }
+
+    private async Task Voorstel() => voorstel = await Activa.TeAfschrijven(geopend!.Wie, Id, tot, frequentie);
+
+    private async Task Boek()
+    {
+        bezig = true;
+        var uitkomst = await Activa.Afschrijven(geopend!.Wie, Id, tot, frequentie);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            bericht = $"{uitkomst.Waarde} {(uitkomst.Waarde == 1 ? "afschrijvingsboeking" : "afschrijvingsboekingen")} in het memoriaal.";
+            afschrijven = false;
+        }
+
+        await Laad();
+        bezig = false;
+    }
+}

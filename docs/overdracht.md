@@ -69,6 +69,11 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
      omzet, de rest als inkoop (`GrootboekDienst.ZetMargegroep`, domein `Grootboek/Marges`). Widget *Brutomarge*:
      tegen vorig jaar met afwijking, of per kwartaal.
 
+9. **Perioden afsluiten en vaste activa** (README §3.13 en §3.14): een blokkeerdatum per maand (heropenen met
+   reden; elke dienst die boekt controleert, de keten is het vangnet) en een module vaste activa (activakaart vanuit
+   een aanschaf op een activarekening, afschrijvingsplan, afschrijven per maand/kwartaal/jaar, buiten gebruik met
+   boekresultaat, activastaat met aansluiting op het grootboek). `PeriodeTests`, `ActivaTests`.
+
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).
 
@@ -86,11 +91,12 @@ Afgesproken of voorgesteld maar nog niet gebouwd, ongeveer in volgorde van wens:
 | Eén menubalk | De kopbalk en het menu van de administratie samenvoegen (kruimelpad *kantoor › administratie › pagina*) |
 | Lettertype beoordelen | Segoe UI (systeem) staat aan sinds commit `aea7fd9`; de gebruiker test het in de Windows-app. Terug naar IBM Plex is één regel (`--bs-body-font-family` in `uitstraling.css`) |
 | Verkoop: vervolg | Versturen vanuit het pakket (SMTP of Peppol) in plaats van een .eml; terugkerende facturen vanzelf maken (zonder klik); herinneringen; ouderdomsanalyse debiteuren |
-| Btw-aangifte en periodes (A10) | Aangifte per rubriek, afdracht, periodes afsluiten |
+| Btw-aangifte (A10) | Aangifte per rubriek en afdracht (perioden afsluiten is er: na de aangifte de periode afsluiten) |
 | Saldibalans naar het samenstelpakket (A12) | Jaarrekening zonder export |
 | Gepland (README §5) | Regels splitsen per leverancier, verzamel-PDF splitsen, vreemde valuta, ontbrekende factuur |
 | Dashboard: vervolg | Voorgesteld, nog niet gevraagd: afwijking marge in procentpunten; in de kwartaalweergave ook vorig jaar per kwartaal; btw-frequentie (maand/kwartaal) als instelling van de administratie in plaats van per widget |
 | Auditfile: vervolg | De btw-code per boekingsregel zit niet in de XAF-export; XAF 4.0 is alleen met een zelfgemaakt voorbeeld getest |
+| Vaste activa: vervolg | Degressief en fiscaal naast commercieel, overzicht investeringsaftrek, activastaat naar Excel/PDF, actief vanaf de inkoopfactuur |
 | Hulppagina | De uitleg hoort in `/hulp` (CLAUDE.md, rustige uitstraling); in het administratiepakket nog niet gebouwd |
 
 ## 3. Werkwijze met de gebruiker
@@ -160,6 +166,9 @@ scripts/ui/herstart.sh && node scripts/ui/schermafbeeldingen.js /tmp/schermen vo
 - **Windows-app nalopen**: de CI-job `windows-app-proef` vult de app met twee jaar gegevens en klikt elke pagina na
   (`Proef.cs`, `proef.js`); bij een rode job staan in het artefact `windows-app-proef` het verslag `proef.txt` (met de
   pagina en knop van de fout) en schermafdrukken. Een nieuwe pagina hoort in `Proef.Paginas`.
+- **Een nieuwe manier van boeken**: laat hem via `GrootboekDienst.VoegToeAanKeten` of `NieuweVersie` lopen en
+  controleer vooraf `GrootboekDienst.Afgesloten` (anders krijgt de gebruiker bij een afgesloten periode een
+  uitzondering in plaats van een melding).
 - **Processen stoppen**: `pkill -f` met een patroon dat ook in de eigen opdrachtregel staat, stopt de eigen shell;
   gebruik `pgrep` met een specifiek pad (zoals in `scripts/ui/herstart.sh`).
 - **Razor en SVG**: een `<text>`-element met attributen kan niet in Razor (`<text>` is daar een sleutelwoord); maak het

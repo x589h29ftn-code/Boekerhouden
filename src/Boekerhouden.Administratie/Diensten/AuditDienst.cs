@@ -130,4 +130,12 @@ public static class AuditActies
     public const string AbonnementVerwijderd = "Terugkerende factuur verwijderd";
     public const string AbonnementenGemaakt = "Terugkerende facturen gemaakt";
     public const string KetenGecontroleerd = "Journaal gecontroleerd";
+    public const string PeriodeAfgesloten = "Periode afgesloten";
+    public const string PeriodeHeropend = "Periode heropend";
+    public const string ActivumToegevoegd = "Vast actief toegevoegd";
+    public const string ActivumGewijzigd = "Vast actief gewijzigd";
+    public const string ActivumVerwijderd = "Vast actief verwijderd";
+    public const string AfschrijvingenGeboekt = "Afschrijvingen geboekt";
+    public const string ActivumBuitenGebruik = "Vast actief buiten gebruik";
+    public const string ActivumWeerInGebruik = "Vast actief weer in gebruik";
 }

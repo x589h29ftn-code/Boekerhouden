@@ -102,6 +102,99 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.ToTable("Abonnementen", (string)null);
                 });
 
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Activum", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AangemaaktDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("AangemaaktOp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly>("Aanschafdatum")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Aanschafwaarde")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Activarekening")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("AfgeschrevenVoorBegin")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Afschrijvingsrekening")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("BeginAfschrijving")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Bron")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly?>("BuitenGebruikOp")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Desinvesteringsboeking")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Kostenrekening")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Looptijd")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Methode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notitie")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Nummer")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Omschrijving")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("Opbrengst")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("Restwaarde")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdministratieId", "Nummer")
+                        .IsUnique();
+
+                    b.ToTable("Activa", (string)null);
+                });
+
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Administratie", b =>
                 {
                     b.Property<Guid>("Id")
@@ -118,6 +211,15 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
 
                     b.Property<bool?>("Adrescontrole")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("AfgeslotenDoor")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("AfgeslotenOp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly?>("AfgeslotenTot")
+                        .HasColumnType("TEXT");
 
                     b.Property<long?>("Bandbreedte")
                         .HasPrecision(6, 2)
@@ -267,6 +369,40 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.HasIndex("AdministratieId", "Iban", "Einddatum");
 
                     b.ToTable("Afschriften", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Afschrijving", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("ActivumId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Bedrag")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Boekstuk")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("Maand")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActivumId", "Maand")
+                        .IsUnique();
+
+                    b.HasIndex("AdministratieId", "Boekstuk");
+
+                    b.ToTable("Afschrijvingen", (string)null);
                 });
 
             modelBuilder.Entity("Boekerhouden.Administratie.Data.AuditRegel", b =>
@@ -1852,8 +1988,32 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Activum", b =>
+                {
+                    b.HasOne("Boekerhouden.Administratie.Data.Administratie", null)
+                        .WithMany()
+                        .HasForeignKey("AdministratieId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Afschrift", b =>
                 {
+                    b.HasOne("Boekerhouden.Administratie.Data.Administratie", null)
+                        .WithMany()
+                        .HasForeignKey("AdministratieId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Afschrijving", b =>
+                {
+                    b.HasOne("Boekerhouden.Administratie.Data.Activum", null)
+                        .WithMany()
+                        .HasForeignKey("ActivumId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("Boekerhouden.Administratie.Data.Administratie", null)
                         .WithMany()
                         .HasForeignKey("AdministratieId")

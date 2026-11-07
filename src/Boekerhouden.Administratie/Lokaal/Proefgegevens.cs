@@ -71,6 +71,12 @@ public static class Proefgegevens
             }
         }
 
+        // Vaste activa: een aanschaf op inventaris in januari van het vorige jaar, met de afschrijvingen van dat jaar.
+        Controleer(await grootboek.Boek(wie, id, new("MEM", $"{jaar - 1}-9001", new(jaar - 1, 1, 15), "Aanschaf", [new("0200", 2400m, "Server"), new("1100", -2400m)])));
+        var activa = diensten.GetRequiredService<ActivaDienst>();
+        var voorstel = (await activa.Kandidaten(wie, id)).Single().Voorstel with { Looptijd = 36 };
+        Controleer(await activa.Bewaar(wie, id, null, voorstel));
+        Controleer(await activa.Afschrijven(wie, id, new DateOnly(jaar - 1, 12, 31), Boekhouding.Activa.Afschrijvingsfrequentie.Maand));
         Rond($"{boekingen} memoriaalboekingen");
 
         // Bank: één afschrift over het jaar, als MT940 ingelezen.

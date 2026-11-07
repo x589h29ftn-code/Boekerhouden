@@ -40,7 +40,8 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   effect op resultaat en eigen vermogen, gecorrigeerde saldi; `Doorlezen/`: signalen bij het doorlezen; `Rapport/`: rapportmodel en `RapportOpbouw` voor balans, W&V
   en specificaties, `RapportVariabelen` voor `{boekjaar}` e.d. in teksten, `Samenstellingsverklaring` voor de BV); geen I/O.
 - `src/Boekerhouden.Boekhouding` – domein van het **administratiepakket** (ontwerp: `docs/administratie/README.md`), geen I/O:
-  `Grootboek/` (rekeningschema met RGS-code en functie, dagboeken, journaal, grootboekkaart, proefbalans, balans en W&V),
+  `Grootboek/` (rekeningschema met RGS-code en functie, dagboeken, journaal, grootboekkaart, proefbalans, balans en W&V; `Afsluiting` = afgesloten perioden),
+  `Activa/` (vast actief, afschrijvingsplan, desinvestering, activastaat),
   `Btw/` (btw-codes met soort en tarief, koppeling met de aangifterubrieken, tarieven per datum, aangifte berekenen), `Relaties/` (IBAN, btw-nummer, namen vergelijken), `Facturen/` (facturen boeken,
   openstaande posten), `Bank/` (MT940, CAMT.053, bankboekingen), `Afletteren/`, `Regels/` (verwerkingsregels, leergeheugen,
   advies), `Herkenning/` (factuurtekst, UBL, leverancier herkennen, inkoopvoorstel) en `Verkoop/` (verkoopfactuur, nummering per jaar,
@@ -55,7 +56,7 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   gegevens van een administratie, met rechten per lidmaatschap; administraties, grootboek en boeken met hash-keten,
   gebruikers, tweestapsverificatie en passkeys, wijzigingslog; `AansluitingDienst` = saldo-aansluitingen; `OverzichtDienst` = grootboekkaart en kolommenbalans naar Excel en PDF; `InkoopDienst` = inlezen met virusscan, voorstel en
   (automatisch) boeken en de kopie in de documentmap; `VerkoopDienst` = verkoopfacturen: concept, definitief (nummer, boeking, debiteuren), crediteren; `FactuuropmaakDienst` = lay-out van de verkoopfactuur, PDF, e-factuur (UBL) en e-mail (.eml); `AbonnementDienst` = terugkerende verkoopfacturen; `VerkoopimportDienst` = verkoopfacturen uit een ander pakket inlezen; `BankDienst` = afschriften inlezen (saldo, aansluiting, dubbel), afletteren en op rekening boeken; `AuditfileDienst` = boekjaar als auditfile (XAF) en een auditfile inlezen als nieuwe administratie; `AdministratieDienst` = administraties, archiveren en verwijderen (beheerder); `DashboardDienst` = dashboard met widgets per gebruiker; `InrichtingDienst` = relaties, regels en instellingen van een
-  administratie; `KantoorDienst` = kantoorinstellingen, alleen beheerder; `BtwDienst` = btw-tabel (codes met soort en tarief, tarieven per datum), wijzigen alleen beheerder; `Werkomgeving` = webapp of lokaal),
+  administratie; `KantoorDienst` = kantoorinstellingen, alleen beheerder; `BtwDienst` = btw-tabel (codes met soort en tarief, tarieven per datum), wijzigen alleen beheerder; `PeriodeDienst` = perioden afsluiten en heropenen; `ActivaDienst` = vaste activa en afschrijvingen; `Werkomgeving` = webapp of lokaal),
   `Lokaal/` (`LokaleApp` = samenstelling voor de Windows-app: SQLite, lokale gebruiker zonder inloggen), `Identiteit/` (inloggen, beveiligingsheaders,
   tweestap verplicht voor de beheerder), `Components/` (schermen; accountpagina's statisch, de rest interactief).
   Negatieve toegangstests horen bij elke dienst. Geen inline scripts (CSP): JavaScript als los bestand in `wwwroot/`

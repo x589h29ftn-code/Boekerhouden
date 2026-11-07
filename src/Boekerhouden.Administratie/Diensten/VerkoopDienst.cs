@@ -372,6 +372,11 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
 
         var verdeling = Verdeling(document) is { } vg ? new Periodeverdeling(vg.Van, vg.Tot, vg.Rekening) : null;
         var memoriaal = dagboeken.Where(d => d.Soort == Dagboeksoort.Memoriaal).OrderBy(d => d.Code != "MEM").FirstOrDefault();
+        if (await GrootboekDienst.Afgesloten(db, administratie, verdeling is null ? [document.Datum] : [document.Datum, verdeling.Van]) is { } afgesloten)
+        {
+            fouten.Add(afgesloten);
+        }
+
         if (verdeling is not null)
         {
             fouten.AddRange(verdeling.Controleer());

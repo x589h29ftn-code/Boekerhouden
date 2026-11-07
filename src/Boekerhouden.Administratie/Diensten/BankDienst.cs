@@ -411,6 +411,11 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             return Uitkomst.Mislukt($"Dagboek {t.Dagboek} bestaat niet meer.");
         }
 
+        if (await GrootboekDienst.Afgesloten(db, administratie, t.Datum) is { } afgesloten)
+        {
+            return Uitkomst.Mislukt(afgesloten);
+        }
+
         var codes = (await BtwDienst.Lees(db)).Op(t.Datum);
         var fouten = new List<string>();
         var verdeling = new List<(decimal, Afboeking)>();
@@ -650,6 +655,11 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             return Uitkomst.Mislukt($"Dagboek {t.Dagboek} bestaat niet meer.");
         }
 
+        if (await GrootboekDienst.Afgesloten(db, administratie, t.Datum) is { } afgesloten)
+        {
+            return Uitkomst.Mislukt(afgesloten);
+        }
+
         Afboeking? afboeking = null;
         if (verschil is not null)
         {
@@ -722,6 +732,11 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         if (dagboeken.FirstOrDefault(d => d.Code == t.Dagboek) is not { } dagboek)
         {
             return Uitkomst.Mislukt($"Dagboek {t.Dagboek} bestaat niet meer.");
+        }
+
+        if (await GrootboekDienst.Afgesloten(db, administratie, t.Datum) is { } afgesloten)
+        {
+            return Uitkomst.Mislukt(afgesloten);
         }
 
         var btw = Boekhouding.Btw.BtwCodes.Zoek((await BtwDienst.Lees(db)).Op(t.Datum), btwCode);

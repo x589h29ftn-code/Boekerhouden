@@ -78,6 +78,10 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
 
     public DbSet<Dashboardindeling> Dashboardindelingen => Set<Dashboardindeling>();
 
+    public DbSet<Activum> Activa => Set<Activum>();
+
+    public DbSet<Afschrijving> Afschrijvingen => Set<Afschrijving>();
+
     public DbSet<Afschrift> Afschriften => Set<Afschrift>();
 
     public DbSet<Btwcodedefinitie> Btwcodes => Set<Btwcodedefinitie>();
@@ -484,6 +488,39 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.HasOne<Administratie>().WithMany().HasForeignKey(d => d.AdministratieId);
         });
 
+        builder.Entity<Activum>(e =>
+        {
+            e.ToTable("Activa");
+            e.HasIndex(a => new { a.AdministratieId, a.Nummer }).IsUnique();
+            e.Property(a => a.Omschrijving).HasMaxLength(200);
+            e.Property(a => a.Methode).HasConversion<string>().HasMaxLength(20);
+            e.Property(a => a.Activarekening).HasMaxLength(20);
+            e.Property(a => a.Afschrijvingsrekening).HasMaxLength(20);
+            e.Property(a => a.Kostenrekening).HasMaxLength(20);
+            e.Property(a => a.Bron).HasMaxLength(100);
+            e.Property(a => a.Notitie).HasMaxLength(1000);
+            e.Property(a => a.Desinvesteringsboeking).HasMaxLength(100);
+            e.Property(a => a.AangemaaktDoor).HasMaxLength(200);
+            e.Property(a => a.Aanschafwaarde).HasPrecision(18, 2);
+            e.Property(a => a.Restwaarde).HasPrecision(18, 2);
+            e.Property(a => a.AfgeschrevenVoorBegin).HasPrecision(18, 2);
+            e.Property(a => a.Opbrengst).HasPrecision(18, 2);
+            e.HasOne<Administratie>().WithMany().HasForeignKey(a => a.AdministratieId);
+        });
+
+        builder.Entity<Afschrijving>(e =>
+        {
+            e.ToTable("Afschrijvingen");
+            e.HasIndex(a => new { a.ActivumId, a.Maand }).IsUnique();
+            e.HasIndex(a => new { a.AdministratieId, a.Boekstuk });
+            e.Property(a => a.Boekstuk).HasMaxLength(100);
+            e.Property(a => a.Bedrag).HasPrecision(18, 2);
+            e.HasOne<Activum>().WithMany().HasForeignKey(a => a.ActivumId);
+            e.HasOne<Administratie>().WithMany().HasForeignKey(a => a.AdministratieId);
+        });
+
+        builder.Entity<Activum>().HasQueryFilter(e => e.AdministratieId == Geopend);
+        builder.Entity<Afschrijving>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Dashboardindeling>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Verkoopbestand>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Abonnement>().HasQueryFilter(e => e.AdministratieId == Geopend);

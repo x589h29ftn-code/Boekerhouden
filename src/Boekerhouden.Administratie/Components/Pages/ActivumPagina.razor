@@ -1,0 +1,402 @@
+@page "/a/{Id:guid}/activa/nieuw"
+@page "/a/{Id:guid}/activa/{ActivumId:guid}"
+@using System.Globalization
+@using Boekerhouden.Boekhouding.Activa
+@using Boekerhouden.Boekhouding.Grootboek
+@using Boekerhouden.Domain
+@inject ActivaDienst Activa
+@inject GrootboekDienst Grootboek
+@inject NavigationManager Navigatie
+
+<AdministratieKader Id="Id" Titel="@Titel" Actief="/activa" BijOpenen="Open">
+    <Kenmerken>
+        <a href="/a/@Id/activa" class="text-secondary"><Icoon Naam="arrow-left" /> Vaste activa</a>
+        @if (detail is { } d)
+        {
+            <span class="scheiding">·</span>
+            <span title="@($"{d.AangemaaktDoor}, {Weergave.DatumTijd(d.AangemaaktOp)}")">nr. @d.Nummer</span>
+            @if (d.BuitenGebruikOp is { } weg)
+            {
+                <span class="scheiding">·</span>
+                <span>buiten gebruik @Weergave.Datum(weg)</span>
+            }
+        }
+    </Kenmerken>
+    <ChildContent>
+        <Foutmeldingen Fouten="fouten" />
+        @if (bericht is not null)
+        {
+            <div class="bericht mb-2">@bericht</div>
+        }
+        @if (f is null || schema is null)
+        {
+            <Laadschets />
+        }
+        else
+        {
+            <fieldset class="verkoopformulier activumformulier" disabled="@(!mag)">
+                <div class="formulier-rij">
+                    <label for="omschrijving">Omschrijving</label>
+                    <input id="omschrijving" class="form-control form-control-sm" style="max-width:32rem" maxlength="200" @bind="f.Omschrijving" />
+                </div>
+                <div class="formulier-rij">
+                    <label for="aanschafdatum">Aanschaf</label>
+                    <div class="d-flex gap-2 align-items-center flex-wrap">
+                        <DatumVeld Id="aanschafdatum" @bind-Waarde="f.Aanschafdatum" Uit="Vast" />
+                        <input id="aanschafwaarde" class="form-control form-control-sm text-end" style="width:9rem" aria-label="Aanschafwaarde" @bind="f.Aanschafwaarde" disabled="@Vast" />
+                        @if (detail?.Invoer.Bron is { } bron && bron.Split(' ', 2) is [var dagboek, var boekstuk])
+                        {
+                            <a class="small" href="/a/@Id/boeking/@dagboek/@boekstuk" title="De boeking van de aanschaf">@bron</a>
+                        }
+                        else if (f.Bron is { } nieuwBron)
+                        {
+                            <span class="small text-secondary">@nieuwBron</span>
+                        }
+                    </div>
+                </div>
+                <div class="formulier-rij">
+                    <label for="methode">Afschrijven</label>
+                    <div class="d-flex gap-2 align-items-center flex-wrap">
+                        <select id="methode" class="form-select form-select-sm w-auto" @bind="f.Methode" disabled="@Vast">
+                            <option value="@Afschrijvingsmethode.Lineair">lineair</option>
+                            <option value="@Afschrijvingsmethode.Geen">niet (bijv. grond)</option>
+                        </select>
+                        @if (f.Methode == Afschrijvingsmethode.Lineair)
+                        {
+                            <span class="small text-secondary">vanaf</span>
+                            <DatumVeld Id="begin" @bind-Waarde="f.Begin" Uit="Vast" Label="Eerste maand" />
+                            <span class="small text-secondary">in</span>
+                            <input id="looptijd" class="form-control form-control-sm text-end" style="width:5rem" aria-label="Looptijd in maanden" @bind="f.Looptijd" disabled="@IsWeg" />
+                            <span class="small text-secondary" title="@(f.Looptijd is > 0 and var l ? $"{l / 12m:0.#} jaar" : null)">maanden</span>
+                            <span class="small text-secondary ms-2">restwaarde</span>
+                            <input id="restwaarde" class="form-control form-control-sm text-end" style="width:8rem" aria-label="Restwaarde" @bind="f.Restwaarde" disabled="@IsWeg" />
+                        }
+                    </div>
+                </div>
+                <div class="formulier-rij">
+                    <label for="activarekening">Activarekening</label>
+                    <span style="width:22rem"><RekeningKeuze Id="activarekening" Waarde="@f.Activarekening" WaardeChanged="KiesActivarekening" Schema="schema" Kader="geopend" Label="Activarekening" /></span>
+                </div>
+                <div class="formulier-rij">
+                    <label for="afschrijvingsrekening">Afschrijving</label>
+                    <span style="width:22rem"><RekeningKeuze Id="afschrijvingsrekening" @bind-Waarde="f.Afschrijvingsrekening" Schema="schema" Kader="geopend" Label="Cumulatieve afschrijving (balans)" /></span>
+                </div>
+                <div class="formulier-rij">
+                    <label for="kostenrekening">Kosten</label>
+                    <span style="width:22rem"><RekeningKeuze Id="kostenrekening" @bind-Waarde="f.Kostenrekening" Schema="schema" Kader="geopend" Label="Afschrijvingskosten (W&amp;V)" /></span>
+                </div>
+                <div class="formulier-rij">
+                    <span></span>
+                    <span class="d-flex gap-2 align-items-center flex-wrap">
+                        <span class="form-check mb-0 small">
+                            <input class="form-check-input" type="checkbox" id="eerder" @bind="f.Eerder" disabled="@Vast" />
+                            <label class="form-check-label text-secondary" for="eerder">Al eerder afgeschreven</label>
+                        </span>
+                        @if (f.Eerder)
+                        {
+                            <input class="form-control form-control-sm text-end" style="width:9rem" aria-label="Al afgeschreven vóór de eerste maand" @bind="f.VoorBegin" disabled="@Vast" />
+                        }
+                    </span>
+                </div>
+                <div class="formulier-rij">
+                    <label for="notitie">Notitie</label>
+                    <input id="notitie" class="form-control form-control-sm" style="max-width:32rem" maxlength="1000" @bind="f.Notitie" />
+                </div>
+                <div class="d-flex align-items-center gap-2 mt-3">
+                    <button class="btn btn-primary" disabled="@bezig" @onclick="Bewaar">Opslaan</button>
+                    <a class="btn btn-link text-secondary" href="/a/@Id/activa">Annuleren</a>
+                    @if (detail is { Vast: false, BuitenGebruikOp: null })
+                    {
+                        <VerwijderKnop Bezig="bezig" Bevestigd="Verwijder" />
+                    }
+                </div>
+            </fieldset>
+
+            @if (detail is { } d && mag)
+            {
+                <div class="mt-4">
+                    @if (d.BuitenGebruikOp is { } wegOp)
+                    {
+                        <div class="small">
+                            Buiten gebruik @Weergave.Datum(wegOp)@(d.Opbrengst is > 0 and var o ? $", opbrengst {Weergave.Bedrag(o)}" : null)
+                            @if (d.Desinvesteringsboeking is { } stuk && stuk.Split(' ', 2) is [var desDagboek, var desBoekstuk])
+                            {
+                                <span class="scheiding">·</span>
+                                <a href="/a/@Id/boeking/@desDagboek/@desBoekstuk">@stuk</a>
+                            }
+                            <button class="btn btn-sm btn-link p-0 ms-3" disabled="@bezig" @onclick="WeerInGebruik">Weer in gebruik</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <Uitklapformulier Tekst="Buiten gebruik stellen">
+                            <div class="d-flex gap-2 align-items-center flex-wrap">
+                                <DatumVeld Id="weg" @bind-Waarde="weg.Datum" Label="Datum" />
+                                <span class="small text-secondary">opbrengst</span>
+                                <input class="form-control form-control-sm text-end" style="width:8rem" aria-label="Opbrengst zonder btw" placeholder="0,00" @bind="weg.Opbrengst" />
+                                <span class="small text-secondary">staat op</span>
+                                <span style="width:16rem"><RekeningKeuze @bind-Waarde="weg.Opbrengstrekening" Schema="schema" Kader="geopend" Label="Rekening met de opbrengst" /></span>
+                                <span class="small text-secondary">resultaat naar</span>
+                                <span style="width:16rem"><RekeningKeuze @bind-Waarde="weg.Resultaatrekening" Schema="schema" Kader="geopend" Label="Rekening voor het boekresultaat" /></span>
+                                <button class="btn btn-sm btn-primary" disabled="@bezig" @onclick="BuitenGebruik">Boeken</button>
+                            </div>
+                        </Uitklapformulier>
+                    }
+                </div>
+            }
+
+            @if (Plan is { Count: > 0 } plan)
+            {
+                <h2 class="h6 sectiekop mt-4">Afschrijvingsplan</h2>
+                <div class="card overzichtskaart afschrijvingsplan">
+                    <table class="table table-sm align-middle mb-0 overzichtstabel">
+                        <thead>
+                            <tr><th>Periode</th><th class="text-end">Afschrijving</th><th class="text-end">Cumulatief</th><th class="text-end">Boekwaarde</th><th>Boeking</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var jaar in plan.GroupBy(m => m.Maand.Year))
+                            {
+                                var j = jaar.Key;
+                                var laatste = jaar.Last();
+                                var geboekt = jaar.Count(m => m.Geboekt);
+                                <tr class="klikbaar planjaar" @onclick="() => Wissel(j)">
+                                    <td><span class="pijl"><Icoon Naam="@(openJaren.Contains(j) ? "chevron-down" : "chevron-right")" /></span>@j</td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(jaar.Sum(m => m.Bedrag))</td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(laatste.Cumulatief)</td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(laatste.Boekwaarde)</td>
+                                    <td class="text-secondary small">@(geboekt == 0 ? null : geboekt == jaar.Count() ? "geboekt" : $"{geboekt} van {jaar.Count()} maanden geboekt")</td>
+                                </tr>
+                                @if (openJaren.Contains(j))
+                                {
+                                    @foreach (var m in jaar)
+                                    {
+                                        <tr class="@(m.Geboekt ? null : "text-secondary")">
+                                            <td class="ps-4">@m.Maand.ToString("MMMM", Nederlands)</td>
+                                            <td class="bedrag text-end">@Weergave.Bedrag(m.Bedrag)</td>
+                                            <td class="bedrag text-end">@Weergave.Bedrag(m.Cumulatief)</td>
+                                            <td class="bedrag text-end">@Weergave.Bedrag(m.Boekwaarde)</td>
+                                            <td>@if (detail?.Boekstukken.GetValueOrDefault(m.Maand) is { } maandstuk && maandstuk.Split(' ', 2) is [var maandDagboek, var maandBoekstuk])
+                                                {
+                                                    <a href="/a/@Id/boeking/@maandDagboek/@maandBoekstuk">@maandstuk</a>
+                                                }</td>
+                                        </tr>
+                                    }
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private static readonly CultureInfo Nederlands = CultureInfo.GetCultureInfo("nl-NL");
+
+    private sealed class Formulier
+    {
+        public string Omschrijving { get; set; } = "";
+        public DateOnly Aanschafdatum { get; set; }
+        public string? Aanschafwaarde { get; set; }
+        public string? Restwaarde { get; set; }
+        public DateOnly Begin { get; set; }
+        public int? Looptijd { get; set; } = 60;
+        public Afschrijvingsmethode Methode { get; set; }
+        public string? Activarekening { get; set; }
+        public string? Afschrijvingsrekening { get; set; }
+        public string? Kostenrekening { get; set; }
+        public bool Eerder { get; set; }
+        public string? VoorBegin { get; set; }
+        public string? Bron { get; set; }
+        public string? Notitie { get; set; }
+
+        public static Formulier Van(ActivumInvoer i) => new()
+        {
+            Omschrijving = i.Omschrijving,
+            Aanschafdatum = i.Aanschafdatum,
+            Aanschafwaarde = Bedragen.Getal(i.Aanschafwaarde),
+            Restwaarde = i.Restwaarde == 0 ? null : Bedragen.Getal(i.Restwaarde),
+            Begin = i.BeginAfschrijving,
+            Looptijd = i.Looptijd,
+            Methode = i.Methode,
+            Activarekening = i.Activarekening,
+            Afschrijvingsrekening = i.Afschrijvingsrekening,
+            Kostenrekening = i.Kostenrekening,
+            Eerder = i.AfgeschrevenVoorBegin != 0,
+            VoorBegin = i.AfgeschrevenVoorBegin == 0 ? null : Bedragen.Getal(i.AfgeschrevenVoorBegin),
+            Bron = i.Bron,
+            Notitie = i.Notitie,
+        };
+
+        /// <summary>De invoer, of leeg als een bedrag niet te lezen is.</summary>
+        public ActivumInvoer? Invoer()
+        {
+            static decimal? Lees(string? tekst) => string.IsNullOrWhiteSpace(tekst) ? 0m : BedragParser.TryParse(tekst, out var b) ? b : null;
+            if (Lees(Aanschafwaarde) is not { } aanschaf || Lees(Restwaarde) is not { } rest || Lees(Eerder ? VoorBegin : null) is not { } voor)
+            {
+                return null;
+            }
+
+            return new ActivumInvoer(Omschrijving, Aanschafdatum, aanschaf, rest, Begin, Looptijd ?? 0, Methode, Activarekening ?? "", Afschrijvingsrekening ?? "",
+                Kostenrekening ?? "", voor, Bron, Notitie);
+        }
+    }
+
+    private sealed class Uitgebruik
+    {
+        public DateOnly Datum { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+        public string? Opbrengst { get; set; }
+        public string? Opbrengstrekening { get; set; }
+        public string? Resultaatrekening { get; set; }
+    }
+
+    private Geopend? geopend;
+    private Rekeningschema? schema;
+    private Activumdetail? detail;
+    private Formulier? f;
+    private Uitgebruik weg = new();
+    private readonly HashSet<int> openJaren = [];
+    private bool mag;
+    private bool bezig;
+    private string? bericht;
+    private IReadOnlyList<string> fouten = [];
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [Parameter]
+    public Guid? ActivumId { get; set; }
+
+    /// <summary>Nieuw uit een aanschaf: de boeking (bijv. "INK 2026-0012") en de activarekening.</summary>
+    [SupplyParameterFromQuery(Name = "bron")]
+    public string? Bron { get; set; }
+
+    [SupplyParameterFromQuery(Name = "rekening")]
+    public string? BronRekening { get; set; }
+
+    private string Titel => detail?.Invoer.Omschrijving ?? "Nieuw actief";
+
+    private bool Vast => detail is { Vast: true } or { BuitenGebruikOp: not null };
+
+    private bool IsWeg => detail?.BuitenGebruikOp is not null;
+
+    /// <summary>Het plan: zoals opgeslagen, of bij een nieuw actief een voorbeeld uit het formulier.</summary>
+    private IReadOnlyList<Afschrijvingsmaand>? Plan =>
+        detail is not null ? detail.Plan
+        : f?.Invoer()?.NaarDomein() is { } a && !a.Controleer().Any() ? Afschrijvingsplan.Maak(a) : null;
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        mag = g.Kop.Mag(Recht.Boekhouden);
+        schema = await Grootboek.Schema(g.Wie, Id);
+        if (ActivumId is { } id)
+        {
+            detail = await Activa.Open(g.Wie, Id, id);
+            if (detail is null)
+            {
+                fouten = ["Dit actief bestaat niet (meer)."];
+                return;
+            }
+
+            f = Formulier.Van(detail.Invoer);
+            return;
+        }
+
+        var vandaag = DateOnly.FromDateTime(DateTime.Today);
+        f = new Formulier { Aanschafdatum = vandaag, Begin = new DateOnly(vandaag.Year, vandaag.Month, 1) };
+        if (Bron is not null && (await Activa.Kandidaten(g.Wie, Id)).FirstOrDefault(k => k.Boekstuk == Bron && (BronRekening is null || k.Rekening == BronRekening)) is { } kandidaat)
+        {
+            f = Formulier.Van(kandidaat.Voorstel);
+        }
+    }
+
+    private void Wissel(int jaar)
+    {
+        if (!openJaren.Remove(jaar))
+        {
+            openJaren.Add(jaar);
+        }
+    }
+
+    private async Task KiesActivarekening(string? rekening)
+    {
+        f!.Activarekening = rekening;
+        if (rekening is { Length: > 0 } && detail is null && string.IsNullOrEmpty(f.Afschrijvingsrekening) && string.IsNullOrEmpty(f.Kostenrekening))
+        {
+            var (afschrijving, kosten, looptijd) = await Activa.Rekeningvoorstel(geopend!.Wie, Id, rekening);
+            (f.Afschrijvingsrekening, f.Kostenrekening, f.Looptijd) = (afschrijving, kosten, looptijd);
+        }
+    }
+
+    private async Task Bewaar()
+    {
+        if (f!.Invoer() is not { } invoer)
+        {
+            fouten = ["Een bedrag is niet te lezen."];
+            return;
+        }
+
+        bezig = true;
+        var uitkomst = await Activa.Bewaar(geopend!.Wie, Id, detail?.Id, invoer);
+        fouten = uitkomst.Fouten;
+        bezig = false;
+        if (!uitkomst.IsGelukt)
+        {
+            return;
+        }
+
+        if (detail is null)
+        {
+            Navigatie.NavigateTo($"/a/{Id}/activa/{uitkomst.Waarde}");
+            return;
+        }
+
+        await Herlaad("Opgeslagen.");
+    }
+
+    private async Task Verwijder()
+    {
+        bezig = true;
+        var uitkomst = await Activa.Verwijder(geopend!.Wie, Id, detail!.Id);
+        fouten = uitkomst.Fouten;
+        bezig = false;
+        if (uitkomst.IsGelukt)
+        {
+            Navigatie.NavigateTo($"/a/{Id}/activa");
+        }
+    }
+
+    private async Task BuitenGebruik()
+    {
+        var opbrengst = string.IsNullOrWhiteSpace(weg.Opbrengst) ? 0m : BedragParser.TryParse(weg.Opbrengst, out var b) ? b : -1m;
+        bezig = true;
+        var uitkomst = await Activa.BuitenGebruik(geopend!.Wie, Id, detail!.Id, weg.Datum, opbrengst, weg.Opbrengstrekening, weg.Resultaatrekening ?? "");
+        fouten = uitkomst.Fouten;
+        bezig = false;
+        if (uitkomst.IsGelukt)
+        {
+            await Herlaad($"Buiten gebruik per {Weergave.Datum(weg.Datum)}.");
+        }
+    }
+
+    private async Task WeerInGebruik()
+    {
+        bezig = true;
+        var uitkomst = await Activa.WeerInGebruik(geopend!.Wie, Id, detail!.Id);
+        fouten = uitkomst.Fouten;
+        bezig = false;
+        if (uitkomst.IsGelukt)
+        {
+            await Herlaad("Weer in gebruik; de boeking is tegengeboekt.");
+        }
+    }
+
+    private async Task Herlaad(string melding)
+    {
+        detail = await Activa.Open(geopend!.Wie, Id, detail!.Id);
+        f = Formulier.Van(detail!.Invoer);
+        bericht = melding;
+    }
+}

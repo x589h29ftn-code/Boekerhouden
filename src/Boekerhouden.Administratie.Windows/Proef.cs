@@ -24,7 +24,7 @@ internal static class Proef
         "", "balans", "kolommenbalans", "kolommenbalans?vergelijk=jaar", "kolommenbalans?weergave=maand", "kolommenbalans?indeling=rgs", "proefbalans", "grootboek?rekening=1100",
         "grootboek?rekening=4300", "journaal", "inkoopboek", "verkoopboek", "crediteuren", "debiteuren", "aansluitingen", "bank",
         "bank/openstaand", "inkoop", "verkoop", "verkoop/nieuw", "verkoop/terugkerend", "memoriaal", "relaties", "regels",
-        "rekeningschema", "instellingen", "factuurlayout",
+        "rekeningschema", "instellingen", "factuurlayout", "activa", "activa?weergave=staat", "activa/nieuw", "perioden",
     ];
 
     public static async Task<Proefuitkomst> Voorbereiden(IServiceProvider diensten)

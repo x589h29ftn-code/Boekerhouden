@@ -1,0 +1,173 @@
+@page "/a/{Id:guid}/perioden"
+@using System.Globalization
+@inject PeriodeDienst Perioden
+@inject GrootboekDienst Grootboek
+
+<AdministratieKader Id="Id" Titel="Perioden" Actief="/perioden" BijOpenen="Open">
+    <Kenmerken>
+        @if (stand?.AfgeslotenTot is { } tot)
+        {
+            <span title="@(stand.AfgeslotenOp is { } op ? $"{stand.AfgeslotenDoor}, {Weergave.DatumTijd(op)}" : null)">Afgesloten t/m @Weergave.Datum(tot)</span>
+        }
+        else if (stand is not null)
+        {
+            <span>Alles open</span>
+        }
+    </Kenmerken>
+    <Acties>
+        <JaarKeuze Jaren="jaren" Jaar="jaar" JaarChanged="KiesJaar" />
+    </Acties>
+    <ChildContent>
+        @if (vraag is not null)
+        {
+            <div class="bericht mb-3 periodevraag">
+                @if (vraag.Afsluiten)
+                {
+                    <div>Afsluiten t/m @Weergave.Datum(vraag.Datum)?</div>
+                    @foreach (var s in vraag.Signalen)
+                    {
+                        <div class="small text-secondary">@s</div>
+                    }
+                    <div class="mt-2">
+                        <button class="btn btn-sm btn-primary me-2" disabled="@bezig" @onclick="SluitAf">@(vraag.Signalen.Count > 0 ? "Toch afsluiten" : "Afsluiten")</button>
+                        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" @onclick="() => vraag = null">Annuleren</button>
+                    </div>
+                }
+                else
+                {
+                    <div>@(vraag.Alles ? "Alles heropenen" : $"Heropenen vanaf {Maand(vraag.Datum)}")</div>
+                    <div class="d-flex gap-2 mt-2">
+                        <input class="form-control form-control-sm" id="reden" placeholder="Reden" maxlength="300" @bind="reden" @bind:event="oninput" />
+                        <button class="btn btn-sm btn-primary text-nowrap" disabled="@(bezig || string.IsNullOrWhiteSpace(reden))" @onclick="Heropen">Heropenen</button>
+                        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" @onclick="() => vraag = null">Annuleren</button>
+                    </div>
+                }
+            </div>
+        }
+        @if (stand is not null)
+        {
+            <div class="card overzichtskaart">
+                <table class="table align-middle mb-0 overzichtstabel perioden">
+                    <thead>
+                        <tr><th>Maand</th><th class="text-end">Boekingen</th><th>Status</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var m in stand.Maanden)
+                        {
+                            <tr>
+                                <td>@Maand(m.Begin)</td>
+                                <td class="text-end">@(m.Boekingen == 0 ? null : m.Boekingen)</td>
+                                <td>@if (m.Afgesloten)
+                                    {
+                                        <span class="status">Afgesloten</span>
+                                    }</td>
+                                <td class="text-end">
+                                    @if (mag && !m.Afgesloten && m.Begin <= vandaag)
+                                    {
+                                        <button class="btn btn-sm btn-link p-0 regelactie" disabled="@bezig" @onclick="() => VraagAfsluiten(m.Eind)">Afsluiten t/m deze maand</button>
+                                    }
+                                    else if (mag && m.Afgesloten)
+                                    {
+                                        <button class="btn btn-sm btn-link p-0 regelactie" disabled="@bezig" @onclick="() => VraagHeropenen(m.Begin)">Heropenen vanaf deze maand</button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            @if (mag && stand.AfgeslotenTot is not null)
+            {
+                <button class="btn btn-sm btn-link p-0 mt-2" disabled="@bezig" @onclick="() => VraagHeropenen(null)">Alles heropenen</button>
+            }
+        }
+        @if (bericht is not null)
+        {
+            <div class="bericht small mt-2">@bericht</div>
+        }
+        <Foutmeldingen Fouten="fouten" />
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private static readonly CultureInfo Nederlands = CultureInfo.GetCultureInfo("nl-NL");
+
+    private sealed record Vraag(bool Afsluiten, DateOnly Datum, IReadOnlyList<string> Signalen, bool Alles = false);
+
+    private Geopend? geopend;
+    private Periodestand? stand;
+    private IReadOnlyList<int> jaren = [];
+    private int jaar;
+    private DateOnly vandaag;
+    private bool mag;
+    private bool bezig;
+    private Vraag? vraag;
+    private string? reden;
+    private string? bericht;
+    private IReadOnlyList<string> fouten = [];
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private static string Maand(DateOnly d) => d.ToString("MMMM yyyy", Nederlands);
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        mag = g.Kop.Mag(Recht.Boekhouden);
+        vandaag = DateOnly.FromDateTime(DateTime.Today);
+        jaren = await Grootboek.Boekjaren(g.Wie, Id);
+        jaar = jaren.FirstOrDefault(vandaag.Year);
+        await Laad();
+    }
+
+    private async Task KiesJaar(int j)
+    {
+        jaar = j;
+        vraag = null;
+        await Laad();
+    }
+
+    private async Task Laad() => stand = await Perioden.Stand(geopend!.Wie, Id, jaar);
+
+    private async Task VraagAfsluiten(DateOnly tot)
+    {
+        (bericht, fouten, bezig) = (null, [], true);
+        vraag = new Vraag(true, tot, await Perioden.Openstaand(geopend!.Wie, Id, tot));
+        bezig = false;
+    }
+
+    private void VraagHeropenen(DateOnly? vanaf)
+    {
+        (bericht, fouten, reden) = (null, [], null);
+        vraag = new Vraag(false, vanaf ?? default, [], vanaf is null);
+    }
+
+    private async Task SluitAf()
+    {
+        bezig = true;
+        var tot = vraag!.Datum;
+        var uitkomst = await Perioden.SluitAf(geopend!.Wie, Id, tot);
+        fouten = uitkomst.Fouten;
+        bericht = uitkomst.IsGelukt ? $"Afgesloten t/m {Weergave.Datum(tot)}." : null;
+        vraag = null;
+        await Laad();
+        bezig = false;
+    }
+
+    private async Task Heropen()
+    {
+        bezig = true;
+        var v = vraag!;
+        var uitkomst = await Perioden.Heropen(geopend!.Wie, Id, v.Alles ? null : v.Datum, reden ?? "");
+        fouten = uitkomst.Fouten;
+        bericht = uitkomst.IsGelukt ? (v.Alles ? "Alles is weer open." : $"Open vanaf {Maand(v.Datum)}.") : null;
+        if (uitkomst.IsGelukt)
+        {
+            vraag = null;
+        }
+
+        await Laad();
+        bezig = false;
+    }
+}

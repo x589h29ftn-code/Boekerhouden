@@ -483,6 +483,11 @@ public sealed class InkoopDienst(
         }
 
         var boeking = await db.Boekingen.AsNoTracking().Include(b => b.Regels).SingleAsync(b => b.Id == boekingId);
+        if (await GrootboekDienst.Afgesloten(db, administratie, boeking.Datum) is { } afgesloten)
+        {
+            return Uitkomst.Mislukt(afgesloten);
+        }
+
         var boekstuk = await GrootboekDienst.VolgendBoekstuk(db, boeking.Dagboek, boeking.Datum.Year);
         var tegen = boeking.NaarDomein().Tegenboeking(boekstuk, boeking.Datum, Kort($"Terugdraaien {boeking.Dagboek} {boeking.Boekstuk}: {boeking.Omschrijving}"));
         (await grootboek.VoegToeAanKeten(db, administratie, tegen, wie)).Herstelt = boeking.Id;
@@ -877,6 +882,12 @@ public sealed class InkoopDienst(
         if (dagboek is null)
         {
             return Uitkomst.Mislukt("Deze administratie heeft geen inkoopboek.");
+        }
+
+        DateOnly[] datums = [factuur.Datum, .. vorige is null ? [] : new[] { vorige.Datum }, .. verdeling is null ? [] : new[] { verdeling.Van }];
+        if (await GrootboekDienst.Afgesloten(db, administratie, datums) is { } afgesloten)
+        {
+            return Uitkomst.Mislukt(afgesloten);
         }
 
         // Transitorisch: de kosten eerst op de verdeelrekening (balans), daarna per maand in het memoriaal naar de kosten.

@@ -241,6 +241,11 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
             fouten.Add($"Boekstuk {post.Boekstuk} bestaat al in dagboek {post.Dagboek}.");
         }
 
+        if (await Afgesloten(db, administratie, post.Datum) is { } afgesloten)
+        {
+            fouten.Add(afgesloten);
+        }
+
         if (fouten.Count > 0)
         {
             return Uitkomst<long>.Mislukt([.. fouten]);
@@ -327,6 +332,11 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
     internal async Task<Boeking> VoegToeAanKeten(AdministratieDbContext db, Guid administratie, Journaalpost post, Uitvoerder wie)
     {
         await db.Vergrendel(administratie);
+        if (await Afgesloten(db, administratie, post.Datum) is { } afgesloten)
+        {
+            throw new PeriodeAfgeslotenException(afgesloten);
+        }
+
         var vorige = await db.Boekingen.OrderByDescending(b => b.Volgnummer).Select(b => new { b.Volgnummer, b.Hash }).FirstOrDefaultAsync();
         var volgnummer = (vorige?.Volgnummer ?? 0) + 1;
         var vorigeHash = vorige?.Hash ?? Journaalketen.Begin;
@@ -361,6 +371,17 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
         boeking.Hash = Journaalketen.Hash(boeking.NaarDomein(), volgnummer, vorigeHash);
         db.Boekingen.Add(boeking);
         return boeking;
+    }
+
+    /// <summary>
+    /// Waarom er op een van deze datums niet geboekt kan worden (de periode is afgesloten), of leeg. De diensten vragen
+    /// dit vóór ze iets wijzigen, zodat de gebruiker een gewone melding krijgt; <see cref="VoegToeAanKeten"/> en
+    /// <see cref="NieuweVersie"/> controleren het nog eens als vangnet.
+    /// </summary>
+    internal static async Task<string?> Afgesloten(AdministratieDbContext db, Guid administratie, params DateOnly[] datums)
+    {
+        var tot = await db.Administraties.AsNoTracking().Where(a => a.Id == administratie).Select(a => a.AfgeslotenTot).SingleOrDefaultAsync();
+        return Afsluiting.Controleer(tot, datums);
     }
 
     /// <summary>Het rekeningschema en de dagboeken van een geopende administratie (voor andere diensten).</summary>
@@ -466,7 +487,19 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
             return "deze boeking hoort bij de periodeverdeling van een factuur; pas hem aan via de factuur.";
         }
 
+        if (await HoortBijActiva(db, boeking))
+        {
+            return "deze boeking hoort bij de vaste activa.";
+        }
+
         return null;
+    }
+
+    /// <summary>Een afschrijving of desinvestering van de vaste activa: die gaat via <see cref="ActivaDienst"/>.</summary>
+    private static async Task<bool> HoortBijActiva(AdministratieDbContext db, Boeking boeking)
+    {
+        var stuk = $"{boeking.Dagboek} {boeking.Boekstuk}";
+        return await db.Afschrijvingen.AnyAsync(a => a.Boekstuk == stuk) || await db.Activa.AnyAsync(a => a.Desinvesteringsboeking == stuk);
     }
 
     /// <summary>Waarom een boeking niet via <see cref="PasAan"/> aan te passen is, of leeg als dat wel kan.</summary>
@@ -491,6 +524,11 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
         if (await db.Documenten.AnyAsync(d => d.Verdeling != null && d.Verdeling.Contains(stuk)))
         {
             return "Deze boeking hoort bij de periodeverdeling van een factuur: pas hem aan via de factuur.";
+        }
+
+        if (await HoortBijActiva(db, boeking))
+        {
+            return "Deze boeking hoort bij de vaste activa: boek daar (Boekhouden, Vaste activa).";
         }
 
         return null;
@@ -523,6 +561,11 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
         if (await NietAanpasbaar(db, oud) is { } reden)
         {
             return Uitkomst<int>.Mislukt(reden);
+        }
+
+        if (await Afgesloten(db, administratie, oud.Datum, nieuw.Datum) is { } afgesloten)
+        {
+            return Uitkomst<int>.Mislukt(afgesloten);
         }
 
         var schema = await LaadSchema(db);
@@ -585,6 +628,11 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
                 return Uitkomst<int>.Mislukt($"Boeking {groep.Key.Dagboek} {groep.Key.Boekstuk} bestaat niet (meer).");
             }
 
+            if (await Afgesloten(db, administratie, oud.Datum) is { } afgesloten)
+            {
+                return Uitkomst<int>.Mislukt($"{oud.Dagboek} {oud.Boekstuk}: {afgesloten}");
+            }
+
             if (await NietTeHerboeken(db, oud) is { } reden)
             {
                 return Uitkomst<int>.Mislukt($"{oud.Dagboek} {oud.Boekstuk}: {reden}");
@@ -639,6 +687,11 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
     /// </summary>
     internal async Task<Boeking> NieuweVersie(AdministratieDbContext db, Guid administratie, Boeking vorige, Journaalpost post, Uitvoerder wie)
     {
+        if (await Afgesloten(db, administratie, vorige.Datum) is { } afgesloten)
+        {
+            throw new PeriodeAfgeslotenException(afgesloten);
+        }
+
         var boeking = await VoegToeAanKeten(db, administratie, post with { Dagboek = vorige.Dagboek, Boekstuk = vorige.Boekstuk }, wie);
         (boeking.Versie, boeking.Vervangt) = (vorige.Versie + 1, vorige.Id);
         foreach (var mutatie in await db.Banktransacties.Where(t => t.BoekingId == vorige.Id).ToListAsync())

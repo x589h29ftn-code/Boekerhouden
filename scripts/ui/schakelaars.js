@@ -136,7 +136,7 @@ function totp(sleutel) {
   await page.setInputFiles('#afschriften', path.join(fictief, 'ing-2026-03.mt940')); await page.waitForTimeout(3000);
 
   const paginas = ['', 'kolommenbalans', 'proefbalans', 'grootboek?rekening=1600', 'journaal', 'inkoopboek', 'verkoopboek', 'crediteuren', 'debiteuren',
-    'aansluitingen', 'bank', 'inkoop', 'verkoop', 'verkoop/terugkerend', 'memoriaal', 'relaties', 'regels', 'rekeningschema', 'instellingen', 'factuurlayout'];
+    'aansluitingen', 'bank', 'inkoop', 'verkoop', 'verkoop/terugkerend', 'memoriaal', 'relaties', 'regels', 'rekeningschema', 'instellingen', 'factuurlayout', 'activa', 'activa/nieuw', 'perioden'];
   let fouten = 0;
   const controle = async (wat) => {
     await page.waitForTimeout(700);

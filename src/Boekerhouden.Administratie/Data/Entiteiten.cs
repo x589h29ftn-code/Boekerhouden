@@ -116,6 +116,13 @@ public sealed class Administratie
     public DateTimeOffset? GearchiveerdOp { get; set; }
 
     public string? GearchiveerdDoor { get; set; }
+
+    /// <summary>Tot en met deze datum is de administratie afgesloten: daar wordt niets meer geboekt of gewijzigd. Leeg = alles open.</summary>
+    public DateOnly? AfgeslotenTot { get; set; }
+
+    public DateTimeOffset? AfgeslotenOp { get; set; }
+
+    public string? AfgeslotenDoor { get; set; }
 }
 
 /// <summary>
@@ -942,4 +949,75 @@ public sealed class Dashboardindeling : IVanAdministratie
     public string Widgets { get; set; } = string.Empty;
 
     public DateTimeOffset GewijzigdOp { get; set; }
+}
+
+/// <summary>Een vast actief van de administratie (zie <see cref="Boekhouding.Activa.Activum"/>).</summary>
+public sealed class Activum : IVanAdministratie
+{
+    public Guid Id { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    /// <summary>Doorlopend nummer binnen de administratie (1, 2, 3 …).</summary>
+    public int Nummer { get; set; }
+
+    public string Omschrijving { get; set; } = string.Empty;
+
+    public DateOnly Aanschafdatum { get; set; }
+
+    public decimal Aanschafwaarde { get; set; }
+
+    public decimal Restwaarde { get; set; }
+
+    public DateOnly BeginAfschrijving { get; set; }
+
+    /// <summary>In maanden.</summary>
+    public int Looptijd { get; set; }
+
+    public Boekhouding.Activa.Afschrijvingsmethode Methode { get; set; }
+
+    public string Activarekening { get; set; } = string.Empty;
+
+    public string Afschrijvingsrekening { get; set; } = string.Empty;
+
+    public string Kostenrekening { get; set; } = string.Empty;
+
+    public decimal AfgeschrevenVoorBegin { get; set; }
+
+    /// <summary>De boeking van de aanschaf, bijv. "INK 2026-0012" (de inkoopfactuur); leeg bij handmatig ingevoerd.</summary>
+    public string? Bron { get; set; }
+
+    public string? Notitie { get; set; }
+
+    /// <summary>Buiten gebruik (verkocht, gesloopt): de datum, de opbrengst zonder btw en de boeking.</summary>
+    public DateOnly? BuitenGebruikOp { get; set; }
+
+    public decimal? Opbrengst { get; set; }
+
+    public string? Desinvesteringsboeking { get; set; }
+
+    public DateTimeOffset AangemaaktOp { get; set; }
+
+    public string AangemaaktDoor { get; set; } = string.Empty;
+
+    public Boekhouding.Activa.Activum NaarDomein() =>
+        new(Omschrijving, Aanschafdatum, Aanschafwaarde, Restwaarde, BeginAfschrijving, Looptijd, Methode, Activarekening, Afschrijvingsrekening, Kostenrekening, AfgeschrevenVoorBegin);
+}
+
+/// <summary>De geboekte afschrijving van één actief in één maand, met de boeking in het memoriaal.</summary>
+public sealed class Afschrijving : IVanAdministratie
+{
+    public long Id { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    public Guid ActivumId { get; set; }
+
+    /// <summary>De eerste dag van de maand.</summary>
+    public DateOnly Maand { get; set; }
+
+    public decimal Bedrag { get; set; }
+
+    /// <summary>Dagboek en boekstuk, bijv. "MEM 2026-0040".</summary>
+    public string Boekstuk { get; set; } = string.Empty;
 }
