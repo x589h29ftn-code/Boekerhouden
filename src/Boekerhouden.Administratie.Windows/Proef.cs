@@ -21,7 +21,7 @@ internal static class Proef
     /// <summary>De pagina's van een administratie die de proef langsloopt (het deel na <c>/a/{id}/</c>).</summary>
     public static readonly string[] Paginas =
     [
-        "", "kolommenbalans", "kolommenbalans?vergelijk=jaar", "kolommenbalans?weergave=maand", "kolommenbalans?indeling=rgs", "proefbalans", "grootboek?rekening=1100",
+        "", "balans", "kolommenbalans", "kolommenbalans?vergelijk=jaar", "kolommenbalans?weergave=maand", "kolommenbalans?indeling=rgs", "proefbalans", "grootboek?rekening=1100",
         "grootboek?rekening=4300", "journaal", "inkoopboek", "verkoopboek", "crediteuren", "debiteuren", "aansluitingen", "bank",
         "bank/openstaand", "inkoop", "verkoop", "verkoop/nieuw", "verkoop/terugkerend", "memoriaal", "relaties", "regels",
         "rekeningschema", "instellingen", "factuurlayout",
@@ -113,7 +113,7 @@ internal static class Proef
             klok.Restart();
             var (klikken, gevonden) = await Klik(webview, script);
             fouten.AddRange(gevonden);
-            verslag.AppendLine(CultureInfo.InvariantCulture, $"{(pagina.Length == 0 ? "(balans)" : pagina),-34} {laden,6} ms {klok.ElapsedMilliseconds,6} ms {klikken,6}");
+            verslag.AppendLine(CultureInfo.InvariantCulture, $"{(pagina.Length == 0 ? "(dashboard)" : pagina),-34} {laden,6} ms {klok.ElapsedMilliseconds,6} ms {klikken,6}");
         }
 
         // Snel heen en weer tussen zware pagina's, zonder te wachten tot ze klaar zijn.
@@ -194,7 +194,7 @@ internal static class Proef
             "(() => { const ui = document.getElementById('blazor-error-ui'); return document.body.innerText.includes('Er ging iets mis') || (!!ui && getComputedStyle(ui).display !== 'none'); })()"));
 
     private static string Bestandsnaam(string pagina) =>
-        pagina.Length == 0 ? "balans" : new string([.. pagina.Select(c => char.IsLetterOrDigit(c) ? c : '-')]);
+        pagina.Length == 0 ? "dashboard" : new string([.. pagina.Select(c => char.IsLetterOrDigit(c) ? c : '-')]);
 
     private static async Task<string> Wacht(WebView2 webview, string verwacht)
     {

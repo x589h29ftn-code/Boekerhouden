@@ -2,7 +2,7 @@
 
 Voor wie (mens of Claude-sessie) verder gaat aan Boekerhouden. Lees eerst `CLAUDE.md` (werkafspraken en structuur),
 dan dit document, en voor de inhoud `docs/administratie/README.md` (administratiepakket) en `docs/onderzoek/README.md`
-(samenstelpakket). Stand: 31 oktober 2026 (avond, na de verkoop).
+(samenstelpakket). Stand: 7 november 2026 (na het dashboard met brutomarge).
 
 ## 1. Waar we staan
 
@@ -15,7 +15,7 @@ Er zijn twee apps die één huisstijl delen:
   per onderdeel in `docs/administratie/README.md` §5 ("Stand na A1–A7", "Inkoop", "Bank" en de tabellen met
   *Onderdeel | Hoe*).
 
-Laatst gebouwd (oktober 2026), in deze volgorde:
+Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
 
 1. **Inkoop en bank in de praktijk** (batch 1–3 met fictieve facturen en MT940 van de gebruiker): herkenning,
    afletteren met verzamelbetalingen, deelbetalingen, dubbele betalingen als te vorderen, betalingskorting,
@@ -46,11 +46,28 @@ Laatst gebouwd (oktober 2026), in deze volgorde:
      PDF, afdrukken, e-factuur (UBL Peppol BIS 3) en e-mail als .eml;
    - terugkerende facturen (maand, kwartaal, halfjaar, jaar; `#periode`), ook meteen definitief en verdeeld;
    - verkoopfacturen uit een ander pakket inlezen (UBL, PDF, scan), vanzelf boeken als alles klopt.
-5. **Einde klantrelatie en overstappen** (README §3.9 en §3.11): administraties archiveren (alleen inzien) en door
+5. **Bank, vervolg**: overlappende afschriften herkennen (melding, *mogelijk dubbel* rechts van de omschrijving,
+   mutaties selecteren en verwijderen); aansluiting ingelezen bankmutaties tegen het bankdagboek (een verwijderde
+   boeking valt op); verkoopregel met vast bedrag (zonder aantal); standaardomschrijving (kantoorinstelling).
+6. **Rustiger schermen**: formulieren achter een knop (`Uitklapformulier`), links in lijsten in tekstkleur, één regel
+   per wijziging in het log, nauwelijks vet (alleen paginatitel en paneelnaam, gewicht 500).
+7. **Einde klantrelatie en overstappen** (README §3.9 en §3.11): administraties archiveren (alleen inzien) en door
    de beheerder verwijderen (tombstone `VerwijderdeAdministraties` voor de triggers); een boekjaar als auditfile
-   (XAF 3.2) en een auditfile inlezen als nieuwe administratie.
-6. **Dashboard** (README §3.12): startpagina van een administratie met widgets die elke gebruiker zelf kiest
-   (bank, btw, te verwerken, openstaand, grafiek per maand, kerncijfers, verkoop, aansluitingen).
+   (XAF 3.2, knop op *Balans en W&V*) en een auditfile inlezen als nieuwe administratie (*Nieuwe administratie*).
+8. **Dashboard** (README §3.12, `DashboardDienst`, `DashboardPagina`): de startpagina `/a/{id}` van een
+   administratie; *Balans en W&V* is verhuisd naar `/a/{id}/balans`.
+   - Widgets per gebruiker te kiezen en te ordenen (*Aanpassen*, tabel `Dashboardindelingen`): bank en kas, bankmutaties
+     en inkoop te verwerken, btw (afgelopen maand of kwartaal plus lopende periode), omzet/inkoop/resultaat per maand,
+     liquiditeit (bank en kas cumulatief per maand, 12 maanden), openstaande debiteuren en crediteuren, kerncijfers
+     tegen vorig jaar, verkoop, aansluitingen, brutomarge.
+   - Bedragen in hele euro's (`Weergave.HeleEuros`: kolommen sluiten op het totaal).
+   - Rekent altijd vanaf vandaag (lopend jaar, saldi per vandaag), los van het jaar dat elders open staat.
+   - Alles door te klikken, met de periode in het adres (kolommenbalans `?van=&tot=`, grootboekkaart, bank, inkoop).
+   - Grafieken als SVG zonder script (`Components/Gedeeld/Grafiek.cs`, `Maandgrafiek`, `Liquiditeitsgrafiek`);
+     kleuren `--grafiek-1..3` in `administratie.css`, gecontroleerd op kleurenblindheid.
+   - **Margegroepen**: in het rekeningschema per resultaatrekening een groep (bijv. *Product X*); RGS `WOmz` telt als
+     omzet, de rest als inkoop (`GrootboekDienst.ZetMargegroep`, domein `Grootboek/Marges`). Widget *Brutomarge*:
+     tegen vorig jaar met afwijking, of per kwartaal.
 
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).
@@ -72,6 +89,8 @@ Afgesproken of voorgesteld maar nog niet gebouwd, ongeveer in volgorde van wens:
 | Btw-aangifte en periodes (A10) | Aangifte per rubriek, afdracht, periodes afsluiten |
 | Saldibalans naar het samenstelpakket (A12) | Jaarrekening zonder export |
 | Gepland (README §5) | Regels splitsen per leverancier, verzamel-PDF splitsen, vreemde valuta, ontbrekende factuur |
+| Dashboard: vervolg | Voorgesteld, nog niet gevraagd: afwijking marge in procentpunten; in de kwartaalweergave ook vorig jaar per kwartaal; btw-frequentie (maand/kwartaal) als instelling van de administratie in plaats van per widget |
+| Auditfile: vervolg | De btw-code per boekingsregel zit niet in de XAF-export; XAF 4.0 is alleen met een zelfgemaakt voorbeeld getest |
 | Hulppagina | De uitleg hoort in `/hulp` (CLAUDE.md, rustige uitstraling); in het administratiepakket nog niet gebouwd |
 
 ## 3. Werkwijze met de gebruiker
@@ -143,3 +162,9 @@ scripts/ui/herstart.sh && node scripts/ui/schermafbeeldingen.js /tmp/schermen vo
   pagina en knop van de fout) en schermafdrukken. Een nieuwe pagina hoort in `Proef.Paginas`.
 - **Processen stoppen**: `pkill -f` met een patroon dat ook in de eigen opdrachtregel staat, stopt de eigen shell;
   gebruik `pgrep` met een specifiek pad (zoals in `scripts/ui/herstart.sh`).
+- **Razor en SVG**: een `<text>`-element met attributen kan niet in Razor (`<text>` is daar een sleutelwoord); maak het
+  als `MarkupString` (`Grafiek.Label`). `<a href>` rond een `rect` in een SVG werkt wel.
+- **Tests met een vaste datum**: `VasteDagFixture` (in `DashboardDienstTests`) zet een vaste `TimeProvider`
+  (15 oktober 2026); diensten die "vandaag" gebruiken horen `TimeProvider` te injecteren.
+- **Selectors in `schermafbeeldingen.js`**: de liquiditeitsgrafiek gebruikt ook de class `maandgrafiek`; kies in het
+  script een widget via `[data-widget="..."]`.
