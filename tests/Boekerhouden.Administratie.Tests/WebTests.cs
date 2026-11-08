@@ -73,6 +73,13 @@ public sealed class WebTests(AdministratieFixture app) : IClassFixture<Administr
         var kaart = await beheerder.GetStringAsync(new Uri($"/a/{id}/grootboek?rekening=1100&jaar=2026", UriKind.Relative));
 
         Assert.Contains("Webwinkel Voorbeeld B.V.", lijst, StringComparison.Ordinal);
+        // Weergave: het themascript in de kop (vóór de pagina zichtbaar wordt), de donkere stijl, en de keuzes in het menu.
+        Assert.Matches("<head>[\\s\\S]*donker[^\"]*\\.css[\\s\\S]*thema[^\"]*\\.js[\\s\\S]*</head>", lijst);
+        foreach (var keuze in new[] { "data-thema=\"licht\"", "data-thema=\"donker\"", "data-thema=\"systeem\"", "data-dichtheid=\"compact\"", "data-dichtheid=\"ruim\"" })
+        {
+            Assert.Contains(keuze, lijst, StringComparison.Ordinal);
+        }
+
         Assert.Contains("1.234,56", kaart, StringComparison.Ordinal);
 
         // Het menu in groepen, met de kolommenbalans onder Rapportages.

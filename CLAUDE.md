@@ -60,7 +60,7 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   `Lokaal/` (`LokaleApp` = samenstelling voor de Windows-app: SQLite, lokale gebruiker zonder inloggen), `Identiteit/` (inloggen, beveiligingsheaders,
   tweestap verplicht voor de beheerder), `Components/` (schermen; accountpagina's statisch, de rest interactief).
   Negatieve toegangstests horen bij elke dienst. Geen inline scripts (CSP): JavaScript als los bestand in `wwwroot/`
-  (`factuurviewer.js` = de PDF-viewer met gebied aanwijzen; `factuurontwerp.js` = blokken slepen in de factuurontwerper; pdf.js staat in `wwwroot/lib/pdfjs`, Apache-2.0).
+  (`thema.js` = licht/donker en dichtheid, `donker.css` = de donkere kleuren; `factuurviewer.js` = de PDF-viewer met gebied aanwijzen; `factuurontwerp.js` = blokken slepen in de factuurontwerper; pdf.js staat in `wwwroot/lib/pdfjs`, Apache-2.0).
 - `src/Boekerhouden.Administratie.Windows` – de Windows-app voor de tests: WinForms met BlazorWebView (dezelfde
   schermen, geen webserver), SQLite in `%LOCALAPPDATA%`, geen inloggen. Bouwt op Linux (`EnableWindowsTargeting`),
   draait alleen op Windows. `scripts/maak-windows-app.ps1` / `.sh` maken de zip; de CI ook, en start hem op Windows.

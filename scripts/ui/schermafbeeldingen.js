@@ -1,5 +1,5 @@
 // Browsercontrole en schermafbeeldingen van het administratiepakket, met alleen verzonnen testdata uit tests/Fictief.
-// Gebruik: scripts/ui/herstart.sh && node scripts/ui/schermafbeeldingen.js <map> [voorvoegsel]
+// Gebruik: scripts/ui/herstart.sh && node scripts/ui/schermafbeeldingen.js <map> [voorvoegsel]   (THEMA=donker en/of DICHTHEID=ruim ervoor)
 // Maakt de eerste gebruiker (met tweestapsverificatie), een administratie, boekt een inkoopfactuur (UBL) en een
 // memoriaalboeking, leest een bankafschrift in en bewaart per scherm een PNG: <map>/<voorvoegsel>-<scherm>.png.
 const { chromium } = require('playwright');
@@ -20,6 +20,8 @@ function totp(sleutel) {
   const fictief = path.resolve(__dirname, '../../tests/Fictief/administratie');
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+  // THEMA=donker of DICHTHEID=ruim: dezelfde schermen in die weergave (zoals gekozen in het gebruikersmenu).
+  if (process.env.THEMA || process.env.DICHTHEID) await page.addInitScript(([t, d]) => { if (t) localStorage.setItem('thema', t); if (d) localStorage.setItem('dichtheid', d); }, [process.env.THEMA, process.env.DICHTHEID]);
   const log = []; page.on('pageerror', e => log.push(e.message)); page.on('console', m => { if (m.type() === 'error') log.push(m.text()); else if (process.env.DEBUG) console.log('console:', m.text()); });
   const basis = 'http://localhost:5090';
 

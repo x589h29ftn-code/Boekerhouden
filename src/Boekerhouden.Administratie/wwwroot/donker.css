@@ -1,0 +1,232 @@
+/* Donkere weergave (keuze in het gebruikersmenu, thema.js zet data-bs-theme="dark" op <html>) en de ruime dichtheid.
+   Als laatste geladen. Dezelfde rustige opbouw: een donker vlak, iets lichtere kaarten, gedempte lijnen; het accent
+   wordt lichter zodat links en het actieve menu leesbaar blijven. PDF's, de factuur en het factuurontwerp blijven wit. */
+:root[data-bs-theme="dark"] {
+    color-scheme: dark;
+    --bh-oppervlak: #1d222a;
+    --bh-accent: #8db0e3;
+    --bh-accent-donker: #b3cbee;
+    --bh-accent-zacht: #24344b;
+    --bh-tekst: #e2e6eb;
+    --bh-zacht: #98a3ae;
+    --bh-lijn: #2e353f;
+    --bh-lijn-sterk: #3c4550;
+    --bh-vlak: #15191f;
+    --bh-kop: #20262e;
+    --bh-inkt: #0f141c;
+    --bh-warm: #e58c62;
+    --bh-warm-zacht: #3a2a22;
+    --bs-body-bg: var(--bh-vlak);
+    --bs-body-color: var(--bh-tekst);
+    --bs-secondary-color: var(--bh-zacht);
+    --bs-border-color: var(--bh-lijn);
+    --bs-tertiary-bg: #232a33;
+    --bs-secondary-bg: #232a33;
+    --bs-primary: #3a65a8;
+    --bs-primary-rgb: 58, 101, 168;
+    --bs-link-color: var(--bh-accent);
+    --bs-link-color-rgb: 141, 176, 227;
+    --bs-link-hover-color: var(--bh-accent-donker);
+    --bs-link-hover-color-rgb: 179, 203, 238;
+    --bs-focus-ring-color: rgba(141, 176, 227, .3);
+    --kleur-zacht: var(--bh-zacht);
+    --kleur-lijn: var(--bh-lijn);
+}
+
+[data-bs-theme="dark"] :is(html, body) {
+    background: var(--bh-vlak);
+    color: var(--bh-tekst);
+}
+
+/* Vlakken die licht waren: kaarten, tabellen, panelen, menu's en vensters. */
+[data-bs-theme="dark"] :is(.card, .widget, .werkitem, .wisselaar-knop, .wisselaar-paneel, .zoekvenster, .actiebalk,
+    .gebruikersmenu .menu, .toevoegmenu .menu, .kolom-knop, .hulp-knop, .rapport-paneel, .rubriceren .card-header,
+    .zijmenu-link.actief, .toetshint kbd, .paginasleep-rand span, .variabele-lijst, .wp-stap .afvinken, .verwerkpaneel,
+    .modal-content, .dropdown-menu, .list-group-item, .table, .overzichtstabel) {
+    background-color: var(--bh-oppervlak);
+    color: var(--bh-tekst);
+}
+
+[data-bs-theme="dark"] .table {
+    --bs-table-bg: var(--bh-oppervlak);
+    --bs-table-color: var(--bh-tekst);
+    --bs-table-hover-bg: rgba(255, 255, 255, .035);
+    --bs-table-hover-color: var(--bh-tekst);
+    --bs-table-border-color: var(--bh-lijn);
+}
+
+[data-bs-theme="dark"] :is(.table, .card > .table, .overzichtstabel) > thead th,
+[data-bs-theme="dark"] :is(.bericht, .correctie-detail, .uitsplitsing, .wp-afronden, .sjabloon-onderdeel .wp-stap-regel.kop) {
+    background: var(--bh-kop);
+}
+
+[data-bs-theme="dark"] .zijbalk,
+[data-bs-theme="dark"] .statusbalk {
+    background: #181d24;
+}
+
+[data-bs-theme="dark"] .opslaanbalk {
+    background: rgba(29, 34, 42, .92);
+}
+
+[data-bs-theme="dark"] .melding-kort {
+    background: rgba(29, 34, 42, .85);
+    color: var(--bh-tekst);
+}
+
+    [data-bs-theme="dark"] .melding-kort:hover {
+        background: var(--bh-oppervlak);
+    }
+
+[data-bs-theme="dark"] :is(.gebruikersmenu .menu a:hover, .gebruikersmenu .menu button:hover, .toevoegmenu .menu button:hover,
+    .beheermenu a:hover, .beheermenu a.active, .variabele:hover, a.terug:hover, .zijmenu-link:hover) {
+    background: rgba(255, 255, 255, .06);
+}
+
+[data-bs-theme="dark"] .gebruikersmenu .menu .naam {
+    border-bottom-color: var(--bh-lijn);
+}
+
+[data-bs-theme="dark"] .gebruikersmenu .menu {
+    border-color: var(--bh-lijn-sterk);
+}
+
+[data-bs-theme="dark"] :is(.form-control, .form-select) {
+    background-color: #161b21;
+    border-color: var(--bh-lijn-sterk);
+    color: var(--bh-tekst);
+}
+
+[data-bs-theme="dark"] :is(.bankregels, .regeltabel) :is(.form-control, .form-select) {
+    background-color: transparent;
+}
+
+    [data-bs-theme="dark"] :is(.bankregels, .regeltabel) :is(.form-control, .form-select):is(:hover, :focus) {
+        background-color: #161b21;
+    }
+
+[data-bs-theme="dark"] .form-control::file-selector-button {
+    background: var(--bh-kop);
+    color: var(--bh-tekst);
+}
+
+[data-bs-theme="dark"] .form-check-input:not(:checked) {
+    background-color: #161b21;
+    border-color: #5b6672;
+}
+
+[data-bs-theme="dark"] .btn-outline-secondary {
+    --bs-btn-bg: transparent;
+    --bs-btn-disabled-bg: transparent;
+    --bs-btn-disabled-color: var(--bh-zacht);
+    --bs-btn-disabled-border-color: var(--bh-lijn);
+    --bs-btn-active-border-color: var(--bh-lijn-sterk);
+    --bs-btn-color: var(--bh-tekst);
+    --bs-btn-border-color: var(--bh-lijn-sterk);
+    --bs-btn-hover-bg: rgba(255, 255, 255, .06);
+    --bs-btn-hover-color: var(--bh-tekst);
+    --bs-btn-hover-border-color: var(--bh-lijn-sterk);
+    --bs-btn-active-bg: rgba(255, 255, 255, .1);
+    --bs-btn-active-color: var(--bh-tekst);
+}
+
+[data-bs-theme="dark"] .btn-outline-primary {
+    --bs-btn-color: var(--bh-accent);
+    --bs-btn-border-color: var(--bh-accent);
+    --bs-btn-hover-bg: var(--bh-accent-zacht);
+    --bs-btn-hover-color: var(--bh-accent-donker);
+    --bs-btn-hover-border-color: var(--bh-accent);
+}
+
+[data-bs-theme="dark"] .btn-primary {
+    --bs-btn-bg: #3a65a8;
+    --bs-btn-border-color: #3a65a8;
+    --bs-btn-hover-bg: #4774ba;
+    --bs-btn-hover-border-color: #4774ba;
+    --bs-btn-active-bg: #2f5590;
+    --bs-btn-color: #fff;
+}
+
+[data-bs-theme="dark"] .btn-group > .btn-check:checked + .btn,
+[data-bs-theme="dark"] .btn-group > .btn.active {
+    background: var(--bh-accent-zacht);
+    color: var(--bh-accent-donker);
+}
+
+[data-bs-theme="dark"] .overzichtstabel :is(td.bedrag + td.bedrag, th.text-end + th.text-end) {
+    border-left-color: var(--bh-lijn);
+}
+
+[data-bs-theme="dark"] .widgettabel :is(td, th) {
+    border-top-color: var(--bh-lijn);
+}
+
+[data-bs-theme="dark"] .alert-warning {
+    background: var(--bh-warm-zacht);
+    border-color: #5a3b2c;
+    color: var(--bh-tekst);
+}
+
+[data-bs-theme="dark"] .zijmenu-link.actief {
+    box-shadow: inset 2px 0 0 var(--bh-accent);
+}
+
+[data-bs-theme="dark"] .status.stip-open::before {
+    box-shadow: inset 0 0 0 1.5px #7f8a95;
+}
+
+[data-bs-theme="dark"] .status.stip-uit::before {
+    background: #4b545e;
+}
+
+[data-bs-theme="dark"] .status {
+    color: var(--bh-zacht);
+}
+
+[data-bs-theme="dark"] .zoekvenster-achter {
+    background: rgba(0, 0, 0, .45);
+}
+
+/* Wat op papier hoort, blijft wit: de factuur in de viewer, het factuurontwerp en het voorbeeld. */
+[data-bs-theme="dark"] :is(.factuurviewer, .rapport-viewer) {
+    background: #11151a;
+}
+
+[data-bs-theme="dark"] :is(.pdfpagina, .ontwerpvlak, .factuurvoorbeeld-pagina) {
+    color-scheme: light;
+    background: #fff;
+    color: #1e2428;
+}
+
+/* Ruim: meer lucht in tabellen, menu en formulieren (de standaard is compact). */
+html.ruim {
+    font-size: 100%;
+}
+
+html.ruim :is(.table, .overzichtstabel) > :is(tbody, tfoot) > tr > td {
+    padding-top: .5rem;
+    padding-bottom: .5rem;
+}
+
+html.ruim .zijmenu-link {
+    padding-top: .35rem;
+    padding-bottom: .35rem;
+}
+
+/* De keuzes in het gebruikersmenu: klein kopje, de gekozen keuze met een vinkje-achtig streepje. */
+.gebruikersmenu .menukeuze {
+    padding: .25rem 0;
+    border-bottom: 1px solid var(--bh-lijn);
+}
+
+.gebruikersmenu .menukop {
+    display: block;
+    padding: .2rem .9rem 0;
+    color: var(--bh-zacht);
+    font-size: .75rem;
+}
+
+.gebruikersmenu .menu button.gekozen {
+    box-shadow: inset 2px 0 0 var(--bh-accent);
+    font-weight: 600;
+}

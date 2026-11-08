@@ -108,7 +108,14 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     verwerken en overzichten). Kolomkoppen blijven bovenaan bij scrollen; een kader scrolt alleen horizontaal als de
     tabel echt te breed is (`.te-breed`, `kolommen.js`). Vinkjes en een actiebalk: verkoopconcepten definitief maken of
     verwijderen, documenten in Te verwerken verwijderen (`Bulk.Voer`: regel voor regel via de gewone dienst). `BulkTests`.
-    Nog te doen uit het plan: dichtheid, donkere modus, logo.
+
+15. **Donkere weergave en dichtheid** (stap 5): in het gebruikersmenu Weergave (licht, donker, zoals het systeem) en
+    Dichtheid (compact, ruim), per browser bewaard. `wwwroot/thema.js` (gewoon script in de kop, zodat er geen lichte
+    flits is) zet `data-bs-theme="dark"` en de klasse `ruim` op `<html>`; `wwwroot/donker.css` (als laatste geladen)
+    zet de kleuren om. Wat op papier hoort (factuur, factuurontwerp, PDF-voorbeeld) blijft wit.
+    `THEMA=donker node scripts/ui/schermafbeeldingen.js …` maakt alle schermen in donker (ook `DICHTHEID=ruim`).
+    Nieuwe vaste kleuren in de CSS: ook een donkere waarde in `donker.css` geven.
+    Nog te doen uit het plan: logo (woordmerk of logo van het kantoor, ook in favicon en PDF's).
 
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).

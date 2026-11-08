@@ -22,6 +22,17 @@
             <summary aria-label="Gebruikersmenu"><span class="gebruikersnaam">@context.User.WeergaveNaam()</span><Icoon Naam="chevron-down" /></summary>
             <div class="menu">
                 <div class="naam">@context.User.WeergaveNaam()</div>
+                <div class="menukeuze" role="group" aria-label="Weergave">
+                    <span class="menukop">Weergave</span>
+                    <button type="button" data-thema="licht">Licht</button>
+                    <button type="button" data-thema="donker">Donker</button>
+                    <button type="button" data-thema="systeem">Zoals het systeem</button>
+                </div>
+                <div class="menukeuze" role="group" aria-label="Dichtheid">
+                    <span class="menukop">Dichtheid</span>
+                    <button type="button" data-dichtheid="compact">Compact</button>
+                    <button type="button" data-dichtheid="ruim">Ruim</button>
+                </div>
                 @if (!Omgeving.Lokaal)
                 {
                     <a href="/account/beveiliging" data-enhance-nav="false">Beveiliging</a>
