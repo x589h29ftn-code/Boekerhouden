@@ -103,11 +103,29 @@ export function maak(tabel, sleutel) {
     });
 }
 
+// Alleen een tabel die echt breder is dan zijn kader krijgt een horizontale schuifbalk (.te-breed); de andere
+// kaders scrollen niet zelf, zodat de kolomkoppen bovenaan het venster blijven staan bij het naar beneden scrollen.
+const breedte = typeof ResizeObserver !== "undefined"
+    ? new ResizeObserver(items => items.forEach(i => past(i.target.closest(".overzichtskaart"))))
+    : null;
+
+function past(kaart) {
+    const tabel = kaart && kaart.querySelector(":scope > table");
+    if (tabel) {
+        kaart.classList.toggle("te-breed", tabel.scrollWidth > kaart.clientWidth + 1);
+    }
+}
+
 // Elke tabel met data-sleepbaar="sleutel" krijgt vanzelf versleepbare kolommen, ook als Blazor hem later tekent.
 function koppelAlle() {
     document.querySelectorAll("table[data-sleepbaar]:not([data-kolommen])").forEach(t => {
         if (t.tHead && t.tHead.rows.length > 0 && t.offsetParent !== null) {
             maak(t, t.dataset.sleepbaar);
+            const kaart = t.parentElement && t.parentElement.closest(".overzichtskaart");
+            if (kaart && breedte) {
+                breedte.observe(kaart);
+                breedte.observe(t);
+            }
         }
     });
 }

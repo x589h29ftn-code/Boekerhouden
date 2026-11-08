@@ -3,6 +3,7 @@
 @inject AbonnementDienst Abonnementen
 @inject VerkoopimportDienst Import
 @inject NavigationManager Navigatie
+@inject Meldingen Meldingen
 
 <AdministratieKader Id="Id" Titel="Verkoop" Actief="/verkoop" BijOpenen="Open">
     <Kenmerken>
@@ -34,6 +35,7 @@
         {
             <div class="small mb-1 @(u.Geboekt ? "bericht" : "status let-op d-block")">@u.Melding</div>
         }
+        <Foutmeldingen Fouten="bulkfouten" />
         @if (teMaken > 0)
         {
             <div class="bericht mb-3">
@@ -67,6 +69,10 @@
                 <table class="table align-middle mb-0 overzichtstabel verkooplijst" data-sleepbaar="verkoop">
                     <thead>
                         <tr>
+                            @if (magInvoeren)
+                            {
+                                <th class="kiesvak" title="Alle concepten kiezen"><input class="form-check-input" type="checkbox" aria-label="Alle concepten kiezen" checked="@AllesGekozen(zichtbaar)" @onchange="e => KiesAlle(zichtbaar, e.Value is true)" /></th>
+                            }
                             <SorteerKop Sortering="sortering" Naam="Nummer" Gewijzigd="StateHasChanged" />
                             <SorteerKop Sortering="sortering" Naam="Datum" Gewijzigd="StateHasChanged" />
                             <SorteerKop Sortering="sortering" Naam="Klant" Gewijzigd="StateHasChanged" />
@@ -81,7 +87,14 @@
                     <tbody>
                         @foreach (var r in zichtbaar)
                         {
-                            <tr class="klikbaar" @onclick="() => Navigatie.NavigateTo(Adres(r))" title="@(r.Status == Verkoopstatus.Concept ? $"Concept, gemaakt {Weergave.Moment(r.AangemaaktOp)}" : "Naar de factuur")">
+                            <tr class="klikbaar @(gekozen.Contains(r.Id) ? "gekozen" : null)" @onclick="() => Navigatie.NavigateTo(Adres(r))" title="@(r.Status == Verkoopstatus.Concept ? $"Concept, gemaakt {Weergave.Moment(r.AangemaaktOp)}" : "Naar de factuur")">
+                                @if (magInvoeren)
+                                {
+                                    <td class="kiesvak" @onclick:stopPropagation="true">@if (r.Status == Verkoopstatus.Concept)
+                                        {
+                                            <input class="form-check-input" type="checkbox" aria-label="Kiezen" checked="@gekozen.Contains(r.Id)" @onchange="e => Kies(r.Id, e.Value is true)" />
+                                        }</td>
+                                }
                                 <td class="text-nowrap">@(r.Nummer ?? "")</td>
                                 <td class="text-nowrap">@Weergave.Datum(r.Datum)</td>
                                 <td title="@r.Relatie">@r.Klant</td>
@@ -96,7 +109,7 @@
                     </tbody>
                     <tfoot>
                         <tr class="generaal">
-                            <td colspan="5">Totaal (@Aantal(zichtbaar.Count(r => r.Status == Verkoopstatus.Definitief)))</td>
+                            <td colspan="@(magInvoeren ? 6 : 5)">Totaal (@Aantal(zichtbaar.Count(r => r.Status == Verkoopstatus.Definitief)))</td>
                             <td class="bedrag text-end">@Weergave.Bedrag(zichtbaar.Where(r => r.Status == Verkoopstatus.Definitief).Sum(r => r.Exclusief))</td>
                             <td class="bedrag text-end">@Weergave.Bedrag(zichtbaar.Where(r => r.Status == Verkoopstatus.Definitief).Sum(r => r.Totaal))</td>
                             <td class="bedrag text-end">@Weergave.Bedrag(zichtbaar.Sum(r => r.Openstaand ?? 0m))</td>
@@ -105,6 +118,15 @@
                     </tfoot>
                 </table>
             </div>
+            @if (gekozen.Count > 0)
+            {
+                <div class="actiebalk">
+                    <span>@gekozen.Count @(gekozen.Count == 1 ? "concept" : "concepten") gekozen</span>
+                    <button class="btn btn-sm btn-primary" disabled="@bezig" @onclick="MaakDefinitief">Definitief maken</button>
+                    <VerwijderKnop Bezig="bezig" Bevestigd="VerwijderGekozen" />
+                    <button class="btn btn-sm btn-link text-secondary ms-auto" @onclick="() => gekozen.Clear()">Niets kiezen</button>
+                </div>
+            }
         }
     </ChildContent>
 </AdministratieKader>
@@ -155,6 +177,64 @@
     {
         regels = await Verkoop.Lijst(geopend!.Wie, Id, van, tot);
         teMaken = await Abonnementen.TeMaken(geopend.Wie, Id);
+        gekozen.IntersectWith(regels.Where(r => r.Status == Verkoopstatus.Concept).Select(r => r.Id));
+    }
+
+    // Meerdere concepten tegelijk: kiezen met het vinkje, dan definitief maken of verwijderen (regel voor regel via de
+    // gewone dienst, met dezelfde controles en hetzelfde wijzigingslog).
+    private readonly HashSet<Guid> gekozen = [];
+    private IReadOnlyList<string>? bulkfouten;
+
+    private bool magInvoeren => geopend?.Kop.Mag(Recht.Invoeren) == true;
+
+    private void Kies(Guid id, bool aan)
+    {
+        if (aan)
+        {
+            gekozen.Add(id);
+        }
+        else
+        {
+            gekozen.Remove(id);
+        }
+    }
+
+    private bool AllesGekozen(IReadOnlyList<Verkooplijstregel> zichtbaar) =>
+        zichtbaar.Any(r => r.Status == Verkoopstatus.Concept) && zichtbaar.Where(r => r.Status == Verkoopstatus.Concept).All(r => gekozen.Contains(r.Id));
+
+    private void KiesAlle(IReadOnlyList<Verkooplijstregel> zichtbaar, bool aan)
+    {
+        foreach (var r in zichtbaar.Where(r => r.Status == Verkoopstatus.Concept))
+        {
+            Kies(r.Id, aan);
+        }
+    }
+
+    private List<Verkooplijstregel> Gekozen => [.. regels!.Where(r => gekozen.Contains(r.Id)).OrderBy(r => r.Datum).ThenBy(r => r.AangemaaktOp)];
+
+    private async Task MaakDefinitief()
+    {
+        bezig = true;
+        var uitkomst = await Bulk.Voer(Gekozen, async r => await Verkoop.MaakDefinitief(geopend!.Wie, Id, r.Id), Naam);
+        await NaBulk(uitkomst, "definitief gemaakt");
+    }
+
+    private async Task VerwijderGekozen()
+    {
+        bezig = true;
+        var uitkomst = await Bulk.Voer(Gekozen, r => Verkoop.VerwijderConcept(geopend!.Wie, Id, r.Id), Naam);
+        await NaBulk(uitkomst, "verwijderd");
+    }
+
+    private static string Naam(Verkooplijstregel r) => $"{r.Klant} {r.Omschrijving}".Trim();
+
+    private async Task NaBulk(Bulkuitkomst uitkomst, string wat)
+    {
+        gekozen.Clear();
+        await Laad();
+        bezig = false;
+        bulkfouten = uitkomst.Fouten;
+        Meldingen.Toon($"{uitkomst.Gelukt} {(uitkomst.Gelukt == 1 ? "concept" : "concepten")} {wat}{(uitkomst.Fouten.Count > 0 ? $", {uitkomst.Fouten.Count} niet" : null)}.");
     }
 
     private async Task KiesPeriode((DateOnly Van, DateOnly Tot) periode)

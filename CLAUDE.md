@@ -100,7 +100,7 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   Opslaan en loggen exact; tonen in hele euro's (`Bedragen.Heel`), en sommen afronden met `Afronding.OpHeleEuros`
   zodat totalen blijven sluiten.
 - **Rustige uitstraling** (docs §5.2): één regel per item, details (codes, bron, pad) in de tooltip, geen gekleurde
-  badges of rode bedragen; status als `.status` (grijs; `.fout`/`.let-op` alleen als het nodig is), bij een lijst met een levensloop als `<Statusstip>` (bolletje), een lege lijst als `<LegeStaat>` met de knop om te beginnen, bevestigingen
+  badges of rode bedragen; status als `.status` (grijs; `.fout`/`.let-op` alleen als het nodig is), bij een lijst met een levensloop als `<Statusstip>` (bolletje), een lege lijst als `<LegeStaat>` met de knop om te beginnen, een formulier in `<Formulierblok>`ken met een `<Opslaanbalk>`, meerdere regels tegelijk met vinkjes en een `.actiebalk` (`Bulk.Voer`), bevestigingen
   klein of in `.bericht`; actieknoppen op regels pas bij aanwijzen; zelden gebruikte opties achter een schakelaar. Geen uitlegteksten op de schermen: uitleg hoort in de documentatie
   (`Components/Pages/Hulp.razor`, `/hulp`), bereikbaar via het vraagteken rechtsonder dat naar het deel van de pagina wijst.
 - **Taal**: domeinnamen, meldingen en documentatie in het Nederlands (bijv. `Saldibalans`, `Grootboeknummer`).

@@ -101,8 +101,14 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     de bevestiging linksonder overleeft een navigatie, met "Ongedaan maken" na het boeken van een inkoopfactuur
     (tegenboeking, terug naar het document; niet als er direct is geactiveerd) en na het archiveren van een administratie.
     `MeldingenTests`.
-    Nog te doen uit het plan: formulieren in blokken met een vaste opslaanbalk, vaste tabelkoppen,
-    bulkacties; dichtheid, donkere modus, logo.
+
+14. **Formulieren, vaste koppen en meerdere regels tegelijk** (stap 4): `Formulierblok` (naam links, velden rechts) en
+    `Opslaanbalk` (vast onderaan, "niet opgeslagen" zolang er iets gewijzigd is, Herstellen, en een vraag bij weggaan
+    via `NavigationLock`) bij de instellingen van een administratie en de kantoorinstellingen (één Opslaan voor
+    verwerken en overzichten). Kolomkoppen blijven bovenaan bij scrollen; een kader scrolt alleen horizontaal als de
+    tabel echt te breed is (`.te-breed`, `kolommen.js`). Vinkjes en een actiebalk: verkoopconcepten definitief maken of
+    verwijderen, documenten in Te verwerken verwijderen (`Bulk.Voer`: regel voor regel via de gewone dienst). `BulkTests`.
+    Nog te doen uit het plan: dichtheid, donkere modus, logo.
 
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).

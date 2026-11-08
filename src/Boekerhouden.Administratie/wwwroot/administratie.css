@@ -1293,7 +1293,7 @@ table[data-kolommen] th { position: relative; }
 body.kolom-slepen { cursor: col-resize; user-select: none; }
 .grootboekkaart td { overflow: hidden; }
 .bladeren .btn { line-height: 1; padding: .15rem .55rem; }
-.overzichtskaart:has(> table[data-kolommen]) { overflow-x: auto; }
+.overzichtskaart.te-breed { overflow-x: auto; }
 
 /* Verkoopfactuur maken: labels links, velden rechts; de regels over de volle breedte. */
 .verkoopformulier .formulier-rij { display: grid; grid-template-columns: 9rem 1fr; gap: .5rem; align-items: center; margin-bottom: .5rem; }
@@ -1620,4 +1620,81 @@ a.kerngetal:hover { color: var(--bh-accent); }
 
 .melding-sluit {
     opacity: .75;
+}
+
+/* Vaste kolomkoppen: bij het scrollen door een lange lijst blijft de kop bovenaan het venster (of bovenaan het paneel
+   waarin de lijst scrolt). De lijn onder de kop als schaduw, want een rand scrolt mee weg. */
+:is(.overzichtstabel, .card > .table, .overzichtskaart > .table) > thead > tr > th {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    box-shadow: inset 0 -1px 0 var(--bh-lijn);
+}
+
+/* Formulieren in blokken: links de naam van het blok, rechts de velden; een lijn tussen de blokken. */
+.formulieren {
+    max-width: 60rem;
+}
+
+.formulierblok {
+    display: grid;
+    grid-template-columns: 12rem minmax(0, 1fr);
+    gap: 1.5rem;
+    padding: 1.25rem 0;
+    border-top: 1px solid var(--bh-lijn);
+}
+
+    .formulierblok:first-child {
+        border-top: 0;
+        padding-top: 0;
+    }
+
+.formulierblok-titel {
+    margin: .35rem 0 0;
+    font-size: .9375rem;
+    font-weight: 600;
+}
+
+@media (max-width: 900px) {
+    .formulierblok {
+        grid-template-columns: minmax(0, 1fr);
+        gap: .5rem;
+    }
+}
+
+/* De opslaanbalk: onderaan in beeld, boven de statusbalk; met wijzigingen een rand in de accentkleur. */
+.opslaanbalk {
+    position: sticky;
+    bottom: 2rem;
+    z-index: 15;
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    margin-top: 1rem;
+    padding: .5rem .85rem;
+    border: 1px solid var(--bh-lijn);
+    border-radius: 3px;
+    background: rgba(255, 255, 255, .92);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    transition: border-color var(--bh-snel) ease, box-shadow var(--bh-snel) ease;
+}
+
+    .opslaanbalk.gewijzigd {
+        border-color: var(--bh-accent);
+        box-shadow: 0 -2px 12px rgba(23, 34, 56, .08);
+    }
+
+/* Een vinkje vooraan een regel om meerdere regels tegelijk te kiezen; een gekozen regel licht op. */
+:is(.table, .overzichtstabel) .kiesvak {
+    width: 2rem;
+    padding-right: 0;
+}
+
+:is(.table, .overzichtstabel) > tbody > tr.gekozen > td {
+    background: var(--bh-accent-zacht);
+}
+
+.actiebalk .verwijderknop {
+    margin-left: 0;
 }

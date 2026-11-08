@@ -1,0 +1,47 @@
+@* De balk onderaan een formulier: blijft in beeld bij scrollen. Zolang er iets gewijzigd is: "niet opgeslagen",
+   Opslaan en Herstellen; daarna rustig grijs. Weggaan met wijzigingen vraagt eerst om bevestiging. *@
+@inject IJSRuntime JS
+
+<div class="opslaanbalk @(Gewijzigd ? "gewijzigd" : null)">
+    @if (Gewijzigd)
+    {
+        <Statusstip Soort="Stipsoort.LetOp">niet opgeslagen</Statusstip>
+    }
+    else if (Opgeslagen)
+    {
+        <Statusstip Soort="Stipsoort.Klaar">opgeslagen</Statusstip>
+    }
+    <span class="ms-auto"></span>
+    @if (Gewijzigd && Herstel.HasDelegate)
+    {
+        <button type="button" class="btn btn-sm btn-link text-secondary" disabled="@Bezig" @onclick="Herstel">Herstellen</button>
+    }
+    <button type="button" class="btn btn-sm btn-primary" disabled="@Bezig" @onclick="Opslaan">Opslaan</button>
+</div>
+<NavigationLock ConfirmExternalNavigation="Gewijzigd" OnBeforeInternalNavigation="VoorWeggaan" />
+
+@code {
+    [Parameter]
+    public bool Gewijzigd { get; set; }
+
+    /// <summary>Net opgeslagen (en sindsdien niets gewijzigd).</summary>
+    [Parameter]
+    public bool Opgeslagen { get; set; }
+
+    [Parameter]
+    public bool Bezig { get; set; }
+
+    [Parameter]
+    public EventCallback Opslaan { get; set; }
+
+    [Parameter]
+    public EventCallback Herstel { get; set; }
+
+    private async Task VoorWeggaan(LocationChangingContext context)
+    {
+        if (Gewijzigd && !await JS.InvokeAsync<bool>("confirm", "Er zijn wijzigingen die niet zijn opgeslagen. Toch weggaan?"))
+        {
+            context.PreventNavigation();
+        }
+    }
+}

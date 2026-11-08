@@ -7,38 +7,29 @@
 
 <h1 class="h3 mb-3">Kantoorinstellingen</h1>
 <Foutmeldingen Fouten="fouten" />
-@if (bericht is not null)
+@if (invoer is not null && weergave is not null)
 {
-    <div class="bericht mb-2">@bericht</div>
-}
-@if (invoer is not null)
-{
-    <div class="card card-body" style="max-width: 52rem">
-        <div class="mb-3">
+    <div class="formulieren">
+        <Formulierblok Titel="Verwerken">
             <InstellingenVelden Invoer="invoer" />
-        </div>
-        <div><button class="btn btn-primary" @onclick="Bewaar">Opslaan</button></div>
-    </div>
-}
-@if (weergave is not null)
-{
-    <h2 class="h6 sectiekop mt-4">Overzichten</h2>
-    <div class="card card-body" style="max-width: 52rem">
-        <div class="d-flex align-items-center flex-wrap gap-3">
-            <label for="letter">Lettergrootte</label>
-            <select id="letter" class="form-select form-select-sm w-auto" @bind="letter">
-                @foreach (var (procent, naam) in Overzichtsweergave.Groottes)
-                {
-                    <option value="@procent">@naam</option>
-                }
-            </select>
-            <span class="form-check mb-0 ms-3">
-                <input id="heleeuros" class="form-check-input" type="checkbox" @bind="heleEuros" />
-                <label class="form-check-label" for="heleeuros">Afronden op hele euro's</label>
-            </span>
-            <span class="text-secondary small" title="Voorbeeld">@(heleEuros ? Bedragen.Heel(1200.45m) : Weergave.Bedrag(1200.45m))</span>
-            <button class="btn btn-outline-primary btn-sm ms-auto" @onclick="BewaarWeergave">Opslaan</button>
-        </div>
+        </Formulierblok>
+        <Formulierblok Titel="Overzichten">
+            <div class="d-flex align-items-center flex-wrap gap-3">
+                <label for="letter">Lettergrootte</label>
+                <select id="letter" class="form-select form-select-sm w-auto" @bind="letter">
+                    @foreach (var (procent, naam) in Overzichtsweergave.Groottes)
+                    {
+                        <option value="@procent">@naam</option>
+                    }
+                </select>
+                <span class="form-check mb-0 ms-3">
+                    <input id="heleeuros" class="form-check-input" type="checkbox" @bind="heleEuros" />
+                    <label class="form-check-label" for="heleeuros">Afronden op hele euro's</label>
+                </span>
+                <span class="text-secondary small" title="Voorbeeld">@(heleEuros ? Bedragen.Heel(1200.45m) : Weergave.Bedrag(1200.45m))</span>
+            </div>
+        </Formulierblok>
+        <Opslaanbalk Gewijzigd="Gewijzigd" Opgeslagen="opgeslagen" Bezig="bezig" Opslaan="Bewaar" Herstel="Laad" />
     </div>
 }
 
@@ -48,24 +39,27 @@
     private int letter;
     private bool heleEuros;
     private IReadOnlyList<string>? fouten;
-    private string? bericht;
+    private string? vorige;
+    private bool opgeslagen;
+    private bool bezig;
 
     [CascadingParameter]
     private Task<AuthenticationState> Status { get; set; } = default!;
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync() => Laad();
+
+    private async Task Laad()
     {
         invoer = InstellingenInvoer.Van(await Kantoor.Instellingen());
         weergave = await Kantoor.Weergave();
-        (letter, heleEuros) = (weergave.Lettergrootte, weergave.HeleEuros);
+        (letter, heleEuros, fouten, opgeslagen) = (weergave.Lettergrootte, weergave.HeleEuros, null, false);
+        vorige = Stand();
     }
 
-    private async Task BewaarWeergave()
-    {
-        var uitkomst = await Kantoor.WijzigWeergave((await Status).User.AlsUitvoerder(), new Overzichtsweergave(letter, heleEuros));
-        fouten = uitkomst.Fouten;
-        bericht = uitkomst.IsGelukt ? "Weergave van de overzichten opgeslagen." : null;
-    }
+    /// <summary>Alles wat in het formulier staat, om te zien of er iets is gewijzigd.</summary>
+    private string Stand() => System.Text.Json.JsonSerializer.Serialize(new object?[] { invoer, letter, heleEuros });
+
+    private bool Gewijzigd => vorige is not null && Stand() != vorige;
 
     private async Task Bewaar()
     {
@@ -73,13 +67,24 @@
         var nieuw = invoer!.NaarKantoor(lijst);
         if (lijst.Count > 0)
         {
-            fouten = lijst;
-            bericht = null;
+            (fouten, opgeslagen) = (lijst, false);
             return;
         }
 
-        var uitkomst = await Kantoor.Wijzig((await Status).User.AlsUitvoerder(), nieuw);
-        fouten = uitkomst.Fouten;
-        bericht = uitkomst.IsGelukt ? "Kantoorinstellingen opgeslagen." : null;
+        bezig = true;
+        var wie = (await Status).User.AlsUitvoerder();
+        var uitkomst = await Kantoor.Wijzig(wie, nieuw);
+        if (uitkomst.IsGelukt && (letter != weergave!.Lettergrootte || heleEuros != weergave.HeleEuros))
+        {
+            uitkomst = await Kantoor.WijzigWeergave(wie, new Overzichtsweergave(letter, heleEuros));
+            weergave = new Overzichtsweergave(letter, heleEuros);
+        }
+
+        bezig = false;
+        (fouten, opgeslagen) = (uitkomst.Fouten, uitkomst.IsGelukt);
+        if (uitkomst.IsGelukt)
+        {
+            vorige = Stand();
+        }
     }
 }

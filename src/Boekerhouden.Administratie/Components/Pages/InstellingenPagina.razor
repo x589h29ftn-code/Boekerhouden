@@ -10,30 +10,30 @@
     else if (gegevens is not null && instellingen is not null)
     {
         <Foutmeldingen Fouten="fouten" />
-        @if (bericht is not null)
-        {
-            <div class="bericht mb-2">@bericht</div>
-        }
-        <div class="card card-body" style="max-width: 52rem">
-            <div class="formuliersectie">Gegevens</div>
-            <div class="row g-2 mb-4">
-                <div class="col-12"><label class="form-label" for="naam">Naam</label><input id="naam" class="form-control" @bind="gegevens.Naam" /></div>
-                <div class="col-md-6"><label class="form-label" for="kvk">KvK-nummer</label><input id="kvk" class="form-control" @bind="gegevens.KvkNummer" /></div>
-                <div class="col-md-6"><label class="form-label" for="btw">Btw-nummer</label><input id="btw" class="form-control" @bind="gegevens.BtwNummer" /></div>
-                <div class="col-12"><label class="form-label" for="ibans">Eigen bankrekeningen (IBAN's, gescheiden door komma's)</label><input id="ibans" class="form-control" @bind="gegevens.Ibans" /></div>
-                <div class="col-md-6"><label class="form-label" for="straat">Straat en huisnummer</label><input id="straat" class="form-control" @bind="gegevens.Straat" /></div>
-                <div class="col-md-2"><label class="form-label" for="postcode">Postcode</label><input id="postcode" class="form-control" @bind="gegevens.Postcode" /></div>
-                <div class="col-md-3"><label class="form-label" for="plaats">Plaats</label><input id="plaats" class="form-control" @bind="gegevens.Plaats" /></div>
-                <div class="col-md-1"><label class="form-label" for="land">Land</label><input id="land" class="form-control" maxlength="2" placeholder="NL" @bind="gegevens.Land" /></div>
-                <div class="col-md-4"><label class="form-label" for="email">E-mail</label><input id="email" class="form-control" type="email" @bind="gegevens.Email" /></div>
-                <div class="col-md-4"><label class="form-label" for="telefoon">Telefoon</label><input id="telefoon" class="form-control" @bind="gegevens.Telefoon" /></div>
-                <div class="col-md-4"><label class="form-label" for="website">Website</label><input id="website" class="form-control" @bind="gegevens.Website" /></div>
-            </div>
-            <div class="formuliersectie" title="Leeg = zoals het kantoor (grijs in het veld)">Verwerken</div>
-            <div class="mb-3">
+        <div class="formulieren">
+            <Formulierblok Titel="Gegevens">
+                <div class="row g-2">
+                    <div class="col-12"><label class="form-label" for="naam">Naam</label><input id="naam" class="form-control" @bind="gegevens.Naam" /></div>
+                    <div class="col-md-6"><label class="form-label" for="kvk">KvK-nummer</label><input id="kvk" class="form-control" @bind="gegevens.KvkNummer" /></div>
+                    <div class="col-md-6"><label class="form-label" for="btw">Btw-nummer</label><input id="btw" class="form-control" @bind="gegevens.BtwNummer" /></div>
+                    <div class="col-12"><label class="form-label" for="ibans">Eigen bankrekeningen (IBAN's, gescheiden door komma's)</label><input id="ibans" class="form-control" @bind="gegevens.Ibans" /></div>
+                </div>
+            </Formulierblok>
+            <Formulierblok Titel="Adres en contact">
+                <div class="row g-2">
+                    <div class="col-md-6"><label class="form-label" for="straat">Straat en huisnummer</label><input id="straat" class="form-control" @bind="gegevens.Straat" /></div>
+                    <div class="col-md-2"><label class="form-label" for="postcode">Postcode</label><input id="postcode" class="form-control" @bind="gegevens.Postcode" /></div>
+                    <div class="col-md-3"><label class="form-label" for="plaats">Plaats</label><input id="plaats" class="form-control" @bind="gegevens.Plaats" /></div>
+                    <div class="col-md-1"><label class="form-label" for="land">Land</label><input id="land" class="form-control" maxlength="2" placeholder="NL" @bind="gegevens.Land" /></div>
+                    <div class="col-md-4"><label class="form-label" for="email">E-mail</label><input id="email" class="form-control" type="email" @bind="gegevens.Email" /></div>
+                    <div class="col-md-4"><label class="form-label" for="telefoon">Telefoon</label><input id="telefoon" class="form-control" @bind="gegevens.Telefoon" /></div>
+                    <div class="col-md-4"><label class="form-label" for="website">Website</label><input id="website" class="form-control" @bind="gegevens.Website" /></div>
+                </div>
+            </Formulierblok>
+            <Formulierblok Titel="Verwerken">
                 <InstellingenVelden Invoer="instellingen" Kantoor="kantoor" />
-            </div>
-            <div><button class="btn btn-primary" @onclick="Bewaar">Opslaan</button></div>
+            </Formulierblok>
+            <Opslaanbalk Gewijzigd="Gewijzigd" Opgeslagen="opgeslagen" Bezig="bezig" Opslaan="Bewaar" Herstel="Herstel" />
         </div>
     }
 </AdministratieKader>
@@ -44,7 +44,9 @@
     private InstellingenInvoer? instellingen;
     private Verwerkingsinstellingen? kantoor;
     private IReadOnlyList<string>? fouten;
-    private string? bericht;
+    private string? vorige;
+    private bool opgeslagen;
+    private bool bezig;
 
     [Parameter]
     public Guid Id { get; set; }
@@ -67,6 +69,18 @@
 
         instellingen = InstellingenInvoer.Van(i.Afwijkend);
         kantoor = i.Kantoor;
+        vorige = Stand();
+    }
+
+    /// <summary>Alles wat in het formulier staat, om te zien of er iets is gewijzigd.</summary>
+    private string Stand() => System.Text.Json.JsonSerializer.Serialize(new object?[] { gegevens, instellingen });
+
+    private bool Gewijzigd => vorige is not null && Stand() != vorige;
+
+    private async Task Herstel()
+    {
+        (fouten, opgeslagen) = (null, false);
+        await Open(geopend!);
     }
 
     private async Task Bewaar()
@@ -75,16 +89,20 @@
         var afwijkend = instellingen!.NaarAfwijkend(lijst);
         if (lijst.Count > 0)
         {
-            fouten = lijst;
-            bericht = null;
+            (fouten, opgeslagen) = (lijst, false);
             return;
         }
 
+        bezig = true;
         var uitkomst = await Inrichting.WijzigInstellingen(geopend!.Wie, Id,
             new Instellingen(gegevens!.Naam, gegevens.KvkNummer, gegevens.BtwNummer, [.. gegevens.Ibans.Split(',', ';')], afwijkend,
                 Contact: new Contactgegevens(gegevens.Straat, gegevens.Postcode, gegevens.Plaats, gegevens.Land, gegevens.Email, gegevens.Telefoon, gegevens.Website)));
-        fouten = uitkomst.Fouten;
-        bericht = uitkomst.IsGelukt ? $"Instellingen van {gegevens.Naam} opgeslagen." : null;
+        bezig = false;
+        (fouten, opgeslagen) = (uitkomst.Fouten, uitkomst.IsGelukt);
+        if (uitkomst.IsGelukt)
+        {
+            vorige = Stand();
+        }
     }
 
     private sealed class Gegevens

@@ -1,0 +1,16 @@
+@* Een blok van een formulier: links de naam van het blok, rechts de velden; blokken onder elkaar met een lijn ertussen. *@
+<section class="formulierblok @Klasse" aria-label="@Titel">
+    <h2 class="formulierblok-titel">@Titel</h2>
+    <div class="formulierblok-velden">@ChildContent</div>
+</section>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Titel { get; set; } = "";
+
+    [Parameter]
+    public string? Klasse { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}
