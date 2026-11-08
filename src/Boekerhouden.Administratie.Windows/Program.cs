@@ -32,7 +32,7 @@ internal static class Program
         {
             MessageBox.Show(
                 "Voor dit venster is Microsoft Edge WebView2 nodig. Installeer die eenmalig (winget install Microsoft.EdgeWebView2Runtime) en start opnieuw.",
-                "Boekerhouden Administratie", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                "Sifer", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return 1;
         }
 
@@ -50,7 +50,7 @@ internal static class Program
             var meldingen = LokaleApp.Start(diensten, Environment.UserName).GetAwaiter().GetResult();
             if (meldingen.Count > 0 && proef is null)
             {
-                MessageBox.Show(string.Join(Environment.NewLine + Environment.NewLine, meldingen), "Boekerhouden Administratie", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(string.Join(Environment.NewLine + Environment.NewLine, meldingen), "Sifer", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
         catch (Exception fout) when (fout is not OutOfMemoryException)

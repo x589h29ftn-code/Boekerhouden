@@ -8,7 +8,7 @@ internal sealed class ViewerVenster : Form
 {
     public ViewerVenster(IServiceProvider diensten, Guid administratie, Guid document, string titel)
     {
-        Text = $"{titel} – Boekerhouden Administratie";
+        Text = $"{titel} – Sifer";
         Icon = Merk.Icoon ?? Icon;
         Size = new Size(900, 1100);
         StartPosition = FormStartPosition.WindowsDefaultLocation;

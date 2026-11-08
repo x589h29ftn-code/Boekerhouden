@@ -6,8 +6,8 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 UIT="${1:-publiceer}"
-APP="$UIT/Boekerhouden Administratie"
-ZIP="$UIT/Boekerhouden-Administratie-win-x64.zip"
+APP="$UIT/Sifer"
+ZIP="$UIT/Sifer-win-x64.zip"
 
 rm -rf "$APP" "$ZIP"
 mkdir -p "$UIT"
@@ -17,7 +17,7 @@ dotnet publish src/Boekerhouden.Administratie.Windows -c Release -r win-x64 --se
 
 # Wat van de webapp meekomt maar hier niet gebruikt wordt.
 rm -f "$APP/Boekerhouden.Administratie.exe" "$APP/Boekerhouden.Administratie.runtimeconfig.json" "$APP"/appsettings*.json "$APP/web.config"
-test -f "$APP/Boekerhouden.Administratie.Windows.exe"
+test -f "$APP/Sifer.exe"
 cp scripts/windows/LEESMIJ.txt "$APP/"
 
 echo "Zip maken…"

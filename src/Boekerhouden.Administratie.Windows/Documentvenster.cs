@@ -20,7 +20,7 @@ internal sealed class Documentvenster(InkoopDienst inkoop, IServiceProvider dien
 
         if (Bestandssoort.Extensie(bestand.Inhoud) is not { } extensie)
         {
-            MessageBox.Show("Dit document is geen PDF of XML en wordt daarom niet geopend.", "Boekerhouden Administratie", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show("Dit document is geen PDF of XML en wordt daarom niet geopend.", "Sifer", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 

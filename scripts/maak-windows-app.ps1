@@ -1,12 +1,12 @@
 # Maakt de Windows-app van het administratiepakket op een Windows-pc (met de .NET 10 SDK):
 #   .\scripts\maak-windows-app.ps1                  (of -Uit publiceer)
-# Resultaat: publiceer\Boekerhouden-Administratie-win-x64.zip en de map "Boekerhouden Administratie".
+# Resultaat: publiceer\Sifer-win-x64.zip en de map "Sifer".
 param([string]$Uit = "publiceer")
 $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..")
 
-$app = Join-Path $Uit "Boekerhouden Administratie"
-$zip = Join-Path $Uit "Boekerhouden-Administratie-win-x64.zip"
+$app = Join-Path $Uit "Sifer"
+$zip = Join-Path $Uit "Sifer-win-x64.zip"
 if (Test-Path $app) { Remove-Item $app -Recurse -Force }
 if (Test-Path $zip) { Remove-Item $zip -Force }
 New-Item -ItemType Directory -Force $Uit | Out-Null

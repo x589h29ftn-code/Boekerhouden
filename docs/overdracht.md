@@ -116,17 +116,21 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     `THEMA=donker node scripts/ui/schermafbeeldingen.js …` maakt alle schermen in donker (ook `DICHTHEID=ruim`).
     Nieuwe vaste kleuren in de CSS: ook een donkere waarde in `donker.css` geven.
 
-16. **Merkteken** (gekozen uit vier concepten): de B met de dubbele streep (zoals onder een totaal dat sluit), wit op
+16. **Merkteken** (gekozen uit vier concepten): eerst de B, nu de S (Sifer) met de dubbele streep (zoals onder een totaal dat sluit), wit op
     roest. `favicon.svg` (met vlak) en `favicon-merk.svg` (alleen het teken, de kopbalk zet het roestvlak eronder) in
-    de huisstijl; de Windows-app heeft `boekerhouden.ico` (16 t/m 256 pixels) als programmapictogram en in de
+    de huisstijl; de Windows-app heeft `sifer.ico` (16 t/m 256 pixels) als programmapictogram en in de
     titelbalk van elk venster (`Merk.cs`; de proef controleert dat hij er is). Nog niet: een eigen kantoorlogo
     uploaden voor op de rapporten (de verkoopfactuur heeft al een logo per administratie in de factuurlay-out).
+
+17. **Naam: Sifer** (Fries voor cijfer) met als merkteken de S met de dubbele streep, wit op oranje (roest). In alle
+    zichtbare teksten van beide apps, de Windows-app (`Sifer.exe`, venster, zip `Sifer-win-x64`, pictogram
+    `sifer.ico`), de naam in de authenticator-app en de auditfile. Intern blijft het Boekerhouden (zie CLAUDE.md).
 
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).
 
 Alle tests zijn groen op PostgreSQL en SQLite. De CI (GitHub Actions) bouwt bij elke push ook de Windows-app als
-artefact `Boekerhouden-Administratie-win-x64`.
+artefact `Sifer-win-x64`.
 
 ## 2. Wat nog openstaat
 

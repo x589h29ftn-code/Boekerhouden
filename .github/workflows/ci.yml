@@ -56,8 +56,8 @@ jobs:
       - run: scripts/maak-windows-app.sh publiceer
       - uses: actions/upload-artifact@v4
         with:
-          name: Boekerhouden-Administratie-win-x64
-          path: publiceer/Boekerhouden-Administratie-win-x64.zip
+          name: Sifer-win-x64
+          path: publiceer/Sifer-win-x64.zip
           retention-days: 30
 
   # Proef op Windows: de app vult een administratie met twee jaar gegevens, opent elke pagina (laadtijd) en klikt alle
@@ -68,12 +68,12 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: Boekerhouden-Administratie-win-x64
+          name: Sifer-win-x64
       - shell: pwsh
         run: |
-          Expand-Archive Boekerhouden-Administratie-win-x64.zip -DestinationPath app
+          Expand-Archive Sifer-win-x64.zip -DestinationPath app
           $map = Join-Path $env:RUNNER_TEMP "proef"
-          $proces = Start-Process "app\Boekerhouden Administratie\Boekerhouden.Administratie.Windows.exe" -ArgumentList "--proef", "`"$map`"" -PassThru
+          $proces = Start-Process "app\Sifer\Sifer.exe" -ArgumentList "--proef", "`"$map`"" -PassThru
           if (-not $proces.WaitForExit(900000)) { Stop-Process $proces -Force; throw "De Windows-app reageerde niet." }
           if (Test-Path "$map\fouten.log") { Get-Content "$map\fouten.log" }
           if (Test-Path "$map\proef.txt") { Get-Content "$map\proef.txt" }

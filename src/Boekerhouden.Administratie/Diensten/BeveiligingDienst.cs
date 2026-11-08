@@ -17,7 +17,7 @@ public sealed record PasskeyRegel(string Id, string Naam, DateTimeOffset Aangema
 /// </summary>
 public sealed class BeveiligingDienst(IServiceScopeFactory scopeFactory, AuditDienst audit)
 {
-    public const string Uitgever = "Boekerhouden Administratie";
+    public const string Uitgever = "Sifer";
     public const int AantalHerstelcodes = 10;
 
     public async Task<AuthenticatorStatus> Authenticator(Guid gebruiker)

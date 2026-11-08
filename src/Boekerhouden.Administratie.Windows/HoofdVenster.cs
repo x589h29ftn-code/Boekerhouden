@@ -7,7 +7,7 @@ namespace Boekerhouden.Administratie.Windows;
 /// <summary>Het venster van de app: de schermen van het administratiepakket in een BlazorWebView.</summary>
 internal sealed class HoofdVenster : Form
 {
-    private const string Naam = "Boekerhouden Administratie";
+    private const string Naam = "Sifer";
 
     public HoofdVenster(IServiceProvider diensten, string? proefmap = null, Lokaal.Proefuitkomst? proefgegevens = null)
     {

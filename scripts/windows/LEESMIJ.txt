@@ -1,12 +1,13 @@
-Boekerhouden Administratie – Windows-app voor de tests
-=======================================================
+Sifer – Windows-app voor de tests
+=================================
 
 Starten
-  Dubbelklik op Boekerhouden.Administratie.Windows.exe. De app opent in een eigen venster. Er hoeft niets
+  Dubbelklik op Sifer.exe. De app opent in een eigen venster. Er hoeft niets
   geïnstalleerd te worden, je hoeft niet in te loggen en er start geen server: alles staat in één bestand.
 
 Waar staan de gegevens?
-  In %LOCALAPPDATA%\Boekerhouden\Administratie (administratie.db). Opnieuw beginnen: sluit de app en verwijder die map.
+  In %LOCALAPPDATA%\Boekerhouden\Administratie (administratie.db); de map heet nog naar de oude naam, zodat de
+  gegevens van eerdere versies gewoon gevonden worden. Opnieuw beginnen: sluit de app en verwijder die map.
   Zet onder Beheer > Kantoorinstellingen de documentmap, bijv.
     C:\Users\<naam>\OneDrive\Klanten\#administratie\#jaar\#soort
 

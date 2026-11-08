@@ -1,4 +1,8 @@
-# Boekerhouden – werkafspraken
+# Sifer (codenaam Boekerhouden) – werkafspraken
+
+De productnaam is **Sifer** (Fries voor cijfer): in alles wat de gebruiker ziet. Projecten, namespaces, databases,
+cookies en de gegevensmap van de Windows-app (`%LOCALAPPDATA%\Boekerhouden\Administratie`) heten bewust nog
+*Boekerhouden*: hernoemen levert de gebruiker niets op en zou bestaande gegevens en sessies kwijtraken.
 
 Eigen applicatie voor het samenstellen van jaarrekeningen en het opstellen van winstaangiften
 (BV klein en eenmanszaak; later BV micro en VOF). Ontwerp en besluiten: `docs/onderzoek/`

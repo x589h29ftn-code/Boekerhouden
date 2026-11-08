@@ -70,7 +70,7 @@ public sealed class AuditfileDienst(IDbContextFactory<AdministratieDbContext> db
 
         var auditfile = new Auditfile(
             "3.2",
-            new AuditfileKop(boekjaar, begin, eind, "EUR", DateOnly.FromDateTime(tijd.GetLocalNow().Date), "Boekerhouden", Versie()),
+            new AuditfileKop(boekjaar, begin, eind, "EUR", DateOnly.FromDateTime(tijd.GetLocalNow().Date), "Sifer", Versie()),
             new AuditfileBedrijf(adm.Naam, adm.KvkNummer, adm.BtwNummer, adm.Straat, adm.Postcode, adm.Plaats, adm.Land),
             [.. relaties.Select(r => new AuditfileRelatie(r.Code, r.Naam, r.KvkNummer, r.BtwNummer, r.Klant, !r.Klant || r.Tegenrekening is not null, [.. r.Ibans]))],
             [.. schema.Alle.Select(r => new AuditfileRekening(r.Nummer, r.Naam, r.Soort, r.RgsCode))],

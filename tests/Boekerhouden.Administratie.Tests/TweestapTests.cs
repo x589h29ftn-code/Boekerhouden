@@ -35,7 +35,7 @@ public sealed class TweestapTests(AdministratieFixture app) : IClassFixture<Admi
         var sleutel = status.Sleutel!.Replace(" ", string.Empty, StringComparison.Ordinal);
 
         Assert.False(status.Aan);
-        Assert.StartsWith("otpauth://totp/Boekerhouden%20Administratie:", status.Uri, StringComparison.Ordinal);
+        Assert.StartsWith("otpauth://totp/Sifer:", status.Uri, StringComparison.Ordinal);
         Assert.False((await dienst.ZetAan(wie.Id.Value, "000000")).IsGelukt);
         var aan = await dienst.ZetAan(wie.Id.Value, Totp.Code(sleutel));
         Assert.Equal(BeveiligingDienst.AantalHerstelcodes, aan.Waarde!.Count);

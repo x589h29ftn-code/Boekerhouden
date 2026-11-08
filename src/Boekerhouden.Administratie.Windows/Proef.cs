@@ -68,7 +68,7 @@ internal static class Proef
     {
         if (Merk.Icoon is null)
         {
-            fouten.Add("Het pictogram van de app (boekerhouden.ico) ontbreekt.");
+            fouten.Add("Het pictogram van de app (sifer.ico) ontbreekt.");
         }
 
         var start = await Wacht(webview, "Proef B.V.");

@@ -1,4 +1,6 @@
-# Boekerhouden
+# Sifer
+
+*Sifer* is Fries voor cijfer. Intern (projecten, namespaces, database, mappen) heet het nog *Boekerhouden*.
 
 Een eigen applicatie voor het samenstellen van jaarrekeningen en financiële rapporten, voor het
 MKB: eerst BV klein (samenstellen jaarrekening) en eenmanszaak (winstaangifte), later ook BV micro en VOF.
@@ -121,11 +123,11 @@ dotnet run --project src/Boekerhouden.Administratie    # http://localhost:5090, 
 
 ### Windows-app voor de tests
 
-Een zip om de boekhouding op een Windows-pc te proberen: uitpakken en `Boekerhouden.Administratie.Windows.exe`
+Een zip om de boekhouding op een Windows-pc te proberen: uitpakken en `Sifer.exe`
 starten. De app opent in een eigen venster, zonder inloggen of tweestapsverificatie, zonder webserver en zonder
 databaseserver: alles staat in één bestand in `%LOCALAPPDATA%\Boekerhouden\Administratie` (zie `LEESMIJ.txt`).
 
-- Kant-en-klaar: de CI maakt bij elke push de zip *Boekerhouden-Administratie-win-x64* (GitHub, tabblad *Actions*,
+- Kant-en-klaar: de CI maakt bij elke push de zip *Sifer-win-x64* (GitHub, tabblad *Actions*,
   de laatste run, onder *Artifacts*) en start hem op een Windows-runner.
 - Zelf maken (met de .NET 10 SDK): `.\scripts\maak-windows-app.ps1` op Windows, `scripts/maak-windows-app.sh` op
   Linux of in Git Bash. Het resultaat staat in `publiceer\`.

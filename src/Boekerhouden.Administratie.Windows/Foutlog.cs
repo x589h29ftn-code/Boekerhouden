@@ -17,7 +17,7 @@ internal static class Foutlog
         }
 
         MessageBox.Show($"{melding ?? "Er ging iets mis."}{Environment.NewLine}{Environment.NewLine}{fout.Message}{Environment.NewLine}{Environment.NewLine}Details staan in {Path.Combine(Map, "fouten.log")}.",
-            "Boekerhouden Administratie", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            "Sifer", MessageBoxButtons.OK, MessageBoxIcon.Error);
     }
 
     public static void Schrijf(Exception? fout)

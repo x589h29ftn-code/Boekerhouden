@@ -8,7 +8,7 @@ internal sealed class OpenpostenVensterExtern : Form
 {
     public OpenpostenVensterExtern(IServiceProvider diensten, Guid administratie, string titel)
     {
-        Text = $"{titel} – Boekerhouden Administratie";
+        Text = $"{titel} – Sifer";
         Icon = Merk.Icoon ?? Icon;
         Size = new Size(1100, 900);
         StartPosition = FormStartPosition.WindowsDefaultLocation;
