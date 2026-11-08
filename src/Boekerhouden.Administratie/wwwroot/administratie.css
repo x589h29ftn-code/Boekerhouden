@@ -1612,3 +1612,12 @@ a.kerngetal:hover { color: var(--bh-accent); }
     background: none;
     color: var(--bh-inkt-tekst);
 }
+
+
+.melding-actie {
+    font-weight: 500;
+}
+
+.melding-sluit {
+    opacity: .75;
+}
