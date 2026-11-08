@@ -1595,7 +1595,7 @@ a.kerngetal:hover { color: var(--bh-accent); }
     padding: 0;
     border: 0;
     background: none;
-    color: #fff;
+    color: var(--bh-accent);
     font-weight: 600;
     text-decoration: underline;
     text-underline-offset: 2px;
@@ -1610,7 +1610,7 @@ a.kerngetal:hover { color: var(--bh-accent); }
     padding: 0;
     border: 0;
     background: none;
-    color: var(--bh-inkt-tekst);
+    color: var(--bh-zacht);
 }
 
 

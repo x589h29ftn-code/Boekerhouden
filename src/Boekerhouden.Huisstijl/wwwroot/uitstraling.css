@@ -904,20 +904,21 @@ span.status.let-op {
     z-index: 1030;
     max-width: 28rem;
     padding: .5rem .85rem;
+    border: 1px solid var(--bh-lijn);
     border-radius: 3px;
-    background: rgba(23, 34, 56, .6);
+    background: rgba(255, 255, 255, .82);
     -webkit-backdrop-filter: blur(6px);
     backdrop-filter: blur(6px);
-    color: #fff;
+    color: var(--bh-tekst);
     font-size: .8125rem;
-    box-shadow: 0 2px 8px rgba(23, 34, 56, .1);
+    box-shadow: 0 1px 4px rgba(23, 34, 56, .08);
     transition: background-color var(--bh-snel) ease;
     animation: bh-melding 4.5s var(--bh-curve) forwards;
     pointer-events: none;
 }
 
     .melding-kort:hover {
-        background: rgba(23, 34, 56, .85);
+        background: #fff;
     }
 
 @keyframes bh-melding {
