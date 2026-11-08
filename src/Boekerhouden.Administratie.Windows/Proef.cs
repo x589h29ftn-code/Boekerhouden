@@ -135,6 +135,22 @@ internal static class Proef
         }
 
         await Afdruk(webview, Path.Combine(map, "proef-snel-wisselen.png"));
+
+        // Reservekopieën (alleen in de Windows-app): de pagina, een kopie maken en controleren.
+        await Ga(webview, "/beheer/reservekopieen");
+        await Rustig(webview);
+        await webview.CoreWebView2.ExecuteScriptAsync("[...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Nu een reservekopie maken')?.click()");
+        var kopie = await Wacht(webview, "Reservekopie gemaakt");
+        await webview.CoreWebView2.ExecuteScriptAsync("document.querySelector('table.reservekopieen button')?.click()");
+        var gecontroleerd = await Wacht(webview, "in orde");
+        await Afdruk(webview, Path.Combine(map, "proef-reservekopieen.png"));
+        if (!kopie.Contains("Reservekopie gemaakt", StringComparison.Ordinal) || !gecontroleerd.Contains("in orde", StringComparison.Ordinal) || await FoutInBeeld(webview))
+        {
+            fouten.Add("Reservekopieën: de kopie is niet gemaakt of niet in orde.");
+        }
+
+        var bestanden = Directory.Exists(Path.Combine(map, "reservekopieen")) ? Directory.GetFiles(Path.Combine(map, "reservekopieen"), "*.db").Length : 0;
+        verslag.AppendLine(CultureInfo.InvariantCulture, $"{"reservekopieën",-34} {bestanden,6} kopie(ën) in de map");
     }
 
     private static async Task<(int Klikken, IReadOnlyList<string> Fouten)> Klik(WebView2 webview, string script)

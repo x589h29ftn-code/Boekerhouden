@@ -212,6 +212,35 @@ Documenten van buiten zijn de grootste technische aanvalsroute.
 | Bewaking | Status van de back-up in Beheer | Uptime, schijfruimte, certificaat, mislukte inlogpogingen en back-up, met een melding per e-mail of telefoon |
 | Herstel na een ramp | Terugzetten op een vervangende pc (doel: binnen 1 werkdag) | Nieuwe server en de laatste back-up (doel: 4 uur) |
 
+#### Updates en reservekopieën van de Windows-app (gebouwd, november 2026)
+
+De Windows-app staat op één pc, zonder beheerder: een update moet vanzelf veilig gaan.
+
+| Stap | Hoe |
+|---|---|
+| Nieuwere database | Staat er in de database een migratie die deze versie niet kent (de gegevens zijn al bijgewerkt door een nieuwere versie), dan opent de app niet en verandert niets (`NieuwereDatabaseException`) |
+| Reservekopie vóór de update | Zijn er migraties te doen, dan eerst een reservekopie met de backup van SQLite zelf (een consistent beeld), als één zelfstandig bestand (journal_mode DELETE, dus geen los -wal-bestand), gecontroleerd met `PRAGMA integrity_check`, met aantallen en een SHA-256-controlegetal in een `.json` ernaast. Een beschadigde database wordt niet bijgewerkt |
+| Bijwerken en controleren | Daarna de migraties, en dan: integriteit, even veel administraties en boekingen als ervoor, en de hash-keten van elke administratie |
+| Mislukt | Gaat er iets mis (een migratie of een controle), dan gaat de reservekopie terug over de database en opent de app niet, met een duidelijke melding (`DatabaseupdateMisluktException`): de gegevens zijn precies zoals vóór de update |
+| Wijzigingslog | *Database bijgewerkt* (van welke naar welke versie, aantallen, de reservekopie), *Reservekopie gemaakt*, *klaargezet*, *teruggezet*, *verwijderd* en de tweede map |
+| Dagelijks | Bij het starten één reservekopie per dag (niet als er de afgelopen 20 uur al een is) |
+| Bewaren | Vóór een update de laatste 5, dagelijks de laatste 14 plus de eerste van elke maand een jaar lang, vóór terugzetten de laatste 3, handmatige tot de gebruiker ze weggooit |
+| Tweede map | Elke kopie ook naar een tweede map (netwerkschijf, externe schijf, cloudmap); lukt dat niet, dan staat het bij de kopie en gaat het werk gewoon door |
+| Terugzetten | Onder Beheer, Reservekopieën: de kopie wordt eerst gecontroleerd (controlegetal en integriteit) en klaargezet; bij de volgende start (dan is de database niet open) eerst een kopie van de huidige gegevens (*vóór terugzetten*, dus ook terugzetten is ongedaan te maken), dan de kopie terug. Een kopie die niet meer klopt, wordt niet teruggezet |
+| Vertrouwelijk | Een kopie bevat alle administraties en documenten; hij staat in de gegevensmap van de gebruiker en hoort net zo beschermd te zijn als de pc (BitLocker). Versleutelen van de kopieën zelf is een vervolgstap |
+
+Getest in `UpdateEnReservekopieTests` op echte SQLite-bestanden: bijwerken vanaf elk van de laatste zeven
+databaseversies met gegevens (boekingen, bank, inkoop met documenten, een actief met afschrijvingen), een database van
+een nieuwere versie (niet geopend, bestand ongewijzigd), een mislukte migratie (alles terug, ook een eigen tabel van
+de gebruiker), terugzetten en dat weer ongedaan maken, een beschadigde kopie (niet teruggezet), het bewaarschema met
+een nagebootste klok, de tweede map (ook onbereikbaar), en een kopie terwijl de app open is (één zelfstandig
+bestand). In de CI maakt de Windows-proef op Windows een kopie via de pagina en controleert hem. Gevonden en
+opgelost: de kopie erfde de WAL-modus van de database, waardoor een deel in een los -wal-bestand kon staan en een
+kopie in de tweede map onvolledig was.
+
+Voor de webapp op kantoor (PostgreSQL) volgt dezelfde aanpak met onderhoudsmodus, `pg_dump` en een expliciete
+`--migreer`; zie het plan in het gesprek van 8 november 2026 en de tabel hierboven.
+
 ### 4.10 Ontwikkeling en onderdelen van derden
 
 - **Alleen open-source pakketten**, met een licentiecontrole vóór het toevoegen (werkafspraak) en vaste versies in

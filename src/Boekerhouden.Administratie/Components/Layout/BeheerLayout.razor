@@ -12,6 +12,10 @@
         <NavLink href="/beheer/instellingen">Kantoorinstellingen</NavLink>
         <NavLink href="/beheer/btw">Btw-tabel</NavLink>
         <NavLink href="/beheer/wijzigingslog">Wijzigingslog</NavLink>
+        @if (Omgeving.Lokaal)
+        {
+            <NavLink href="/beheer/reservekopieen">Reservekopieën</NavLink>
+        }
     </nav>
     <div class="beheer-inhoud">
         @Body

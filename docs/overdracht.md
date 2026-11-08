@@ -75,6 +75,10 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
    verkoop, inruil, sloop, ook een deel, met de boeking vooraf en terugdraaien, direct activeren bij het boeken,
    aanschaf en factuur op de kaart, activastaat naar Excel en PDF, activastaat met aansluiting op het grootboek). `PeriodeTests`, `ActivaTests`.
 
+10. **Updates en reservekopieën van de Windows-app** (beveiliging.md §4.9): reservekopie vóór elke update met
+    controles en terugzetten bij een fout, nieuwere database niet openen, dagelijkse kopie, bewaarschema, tweede
+    map, terugzetten bij de volgende start (Beheer, Reservekopieën). `UpdateEnReservekopieTests`.
+
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).
 
@@ -98,6 +102,7 @@ Afgesproken of voorgesteld maar nog niet gebouwd, ongeveer in volgorde van wens:
 | Dashboard: vervolg | Voorgesteld, nog niet gevraagd: afwijking marge in procentpunten; in de kwartaalweergave ook vorig jaar per kwartaal; btw-frequentie (maand/kwartaal) als instelling van de administratie in plaats van per widget |
 | Auditfile: vervolg | De btw-code per boekingsregel zit niet in de XAF-export; XAF 4.0 is alleen met een zelfgemaakt voorbeeld getest |
 | Vaste activa: vervolg | Degressief en fiscaal naast commercieel, overzicht investeringsaftrek (KIA) |
+| Updates webapp | Dezelfde aanpak voor de webapp op kantoor: onderhoudsmodus, `pg_dump` met controle, `--migreer` in plaats van automatisch bij het starten, versleutelde kopie buiten de server, CI-test vanaf de vorige release |
 | Hulppagina | De uitleg hoort in `/hulp` (CLAUDE.md, rustige uitstraling); in het administratiepakket nog niet gebouwd |
 
 ## 3. Werkwijze met de gebruiker
@@ -167,6 +172,10 @@ scripts/ui/herstart.sh && node scripts/ui/schermafbeeldingen.js /tmp/schermen vo
 - **Windows-app nalopen**: de CI-job `windows-app-proef` vult de app met twee jaar gegevens en klikt elke pagina na
   (`Proef.cs`, `proef.js`); bij een rode job staan in het artefact `windows-app-proef` het verslag `proef.txt` (met de
   pagina en knop van de fout) en schermafdrukken. Een nieuwe pagina hoort in `Proef.Paginas`.
+- **Migraties en de Windows-app**: elke migratie moet ook terug kunnen (Down) en met gegevens werken;
+  `UpdateEnReservekopieTests.Bijwerken_vanaf_een_eerdere_versie` werkt vanaf de laatste versies bij. Voeg daar een
+  regel toe na een nieuwe migratie. SQLite staat in WAL-modus: kopieer een database nooit als los bestand terwijl
+  hij open is, gebruik `Reservekopieen.Maak` (SQLite-backup).
 - **Een nieuwe manier van boeken**: laat hem via `GrootboekDienst.VoegToeAanKeten` of `NieuweVersie` lopen en
   controleer vooraf `GrootboekDienst.Afgesloten` (anders krijgt de gebruiker bij een afgesloten periode een
   uitzondering in plaats van een melding).

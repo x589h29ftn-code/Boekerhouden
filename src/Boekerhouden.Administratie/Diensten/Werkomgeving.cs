@@ -23,3 +23,9 @@ public interface IDocumentvenster
     /// <summary>De openstaande posten in een eigen venster (bijv. op een tweede beeldscherm naast het bankboek).</summary>
     void OpenOpenposten(Guid administratie, string titel);
 }
+
+/// <summary>De Windows-app opnieuw starten (bijv. om een reservekopie terug te zetten); in de webapp niet aanwezig.</summary>
+public interface IHerstart
+{
+    void Herstart();
+}

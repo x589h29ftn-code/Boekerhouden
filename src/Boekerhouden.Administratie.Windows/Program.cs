@@ -43,10 +43,15 @@ internal static class Program
         services.AddWindowsFormsBlazorWebView();
         LokaleApp.ConfigureerDiensten(services, map);
         services.AddSingleton<IDocumentvenster, Documentvenster>();
+        services.AddSingleton<IHerstart, Herstarter>();
         using var diensten = services.BuildServiceProvider();
         try
         {
-            LokaleApp.Start(diensten, Environment.UserName).GetAwaiter().GetResult();
+            var meldingen = LokaleApp.Start(diensten, Environment.UserName).GetAwaiter().GetResult();
+            if (meldingen.Count > 0 && proef is null)
+            {
+                MessageBox.Show(string.Join(Environment.NewLine + Environment.NewLine, meldingen), "Boekerhouden Administratie", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
         }
         catch (Exception fout) when (fout is not OutOfMemoryException)
         {

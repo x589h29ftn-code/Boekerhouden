@@ -10,6 +10,25 @@ Waar staan de gegevens?
   Zet onder Beheer > Kantoorinstellingen de documentmap, bijv.
     C:\Users\<naam>\OneDrive\Klanten\#administratie\#jaar\#soort
 
+Een nieuwe versie (update)
+  Sluit de app, pak de nieuwe zip uit (bijv. over de oude map heen) en start hem. De gegevens blijven in
+  %LOCALAPPDATA%\Boekerhouden\Administratie. Bij de eerste start van een nieuwe versie:
+    1. maakt de app eerst een reservekopie van de gegevens (en controleert die);
+    2. werkt hij de database bij;
+    3. controleert hij dat alles er nog is (aantallen, integriteit, de hash-keten van elke administratie).
+  Mislukt iets, dan zet de app de reservekopie terug en opent hij niet: de gegevens blijven precies zoals ze waren.
+  Start dan de vorige versie en meld het probleem. Een oudere versie opent gegevens van een nieuwere versie niet.
+
+Reservekopieën
+  Staan in %LOCALAPPDATA%\Boekerhouden\Administratie\reservekopieen. De app maakt er zelf een:
+    - vóór elke update (de laatste 5 blijven);
+    - één per dag bij het starten (14 dagen, daarna de eerste van elke maand, een jaar lang).
+  Onder Beheer > Reservekopieën: nu een kopie maken, controleren, terugzetten (bij de volgende start; de huidige
+  gegevens worden eerst bewaard), en een tweede map instellen waar elke kopie ook naartoe gaat. Kies daarvoor een
+  netwerkschijf, een externe schijf of een map die naar de cloud gaat: een kopie op dezelfde schijf helpt niet als
+  die schijf kapotgaat of de laptop wordt gestolen.
+  Een kopie bevat alle administraties en documenten: bewaar hem net zo veilig als de pc zelf (bijv. met BitLocker).
+
 Melding over WebView2
   Het venster gebruikt Microsoft Edge WebView2 (standaard aanwezig op Windows 11). Ontbreekt die, installeer hem
   eenmalig: winget install Microsoft.EdgeWebView2Runtime

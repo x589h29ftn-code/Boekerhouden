@@ -1,0 +1,204 @@
+@page "/beheer/reservekopieen"
+@layout BeheerLayout
+@attribute [Authorize(Roles = Rollen.Beheerder)]
+@using Boekerhouden.Administratie.Lokaal
+@inject IServiceProvider Diensten
+@inject AuditDienst Audit
+
+<PageTitle>Reservekopieën - Administratie</PageTitle>
+
+<h1 class="h3 mb-1">Reservekopieën</h1>
+@if (kopieen is null)
+{
+    <div class="leeg-regel">Alleen in de Windows-app. Op kantoor maakt de beheerder van de server de reservekopieën van de database.</div>
+}
+else
+{
+    <div class="small text-secondary mb-3" title="@kopieen.Map">
+        @if (lijst.FirstOrDefault() is { } laatste)
+        {
+            <span>laatste @Weergave.Moment(laatste.Gemaakt)</span>
+            <span class="scheiding">·</span>
+        }
+        <span>@lijst.Count @(lijst.Count == 1 ? "kopie" : "kopieën"), @Grootte(lijst.Sum(k => k.Grootte))</span>
+        @if (kopieen.TweedeMap is { } tweede)
+        {
+            <span class="scheiding">·</span>
+            <span title="@tweede">ook naar de tweede map</span>
+        }
+    </div>
+    <Foutmeldingen Fouten="fouten" />
+    @if (bericht is not null)
+    {
+        <div class="bericht mb-2">@bericht</div>
+    }
+    @if (gepland is { } g)
+    {
+        <div class="bericht mb-3 d-flex align-items-center gap-3 flex-wrap">
+            <span>Bij de volgende start wordt de kopie van @Weergave.DatumTijd(g.Gemaakt) teruggezet. De huidige gegevens worden eerst bewaard.</span>
+            @if (herstart is not null)
+            {
+                <button class="btn btn-sm btn-primary" @onclick="() => herstart.Herstart()">Nu opnieuw starten</button>
+            }
+            <button class="btn btn-sm btn-outline-secondary" @onclick="Annuleer">Annuleren</button>
+        </div>
+    }
+    else if (vraag is { } v)
+    {
+        <div class="bericht mb-3 d-flex align-items-center gap-3 flex-wrap">
+            <span>De kopie van @Weergave.DatumTijd(v.Gemaakt) terugzetten? Alles wat daarna is geboekt, is dan weg uit de administratie (de huidige gegevens worden eerst bewaard).</span>
+            <button class="btn btn-sm btn-primary" disabled="@bezig" @onclick="() => Terugzetten(v)">Terugzetten</button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="() => vraag = null">Annuleren</button>
+        </div>
+    }
+    <div class="d-flex gap-2 mb-3">
+        <button class="btn btn-outline-secondary" disabled="@bezig" @onclick="Maak">Nu een reservekopie maken</button>
+    </div>
+    @if (lijst.Count > 0)
+    {
+        <div class="card overzichtskaart mb-3">
+            <table class="table align-middle mb-0 overzichtstabel reservekopieen">
+                <thead>
+                    <tr><th>Gemaakt</th><th>Soort</th><th class="text-end">Administraties</th><th class="text-end">Boekingen</th><th class="text-end">Grootte</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var k in lijst)
+                    {
+                        <tr title="@Titel(k)">
+                            <td class="text-nowrap">@Weergave.DatumTijd(k.Gemaakt)</td>
+                            <td>@Soort(k.Soort)@if (gecontroleerd.TryGetValue(k.Bestand, out var uitslag))
+                                {
+                                    <span class="status ms-2 @(uitslag is null ? null : "let-op")" title="@uitslag">@(uitslag is null ? "in orde" : "beschadigd")</span>
+                                }</td>
+                            <td class="text-end">@k.Administraties</td>
+                            <td class="text-end">@k.Boekingen.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("nl-NL"))</td>
+                            <td class="text-end text-nowrap">@Grootte(k.Grootte)</td>
+                            <td class="text-end text-nowrap">
+                                <button class="btn btn-sm btn-link p-0 me-3 regelactie" disabled="@bezig" @onclick="() => Controleer(k)">Controleren</button>
+                                <button class="btn btn-sm btn-link p-0 me-3 regelactie" disabled="@bezig" @onclick="() => (vraag, bericht, fouten) = (k, null, [])">Terugzetten</button>
+                                @if (k.Soort == Reservekopiesoort.Handmatig)
+                                {
+                                    <button class="btn btn-sm btn-link p-0 regelactie text-secondary" disabled="@bezig" @onclick="() => Verwijder(k)">Verwijderen</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    <Uitklapformulier Tekst="Tweede map">
+        <div class="d-flex gap-2 align-items-center">
+            <input id="tweedemap" class="form-control form-control-sm" style="max-width:32rem" placeholder="bijv. een netwerkschijf of een map die naar de cloud gaat" @bind="tweedeMap" />
+            <button class="btn btn-sm btn-primary" @onclick="BewaarTweedeMap">Opslaan</button>
+        </div>
+    </Uitklapformulier>
+}
+
+@code {
+    private Reservekopieen? kopieen;
+    private IHerstart? herstart;
+    private IReadOnlyList<Reservekopie> lijst = [];
+    private Reservekopie? gepland;
+    private Reservekopie? vraag;
+    private readonly Dictionary<string, string?> gecontroleerd = [];
+    private string? tweedeMap;
+    private bool bezig;
+    private string? bericht;
+    private IReadOnlyList<string> fouten = [];
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Status { get; set; } = default!;
+
+    protected override void OnInitialized()
+    {
+        kopieen = Diensten.GetService<Reservekopieen>();
+        herstart = Diensten.GetService<IHerstart>();
+        Laad();
+        tweedeMap = kopieen?.TweedeMap;
+    }
+
+    private void Laad()
+    {
+        if (kopieen is not null)
+        {
+            lijst = kopieen.Lijst();
+            gepland = kopieen.GeplandTerugzetten;
+        }
+    }
+
+    private static string Soort(Reservekopiesoort soort) => soort switch
+    {
+        Reservekopiesoort.VoorUpdate => "vóór een update",
+        Reservekopiesoort.Dagelijks => "dagelijks",
+        Reservekopiesoort.VoorTerugzetten => "vóór terugzetten",
+        _ => "handmatig",
+    };
+
+    private static string Titel(Reservekopie k) =>
+        string.Join(" · ", new[] { k.Bestand, k.Migratie is null ? null : $"databaseversie {k.Migratie}", k.Opmerking }.Where(t => t is not null));
+
+    private static string Grootte(long bytes) =>
+        bytes >= 1024 * 1024 ? $"{bytes / 1024d / 1024d:0.0} MB" : $"{Math.Max(1, bytes / 1024)} kB";
+
+    private async Task<Uitvoerder> Wie() => (await Status).User.AlsUitvoerder();
+
+    private async Task Maak()
+    {
+        bezig = true;
+        try
+        {
+            var kopie = await Task.Run(() => kopieen!.Maak(Reservekopiesoort.Handmatig));
+            await Audit.Log(await Wie(), AuditActies.ReservekopieGemaakt, kopie.Bestand, "handmatig" + (kopie.Opmerking is { } o ? $"; {o}" : null));
+            (bericht, fouten) = ($"Reservekopie gemaakt: {kopie.Administraties} administraties, {kopie.Boekingen} boekingen.{(kopie.Opmerking is { } opm ? " " + opm : null)}", []);
+        }
+        catch (Exception fout) when (fout is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            (bericht, fouten) = (null, [$"De reservekopie is niet gelukt: {fout.Message}"]);
+        }
+
+        Laad();
+        bezig = false;
+    }
+
+    private async Task Controleer(Reservekopie kopie)
+    {
+        bezig = true;
+        gecontroleerd[kopie.Bestand] = await Task.Run(() => kopieen!.Controleer(kopie));
+        bezig = false;
+    }
+
+    private async Task Terugzetten(Reservekopie kopie)
+    {
+        bezig = true;
+        var fout = await Task.Run(() => kopieen!.PlanTerugzetten(kopie));
+        if (fout is null)
+        {
+            await Audit.Log(await Wie(), AuditActies.ReservekopieKlaargezet, kopie.Bestand, $"van {Weergave.DatumTijd(kopie.Gemaakt)}");
+        }
+
+        (vraag, fouten, bericht) = (null, fout is null ? [] : [fout], null);
+        Laad();
+        bezig = false;
+    }
+
+    private void Annuleer()
+    {
+        kopieen!.AnnuleerTerugzetten();
+        Laad();
+    }
+
+    private async Task Verwijder(Reservekopie kopie)
+    {
+        kopieen!.Verwijder(kopie);
+        await Audit.Log(await Wie(), AuditActies.ReservekopieVerwijderd, kopie.Bestand);
+        Laad();
+    }
+
+    private async Task BewaarTweedeMap()
+    {
+        kopieen!.TweedeMap = tweedeMap;
+        await Audit.Log(await Wie(), AuditActies.ReservekopieInstelling, kopieen.TweedeMap ?? "geen");
+        bericht = kopieen.TweedeMap is null ? "Geen tweede map." : "Elke nieuwe reservekopie gaat ook naar de tweede map.";
+    }
+}
