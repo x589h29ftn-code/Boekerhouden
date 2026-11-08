@@ -1,5 +1,7 @@
 @page "/"
 @inject AdministratieDienst AdministratieDienst
+@inject KantooroverzichtDienst Kantooroverzicht
+@inject TimeProvider Tijd
 
 <PageTitle>Administraties - Administratie</PageTitle>
 
@@ -22,6 +24,30 @@
 }
 <Foutmeldingen Fouten="fouten" />
 
+@if (standen is not null && lijst is { Count: > 0 })
+{
+    <div class="werklijst mb-3" aria-label="Te doen">
+        @foreach (var soort in Enum.GetValues<Werksoort>())
+        {
+            var met = standen.Values.Where(w => Aantal(w, soort) > 0).ToList();
+            if (met.Count == 0)
+            {
+                continue;
+            }
+
+            <button type="button" class="werkitem @(filter == soort ? "actief" : null)" aria-pressed="@(filter == soort)" @onclick="() => filter = filter == soort ? null : soort">
+                <span class="werkitem-aantal">@met.Sum(w => Aantal(w, soort)).ToString("N0", Nl)</span>
+                <span class="werkitem-naam">@Werknaam(soort, met.Sum(w => Aantal(w, soort)))</span>
+                <span class="werkitem-detail">@(soort == Werksoort.Debiteuren ? Weergave.BedragHeel(Math.Abs(met.Sum(w => w.VervallenBedrag))) + ", " : null)@met.Count @(met.Count == 1 ? "administratie" : "administraties")</span>
+            </button>
+        }
+        @if (standen.Values.All(w => w.Leeg))
+        {
+            <span class="status">Alles verwerkt</span>
+        }
+    </div>
+}
+
 @if (lijst is null)
 {
     <Laadschets />
@@ -42,19 +68,46 @@ else if (lijst.Count == 0)
 else
 {
     <div class="card">
-        <table class="table table-sm table-hover align-middle mb-0 administratielijst" data-sleepbaar="administraties">
+        <table class="table table-sm table-hover align-middle mb-0 administratielijst" data-sleepbaar="kantooroverzicht">
             <thead>
-                <tr><th>Naam</th><th>Rechtsvorm</th><th>KvK</th><th>Btw-nummer</th><th>Jouw rol</th><th class="rekt"></th></tr>
+                <tr>
+                    <th>Naam</th><th>Rechtsvorm</th><th>Jouw rol</th>
+                    <th class="text-end werk">Inkoop</th><th class="text-end werk">Bank</th><th class="werk">Bank t/m</th><th class="text-end werk">Verkoop</th>
+                    <th class="text-end werk">Vervallen debiteuren</th><th class="werk">Afgesloten t/m</th><th class="rekt"></th>
+                </tr>
             </thead>
             <tbody>
-                @foreach (var a in lijst)
+                @foreach (var a in Zichtbaar)
                 {
+                    var ws = standen?.GetValueOrDefault(a.Id);
                     <tr class="@(a.Gearchiveerd is null ? null : "gearchiveerd")">
-                        <td><a href="/a/@a.Id">@a.Naam</a></td>
+                        <td><a href="/a/@a.Id" title="@Kenmerken(a)">@a.Naam</a></td>
                         <td>@Weergave.Tekst(a.Ondernemingsvorm)</td>
-                        <td>@a.KvkNummer</td>
-                        <td>@a.BtwNummer</td>
                         <td><span class="status">@Weergave.Tekst(a.Rol)</span></td>
+                        <td class="text-end">@if (ws is { Inkoop: > 0 })
+                            {
+                                <a href="/a/@a.Id/inkoop">@ws.Inkoop</a>
+                            }</td>
+                        <td class="text-end">@if (ws is { Bank: > 0 })
+                            {
+                                <a href="/a/@a.Id/bank" title="oudste mutatie @(ws.OudsteBank is { } o ? Weergave.Datum(o) : null)">@ws.Bank</a>
+                            }</td>
+                        <td class="text-nowrap">@if (ws?.AfschriftTot is { } bankTot)
+                            {
+                                <span class="@(bankTot < vandaag.AddDays(-45) ? "let-op" : null)" title="@(bankTot < vandaag.AddDays(-45) ? "Langer dan 45 dagen geen afschrift" : null)">@Weergave.Datum(bankTot)</span>
+                            }</td>
+                        <td class="text-end">@if (ws is { Concepten: > 0 })
+                            {
+                                <a href="/a/@a.Id/verkoop" title="@ws.Concepten @(ws.Concepten == 1 ? "concept" : "concepten")">@ws.Concepten</a>
+                            }</td>
+                        <td class="text-end text-nowrap">@if (ws is { Vervallen: > 0 })
+                            {
+                                <a href="/a/@a.Id/debiteuren" title="@ws.Vervallen @(ws.Vervallen == 1 ? "factuur" : "facturen") over de vervaldatum">@Weergave.BedragHeel(Math.Abs(ws.VervallenBedrag))</a>
+                            }</td>
+                        <td class="text-nowrap">@if (ws?.AfgeslotenTot is { } af)
+                            {
+                                <a class="text-reset" href="/a/@a.Id/perioden">@af.ToString("MMM yyyy", Nl)</a>
+                            }</td>
                         <td class="text-end text-nowrap">
                             @if (a.Gearchiveerd is { } op)
                             {
@@ -82,7 +135,7 @@ else
                     @if (verwijderen is { } v && v.Id == a.Id && voorwaarden is { } w)
                     {
                         <tr class="verwijderregel">
-                            <td colspan="6">
+                            <td colspan="10">
                                 <div class="d-flex align-items-center flex-wrap gap-3 py-1">
                                     <span class="small">@w.Boekingen @(w.Boekingen == 1 ? "boeking" : "boekingen")@(w.Bewaarplicht is { } tot ? $", bewaarplicht tot {Weergave.Datum(tot)}" : null). Alles gaat weg; het wijzigingslog blijft.</span>
                                     <input class="form-control form-control-sm w-auto" placeholder="Typ de naam ter bevestiging" aria-label="Naam ter bevestiging" @bind="bevestigNaam" @bind:event="oninput" />
@@ -119,6 +172,10 @@ else
     private string? bevestigNaam;
     private bool bewaarplichtGezien;
     private Uitvoerder wie = Uitvoerder.Systeem;
+    private IReadOnlyDictionary<Guid, Werkstand>? standen;
+    private Werksoort? filter;
+    private DateOnly vandaag;
+    private static readonly System.Globalization.CultureInfo Nl = System.Globalization.CultureInfo.GetCultureInfo("nl-NL");
 
     [CascadingParameter]
     private Task<AuthenticationState> Authenticatie { get; set; } = default!;
@@ -128,10 +185,39 @@ else
         var gebruiker = (await Authenticatie).User;
         wie = gebruiker.AlsUitvoerder();
         beheerder = gebruiker.IsInRole(Rollen.Beheerder);
+        vandaag = DateOnly.FromDateTime(Tijd.GetLocalNow().DateTime);
         await Laad();
     }
 
-    private async Task Laad() => lijst = await AdministratieDienst.Lijst(wie, zoek, ookGearchiveerd);
+    private async Task Laad()
+    {
+        lijst = await AdministratieDienst.Lijst(wie, zoek, ookGearchiveerd);
+        standen = await Kantooroverzicht.Stand(wie);
+    }
+
+    /// <summary>De administraties in de tabel: met een gekozen soort werk alleen die met dat werk, de meeste bovenaan.</summary>
+    private IEnumerable<AdministratieKop> Zichtbaar => filter is { } soort && standen is not null
+        ? lijst!.Where(a => standen.TryGetValue(a.Id, out var w) && Aantal(w, soort) > 0).OrderByDescending(a => Aantal(standen[a.Id], soort))
+        : lijst!;
+
+    private static int Aantal(Werkstand w, Werksoort soort) => soort switch
+    {
+        Werksoort.Inkoop => w.Inkoop,
+        Werksoort.Bank => w.Bank,
+        Werksoort.Verkoop => w.Concepten,
+        _ => w.Vervallen,
+    };
+
+    private static string Werknaam(Werksoort soort, int aantal) => soort switch
+    {
+        Werksoort.Inkoop => aantal == 1 ? "inkoopfactuur te verwerken" : "inkoopfacturen te verwerken",
+        Werksoort.Bank => aantal == 1 ? "bankmutatie te verwerken" : "bankmutaties te verwerken",
+        Werksoort.Verkoop => aantal == 1 ? "verkoopconcept" : "verkoopconcepten",
+        _ => aantal == 1 ? "debiteur vervallen" : "debiteuren vervallen",
+    };
+
+    private static string? Kenmerken(AdministratieKop a) =>
+        string.Join(" · ", new[] { a.KvkNummer is { } k ? $"KvK {k}" : null, a.BtwNummer is { } b ? $"btw {b}" : null }.Where(t => t is not null)) is { Length: > 0 } t ? t : null;
 
     private void Meld(string tekst)
     {

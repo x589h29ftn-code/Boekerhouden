@@ -106,4 +106,25 @@ public sealed class Toegang(IDbContextFactory<AdministratieDbContext> dbFactory)
         db.Geopend = administratie;
         return db;
     }
+
+    /// <summary>
+    /// Voor een overzicht over administraties heen (het kantooroverzicht op de startpagina): de administraties waarvan de
+    /// gebruiker actief lid is, met hun rol, en een databasecontext zonder geopende administratie. Elke query in die
+    /// context moet <c>IgnoreQueryFilters()</c> gebruiken met een filter op precies deze administraties.
+    /// </summary>
+    public async Task<(AdministratieDbContext Db, IReadOnlyDictionary<Guid, Lidmaatschapsrol> Leden)> OpenOverzicht(Uitvoerder wie)
+    {
+        ArgumentNullException.ThrowIfNull(wie);
+        var db = await dbFactory.CreateDbContextAsync();
+        if (wie.Id is not { } gebruiker)
+        {
+            return (db, new Dictionary<Guid, Lidmaatschapsrol>());
+        }
+
+        var leden = await (from l in db.Lidmaatschappen
+                           join g in db.Users on l.GebruikerId equals g.Id
+                           where l.GebruikerId == gebruiker && g.Actief
+                           select new { l.AdministratieId, l.Rol }).ToDictionaryAsync(l => l.AdministratieId, l => l.Rol);
+        return (db, leden);
+    }
 }

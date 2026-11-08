@@ -253,6 +253,17 @@ public sealed class AdministratiesStressTests(AdministratieFixture app, ITestOut
         klok.Restart();
         var gezocht = await administraties.Lijst(wie, "Klant 150");
         Meet("zoeken in administraties", klok, $"{gezocht.Count}");
+        for (var keer = 0; keer < 2; keer++)
+        {
+            klok.Restart();
+            var standen = await app.Dienst<KantooroverzichtDienst>().Stand(wie);
+            Meet("kantooroverzicht (werklijst)", klok, $"{standen.Count}, {standen.Values.Sum(w => w.Inkoop + w.Bank):N0} te verwerken");
+            Assert.True(standen.Count >= aantal);
+        }
+
+        klok.Restart();
+        Assert.NotEmpty(await app.Dienst<ZoekDienst>().Zoek(wie, "Klant 150", ids[150 % aantal]));
+        Meet("zoeken (Ctrl+K)", klok);
 
         // 3. Per klant de gewone handelingen; de eerste keer koud, daarna warm.
         foreach (var n in new[] { 0, aantal / 2, aantal - 1 })

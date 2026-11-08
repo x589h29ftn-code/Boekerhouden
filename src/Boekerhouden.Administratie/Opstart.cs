@@ -129,6 +129,7 @@ public static class Opstart
         services.AddSingleton<PeriodeDienst>();
         services.AddSingleton<ActivaDienst>();
         services.AddSingleton<ZoekDienst>();
+        services.AddSingleton<KantooroverzichtDienst>();
         services.Configure<Export.PdfOpties>(configuratie.GetSection("Pdf"));
         services.AddSingleton<Export.PdfDienst>();
 

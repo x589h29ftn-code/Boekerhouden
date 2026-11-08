@@ -4,7 +4,7 @@
 # alleen met de lichte Chromium (zie docs/overdracht.md); die wordt hier ingesteld als hij er is.
 set -e
 cd "$(dirname "$0")/../.."
-for p in $(pgrep -f "net10.0/Boekerhouden.Administratie" || true); do kill "$p" 2>/dev/null || true; done
+for p in $(pgrep -af "net10.0/Boekerhouden.Administratie" | grep -v "Tests" | cut -d" " -f1 || true); do kill "$p" 2>/dev/null || true; done
 sleep 2
 PGPASSWORD=boekerhouden-dev psql -h localhost -U boekerhouden -d postgres -qc "drop database if exists boekerhouden_administratie_ui with (force);"
 schil=$(ls -d /opt/pw-browsers/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell 2>/dev/null | head -1 || true)

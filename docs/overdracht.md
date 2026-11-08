@@ -84,7 +84,14 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     administratie op dezelfde pagina), smal te maken (onthouden per browser, `toetsen.js`). Ctrl+K of de knop
     Zoeken in de kopbalk opent het zoekvenster (`ZoekDienst`): pagina's, relaties, rekeningen, boekingen op boekstuk,
     omschrijving, factuurnummer of bedrag, verkoopfacturen, vaste activa en administraties. `ZoekTests`.
-    Nog te doen uit dat plan: werklijst op de startpagina en kantooroverzicht; statusbolletjes, lege staten met een
+
+12. **Werklijst en kantooroverzicht** (stap 2): de startpagina toont bovenaan wat er over alle administraties te doen
+    is (inkoopfacturen en bankmutaties te verwerken, verkoopconcepten, vervallen debiteuren; een klik toont alleen die
+    administraties, de meeste bovenaan) en per administratie in de tabel dezelfde aantallen, tot wanneer de bank is
+    ingelezen (let op na 45 dagen) en tot wanneer de perioden zijn afgesloten (`KantooroverzichtDienst`, via
+    `Toegang.OpenOverzicht`: een paar gegroepeerde queries over alle administraties van de gebruiker). Bij 200
+    administraties × 5 jaar: 130 ms koud, 25 ms warm. `KantooroverzichtTests`.
+    Nog te doen uit het plan: statusbolletjes, lege staten met een
     actie, meldingen met ongedaan maken; formulieren in blokken met een vaste opslaanbalk, vaste tabelkoppen,
     bulkacties; dichtheid, donkere modus, logo.
 

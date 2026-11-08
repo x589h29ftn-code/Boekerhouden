@@ -121,6 +121,11 @@ ziet. Daarom nemen we drie lagen maatregelen, plus tests die bewijzen dat ze wer
 slaan in een andere dan de geopende administratie), punt 3 (rollen inzien, ondernemer en kantoor; de beheerder ziet
 geen cijfers zonder lidmaatschap), punt 4 (`ToegangTests`) en punt 5. Row Level Security (punt 2) volgt vóór F2.
 
+*Eén uitzondering op de query filter:* het kantooroverzicht op de startpagina telt over alle administraties van de
+gebruiker tegelijk. Dat gaat via `Toegang.OpenOverzicht`, dat de administraties geeft waarvan de gebruiker actief lid
+is; `KantooroverzichtDienst` filtert elke query (met `IgnoreQueryFilters()`) op precies die administraties en geeft
+alleen aantallen en totalen (`KantooroverzichtTests`: een buitenstaander krijgt niets).
+
 ### 4.3 Integriteit van de boekhouding
 
 | Maatregel | Fase |
