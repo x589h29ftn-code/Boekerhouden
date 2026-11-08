@@ -90,7 +90,8 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     administraties, de meeste bovenaan) en per administratie in de tabel dezelfde aantallen, tot wanneer de bank is
     ingelezen (let op na 45 dagen) en tot wanneer de perioden zijn afgesloten (`KantooroverzichtDienst`, via
     `Toegang.OpenOverzicht`: een paar gegroepeerde queries over alle administraties van de gebruiker). Bij 200
-    administraties × 5 jaar: 130 ms koud, 25 ms warm. `KantooroverzichtTests`.
+    administraties × 5 jaar (919.000 boekingen): PostgreSQL 130 ms koud en 25 ms warm, SQLite 214 en 108 ms; zoeken
+    (Ctrl+K) 150 en 123 ms. `KantooroverzichtTests`.
     Nog te doen uit het plan: statusbolletjes, lege staten met een
     actie, meldingen met ongedaan maken; formulieren in blokken met een vaste opslaanbalk, vaste tabelkoppen,
     bulkacties; dichtheid, donkere modus, logo.
