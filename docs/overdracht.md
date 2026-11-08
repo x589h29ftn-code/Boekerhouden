@@ -79,6 +79,15 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     controles en terugzetten bij een fout, nieuwere database niet openen, dagelijkse kopie, bewaarschema, tweede
     map, terugzetten bij de volgende start (Beheer, Reservekopieën). `UpdateEnReservekopieTests`.
 
+11. **Zijbalk en zoeken** (stap 1 van het plan voor de uitstraling): het menu van een administratie staat links in
+    een zijbalk (`Administratiemenu` = de groepen en pagina's), bovenaan de administratiewisselaar (naar een andere
+    administratie op dezelfde pagina), smal te maken (onthouden per browser, `toetsen.js`). Ctrl+K of de knop
+    Zoeken in de kopbalk opent het zoekvenster (`ZoekDienst`): pagina's, relaties, rekeningen, boekingen op boekstuk,
+    omschrijving, factuurnummer of bedrag, verkoopfacturen, vaste activa en administraties. `ZoekTests`.
+    Nog te doen uit dat plan: werklijst op de startpagina en kantooroverzicht; statusbolletjes, lege staten met een
+    actie, meldingen met ongedaan maken; formulieren in blokken met een vaste opslaanbalk, vaste tabelkoppen,
+    bulkacties; dichtheid, donkere modus, logo.
+
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).
 
@@ -93,7 +102,6 @@ Afgesproken of voorgesteld maar nog niet gebouwd, ongeveer in volgorde van wens:
 |---|---|
 | Logo / woordmerk | Een eigen woordmerk of het logo van het kantoor (kantoorinstelling), ook in favicon en PDF's |
 | Afdrukken | Elk overzicht netjes met Ctrl+P: zonder menu en knoppen, met administratie, periode en paginanummers |
-| Eén menubalk | De kopbalk en het menu van de administratie samenvoegen (kruimelpad *kantoor › administratie › pagina*) |
 | Lettertype beoordelen | Segoe UI (systeem) staat aan sinds commit `aea7fd9`; de gebruiker test het in de Windows-app. Terug naar IBM Plex is één regel (`--bs-body-font-family` in `uitstraling.css`) |
 | Verkoop: vervolg | Versturen vanuit het pakket (SMTP of Peppol) in plaats van een .eml; terugkerende facturen vanzelf maken (zonder klik); herinneringen; ouderdomsanalyse debiteuren |
 | Btw-aangifte (A10) | Aangifte per rubriek en afdracht (perioden afsluiten is er: na de aangifte de periode afsluiten) |

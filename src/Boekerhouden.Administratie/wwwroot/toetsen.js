@@ -33,3 +33,20 @@ if (!window.toetsenGekoppeld) {
   }).observe(document.documentElement, { childList: true, subtree: true });
   koppel();
 }
+
+// Ctrl+K (of Cmd+K op de Mac) opent het zoekvenster: een klik op de zoekknop in de kopbalk.
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k') {
+    const knop = document.getElementById('zoekknop');
+    if (knop) { e.preventDefault(); knop.click(); }
+  }
+});
+
+// De zijbalk van een administratie smal of breed; onthouden per browser.
+const smal = 'zijbalk-smal';
+try { if (localStorage.getItem(smal) === '1') document.documentElement.classList.add(smal); } catch { /* geen opslag */ }
+document.addEventListener('click', e => {
+  if (!(e.target instanceof Element) || !e.target.closest('[data-zijbalk]')) return;
+  const aan = document.documentElement.classList.toggle(smal);
+  try { localStorage.setItem(smal, aan ? '1' : '0'); } catch { /* geen opslag */ }
+});

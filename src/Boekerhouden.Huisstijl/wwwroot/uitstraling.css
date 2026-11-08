@@ -512,32 +512,6 @@ tr.verwerkt > td {
         color: #a3adb3;
     }
 
-/* Menu van de administratie: een klein icoon per groep en een chevron die meedraait. */
-.groepsicoon {
-    margin-right: .4rem;
-    color: var(--bh-zacht);
-    transition: color var(--bh-snel) ease;
-}
-
-.admmenu-groep.actief .groepsicoon, .admmenu-groep:hover .groepsicoon {
-    color: var(--bh-accent);
-}
-
-.admmenu-kop .pijl {
-    display: inline-flex;
-    margin-left: .2rem;
-    font-size: .85em;
-    opacity: .6;
-}
-
-.admmenu-groep.actief > .admmenu-kop {
-    border-bottom-color: var(--bh-accent);
-}
-
-.admmenu-link {
-    transition: background-color var(--bh-snel) ease, color var(--bh-snel) ease;
-}
-
 /* Terug naar de lijst: een pijl in een rondje dat bij aanwijzen een stapje naar links zet. */
 a.terug {
     display: inline-flex;

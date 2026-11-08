@@ -1,8 +1,9 @@
 @* Kop, menu en toegangscontrole van een pagina binnen een administratie. Pas na de controle laadt de pagina haar
    gegevens (BijOpenen); zonder lidmaatschap dezelfde melding als bij een administratie die niet bestaat. Het menu staat
-   horizontaal boven de inhoud (zo blijft de volle breedte voor de gegevens); de onderdelen van een groep verschijnen
-   bij aanwijzen of aanklikken. *@
+   links in een zijbalk: bovenaan de administratie (met een wisselaar naar een andere, op dezelfde pagina), dan de
+   groepen met hun pagina's. De zijbalk kan smal (toetsen.js onthoudt dat per browser). *@
 @inject AdministratieDienst AdministratieDienst
+@inject NavigationManager Navigatie
 @inject TimeProvider Tijd
 
 @if (!geladen)
@@ -17,30 +18,54 @@ else
 {
     <PageTitle>@Titel - @kop.Naam</PageTitle>
     <div class="administratie">
-        <nav class="admmenu" aria-label="Administratie">
-            <a class="admmenu-naam" href="/a/@kop.Id" title="@kop.Naam">@kop.Naam</a>
-            @foreach (var (groep, items) in Menu)
-            {
-                var zichtbaar = items.Where(i => kop.Mag(i.Recht)).ToList();
-                if (zichtbaar.Count == 0)
+        <aside class="zijbalk" aria-label="Administratie">
+            <button type="button" class="zijbalk-wissel" data-zijbalk title="Menu smaller of breder" aria-label="Menu smaller of breder"><Icoon Naam="chevron-left" /></button>
+            <div class="wisselaar @(wisselen ? "open" : null)">
+                <button type="button" class="wisselaar-knop" title="@kop.Naam" aria-haspopup="listbox" aria-expanded="@wisselen" @onclick="OpenWisselaar">
+                    <span class="wisselaar-naam">@kop.Naam</span>
+                    <span class="wisselaar-vorm">@Weergave.Tekst(kop.Ondernemingsvorm)</span>
+                    <span class="pijl"><Icoon Naam="chevron-down" /></span>
+                </button>
+                @if (wisselen)
                 {
-                    continue;
-                }
-
-                var actief = zichtbaar.Any(i => i.Pad == Actief);
-                <div class="admmenu-groep @(actief ? "actief" : null) @(open == groep ? "open" : null)" @onmouseleave="() => Sluit(groep)">
-                    <button type="button" class="admmenu-kop" aria-haspopup="true" aria-expanded="@(open == groep)" @onclick="() => Wissel(groep)">
-                        @groep<span class="pijl"><Icoon Naam="chevron-down" /></span>
-                    </button>
-                    <div class="admmenu-items">
-                        @foreach (var (pad, naam, _) in zichtbaar)
-                        {
-                            <a class="admmenu-link @(pad == Actief ? "actief" : null)" href="@($"/a/{kop.Id}{pad}")" aria-current="@(pad == Actief ? "page" : null)" @onclick="() => open = null">@naam</a>
-                        }
+                    <div class="wisselaar-achter" @onclick="() => wisselen = false"></div>
+                    <div class="wisselaar-paneel">
+                        <input class="form-control form-control-sm" placeholder="Administratie zoeken" aria-label="Administratie zoeken" @ref="wisselveld"
+                               @bind="wisselzoek" @bind:event="oninput" @onkeydown="WisselToets" />
+                        <div class="wisselaar-lijst" role="listbox">
+                            @foreach (var a in Gevonden)
+                            {
+                                <a class="wisselaar-item @(a.Id == kop.Id ? "actief" : null)" role="option" href="@($"/a/{a.Id}{Actief}")" @onclick="() => wisselen = false">
+                                    <span>@a.Naam</span><span class="wisselaar-vorm">@Weergave.Tekst(a.Ondernemingsvorm)</span>
+                                </a>
+                            }
+                            @if (Gevonden.Count == 0)
+                            {
+                                <div class="leeg-regel">Geen administratie gevonden.</div>
+                            }
+                        </div>
+                        <a class="wisselaar-alle" href="/">Alle administraties</a>
                     </div>
-                </div>
-            }
-        </nav>
+                }
+            </div>
+            <nav class="zijmenu">
+                <a class="zijmenu-link @(Actief.Length == 0 ? "actief" : null)" href="/a/@kop.Id" aria-current="@(Actief.Length == 0 ? "page" : null)">Overzicht</a>
+                @foreach (var groep in Administratiemenu.Groepen)
+                {
+                    var zichtbaar = groep.Items.Where(i => kop.Mag(i.Recht)).ToList();
+                    if (zichtbaar.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    <div class="zijmenu-groep">@groep.Naam</div>
+                    @foreach (var item in zichtbaar)
+                    {
+                        <a class="zijmenu-link @(item.Pad == Actief ? "actief" : null)" href="@($"/a/{kop.Id}{item.Pad}")" aria-current="@(item.Pad == Actief ? "page" : null)">@item.Naam</a>
+                    }
+                }
+            </nav>
+        </aside>
         <div class="administratie-inhoud">
             <div class="d-flex align-items-center flex-wrap gap-3 mb-3">
                 @if (TerugAdres is { } terug)
@@ -75,47 +100,10 @@ else
 }
 
 @code {
-    /// <summary>Het menu per groep: boekhouden (verwerken), dagboeken (terugvinden), rapportages en inrichting.</summary>
-    private static readonly (string Groep, (string Pad, string Naam, Recht Recht)[] Items)[] Menu =
-    [
-        ("Boekhouden",
-        [
-            ("/inkoop", "Inkoop", Recht.Lezen),
-            ("/verkoop", "Verkoop", Recht.Lezen),
-            ("/verkoop/terugkerend", "Terugkerende facturen", Recht.Lezen),
-            ("/bank", "Bank", Recht.Lezen),
-            ("/memoriaal", "Memoriaal", Recht.Boekhouden),
-            ("/activa", "Vaste activa", Recht.Lezen),
-        ]),
-        ("Dagboeken",
-        [
-            ("/inkoopboek", "Inkoop", Recht.Lezen),
-            ("/verkoopboek", "Verkoop", Recht.Lezen),
-            ("/journaal", "Journaal", Recht.Lezen),
-        ]),
-        ("Rapportages",
-        [
-            ("/balans", "Balans en W&V", Recht.Lezen),
-            ("/kolommenbalans", "Kolommenbalans", Recht.Lezen),
-            ("/debiteuren", "Openstaande debiteuren", Recht.Lezen),
-            ("/crediteuren", "Openstaande crediteuren", Recht.Lezen),
-            ("/aansluitingen", "Aansluitingen", Recht.Lezen),
-            ("/proefbalans", "Proefbalans", Recht.Lezen),
-            ("/grootboek", "Grootboekkaart", Recht.Lezen),
-        ]),
-        ("Inrichting",
-        [
-            ("/relaties", "Relaties", Recht.Lezen),
-            ("/factuurlayout", "Factuurlay-out", Recht.Lezen),
-            ("/regels", "Regels", Recht.Lezen),
-            ("/rekeningschema", "Rekeningschema", Recht.Lezen),
-            ("/perioden", "Perioden", Recht.Lezen),
-            ("/instellingen", "Instellingen", Recht.Boekhouden),
-        ]),
-    ];
-
-    /// <summary>De groep die is opengeklikt (aanwijzen opent hem ook, via CSS).</summary>
-    private string? open;
+    private bool wisselen;
+    private string? wisselzoek;
+    private ElementReference wisselveld;
+    private IReadOnlyList<AdministratieKop>? alle;
 
     private bool geladen;
     private AdministratieKop? kop;
@@ -173,13 +161,34 @@ else
         geladen = true;
     }
 
-    private void Wissel(string groep) => open = open == groep ? null : groep;
+    /// <summary>De administraties voor de wisselaar: de geopende eerst, dan op naam; hooguit twaalf.</summary>
+    private List<AdministratieKop> Gevonden =>
+        [.. (alle ?? []).Where(a => string.IsNullOrWhiteSpace(wisselzoek) || a.Naam.Contains(wisselzoek.Trim(), StringComparison.OrdinalIgnoreCase))
+            .OrderBy(a => a.Id == kop?.Id ? 0 : 1).ThenBy(a => a.Naam, StringComparer.CurrentCultureIgnoreCase).Take(12)];
 
-    private void Sluit(string groep)
+    private async Task OpenWisselaar()
     {
-        if (open == groep)
+        wisselen = !wisselen;
+        if (wisselen)
         {
-            open = null;
+            wisselzoek = null;
+            alle ??= await AdministratieDienst.Lijst(wie!);
+            StateHasChanged();
+            await Task.Yield();
+            await wisselveld.FocusAsync();
+        }
+    }
+
+    private void WisselToets(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            wisselen = false;
+        }
+        else if (e.Key == "Enter" && Gevonden.FirstOrDefault(a => a.Id != kop?.Id) is { } eerste)
+        {
+            wisselen = false;
+            Navigatie.NavigateTo($"/a/{eerste.Id}{Actief}");
         }
     }
 }

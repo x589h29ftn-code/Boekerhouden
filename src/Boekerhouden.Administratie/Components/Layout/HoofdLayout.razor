@@ -14,6 +14,10 @@
         </AuthorizeView>
     </nav>
     <AuthorizeView>
+        @if (RendererInfo.IsInteractive)
+        {
+            <Zoekvenster />
+        }
         <details class="uitklapmenu gebruikersmenu">
             <summary aria-label="Gebruikersmenu"><span class="gebruikersnaam">@context.User.WeergaveNaam()</span><Icoon Naam="chevron-down" /></summary>
             <div class="menu">

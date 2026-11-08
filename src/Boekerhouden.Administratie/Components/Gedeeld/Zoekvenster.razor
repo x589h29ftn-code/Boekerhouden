@@ -1,0 +1,118 @@
+@* Zoeken in de hele app (Ctrl+K of de knop in de kopbalk): pagina's, relaties, rekeningen, boekingen, verkoopfacturen
+   en vaste activa in de geopende administratie, en de administraties. Pijltjes kiezen, Enter opent, Escape sluit. *@
+@inject ZoekDienst ZoekDienst
+@inject NavigationManager Navigatie
+
+<button type="button" id="zoekknop" class="zoekknop" title="Zoeken (Ctrl+K)" @onclick="Open">
+    <Icoon Naam="search" /><span class="zoekknop-tekst">Zoeken</span><kbd>Ctrl K</kbd>
+</button>
+@if (open)
+{
+    <div class="zoekvenster-achter" @onclick="Sluit"></div>
+    <div class="zoekvenster" role="dialog" aria-label="Zoeken">
+        <div class="zoekvenster-veld">
+            <Icoon Naam="search" />
+            <input @ref="veld" placeholder="Zoek een relatie, factuur, bedrag, boekstuk, rekening of pagina" aria-label="Zoeken"
+                   @bind="tekst" @bind:event="oninput" @bind:after="Zoek" @onkeydown="Toets" />
+        </div>
+        @if (resultaten.Count > 0)
+        {
+            <div class="zoekvenster-lijst" role="listbox">
+                @for (var i = 0; i < resultaten.Count; i++)
+                {
+                    var r = resultaten[i];
+                    var plek = i;
+                    if (i == 0 || resultaten[i - 1].Soort != r.Soort)
+                    {
+                        <div class="zoekvenster-groep">@Groep(r.Soort)</div>
+                    }
+                    <a class="zoekvenster-item @(plek == gekozen ? "gekozen" : null)" role="option" aria-selected="@(plek == gekozen)" href="@r.Url"
+                       @onclick="Sluit" @onmouseenter="() => gekozen = plek">
+                        <span class="zoekvenster-titel">@r.Titel</span>
+                        @if (r.Detail is not null)
+                        {
+                            <span class="zoekvenster-detail">@r.Detail</span>
+                        }
+                    </a>
+                }
+            </div>
+        }
+        else if (tekst?.Trim().Length >= 2 && !bezig)
+        {
+            <div class="zoekvenster-leeg">Niets gevonden.</div>
+        }
+    </div>
+}
+
+@code {
+    private bool open;
+    private bool bezig;
+    private string? tekst;
+    private int gekozen;
+    private int zoekronde;
+    private ElementReference veld;
+    private IReadOnlyList<Zoekresultaat> resultaten = [];
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Authenticatie { get; set; } = default!;
+
+    private async Task Open()
+    {
+        (open, tekst, resultaten, gekozen) = (true, null, [], 0);
+        StateHasChanged();
+        await Task.Yield();
+        await veld.FocusAsync();
+    }
+
+    private void Sluit() => open = false;
+
+    /// <summary>De administratie van de pagina waarop je staat (/a/{id}/…), of leeg.</summary>
+    private Guid? Administratie()
+    {
+        var pad = Navigatie.ToBaseRelativePath(Navigatie.Uri);
+        return pad.StartsWith("a/", StringComparison.Ordinal) && pad.Length >= 38 && Guid.TryParse(pad.AsSpan(2, 36), out var id) ? id : null;
+    }
+
+    private async Task Zoek()
+    {
+        var ronde = ++zoekronde;
+        bezig = true;
+        var wie = (await Authenticatie).User.AlsUitvoerder();
+        var gevonden = await ZoekDienst.Zoek(wie, tekst, Administratie());
+        if (ronde == zoekronde)
+        {
+            (resultaten, gekozen, bezig) = (gevonden, 0, false);
+        }
+    }
+
+    private void Toets(KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "Escape":
+                Sluit();
+                break;
+            case "ArrowDown" when resultaten.Count > 0:
+                gekozen = (gekozen + 1) % resultaten.Count;
+                break;
+            case "ArrowUp" when resultaten.Count > 0:
+                gekozen = (gekozen + resultaten.Count - 1) % resultaten.Count;
+                break;
+            case "Enter" when gekozen < resultaten.Count:
+                Sluit();
+                Navigatie.NavigateTo(resultaten[gekozen].Url);
+                break;
+        }
+    }
+
+    private static string Groep(Zoeksoort soort) => soort switch
+    {
+        Zoeksoort.Pagina => "Pagina's",
+        Zoeksoort.Relatie => "Relaties",
+        Zoeksoort.Rekening => "Rekeningen",
+        Zoeksoort.Boeking => "Boekingen",
+        Zoeksoort.Verkoopfactuur => "Verkoopfacturen",
+        Zoeksoort.Activum => "Vaste activa",
+        _ => "Administraties",
+    };
+}
