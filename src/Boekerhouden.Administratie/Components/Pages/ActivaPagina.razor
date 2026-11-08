@@ -18,6 +18,18 @@
                 <span class="scheiding">·</span>
                 <span>afschrijvingen t/m @Weergave.Datum(VorigeMaand) nog te boeken</span>
             }
+            @if (staat is { Count: > 0 })
+            {
+                <span class="scheiding">·</span>
+                @if (staat.All(g => g.Sluit))
+                {
+                    <a href="/a/@Id/kolommenbalans?@Weergave.Periodequery(new DateOnly(jaar, 1, 1), new DateOnly(jaar, 12, 31))" class="text-secondary" title="Aanschafwaarde en cumulatieve afschrijving per activarekening zijn gelijk aan de kolommenbalans op 31-12-@jaar">sluit op de kolommenbalans</a>
+                }
+                else
+                {
+                    <a href="/a/@Id/kolommenbalans?@Weergave.Periodequery(new DateOnly(jaar, 1, 1), new DateOnly(jaar, 12, 31))" class="status let-op">sluit niet op de kolommenbalans</a>
+                }
+            }
         }
     </Kenmerken>
     <Acties>

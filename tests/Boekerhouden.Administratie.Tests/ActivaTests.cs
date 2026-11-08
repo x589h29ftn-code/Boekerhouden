@@ -392,4 +392,32 @@ public sealed class ActivaTests(AdministratieFixture app) : IClassFixture<Admini
         Assert.True((await dienst.Activeer(wie, id, "MEM 2026-0090")).IsGelukt);
         Assert.True((await aansluiting.Aansluitingen(wie, id)).Single(a => a.Rekening == "0200").Sluit);
     }
+
+    [Fact]
+    public async Task Vaste_activa_sluiten_op_de_kolommenbalans_op_elke_peildatum()
+    {
+        var (wie, id) = await Administratie();
+        var (laptop, auto) = await Activa(wie, id);
+        var dienst = app.Dienst<ActivaDienst>();
+        var grootboek = app.Dienst<GrootboekDienst>();
+        Assert.True((await dienst.Afschrijven(wie, id, new DateOnly(2026, 9, 30), Afschrijvingsfrequentie.Maand)).IsGelukt);
+        Assert.True((await dienst.Desinvesteer(wie, id, laptop, Verkoop(new(2026, 7, 20), 800m))).IsGelukt);
+        Assert.True((await dienst.Desinvesteer(wie, id, auto, Verkoop(new(2026, 9, 20), 4000m, deel: 25m))).IsGelukt);
+
+        // Op elke peildatum: wat de activa zeggen is gelijk aan het saldo in de kolommenbalans van die periode.
+        foreach (var tot in new[] { new DateOnly(2026, 3, 31), new DateOnly(2026, 6, 30), new DateOnly(2026, 9, 30), new DateOnly(2026, 12, 31) })
+        {
+            var stand = await dienst.Stand(wie, id, tot);
+            var koba = await grootboek.Kolommenbalans(wie, id, new DateOnly(2026, 1, 1), tot);
+            foreach (var rekening in new[] { "0200", "0210", "0300", "0310" })
+            {
+                Assert.Equal(koba.Regels.SingleOrDefault(r => r.Rekening.Nummer == rekening)?.Saldo ?? 0m, stand.GetValueOrDefault(rekening));
+            }
+        }
+
+        // In maart staat de bestelauto (april) er nog niet; op 30 juni wel, nog zonder de verkoop van september.
+        Assert.False((await dienst.Stand(wie, id, new DateOnly(2026, 3, 31))).ContainsKey("0300"));
+        Assert.Equal(24000m, (await dienst.Stand(wie, id, new DateOnly(2026, 6, 30)))["0300"]);
+        Assert.Equal(18000m, (await dienst.Stand(wie, id, new DateOnly(2026, 9, 30)))["0300"]);
+    }
 }

@@ -778,18 +778,21 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
     /// afschrijvingsrekening de cumulatieve afschrijving (credit), na alle geboekte afschrijvingen en desinvesteringen.
     /// Ook activarekeningen zonder activa (een aanschaf die nog niet geactiveerd is). Voor <see cref="AansluitingDienst"/>.
     /// </summary>
-    internal static async Task<IReadOnlyList<Aansluitregel>> Aansluiting(AdministratieDbContext db, Rekeningschema schema)
+    /// <param name="tot">Peildatum (bijv. het eind van de periode in de kolommenbalans): alleen aanschaffingen, afschrijvingen
+    /// en desinvesteringen tot en met die datum; leeg = alles.</param>
+    internal static async Task<IReadOnlyList<Aansluitregel>> Aansluiting(AdministratieDbContext db, Rekeningschema schema, DateOnly? tot = null)
     {
-        var activa = await db.Activa.AsNoTracking().ToListAsync();
-        var geboekt = await Geboekt(db);
-        var stappen = await Stappen(db);
+        var peil = tot ?? DateOnly.MaxValue;
+        var activa = (await db.Activa.AsNoTracking().ToListAsync()).Where(a => a.Aanschafdatum <= peil).ToList();
+        var geboekt = (await Geboekt(db)).ToDictionary(g => g.Key, g => g.Value.Where(m => m.Key <= peil).ToDictionary(m => m.Key, m => m.Value));
+        var stappen = (await Stappen(db)).ToDictionary(g => g.Key, g => g.Value.Where(d => d.Datum <= peil).ToList());
         var stand = activa.Select(a => (a, Stand: Stand(a, geboekt.GetValueOrDefault(a.Id) ?? [], stappen.GetValueOrDefault(a.Id) ?? []))).ToList();
         var regels = new List<Aansluitregel>();
         var activarekeningen = schema.Alle.Where(IsActivarekening).Select(r => r.Nummer).Union(activa.Select(a => a.Activarekening)).Distinct().ToList();
         // Aanschaffingen (debet) op de activarekeningen; die zonder actief zijn nog niet geactiveerd.
         var bronnen = activa.Select(a => a.Bron).OfType<string>().ToHashSet();
         var aanschaffingen = await db.GeldendeRegels.AsNoTracking().Where(r => activarekeningen.Contains(r.Rekeningnummer) && r.Bedrag > 0)
-            .Join(db.Boekingen.AsNoTracking().Where(b => b.Herstelt == null), r => r.BoekingId, b => b.Id, (r, b) => new { r.Rekeningnummer, Stuk = b.Dagboek + " " + b.Boekstuk })
+            .Join(db.Boekingen.AsNoTracking().Where(b => b.Herstelt == null && b.Datum <= peil), r => r.BoekingId, b => b.Id, (r, b) => new { r.Rekeningnummer, Stuk = b.Dagboek + " " + b.Boekstuk })
             .ToListAsync();
         foreach (var nummer in activarekeningen.Where(n => aanschaffingen.Any(x => x.Rekeningnummer == n) || activa.Any(a => a.Activarekening == n)).Order(Rekeningnummers.Volgorde))
         {
@@ -809,6 +812,17 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
         }
 
         return regels;
+    }
+
+    /// <summary>
+    /// Wat de vaste activa per rekening zeggen op een peildatum (tekenconventie van het grootboek: aanschaf debet,
+    /// cumulatieve afschrijving credit), om de kolommenbalans en de activastaat op aan te sluiten.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, decimal>> Stand(Uitvoerder wie, Guid administratie, DateOnly tot)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
+        var (schema, _) = await GrootboekDienst.Inrichting(db);
+        return (await Aansluiting(db, schema, tot)).ToDictionary(r => r.Rekening, r => r.Bron);
     }
 
     /// <summary>Hoeveel activa afschrijvingen hebben tot en met <paramref name="tot"/> die nog niet geboekt zijn (voor het afsluiten van een periode).</summary>

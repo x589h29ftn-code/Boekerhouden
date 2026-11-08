@@ -4,6 +4,7 @@
 @inject KantoorDienst Kantoor
 @inject NavigationManager Navigatie
 @inject OverzichtDienst Overzicht
+@inject ActivaDienst Activa
 @inject IJSRuntime JS
 
 <AdministratieKader Id="Id" Titel="Kolommenbalans" Actief="/kolommenbalans" BijOpenen="Open">
@@ -55,7 +56,7 @@
                             @if (p.Regel is { } r)
                             {
                                 <tr class="klikbaar" title="@r.Rekening.RgsCode" @onclick="() => NaarKaart(r.Rekening.Nummer, van, tot)">
-                                    <td class="@(uitgebreid ? "ingesprongen" : null)"><span class="rekeningnummer">@r.Rekening.Nummer</span> @r.Rekening.Naam</td>
+                                    <td class="@(uitgebreid ? "ingesprongen" : null)"><span class="rekeningnummer">@r.Rekening.Nummer</span> @r.Rekening.Naam@ActivaStatus(r.Rekening.Nummer)</td>
                                     <td class="bedrag text-end">@Getal(W(r.Rekening, 0))</td>
                                     <td class="bedrag text-end">@Getal(W(r.Rekening, 1))</td>
                                     <td class="bedrag text-end text-secondary">@Procent(W(r.Rekening, 0), W(r.Rekening, 1))</td>
@@ -108,7 +109,7 @@
                             @if (p.Regel is { } r)
                             {
                                 <tr class="klikbaar" title="@r.Rekening.RgsCode" @onclick="() => NaarKaart(r.Rekening.Nummer, van, tot)">
-                                    <td class="@(uitgebreid ? "ingesprongen" : null)"><span class="rekeningnummer">@r.Rekening.Nummer</span> @r.Rekening.Naam</td>
+                                    <td class="@(uitgebreid ? "ingesprongen" : null)"><span class="rekeningnummer">@r.Rekening.Nummer</span> @r.Rekening.Naam@ActivaStatus(r.Rekening.Nummer)</td>
                                     @for (var k = 0; k < 4; k++)
                                     {
                                         <td class="bedrag text-end">@Getal(W(r.Rekening, k))</td>
@@ -179,7 +180,7 @@
                             @if (p.Regel is { } r)
                             {
                                 <tr title="@r.Rekening.RgsCode">
-                                    <td class="klikbaar @(uitgebreid ? "ingesprongen" : null)" @onclick="() => NaarKaart(r.Rekening.Nummer, van, tot)"><span class="rekeningnummer">@r.Rekening.Nummer</span> @r.Rekening.Naam</td>
+                                    <td class="klikbaar @(uitgebreid ? "ingesprongen" : null)" @onclick="() => NaarKaart(r.Rekening.Nummer, van, tot)"><span class="rekeningnummer">@r.Rekening.Nummer</span> @r.Rekening.Naam@ActivaStatus(r.Rekening.Nummer)</td>
                                     <td class="bedrag text-end text-secondary">@Getal(W(r.Rekening, 0))</td>
                                     @for (var i = 0; i < maanden.Maanden.Count; i++)
                                     {
@@ -276,6 +277,23 @@
 
     private Task Laad() => Laad(uitgebreid, perMaand, vergelijk);
 
+    /// <summary>Per activa- en afschrijvingsrekening wat de vaste activa zeggen op het eind van de periode, en het verschil met de kolommenbalans.</summary>
+    private Dictionary<string, (decimal Activa, decimal Verschil)> activastand = [];
+
+    private async Task LaadActiva(IEnumerable<(string Rekening, decimal Saldo)> saldi)
+    {
+        var stand = await Activa.Stand(geopend!.Wie, Id, tot);
+        var bekend = saldi.ToDictionary(s => s.Rekening, s => s.Saldo);
+        activastand = stand.ToDictionary(s => s.Key, s => (s.Value, bekend.GetValueOrDefault(s.Key) - s.Value));
+    }
+
+    private RenderFragment? ActivaStatus(string rekening) =>
+        activastand.TryGetValue(rekening, out var a)
+            ? a.Verschil == 0
+                ? @<span class="visually-hidden">sluit op de vaste activa</span>
+                : @<span class="status let-op ms-2" title="Volgens de vaste activa @Weergave.Bedrag(a.Activa) op @Weergave.Datum(tot); verschil @Weergave.Bedrag(a.Verschil)">activa wijkt af</span>
+            : null;
+
     /// <summary>
     /// Haalt de cijfers voor de gekozen weergave op en zet pas daarna weergave en cijfers samen om. Zo tekent de pagina
     /// nooit de nieuwe weergave met de cijfers van de vorige (bijv. per maand met de vier kolommen van het totaal).
@@ -286,6 +304,7 @@
         {
             var nieuw = await Grootboek.Kolommenbalans(geopend!.Wie, Id, van, tot);
             var naast = vgl ? Jaarvergelijking.Maak(nieuw, await Grootboek.Kolommenbalans(geopend.Wie, Id, van.AddYears(-1), tot.AddYears(-1))) : null;
+            await LaadActiva(nieuw.Regels.Select(r => (r.Rekening.Nummer, r.Saldo)));
             (koba, vergelijking, uitgebreid, perMaand, vergelijk, melding) = (nieuw, naast, rgs, false, vgl, null);
             if (naast is not null)
             {
@@ -302,6 +321,7 @@
         try
         {
             var nieuw = await Grootboek.Maandoverzicht(geopend!.Wie, Id, van, tot);
+            await LaadActiva(nieuw.Regels.Select(r => (r.Rekening.Nummer, r.Eind)));
             (maanden, uitgebreid, perMaand, melding) = (nieuw, rgs, true, null);
             Bereken(nieuw.Regels.Select(r => (r.Rekening, (decimal[])[r.Begin, .. r.PerMaand, r.Eind])));
         }

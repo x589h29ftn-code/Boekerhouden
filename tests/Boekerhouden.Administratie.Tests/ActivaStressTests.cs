@@ -104,6 +104,10 @@ public sealed class ActivaStressTests(AdministratieFixture app, ITestOutputHelpe
             var totaal = staat.Aggregate(Activastaatregel.Nul, (som, g) => som + g.Totaal);
             Meet($"activastaat {jaar}", klok, $"{staat.Sum(g => g.Posten.Count)} activa, boekwaarde 31-12 {totaal.BoekwaardeEind:N2}");
             Assert.All(staat, g => Assert.True(g.Sluit, $"{jaar} {g.Activarekening}: {g.GrootboekAanschaf}/{g.Totaal.AanschafEind}, {g.GrootboekAfschrijving}/{g.Totaal.AfschrijvingEind}"));
+            var stand = await dienst.Stand(wie, id, new DateOnly(jaar, 12, 31));
+            var koba = await grootboek.Kolommenbalans(wie, id, new DateOnly(jaar, 1, 1), new DateOnly(jaar, 12, 31));
+            Assert.All(stand, s => Assert.Equal(koba.Regels.SingleOrDefault(r => r.Rekening.Nummer == s.Key)?.Saldo ?? 0m, s.Value));
+            Meet($"aansluiting kolommenbalans {jaar}", klok);
             if (vorige is not null)
             {
                 Assert.Equal(vorige.AanschafEind, totaal.AanschafBegin);
