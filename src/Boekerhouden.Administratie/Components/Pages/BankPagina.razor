@@ -10,6 +10,7 @@
 @inject InrichtingDienst Inrichting
 @inject IJSRuntime JS
 @inject IServiceProvider Diensten
+@inject Meldingen Meldingen
 
 <AdministratieKader Id="Id" Titel="Bank" Actief="/bank" BijOpenen="Open">
     <Kenmerken>
@@ -168,7 +169,12 @@
     }
     else if (mutaties is { Count: 0 })
     {
-        <div class="leeg-regel">Alle mutaties zijn verwerkt.</div>
+        <LegeStaat Icoon="circle-check" Tekst="Alle mutaties zijn verwerkt">
+            @if (context.Mag(Recht.Invoeren))
+            {
+                <label class="btn btn-sm btn-outline-primary" for="afschriften">Afschrift inlezen</label>
+            }
+        </LegeStaat>
     }
     else if (mutaties is not null)
     {
@@ -176,10 +182,6 @@
         var teKiezen = zichtbaar.Where(m => m.Status == Banktransactiestatus.TeVerwerken).ToList();
         <div class="row g-3 bankwerk">
             <div class="@(gekozen is null ? "col-12" : "col-lg-5")">
-                @if (selectiebericht is not null)
-                {
-                    <div class="melding-kort" role="status" @key="meldingnummer">@selectiebericht</div>
-                }
                 @if (gekozen is null)
                 {
                     <Foutmeldingen Fouten="fouten" />
@@ -234,7 +236,7 @@
                                                 }<span class="small text-secondary ms-1">@m.Omschrijving</span></span>
                                             @if (m.MogelijkDubbel && m.Status == Banktransactiestatus.TeVerwerken)
                                             {
-                                                <span class="status let-op">dubbel?</span>
+                                                <Statusstip Soort="Stipsoort.LetOp">dubbel?</Statusstip>
                                             }
                                         </span>
                                     </td>
@@ -563,13 +565,11 @@
     {
         bezig = true;
         var aantal = geselecteerd.Count;
-        selectiebericht = null;
         var uitkomst = await Bank.OpRekening(geopend!.Wie, Id, [.. geselecteerd], selectieRekening ?? "", string.IsNullOrEmpty(selectieBtw) ? null : selectieBtw);
         fouten = uitkomst.Fouten;
         if (uitkomst.IsGelukt)
         {
-            meldingnummer++;
-            selectiebericht = $"{uitkomst.Waarde} van {aantal} mutaties geboekt op {selectieRekening} {schema?.Zoek(selectieRekening!)?.Naam}{(string.IsNullOrEmpty(selectieBtw) ? null : $", {selectieBtw}")}.";
+            Meldingen.Toon($"{uitkomst.Waarde} van {aantal} mutaties geboekt op {selectieRekening} {schema?.Zoek(selectieRekening!)?.Naam}{(string.IsNullOrEmpty(selectieBtw) ? null : $", {selectieBtw}")}.");
             geselecteerd.Clear();
             gekozen = null;
         }
@@ -578,13 +578,11 @@
         await Laad();
     }
 
-    private string? selectiebericht;
 
     private static string Omzettitel(Pdfomzetting o) =>
         $"{o.Bestandsnaam}{(o.Afschrift.Nummer is { } nr ? $", afschrift {nr}" : null)}; beginsaldo {Weergave.Bedrag(o.Afschrift.Beginsaldo)}, eindsaldo {Weergave.Bedrag(o.Afschrift.Eindsaldo)}";
 
     /// <summary>Elke nieuwe bevestiging een nieuw element, zodat de korte melding opnieuw verschijnt.</summary>
-    private int meldingnummer;
 
     private void KiesDubbel()
     {
@@ -601,13 +599,11 @@
     private async Task Verwijder(IReadOnlyList<Guid> weg)
     {
         bezig = true;
-        selectiebericht = null;
         var uitkomst = await Bank.Verwijder(geopend!.Wie, Id, weg);
         fouten = uitkomst.Fouten;
         if (uitkomst.IsGelukt)
         {
-            meldingnummer++;
-            selectiebericht = uitkomst.Waarde == 1 ? "1 mutatie verwijderd." : $"{uitkomst.Waarde} mutaties verwijderd.";
+            Meldingen.Toon(uitkomst.Waarde == 1 ? "1 mutatie verwijderd." : $"{uitkomst.Waarde} mutaties verwijderd.");
             geselecteerd.ExceptWith(weg);
             if (gekozen is { } g && weg.Contains(g.Mutatie.Id))
             {

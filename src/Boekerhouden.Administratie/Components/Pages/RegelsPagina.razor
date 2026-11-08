@@ -9,7 +9,7 @@
     <Foutmeldingen Fouten="fouten" />
     @if (regels is { Count: 0 })
     {
-        <div class="leeg-regel mb-3">Nog geen regels.</div>
+        <LegeStaat Klasse="mb-3" Icoon="sliders-horizontal" Tekst="Nog geen regels" />
     }
     else if (regels is not null)
     {

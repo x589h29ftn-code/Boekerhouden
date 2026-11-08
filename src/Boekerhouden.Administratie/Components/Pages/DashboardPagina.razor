@@ -71,7 +71,9 @@
                 }
                 @if (indeling.Count == 0 && !aanpassen)
                 {
-                    <div class="leeg-blok breed">Er staat niets op het dashboard. Kies Aanpassen om widgets toe te voegen.</div>
+                    <LegeStaat Klasse="breed" Icoon="chart-column" Tekst="Er staat niets op het dashboard">
+                        <button class="btn btn-sm btn-outline-primary" @onclick="BeginAanpassen">Aanpassen</button>
+                    </LegeStaat>
                 }
             </div>
         }

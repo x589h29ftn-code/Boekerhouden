@@ -157,7 +157,12 @@
         {
             @if (lijst.Count == 0)
             {
-                <div class="leeg-regel">Nog geen vaste activa.</div>
+                <LegeStaat Icoon="landmark" Tekst="Nog geen vaste activa">
+                    @if (mag)
+                    {
+                        <a class="btn btn-sm btn-outline-primary" href="/a/@Id/activa/nieuw">Nieuw actief</a>
+                    }
+                </LegeStaat>
             }
             else
             {
@@ -180,19 +185,19 @@
                                     <td class="bedrag text-end"><Euro Waarde="a.PerMaand" LeegBijNul="true" /></td>
                                     <td>@if (a.BuitenGebruikOp is { } weg)
                                         {
-                                            <span class="status">gedesinvesteerd @Weergave.Datum(weg)</span>
+                                            <Statusstip Soort="Stipsoort.Uit">gedesinvesteerd @Weergave.Datum(weg)</Statusstip>
                                         }
                                         else if (a.Achterstand > 0)
                                         {
-                                            <span class="status">@a.Achterstand @(a.Achterstand == 1 ? "maand" : "maanden") te boeken</span>
+                                            <Statusstip Soort="Stipsoort.LetOp">@a.Achterstand @(a.Achterstand == 1 ? "maand" : "maanden") te boeken</Statusstip>
                                         }
                                         else if (a.PerMaand == 0)
                                         {
-                                            <span class="status">afgeschreven</span>
+                                            <Statusstip Soort="Stipsoort.Uit">afgeschreven</Statusstip>
                                         }
                                         else if (a.Gedesinvesteerd)
                                         {
-                                            <span class="status">deels gedesinvesteerd</span>
+                                            <Statusstip Soort="Stipsoort.Open">deels gedesinvesteerd</Statusstip>
                                         }</td>
                                 </tr>
                             }

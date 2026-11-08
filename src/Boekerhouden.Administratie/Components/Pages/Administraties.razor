@@ -2,6 +2,7 @@
 @inject AdministratieDienst AdministratieDienst
 @inject KantooroverzichtDienst Kantooroverzicht
 @inject TimeProvider Tijd
+@inject Meldingen Meldingen
 
 <PageTitle>Administraties - Administratie</PageTitle>
 
@@ -18,10 +19,6 @@
     </AuthorizeView>
 </div>
 
-@if (melding is not null)
-{
-    <div class="melding-kort" role="status" @key="meldingnummer">@melding</div>
-}
 <Foutmeldingen Fouten="fouten" />
 
 @if (standen is not null && lijst is { Count: > 0 })
@@ -43,7 +40,7 @@
         }
         @if (standen.Values.All(w => w.Leeg))
         {
-            <span class="status">Alles verwerkt</span>
+            <Statusstip Soort="Stipsoort.Klaar">alles verwerkt</Statusstip>
         }
     </div>
 }
@@ -54,16 +51,18 @@
 }
 else if (lijst.Count == 0)
 {
-    <div class="leeg-blok">
-        @if (string.IsNullOrWhiteSpace(zoek))
-        {
-            <span>Je hebt nog geen toegang tot een administratie.</span>
-        }
-        else
-        {
-            <span>Geen administraties gevonden voor ‘@zoek’.</span>
-        }
-    </div>
+    @if (string.IsNullOrWhiteSpace(zoek))
+    {
+        <LegeStaat Icoon="book-open" Tekst="Je hebt nog geen toegang tot een administratie">
+            <AuthorizeView Roles="@Rollen.Kantoor">
+                <a class="btn btn-sm btn-outline-primary" href="/administraties/nieuw">Nieuwe administratie</a>
+            </AuthorizeView>
+        </LegeStaat>
+    }
+    else
+    {
+        <LegeStaat Icoon="search" Tekst="@($"Geen administraties gevonden voor ‘{zoek}’")" />
+    }
 }
 else
 {
@@ -111,7 +110,7 @@ else
                         <td class="text-end text-nowrap">
                             @if (a.Gearchiveerd is { } op)
                             {
-                                <span class="status me-2" title="Gearchiveerd @Weergave.DatumTijd(op): alleen inzien">gearchiveerd</span>
+                                <Statusstip Soort="Stipsoort.Uit" Titel="@($"Gearchiveerd {Weergave.DatumTijd(op)}: alleen inzien")">gearchiveerd</Statusstip>
                             }
                             <span class="regelacties">
                                 @if (a.Rol == Lidmaatschapsrol.Kantoor)
@@ -164,8 +163,6 @@ else
     private bool ookGearchiveerd;
     private bool beheerder;
     private bool bezig;
-    private string? melding;
-    private int meldingnummer;
     private IReadOnlyList<string>? fouten;
     private AdministratieKop? verwijderen;
     private Verwijdervoorwaarden? voorwaarden;
@@ -219,11 +216,7 @@ else
     private static string? Kenmerken(AdministratieKop a) =>
         string.Join(" · ", new[] { a.KvkNummer is { } k ? $"KvK {k}" : null, a.BtwNummer is { } b ? $"btw {b}" : null }.Where(t => t is not null)) is { Length: > 0 } t ? t : null;
 
-    private void Meld(string tekst)
-    {
-        meldingnummer++;
-        melding = tekst;
-    }
+    private void Meld(string tekst, Func<Task<string?>>? ongedaan = null) => Meldingen.Toon(tekst, ongedaan);
 
     private async Task Archiveer(AdministratieKop a)
     {
@@ -232,7 +225,16 @@ else
         fouten = uitkomst.Fouten;
         if (uitkomst.IsGelukt)
         {
-            Meld($"{a.Naam} is gearchiveerd.");
+            Meld($"{a.Naam} is gearchiveerd.", async () =>
+            {
+                var terug = await AdministratieDienst.Herstel(wie, a.Id);
+                await InvokeAsync(async () =>
+                {
+                    await Laad();
+                    StateHasChanged();
+                });
+                return terug.IsGelukt ? null : string.Join(" ", terug.Fouten);
+            });
         }
 
         bezig = false;

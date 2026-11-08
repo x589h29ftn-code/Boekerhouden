@@ -56,7 +56,7 @@
                                 <tr class="klikbaar @(a.Id == bewerkt ? "gekozen" : null)" @onclick="() => Bewerk(a.Id)">
                                     <td>@a.Naam@if (!a.Actief)
                                         {
-                                            <span class="status ms-2">gestopt</span>
+                                            <Statusstip Soort="Stipsoort.Uit">gestopt</Statusstip>
                                         }
                                         else if (a.Automatisch)
                                         {
@@ -66,7 +66,7 @@
                                     <td>@Tekst(a.Herhaling)</td>
                                     <td class="text-nowrap">@(a.VolgendeDatum is { } v ? Weergave.Datum(v) : "-")@if (a.TeMaken > 0)
                                         {
-                                            <span class="status let-op ms-2">@a.TeMaken te maken</span>
+                                            <Statusstip Soort="Stipsoort.LetOp">@a.TeMaken te maken</Statusstip>
                                         }</td>
                                     <td class="bedrag text-end">@Weergave.Bedrag(a.Bedrag)</td>
                                     <td class="text-end text-secondary">@a.Gemaakt</td>
@@ -78,7 +78,9 @@
             }
             else if (formulier is null)
             {
-                <div class="leeg-regel">Nog geen terugkerende facturen.</div>
+                <LegeStaat Icoon="repeat" Tekst="Nog geen terugkerende facturen">
+                    <button class="btn btn-sm btn-outline-primary" @onclick="Nieuw">Nieuwe terugkerende factuur</button>
+                </LegeStaat>
             }
 
             @if (formulier is { } f)

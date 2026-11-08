@@ -47,14 +47,12 @@
         }
         @if (teVerwerken is { Count: 0 })
         {
-            <div class="leeg-blok">
-                <Icoon Naam="inbox" />
-                <span>Geen documenten te verwerken</span>
+            <LegeStaat Icoon="inbox" Tekst="Geen documenten te verwerken">
                 @if (geopend?.Kop.Mag(Recht.Invoeren) == true)
                 {
                     <label class="btn btn-sm btn-outline-primary" for="bestanden">Facturen inlezen</label>
                 }
-            </div>
+            </LegeStaat>
         }
         else if (teVerwerken is not null)
         {

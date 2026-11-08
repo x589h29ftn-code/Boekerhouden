@@ -42,7 +42,27 @@ public sealed record Verkooplijstregel(
     decimal? Openstaand,
     DateTimeOffset AangemaaktOp,
     bool Ingelezen = false,
-    string? Melding = null);
+    string? Melding = null)
+{
+    /// <summary>Hoe de factuur ervoor staat: concept (of ingelezen), open, vervallen (na de vervaldatum nog open) of betaald.</summary>
+    public Verkoopstand Stand(DateOnly vandaag) => Status switch
+    {
+        Verkoopstatus.Concept => Ingelezen ? Verkoopstand.Ingelezen : Verkoopstand.Concept,
+        _ when Openstaand is null or 0m => Verkoopstand.Betaald,
+        _ when Openstaand > 0 && Vervaldatum < vandaag => Verkoopstand.Vervallen,
+        _ => Verkoopstand.Open,
+    };
+}
+
+/// <summary>Waar een verkoopfactuur staat in de lijst (het bolletje).</summary>
+public enum Verkoopstand
+{
+    Concept,
+    Ingelezen,
+    Open,
+    Vervallen,
+    Betaald,
+}
 
 /// <summary>Een verkoopfactuur met alles om hem te tonen, op te maken of verder te bewerken.</summary>
 /// <param name="Factuur">De factuur zoals hij op papier staat (met de klant als momentopname).</param>

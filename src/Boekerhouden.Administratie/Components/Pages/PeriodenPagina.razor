@@ -59,7 +59,7 @@
                                 <td class="text-end">@(m.Boekingen == 0 ? null : m.Boekingen)</td>
                                 <td>@if (m.Afgesloten)
                                     {
-                                        <span class="status">Afgesloten</span>
+                                        <Statusstip Soort="Stipsoort.Klaar">afgesloten</Statusstip>
                                     }</td>
                                 <td class="text-end">
                                     @if (mag && !m.Afgesloten && m.Begin <= vandaag)

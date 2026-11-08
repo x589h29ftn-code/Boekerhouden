@@ -5,6 +5,7 @@
 @implements IAsyncDisposable
 @inject InkoopDienst Inkoop
 @inject ActivaDienst Activa
+@inject Meldingen Meldingen
 @inject NavigationManager Navigatie
 @inject IJSRuntime JS
 @inject IServiceProvider Diensten
@@ -1072,16 +1073,36 @@
             return;
         }
 
-        // Door naar het document dat nu op deze plaats in Te verwerken staat (het volgende), of terug naar de lijst.
-        vorigeGeboekt = $"{(soort == Documentsoort.Creditnota ? "Creditnota " : null)}{Variabelen.Leverancier} {factuurnummer} geboekt{(Totaal is { } t ? $" · {Bedragen.Euro(t)}" : null)}".Trim();
+        // Door naar het document dat nu op deze plaats in Te verwerken staat (het volgende), of terug naar de lijst; de
+        // bevestiging linksonder, met "Ongedaan maken" (de boeking terugdraaien en terug naar dit document).
+        var geboektDocument = DocumentId;
+        var wie = geopend.Wie;
+        var tekst = $"{(soort == Documentsoort.Creditnota ? "Creditnota " : null)}{Variabelen.Leverancier} {factuurnummer} geboekt{(Totaal is { } t ? $" · {Bedragen.Euro(t)}" : null)}".Trim();
         if (activeren && OpActivarekening && soort != Documentsoort.Creditnota && geopend.Kop.Mag(Recht.Boekhouden)
             && await Inkoop.Geboekt(geopend.Wie, Id, DocumentId) is { } geboekt)
         {
             var actief = await Activa.Activeer(geopend.Wie, Id, $"{geboekt.Dagboek} {geboekt.Boekstuk}");
-            vorigeGeboekt += actief.IsGelukt
+            tekst += actief.IsGelukt
                 ? $" · {actief.Waarde!.Count} {(actief.Waarde.Count == 1 ? "vast actief" : "vaste activa")} gemaakt (Boekhouden, Vaste activa)"
                 : $" · niet geactiveerd: {string.Join(" ", actief.Fouten)}";
+            Meldingen.Toon(tekst);
         }
+        else
+        {
+            Meldingen.Toon(tekst, async () =>
+            {
+                var terug = await Inkoop.Terugdraaien(wie, Id, geboektDocument);
+                if (!terug.IsGelukt)
+                {
+                    return string.Join(" ", terug.Fouten);
+                }
+
+                Navigatie.NavigateTo($"/a/{Id}/inkoop/{geboektDocument}");
+                return null;
+            });
+        }
+
+        vorigeGeboekt = null;
         await NaarVolgende(positie);
     }
 

@@ -49,6 +49,10 @@
         </ErrorContent>
     </ErrorBoundary>
 </main>
+@if (RendererInfo.IsInteractive)
+{
+    <Meldingenhouder />
+}
 
 @code {
     private ErrorBoundary? foutgrens;

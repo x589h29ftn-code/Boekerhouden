@@ -30,7 +30,7 @@
                     <td class="text-end text-nowrap">
                         @if (geldt)
                         {
-                            <span class="status">geldt nu</span>
+                            <Statusstip Soort="Stipsoort.Klaar">geldt nu</Statusstip>
                         }
                         <span class="acties"><button class="btn btn-sm btn-link text-secondary p-0 ms-2" @onclick="() => VerwijderTarief(t.Id)">Verwijderen</button></span>
                     </td>
@@ -103,7 +103,7 @@
                         {
                             @if (!c.Actief)
                             {
-                                <span class="status">inactief</span>
+                                <Statusstip Soort="Stipsoort.Uit">inactief</Statusstip>
                             }
                             <span class="acties"><button class="btn btn-sm btn-link text-secondary p-0 ms-2" @onclick="() => Bewerk(c)">wijzigen</button></span>
                         }

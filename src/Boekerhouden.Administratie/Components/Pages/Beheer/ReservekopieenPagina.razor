@@ -68,7 +68,7 @@ else
                             <td class="text-nowrap">@Weergave.DatumTijd(k.Gemaakt)</td>
                             <td>@Soort(k.Soort)@if (gecontroleerd.TryGetValue(k.Bestand, out var uitslag))
                                 {
-                                    <span class="status ms-2 @(uitslag is null ? null : "let-op")" title="@uitslag">@(uitslag is null ? "in orde" : "beschadigd")</span>
+                                    <Statusstip Soort="@(uitslag is null ? Stipsoort.Klaar : Stipsoort.LetOp)" Titel="@uitslag">@(uitslag is null ? "in orde" : "beschadigd")</Statusstip>
                                 }</td>
                             <td class="text-end">@k.Administraties</td>
                             <td class="text-end">@k.Boekingen.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("nl-NL"))</td>

@@ -1,0 +1,22 @@
+@* Een status met een klein bolletje ervoor: open (een ring), klaar (gevuld, de accentkleur), let op (de warme kleur)
+   of uit (lichtgrijs). Klein en grijs zoals elke status; alleen het bolletje zegt in één oogopslag hoe het ervoor staat. *@
+<span class="status stip @Klasse" title="@Titel">@ChildContent</span>
+
+@code {
+    [Parameter]
+    public Stipsoort Soort { get; set; } = Stipsoort.Open;
+
+    [Parameter]
+    public string? Titel { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    private string Klasse => Soort switch
+    {
+        Stipsoort.Klaar => "stip-klaar",
+        Stipsoort.LetOp => "stip-let-op let-op",
+        Stipsoort.Uit => "stip-uit",
+        _ => "stip-open",
+    };
+}

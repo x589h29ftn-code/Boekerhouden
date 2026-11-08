@@ -1,0 +1,32 @@
+@* De bevestiging linksonder, uit Meldingen; staat in de layout zodat hij een navigatie overleeft. *@
+@implements IDisposable
+@inject Meldingen Meldingen
+
+@if (Meldingen.Huidig is { } m)
+{
+    <div class="melding-kort @(m.KanOngedaan ? "met-actie" : null)" role="status" @key="m.Nummer">
+        <span>@m.Tekst</span>
+        @if (m.KanOngedaan)
+        {
+            <button type="button" class="melding-actie" disabled="@bezig" @onclick="MaakOngedaan">Ongedaan maken</button>
+            <button type="button" class="melding-sluit" title="Sluiten" aria-label="Sluiten" @onclick="Meldingen.Sluit"><Icoon Naam="x" /></button>
+        }
+    </div>
+}
+
+@code {
+    private bool bezig;
+
+    protected override void OnInitialized() => Meldingen.Gewijzigd += Bijwerken;
+
+    private void Bijwerken() => InvokeAsync(StateHasChanged);
+
+    private async Task MaakOngedaan()
+    {
+        bezig = true;
+        await Meldingen.MaakOngedaan();
+        bezig = false;
+    }
+
+    public void Dispose() => Meldingen.Gewijzigd -= Bijwerken;
+}

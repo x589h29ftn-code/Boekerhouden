@@ -1,0 +1,24 @@
+@* Een lege lijst: een icoon, één regel tekst en (als het kan) de knop om te beginnen, bijv. "Nieuwe factuur". *@
+<div class="leeg-blok @Klasse">
+    @if (Icoon is not null)
+    {
+        <Icoon Naam="@Icoon" />
+    }
+    <span>@Tekst</span>
+    @ChildContent
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Tekst { get; set; } = "";
+
+    [Parameter]
+    public string? Icoon { get; set; }
+
+    [Parameter]
+    public string? Klasse { get; set; }
+
+    /// <summary>De actie: een knop of link om te beginnen.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

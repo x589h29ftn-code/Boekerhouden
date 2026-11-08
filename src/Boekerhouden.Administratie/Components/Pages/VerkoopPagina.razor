@@ -46,7 +46,12 @@
         }
         else if (regels.Count == 0)
         {
-            <div class="leeg-regel">Nog geen verkoopfacturen in deze periode.</div>
+            <LegeStaat Icoon="file-text" Tekst="Geen verkoopfacturen in deze periode">
+                @if (geopend?.Kop.Mag(Recht.Invoeren) == true)
+                {
+                    <a class="btn btn-sm btn-outline-primary" href="/a/@Id/verkoop/nieuw">Nieuwe factuur</a>
+                }
+            </LegeStaat>
         }
         else
         {
@@ -70,16 +75,14 @@
                             <SorteerKop Sortering="sortering" Naam="Excl. btw" Klasse="text-end" Gewijzigd="StateHasChanged" />
                             <SorteerKop Sortering="sortering" Naam="Totaal" Klasse="text-end" Gewijzigd="StateHasChanged" />
                             <SorteerKop Sortering="sortering" Naam="Open" Klasse="text-end" Gewijzigd="StateHasChanged" />
+                            <SorteerKop Sortering="sortering" Naam="Status" Gewijzigd="StateHasChanged" />
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var r in zichtbaar)
                         {
                             <tr class="klikbaar" @onclick="() => Navigatie.NavigateTo(Adres(r))" title="@(r.Status == Verkoopstatus.Concept ? $"Concept, gemaakt {Weergave.Moment(r.AangemaaktOp)}" : "Naar de factuur")">
-                                <td class="text-nowrap">@(r.Nummer ?? "")@if (r.Status == Verkoopstatus.Concept)
-                                    {
-                                        <span class="status @(r.Melding is null ? null : "let-op")" title="@r.Melding">@(r.Ingelezen ? "ingelezen" : "concept")</span>
-                                    }</td>
+                                <td class="text-nowrap">@(r.Nummer ?? "")</td>
                                 <td class="text-nowrap">@Weergave.Datum(r.Datum)</td>
                                 <td title="@r.Relatie">@r.Klant</td>
                                 <td class="omschrijving" title="@r.Omschrijving">@r.Omschrijving</td>
@@ -87,6 +90,7 @@
                                 <td class="bedrag text-end">@Weergave.Bedrag(r.Exclusief)</td>
                                 <td class="bedrag text-end">@Weergave.Bedrag(r.Totaal)</td>
                                 <td class="bedrag text-end text-secondary">@(r.Openstaand is { } o and not 0 ? Weergave.Bedrag(o) : null)</td>
+                                <td class="text-nowrap">@Stip(r)</td>
                             </tr>
                         }
                     </tbody>
@@ -96,6 +100,7 @@
                             <td class="bedrag text-end">@Weergave.Bedrag(zichtbaar.Where(r => r.Status == Verkoopstatus.Definitief).Sum(r => r.Exclusief))</td>
                             <td class="bedrag text-end">@Weergave.Bedrag(zichtbaar.Where(r => r.Status == Verkoopstatus.Definitief).Sum(r => r.Totaal))</td>
                             <td class="bedrag text-end">@Weergave.Bedrag(zichtbaar.Sum(r => r.Openstaand ?? 0m))</td>
+                            <td></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -124,7 +129,8 @@
         new("Vervaldatum", r => r.Vervaldatum, EerstOplopend: false),
         new("Excl. btw", r => r.Exclusief, EerstOplopend: false),
         new("Totaal", r => r.Totaal, EerstOplopend: false),
-        new("Open", r => r.Openstaand ?? 0m, EerstOplopend: false));
+        new("Open", r => r.Openstaand ?? 0m, EerstOplopend: false),
+        new("Status", r => r.Stand(DateOnly.FromDateTime(DateTime.Today))));
 
     [Parameter]
     public Guid Id { get; set; }
@@ -162,6 +168,15 @@
         (!alleenOpen || r.Openstaand is not (null or 0)) &&
         (zoek.Length == 0 || zoek.Split(' ', StringSplitOptions.RemoveEmptyEntries).All(w =>
             r.Klant.Contains(w, StringComparison.CurrentCultureIgnoreCase) || (r.Nummer?.Contains(w, StringComparison.OrdinalIgnoreCase) ?? false) || r.Omschrijving.Contains(w, StringComparison.CurrentCultureIgnoreCase)));
+
+    private RenderFragment Stip(Verkooplijstregel r) => r.Stand(vandaag) switch
+    {
+        Verkoopstand.Concept => @<Statusstip Soort="Stipsoort.Open" Titel="@r.Melding">concept</Statusstip>,
+        Verkoopstand.Ingelezen => @<Statusstip Soort="@(r.Melding is null ? Stipsoort.Open : Stipsoort.LetOp)" Titel="@r.Melding">ingelezen</Statusstip>,
+        Verkoopstand.Vervallen => @<Statusstip Soort="Stipsoort.LetOp" Titel="@($"Vervallen op {Weergave.Datum(r.Vervaldatum)}")">vervallen</Statusstip>,
+        Verkoopstand.Open => @<Statusstip Soort="Stipsoort.Open">open</Statusstip>,
+        _ => @<Statusstip Soort="Stipsoort.Klaar">betaald</Statusstip>,
+    };
 
     private bool Vervallen(Verkooplijstregel r) => r.Openstaand is > 0 && r.Vervaldatum < vandaag;
 

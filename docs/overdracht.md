@@ -92,8 +92,16 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     `Toegang.OpenOverzicht`: een paar gegroepeerde queries over alle administraties van de gebruiker). Bij 200
     administraties × 5 jaar (919.000 boekingen): PostgreSQL 130 ms koud en 25 ms warm, SQLite 214 en 108 ms; zoeken
     (Ctrl+K) 150 en 123 ms. `KantooroverzichtTests`.
-    Nog te doen uit het plan: statusbolletjes, lege staten met een
-    actie, meldingen met ongedaan maken; formulieren in blokken met een vaste opslaanbalk, vaste tabelkoppen,
+
+13. **Statusbolletjes, lege staten en ongedaan maken** (stap 3): `Statusstip` (ring = open, gevuld = klaar, warm =
+    let op, lichtgrijs = uit) bij verkoopfacturen (nieuwe kolom Status: concept, ingelezen, open, vervallen, betaald;
+    `Verkooplijstregel.Stand`), vaste activa, terugkerende facturen, perioden, bank (dubbel?), reservekopieën, btw-tabel,
+    gebruikers en gearchiveerde administraties. `LegeStaat` = icoon, één regel en de knop om te beginnen (verkoop,
+    activa, terugkerend, bank, inkoop, dashboard, startpagina). `Meldingen` (scoped) met `Meldingenhouder` in de layout:
+    de bevestiging linksonder overleeft een navigatie, met "Ongedaan maken" na het boeken van een inkoopfactuur
+    (tegenboeking, terug naar het document; niet als er direct is geactiveerd) en na het archiveren van een administratie.
+    `MeldingenTests`.
+    Nog te doen uit het plan: formulieren in blokken met een vaste opslaanbalk, vaste tabelkoppen,
     bulkacties; dichtheid, donkere modus, logo.
 
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
