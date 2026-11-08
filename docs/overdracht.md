@@ -115,7 +115,12 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     zet de kleuren om. Wat op papier hoort (factuur, factuurontwerp, PDF-voorbeeld) blijft wit.
     `THEMA=donker node scripts/ui/schermafbeeldingen.js …` maakt alle schermen in donker (ook `DICHTHEID=ruim`).
     Nieuwe vaste kleuren in de CSS: ook een donkere waarde in `donker.css` geven.
-    Nog te doen uit het plan: logo (woordmerk of logo van het kantoor, ook in favicon en PDF's).
+
+16. **Merkteken** (gekozen uit vier concepten): de B met de dubbele streep (zoals onder een totaal dat sluit), wit op
+    roest. `favicon.svg` (met vlak) en `favicon-merk.svg` (alleen het teken, de kopbalk zet het roestvlak eronder) in
+    de huisstijl; de Windows-app heeft `boekerhouden.ico` (16 t/m 256 pixels) als programmapictogram en in de
+    titelbalk van elk venster (`Merk.cs`; de proef controleert dat hij er is). Nog niet: een eigen kantoorlogo
+    uploaden voor op de rapporten (de verkoopfactuur heeft al een logo per administratie in de factuurlay-out).
 
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).

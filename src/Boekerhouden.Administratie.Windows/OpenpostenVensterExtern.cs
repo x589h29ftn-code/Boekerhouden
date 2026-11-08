@@ -9,6 +9,7 @@ internal sealed class OpenpostenVensterExtern : Form
     public OpenpostenVensterExtern(IServiceProvider diensten, Guid administratie, string titel)
     {
         Text = $"{titel} – Boekerhouden Administratie";
+        Icon = Merk.Icoon ?? Icon;
         Size = new Size(1100, 900);
         StartPosition = FormStartPosition.WindowsDefaultLocation;
         var webview = new BlazorWebView { Dock = DockStyle.Fill, HostPage = Path.Combine("wwwroot", "index.html"), Services = diensten };

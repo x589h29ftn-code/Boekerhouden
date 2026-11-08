@@ -9,6 +9,7 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <RootNamespace>Boekerhouden.Administratie.Windows</RootNamespace>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationIcon>boekerhouden.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,6 +21,7 @@
   <!-- De knoppenproef van de proefstand (Proef.cs); niet in wwwroot, want de app zelf gebruikt hem niet. -->
   <ItemGroup>
     <EmbeddedResource Include="proef.js" LogicalName="proef.js" />
+    <EmbeddedResource Include="boekerhouden.ico" LogicalName="boekerhouden.ico" />
   </ItemGroup>
 
   <!-- Het WebView2-pakket verwijst altijd ook naar zijn WPF-onderdeel; deze app is WinForms en heeft dat niet nodig. -->

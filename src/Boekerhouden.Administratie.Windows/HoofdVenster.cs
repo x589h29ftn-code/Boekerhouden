@@ -12,6 +12,7 @@ internal sealed class HoofdVenster : Form
     public HoofdVenster(IServiceProvider diensten, string? proefmap = null, Lokaal.Proefuitkomst? proefgegevens = null)
     {
         Text = Naam;
+        Icon = Merk.Icoon ?? Icon;
         Size = new Size(1440, 960);
         StartPosition = FormStartPosition.CenterScreen;
         var webview = new BlazorWebView { Dock = DockStyle.Fill, HostPage = Path.Combine("wwwroot", "index.html"), Services = diensten };

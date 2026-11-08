@@ -66,6 +66,11 @@ internal static class Proef
 
     private static async Task Voer(WebView2 webview, string map, Proefuitkomst? gegevens, StringBuilder verslag, List<string> fouten)
     {
+        if (Merk.Icoon is null)
+        {
+            fouten.Add("Het pictogram van de app (boekerhouden.ico) ontbreekt.");
+        }
+
         var start = await Wacht(webview, "Proef B.V.");
         await Afdruk(webview, Path.Combine(map, "proef-start.png"));
         if (!start.Contains("Nieuwe administratie", StringComparison.Ordinal) || !start.Contains("Proef B.V.", StringComparison.Ordinal))
