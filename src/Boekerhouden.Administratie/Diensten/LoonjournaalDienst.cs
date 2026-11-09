@@ -4,6 +4,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Boekerhouden.Administratie.Diensten;
 
+/// <summary>Een onthouden koppeling: de rekening uit het salarispakket en de rekening in de administratie.</summary>
+public sealed record Loonkoppelinginstelling(string Loonrekening, string Loonnaam, string Rekeningnummer);
+
 /// <summary>Een gelezen loonjournaal met per regel de voorgestelde rekening en wat opvalt.</summary>
 public sealed record Loonjournaalvoorstel(string Bestandsnaam, Loonjournaal Journaal, IReadOnlyList<Loonkoppeling> Koppelingen, IReadOnlyList<string> Signalen);
 
@@ -107,6 +110,42 @@ public sealed class LoonjournaalDienst(Toegang toegang, GrootboekDienst grootboe
             await audit.Log(wie, AuditActies.LoonkoppelingGewijzigd, "Loonjournaal", string.Join("; ", gewijzigd), administratie);
         }
 
+        return Uitkomst.Gelukt;
+    }
+
+    /// <summary>Alle onthouden koppelingen van de administratie, op nummer van het salarispakket.</summary>
+    public async Task<IReadOnlyList<Loonkoppelinginstelling>> Koppelingen(Uitvoerder wie, Guid administratie)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
+        return [.. (await db.Loonkoppelingen.AsNoTracking().ToListAsync())
+            .OrderBy(k => k.Loonrekening, Boekhouding.Grootboek.Rekeningnummers.Volgorde)
+            .Select(k => new Loonkoppelinginstelling(k.Loonrekening, k.Loonnaam, k.Rekeningnummer))];
+    }
+
+    /// <summary>Een koppeling instellen of wijzigen zonder loonjournaal (bij de instellingen van de administratie).</summary>
+    public async Task<Uitkomst> Zet(Uitvoerder wie, Guid administratie, string loonrekening, string loonnaam, string rekening)
+    {
+        var nummer = loonrekening?.Trim() ?? "";
+        if (nummer.Length is 0 or > 20)
+        {
+            return Uitkomst.Mislukt("Vul het rekeningnummer uit het salarispakket in.");
+        }
+
+        return await Onthoud(wie, administratie, [(new Loonjournaalregel(nummer, (loonnaam ?? "").Trim(), 0m), (rekening ?? "").Trim())]);
+    }
+
+    /// <summary>Een onthouden koppeling weghalen; bij het volgende loonjournaal geldt die rekening dan weer als nieuw.</summary>
+    public async Task<Uitkomst> Verwijder(Uitvoerder wie, Guid administratie, string loonrekening)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
+        if (await db.Loonkoppelingen.FirstOrDefaultAsync(k => k.Loonrekening == loonrekening) is not { } k)
+        {
+            return Uitkomst.Mislukt($"Er is geen koppeling voor {loonrekening}.");
+        }
+
+        db.Loonkoppelingen.Remove(k);
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.LoonkoppelingGewijzigd, "Loonjournaal", $"{k.Loonrekening} {k.Loonnaam} weggehaald (was {k.Rekeningnummer})", administratie);
         return Uitkomst.Gelukt;
     }
 }

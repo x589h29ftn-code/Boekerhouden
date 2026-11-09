@@ -839,6 +839,11 @@
         }
 
         bezig = false;
+        if (factuurUitkomst.Dubbel)
+        {
+            Meldingen.Toon(factuurUitkomst.Melding);
+        }
+
         if (factuurUitkomst.IsGeboekt)
         {
             gekozen = null;

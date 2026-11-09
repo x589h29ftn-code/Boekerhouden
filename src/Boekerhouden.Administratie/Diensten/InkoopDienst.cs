@@ -76,7 +76,8 @@ public sealed record Factuurboekregel(
 internal sealed record Verdelingsgegevens(DateOnly Van, DateOnly Tot, string Rekening, List<string> Kostenrekeningen, List<string> Boekstukken);
 
 /// <summary>Wat er met een ingelezen bestand gebeurd is.</summary>
-public sealed record Inleesuitkomst(Guid? DocumentId, Documentstatus? Status, string Melding)
+/// <param name="Dubbel">Hetzelfde bestand is al eerder ingelezen: niet opnieuw ingelezen.</param>
+public sealed record Inleesuitkomst(Guid? DocumentId, Documentstatus? Status, string Melding, bool Dubbel = false)
 {
     public bool IsGeboekt => Status == Documentstatus.Geboekt;
 }
@@ -177,7 +178,7 @@ public sealed class InkoopDienst(
         var hash = Convert.ToHexStringLower(SHA256.HashData(bytes));
         if (await db.Documenten.AsNoTracking().FirstOrDefaultAsync(d => d.Sha256 == hash && d.Status != Documentstatus.Quarantaine, annulering) is { } eerder)
         {
-            return new(eerder.Id, eerder.Status, $"Dit bestand is al ingelezen op {Weergave.DatumTijd(eerder.IngelezenOp)}.");
+            return new(eerder.Id, eerder.Status, $"Dubbele factuur: {naam} is al ingelezen op {Weergave.DatumTijd(eerder.IngelezenOp)} en niet opnieuw ingelezen.", Dubbel: true);
         }
 
         var document = new Document

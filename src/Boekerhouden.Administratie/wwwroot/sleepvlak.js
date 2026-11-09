@@ -19,6 +19,7 @@ export function koppel(vlak) {
     vlak.addEventListener('dragleave', uit);
     vlak.addEventListener('drop', weg);
     return {
+        leeg: () => leegVeld(vlak),
         los: () => {
             vlak.removeEventListener('dragenter', aan);
             vlak.removeEventListener('dragleave', uit);
@@ -49,10 +50,18 @@ export function koppelPagina(vlak) {
     doel.addEventListener('dragleave', uit);
     doel.addEventListener('drop', weg);
     return {
+        leeg: () => leegVeld(vlak),
         los: () => {
             doel.removeEventListener('dragenter', aan);
             doel.removeEventListener('dragleave', uit);
             doel.removeEventListener('drop', weg);
         },
     };
+}
+
+// Na het inlezen het bestandsveld leegmaken: anders geeft hetzelfde bestand nog eens kiezen geen "change" en gebeurt er
+// niets (ook geen melding dat het een dubbele factuur is).
+function leegVeld(vlak) {
+    const veld = vlak.querySelector('input[type=file]');
+    if (veld) veld.value = '';
 }

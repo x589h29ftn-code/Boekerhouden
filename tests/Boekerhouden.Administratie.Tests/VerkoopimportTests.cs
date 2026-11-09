@@ -94,7 +94,8 @@ public sealed class VerkoopimportTests(AdministratieFixture app) : IClassFixture
         var import = app.Dienst<VerkoopimportDienst>();
         Assert.True((await import.Lees(wie, id, Ubl("2026-010", new(2026, 5, 1)), "a.xml", null)).Geboekt);
 
-        Assert.Contains("al eerder ingelezen", (await import.Lees(wie, id, Ubl("2026-010", new(2026, 5, 1)), "a-kopie.xml", null)).Melding, StringComparison.Ordinal);
+        var dubbel = await import.Lees(wie, id, Ubl("2026-010", new(2026, 5, 1)), "a-kopie.xml", null);
+        Assert.Equal((true, "Dubbele factuur: a-kopie.xml is al eerder ingelezen en niet opnieuw ingelezen."), (dubbel.Dubbel, dubbel.Melding));
         var ander = await import.Lees(wie, id, Ubl("2026-010", new(2026, 5, 1), bedrag: 500m), "b.xml", null);
         Assert.False(ander.Geboekt);
         Assert.Contains("staat al in de administratie", ander.Melding, StringComparison.Ordinal);

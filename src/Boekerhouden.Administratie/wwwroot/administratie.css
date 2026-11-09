@@ -1731,3 +1731,5 @@ a.kerngetal:hover { color: var(--bh-accent); }
 /* Opmerkingen bij de btw privégebruik: mogen over meer regels lopen. */
 .privegebruiksignalen .status { white-space: normal; display: inline; }
 .privegebruiksignalen > div + div { margin-top: .25rem; }
+.loonkoppelingen .regelactie { opacity: 0; }
+.loonkoppelingen tr:is(:hover, :focus-within) .regelactie { opacity: 1; }

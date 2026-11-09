@@ -3,6 +3,7 @@
 @inject InrichtingDienst Inrichting
 @inject GrootboekDienst Grootboek
 @inject VpbDienst Vpb
+@inject LoonjournaalDienst Loon
 @inject Meldingen Meldingen
 @using Boekerhouden.Boekhouding.Vpb
 
@@ -90,6 +91,35 @@
                     </div>
                 </Formulierblok>
             }
+            @if (schema is not null)
+            {
+                <Formulierblok Titel="Loonjournaal">
+                    <table class="table table-sm align-middle mb-2 overzichtstabel loonkoppelingen">
+                        <thead>
+                            <tr><th style="width:7rem">Salarispakket</th><th>Naam</th><th style="width:40%">Rekening</th><th style="width:1.75rem"></th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var k in loonkoppelingen)
+                            {
+                                var koppeling = k;
+                                <tr>
+                                    <td class="text-secondary">@k.Loonrekening</td>
+                                    <td>@k.Loonnaam</td>
+                                    <td><RekeningKeuze Waarde="@k.Rekeningnummer" WaardeChanged="r => ZetLoon(koppeling.Loonrekening, koppeling.Loonnaam, r)" Schema="schema" Kader="geopend" Label="@($"Rekening voor {k.Loonnaam}")" /></td>
+                                    <td><button type="button" class="btn btn-sm btn-link text-secondary p-0 regelactie" title="Weghalen: bij het volgende loonjournaal geldt deze rekening weer als nieuw" aria-label="Weghalen" @onclick="() => VerwijderLoon(koppeling.Loonrekening)"><Icoon Naam="x" /></button></td>
+                                </tr>
+                            }
+                            <tr class="loonkoppeling-nieuw">
+                                <td><input class="form-control form-control-sm" aria-label="Rekeningnummer in het salarispakket" placeholder="nummer" @bind="nieuweLoon.Nummer" /></td>
+                                <td><input class="form-control form-control-sm" aria-label="Naam in het salarispakket" placeholder="naam, bijv. Netto loon" @bind="nieuweLoon.Naam" /></td>
+                                <td><RekeningKeuze @bind-Waarde="nieuweLoon.Rekening" Schema="schema" Kader="geopend" Label="Rekening in de administratie" /></td>
+                                <td></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" disabled="@(string.IsNullOrWhiteSpace(nieuweLoon.Nummer) || string.IsNullOrWhiteSpace(nieuweLoon.Rekening))" @onclick="VoegLoonToe">Toevoegen</button>
+                </Formulierblok>
+            }
             <Formulierblok Titel="Verwerken">
                 <InstellingenVelden Invoer="instellingen" Kantoor="kantoor" />
             </Formulierblok>
@@ -136,6 +166,7 @@
         instellingen = InstellingenInvoer.Van(i.Afwijkend);
         belasting = Belastingformulier.Van(i.Belasting ?? Belastinginstellingen.Leeg);
         schema = await Grootboek.Schema(g.Wie, Id);
+        loonkoppelingen = await Loon.Koppelingen(g.Wie, Id);
         kantoor = i.Kantoor;
         vorige = Stand();
     }
@@ -164,6 +195,52 @@
             nieuw[soort] = null;
             await ZetFiscaal(nummer, soort);
         }
+    }
+
+    private IReadOnlyList<Loonkoppelinginstelling> loonkoppelingen = [];
+    private Nieuweloonkoppeling nieuweLoon = new();
+
+    /// <summary>Een loonkoppeling meteen bewaren (los van het formulier), zoals de fiscale indeling.</summary>
+    private async Task ZetLoon(string loonrekening, string loonnaam, string? rekening)
+    {
+        if (string.IsNullOrWhiteSpace(rekening))
+        {
+            return;
+        }
+
+        var uitkomst = await Loon.Zet(geopend!.Wie, Id, loonrekening, loonnaam, rekening);
+        fouten = uitkomst.IsGelukt ? null : uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            Meldingen.Toon($"{loonrekening} {loonnaam} → {rekening.Trim()}");
+        }
+
+        loonkoppelingen = await Loon.Koppelingen(geopend.Wie, Id);
+    }
+
+    private async Task VoegLoonToe()
+    {
+        await ZetLoon(nieuweLoon.Nummer.Trim(), nieuweLoon.Naam.Trim(), nieuweLoon.Rekening);
+        if (fouten is null)
+        {
+            nieuweLoon = new();
+        }
+    }
+
+    private async Task VerwijderLoon(string loonrekening)
+    {
+        var uitkomst = await Loon.Verwijder(geopend!.Wie, Id, loonrekening);
+        fouten = uitkomst.IsGelukt ? null : uitkomst.Fouten;
+        loonkoppelingen = await Loon.Koppelingen(geopend.Wie, Id);
+    }
+
+    private sealed class Nieuweloonkoppeling
+    {
+        public string Nummer { get; set; } = "";
+
+        public string Naam { get; set; } = "";
+
+        public string? Rekening { get; set; }
     }
 
     private async Task Herstel()

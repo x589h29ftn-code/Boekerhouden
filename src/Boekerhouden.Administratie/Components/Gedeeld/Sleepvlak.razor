@@ -8,7 +8,7 @@
 @if (Pagina)
 {
     <div @ref="vlak" class="paginasleep @(Bezig ? "bezig" : null)">
-        <InputFile id="@Id" class="paginasleep-veld" accept="@Accept" multiple="@Meerdere" OnChange="OnChange" disabled="@Bezig" aria-label="@Tekst" tabindex="-1" />
+        <InputFile id="@Id" class="paginasleep-veld" accept="@Accept" multiple="@Meerdere" OnChange="Gekozen" disabled="@Bezig" aria-label="@Tekst" tabindex="-1" />
         <div class="paginasleep-rand" aria-hidden="true"><span><Icoon Naam="upload" /> Loslaten om in te lezen</span></div>
         <div class="paginasleep-balk"></div>
     </div>
@@ -16,7 +16,7 @@
 }
 
 <div @ref="vlak" class="sleepvlak @(Bezig ? "bezig" : null)">
-    <InputFile id="@Id" accept="@Accept" multiple="@Meerdere" OnChange="OnChange" disabled="@Bezig" aria-label="@Tekst" />
+    <InputFile id="@Id" accept="@Accept" multiple="@Meerdere" OnChange="Gekozen" disabled="@Bezig" aria-label="@Tekst" />
     <div class="sleepvlak-tekst" aria-hidden="true">
         <span class="sleepvlak-icoon"><Icoon Naam="upload" /></span>
         <span class="fw-semibold">@Tekst</span>
@@ -64,6 +64,23 @@
         {
             await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "./sleepvlak.js");
             koppeling = await module.InvokeAsync<IJSObjectReference>(Pagina ? "koppelPagina" : "koppel", vlak);
+        }
+    }
+
+    /// <summary>Inlezen, en daarna het veld leegmaken zodat hetzelfde bestand nog eens kiezen weer iets doet.</summary>
+    private async Task Gekozen(InputFileChangeEventArgs e)
+    {
+        await OnChange.InvokeAsync(e);
+        try
+        {
+            if (koppeling is not null)
+            {
+                await koppeling.InvokeVoidAsync("leeg");
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // Het circuit is al weg.
         }
     }
 

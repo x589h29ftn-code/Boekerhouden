@@ -288,7 +288,21 @@
         }
 
         bezig = false;
+        MeldDubbel([.. ingelezen.Where(u => u.Dubbel).Select(u => u.Melding)]);
         await Laad();
+    }
+
+    /// <summary>Dubbel ingelezen facturen kort melden (linksonder), ook als de rest goed ging.</summary>
+    private void MeldDubbel(IReadOnlyList<string> meldingen)
+    {
+        if (meldingen.Count == 1)
+        {
+            Meldingen.Toon(meldingen[0]);
+        }
+        else if (meldingen.Count > 1)
+        {
+            Meldingen.Toon($"{meldingen.Count} dubbele facturen niet opnieuw ingelezen.");
+        }
     }
 
     private static string Aantal(int n) => n == 1 ? "1 factuur" : $"{n} facturen";

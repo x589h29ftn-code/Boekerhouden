@@ -9,7 +9,8 @@ namespace Boekerhouden.Administratie.Diensten;
 
 /// <summary>Wat er met een ingelezen verkoopfactuur gebeurd is.</summary>
 /// <param name="Id">De verkoopfactuur (leeg als hij niet is ingelezen).</param>
-public sealed record Verkoopinleesuitkomst(Guid? Id, bool Geboekt, string Melding);
+/// <param name="Dubbel">Hetzelfde bestand is al eerder ingelezen: niet opnieuw ingelezen.</param>
+public sealed record Verkoopinleesuitkomst(Guid? Id, bool Geboekt, string Melding, bool Dubbel = false);
 
 /// <summary>
 /// Verkoopfacturen uit een ander pakket inlezen: een PDF, e-factuur (UBL) of scan. Eerst de virusscan, dan dezelfde
@@ -48,7 +49,7 @@ public sealed class VerkoopimportDienst(
             var hash = Convert.ToHexStringLower(SHA256.HashData(bytes));
             if (await db.Verkoopbestanden.AsNoTracking().FirstOrDefaultAsync(b => b.Sha256 == hash, annulering) is { } eerder)
             {
-                return new(eerder.VerkoopdocumentId, false, $"{naam} is al eerder ingelezen.");
+                return new(eerder.VerkoopdocumentId, false, $"Dubbele factuur: {naam} is al eerder ingelezen en niet opnieuw ingelezen.", Dubbel: true);
             }
 
             if (virusscanners.FirstOrDefault() is { } scanner)

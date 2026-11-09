@@ -67,4 +67,36 @@ public sealed class LoonjournaalTests(AdministratieFixture app) : IClassFixture<
         Assert.Equal("Nieuw in het salarispakket: 4062 Reiskostenvergoeding via verloning. Kies bij welke rekening die hoort.", Assert.Single(tweede.Signalen));
         Assert.All(tweede.Koppelingen.Where(k => k.Regel.Nummer != "4062"), k => Assert.Equal(Loonkoppelbron.Onthouden, k.Bron));
     }
+
+    [Fact]
+    public async Task Koppelingen_bij_de_instellingen_vooraf_instellen_wijzigen_en_weghalen()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Loon Instellen B.V.");
+        var dienst = app.Dienst<LoonjournaalDienst>();
+
+        // Vooraf ingesteld, zonder loonjournaal.
+        Assert.True((await dienst.Zet(wie, id, "2100", "Netto loon", "1800")).IsGelukt);
+        Assert.True((await dienst.Zet(wie, id, "1500", "Af te dragen loonheffing", "1520")).IsGelukt);
+        Assert.True((await dienst.Zet(wie, id, "2100", "Netto loon", "1700")).IsGelukt);
+        Assert.Equal([("1500", "1520"), ("2100", "1700")], (await dienst.Koppelingen(wie, id)).Select(k => (k.Loonrekening, k.Rekeningnummer)));
+        Assert.False((await dienst.Zet(wie, id, "", "Leeg", "1800")).IsGelukt);
+        Assert.False((await dienst.Zet(wie, id, "3000", "Onbekend", "9999")).IsGelukt);
+
+        // Bij het inlezen gelden ze meteen; wat niet is ingesteld, is nieuw.
+        var voorstel = (await dienst.Lees(wie, id, new MemoryStream(FictiefLoonjournaal.Lijst(FictiefLoonjournaal.Lijstsoort.Teken)), "maart.pdf")).Waarde!;
+        Assert.Equal(("1700", Loonkoppelbron.Onthouden), (voorstel.Koppelingen.Single(k => k.Regel.Nummer == "2100").Rekening, voorstel.Koppelingen.Single(k => k.Regel.Nummer == "2100").Bron));
+        Assert.Equal(Loonkoppelbron.Nieuw, voorstel.Koppelingen.Single(k => k.Regel.Nummer == "4000").Bron);
+
+        Assert.True((await dienst.Verwijder(wie, id, "2100")).IsGelukt);
+        Assert.False((await dienst.Verwijder(wie, id, "2100")).IsGelukt);
+        Assert.Equal(["1500"], (await dienst.Koppelingen(wie, id)).Select(k => k.Loonrekening));
+        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.LoonkoppelingGewijzigd && r.Details == "2100 Netto loon weggehaald (was 1700)");
+
+        var ondernemer = await app.Gebruiker("Otto Loon Instellen");
+        await app.Dienst<AdministratieDienst>().ZetLid(id, ondernemer.Id!.Value, Lidmaatschapsrol.Ondernemer, wie);
+        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.Koppelingen(ondernemer, id));
+        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.Zet(ondernemer, id, "2100", "Netto loon", "1800"));
+        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.Verwijder(ondernemer, id, "1500"));
+    }
 }

@@ -213,6 +213,11 @@ Alleen bij een BV (menu *Rapportages → Fiscale positie*, `/a/{id}/vpb`, `VpbDi
 
 ### 3.4 Inkoopfacturen: inlezen, herkennen, voorstellen
 
+**Dubbel inlezen**: hetzelfde bestand nog eens inlezen (inkoop, verkoop, of een factuur bij een bankmutatie) leest het
+niet opnieuw in, en geeft linksonder de korte melding *Dubbele factuur: … is al ingelezen op … en niet opnieuw
+ingelezen.* (bij meer tegelijk: het aantal). Het bestandsveld wordt na elk inlezen leeggemaakt, zodat hetzelfde bestand
+nog eens kiezen ook echt iets doet.
+
 1. **Inlezen**: uploaden (slepen, meerdere tegelijk), later per e-mail (eigen adres per administratie)
    en via de telefoon (foto).
 2. **Herkennen** (`IFactuurHerkenner`, AD3), in volgorde van betrouwbaarheid:
@@ -622,7 +627,11 @@ het formulier, een maand later, om aan te passen (bijv. andere bedragen) voor he
   betekenisvol woord gemeen, bijv. *Af te dragen loonheffing* → *Te betalen loonheffing*); de rest kiest de gebruiker (bijv. *Netto loon* naar de eigen rekening te betalen netto lonen). **Nieuwe
   looncomponent**: is er al eerder geïmporteerd en staat er een rekening in het journaal die nog nooit is gekoppeld
   (bijv. *Reiskostenvergoeding via verloning*), dan krijgt die geen automatische keuze maar *nieuw*, een melding
-  bovenaan en een voorstel om aan te klikken; *Naar boeking* kan pas als de gebruiker een rekening heeft gekozen. Een **periode**
+  bovenaan en een voorstel om aan te klikken; *Naar boeking* kan pas als de gebruiker een rekening heeft gekozen.
+- **Loonkoppelingen beheren** (*Instellingen → Loonjournaal*): per administratie de rekeningen uit het salarispakket
+  (nummer en naam) met de rekening in de administratie; vooraf instellen (dan hoeft het niet bij het inlezen), wijzigen
+  (meteen bewaard) en weghalen (bij het volgende journaal geldt die rekening dan weer als nieuw). Gelogd, alleen het
+  kantoor. Een **periode**
   (maand; standaard die van *periode tot en met*, bij vier-wekenperioden december) en een omschrijving; *Naar boeking*
   zet de boeking in het formulier op de laatste dag van die maand, met de namen uit het salarispakket als omschrijving
   per regel. Daar kan nog een regel bij of af, en *Boeken* kan alleen in balans.

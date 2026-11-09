@@ -667,7 +667,8 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
         var andereKopie = await inkoop.Lees(wie, id, new MemoryStream(Belnet("BN2026-0411")), "b.xml", null);
         var nogmaals = await inkoop.Boek(wie, id, andereKopie.DocumentId!.Value, Invoer("BELNET", null, "BN2026-0411"));
 
-        Assert.StartsWith("Dit bestand is al ingelezen op", zelfdeBestand.Melding, StringComparison.Ordinal);
+        Assert.StartsWith("Dubbele factuur:", zelfdeBestand.Melding, StringComparison.Ordinal);
+        Assert.True(zelfdeBestand.Dubbel);
         Assert.Contains("Lijkt al geboekt", andereKopie.Melding, StringComparison.Ordinal);
         Assert.Contains("Factuur BN2026-0411 van deze leverancier is al geboekt.", nogmaals.Fouten);
     }
