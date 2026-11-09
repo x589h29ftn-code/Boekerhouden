@@ -99,4 +99,24 @@ public sealed class LoonjournaalTests(AdministratieFixture app) : IClassFixture<
         await Assert.ThrowsAsync<GeenToegangException>(() => dienst.Zet(ondernemer, id, "2100", "Netto loon", "1800"));
         await Assert.ThrowsAsync<GeenToegangException>(() => dienst.Verwijder(ondernemer, id, "1500"));
     }
+
+    [Fact]
+    public async Task Honderden_koppelingen_tegelijk_en_een_te_lang_log_breekt_niets()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Loon Veel B.V.");
+        var dienst = app.Dienst<LoonjournaalDienst>();
+        var keuzes = Enumerable.Range(0, 300).Select(i => (new Loonjournaalregel($"{50000 + i}", $"Een heel lange naam van looncomponent nummer {i} uit het salarispakket", 1m), "4000")).ToList();
+
+        Assert.True((await dienst.Onthoud(wie, id, keuzes)).IsGelukt);
+
+        Assert.Equal(300, (await dienst.Koppelingen(wie, id)).Count);
+        var log = (await app.Dienst<AuditDienst>().Recent()).First(r => r.Actie == AuditActies.LoonkoppelingGewijzigd && r.AdministratieId == id);
+        Assert.EndsWith("; en 280 meer", log.Details, StringComparison.Ordinal);
+
+        // Het log zelf kort een te lange tekst in.
+        await app.Dienst<AuditDienst>().Log(wie, "Test", new string('o', 600), new string('d', 5000), id);
+        var lang = (await app.Dienst<AuditDienst>().Recent()).First(r => r.Actie == "Test" && r.AdministratieId == id);
+        Assert.Equal((500, 4000), (lang.Onderwerp!.Length, lang.Details!.Length));
+    }
 }

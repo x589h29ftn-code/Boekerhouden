@@ -9,7 +9,11 @@ public sealed record Loonjournaalregel(string Nummer, string Naam, decimal Bedra
 /// Het (cumulatieve) loonjournaal uit een salarispakket: per rekening van het salarispakket het totaal (de regels per
 /// kostenplaats opgeteld), met de totalen debet en credit zoals vermeld, en de periode en werkgever als die erin staan.
 /// </summary>
-public sealed record Loonjournaal(string? Werkgever, string? PeriodeVan, string? PeriodeTot, IReadOnlyList<Loonjournaalregel> Regels, decimal? TotaalDebet, decimal? TotaalCredit)
+/// <param name="KolomDebet">De som van de debetkolom zoals gelezen (een correctie met een min telt negatief mee), om met het vermelde totaal te vergelijken; leeg = gelijk aan <see cref="Debet"/>.</param>
+/// <param name="KolomCredit">Idem de creditkolom.</param>
+public sealed record Loonjournaal(
+    string? Werkgever, string? PeriodeVan, string? PeriodeTot, IReadOnlyList<Loonjournaalregel> Regels, decimal? TotaalDebet, decimal? TotaalCredit,
+    decimal? KolomDebet = null, decimal? KolomCredit = null)
 {
     private static readonly System.Globalization.CultureInfo Nl = System.Globalization.CultureInfo.GetCultureInfo("nl-NL");
 
@@ -31,14 +35,16 @@ public sealed record Loonjournaal(string? Werkgever, string? PeriodeVan, string?
             yield return string.Create(Nl, $"Niet in balans: debet {Debet:N2}, credit {Credit:N2}.");
         }
 
-        if (TotaalDebet is { } d && d != Debet)
+        // Het vermelde totaal is de som van de kolom, met correcties (een min) erin.
+        var (debet, credit) = (KolomDebet ?? Debet, KolomCredit ?? Credit);
+        if (TotaalDebet is { } d && d != debet)
         {
-            yield return string.Create(Nl, $"Debet opgeteld {Debet:N2}, maar het journaal vermeldt {d:N2}: mogelijk is een bedrag niet goed gelezen.");
+            yield return string.Create(Nl, $"Debet opgeteld {debet:N2}, maar het journaal vermeldt {d:N2}: mogelijk is een bedrag niet goed gelezen.");
         }
 
-        if (TotaalCredit is { } c && c != Credit)
+        if (TotaalCredit is { } c && c != credit)
         {
-            yield return string.Create(Nl, $"Credit opgeteld {Credit:N2}, maar het journaal vermeldt {c:N2}: mogelijk is een bedrag niet goed gelezen.");
+            yield return string.Create(Nl, $"Credit opgeteld {credit:N2}, maar het journaal vermeldt {c:N2}: mogelijk is een bedrag niet goed gelezen.");
         }
     }
 }

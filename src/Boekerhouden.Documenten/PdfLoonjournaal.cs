@@ -35,7 +35,7 @@ public static partial class PdfLoonjournaal
         }
         var lezingen = new[] { TweeKolommen(regels, woorden), Lijst(regels) }
             .Where(l => l is { Rekeningen.Count: > 0 })
-            .Select(l => new Loonjournaal(werkgever, van, tot, [.. l!.Rekeningen.Where(r => r.Bedrag != 0)], l.TotaalDebet, l.TotaalCredit))
+            .Select(l => new Loonjournaal(werkgever, van, tot, [.. l!.Rekeningen.Where(r => r.Bedrag != 0)], l.TotaalDebet, l.TotaalCredit, l.KolomDebet, l.KolomCredit))
             .ToList();
 
         // De lezing die sluit en bij de totaalregel past; anders die sluit; anders die met de meeste rekeningen.
@@ -46,7 +46,8 @@ public static partial class PdfLoonjournaal
 
     private static bool Sluit(Loonjournaal j) => j.Debet > 0 && j.Debet == j.Credit;
 
-    private sealed record Lezing(List<Loonjournaalregel> Rekeningen, decimal? TotaalDebet, decimal? TotaalCredit);
+    /// <param name="KolomDebet">De som van de debetkolom zoals gelezen (met correcties); leeg als er geen kolommen zijn.</param>
+    private sealed record Lezing(List<Loonjournaalregel> Rekeningen, decimal? TotaalDebet, decimal? TotaalCredit, decimal? KolomDebet = null, decimal? KolomCredit = null);
 
     /// <summary>Debet links en credit rechts, elk met eigen rekeningen.</summary>
     private static Lezing? TweeKolommen(List<List<Tekstwoord>> regels, IReadOnlyList<Tekstwoord> woorden)
@@ -72,7 +73,8 @@ public static partial class PdfLoonjournaal
             rechts = Kolom(r, credit: true, rechts);
         }
 
-        return new Lezing([.. rekeningen.Select(x => new Loonjournaalregel(x.Nummer, x.Naam, x.Credit ? -x.Bedrag : x.Bedrag))], totaalDebet, totaalCredit);
+        return new Lezing([.. rekeningen.Select(x => new Loonjournaalregel(x.Nummer, x.Naam, x.Credit ? -x.Bedrag : x.Bedrag))], totaalDebet, totaalCredit,
+            rekeningen.Where(x => !x.Credit).Sum(x => x.Bedrag), rekeningen.Where(x => x.Credit).Sum(x => x.Bedrag));
 
         int? Kolom(List<Tekstwoord> kolom, bool credit, int? huidig)
         {
@@ -109,9 +111,11 @@ public static partial class PdfLoonjournaal
         var creditX = kop?.FirstOrDefault(w => Is(w, "credit")) is { } c ? (c.X0 + c.X1) / 2 : (double?)null;
         var rekeningen = new List<Loonjournaalregel>();
         decimal? totaalDebet = null, totaalCredit = null;
+        decimal kolomDebet = 0m, kolomCredit = 0m;
+        var kolommen = false;
         foreach (var regel in regels.Skip(start))
         {
-            var bedragen = Getekend(regel);
+            var bedragen = Getekend(regel, telMee: !regel.Any(IsTotaal));
             if (regel.Any(IsTotaal))
             {
                 var debet = bedragen.Where(b => b > 0).Sum();
@@ -136,10 +140,10 @@ public static partial class PdfLoonjournaal
             totaalCredit = td;
         }
 
-        return new Lezing(rekeningen, totaalDebet, totaalCredit);
+        return kolommen ? new Lezing(rekeningen, totaalDebet, totaalCredit, kolomDebet, kolomCredit) : new Lezing(rekeningen, totaalDebet, totaalCredit);
 
-        // De bedragen van een regel met hun teken: credit negatief.
-        List<decimal> Getekend(List<Tekstwoord> regel)
+        // De bedragen van een regel met hun teken: credit negatief. Met kolommen of D/C ook de som per kolom zoals gelezen.
+        List<decimal> Getekend(List<Tekstwoord> regel, bool telMee)
         {
             var uit = new List<decimal>();
             for (var i = 0; i < regel.Count; i++)
@@ -155,7 +159,13 @@ public static partial class PdfLoonjournaal
                     : na is "D" or "DT" or "DEBET" or "DEBIT" ? false
                     : debetX is { } dx && creditX is { } cx ? Math.Abs(midden - cx) < Math.Abs(midden - dx)
                     : (bool?)null;
-                uit.Add(credit switch { true => -Math.Abs(bedrag), false => Math.Abs(bedrag), _ => bedrag });
+                // In de creditkolom (of met C) telt het bedrag andersom; een correctie met een min blijft een correctie.
+                uit.Add(credit == true ? -bedrag : bedrag);
+                if (credit is { } c && telMee)
+                {
+                    kolommen = true;
+                    (kolomDebet, kolomCredit) = c ? (kolomDebet, kolomCredit + bedrag) : (kolomDebet + bedrag, kolomCredit);
+                }
             }
 
             return uit;

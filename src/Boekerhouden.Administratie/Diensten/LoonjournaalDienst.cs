@@ -107,7 +107,8 @@ public sealed class LoonjournaalDienst(Toegang toegang, GrootboekDienst grootboe
         if (gewijzigd.Count > 0)
         {
             await db.SaveChangesAsync();
-            await audit.Log(wie, AuditActies.LoonkoppelingGewijzigd, "Loonjournaal", string.Join("; ", gewijzigd), administratie);
+            var details = string.Join("; ", gewijzigd.Take(20)) + (gewijzigd.Count > 20 ? $"; en {gewijzigd.Count - 20} meer" : null);
+            await audit.Log(wie, AuditActies.LoonkoppelingGewijzigd, "Loonjournaal", details, administratie);
         }
 
         return Uitkomst.Gelukt;

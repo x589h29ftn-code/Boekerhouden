@@ -111,4 +111,90 @@ public static class FictiefLoonjournaal
         Regel(soort == Lijstsoort.Kolommen ? [(80, "Totaal"), (380, totaal), (470, totaal)] : [(80, "Totaal"), (400, totaal)]);
         return builder.Build();
     }
+
+    /// <summary>Een rekening voor een gegenereerd journaal: bedrag als tekst zoals in de PDF (bijv. "-1.250,00"), debet of credit.</summary>
+    public sealed record Rekening(string Nummer, string Naam, string Bedrag, bool Credit);
+
+    /// <summary>
+    /// Een gegenereerd journaal over zoveel pagina's als nodig (40 regels per pagina): als lijst (kolommen Debet en
+    /// Credit) of, met <paramref name="tweeKolommen"/>, debet links en credit rechts. Onderaan de totalen zoals opgegeven.
+    /// </summary>
+    public static byte[] Maak(IReadOnlyList<Rekening> rekeningen, string totaalDebet, string totaalCredit, bool tweeKolommen = false)
+    {
+        ArgumentNullException.ThrowIfNull(rekeningen);
+        var builder = new PdfDocumentBuilder();
+        var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+        PdfPageBuilder pagina = null!;
+        var y = 0.0;
+        void Nieuw()
+        {
+            pagina = builder.AddPage(842, 595);
+            y = 560;
+            Regel((30, "Loonjournaal"), (110, "periode"), (160, "2026-1"));
+            Regel(tweeKolommen ? [(30, "Rekening"), (360, "Debet"), (440, "Rekening"), (760, "Credit")] : [(30, "Rekening"), (80, "Omschrijving"), (385, "Debet"), (475, "Credit")]);
+        }
+
+        void Regel(params (double X, string Tekst)[] delen)
+        {
+            foreach (var (x, tekst) in delen)
+            {
+                pagina.AddText(tekst, 8, new PdfPoint(x, y), font);
+            }
+
+            y -= 12;
+        }
+
+        IEnumerable<(double, string)> Naam(double x, string naam) => naam.Split(' ').Select((w, i) => (x + naam.Split(' ').Take(i).Sum(v => (v.Length * 4.6) + 3), w));
+
+        Nieuw();
+        if (tweeKolommen)
+        {
+            var debet = rekeningen.Where(r => !r.Credit).ToList();
+            var credit = rekeningen.Where(r => r.Credit).ToList();
+            for (var i = 0; i < Math.Max(debet.Count, credit.Count); i++)
+            {
+                if (y < 60)
+                {
+                    Nieuw();
+                }
+
+                var kop = new List<(double, string)>();
+                var bedrag = new List<(double, string)>();
+                if (i < debet.Count)
+                {
+                    kop.Add((30, debet[i].Nummer));
+                    kop.AddRange(Naam(70, debet[i].Naam));
+                    bedrag.Add((350, debet[i].Bedrag));
+                }
+
+                if (i < credit.Count)
+                {
+                    kop.Add((440, credit[i].Nummer));
+                    kop.AddRange(Naam(480, credit[i].Naam));
+                    bedrag.Add((760, credit[i].Bedrag));
+                }
+
+                Regel([.. kop]);
+                Regel([.. bedrag]);
+            }
+
+            Regel((30, "Totaal"), (350, totaalDebet), (440, "Totaal"), (760, totaalCredit));
+        }
+        else
+        {
+            foreach (var r in rekeningen)
+            {
+                if (y < 60)
+                {
+                    Nieuw();
+                }
+
+                Regel([(30, r.Nummer), .. Naam(80, r.Naam), (r.Credit ? 470 : 380, r.Bedrag)]);
+            }
+
+            Regel((80, "Totaal"), (380, totaalDebet), (470, totaalCredit));
+        }
+
+        return builder.Build();
+    }
 }

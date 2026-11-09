@@ -17,11 +17,15 @@ public sealed class AuditDienst(IDbContextFactory<AdministratieDbContext> dbFact
             Gebruiker = wie.Naam,
             AdministratieId = administratie,
             Actie = actie,
-            Onderwerp = onderwerp,
-            Details = details,
+            Onderwerp = Kort(onderwerp, 500),
+            Details = Kort(details, 4000),
         });
         await db.SaveChangesAsync();
     }
+
+    /// <summary>Te lange tekst inkorten (de kolommen zijn begrensd): het log mag een handeling nooit laten mislukken.</summary>
+    private static string? Kort(string? tekst, int maximum) =>
+        tekst is { Length: var lengte } && lengte > maximum ? string.Concat(tekst.AsSpan(0, maximum - 1), "…") : tekst;
 
     public async Task<IReadOnlyList<AuditRegel>> Recent(string? zoek = null, int aantal = 500)
     {

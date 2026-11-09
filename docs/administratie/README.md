@@ -628,6 +628,16 @@ het formulier, een maand later, om aan te passen (bijv. andere bedragen) voor he
   looncomponent**: is er al eerder geïmporteerd en staat er een rekening in het journaal die nog nooit is gekoppeld
   (bijv. *Reiskostenvergoeding via verloning*), dan krijgt die geen automatische keuze maar *nieuw*, een melding
   bovenaan en een voorstel om aan te klikken; *Naar boeking* kan pas als de gebruiker een rekening heeft gekozen.
+- **Stresstests** (november 2026): het lezen met honderden rekeningen over meerdere pagina's in beide opbouwen, bedragen
+  tot honderden miljoenen, correcties met een min in beide kolommen (het vermelde kolomtotaal is inclusief die min),
+  nul-bedragen, niet sluitend en geen journaal (`PdfLoonjournaalStressTests`); de btw met 20.000 boekingen per kwartaal,
+  maand en jaar, extreme aanpassingen in de jaaropstelling, 100 auto's door de jaren; de vpb met 5.000 willekeurige
+  resultaten van min tot plus een miljard (nooit negatief, nooit minder bij meer winst), de grenzen van KIA en gemengde
+  kosten voor 2015-2035, tarief nul en verlies groter dan winst (`BtwVpbStressTests`); en in de app met de database
+  (`BtwVpbLoonStressTests`, alleen met `BOEKERHOUDEN_STRESS`): 2.000 boekingen met btw-jaar, vastleggen, aanpassingen en
+  fiscale positie, en twaalf loonjournaals met 210-320 rekeningen en elke maand nieuwe looncomponenten. Gevonden en
+  opgelost: een correctie met een min in een kolom gaf ten onrechte "mogelijk niet goed gelezen", en een log van
+  honderden nieuwe koppelingen tegelijk liet het onthouden mislukken (het wijzigingslog kort te lange tekst nu in).
 - **Loonkoppelingen beheren** (*Instellingen → Loonjournaal*): per administratie de rekeningen uit het salarispakket
   (nummer en naam) met de rekening in de administratie; vooraf instellen (dan hoeft het niet bij het inlezen), wijzigen
   (meteen bewaard) en weghalen (bij het volgende journaal geldt die rekening dan weer als nieuw). Gelogd, alleen het
