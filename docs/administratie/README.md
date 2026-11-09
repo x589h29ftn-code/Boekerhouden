@@ -236,11 +236,18 @@ eigen btw-code voor de regel (`InrichtingDienst.WijzigRegel`, `Verwerkingsregel.
 - **Belastingdienst herkennen** (`Bank/Belastingherkenning`): een betaling aan of teruggaaf van de Belastingdienst
   (IBAN NL86 INGB 0002 4455 88 of de naam) zonder regel of geleerde keuze krijgt als voorstel de rekening van die
   belasting. De soort komt uit de letter van het aanslagnummer (`1234.56.789.B.01`: B omzetbelasting, L loonheffingen,
-  V vennootschapsbelasting, H inkomstenbelasting), uit het betalingskenmerk van 16 cijfers (het 10e cijfer 1 =
-  omzetbelasting) of uit de omschrijving (btw, loonheffing, vpb, ib). De rekening: een rekening *afgedragen …* als
+  V vennootschapsbelasting, H inkomstenbelasting), uit het betalingskenmerk van 16 cijfers of uit de omschrijving
+  (btw, loonheffing, vpb, ib). Het kenmerk (`Belastingherkenning.Lees`): positie 1 controlecijfer, 2–9 de eerste 8
+  cijfers van het BSN/RSIN (het 9e volgt uit de elfproef), 10 de soort (1 B aangifte omzetbelasting, 5 F naheffing
+  omzetbelasting, 6 L aangifte loonheffingen, 0 A naheffing loonheffingen), 11 het laatste cijfer van het jaar (het
+  meest recente jaar dat past), 12–13 subnummer, 14–15 tijdvak (01–12 maand, 21/24/27/30 kwartaal, 31/32 halfjaar,
+  40 jaar, 71–83 vierwekenperiode) en 16 volgnummer; daaruit het aanslagnummer, bijv. `1234.56.782.L.01.6080` =
+  loonheffingen augustus 2026. Bij de andere belastingen staat de soort in twee cijfers vanaf positie 10 (70 H, 73 N,
+  71 P inkomstenbelasting, 75 W Zvw, 74/80–84/92–96 V vennootschapsbelasting; houderschapsbelasting, eurovignet en
+  toeslagen worden herkend maar krijgen geen rekening). Het controlecijfer wordt niet nagerekend. De rekening: een rekening *afgedragen …* als
   die er is (OVPA: 1820, 1735), anders de rekening met de functie of RGS-groep (te betalen btw, loonheffing,
   vennootschapsbelasting); inkomstenbelasting is privé: privé-opnamen bij een eenmanszaak, de rekening-courant met de
-  directeur bij een BV. Alleen een voorstel (`Adviesbron.Herkend`, reden *Belastingdienst: omzetbelasting*): boeken
+  directeur bij een BV. Alleen een voorstel (`Adviesbron.Herkend`, reden bijv. *Belastingdienst: loonheffingen augustus 2026, aanslag …*): boeken
   doet de gebruiker, of een regel die hij ervan maakt.
 - **Handmatig inboeken** van een mutatie: op een openstaande post, op een grootboekrekening (met btw-code) of
   gesplitst over meerdere regels.

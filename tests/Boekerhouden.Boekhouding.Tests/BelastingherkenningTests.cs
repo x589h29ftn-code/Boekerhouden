@@ -29,6 +29,45 @@ public sealed class BelastingherkenningTests
         Assert.Equal(soort, Belastingherkenning.Herken(Betaling(omschrijving), schema, Ondernemingsvorm.BV)?.Soort);
     }
 
+    [Theory]
+    [InlineData("5123456781601270", "1234.56.782.B.01.6270", 2026, "3e kwartaal")]
+    [InlineData("4123456786601080", "1234.56.782.L.01.6080", 2026, "augustus")]
+    [InlineData("4123456786501080", "1234.56.782.L.01.5080", 2025, "augustus")]
+    [InlineData("4123456785602400", "1234.56.782.F.02.6400", 2026, "heel jaar")]
+    [InlineData("4123456780607750", "1234.56.782.A.07.6750", 2026, "vierwekenperiode 5")]
+    public void Betalingskenmerk_terug_naar_aanslagnummer(string kenmerk, string aanslag, int jaar, string tijdvak)
+    {
+        var gelezen = Belastingherkenning.Lees(kenmerk, new DateOnly(2026, 10, 30));
+
+        Assert.Equal((aanslag, jaar, tijdvak), (gelezen?.Aanslagnummer, gelezen?.Jaar, gelezen?.Tijdvak));
+    }
+
+    [Theory]
+    [InlineData("4123456787012345", 'H', Belastingsoort.Inkomstenbelasting)]
+    [InlineData("4123456787512345", 'W', Belastingsoort.Inkomstenbelasting)]
+    [InlineData("4123456789312345", 'V', Belastingsoort.Vennootschapsbelasting)]
+    [InlineData("4123456787412345", 'V', Belastingsoort.Vennootschapsbelasting)]
+    [InlineData("4123456788512345", 'Z', null)]
+    public void Soort_uit_de_code_van_twee_cijfers(string kenmerk, char letter, Belastingsoort? soort)
+    {
+        var schema = new Rekeningschema(StandaardRekeningschema.Rekeningen(Ondernemingsvorm.BV));
+
+        Assert.Equal(letter, Belastingherkenning.Lees(kenmerk, new DateOnly(2026, 1, 1))?.Letter);
+        Assert.Equal(soort, Belastingherkenning.Herken(Betaling($"/CDTRREF/{kenmerk}"), schema, Ondernemingsvorm.BV)?.Soort);
+    }
+
+    [Fact]
+    public void Kenmerk_met_onbekende_letter_of_zonder_geldig_bsn_wordt_niet_gelezen_en_de_omschrijving_beslist()
+    {
+        var schema = new Rekeningschema(StandaardRekeningschema.Rekeningen(Ondernemingsvorm.BV));
+
+        Assert.Null(Belastingherkenning.Lees("4123456783301080", new DateOnly(2026, 1, 1)));
+        Assert.Null(Belastingherkenning.Lees("412345678601080", new DateOnly(2026, 1, 1)));
+        var loon = Belastingherkenning.Herken(Betaling("/CDTRREF/4123456786601080/ISDT/2026-09-30"), schema, Ondernemingsvorm.BV)!;
+        Assert.Equal((Belastingsoort.Loonheffingen, "1520", "Belastingdienst: loonheffingen augustus 2026, aanslag 1234.56.782.L.01.6080"), (loon.Soort, loon.Rekening?.Nummer, loon.Reden));
+        Assert.Equal(Belastingsoort.Vennootschapsbelasting, Belastingherkenning.Herken(Betaling("Vpb 4123456783301080"), schema, Ondernemingsvorm.BV)?.Soort);
+    }
+
     [Fact]
     public void Rekening_per_belasting_en_rechtsvorm()
     {

@@ -13,15 +13,33 @@ public enum Belastingsoort
 }
 
 /// <summary>Een betaling aan (of van) de Belastingdienst: welke belasting, en de rekening die erbij hoort (of leeg).</summary>
-public sealed record Belastingbetaling(Belastingsoort Soort, Rekening? Rekening)
+/// <param name="Aanslag">Wat het betalingskenmerk zegt (aanslagnummer, jaar, tijdvak), als er een is.</param>
+public sealed record Belastingbetaling(Belastingsoort Soort, Rekening? Rekening, Aanslagkenmerk? Aanslag = null)
 {
-    public string Reden => $"Belastingdienst: {Soort switch
+    public string Reden
     {
-        Belastingsoort.Omzetbelasting => "omzetbelasting",
-        Belastingsoort.Loonheffingen => "loonheffingen",
-        Belastingsoort.Vennootschapsbelasting => "vennootschapsbelasting",
-        _ => "inkomstenbelasting",
-    }}";
+        get
+        {
+            var soort = Soort switch
+            {
+                Belastingsoort.Omzetbelasting => "omzetbelasting",
+                Belastingsoort.Loonheffingen => "loonheffingen",
+                Belastingsoort.Vennootschapsbelasting => "vennootschapsbelasting",
+                _ => Aanslag?.Letter == 'W' ? "bijdrage Zvw" : "inkomstenbelasting",
+            };
+            var delen = new[] { Aanslag?.Naheffing == true ? $"naheffingsaanslag {soort}" : soort, Aanslag?.Tijdvak, Aanslag?.Jaar?.ToString(System.Globalization.CultureInfo.InvariantCulture) }
+                .Where(d => d is not null);
+            return $"Belastingdienst: {string.Join(' ', delen)}{(Aanslag?.Aanslagnummer is { } a ? $", aanslag {a}" : null)}";
+        }
+    }
+}
+
+/// <summary>Wat er in een betalingskenmerk van de Belastingdienst staat.</summary>
+/// <param name="Letter">De letter van de belasting (het middel), bijv. B omzetbelasting of H inkomstenbelasting.</param>
+/// <param name="Aanslagnummer">Bij omzetbelasting en loonheffingen het aanslagnummer, bijv. <c>1234.56.782.L.01.6080</c>.</param>
+public sealed record Aanslagkenmerk(char Letter, string? Aanslagnummer = null, int? Jaar = null, string? Tijdvak = null)
+{
+    public bool Naheffing => Letter is 'F' or 'A' or 'Y';
 }
 
 /// <summary>
@@ -48,36 +66,99 @@ public static partial class Belastingherkenning
         }
 
         var tekst = $"{mutatie.Omschrijving} {mutatie.Betalingskenmerk}";
-        if (Soort(tekst) is not { } soort)
+        var aanslag = Betalingskenmerk().Matches(tekst).Select(m => Lees(m.Value, mutatie.Datum)).FirstOrDefault(a => a is not null);
+        if (((aanslag is null ? null : Soort(aanslag.Letter)) ?? Soort(tekst)) is not { } soort)
         {
             return null;
         }
 
-        return new Belastingbetaling(soort, Rekening(soort, schema, vorm));
+        return new Belastingbetaling(soort, Rekening(soort, schema, vorm), aanslag);
     }
+
+    /// <summary>
+    /// Het betalingskenmerk van 16 cijfers lezen. Bij omzetbelasting en loonheffingen: een controlecijfer, de eerste 8
+    /// cijfers van het BSN of RSIN (het 9e volgt uit de elfproef), de soort als één cijfer (1 = B aangifte
+    /// omzetbelasting, 5 = F naheffing omzetbelasting, 6 = L aangifte loonheffingen, 0 = A naheffing loonheffingen),
+    /// het laatste cijfer van het jaar, een subnummer van 2, het tijdvak van 2 en een volgnummer. Zo is
+    /// <c>4123456786601080</c> aanslag <c>1234.56.782.L.01.6080</c>: loonheffingen augustus 2026. Bij de andere belastingen
+    /// staat de soort in twee cijfers (70 H inkomstenbelasting, 75 W Zvw, 74/80–84/92–96 V vennootschapsbelasting …);
+    /// dan alleen de soort. Leeg als het kenmerk niet zo te lezen is.
+    /// </summary>
+    public static Aanslagkenmerk? Lees(string kenmerk, DateOnly datum)
+    {
+        if (kenmerk.Length != 16 || !kenmerk.All(char.IsAsciiDigit))
+        {
+            return null;
+        }
+
+        if (kenmerk[9] is '1' or '5' or '6' or '0')
+        {
+            var letter = kenmerk[9] switch { '1' => 'B', '5' => 'F', '6' => 'L', _ => 'A' };
+            var cijfers = kenmerk[1..9];
+            var som = 0;
+            for (var i = 0; i < 8; i++)
+            {
+                som += (cijfers[i] - '0') * (9 - i);
+            }
+
+            if (som % 11 == 10)
+            {
+                return null;
+            }
+
+            var nummer = cijfers + (char)('0' + (som % 11));
+            var jaar = datum.Year - (((datum.Year % 10) - (kenmerk[10] - '0') + 10) % 10);
+            var tijdvak = int.Parse(kenmerk[13..15], System.Globalization.CultureInfo.InvariantCulture);
+            return new Aanslagkenmerk(letter, $"{nummer[..4]}.{nummer[4..6]}.{nummer[6..]}.{letter}.{kenmerk[11..13]}.{kenmerk[10]}{kenmerk[13..]}", jaar, Tijdvak(tijdvak));
+        }
+
+        var code = int.Parse(kenmerk[9..11], System.Globalization.CultureInfo.InvariantCulture);
+        char? middel = code switch
+        {
+            70 => 'H',
+            73 => 'N',
+            71 => 'P',
+            75 => 'W',
+            74 or (>= 80 and <= 84) or (>= 92 and <= 96) => 'V',
+            78 or 87 => 'M',
+            76 or 88 => 'Y',
+            85 or 86 or 97 => 'Z',
+            >= 23 and <= 28 => 'T',
+            _ => null,
+        };
+        return middel is { } m ? new Aanslagkenmerk(m) : null;
+    }
+
+    private static readonly string[] Maanden = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"];
+
+    private static string? Tijdvak(int code) => code switch
+    {
+        >= 1 and <= 12 => Maanden[code - 1],
+        21 => "1e kwartaal",
+        24 => "2e kwartaal",
+        27 => "3e kwartaal",
+        30 => "4e kwartaal",
+        31 => "1e halfjaar",
+        32 => "2e halfjaar",
+        40 => "heel jaar",
+        >= 71 and <= 83 => $"vierwekenperiode {code - 70}",
+        _ => null,
+    };
+
+    private static Belastingsoort? Soort(char letter) => char.ToUpperInvariant(letter) switch
+    {
+        'B' or 'F' => Belastingsoort.Omzetbelasting,
+        'L' or 'A' => Belastingsoort.Loonheffingen,
+        'V' => Belastingsoort.Vennootschapsbelasting,
+        'H' or 'N' or 'P' or 'W' => Belastingsoort.Inkomstenbelasting,
+        _ => null,
+    };
 
     internal static Belastingsoort? Soort(string tekst)
     {
-        if (Aanslagnummer().Match(tekst) is { Success: true } nummer)
+        if (Aanslagnummer().Match(tekst) is { Success: true } nummer && Soort(nummer.Groups["letter"].Value[0]) is { } uitNummer)
         {
-            switch (char.ToUpperInvariant(nummer.Groups["letter"].Value[0]))
-            {
-                case 'B':
-                    return Belastingsoort.Omzetbelasting;
-                case 'L':
-                    return Belastingsoort.Loonheffingen;
-                case 'V':
-                    return Belastingsoort.Vennootschapsbelasting;
-                case 'H':
-                    return Belastingsoort.Inkomstenbelasting;
-            }
-        }
-
-        // Het betalingskenmerk van 16 cijfers: een controlecijfer, de eerste 8 cijfers van het BSN of RSIN, dan de
-        // belastingsoort als cijfer (1 = omzetbelasting, de B van het aanslagnummer), het jaar en het tijdvak.
-        if (Betalingskenmerk().Match(tekst) is { Success: true } kenmerk && kenmerk.Value[9] == '1')
-        {
-            return Belastingsoort.Omzetbelasting;
+            return uitNummer;
         }
 
         return tekst switch
