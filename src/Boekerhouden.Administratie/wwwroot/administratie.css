@@ -1727,3 +1727,7 @@ a.kerngetal:hover { color: var(--bh-accent); }
 .vpb-indeling tr:is(:hover, :focus-within) .regelactie { opacity: 1; }
 .vpb-module td.klikbaar { cursor: pointer; }
 .vpb-module td.klikbaar:hover { background: rgba(var(--bs-primary-rgb), .08); }
+
+/* Opmerkingen bij de btw privégebruik: mogen over meer regels lopen. */
+.privegebruiksignalen .status { white-space: normal; display: inline; }
+.privegebruiksignalen > div + div { margin-top: .25rem; }

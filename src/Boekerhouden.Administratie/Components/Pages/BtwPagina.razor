@@ -72,6 +72,11 @@
                         </tbody>
                     </table>
                 </div>
+                @if (st.Signalen.Count > 0)
+                {
+                    <div class="fw-semibold mt-4 mb-1">Privégebruik auto</div>
+                    <Privegebruiksignalen Id="Id" Signalen="st.Signalen" />
+                }
                 <div class="d-flex align-items-baseline gap-2 mt-4 mb-1">
                     <span class="fw-semibold">Rondrekening @st.Jaar.Jaar</span>
                     <a class="small ms-auto rondrekening-openen" href="/a/@Id/btw/rondrekening?jaar=@st.Jaar.Jaar" title="De jaaropstelling omzetbelasting en de rubrieken per periode">Uitgebreid</a>

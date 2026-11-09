@@ -27,7 +27,7 @@ public sealed record Btwaansluiting(DateOnly Van, DateOnly Tot, decimal Begin, d
         var regels = posten.Where(p => p.Datum <= tot).SelectMany(p => p.Regels.Select(r => (Post: p, Regel: r))).Where(x => btwrekening.Contains(x.Regel.Rekeningnummer)).ToList();
         var begin = -regels.Where(x => x.Post.Datum < van).Sum(x => x.Regel.Bedrag);
         var saldo = -regels.Sum(x => x.Regel.Bedrag);
-        var overig = -regels.Where(x => x.Post.Datum >= van && x.Regel.BtwCode is null).Sum(x => x.Regel.Bedrag);
+        var overig = -regels.Where(x => x.Post.Datum >= van && x.Regel.BtwCode is null && !Btwaangifte.IsPrivegebruikregel(x.Post, x.Regel, schema)).Sum(x => x.Regel.Bedrag);
         var aangiften = Btwaangifte.Bereken(posten.Where(p => p.Datum >= van), schema, codes, van, tot).TeBetalen;
         return new Btwaansluiting(van, tot, begin, aangiften, overig, saldo);
     }

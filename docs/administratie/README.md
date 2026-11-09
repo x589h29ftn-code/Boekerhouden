@@ -146,6 +146,29 @@ samenstelpakket.
 - **Aangifte berekenen** (gebouwd in het domein, `Btwaangifte.Bereken`): uit de boekingen van een periode per rubriek de
   grondslag en de btw, de voorbelasting (5b) en het te betalen of terug te vragen bedrag. Het scherm volgt in A10.
 
+### 3.2b Btw privégebruik auto
+
+- **Uit het grootboek**: wat er zonder btw-code op de btw-rekening voor privégebruik wordt geboekt (een btw-rekening met
+  "priv" in de naam, OVPA 1804 *Te betalen BTW privegebr.*; bijv. 4481 aan 1804 aan het eind van het jaar) telt in
+  rubriek 1d (`Btwaangifte.IsPrivegebruikregel`); niet een betaling (een post met bank of kas) of een overboeking tussen
+  btw-rekeningen. De aansluiting telt het niet dubbel; in de rondrekening en jaaropstelling klikt 1d door naar die
+  boekingen.
+- **Per vervoermiddel** (vaste activa op een activarekening in RGS `BMvaTev`, of met vervoer/transport/auto in de naam):
+  *Privégebruik* met één keuze voor ja/nee en de onderbouwing (`Privegebruik`): niet vastgelegd; ja, forfait (2,7% van
+  de cataloguswaarde incl. btw en bpm, vanaf het vijfde jaar na het jaar van ingebruikname 1,5%, naar rato van de maanden
+  in gebruik); ja, werkelijk privégebruik; nee met rittenregistratie, verklaring geen privégebruik, bestelauto alleen
+  zakelijk of anders (notitie). Op de activakaart (met de cataloguswaarde en de btw volgens het forfait) en als
+  keuzelijst in de activastaat; gelogd.
+- **Controles** (`Privegebruikcontrole.Signalen`, op de btw-pagina onder *Privégebruik auto* en in de jaaropstelling):
+  nieuwe auto zonder vastgelegd privégebruik; niet vastgelegd en geen btw privégebruik geboekt ("is dat juist?"); ja maar
+  niets geboekt (met het forfait); geboekt bedrag wijkt af van het forfait; forfait zonder cataloguswaarde; wel btw
+  privégebruik geboekt maar geen auto met privégebruik. Elke opmerking linkt naar de auto.
+- **Later (wens gebruiker, november 2026)**: bij een **eenmanszaak of vof** de **bijtelling** automatisch berekenen voor een
+  auto met privégebruik: het bijtellingspercentage per auto voor 60 maanden vanaf de eerste toelating (jaarlijks
+  bijhouden: elektrisch met korting tot de cap, youngtimer over de waarde in het economisch verkeer), en **maximaal de
+  werkelijke autokosten** (bijtelling 6.000 op 22% maar werkelijke kosten 5.000 → 5.000); de journaalpost *privé
+  (eigen vermogen) aan autokosten bijtelling*.
+
 ### 3.2a Vennootschapsbelasting: fiscale positie (BV)
 
 Alleen bij een BV (menu *Rapportages → Fiscale positie*, `/a/{id}/vpb`, `VpbDienst`; domein `Boekhouding/Vpb/`).
@@ -539,6 +562,7 @@ gebouwen) en een overzicht voor de investeringsaftrek.
 | A12 | **Saldibalans naar het samenstelpakket** | Jaarrekening zonder export |
 | gepland | **Regels splitsen per leverancier** (wens gebruiker, oktober 2026): de factuurregels uitlezen en per leverancier een vaste verdeling over rekeningen leren (energie: levering en netbeheer; telefoon: abonnement en toestel; groothandel: 9% en 21%), en die de volgende keer voorstellen | Ook gesplitste facturen vanzelf |
 | gepland | **Verzamel-PDF splitsen** (wens gebruiker, oktober 2026): een PDF met meerdere facturen (één per pagina of meer) bij het inlezen opdelen in losse documenten, per factuurnummer of leverancier, met een controle-overzicht voor het splitsen | Een stapel facturen in één keer uploaden |
+| gepland | **Bijtelling auto eenmanszaak/vof** (wens gebruiker, november 2026, §3.2b): bijtelling per auto met privégebruik (percentage voor 60 maanden, elektrisch, youngtimer), maximaal de werkelijke autokosten, journaalpost privé aan autokosten bijtelling | Bijtelling zonder spreadsheet |
 | gepland | **Vreemde valuta** (batch 2, scenario 8): factuur in USD e.d. op de koers van de factuurdatum, betaling op de werkelijke koers, het verschil naar koersverschillen; bankkosten apart | Buitenlandse leveranciers zonder handwerk |
 | gepland | **Ontbrekende factuur** (batch 2, scenario 16 en 18): een betaling zonder factuur (huur, pinbon) markeren als *factuur ontbreekt*, tijdelijk op een tussenrekening, en de vaste last later automatisch | Vaste lasten en bonnetjes netjes opvolgen |
 | later | Online voor ondernemers (AD2), facturen per e-mail, directe bankkoppeling (PSD2), herinneringen, terugkerende facturen, kas, AI-herkenning als extra motor, e-facturen verzenden (Peppol) | |

@@ -71,6 +71,12 @@ public sealed record Btwaangifte(DateOnly Van, DateOnly Tot, IReadOnlyList<Aangi
         ArgumentNullException.ThrowIfNull(codes);
         foreach (var post in posten.Where(p => p.Datum >= van && p.Datum <= tot))
         {
+            // Btw privégebruik zonder btw-code (bijv. de correctie voor de auto aan het eind van het jaar) telt in 1d.
+            foreach (var regel in post.Regels.Where(r => IsPrivegebruikregel(post, r, schema)))
+            {
+                yield return new(post, regel, "1d", Btwpost.Btw, -regel.Bedrag);
+            }
+
             foreach (var regel in post.Regels.Where(r => r.BtwCode is not null))
             {
                 if (BtwCodes.Zoek(codes, regel.BtwCode) is not { } code)
@@ -99,6 +105,37 @@ public sealed record Btwaangifte(DateOnly Van, DateOnly Tot, IReadOnlyList<Aangi
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Een btw-rekening voor het privégebruik (bijv. "Te betalen btw privégebruik"): wat erop wordt geboekt hoort in
+    /// rubriek 1d, ook zonder btw-code.
+    /// </summary>
+    public static bool IsPrivegebruikrekening(Rekening rekening)
+    {
+        ArgumentNullException.ThrowIfNull(rekening);
+        var naam = rekening.Naam.ToLowerInvariant().Replace('é', 'e');
+        return IsBtwrekening(rekening) && naam.Contains("priv", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Een regel zonder btw-code op de btw-rekening voor privégebruik, die het privégebruik zelf boekt: niet een
+    /// betaling (een post met een bank- of kasrekening) en niet een overboeking tussen btw-rekeningen.
+    /// </summary>
+    public static bool IsPrivegebruikregel(Journaalpost post, Journaalregel regel, Rekeningschema schema)
+    {
+        ArgumentNullException.ThrowIfNull(post);
+        ArgumentNullException.ThrowIfNull(regel);
+        ArgumentNullException.ThrowIfNull(schema);
+        if (regel.BtwCode is not null || post.Boekstuk == "begin" || schema.Zoek(regel.Rekeningnummer) is not { } rekening || !IsPrivegebruikrekening(rekening))
+        {
+            return false;
+        }
+
+        var tegen = post.Regels.Where(r => !ReferenceEquals(r, regel)).Select(r => schema.Zoek(r.Rekeningnummer)).ToList();
+        return tegen.Count > 0
+            && tegen.All(r => r is null || r.Functie is not (Rekeningfunctie.Bank or Rekeningfunctie.Kas))
+            && !tegen.All(r => r is not null && IsBtwrekening(r));
     }
 
     /// <summary>

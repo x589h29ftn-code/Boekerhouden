@@ -21,7 +21,9 @@ public sealed record ActivumInvoer(
     string Kostenrekening,
     decimal AfgeschrevenVoorBegin = 0m,
     string? Bron = null,
-    string? Notitie = null)
+    string? Notitie = null,
+    Privegebruik Privegebruik = Privegebruik.Onbekend,
+    decimal? Cataloguswaarde = null)
 {
     public Boekhouding.Activa.Activum NaarDomein() =>
         new(Omschrijving.Trim(), Aanschafdatum, Aanschafwaarde, Restwaarde, BeginAfschrijving, Looptijd, Methode, Activarekening.Trim(), Afschrijvingsrekening.Trim(),
@@ -95,7 +97,8 @@ public sealed record Activakandidaat(string Boekstuk, DateOnly Datum, string Oms
 public sealed record Afschrijvingsvoorstel(DateOnly Datum, string Omschrijving, int Activa, decimal Bedrag);
 
 /// <summary>Een actief in de activastaat.</summary>
-public sealed record Activastaatpost(Guid Id, int Nummer, string Omschrijving, Activastaatregel Regel);
+/// <param name="Vervoermiddel">Een vervoermiddel: dan is het privégebruik vast te leggen.</param>
+public sealed record Activastaatpost(Guid Id, int Nummer, string Omschrijving, Activastaatregel Regel, bool Vervoermiddel = false, Privegebruik Privegebruik = Privegebruik.Onbekend);
 
 /// <summary>
 /// De activa op één activarekening in de activastaat, met het totaal en het saldo in het grootboek aan het eind van het
@@ -233,7 +236,7 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
 
     private static ActivumInvoer Invoer(ActivumEntiteit a) =>
         new(a.Omschrijving, a.Aanschafdatum, a.Aanschafwaarde, a.Restwaarde, a.BeginAfschrijving, a.Looptijd, a.Methode, a.Activarekening, a.Afschrijvingsrekening,
-            a.Kostenrekening, a.AfgeschrevenVoorBegin, a.Bron, a.Notitie);
+            a.Kostenrekening, a.AfgeschrevenVoorBegin, a.Bron, a.Notitie, a.Privegebruik, a.Cataloguswaarde);
 
     /// <summary>Per actief de geboekte afschrijvingen per maand.</summary>
     private static async Task<Dictionary<Guid, Dictionary<DateOnly, decimal>>> Geboekt(AdministratieDbContext db) =>
@@ -300,11 +303,43 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
         (a.Activarekening, a.Afschrijvingsrekening, a.Kostenrekening, a.AfgeschrevenVoorBegin) =
             (domein.Activarekening, domein.Afschrijvingsrekening, domein.Kostenrekening, domein.AfgeschrevenVoorBegin);
         (a.Bron, a.Notitie) = (Leeg(invoer.Bron, 100), Leeg(invoer.Notitie, 1000));
+        (a.Privegebruik, a.Cataloguswaarde) = (invoer.Privegebruik, invoer.Cataloguswaarde is > 0 ? invoer.Cataloguswaarde : null);
         await db.SaveChangesAsync();
         await audit.Log(wie, id is null ? AuditActies.ActivumToegevoegd : AuditActies.ActivumGewijzigd, $"{a.Nummer} {a.Omschrijving}",
             $"{a.Aanschafwaarde:0.00}, {a.Looptijd} maanden, rest {a.Restwaarde:0.00}", administratie);
         return Uitkomst<Guid>.Met(a.Id);
     }
+
+    /// <summary>
+    /// Bij een vervoermiddel vastleggen of er privégebruik is en hoe dat is onderbouwd (ook als het actief al vastligt).
+    /// Alleen het kantoor.
+    /// </summary>
+    public async Task<Uitkomst> ZetPrivegebruik(Uitvoerder wie, Guid administratie, Guid id, Privegebruik privegebruik)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
+        if (await db.Activa.FirstOrDefaultAsync(x => x.Id == id) is not { } a)
+        {
+            return Uitkomst.Mislukt("Dit actief bestaat niet (meer).");
+        }
+
+        if (a.Privegebruik == privegebruik)
+        {
+            return Uitkomst.Gelukt;
+        }
+
+        var oud = a.Privegebruik;
+        a.Privegebruik = privegebruik;
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.ActivumGewijzigd, $"{a.Nummer} {a.Omschrijving}",
+            $"privégebruik: {Privegebruikcontrole.Naam(oud)} → {Privegebruikcontrole.Naam(privegebruik)}", administratie);
+        return Uitkomst.Gelukt;
+    }
+
+    /// <summary>De vervoermiddelen onder de vaste activa, voor de controle op de btw privégebruik.</summary>
+    internal static async Task<IReadOnlyList<Vervoermiddel>> Vervoermiddelen(AdministratieDbContext db, Rekeningschema schema) =>
+        [.. (await db.Activa.AsNoTracking().OrderBy(a => a.Nummer).ToListAsync())
+            .Where(a => Privegebruikcontrole.IsVervoermiddel(schema.Zoek(a.Activarekening), a.Omschrijving))
+            .Select(a => new Vervoermiddel(a.Id, a.Nummer, a.Omschrijving, a.Aanschafdatum, a.BeginAfschrijving, a.BuitenGebruikOp, a.Privegebruik, a.Cataloguswaarde))];
 
     /// <summary>Verwijdert een actief; alleen als er nog niets voor geboekt is.</summary>
     public async Task<Uitkomst> Verwijder(Uitvoerder wie, Guid administratie, Guid id)
@@ -684,7 +719,8 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
         foreach (var groep in activa.GroupBy(a => (a.Activarekening, a.Afschrijvingsrekening)).OrderBy(g => g.Key.Activarekening, Rekeningnummers.Volgorde))
         {
             var posten = groep.Select(a => (a, Regel: Boekhouding.Activa.Activastaat.Regel(a.NaarDomein(), geboekt.GetValueOrDefault(a.Id) ?? [], stappen.GetValueOrDefault(a.Id) ?? [], jaar)))
-                .Where(p => p.Regel is not null).Select(p => new Activastaatpost(p.a.Id, p.a.Nummer, p.a.Omschrijving, p.Regel!)).ToList();
+                .Where(p => p.Regel is not null).Select(p => new Activastaatpost(p.a.Id, p.a.Nummer, p.a.Omschrijving, p.Regel!,
+                    Privegebruikcontrole.IsVervoermiddel(schema.Zoek(p.a.Activarekening), p.a.Omschrijving), p.a.Privegebruik)).ToList();
             if (posten.Count == 0)
             {
                 continue;

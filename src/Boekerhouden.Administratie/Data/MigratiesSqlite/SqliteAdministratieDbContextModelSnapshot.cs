@@ -150,6 +150,10 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.Property<DateOnly?>("BuitenGebruikOp")
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("Cataloguswaarde")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Herzieningen")
                         .HasColumnType("TEXT");
 
@@ -176,6 +180,11 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.Property<string>("Omschrijving")
                         .IsRequired()
                         .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Privegebruik")
+                        .IsRequired()
+                        .HasMaxLength(30)
                         .HasColumnType("TEXT");
 
                     b.Property<long>("Restwaarde")

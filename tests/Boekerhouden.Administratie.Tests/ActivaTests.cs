@@ -469,4 +469,38 @@ public sealed class ActivaTests(AdministratieFixture app) : IClassFixture<Admini
         await Assert.ThrowsAsync<GeenToegangException>(() => dienst.VerwijderHerziening(ondernemer, id, laptop, new DateOnly(2027, 1, 1)));
         Assert.Empty((await dienst.Open(wie, id, laptop))!.Herzieningen!);
     }
+
+    [Fact]
+    public async Task Privegebruik_per_vervoermiddel_en_opmerkingen_bij_de_btw()
+    {
+        var (wie, id) = await Administratie();
+        var (laptop, auto) = await Activa(wie, id);
+        var dienst = app.Dienst<ActivaDienst>();
+        var btw = app.Dienst<BtwaangifteDienst>();
+
+        // Een nieuwe auto zonder vastgelegd privégebruik.
+        Assert.StartsWith("Nieuwe auto", Assert.Single((await btw.Jaar(wie, id, 2026)).Signalen).Tekst, StringComparison.Ordinal);
+
+        // Ja, forfait met cataloguswaarde 30.000: april t/m december = 9 maanden van 2,7%.
+        var detail = (await dienst.Open(wie, id, auto))!;
+        Assert.True((await dienst.Bewaar(wie, id, auto, detail.Invoer with { Privegebruik = Privegebruik.JaForfait, Cataloguswaarde = 30_000m })).IsGelukt);
+        Assert.Equal((Privegebruik.JaForfait, 30_000m), ((await dienst.Open(wie, id, auto))!.Invoer.Privegebruik, (await dienst.Open(wie, id, auto))!.Invoer.Cataloguswaarde));
+        var signaal = Assert.Single((await btw.Jaar(wie, id, 2026)).Signalen);
+        Assert.Contains("geen btw privégebruik geboekt in 2026 (forfait 2,7%: 607,50)", signaal.Tekst, StringComparison.Ordinal);
+        Assert.Equal(auto, signaal.Activum);
+
+        // In de activastaat: alleen de auto is een vervoermiddel; nee (bestelauto) geeft geen opmerking meer.
+        Assert.True((await dienst.ZetPrivegebruik(wie, id, auto, Privegebruik.NeeBestelauto)).IsGelukt);
+        var posten = (await dienst.Activastaat(wie, id, 2026)).SelectMany(g => g.Posten).ToList();
+        Assert.Equal((true, Privegebruik.NeeBestelauto), (posten.Single(p => p.Id == auto).Vervoermiddel, posten.Single(p => p.Id == auto).Privegebruik));
+        Assert.False(posten.Single(p => p.Id == laptop).Vervoermiddel);
+        Assert.Empty((await btw.Jaar(wie, id, 2026)).Signalen);
+        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.ActivumGewijzigd && r.Details!.Contains("Nee, bestelauto alleen zakelijk", StringComparison.Ordinal));
+
+        var ondernemer = await app.Gebruiker("Otto Privegebruik");
+        await app.Dienst<AdministratieDienst>().ZetLid(id, ondernemer.Id!.Value, Lidmaatschapsrol.Ondernemer, wie);
+        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.ZetPrivegebruik(ondernemer, id, auto, Privegebruik.JaForfait));
+        var buiten = await app.Gebruiker("Buiten Privegebruik");
+        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.ZetPrivegebruik(buiten, id, auto, Privegebruik.JaForfait));
+    }
 }

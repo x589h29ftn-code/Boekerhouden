@@ -29,6 +29,7 @@
         <Foutmeldingen Fouten="fouten" />
         @if (stand?.Rondrekening is { } opstelling && !perPeriode)
         {
+            <Privegebruiksignalen Id="Id" Signalen="stand.Signalen" Klasse="mb-2" />
             <div class="card overzichtskaart btw-jaaropstelling" style="max-width:52rem">
                 <table class="table table-sm align-middle mb-0 overzichtstabel maandoverzicht">
                     <thead>

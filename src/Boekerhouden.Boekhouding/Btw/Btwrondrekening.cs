@@ -120,7 +120,8 @@ public sealed class Btwrondrekening
             var rekeningen = schema.Alle.Where(r => sleutel.Bron == Rondrekeningbron.OmzetGrootboek ? IsOmzet(r) : Btwaangifte.IsBtwrekening(r))
                 .Select(r => r.Nummer).ToHashSet(StringComparer.Ordinal);
             return [.. posten.Where(p => p.Datum >= van && p.Datum <= tot && p.Boekstuk != "begin")
-                .SelectMany(p => p.Regels.Where(r => rekeningen.Contains(r.Rekeningnummer) && (sleutel.Bron == Rondrekeningbron.OmzetGrootboek || r.BtwCode is not null))
+                .SelectMany(p => p.Regels.Where(r => rekeningen.Contains(r.Rekeningnummer)
+                    && (sleutel.Bron == Rondrekeningbron.OmzetGrootboek || r.BtwCode is not null || Btwaangifte.IsPrivegebruikregel(p, r, schema)))
                     .Select(r => new Rondrekeningbronregel(p, r, -r.Bedrag)))];
         }
 

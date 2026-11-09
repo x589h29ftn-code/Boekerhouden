@@ -1020,6 +1020,12 @@ public sealed class Activum : IVanAdministratie
     /// <summary>Helemaal buiten gebruik (verkocht, ingeruild, gesloopt): de datum; de boekingen staan in <see cref="ActivumDesinvestering"/>.</summary>
     public DateOnly? BuitenGebruikOp { get; set; }
 
+    /// <summary>Bij een vervoermiddel: privégebruik ja of nee en hoe onderbouwd (voor de btw privégebruik).</summary>
+    public Boekhouding.Activa.Privegebruik Privegebruik { get; set; }
+
+    /// <summary>Bij een auto: de cataloguswaarde (inclusief btw en bpm), voor het forfait van de btw privégebruik.</summary>
+    public decimal? Cataloguswaarde { get; set; }
+
     public DateTimeOffset AangemaaktOp { get; set; }
 
     public string AangemaaktDoor { get; set; } = string.Empty;

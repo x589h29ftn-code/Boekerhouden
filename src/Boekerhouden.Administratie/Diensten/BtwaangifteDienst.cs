@@ -7,7 +7,9 @@ namespace Boekerhouden.Administratie.Diensten;
 
 /// <summary>De btw van een jaar: de perioden met hun aangifte, wat is vastgelegd, de aansluiting en de rondrekening.</summary>
 /// <param name="Aanpassingen">De met de hand aangepaste bedragen van de jaaropstelling, per sleutel.</param>
-public sealed record Btwstandjaar(Btwjaar Jaar, IReadOnlyList<Btwaansluiting> Aansluitingen, Btwrondrekening Rondrekening, IReadOnlyDictionary<string, decimal> Aanpassingen)
+/// <param name="Signalen">Opmerkingen bij de btw privégebruik van auto's (vaste activa tegen rubriek 1d).</param>
+public sealed record Btwstandjaar(Btwjaar Jaar, IReadOnlyList<Btwaansluiting> Aansluitingen, Btwrondrekening Rondrekening, IReadOnlyDictionary<string, decimal> Aanpassingen,
+    IReadOnlyList<Boekhouding.Activa.Privegebruiksignaal> Signalen)
 {
     /// <summary>De jaaropstelling omzetbelasting met de aangepaste bedragen.</summary>
     public IReadOnlyList<Jaaropstellingregel> Jaaropstelling => Rondrekening.Jaaropstelling(Aanpassingen);
@@ -56,7 +58,8 @@ public sealed class BtwaangifteDienst(Toegang toegang, GrootboekDienst grootboek
         var btwjaar = Btwjaar.Maak(jaar, frequentie, posten, schema, codes, vastgelegd);
         var aansluitingen = btwjaar.Perioden.Select(p => Btwaansluiting.Bereken(posten, schema, codes, begin, p.Periode.Tot)).ToList();
         var aanpassingen = await db.Btwaanpassingen.AsNoTracking().Where(a => a.Jaar == jaar && !a.Sleutel.StartsWith(VpbDienst.Voorvoegsel)).ToDictionaryAsync(a => a.Sleutel, a => a.Bedrag, StringComparer.Ordinal);
-        return new Btwstandjaar(btwjaar, aansluitingen, Btwrondrekening.Maak(btwjaar, posten, schema, codes), aanpassingen);
+        var signalen = Boekhouding.Activa.Privegebruikcontrole.Signalen(jaar, await ActivaDienst.Vervoermiddelen(db, schema), btwjaar.Jaaraangifte.Rubriek("1d").Btw);
+        return new Btwstandjaar(btwjaar, aansluitingen, Btwrondrekening.Maak(btwjaar, posten, schema, codes), aanpassingen, signalen);
     }
 
     /// <summary>

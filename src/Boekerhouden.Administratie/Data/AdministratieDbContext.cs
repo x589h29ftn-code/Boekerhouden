@@ -540,6 +540,8 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(a => a.Bron).HasMaxLength(100);
             e.Property(a => a.Notitie).HasMaxLength(1000);
             e.Property(a => a.AangemaaktDoor).HasMaxLength(200);
+            e.Property(a => a.Privegebruik).HasConversion<string>().HasMaxLength(30);
+            e.Property(a => a.Cataloguswaarde).HasPrecision(18, 2);
             e.Property(a => a.Aanschafwaarde).HasPrecision(18, 2);
             e.Property(a => a.Restwaarde).HasPrecision(18, 2);
             e.Property(a => a.AfgeschrevenVoorBegin).HasPrecision(18, 2);

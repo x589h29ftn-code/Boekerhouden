@@ -117,7 +117,28 @@
                                 @foreach (var p in g.Posten)
                                 {
                                     <tr class="klikbaar" @onclick="() => Navigatie.NavigateTo(Pad(p.Id))">
-                                        <td class="ps-4"><span class="text-secondary me-2">@p.Nummer</span>@p.Omschrijving</td>
+                                        <td class="ps-4">
+                                            <span class="text-secondary me-2">@p.Nummer</span>@p.Omschrijving
+                                            @if (p.Vervoermiddel)
+                                            {
+                                                var post = p;
+                                                @if (mag)
+                                                {
+                                                    <select class="form-select form-select-sm d-inline-block w-auto ms-2 privegebruik-keuze @(p.Privegebruik == Privegebruik.Onbekend ? "text-secondary" : null)"
+                                                            aria-label="Privégebruik" title="Privégebruik (voor de btw)" value="@p.Privegebruik" @onclick:stopPropagation="true"
+                                                            @onchange="e => ZetPrivegebruik(post, e)">
+                                                        @foreach (var keuze in Enum.GetValues<Privegebruik>())
+                                                        {
+                                                            <option value="@keuze">@(keuze == Privegebruik.Onbekend ? "Privégebruik?" : Privegebruikcontrole.Naam(keuze))</option>
+                                                        }
+                                                    </select>
+                                                }
+                                                else
+                                                {
+                                                    <span class="status ms-2">@Privegebruikcontrole.Naam(p.Privegebruik)</span>
+                                                }
+                                            }
+                                        </td>
                                         @Kolommen(p.Regel)
                                     </tr>
                                 }
@@ -372,5 +393,15 @@
 
         await Laad();
         bezig = false;
+    }
+
+    private async Task ZetPrivegebruik(Activastaatpost post, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<Privegebruik>(e.Value?.ToString(), out var keuze))
+        {
+            var uitkomst = await Activa.ZetPrivegebruik(geopend!.Wie, Id, post.Id, keuze);
+            fouten = uitkomst.Fouten;
+            staat = await Activa.Activastaat(geopend.Wie, Id, jaar);
+        }
     }
 }

@@ -1,0 +1,31 @@
+@using Boekerhouden.Boekhouding.Activa
+@* De opmerkingen bij de btw privégebruik van auto's: rustig, één regel per opmerking, met een link naar de auto. *@
+@if (Signalen is { Count: > 0 } lijst)
+{
+    <div class="privegebruiksignalen @Klasse">
+        @foreach (var s in lijst)
+        {
+            <div class="small">
+                @if (s.Activum is { } activum)
+                {
+                    <a class="status let-op" href="/a/@Id/activa/@activum" title="Naar de auto in de vaste activa">@s.Tekst</a>
+                }
+                else
+                {
+                    <span class="status let-op">@s.Tekst</span>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<Privegebruiksignaal>? Signalen { get; set; }
+
+    [Parameter]
+    public string? Klasse { get; set; }
+}

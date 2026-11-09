@@ -156,6 +156,10 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.Property<DateOnly?>("BuitenGebruikOp")
                         .HasColumnType("date");
 
+                    b.Property<decimal?>("Cataloguswaarde")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
                     b.Property<string>("Herzieningen")
                         .HasColumnType("text");
 
@@ -183,6 +187,11 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Privegebruik")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
 
                     b.Property<decimal>("Restwaarde")
                         .HasPrecision(18, 2)

@@ -45,7 +45,7 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   en specificaties, `RapportVariabelen` voor `{boekjaar}` e.d. in teksten, `Samenstellingsverklaring` voor de BV); geen I/O.
 - `src/Boekerhouden.Boekhouding` – domein van het **administratiepakket** (ontwerp: `docs/administratie/README.md`), geen I/O:
   `Grootboek/` (rekeningschema met RGS-code en functie, dagboeken, journaal, grootboekkaart, proefbalans, balans en W&V; `Afsluiting` = afgesloten perioden),
-  `Activa/` (vast actief, afschrijvingsplan, desinvestering, activastaat), `Vpb/` (fiscale positie van een BV: fiscale indeling per rekening, tarieven per jaar, `Fiscalepositie`),
+  `Activa/` (vast actief, afschrijvingsplan, desinvestering, activastaat; `Privegebruik` = privégebruik per vervoermiddel en de controle op de btw privégebruik), `Vpb/` (fiscale positie van een BV: fiscale indeling per rekening, tarieven per jaar, `Fiscalepositie`),
   `Btw/` (btw-codes met soort en tarief, koppeling met de aangifterubrieken, tarieven per datum, aangifte berekenen), `Relaties/` (IBAN, btw-nummer, namen vergelijken), `Facturen/` (facturen boeken,
   openstaande posten), `Bank/` (MT940, CAMT.053, bankboekingen), `Afletteren/`, `Regels/` (verwerkingsregels, leergeheugen,
   advies), `Herkenning/` (factuurtekst, UBL, leverancier herkennen, inkoopvoorstel) en `Beginbalans/` (de balans uit de tekst van een jaarrekening, rekening voorstellen), `Verkoop/` (verkoopfactuur, nummering per jaar,
