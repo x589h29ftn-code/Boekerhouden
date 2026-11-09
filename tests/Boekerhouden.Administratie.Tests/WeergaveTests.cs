@@ -54,4 +54,14 @@ public sealed class WeergaveTests
         Assert.Equal([11m, 11m, 10m, -1m], heel);
         Assert.Empty(Weergave.HeleEuros([]));
     }
+
+    [Fact]
+    public void Tegenpartij_zonder_naam_is_het_begin_van_de_omschrijving()
+    {
+        Assert.Equal("Belnet B.V.", Weergave.Tegenpartij(" Belnet B.V. ", "Factuur 12"));
+        Assert.Equal("Kosten Zakelijk Betalingsverkeer", Weergave.Tegenpartij(null, "Kosten Zakelijk Betalingsverkeer"));
+        Assert.Equal(50, Weergave.Tegenpartij("", new string('x', 80)).Length);
+        Assert.EndsWith("…", Weergave.Tegenpartij(null, new string('x', 80)), StringComparison.Ordinal);
+        Assert.Equal("Onbekende tegenpartij", Weergave.Tegenpartij(null, " "));
+    }
 }

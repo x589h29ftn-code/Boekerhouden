@@ -7,8 +7,8 @@ using Boekerhouden.Boekhouding.Verkoop;
 namespace Boekerhouden.Documenten;
 
 /// <summary>
-/// Leest een rekeningafschrift dat alleen als PDF bestaat (zoals de Rabobank het bij een zakelijke rekening levert),
-/// zodat het als MT940 ingelezen kan worden. Het werkt op de plek van de woorden: de kop met IBAN, vorig en nieuw saldo
+/// Leest een rekeningafschrift dat alleen als PDF bestaat (zoals de Rabobank het bij een zakelijke rekening levert, of
+/// het afschrift over een periode van ING), zodat het als MT940 ingelezen kan worden. Voor ING: zie <see cref="LeesIng"/>. Het werkt op de plek van de woorden: de kop met IBAN, vorig en nieuw saldo
 /// en de datums, en per mutatie de datum en code links, de tegenrekening, naam en omschrijving in het midden en het
 /// bedrag in de kolom "Mutaties af (debet)" of "Mutaties bij (credit)". Een mutatie loopt door tot de volgende datum.
 /// Het resultaat wordt gecontroleerd: vorig saldo plus de mutaties moet het nieuwe saldo zijn.
@@ -30,6 +30,11 @@ public static partial class PdfBankafschrift
         var regels = Regels(woorden);
         var alleTekst = string.Join('\n', regels.Select(r => r.Tekst));
         var iban = Kopiban(alleTekst) ?? throw new BankbestandException("Geen IBAN van de rekening gevonden op het afschrift.");
+        if (regels.Any(r => r.Tekst.Contains("Beginsaldo", StringComparison.OrdinalIgnoreCase)) && regels.Any(r => r.Tekst.Contains("Geboekt op", StringComparison.OrdinalIgnoreCase)))
+        {
+            return LeesIng(regels, alleTekst, iban);
+        }
+
         var (vorigeDatum, vorigSaldo) = Kopsaldo(regels, "Vorig afschrift", "Vorig saldo")
             ?? throw new BankbestandException("Geen vorig saldo gevonden op het afschrift.");
         var (nieuweDatum, nieuwSaldo) = Kopsaldo(regels, "Nieuw afschrift", "Nieuw saldo")
@@ -144,6 +149,144 @@ public static partial class PdfBankafschrift
                 break;
             }
         }
+    }
+
+    /// <summary>
+    /// Het afschrift van ING (zakelijke rekening, over een periode): in de kop "Periode dd-mm-jjjj t/m dd-mm-jjjj",
+    /// "Beginsaldo (EUR)" en "Eindsaldo (EUR)" met het bedrag op de regel eronder; per mutatie de boekdatum voluit, de
+    /// naam, het type en één bedragkolom met + of -; daaronder regels als "Omschrijving:", "IBAN:", "Kenmerk:" en
+    /// "Valutadatum:". Bij bankkosten is de naam de omschrijving van de kosten (bijv. "Kosten Zakelijk Betalingsverkeer").
+    /// </summary>
+    private static Bankafschrift LeesIng(List<Regel> regels, string alleTekst, string iban)
+    {
+        var periode = Periodepatroon().Match(alleTekst);
+        if (!periode.Success
+            || !DateOnly.TryParseExact(periode.Groups[1].Value, "dd-MM-yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var van)
+            || !DateOnly.TryParseExact(periode.Groups[2].Value, "dd-MM-yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var tot))
+        {
+            throw new BankbestandException("Geen periode (dd-mm-jjjj t/m dd-mm-jjjj) gevonden op het afschrift.");
+        }
+
+        var beginsaldo = SaldoOnder(regels, "Beginsaldo") ?? throw new BankbestandException("Geen beginsaldo gevonden op het afschrift.");
+        var eindsaldo = SaldoOnder(regels, "Eindsaldo") ?? throw new BankbestandException("Geen eindsaldo gevonden op het afschrift.");
+        var mutaties = new List<(DateOnly Datum, string Naam, decimal Bedrag, List<string> Tekst)>();
+        foreach (var pagina in regels.GroupBy(r => r.Pagina))
+        {
+            var lijst = pagina.ToList();
+            var kop = lijst.FindIndex(r => r.Tekst.Contains("Geboekt op", StringComparison.OrdinalIgnoreCase) && r.Tekst.Contains("Bedrag", StringComparison.OrdinalIgnoreCase));
+            if (kop < 0)
+            {
+                continue;
+            }
+
+            var woorden = lijst[kop].Woorden;
+            var naamX = woorden.FirstOrDefault(w => w.Tekst.StartsWith("Naam", StringComparison.OrdinalIgnoreCase))?.X0 ?? woorden[0].X1;
+            var typeX = woorden.FirstOrDefault(w => w.Tekst.Equals("Type", StringComparison.OrdinalIgnoreCase))?.X0
+                ?? woorden.First(w => w.Tekst.StartsWith("Bedrag", StringComparison.OrdinalIgnoreCase)).X0;
+            List<string>? tekst = null;
+            foreach (var regel in lijst.Skip(kop + 1))
+            {
+                var eerste = regel.Woorden[0];
+                if (eerste.X0 < naamX - 2 && DateOnly.TryParseExact(eerste.Tekst, "dd-MM-yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var datum))
+                {
+                    var bedragwoord = regel.Woorden.LastOrDefault(w => w.X0 >= typeX - 2 && TekenbedragPatroon().IsMatch(w.Tekst));
+                    if (bedragwoord is null)
+                    {
+                        continue;
+                    }
+
+                    var naam = Tekst(regel.Woorden.Where(w => w.X0 >= naamX - 2 && w.X1 <= typeX - 1));
+                    tekst = [];
+                    mutaties.Add((datum, naam, decimal.Parse(bedragwoord.Tekst, NumberStyles.Number | NumberStyles.AllowLeadingSign, Nl), tekst));
+                }
+                else if (tekst is not null && eerste.X0 >= naamX - 2)
+                {
+                    tekst.Add(Tekst(regel.Woorden.Where(w => w.X1 <= typeX - 1)));
+                }
+                else if (tekst is not null)
+                {
+                    // Tekst die links begint zonder datum (voettekst, code onderaan): einde van de mutaties op deze pagina.
+                    break;
+                }
+            }
+        }
+
+        if (mutaties.Count == 0)
+        {
+            throw new BankbestandException("Geen mutaties gevonden op het afschrift.");
+        }
+
+        var afschrift = new Bankafschrift(iban, null, "EUR", van.AddDays(-1), beginsaldo, tot, eindsaldo,
+            [.. mutaties.Select(m => MaakIng(m.Datum, m.Naam, m.Bedrag, m.Tekst))]);
+        if (!afschrift.SluitAan)
+        {
+            throw new BankbestandException(
+                $"Het afschrift sluit niet: beginsaldo {beginsaldo:N2} plus de {mutaties.Count} mutaties ({afschrift.Mutaties.Sum(m => m.Bedrag):N2}) is niet het eindsaldo {eindsaldo:N2}; mogelijk is een mutatie niet goed gelezen.");
+        }
+
+        return afschrift;
+    }
+
+    /// <summary>Een mutatie van ING: de regels met een label ("IBAN:", "Kenmerk:" …) en de rest als omschrijving.</summary>
+    private static Bankmutatie MaakIng(DateOnly datum, string naam, decimal bedrag, List<string> tekst)
+    {
+        string? iban = null;
+        string? kenmerkregel = null;
+        var omschrijving = new List<string>();
+        var overig = new List<string>();
+        string? label = null;
+        foreach (var regel in tekst.Where(t => t.Length > 0))
+        {
+            var m = Labelpatroon().Match(regel);
+            if (m.Success)
+            {
+                label = m.Groups[1].Value.ToLowerInvariant();
+                var waarde = regel[m.Length..].Trim();
+                switch (label)
+                {
+                    case "iban":
+                        iban = Iban.IsGeldig(waarde.Replace(" ", string.Empty, StringComparison.Ordinal)) ? waarde.Replace(" ", string.Empty, StringComparison.Ordinal).ToUpperInvariant() : null;
+                        break;
+                    case "kenmerk":
+                        kenmerkregel = waarde;
+                        break;
+                    case "omschrijving" or "mededeling":
+                        omschrijving.Add(waarde);
+                        break;
+                    case "valutadatum" or "datum/tijd" or "betreft iban":
+                        break;
+                    default:
+                        overig.Add(regel);
+                        break;
+                }
+            }
+            else if (label is "omschrijving" or "mededeling")
+            {
+                omschrijving.Add(regel);
+            }
+            else if (label is null or "periode")
+            {
+                overig.Add(regel);
+            }
+        }
+
+        var tekstOmschrijving = string.Join(' ', omschrijving.Count > 0 ? omschrijving : overig).Trim();
+        var kenmerk = Kenmerkpatroon().Matches($"{tekstOmschrijving} {kenmerkregel}").Select(k => k.Value.Replace(" ", string.Empty, StringComparison.Ordinal)).FirstOrDefault(Betalingskenmerk.IsGeldig);
+        return new Bankmutatie(datum, bedrag, tekstOmschrijving.Length > 0 ? tekstOmschrijving : naam, iban, naam.Length > 0 ? naam : null, kenmerk, null);
+    }
+
+    /// <summary>Het bedrag onder een kopwoord ("Beginsaldo"): op de regel eronder het bedrag dat er het dichtst onder staat.</summary>
+    private static decimal? SaldoOnder(List<Regel> regels, string label)
+    {
+        var i = regels.FindIndex(r => r.Woorden.Any(w => w.Tekst.Equals(label, StringComparison.OrdinalIgnoreCase)));
+        if (i < 0 || i + 1 >= regels.Count)
+        {
+            return null;
+        }
+
+        var kop = regels[i].Woorden.First(w => w.Tekst.Equals(label, StringComparison.OrdinalIgnoreCase));
+        var woord = regels[i + 1].Woorden.Where(w => TekenbedragPatroon().IsMatch(w.Tekst)).OrderBy(w => Math.Abs((w.X0 + w.X1) / 2 - (kop.X0 + kop.X1) / 2)).FirstOrDefault();
+        return woord is null ? null : decimal.Parse(woord.Tekst, NumberStyles.Number | NumberStyles.AllowLeadingSign, Nl);
     }
 
     /// <summary>
@@ -274,6 +417,15 @@ public static partial class PdfBankafschrift
 
     [GeneratedRegex(@"([0-3][0-9]-[01][0-9]-[0-9]{4})\s+([0-9.]+,[0-9]{2})\s*(CR|D|DR)?")]
     private static partial Regex Saldopatroon();
+
+    [GeneratedRegex(@"([0-3][0-9]-[01][0-9]-[0-9]{4})\s+t/m\s+([0-3][0-9]-[01][0-9]-[0-9]{4})")]
+    private static partial Regex Periodepatroon();
+
+    [GeneratedRegex(@"^[+-]?[0-9]{1,3}(\.[0-9]{3})*,[0-9]{2}$")]
+    private static partial Regex TekenbedragPatroon();
+
+    [GeneratedRegex(@"^(Omschrijving|Mededeling|IBAN|Kenmerk|Valutadatum|Datum/Tijd|Betreft IBAN|Periode|Machtiging ID|Incassant ID|Naam|BIC)\s*:", RegexOptions.IgnoreCase)]
+    private static partial Regex Labelpatroon();
 
     [GeneratedRegex(@"^[A-Z]{2}[0-9]{2}\s?[A-Z0-9]{4}")]
     private static partial Regex IbanBegin();

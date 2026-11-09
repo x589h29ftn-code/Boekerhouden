@@ -16,6 +16,15 @@ public static class Weergave
     public static string Datum(DateOnly datum) => datum.ToString("dd-MM-yyyy", Nederlands);
 
     /// <summary>
+    /// De tegenpartij van een bankmutatie: de naam, of (zonder naam, bijv. bankkosten in een omgezet afschrift) het begin
+    /// van de omschrijving; pas als ook die leeg is "Onbekende tegenpartij".
+    /// </summary>
+    public static string Tegenpartij(string? naam, string? omschrijving) =>
+        !string.IsNullOrWhiteSpace(naam) ? naam.Trim()
+        : !string.IsNullOrWhiteSpace(omschrijving) ? (omschrijving.Trim() is var o && o.Length > 50 ? string.Concat(o.AsSpan(0, 49).TrimEnd(), "…") : o)
+        : "Onbekende tegenpartij";
+
+    /// <summary>
     /// Een tijdstip zoals je het leest: "vandaag 18:32", "gisteren 09:05", binnen een week "di 14:10", anders de datum
     /// met tijd. De volledige datum en tijd horen dan in de tooltip (<see cref="DatumTijd"/>).
     /// </summary>
