@@ -206,13 +206,13 @@ public sealed class DashboardDienstTests(VasteDagFixture app) : IClassFixture<Va
         var buiten = await app.Gebruiker("Bart Buiten");
         var dienst = app.Dienst<DashboardDienst>();
 
-        Assert.Equal(DashboardDienst.Standaard, await dienst.Indeling(wie, id));
+        Assert.Equal([.. DashboardDienst.Standaard, new(Widget.Vennootschapsbelasting)], await dienst.Indeling(wie, id));
 
         IReadOnlyList<Widgetkeuze> eigen = [new(Widget.Maandgrafiek, Widgetkeuze.Kosten), new(Widget.Btw, Widgetkeuze.Maand), new(Widget.Liquide)];
         Assert.True((await dienst.BewaarIndeling(inzien, id, eigen)).IsGelukt);
 
         Assert.Equal(eigen, await dienst.Indeling(inzien, id));
-        Assert.Equal(DashboardDienst.Standaard, await dienst.Indeling(wie, id));
+        Assert.Equal([.. DashboardDienst.Standaard, new(Widget.Vennootschapsbelasting)], await dienst.Indeling(wie, id));
         Assert.False((await dienst.BewaarIndeling(wie, id, [new(Widget.Btw), new(Widget.Btw, Widgetkeuze.Maand)])).IsGelukt);
         Assert.False((await dienst.BewaarIndeling(Uitvoerder.Systeem, id, eigen)).IsGelukt);
         await Assert.ThrowsAsync<GeenToegangException>(() => dienst.Indeling(buiten, id));

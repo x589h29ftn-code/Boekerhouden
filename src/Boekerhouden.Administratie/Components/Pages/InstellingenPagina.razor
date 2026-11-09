@@ -2,6 +2,9 @@
 @using Boekerhouden.Boekhouding.Regels
 @inject InrichtingDienst Inrichting
 @inject GrootboekDienst Grootboek
+@inject VpbDienst Vpb
+@inject Meldingen Meldingen
+@using Boekerhouden.Boekhouding.Vpb
 
 <AdministratieKader Id="Id" Titel="Instellingen" Actief="/instellingen" BijOpenen="Open">
     @if (!context.Mag(Recht.Boekhouden))
@@ -51,6 +54,42 @@
                     </div>
                 </div>
             </Formulierblok>
+            @if (context.Ondernemingsvorm == Boekhouding.Grootboek.Ondernemingsvorm.BV && schema is not null)
+            {
+                <Formulierblok Titel="Vennootschapsbelasting">
+                    <div class="row g-3 vpb-indeling">
+                        @foreach (var (soort, titel) in Fiscalelijsten)
+                        {
+                            var s = soort;
+                            <div class="col-md-6" data-soort="@soort">
+                                <label class="form-label">@titel</label>
+                                <table class="table table-sm align-middle mb-1 overzichtstabel">
+                                    <tbody>
+                                        @foreach (var r in Fiscaleindeling.Rekeningen(schema, soort).Where(r => !r.IsBalans).OrderBy(r => r.Nummer, Boekhouding.Grootboek.Rekeningnummers.Volgorde))
+                                        {
+                                            var nummer = r.Nummer;
+                                            <tr class="regel-met-acties">
+                                                <td><span class="rekeningnummer">@r.Nummer</span> @r.Naam</td>
+                                                <td class="text-end" style="width:7rem">
+                                                    @if (r.Fiscaal is null)
+                                                    {
+                                                        <span class="status" title="Automatisch op RGS-code en naam">automatisch</span>
+                                                    }
+                                                </td>
+                                                <td style="width:1.75rem"><button type="button" class="btn btn-sm btn-link text-secondary p-0 regelactie" title="Weghalen: gewoon aftrekbaar" aria-label="Weghalen" @onclick="() => ZetFiscaal(nummer, Fiscaalsoort.Gewoon)"><Icoon Naam="x" /></button></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                                <div class="d-flex gap-2">
+                                    <RekeningKeuze @bind-Waarde="nieuw[s]" Schema="schema" Kader="geopend" Label="@($"Rekening toevoegen: {titel.ToLowerInvariant()}")" Klasse="form-control form-control-sm" />
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" disabled="@string.IsNullOrWhiteSpace(nieuw[s])" @onclick="() => Voegtoe(s)">Toevoegen</button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </Formulierblok>
+            }
             <Formulierblok Titel="Verwerken">
                 <InstellingenVelden Invoer="instellingen" Kantoor="kantoor" />
             </Formulierblok>
@@ -66,6 +105,10 @@
     private Verwerkingsinstellingen? kantoor;
     private Belastingformulier belasting = new();
     private Boekhouding.Grootboek.Rekeningschema? schema;
+    private readonly Dictionary<Fiscaalsoort, string?> nieuw = new() { [Fiscaalsoort.NietAftrekbaar] = null, [Fiscaalsoort.BeperktAftrekbaar] = null };
+
+    private static readonly (Fiscaalsoort Soort, string Titel)[] Fiscalelijsten =
+        [(Fiscaalsoort.NietAftrekbaar, "Niet aftrekbaar"), (Fiscaalsoort.BeperktAftrekbaar, "Beperkt aftrekbaar")];
     private IReadOnlyList<string>? fouten;
     private string? vorige;
     private bool opgeslagen;
@@ -101,6 +144,27 @@
     private string Stand() => System.Text.Json.JsonSerializer.Serialize(new object?[] { gegevens, instellingen, belasting });
 
     private bool Gewijzigd => vorige is not null && Stand() != vorige;
+
+    /// <summary>De fiscale indeling van een rekening meteen bewaren (los van het formulier).</summary>
+    private async Task ZetFiscaal(string nummer, Fiscaalsoort soort)
+    {
+        var uitkomst = await Vpb.ZetFiscaal(geopend!.Wie, Id, nummer, soort);
+        fouten = uitkomst.IsGelukt ? null : uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            Meldingen.Toon($"{nummer}: {VpbDienst.Naam(soort)}");
+            schema = await Grootboek.Schema(geopend.Wie, Id);
+        }
+    }
+
+    private async Task Voegtoe(Fiscaalsoort soort)
+    {
+        if (nieuw[soort]?.Trim() is { Length: > 0 } nummer)
+        {
+            nieuw[soort] = null;
+            await ZetFiscaal(nummer, soort);
+        }
+    }
 
     private async Task Herstel()
     {

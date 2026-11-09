@@ -1,0 +1,287 @@
+@page "/a/{Id:guid}/vpb"
+@using Boekerhouden.Boekhouding.Vpb
+@using Boekerhouden.Administratie.Export
+@inject VpbDienst Vpb
+@inject GrootboekDienst Grootboek
+@inject OverzichtDienst Overzicht
+@inject IJSRuntime JS
+
+<AdministratieKader Id="Id" Titel="Fiscale positie" Actief="/vpb" BijOpenen="Open">
+    <Kenmerken>
+        @if (stand is { } s)
+        {
+            <span>Vennootschapsbelasting @s.Positie.Jaar</span>
+            @if (s.Tot < new DateOnly(s.Positie.Jaar, 12, 31))
+            {
+                <span class="scheiding">·</span>
+                <span>t/m @Weergave.Datum(s.Tot)</span>
+            }
+        }
+    </Kenmerken>
+    <Acties>
+        <JaarKeuze Jaren="jaren" Jaar="jaar" JaarChanged="KiesJaar" />
+        <button class="btn btn-sm btn-outline-secondary" disabled="@(bezig || stand is null)" title="De fiscale positie als Excel" @onclick="Excel">Excel</button>
+        <button class="btn btn-sm btn-outline-secondary" disabled="@(bezig || stand is null)" title="De fiscale positie als PDF" @onclick="Pdf">PDF</button>
+    </Acties>
+    <ChildContent>
+        <Foutmeldingen Fouten="fouten" />
+        @if (geenBv)
+        {
+            <div class="alert alert-warning">De fiscale positie is er alleen voor een BV.</div>
+        }
+        else if (stand is { } st)
+        {
+            var p = st.Positie;
+            <div class="vpb-module">
+                <div class="card overzichtskaart fiscale-positie">
+                    <table class="table table-sm align-middle mb-0 overzichtstabel">
+                        <thead>
+                            <tr><th>Berekening belastbaar bedrag @p.Jaar</th><th class="text-end" style="width:9rem"></th><th class="text-end" style="width:9rem"></th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in p.Regels)
+                            {
+                                @if (r.Soort == Fiscaleregelsoort.Kop)
+                                {
+                                    <tr class="indeling-kop niveau-1"><td colspan="3">@r.Omschrijving</td></tr>
+                                    continue;
+                                }
+
+                                <tr class="@(r.Soort switch { Fiscaleregelsoort.Subtotaal => "indeling-subtotaal", Fiscaleregelsoort.Totaal => "indeling-subtotaal fw-semibold", _ => null })">
+                                    <td class="@(r.Soort == Fiscaleregelsoort.Regel && r.Bedrag is not null ? "ps-3" : null)">@r.Omschrijving</td>
+                                    @Celweergave(r.Bedrag)
+                                    @Celweergave(r.Totaal)
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div>
+                    <div class="fw-semibold mb-1">Beperkt aftrekbare kosten</div>
+                    <div class="card overzichtskaart vpb-beperkt">
+                        <table class="table table-sm align-middle mb-0 overzichtstabel">
+                            <tbody>
+                                @foreach (var r in p.Beperkt)
+                                {
+                                    <tr><td><a class="rekeningnummer" href="@Kaart(r.Nummer)">@r.Nummer</a> @r.Naam</td><td class="bedrag text-end" style="width:8rem">@Weergave.Bedrag(r.Bedrag)</td></tr>
+                                }
+                                <tr class="fw-semibold"><td>Totaal</td><td class="bedrag text-end">@Weergave.Bedrag(p.Beperkt.Sum(r => r.Bedrag))</td></tr>
+                                <tr><td title="Het voordeligste van beide">@Procent(p.Tarieven.NietAftrekbaarPercentage) van de kosten, of tot de drempel</td><td class="bedrag text-end">@Weergave.Bedrag(p.Tarieven.NietAftrekbaar(p.Beperkt.Sum(r => r.Bedrag), Loonsom(p)))</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="fw-semibold mt-4 mb-1">Niet aftrekbare kosten</div>
+                    <div class="card overzichtskaart vpb-niet">
+                        <table class="table table-sm align-middle mb-0 overzichtstabel">
+                            <tbody>
+                                @foreach (var r in p.NietAftrekbaar)
+                                {
+                                    <tr><td><a class="rekeningnummer" href="@Kaart(r.Nummer)">@r.Nummer</a> @r.Naam</td><td class="bedrag text-end" style="width:8rem">@Weergave.Bedrag(r.Bedrag)</td></tr>
+                                }
+                                <tr class="fw-semibold"><td>Totaal</td><td class="bedrag text-end">@Weergave.Bedrag(p.NietAftrekbaar.Sum(r => r.Bedrag))</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-flex align-items-baseline gap-2 mt-4 mb-1">
+                        <span class="fw-semibold">Uitgangspunten</span>
+                        @if (!p.Tarieven.Bekend)
+                        {
+                            <span class="status let-op small" title="Dit jaar staat niet in de meegeleverde tabel; de tarieven van het dichtstbijzijnde jaar zijn genomen">tarieven controleren</span>
+                        }
+                        <button type="button" class="btn btn-sm btn-link text-secondary p-0 ms-auto" @onclick="() => tarieven = !tarieven">@(tarieven ? "Tarieven verbergen" : $"Tarieven {p.Jaar}")</button>
+                    </div>
+                    <div class="card overzichtskaart vpb-uitgangspunten">
+                        <table class="table table-sm align-middle mb-0 overzichtstabel">
+                            <tbody>
+                                @foreach (var r in p.Uitgangspunten.Take(tarieven ? int.MaxValue : 3))
+                                {
+                                    <tr><td>@r.Omschrijving</td>@Celweergave(r.Bedrag)</tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="small text-secondary mt-2"><a href="/a/@Id/instellingen">Welke rekeningen niet of beperkt aftrekbaar zijn</a></div>
+                </div>
+            </div>
+        }
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private IReadOnlyList<int> jaren = [];
+    private int jaar;
+    private Vpbstand? stand;
+    private bool geenBv;
+    private bool tarieven;
+    private bool bezig;
+    private IReadOnlyList<string>? fouten;
+    private string? bewerk;
+    private string invoer = "";
+    private bool focus;
+    private ElementReference invoerveld;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "jaar")]
+    public int? Jaar { get; set; }
+
+    private static string Procent(decimal getal) => getal.ToString("0.##", System.Globalization.CultureInfo.GetCultureInfo("nl-NL")) + "%";
+
+    private static decimal Loonsom(Fiscalepositie p) => p.Uitgangspunten[0].Bedrag?.Bedrag ?? 0m;
+
+    private string Kaart(string rekening) =>
+        $"/a/{Id}/grootboek?rekening={Uri.EscapeDataString(rekening)}&{Weergave.Periodequery(new DateOnly(jaar, 1, 1), new DateOnly(jaar, 12, 31))}";
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        jaren = await Grootboek.Boekjaren(g.Wie, Id);
+        jaar = Jaar is { } j && jaren.Contains(j) ? j : jaren[0];
+        await Laad();
+    }
+
+    private async Task Laad()
+    {
+        stand = await Vpb.Positie(geopend!.Wie, Id, jaar);
+        geenBv = stand is null;
+    }
+
+    private async Task KiesJaar(int j)
+    {
+        jaar = j;
+        await Laad();
+    }
+
+    /// <summary>
+    /// Een bedrag van de fiscale positie: klikken past het met de hand aan (als dat kan); leeg laten zet het terug op
+    /// het berekende bedrag. Een aangepast bedrag is gestippeld onderstreept, met het berekende in de tooltip.
+    /// </summary>
+    private RenderFragment Celweergave(Fiscalecel? cel) => __builder =>
+    {
+        var mag = geopend?.Kop.Mag(Recht.Boekhouden) == true && cel?.Sleutel is not null;
+        if (cel?.Sleutel is { } sleutel && sleutel == bewerk)
+        {
+            <td class="bedrag text-end py-0">
+                <input @ref="invoerveld" class="form-control form-control-sm text-end vpb-invoer" aria-label="Bedrag" placeholder="@Tekst(cel, cel.Berekend ?? cel.Bedrag)"
+                       @bind="invoer" @bind:event="oninput" @onkeydown="Toets" @onblur="Opslaan" />
+            </td>
+            return;
+        }
+
+        var titel = cel?.Berekend is { } berekend ? $"Met de hand aangepast; berekend {Tekst(cel, berekend)}" : mag ? "Klik om aan te passen" : null;
+        <td class="bedrag text-end @(mag ? "klikbaar" : null)" title="@titel" @onclick="() => { if (mag) Bewerk(cel!); }">
+            @if (cel?.IsAangepast == true)
+            {
+                <span class="aangepast">@(Tekst(cel, cel.Bedrag) ?? "0,00")</span>
+            }
+            else if (cel is not null)
+            {
+                @Tekst(cel, cel.Bedrag)
+            }
+        </td>
+    };
+
+    private static string? Tekst(Fiscalecel cel, decimal? bedrag) =>
+        bedrag is not { } b ? null : cel.Percentage ? Procent(b) : b == 0 && cel.Sleutel is not null ? null : Weergave.Bedrag(b);
+
+    private void Bewerk(Fiscalecel cel) =>
+        (bewerk, invoer, focus) = (cel.Sleutel, cel.IsAangepast && cel.Bedrag is { } b ? Bedragen.Getal(b) : "", true);
+
+    private async Task Toets(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await Opslaan();
+        }
+        else if (e.Key == "Escape")
+        {
+            bewerk = null;
+        }
+    }
+
+    /// <summary>Het ingevoerde bedrag bewaren; leeg = terug naar het berekende bedrag.</summary>
+    private async Task Opslaan()
+    {
+        if (bewerk is not { } sleutel)
+        {
+            return;
+        }
+
+        bewerk = null;
+        decimal? bedrag = null;
+        var tekst = invoer.Replace("%", "", StringComparison.Ordinal).Trim();
+        if (tekst.Length > 0)
+        {
+            if (!BedragParser.TryParse(tekst, out var b))
+            {
+                fouten = [$"{invoer} is geen bedrag."];
+                return;
+            }
+
+            bedrag = b;
+        }
+
+        var uitkomst = await Vpb.PasAan(geopend!.Wie, Id, jaar, sleutel, bedrag);
+        fouten = uitkomst.IsGelukt ? null : uitkomst.Fouten;
+        await Laad();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (focus && bewerk is not null)
+        {
+            focus = false;
+            await invoerveld.FocusAsync();
+        }
+    }
+
+    /// <summary>De fiscale positie zoals op het scherm (met de specificaties en uitgangspunten), staand voor de PDF.</summary>
+    private Exporttabel Tabel()
+    {
+        var p = stand!.Positie;
+        static Exportsoort Soort(Fiscaleregelsoort s) => s switch
+        {
+            Fiscaleregelsoort.Kop => Exportsoort.Kop,
+            Fiscaleregelsoort.Subtotaal => Exportsoort.Subtotaal,
+            Fiscaleregelsoort.Totaal => Exportsoort.Totaal,
+            _ => Exportsoort.Rekening,
+        };
+        var regels = p.Regels.Select(r => new Exportregel(Soort(r.Soort), null, r.Omschrijving, 0,
+            r.Soort == Fiscaleregelsoort.Kop ? [] : [r.Bedrag?.Bedrag, r.Totaal?.Bedrag])).ToList();
+        regels.Add(new(Exportsoort.Kop, null, "Beperkt aftrekbare kosten", 0, []));
+        regels.AddRange(p.Beperkt.Select(r => new Exportregel(Exportsoort.Rekening, null, $"{r.Nummer} {r.Naam}", 0, [r.Bedrag, null])));
+        regels.Add(new(Exportsoort.Subtotaal, null, "Totaal", 0, [null, p.Beperkt.Sum(r => r.Bedrag)]));
+        if (p.NietAftrekbaar.Count > 0)
+        {
+            regels.Add(new(Exportsoort.Kop, null, "Niet aftrekbare kosten", 0, []));
+            regels.AddRange(p.NietAftrekbaar.Select(r => new Exportregel(Exportsoort.Rekening, null, $"{r.Nummer} {r.Naam}", 0, [r.Bedrag, null])));
+            regels.Add(new(Exportsoort.Subtotaal, null, "Totaal", 0, [null, p.NietAftrekbaar.Sum(r => r.Bedrag)]));
+        }
+
+        return new Exporttabel($"Fiscale positie {p.Jaar}", new DateOnly(p.Jaar, 1, 1), stand.Tot, ["Bedrag", "Totaal"], regels) { Staand = true };
+    }
+
+    private async Task Excel()
+    {
+        bezig = true;
+        await JS.Bewaar(await Overzicht.TabelExcel(geopend!.Wie, Id, Tabel()), $"Fiscale positie {jaar}.xlsx", Download.Excel);
+        bezig = false;
+    }
+
+    private async Task Pdf()
+    {
+        bezig = true;
+        var uitkomst = await Overzicht.TabelPdf(geopend!.Wie, Id, Tabel());
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            await JS.Bewaar(uitkomst.Waarde!, $"Fiscale positie {jaar}.pdf", Download.Pdf);
+        }
+
+        bezig = false;
+    }
+}

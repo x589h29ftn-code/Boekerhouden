@@ -146,6 +146,39 @@ samenstelpakket.
 - **Aangifte berekenen** (gebouwd in het domein, `Btwaangifte.Bereken`): uit de boekingen van een periode per rubriek de
   grondslag en de btw, de voorbelasting (5b) en het te betalen of terug te vragen bedrag. Het scherm volgt in A10.
 
+### 3.2a Vennootschapsbelasting: fiscale positie (BV)
+
+Alleen bij een BV (menu *Rapportages → Fiscale positie*, `/a/{id}/vpb`, `VpbDienst`; domein `Boekhouding/Vpb/`).
+
+- **Fiscale positie per jaar** (`Fiscalepositie`): resultaat voor belastingen (de winst-en-verliesrekening zonder de
+  vennootschapsbelasting zelf) en een correctie; **bij**: niet aftrekbare kosten, het niet aftrekbare deel van de
+  beperkt aftrekbare (gemengde) kosten, verschillen commercieel-fiscaal, desinvesteringsbijtelling, overige; **af**:
+  deelnemingsvrijstelling, vrijgestelde winstbestanddelen, investeringsaftrek (KIA), aftrekbare giften, verschillen,
+  overige; het fiscale resultaat, verrekening van verliezen uit voorgaande jaren, het belastbare bedrag (naar beneden
+  op € 5), de belasting per schijf (per schijf naar beneden op hele euro's) en, na de **betaalde voorlopige
+  aanslagen**, wat nog te betalen of terug te ontvangen is. **Bij verlies is de belasting nihil.**
+- **Automatisch**: niet aftrekbaar = de rekeningen met die fiscale indeling (standaard alles met "boete" in de naam);
+  beperkt aftrekbaar = representatie, relatiegeschenken, congressen, reis- en verblijfkosten (op naam; niet de
+  vergoedingen aan personeel, RGS `WPer`), niet aftrekbaar deel = het voordeligste van 26,5% van de kosten of de kosten
+  tot de drempel (vast bedrag, of 0,4% van de fiscale loonsom als dat hoger is); de loonsom uit de rekeningen in RGS
+  `WPerLes`; de investeringen uit de vaste activa die in het jaar zijn aangeschaft; betaald = wat er in het jaar is
+  afgeboekt op de balansrekening van de vennootschapsbelasting (een balansrekening met die naam, en de rekening bij
+  *Instellingen → Belastingdienst*).
+- **Fiscale indeling per rekening** (`Rekening.Fiscaal`, *Instellingen → Vennootschapsbelasting*): rekeningen toevoegen
+  aan *niet aftrekbaar* of *beperkt aftrekbaar*, of weghalen (dan gewoon aftrekbaar); zonder instelling geldt de
+  automatische indeling (`Fiscaleindeling`, gemarkeerd *automatisch*). Gelogd.
+- **Tarieven per jaar** (`Vpbtarieven`): schijfgrens en tarieven (2019–2026), het percentage en de drempel voor gemengde
+  kosten en de KIA-tabel (2024–2026 volgens de Belastingdienst; eerdere jaren met de KIA en drempel van 2024, gemarkeerd
+  *tarieven controleren*; een later jaar krijgt die van 2026). Per administratie en jaar is elk tarief aan te passen
+  (*Uitgangspunten → Tarieven*).
+- **Met de hand aanpassen**: elk ingevoerd bedrag en elk uitgangspunt (klikken, Enter, leeg = terug naar berekend;
+  gestippeld onderstreept, het berekende in de tooltip); de totalen rekenen ermee. Opgeslagen per jaar met het
+  voorvoegsel `vpb.` in dezelfde tabel als de btw-jaaropstelling (`Btwaanpassingen`), gelogd, alleen het kantoor.
+- **Specificaties** naast de berekening (beperkt en niet aftrekbare kosten per rekening, doorklikken naar de
+  grootboekkaart), Excel en PDF (staand).
+- **Dashboard**: bij een BV standaard de widget *Vennootschapsbelasting* (verwacht over dit jaar op het resultaat tot
+  vandaag, of *Nihil* bij verlies, en wat er na de voorlopige aanslagen nog te betalen is).
+
 ### 3.3 Relaties en openstaande posten
 
 - **Relatie**: naam, één of meer IBAN's, btw-nummer, KvK-nummer, adres, betalingstermijn en de

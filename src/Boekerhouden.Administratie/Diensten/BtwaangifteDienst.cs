@@ -55,7 +55,7 @@ public sealed class BtwaangifteDienst(Toegang toegang, GrootboekDienst grootboek
         var (posten, schema) = await grootboek.JournaalMetSchema(wie, administratie, begin, eind);
         var btwjaar = Btwjaar.Maak(jaar, frequentie, posten, schema, codes, vastgelegd);
         var aansluitingen = btwjaar.Perioden.Select(p => Btwaansluiting.Bereken(posten, schema, codes, begin, p.Periode.Tot)).ToList();
-        var aanpassingen = await db.Btwaanpassingen.AsNoTracking().Where(a => a.Jaar == jaar).ToDictionaryAsync(a => a.Sleutel, a => a.Bedrag, StringComparer.Ordinal);
+        var aanpassingen = await db.Btwaanpassingen.AsNoTracking().Where(a => a.Jaar == jaar && !a.Sleutel.StartsWith(VpbDienst.Voorvoegsel)).ToDictionaryAsync(a => a.Sleutel, a => a.Bedrag, StringComparer.Ordinal);
         return new Btwstandjaar(btwjaar, aansluitingen, Btwrondrekening.Maak(btwjaar, posten, schema, codes), aanpassingen);
     }
 

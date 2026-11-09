@@ -189,6 +189,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(r => r.Functie).HasConversion<string>().HasMaxLength(30);
             e.Property(r => r.BtwCode).HasMaxLength(10);
             e.Property(r => r.Margegroep).HasMaxLength(100);
+            e.Property(r => r.Fiscaal).HasConversion<string>().HasMaxLength(30);
             e.HasOne<Administratie>().WithMany().HasForeignKey(r => r.AdministratieId);
         });
 

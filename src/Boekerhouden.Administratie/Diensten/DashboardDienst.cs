@@ -42,6 +42,9 @@ public enum Widget
 
     /// <summary>Omzet, inkoop en brutomarge per margegroep: tegen vorig jaar of per kwartaal.</summary>
     Marge,
+
+    /// <summary>De verwachte vennootschapsbelasting over dit jaar (alleen een BV): de fiscale positie op het resultaat tot nu.</summary>
+    Vennootschapsbelasting,
 }
 
 /// <summary>Een widget op het dashboard, met de keuze die erbij hoort (btw per maand of kwartaal; grafiek met inkoop of alle kosten).</summary>
@@ -144,7 +147,8 @@ public sealed record Dashboard(
     (int Concepten, int Terugkerend)? Verkoop = null,
     (int Totaal, IReadOnlyList<string> SluitenNiet)? Aansluitingen = null,
     IReadOnlyList<Liquiditeitsmaand>? Liquiditeit = null,
-    Margestand? Marge = null);
+    Margestand? Marge = null,
+    Vpbstand? Vennootschapsbelasting = null);
 
 /// <summary>
 /// Het dashboard van een administratie: per gebruiker een eigen keuze en volgorde van widgets, en de cijfers daarvoor.
@@ -158,7 +162,8 @@ public sealed class DashboardDienst(
     AbonnementDienst abonnementen,
     AansluitingDienst aansluitingen,
     AuditDienst audit,
-    TimeProvider tijd)
+    TimeProvider tijd,
+    VpbDienst vpb)
 {
     /// <summary>De indeling voor wie nog niets heeft gekozen.</summary>
     public static IReadOnlyList<Widgetkeuze> Standaard { get; } =
@@ -182,7 +187,14 @@ public sealed class DashboardDienst(
         var opgeslagen = wie.Id is { } gebruiker
             ? await db.Dashboardindelingen.AsNoTracking().Where(d => d.GebruikerId == gebruiker).Select(d => d.Widgets).FirstOrDefaultAsync()
             : null;
-        return opgeslagen is null ? Standaard : Widgetkeuze.Lees(opgeslagen);
+        if (opgeslagen is not null)
+        {
+            return Widgetkeuze.Lees(opgeslagen);
+        }
+
+        // Bij een BV standaard ook de verwachte vennootschapsbelasting.
+        var bv = await db.Administraties.AnyAsync(a => a.Id == administratie && a.Ondernemingsvorm == Boekhouding.Grootboek.Ondernemingsvorm.BV);
+        return bv ? [.. Standaard, new(Widget.Vennootschapsbelasting)] : Standaard;
     }
 
     /// <summary>Bewaart de indeling van de gebruiker zelf; een lege lijst mag (dan staat er niets).</summary>
@@ -241,6 +253,7 @@ public sealed class DashboardDienst(
                     Verkoop = (await db.Verkoopdocumenten.CountAsync(v => v.Status == Verkoopstatus.Concept), await abonnementen.TeMaken(wie, administratie, vandaag)),
                 },
                 Widget.Aansluitingen => dashboard with { Aansluitingen = await Aansluitingen(wie, administratie) },
+                Widget.Vennootschapsbelasting => dashboard with { Vennootschapsbelasting = await vpb.Positie(wie, administratie, vandaag.Year, vandaag) },
                 _ => dashboard,
             };
         }

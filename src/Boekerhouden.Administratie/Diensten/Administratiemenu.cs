@@ -1,7 +1,17 @@
 namespace Boekerhouden.Administratie.Diensten;
 
-/// <summary>Een pagina in het menu van een administratie: het pad na <c>/a/{id}</c>, de naam en het recht dat nodig is.</summary>
-public sealed record Menuitem(string Pad, string Naam, Recht Recht);
+/// <summary>
+/// Een pagina in het menu van een administratie: het pad na <c>/a/{id}</c>, de naam, het recht dat nodig is en (bij
+/// <paramref name="AlleenBv"/>) alleen voor een BV.
+/// </summary>
+public sealed record Menuitem(string Pad, string Naam, Recht Recht, bool AlleenBv = false)
+{
+    public bool Zichtbaar(AdministratieKop kop)
+    {
+        ArgumentNullException.ThrowIfNull(kop);
+        return kop.Mag(Recht) && (!AlleenBv || kop.Ondernemingsvorm == Boekhouding.Grootboek.Ondernemingsvorm.BV);
+    }
+}
 
 /// <summary>Een groep in het menu, met zijn pagina's.</summary>
 public sealed record Menugroep(string Naam, IReadOnlyList<Menuitem> Items);
@@ -34,6 +44,7 @@ public static class Administratiemenu
             new("/balans", "Balans en W&V", Recht.Lezen),
             new("/kolommenbalans", "Kolommenbalans", Recht.Lezen),
             new("/btw", "Btw-aangifte", Recht.Lezen),
+            new("/vpb", "Fiscale positie", Recht.Lezen, AlleenBv: true),
             new("/debiteuren", "Openstaande debiteuren", Recht.Lezen),
             new("/crediteuren", "Openstaande crediteuren", Recht.Lezen),
             new("/aansluitingen", "Aansluitingen", Recht.Lezen),

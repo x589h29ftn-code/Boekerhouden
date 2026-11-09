@@ -92,7 +92,8 @@
     [Parameter]
     public Guid Id { get; set; }
 
-    private IEnumerable<Widget> Beschikbaar => Enum.GetValues<Widget>().Where(w => indeling.All(k => k.Soort != w));
+    private IEnumerable<Widget> Beschikbaar => Enum.GetValues<Widget>()
+        .Where(w => indeling.All(k => k.Soort != w) && (w != Widget.Vennootschapsbelasting || geopend?.Kop.Ondernemingsvorm == Boekhouding.Grootboek.Ondernemingsvorm.BV));
 
     private async Task Open(Geopend g)
     {
@@ -165,6 +166,7 @@
         Widget.Aansluitingen => "Aansluitingen",
         Widget.Liquiditeit => "Liquiditeit",
         Widget.Marge => "Brutomarge",
+        Widget.Vennootschapsbelasting => "Vennootschapsbelasting",
         _ => soort.ToString(),
     };
 
@@ -187,6 +189,7 @@
         Widget.Marge when dashboard?.Marge is { } marge => keuze.Geldig == Widgetkeuze.Kwartaal
             ? $"Brutomarge per kwartaal {marge.Van.Year}"
             : $"Brutomarge t/m {Weergave.Datum(marge.Tot)}, tegen vorig jaar",
+        Widget.Vennootschapsbelasting => $"Vennootschapsbelasting {Vandaag.Year}",
         _ => Naam(keuze.Soort),
     };
 
@@ -221,6 +224,7 @@
         Widget.Verkoop => Pad($"/verkoop?{Weergave.Periodequery(Nieuwjaar, new DateOnly(Vandaag.Year, 12, 31))}"),
         Widget.Liquiditeit when dashboard?.Liquiditeit is [var eerste, ..] => Kolommenbalans(eerste.Maand, Vandaag, perMaand: true),
         Widget.Marge => Kolommenbalans(Nieuwjaar, Vandaag, vorigJaar: true),
+        Widget.Vennootschapsbelasting => Pad($"/vpb?jaar={Vandaag.Year}"),
         _ => null,
     };
 
@@ -310,6 +314,12 @@
         Widget.Marge when dashboard!.Marge is { Groepen.Count: 0 } => @<div class="widgetregel zacht">Geen margegroepen in het <a href="@Pad("/rekeningschema")">rekeningschema</a></div>,
         Widget.Marge when dashboard!.Marge is { } marge && keuze.Geldig == Widgetkeuze.Kwartaal => Kwartaalmarge(marge),
         Widget.Marge when dashboard!.Marge is { } marge => Margetegenvorigjaar(marge),
+        Widget.Vennootschapsbelasting when dashboard!.Vennootschapsbelasting is { } v => @<div>
+            <a class="kerngetal" href="@Link(Widget.Vennootschapsbelasting)">@(v.Positie.Vennootschapsbelasting == 0 ? "Nihil" : Weergave.BedragHeel(v.Positie.Vennootschapsbelasting))</a>
+            <div class="widgetregel">@(v.Positie.Belastbaar <= 0 ? $"verlies {Weergave.BedragHeel(-v.Positie.Belastbaar)}" : $"verwacht, belastbaar {Weergave.BedragHeel(v.Positie.Belastbaar)}"), t/m @Weergave.Datum(v.Tot)</div>
+            <div class="widgetregel zacht" title="Na de betaalde voorlopige aanslagen">@(v.Positie.TeBetalen >= 0 ? "nog te betalen" : "terug te ontvangen") @Weergave.BedragHeel(Math.Abs(v.Positie.TeBetalen))</div>
+        </div>,
+        Widget.Vennootschapsbelasting => @<div class="widgetregel zacht">Alleen voor een BV</div>,
         _ => @<div class="widgetregel zacht">Bezig met laden</div>,
     };
 

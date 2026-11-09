@@ -1423,6 +1423,10 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasMaxLength(10)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Fiscaal")
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Functie")
                         .IsRequired()
                         .HasMaxLength(30)

@@ -1713,11 +1713,17 @@ a.kerngetal:hover { color: var(--bh-accent); }
 }
 
 /* Jaaropstelling omzetbelasting: een met de hand aangepast bedrag, en het invoerveld. */
-.btw-jaaropstelling .aangepast {
+.btw-jaaropstelling .aangepast, .vpb-module .aangepast {
     border-bottom: 1px dotted currentColor;
 }
 
-.btw-jaaropstelling .jaaropstelling-invoer {
+.btw-jaaropstelling .jaaropstelling-invoer, .vpb-module .vpb-invoer {
     width: 8rem;
     margin-left: auto;
 }
+
+/* Instellingen: niet en beperkt aftrekbare rekeningen; weghalen pas bij aanwijzen. */
+.vpb-indeling .regelactie { opacity: 0; }
+.vpb-indeling tr:is(:hover, :focus-within) .regelactie { opacity: 1; }
+.vpb-module td.klikbaar { cursor: pointer; }
+.vpb-module td.klikbaar:hover { background: rgba(var(--bs-primary-rgb), .08); }

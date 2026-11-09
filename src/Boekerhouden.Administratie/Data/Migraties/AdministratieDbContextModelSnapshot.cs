@@ -1443,6 +1443,10 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
 
+                    b.Property<string>("Fiscaal")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
                     b.Property<string>("Functie")
                         .IsRequired()
                         .HasMaxLength(30)

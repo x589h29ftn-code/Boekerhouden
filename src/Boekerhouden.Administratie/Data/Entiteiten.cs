@@ -202,7 +202,10 @@ public sealed class Grootboekrekening : IVanAdministratie
     /// <summary>De margegroep (bijv. "Product X") van een omzet- of inkooprekening; leeg = geen.</summary>
     public string? Margegroep { get; set; }
 
-    public Rekening NaarDomein() => new(Nummer, Naam, Soort, RgsCode, Functie, BtwCode, Margegroep);
+    /// <summary>Hoe de rekening meetelt in de fiscale positie; leeg = automatisch op RGS-code en naam.</summary>
+    public Boekhouding.Vpb.Fiscaalsoort? Fiscaal { get; set; }
+
+    public Rekening NaarDomein() => new(Nummer, Naam, Soort, RgsCode, Functie, BtwCode, Margegroep, Fiscaal);
 }
 
 public sealed class Dagboekdefinitie : IVanAdministratie

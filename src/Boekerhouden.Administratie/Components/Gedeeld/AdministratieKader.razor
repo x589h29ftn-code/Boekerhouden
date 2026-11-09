@@ -52,7 +52,7 @@ else
                 <a class="zijmenu-link @(Actief.Length == 0 ? "actief" : null)" href="/a/@kop.Id" aria-current="@(Actief.Length == 0 ? "page" : null)">Overzicht</a>
                 @foreach (var groep in Administratiemenu.Groepen)
                 {
-                    var zichtbaar = groep.Items.Where(i => kop.Mag(i.Recht)).ToList();
+                    var zichtbaar = groep.Items.Where(i => i.Zichtbaar(kop)).ToList();
                     if (zichtbaar.Count == 0)
                     {
                         continue;
