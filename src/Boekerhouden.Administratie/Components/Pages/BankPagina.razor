@@ -350,7 +350,10 @@
                                 <div class="paneelkop mb-0" title="@g.Voorstel.Advies.Reden">Regels</div>
                                 <table class="table table-sm align-middle mb-0 bankregels">
                                     <thead>
-                                        <tr><th>Factuurnummer</th><th>Rekening</th><th>Btw</th><th class="text-end">Bedrag</th><th>Omschrijving</th><th></th></tr>
+                                        <tr><th>Factuurnummer</th><th>Rekening</th>@if (!ZonderBtw)
+                                            {
+                                                <th>Btw</th>
+                                            }<th class="text-end">Bedrag</th><th>Omschrijving</th><th></th></tr>
                                     </thead>
                                     <tbody>
                                         @for (var i = 0; i < regels.Count; i++)
@@ -373,15 +376,18 @@
                                                         <RekeningKeuze Id="@($"regel-rekening-{n}")" @bind-Waarde:get="regel.Rekening" @bind-Waarde:set="w => KiesRekening(regel, w)" Schema="g.Schema" Kader="geopend" />
                                                     }
                                                 </td>
-                                                <td>
-                                                    <select id="@($"regel-btw-{n}")" class="form-select form-select-sm" @bind="regel.BtwCode" disabled="@(post is not null)" aria-label="Btw">
-                                                        <option value="">geen</option>
-                                                        @foreach (var c in g.BtwCodes.Where(c => c.Actief))
-                                                        {
-                                                            <option value="@c.Code" title="@c.Code · @c.Omschrijving">@c.Kort</option>
-                                                        }
-                                                    </select>
-                                                </td>
+                                                @if (!ZonderBtw)
+                                                {
+                                                    <td>
+                                                        <select id="@($"regel-btw-{n}")" class="form-select form-select-sm" @bind="regel.BtwCode" disabled="@(post is not null)" aria-label="Btw">
+                                                            <option value="">geen</option>
+                                                            @foreach (var c in g.BtwCodes.Where(c => c.Actief))
+                                                            {
+                                                                <option value="@c.Code" title="@c.Code · @c.Omschrijving">@c.Kort</option>
+                                                            }
+                                                        </select>
+                                                    </td>
+                                                }
                                                 <td><input id="@($"regel-bedrag-{n}")" class="form-control form-control-sm text-end" @bind="regel.Bedrag" aria-label="Bedrag" /></td>
                                                 <td><input id="@($"regel-omschrijving-{n}")" class="form-control form-control-sm" @bind="regel.Omschrijving" aria-label="Omschrijving" placeholder="@(post is not null ? $"Betaling {post.Factuurnummer}" : Standaardomschrijving(g.Mutatie))" /></td>
                                                 <td>
@@ -438,7 +444,7 @@
                                                 <label class="form-label small mb-0" for="auto-tot">tot</label>
                                                 <input id="auto-tot" class="form-control form-control-sm text-end" @bind="autoTot" />
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-4 @(ZonderBtw ? "d-none" : null)">
                                                 <label class="form-label small mb-0" for="auto-btw">Btw</label>
                                                 <select id="auto-btw" class="form-select form-select-sm" @bind="autoBtw">
                                                     <option value="">geen</option>
@@ -501,6 +507,9 @@
     private const int MaximumBestanden = 20;
 
     private Geopend? geopend;
+
+    /// <summary>De administratie is niet btw-plichtig: geen btw op het scherm en in de boekingen.</summary>
+    private bool ZonderBtw => geopend?.Kop.BtwPlichtig == false;
     private IReadOnlyList<BankmutatieRegel>? mutaties;
 
     /// <summary>Per bankrekening het laatste afschrift en wat er te verwerken is: de regel onder de titel.</summary>
@@ -948,7 +957,7 @@
         var regel = new Verwerkingsregel(
             bewerkRegel?.Regel.Naam ?? $"{(string.IsNullOrEmpty(tekst) ? Iban.Toon(g.Mutatie.TegenIban!) : tekst)} naar {Rekeningnaam(g, rekening)}",
             rekening,
-            string.IsNullOrWhiteSpace(autoBtw) ? null : autoBtw,
+            ZonderBtw || string.IsNullOrWhiteSpace(autoBtw) ? null : autoBtw,
             Automatisch: autoAutomatisch,
             Soort: Verwerkingssoort.Bankmutatie,
             NaamBevat: inNaam ? tekst : null,
@@ -1182,7 +1191,7 @@
     {
         var nieuw = regel.Rekening != waarde;
         regel.Rekening = waarde;
-        if (nieuw && gekozen?.Schema.Zoek(waarde)?.BtwCode is { } code && gekozen.BtwCodes.Any(c => c.Code == code))
+        if (nieuw && !ZonderBtw && gekozen?.Schema.Zoek(waarde)?.BtwCode is { } code && gekozen.BtwCodes.Any(c => c.Code == code))
         {
             regel.BtwCode = code;
         }

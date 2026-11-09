@@ -281,9 +281,12 @@
                                             <th>Omschrijving</th>
                                         }
                                         <th style="width:27%">Grootboekrekening</th>
-                                        <th style="width:21%">Btw</th>
-                                        <th class="text-end" style="width:15%">Excl. btw</th>
-                                        @if (Toon("btwbedrag"))
+                                        @if (!ZonderBtw)
+                                        {
+                                            <th style="width:21%">Btw</th>
+                                        }
+                                        <th class="text-end" style="width:15%">@(ZonderBtw ? "Bedrag" : "Excl. btw")</th>
+                                        @if (Toon("btwbedrag") && !ZonderBtw)
                                         {
                                             <th class="text-end" style="width:14%">Btw-bedrag</th>
                                         }
@@ -303,16 +306,19 @@
                                             <td>
                                                 <RekeningKeuze @bind-Waarde:get="regel.Rekening" @bind-Waarde:set="v => KiesRekening(regel, v)" Schema="verwerking.Schema" Voorkeur="voorkeur" Kader="geopend" />
                                             </td>
-                                            <td>
-                                                <select class="form-select form-select-sm" @bind="regel.BtwCode" aria-label="Btw-code">
-                                                    @foreach (var c in Codes.Where(c => c.Richting == BtwRichting.Inkoop && (c.Actief || c.Code == regel.BtwCode)))
-                                                    {
-                                                        <option value="@c.Code" title="@c.Code · @c.Omschrijving">@c.Kort</option>
-                                                    }
-                                                </select>
-                                            </td>
+                                            @if (!ZonderBtw)
+                                            {
+                                                <td>
+                                                    <select class="form-select form-select-sm" @bind="regel.BtwCode" aria-label="Btw-code">
+                                                        @foreach (var c in Codes.Where(c => c.Richting == BtwRichting.Inkoop && (c.Actief || c.Code == regel.BtwCode)))
+                                                        {
+                                                            <option value="@c.Code" title="@c.Code · @c.Omschrijving">@c.Kort</option>
+                                                        }
+                                                    </select>
+                                                </td>
+                                            }
                                             <td><input class="form-control form-control-sm text-end @Doel($"bedrag:{n}")" @bind="regel.Bedrag" @bind:event="oninput" data-doel="bedrag:@n" data-doelnaam="Bedrag exclusief btw" @onfocus='() => Kies($"bedrag:{n}", "Bedrag exclusief btw")' aria-label="Bedrag exclusief btw" /></td>
-                                            @if (Toon("btwbedrag"))
+                                            @if (Toon("btwbedrag") && !ZonderBtw)
                                             {
                                                 <td>
                                                     <div class="d-flex align-items-center gap-1">
@@ -332,7 +338,7 @@
                             <div class="d-flex align-items-start gap-3">
                                 <button class="btn btn-sm btn-link nog-een-regel" @onclick="RegelToevoegen"><Icoon Naam="plus" /> Nog een regel</button>
                                 <div class="ms-auto text-end small">
-                                    <div>Totaal incl. btw <span class="bedrag fw-semibold ms-2">@(Totaal is { } t ? Weergave.Bedrag(t) : "-")</span></div>
+                                    <div>@(ZonderBtw ? "Totaal" : "Totaal incl. btw") <span class="bedrag fw-semibold ms-2">@(Totaal is { } t ? Weergave.Bedrag(t) : "-")</span></div>
                                     @if (Verschil is { } verschil && verschil != 0)
                                     {
                                         <div class="status let-op" title="Totaal van de regels min het bedrag van de factuur">Verschil <span class="bedrag ms-2">@Weergave.Bedrag(verschil)</span></div>
@@ -524,6 +530,9 @@
 
     private bool Toon(string sleutel) => weergave.Contains(sleutel);
 
+    /// <summary>De administratie is niet btw-plichtig: geen btw op het scherm, de regels met de code zonder btw.</summary>
+    private bool ZonderBtw => geopend?.Kop.BtwPlichtig == false;
+
     /// <summary>De btw-codes met de tarieven op de factuurdatum (een nieuw tarief geldt vanaf zijn ingangsdatum).</summary>
     private IReadOnlyList<BtwCode> Codes => verwerking?.Btwtabel.Op(datum) ?? [];
 
@@ -550,7 +559,7 @@
             // Het verschil met het factuurtotaal staat onder de regels; hier de btw per regel en in totaal.
             var h = verwerking.Herkend;
             // Het formulier toont een creditnota zonder minteken; vergelijk met de btw van de factuur zonder minteken.
-            var factuur = h is null ? null : new Factuurbedragen(null, h.Btwregels.Count > 0 ? (soort == Documentsoort.Creditnota ? Math.Abs(h.TotaalBtw) : h.TotaalBtw) : null, h.Regels?.Count ?? 1);
+            var factuur = h is null || ZonderBtw ? null : new Factuurbedragen(null, h.Btwregels.Count > 0 ? (soort == Documentsoort.Creditnota ? Math.Abs(h.TotaalBtw) : h.TotaalBtw) : null, h.Regels?.Count ?? 1);
             return Bedragcontrole.Controleer([.. regels.Select(r => new Factuurregel("", r.Rekening, r.BtwCode, Getal(r.Bedrag)!.Value, Getal(BtwTekst(r))))], Codes, factuur);
         }
     }
@@ -580,7 +589,9 @@
         // Btw verlegd ("reverse charge"): de verlegde code (binnenland, EU of buiten de EU), geen btw op de factuur.
         var verlegd = herkend is null ? null : Inkoopverwerker.VerlegdeCode(herkend, Codes);
         var standaardCode = voorstel?.Advies.BtwCode ?? verlegd?.Code ?? "I21";
-        regels = voorstel?.Factuur is { } f
+        regels = ZonderBtw && voorstel?.Factuur is null && Boekerhouden.Administratie.Diensten.InkoopDienst.ZonderBtw(Codes) is { } geen
+            ? [new Invoerregel { Rekening = rekening, BtwCode = geen.Code, Bedrag = herkend?.TotaalInclusief is { } incl ? Bedragen.Getal(Math.Abs(incl)) : null }]
+            : voorstel?.Factuur is { } f
             ? [.. f.Regels.Select(r => new Invoerregel { Rekening = r.Rekeningnummer, BtwCode = r.BtwCode, Bedrag = Bedragen.Getal(r.Bedrag), Btw = r.Btw is { } b ? Bedragen.Getal(b) : null })]
             : verlegd is not null
                 ? [new Invoerregel { Rekening = rekening, BtwCode = verlegd.Code, Bedrag = (herkend!.TotaalExclusief ?? herkend.TotaalInclusief) is { } v ? Bedragen.Getal(v) : null }]

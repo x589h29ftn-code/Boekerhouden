@@ -84,7 +84,8 @@ public sealed record Instellingen(
     IReadOnlyList<string> Ibans,
     AfwijkendeInstellingen Afwijkend,
     Verwerkingsinstellingen? Kantoor = null,
-    Contactgegevens? Contact = null)
+    Contactgegevens? Contact = null,
+    bool BtwPlichtig = true)
 {
     /// <summary>Wat er voor de administratie geldt.</summary>
     public Verwerkingsinstellingen Geldend => Afwijkend.Op(Kantoor ?? Verwerkingsinstellingen.Standaard);
@@ -475,7 +476,7 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
         var a = await db.Administraties.AsNoTracking().SingleAsync(x => x.Id == administratie);
         return new Instellingen(a.Naam, a.KvkNummer, a.BtwNummer, a.Ibans, a.Afwijkend(), await KantoorDienst.Lees(db),
-            new Contactgegevens(a.Straat, a.Postcode, a.Plaats, a.Land, a.Email, a.Telefoon, a.Website));
+            new Contactgegevens(a.Straat, a.Postcode, a.Plaats, a.Land, a.Email, a.Telefoon, a.Website), a.BtwPlichtig);
     }
 
     public async Task<Uitkomst> WijzigInstellingen(Uitvoerder wie, Guid administratie, Instellingen invoer)
@@ -531,7 +532,9 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
         }
 
         var a = await db.Administraties.SingleAsync(x => x.Id == administratie);
-        var details = $"{KantoorDienst.Verschil(a.Afwijkend().Op(kantoor), afwijkend.Op(kantoor))}; IBAN's [{string.Join(", ", a.Ibans)}] → [{string.Join(", ", ibans)}]";
+        var details = $"{KantoorDienst.Verschil(a.Afwijkend().Op(kantoor), afwijkend.Op(kantoor))}; IBAN's [{string.Join(", ", a.Ibans)}] → [{string.Join(", ", ibans)}]"
+                      + (a.BtwPlichtig == invoer.BtwPlichtig ? null : $"; btw-plichtig {(a.BtwPlichtig ? "ja" : "nee")} → {(invoer.BtwPlichtig ? "ja" : "nee")}");
+        a.BtwPlichtig = invoer.BtwPlichtig;
         a.Naam = invoer.Naam.Trim();
         a.KvkNummer = Leeg(invoer.KvkNummer);
         a.BtwNummer = string.IsNullOrWhiteSpace(invoer.BtwNummer) ? null : BtwNummer.Normaliseer(invoer.BtwNummer);

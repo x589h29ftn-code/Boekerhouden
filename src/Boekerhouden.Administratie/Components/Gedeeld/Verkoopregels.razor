@@ -121,7 +121,7 @@
     private async Task RegelErbij()
     {
         var vorige = Regels.LastOrDefault();
-        Regels.Add(new Verkoopregelinvoer { Aantal = "1", Rekening = vorige?.Rekening ?? Omzetrekening, BtwCode = vorige?.BtwCode ?? BtwCode ?? "V21" });
+        Regels.Add(new Verkoopregelinvoer { Aantal = "1", Rekening = vorige?.Rekening ?? Omzetrekening, BtwCode = vorige?.BtwCode ?? BtwCode ?? (Kader?.Kop.BtwPlichtig == false ? "VVR" : "V21") });
         await Meld();
     }
 }

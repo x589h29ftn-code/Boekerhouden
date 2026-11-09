@@ -24,7 +24,10 @@
     <div class="card overzichtskaart">
         <table class="table table-sm align-middle mb-0 overzichtstabel regeltabel">
             <thead>
-                <tr><th style="width:30%">Grootboek</th><th>Omschrijving</th><th style="width:7rem">Btw</th><th class="text-end" style="width:8rem">Debet</th><th class="text-end" style="width:8rem">Credit</th><th style="width:1.75rem"></th></tr>
+                <tr><th style="width:30%">Grootboek</th><th>Omschrijving</th>@if (!ZonderBtw)
+                    {
+                        <th style="width:7rem">Btw</th>
+                    }<th class="text-end" style="width:8rem">Debet</th><th class="text-end" style="width:8rem">Credit</th><th style="width:1.75rem"></th></tr>
             </thead>
             <tbody>
                 @foreach (var regel in invoer.Regels)
@@ -34,7 +37,10 @@
                         <tr title="Hoort bij het bankafschrift of de openstaande posten en blijft gelijk">
                             <td><span class="rekeningnummer">@regel.Rekening</span> @Schema.Zoek(regel.Rekening)?.Naam</td>
                             <td class="text-secondary">@string.Join(" ", new[] { regel.Omschrijving, regel.Relatie, regel.Factuurnummer }.Where(x => !string.IsNullOrEmpty(x)))</td>
-                            <td class="text-secondary">@regel.BtwCode</td>
+                            @if (!ZonderBtw)
+                            {
+                                <td class="text-secondary">@regel.BtwCode</td>
+                            }
                             <td class="bedrag text-end">@regel.Debet</td>
                             <td class="bedrag text-end">@regel.Credit</td>
                             <td></td>
@@ -45,15 +51,18 @@
                         <tr>
                             <td><RekeningKeuze @bind-Waarde:get="regel.Rekening" @bind-Waarde:set="v => KiesRekening(regel, v)" Schema="Schema" Kader="Kader" /></td>
                             <td><input class="form-control form-control-sm" @bind="regel.Omschrijving" placeholder="@invoer.Omschrijving" aria-label="Omschrijving regel" /></td>
-                            <td>
-                                <select class="form-select form-select-sm" @bind="regel.BtwCode" aria-label="Btw-code">
-                                    <option value=""></option>
-                                    @foreach (var c in codes.Where(c => c.Actief || c.Code == regel.BtwCode))
-                                    {
-                                        <option value="@c.Code" title="@c.Omschrijving">@c.Code</option>
-                                    }
-                                </select>
-                            </td>
+                            @if (!ZonderBtw)
+                            {
+                                <td>
+                                    <select class="form-select form-select-sm" @bind="regel.BtwCode" aria-label="Btw-code">
+                                        <option value=""></option>
+                                        @foreach (var c in codes.Where(c => c.Actief || c.Code == regel.BtwCode))
+                                        {
+                                            <option value="@c.Code" title="@c.Omschrijving">@c.Code</option>
+                                        }
+                                    </select>
+                                </td>
+                            }
                             <td><input class="form-control form-control-sm text-end" @bind="regel.Debet" @bind:event="oninput" aria-label="Debet" /></td>
                             <td><input class="form-control form-control-sm text-end" @bind="regel.Credit" @bind:event="oninput" aria-label="Credit" /></td>
                             <td><button class="btn btn-sm btn-link text-secondary p-0 regel-weg" title="Regel verwijderen" @onclick="() => invoer.Regels.Remove(regel)" disabled="@(invoer.Regels.Count <= 2)"><Icoon Naam="x" /></button></td>
@@ -63,7 +72,7 @@
             </tbody>
             <tfoot>
                 <tr class="generaal">
-                    <td colspan="3"><button class="btn btn-sm btn-link nog-een-regel p-0" @onclick="RegelErbij"><Icoon Naam="plus" /> Nog een regel</button></td>
+                    <td colspan="@(ZonderBtw ? 2 : 3)"><button class="btn btn-sm btn-link nog-een-regel p-0" @onclick="RegelErbij"><Icoon Naam="plus" /> Nog een regel</button></td>
                     <td class="bedrag text-end">@Weergave.Bedrag(invoer.TotaalDebet)</td>
                     <td class="bedrag text-end">@Weergave.Bedrag(invoer.TotaalCredit)</td>
                     <td></td>
@@ -98,6 +107,9 @@
 </div>
 
 @code {
+    /// <summary>Niet btw-plichtig en geen regel met een btw-code (bijv. een oude boeking): geen kolom Btw.</summary>
+    private bool ZonderBtw => Kader?.Kop.BtwPlichtig == false && invoer.Regels.All(r => string.IsNullOrEmpty(r.BtwCode));
+
     private Invoer invoer = new();
     private string boekstuk = "";
     private IReadOnlyList<Boekhouding.Btw.BtwCode> codes = [];
@@ -206,7 +218,7 @@
     {
         var nieuw = regel.Rekening != rekening;
         regel.Rekening = rekening ?? "";
-        if (nieuw && Schema.Zoek(rekening)?.BtwCode is { } code)
+        if (nieuw && Kader?.Kop.BtwPlichtig != false && Schema.Zoek(rekening)?.BtwCode is { } code)
         {
             regel.BtwCode = code;
         }

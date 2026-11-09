@@ -305,6 +305,11 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("BtwPlichtig")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
                     b.Property<string>("Documentmap")
                         .HasMaxLength(400)
                         .HasColumnType("TEXT");

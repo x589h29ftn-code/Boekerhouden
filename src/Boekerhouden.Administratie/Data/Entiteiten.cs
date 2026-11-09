@@ -53,6 +53,12 @@ public sealed class Administratie
 
     public string? BtwNummer { get; set; }
 
+    /// <summary>
+    /// Btw-plichtig (standaard). Zo niet (vrijgesteld, kleineondernemersregeling), dan boekt het pakket zonder btw:
+    /// inkoop inclusief btw op de kostenrekening, bank en memoriaal zonder btw-code, en de schermen tonen geen btw.
+    /// </summary>
+    public bool BtwPlichtig { get; set; } = true;
+
     /// <summary>De eigen bankrekening(en); staan ook op facturen, maar zijn niet van de leverancier.</summary>
     public List<string> Ibans { get; set; } = [];
 

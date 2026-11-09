@@ -44,7 +44,8 @@ public static class Inkoopverwerker
         int betalingstermijn = 30,
         Func<DateOnly, bool>? periodeOpen = null,
         decimal? limietAutomatisch = null,
-        string? standaardomschrijving = null)
+        string? standaardomschrijving = null,
+        BtwCode? zonderBtw = null)
     {
         ArgumentNullException.ThrowIfNull(herkend);
         ArgumentNullException.ThrowIfNull(bestaand);
@@ -120,7 +121,10 @@ public static class Inkoopverwerker
         Factuur? factuur = null;
         if (leverancier is not null && advies.Rekeningnummer is { } rekening && herkend.TotaalInclusief is { } totaal && herkend.Factuurdatum is { } factuurdatum)
         {
-            var factuurregels = Factuurregels(herkend, rekening, advies.BtwCode, btwCodes, totaal);
+            // Niet btw-plichtig: de btw is kostprijs, dus één regel met het totaal inclusief btw en de code zonder btw.
+            var factuurregels = zonderBtw is not null
+                ? [new Factuurregel(herkend.Omschrijving ?? herkend.Naam ?? "Inkoop", rekening, zonderBtw.Code, totaal)]
+                : Factuurregels(herkend, rekening, advies.BtwCode, btwCodes, totaal);
             if (factuurregels is null)
             {
                 belemmeringen.Add("Kies een btw-code.");

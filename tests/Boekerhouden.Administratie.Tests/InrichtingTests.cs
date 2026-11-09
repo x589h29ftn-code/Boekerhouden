@@ -140,6 +140,44 @@ public sealed class InrichtingTests(AdministratieFixture app) : IClassFixture<Ad
     }
 
     [Fact]
+    public async Task Niet_btw_plichtig_boekt_inkoop_inclusief_btw_en_bank_zonder_btw()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var dienst = app.Dienst<InrichtingDienst>();
+        await dienst.VoegRelatieToe(wie, id, new("Belnet B.V.", "NL123456782B01", null, "4310"), "NL63TRIO0212345678");
+        await dienst.VoegRegelToe(wie, id, Telefoon);
+        await dienst.VoegRegelToe(wie, id, new Verwerkingsregel("Jansen", "4300", "I21", Soort: Verwerkingssoort.Bankmutatie, TegenIban: "NL36INGB0007654321"));
+        Assert.True((await dienst.Instellingen(wie, id)).BtwPlichtig);
+
+        var uitkomst = await dienst.WijzigInstellingen(wie, id, (await dienst.Instellingen(wie, id)) with { BtwPlichtig = false });
+
+        Assert.True(uitkomst.IsGelukt, string.Join("; ", uitkomst.Fouten));
+        Assert.False((await dienst.Instellingen(wie, id)).BtwPlichtig);
+        Assert.False((await app.Dienst<AdministratieDienst>().Open(wie, id))!.BtwPlichtig);
+        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.InstellingenGewijzigd && r.Details!.Contains("btw-plichtig ja → nee", StringComparison.Ordinal));
+
+        // De factuur van € 24,99 (20,65 + 4,34 btw) komt in zijn geheel op de kosten, zonder voorbelasting.
+        var gelezen = await app.Dienst<InkoopDienst>().Lees(wie, id, new MemoryStream(InkoopTests.Belnet()), "belnet.xml", null);
+        Assert.Equal(Documentstatus.Geboekt, gelezen.Status);
+        var proef = await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026);
+        Assert.Equal(24.99m, proef.Regels.Single(r => r.Rekening.Nummer == "4310").Saldo);
+        Assert.DoesNotContain(proef.Regels, r => r.Rekening.Functie == Boekhouding.Grootboek.Rekeningfunctie.Voorbelasting && r.Saldo != 0);
+
+        // Op de bank: de regel heeft I21, maar het voorstel is zonder btw.
+        var bank = app.Dienst<BankDienst>();
+        await bank.Lees(wie, id, BankTests.Afschrift(), "ing.mt940");
+        var jansen = (await bank.Lijst(wie, id)).Single(m => m.Bedrag == -199.65m);
+        var advies = (await bank.Verwerking(wie, id, jansen.Id))!.Voorstel.Advies;
+        Assert.Equal(("4300", null), (advies.Rekeningnummer, advies.BtwCode));
+
+        var ondernemer = await app.Gebruiker("Otto Ondernemer");
+        await app.Dienst<AdministratieDienst>().ZetLid(id, ondernemer.Id!.Value, Lidmaatschapsrol.Ondernemer, wie);
+        var instellingen = await dienst.Instellingen(wie, id);
+        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.WijzigInstellingen(ondernemer, id, instellingen with { BtwPlichtig = true }));
+    }
+
+    [Fact]
     public async Task Limiet_houdt_automatisch_boeken_tegen_en_eigen_iban_wordt_overgeslagen()
     {
         var wie = await app.Beheerder();

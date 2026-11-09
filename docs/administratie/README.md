@@ -96,6 +96,13 @@ samenstelpakket.
   (bijv. hoog 21,15% per een datum) voegt de beheerder toe; boeken gebeurt met het percentage op de factuurdatum
   (`Btwtabel.Op`), wat al geboekt is verandert niet. Een code is (in)actief te zetten; soort en tarief van een bestaande
   code liggen vast. Codes en tarieven staan in de database (`Btwcodes`, `Btwtarieven`), gevuld met de standaard.
+- **Btw-plichtig ja/nee** (per administratie, *Instellingen*, standaard ja; `Administratie.BtwPlichtig`): een onderneming
+  die niet btw-plichtig is (vrijgesteld, kleineondernemersregeling) boekt zonder btw. Een inkoopfactuur gaat dan met
+  het totaal inclusief btw op de kostenrekening, met de code *geen btw* (`Inkoopverwerker`, parameter `zonderBtw`), en de
+  btw op de factuur wordt niet vergeleken met de boeking; het voorstel op de bank heeft geen btw-code, ook als een regel
+  of de rekening er een heeft. Op de schermen inkoop, bank (ook Autoherkenning) en memoriaal staat dan geen kolom Btw
+  (bij het aanpassen van een oude boeking met btw wel); een nieuwe verkoopregel krijgt *verkoop vrijgesteld*. De
+  wijziging staat in het wijzigingslog (*btw-plichtig ja → nee*).
 - **Aangifte berekenen** (gebouwd in het domein, `Btwaangifte.Bereken`): uit de boekingen van een periode per rubriek de
   grondslag en de btw, de voorbelasting (5b) en het te betalen of terug te vragen bedrag. Het scherm volgt in A10.
 

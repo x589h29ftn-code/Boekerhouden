@@ -16,6 +16,12 @@
                     <div class="col-12"><label class="form-label" for="naam">Naam</label><input id="naam" class="form-control" @bind="gegevens.Naam" /></div>
                     <div class="col-md-6"><label class="form-label" for="kvk">KvK-nummer</label><input id="kvk" class="form-control" @bind="gegevens.KvkNummer" /></div>
                     <div class="col-md-6"><label class="form-label" for="btw">Btw-nummer</label><input id="btw" class="form-control" @bind="gegevens.BtwNummer" /></div>
+                    <div class="col-12">
+                        <span class="form-check">
+                            <input class="form-check-input" type="checkbox" id="btwplichtig" @bind="gegevens.BtwPlichtig" />
+                            <label class="form-check-label" for="btwplichtig">Btw-plichtig</label>
+                        </span>
+                    </div>
                     <div class="col-12"><label class="form-label" for="ibans">Eigen bankrekeningen (IBAN's, gescheiden door komma's)</label><input id="ibans" class="form-control" @bind="gegevens.Ibans" /></div>
                 </div>
             </Formulierblok>
@@ -60,7 +66,7 @@
         }
 
         var i = await Inrichting.Instellingen(g.Wie, Id);
-        gegevens = new Gegevens { Naam = i.Naam, KvkNummer = i.KvkNummer, BtwNummer = i.BtwNummer, Ibans = string.Join(", ", i.Ibans) };
+        gegevens = new Gegevens { Naam = i.Naam, KvkNummer = i.KvkNummer, BtwNummer = i.BtwNummer, Ibans = string.Join(", ", i.Ibans), BtwPlichtig = i.BtwPlichtig };
         if (i.Contact is { } c)
         {
             (gegevens.Straat, gegevens.Postcode, gegevens.Plaats, gegevens.Land) = (c.Straat, c.Postcode, c.Plaats, c.Land);
@@ -96,7 +102,7 @@
         bezig = true;
         var uitkomst = await Inrichting.WijzigInstellingen(geopend!.Wie, Id,
             new Instellingen(gegevens!.Naam, gegevens.KvkNummer, gegevens.BtwNummer, [.. gegevens.Ibans.Split(',', ';')], afwijkend,
-                Contact: new Contactgegevens(gegevens.Straat, gegevens.Postcode, gegevens.Plaats, gegevens.Land, gegevens.Email, gegevens.Telefoon, gegevens.Website)));
+                Contact: new Contactgegevens(gegevens.Straat, gegevens.Postcode, gegevens.Plaats, gegevens.Land, gegevens.Email, gegevens.Telefoon, gegevens.Website), BtwPlichtig: gegevens.BtwPlichtig));
         bezig = false;
         (fouten, opgeslagen) = (uitkomst.Fouten, uitkomst.IsGelukt);
         if (uitkomst.IsGelukt)
@@ -114,6 +120,8 @@
         public string? BtwNummer { get; set; }
 
         public string Ibans { get; set; } = "";
+
+        public bool BtwPlichtig { get; set; } = true;
 
         public string? Straat { get; set; }
 

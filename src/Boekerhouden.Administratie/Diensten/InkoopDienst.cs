@@ -1176,7 +1176,12 @@ public sealed class InkoopDienst(
 
     private static Inkoopvoorstel Voorstel(HerkendeFactuur herkend, Inkoopcontext context) =>
         Inkoopverwerker.Verwerk(herkend, context.Relaties, context.Regels, context.Geheugen, context.Btw.Op(herkend.Factuurdatum ?? DateOnly.MaxValue), context.Bestaand,
-            context.Instellingen.Betalingstermijn, periodeOpen: null, context.Instellingen.Limiet, context.Instellingen.Omschrijving);
+            context.Instellingen.Betalingstermijn, periodeOpen: null, context.Instellingen.Limiet, context.Instellingen.Omschrijving,
+            context.Administratie.BtwPlichtig ? null : ZonderBtw(context.Btw.Op(herkend.Factuurdatum ?? DateOnly.MaxValue)));
+
+    /// <summary>De btw-code voor een boeking zonder btw (in een administratie die niet btw-plichtig is).</summary>
+    internal static BtwCode? ZonderBtw(IReadOnlyList<BtwCode> codes) =>
+        codes.FirstOrDefault(c => c.Soort == Btwsoort.GeenBtw && c.Actief) ?? codes.FirstOrDefault(c => c.Soort == Btwsoort.GeenBtw);
 
     private static string Kort(string tekst) => tekst.Length > 200 ? tekst[..200] : tekst;
 

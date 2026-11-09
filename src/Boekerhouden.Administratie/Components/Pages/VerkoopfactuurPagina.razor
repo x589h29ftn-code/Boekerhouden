@@ -363,11 +363,14 @@
         }
     }
 
+    /// <summary>De btw-code van een nieuwe regel: 21%, of vrijgesteld als de administratie niet btw-plichtig is.</summary>
+    private string Standaardcode => geopend?.Kop.BtwPlichtig == false ? "VVR" : "V21";
+
     private Verkoopregelinvoer NieuweRegel() => new()
     {
         Aantal = "1",
         Rekening = Gekozen?.Omzetrekening ?? verkoop?.Omzetrekening,
-        BtwCode = Gekozen?.Verkoopbtwcode ?? "V21",
+        BtwCode = Gekozen?.Verkoopbtwcode ?? Standaardcode,
     };
 
     private void KiesKlant(ChangeEventArgs e)

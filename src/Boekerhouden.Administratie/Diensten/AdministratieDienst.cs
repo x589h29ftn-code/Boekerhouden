@@ -10,7 +10,7 @@ public sealed record AdministratieInvoer(string Naam, Ondernemingsvorm Ondernemi
 /// <summary>Een administratie zoals de gebruiker hem ziet, met zijn eigen rol erin.</summary>
 /// <param name="Gearchiveerd">Gearchiveerd: alleen inzien (<see cref="Mag"/> geeft dan alleen Lezen).</param>
 public sealed record AdministratieKop(Guid Id, string Naam, Ondernemingsvorm Ondernemingsvorm, string? KvkNummer, string? BtwNummer, Lidmaatschapsrol Rol,
-    DateTimeOffset? Gearchiveerd = null)
+    DateTimeOffset? Gearchiveerd = null, bool BtwPlichtig = true)
 {
     public bool Mag(Recht recht) => Toegang.Mag(Rol, recht) && (Gearchiveerd is null || recht == Recht.Lezen);
 }
@@ -308,7 +308,7 @@ public sealed class AdministratieDienst(IDbContextFactory<AdministratieDbContext
     }
 
     private static AdministratieKop Kop(Data.Administratie a, Lidmaatschapsrol rol) =>
-        new(a.Id, a.Naam, a.Ondernemingsvorm, a.KvkNummer, a.BtwNummer, rol, a.GearchiveerdOp);
+        new(a.Id, a.Naam, a.Ondernemingsvorm, a.KvkNummer, a.BtwNummer, rol, a.GearchiveerdOp, a.BtwPlichtig);
 
     private static string? Leeg(string? tekst) => string.IsNullOrWhiteSpace(tekst) ? null : tekst.Trim();
 }

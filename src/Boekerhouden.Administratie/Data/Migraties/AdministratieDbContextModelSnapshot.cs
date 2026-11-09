@@ -313,6 +313,11 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<bool>("BtwPlichtig")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<string>("Documentmap")
                         .HasMaxLength(400)
                         .HasColumnType("character varying(400)");
