@@ -1,0 +1,182 @@
+@page "/a/{Id:guid}/beginbalans"
+@using Boekerhouden.Boekhouding.Beginbalans
+@using Boekerhouden.Boekhouding.Grootboek
+@inject BeginbalansDienst Beginbalans
+@inject GrootboekDienst Grootboek
+@inject Meldingen Meldingen
+
+<AdministratieKader Id="Id" Titel="Beginbalans" Actief="/beginbalans" BijOpenen="Open">
+    <Acties>
+        @if (geopend?.Kop.Mag(Recht.Boekhouden) == true && voorstel is not null)
+        {
+            <label class="btn btn-sm btn-outline-secondary @(bezig ? "disabled" : null)" for="jaarrekening">Andere jaarrekening</label>
+        }
+    </Acties>
+    <ChildContent>
+        @if (!context.Mag(Recht.Boekhouden))
+        {
+            <div class="alert alert-warning">De beginbalans is voor het kantoor.</div>
+        }
+        else
+        {
+            <InputFile id="jaarrekening" class="d-none" accept=".pdf,application/pdf" OnChange="Lees" disabled="@bezig" />
+            <Foutmeldingen Fouten="fouten" />
+            @if (voorstel is null)
+            {
+                <LegeStaat Icoon="file-text" Tekst="Beginbalans uit de jaarrekening van vorig jaar">
+                    <label class="btn btn-sm btn-primary @(bezig ? "disabled" : null)" for="jaarrekening" aria-busy="@(bezig ? "true" : null)">Jaarrekening inlezen</label>
+                </LegeStaat>
+            }
+            else if (schema is not null)
+            {
+                <div class="d-flex align-items-center flex-wrap gap-3 mb-2 beginbalans-kop">
+                    <span class="text-secondary small" title="@voorstel.Bestandsnaam">Balans per @Weergave.Datum(voorstel.Balansdatum)</span>
+                    <span class="d-flex align-items-center gap-2 small">
+                        <label for="boekdatum" class="text-secondary">Boekdatum</label>
+                        <span style="width:9.5rem"><DatumVeld Id="boekdatum" @bind-Waarde="boekdatum" Label="Boekdatum" /></span>
+                    </span>
+                </div>
+                @foreach (var signaal in voorstel.Signalen)
+                {
+                    <div class="status let-op d-block small mb-1">@signaal</div>
+                }
+                <div class="card overzichtskaart mt-2">
+                    <table class="table table-sm align-middle mb-0 overzichtstabel regeltabel beginbalans">
+                        <thead>
+                            <tr><th>Post</th><th style="width:34%">Rekening</th><th class="text-end" style="width:9rem">Debet</th><th class="text-end" style="width:9rem">Credit</th><th style="width:1.75rem"></th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var regel in regels)
+                            {
+                                <tr>
+                                    <td title="@regel.Rubriek">@regel.Naam</td>
+                                    <td><RekeningKeuze @bind-Waarde="regel.Rekening" Schema="schema" Kader="geopend" /></td>
+                                    <td><input class="form-control form-control-sm text-end" @bind="regel.Debet" @bind:event="oninput" aria-label="Debet" /></td>
+                                    <td><input class="form-control form-control-sm text-end" @bind="regel.Credit" @bind:event="oninput" aria-label="Credit" /></td>
+                                    <td><button type="button" class="btn btn-sm btn-link text-secondary p-0 regel-weg" title="Regel weghalen" aria-label="Regel weghalen" @onclick="() => regels.Remove(regel)"><Icoon Naam="x" /></button></td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr class="generaal">
+                                <td colspan="2"><button type="button" class="btn btn-sm btn-link nog-een-regel p-0" @onclick="RegelErbij"><Icoon Naam="plus" /> Nog een regel</button></td>
+                                <td class="bedrag text-end">@Weergave.Bedrag(TotaalDebet)</td>
+                                <td class="bedrag text-end">@Weergave.Bedrag(TotaalCredit)</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <div class="d-flex align-items-center gap-3 mt-3">
+                    <button type="button" class="btn btn-primary" disabled="@(bezig || Verschil != 0 || regels.Any(r => string.IsNullOrWhiteSpace(r.Rekening) && r.Bedrag != 0))" @onclick="Boek">Beginbalans boeken</button>
+                    @if (Verschil != 0)
+                    {
+                        <span class="status let-op">Verschil @Weergave.Bedrag(Math.Abs(Verschil))</span>
+                    }
+                    else if (regels.Any(r => string.IsNullOrWhiteSpace(r.Rekening) && r.Bedrag != 0))
+                    {
+                        <span class="status">Kies bij elke post een rekening</span>
+                    }
+                </div>
+            }
+        }
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private Rekeningschema? schema;
+    private Beginbalansvoorstel? voorstel;
+    private List<Invoer> regels = [];
+    private DateOnly boekdatum;
+    private IReadOnlyList<string>? fouten;
+    private bool bezig;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private decimal TotaalDebet => regels.Sum(r => Math.Max(r.Bedrag, 0));
+
+    private decimal TotaalCredit => regels.Sum(r => Math.Max(-r.Bedrag, 0));
+
+    private decimal Verschil => regels.Sum(r => r.Bedrag);
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        if (g.Kop.Mag(Recht.Boekhouden))
+        {
+            schema = await Grootboek.Schema(g.Wie, Id);
+        }
+    }
+
+    private async Task Lees(InputFileChangeEventArgs e)
+    {
+        (bezig, fouten) = (true, null);
+        try
+        {
+            await using var stream = e.File.OpenReadStream(BeginbalansDienst.MaximumBytes);
+            var uitkomst = await Beginbalans.Lees(geopend!.Wie, Id, stream, e.File.Name);
+            fouten = uitkomst.IsGelukt ? null : uitkomst.Fouten;
+            if (uitkomst.Waarde is { } v)
+            {
+                voorstel = v;
+                boekdatum = v.Boekdatum;
+                regels = [.. v.Regels.Select(Invoer.Van)];
+            }
+        }
+        catch (IOException)
+        {
+            fouten = [$"{e.File.Name} is groter dan {BeginbalansDienst.MaximumBytes / 1024 / 1024} MB."];
+        }
+        finally
+        {
+            bezig = false;
+        }
+    }
+
+    private void RegelErbij() => regels.Add(new Invoer { Naam = "" });
+
+    private async Task Boek()
+    {
+        (bezig, fouten) = (true, null);
+        var uitkomst = await Beginbalans.Boek(geopend!.Wie, Id, boekdatum,
+            [.. regels.Select(r => new Beginbalansinvoer(r.Rekening?.Trim() ?? "", r.Bedrag, string.IsNullOrWhiteSpace(r.Naam) ? null : r.Naam))], voorstel?.Bestandsnaam);
+        bezig = false;
+        if (!uitkomst.IsGelukt)
+        {
+            fouten = uitkomst.Fouten;
+            return;
+        }
+
+        Meldingen.Toon($"Beginbalans per {Weergave.Datum(boekdatum)} geboekt");
+        (voorstel, regels) = (null, []);
+    }
+
+    private sealed class Invoer
+    {
+        public string Naam { get; set; } = "";
+
+        public string Rubriek { get; set; } = "";
+
+        public string? Rekening { get; set; }
+
+        public string? Debet { get; set; }
+
+        public string? Credit { get; set; }
+
+        /// <summary>Debet positief, credit negatief; een bedrag dat niet te lezen is, telt als nul.</summary>
+        public decimal Bedrag => Lees(Debet) - Lees(Credit);
+
+        public static Invoer Van(Beginbalansregel r) => new()
+        {
+            Naam = r.Post.Naam,
+            Rubriek = r.Post.Rubriek,
+            Rekening = r.Rekening,
+            Debet = r.Post.Boekbedrag > 0 ? Bedragen.Getal(r.Post.Boekbedrag) : null,
+            Credit = r.Post.Boekbedrag < 0 ? Bedragen.Getal(-r.Post.Boekbedrag) : null,
+        };
+
+        private static decimal Lees(string? tekst) => !string.IsNullOrWhiteSpace(tekst) && BedragParser.TryParse(tekst, out var b) ? b : 0m;
+    }
+}

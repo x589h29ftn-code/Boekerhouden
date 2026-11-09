@@ -45,6 +45,7 @@ public static class Administratiemenu
             new("/factuurlayout", "Factuurlay-out", Recht.Lezen),
             new("/regels", "Regels", Recht.Lezen),
             new("/rekeningschema", "Rekeningschema", Recht.Lezen),
+            new("/beginbalans", "Beginbalans", Recht.Boekhouden),
             new("/perioden", "Perioden", Recht.Lezen),
             new("/instellingen", "Instellingen", Recht.Boekhouden),
         ]),

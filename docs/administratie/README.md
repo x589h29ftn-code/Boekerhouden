@@ -448,6 +448,31 @@ gebouwen) en een overzicht voor de investeringsaftrek.
 | gepland | **Ontbrekende factuur** (batch 2, scenario 16 en 18): een betaling zonder factuur (huur, pinbon) markeren als *factuur ontbreekt*, tijdelijk op een tussenrekening, en de vaste last later automatisch | Vaste lasten en bonnetjes netjes opvolgen |
 | later | Online voor ondernemers (AD2), facturen per e-mail, directe bankkoppeling (PSD2), herinneringen, terugkerende facturen, kas, AI-herkenning als extra motor, e-facturen verzenden (Peppol) | |
 
+### 3.15 Beginbalans uit de jaarrekening
+
+Onder *Inrichting → Beginbalans* (alleen het kantoor) leest *Jaarrekening inlezen* de jaarrekening van vorig jaar als
+PDF (met tekst; eerst de virusscan, hoogstens 20 MB):
+
+- **Balans zoeken**: de laatste kop *Balans per 31 december 2024* met kort daarna *Activa* (de inhoudsopgave noemt de
+  balans ook). Een regel met een naam en bedragen is een post, met het eerste bedrag (het boekjaar; de kolom van vorig
+  jaar staat rechts); een regel met alleen bedragen is een subtotaal, een regel zonder bedragen een kop (de rubriek,
+  bijv. *Langlopende schulden*), *Totaal* het totaal van een zijde. Bedragen als `1.234`, `-1.234`, `(1.234)` of `-`
+  (domein `Beginbalans/Jaarrekeninglezer`, PDF: `Documenten.PdfJaarrekening`).
+- **Rekening voorstellen** (`Balansrekeningkeuze`): eerst een balansrekening met dezelfde naam, dan op trefwoorden in
+  de naam en daarna de rubriek naar een RGS-groep die in het schema voorkomt (rekening-courant → `BVorOvrRcb`,
+  liquide middelen → de bankrekening, overlopende passiva → `BSchOpa`, …). Onder *Langlopende schulden* nooit een
+  kortlopende rekening, ook niet als die net zo heet. Past niets (bijv. een deelneming zonder rekening), dan blijft de
+  rekening leeg en kiest of maakt de gebruiker hem.
+- **Controle**: de posten tellen op tot het totaal per zijde en activa = passiva; anders staat het erbij. Bovendien
+  een melding als op de boekdatum al een beginbalans staat, en bij debiteuren of crediteuren (één bedrag, geen
+  openstaande posten per factuur).
+- **Boeken**: de boekdatum is de dag na de balansdatum (1 januari), te wijzigen. Elke regel is aan te passen (rekening,
+  debet, credit), weg te halen of aan te vullen (*Nog een regel*, bijv. een afrondingsverschil). *Beginbalans boeken*
+  kan pas als elke post een rekening heeft en debet en credit gelijk zijn; dan één memoriaalboeking *Beginbalans
+  01-01-2025*, per rekening één regel, alleen balansrekeningen (`BeginbalansDienst`, wijzigingslog *Beginbalans
+  geboekt* met het bestand). Getest met een verzonnen jaarrekening (`FictieveJaarrekening`); een echte draait mee met
+  `BOEKERHOUDEN_JAARREKENING` (staat niet in git).
+
 ### Stand na A1–A7
 
 De boekhoudkern staat in `src/Boekerhouden.Boekhouding`, met tests in `tests/Boekerhouden.Boekhouding.Tests` en
