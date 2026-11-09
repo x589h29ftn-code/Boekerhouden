@@ -40,7 +40,7 @@ public sealed class BtwjaarTests
         Assert.Equal(["1e kwartaal 2026", "2e kwartaal 2026", "3e kwartaal 2026", "4e kwartaal 2026"], jaar.Perioden.Select(p => p.Periode.Naam));
         Assert.Equal([210m - 21m, 420m, 0m, 0m], jaar.Perioden.Select(p => p.Berekend.TeBetalen));
         Assert.Equal(210m, jaar.Perioden[0].Verschil);
-        Assert.Equal((609m, -21m, 630m), (jaar.Jaaraangifte.TeBetalen, jaar.Aangegeven, jaar.Suppletie));
+        Assert.Equal((609m, -21m, 210m, 420m, 0m), (jaar.Jaaraangifte.TeBetalen, jaar.Aangegeven, jaar.Suppletie, jaar.NietAangegeven, jaar.Rest));
         Assert.Equal(["2e kwartaal 2026"], jaar.Open.Select(p => p.Periode.Naam));
         Assert.Equal(12, Btwjaar.Maak(2026, Aangiftefrequentie.Maand, Posten, Schema, Codes, []).Perioden.Count);
     }

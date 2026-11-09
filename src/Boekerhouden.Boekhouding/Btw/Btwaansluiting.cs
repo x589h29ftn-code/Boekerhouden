@@ -56,8 +56,17 @@ public sealed record Btwjaar(int Jaar, Aangiftefrequentie Frequentie, IReadOnlyL
     /// <summary>Wat er in het jaar is aangegeven (de vastgelegde aangiften).</summary>
     public decimal Aangegeven => Vastgelegd.Sum(v => v.TeBetalen);
 
-    /// <summary>Volgens de boekingen over het hele jaar min wat is aangegeven: positief = nog te betalen (suppletie).</summary>
-    public decimal Suppletie => Jaaraangifte.TeBetalen - Aangegeven;
+    /// <summary>
+    /// Wat er in perioden die al zijn aangegeven later nog is geboekt (volgens de boekingen nu min wat is aangegeven):
+    /// positief = nog te betalen, negatief = terug te vragen. Dit hoort in een suppletie.
+    /// </summary>
+    public decimal Suppletie => Perioden.Sum(p => p.Verschil ?? 0m);
+
+    /// <summary>Wat de perioden die nog niet zijn aangegeven te betalen (of terug) geven.</summary>
+    public decimal NietAangegeven => Perioden.Where(p => p.Vastgelegd is null).Sum(p => p.Berekend.TeBetalen);
+
+    /// <summary>Het hele jaar min aangegeven, suppletie en nog niet aangegeven: nul, tenzij de frequentie in het jaar is gewijzigd.</summary>
+    public decimal Rest => Jaaraangifte.TeBetalen - Aangegeven - Suppletie - NietAangegeven;
 
     /// <summary>Perioden die nog niet zijn vastgelegd maar wel btw hebben.</summary>
     public IEnumerable<Btwperiode> Open => Perioden.Where(p => p.Vastgelegd is null && (p.Berekend.Verschuldigd != 0 || p.Berekend.Voorbelasting != 0));

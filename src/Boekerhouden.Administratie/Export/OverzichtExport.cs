@@ -356,17 +356,23 @@ public static class OverzichtExport
         using var boek = new XLWorkbook();
         var blad = boek.AddWorksheet(tabel.Titel.Length > 31 ? tabel.Titel[..31] : tabel.Titel);
         Kop(blad, tabel.Titel, administratie, tabel.Van, tabel.Tot);
-        var rij = Koppen(blad, 4, ["Rekening", "Omschrijving", .. tabel.Koppen]);
+        // Zonder rekeningnummers (bijv. de btw-rondrekening) geen lege kolom Rekening.
+        var nummers = tabel.Regels.Any(r => r.Nummer is not null) ? 1 : 0;
+        var rij = Koppen(blad, 4, [.. nummers == 1 ? ["Rekening"] : Array.Empty<string>(), "Omschrijving", .. tabel.Koppen]);
         foreach (var r in tabel.Regels)
         {
-            blad.Cell(rij, 1).Value = r.Nummer ?? "";
-            blad.Cell(rij, 2).Value = r.Tekst;
-            blad.Cell(rij, 2).Style.Alignment.Indent = r.Soort == Exportsoort.Rekening ? r.Niveau + 1 : r.Niveau;
+            if (nummers == 1)
+            {
+                blad.Cell(rij, 1).Value = r.Nummer ?? "";
+            }
+
+            blad.Cell(rij, 1 + nummers).Value = r.Tekst;
+            blad.Cell(rij, 1 + nummers).Style.Alignment.Indent = r.Soort == Exportsoort.Rekening ? r.Niveau + 1 : r.Niveau;
             for (var k = 0; k < r.Bedragen.Count; k++)
             {
                 if (r.Bedragen[k] is { } b)
                 {
-                    Zet(blad, rij, k + 3, b);
+                    Zet(blad, rij, k + 2 + nummers, b);
                 }
             }
 
@@ -380,7 +386,7 @@ public static class OverzichtExport
 
         for (var k = 0; k < tabel.Koppen.Count; k++)
         {
-            blad.Column(k + 3).Style.NumberFormat.Format = Getalnotatie;
+            blad.Column(k + 2 + nummers).Style.NumberFormat.Format = Getalnotatie;
         }
 
         return Bewaar(boek, blad);
@@ -392,7 +398,8 @@ public static class OverzichtExport
         ArgumentNullException.ThrowIfNull(tabel);
         var html = Begin(tabel.Titel, administratie, tabel.Van, tabel.Tot);
         var klein = tabel.Koppen.Count > 8 ? " style=\"font-size:7pt\"" : null;
-        html.Append(CultureInfo.InvariantCulture, $"""<table{klein}><thead><tr><th>Rekening</th><th>Omschrijving</th>""");
+        var nummers = tabel.Regels.Any(r => r.Nummer is not null);
+        html.Append(CultureInfo.InvariantCulture, $"""<table{klein}><thead><tr>{(nummers ? "<th>Rekening</th>" : null)}<th>Omschrijving</th>""");
         foreach (var kop in tabel.Koppen)
         {
             html.Append(CultureInfo.InvariantCulture, $"""<th class="r">{E(kop)}</th>""");
@@ -404,7 +411,7 @@ public static class OverzichtExport
             var klasse = r.Soort switch { Exportsoort.Kop => "kopregel", Exportsoort.Rekening => null, _ => "totaal" };
             var inspringen = (r.Soort == Exportsoort.Rekening ? r.Niveau + 1 : r.Niveau) * 0.8;
             html.Append(CultureInfo.InvariantCulture,
-                $"""<tr{(klasse is null ? null : $" class=\"{klasse}\"")}><td>{E(r.Nummer ?? "")}</td><td style="padding-left:{inspringen.ToString("0.0", CultureInfo.InvariantCulture)}em{(r.Soort == Exportsoort.Kop ? ";font-weight:600" : null)}">{E(r.Tekst)}</td>""");
+                $"""<tr{(klasse is null ? null : $" class=\"{klasse}\"")}>{(nummers ? $"<td>{E(r.Nummer ?? "")}</td>" : null)}<td style="padding-left:{inspringen.ToString("0.0", CultureInfo.InvariantCulture)}em{(r.Soort == Exportsoort.Kop ? ";font-weight:600" : null)}">{E(r.Tekst)}</td>""");
             for (var k = 0; k < tabel.Koppen.Count; k++)
             {
                 html.Append(CultureInfo.InvariantCulture, $"""<td class="r">{(k < r.Bedragen.Count && r.Bedragen[k] is { } b ? Leeg(b) : null)}</td>""");

@@ -34,7 +34,7 @@ public sealed class BtwaangifteTests(AdministratieFixture app) : IClassFixture<A
 
         var na = await dienst.Jaar(wie, id, 2026);
         Assert.Equal((231m, 21m), (na.Jaar.Perioden[0].Berekend.TeBetalen, na.Jaar.Perioden[0].Verschil));
-        Assert.Equal((210m, 21m), (na.Jaar.Aangegeven, na.Jaar.Suppletie));
+        Assert.Equal((210m, 21m, 0m), (na.Jaar.Aangegeven, na.Jaar.Suppletie, na.Jaar.NietAangegeven));
         Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.BtwaangifteVastgelegd && r.Onderwerp == "1e kwartaal 2026");
 
         Assert.True((await dienst.Intrekken(wie, id, new(2026, 1, 1), new(2026, 3, 31))).IsGelukt);

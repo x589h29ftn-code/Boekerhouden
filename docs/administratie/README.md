@@ -118,7 +118,9 @@ samenstelpakket.
   1a–4b (omzet/grondslag en btw), 5a verschuldigd, 5b voorbelasting en 5c te betalen of terug te vragen, als Excel en
   PDF. **Vastleggen als aangegeven** bewaart de bedragen van dat moment (tabel `IngediendeAangiften`, gelogd; weer in te
   trekken); bij een vastgelegde periode staat de kolom *Aangegeven* ernaast. **Rondrekening over het jaar**: het hele
-  jaar volgens de boekingen tegenover wat er is aangegeven (de vastgelegde aangiften); het verschil is de suppletie.
+  jaar volgens de boekingen, wat er is aangegeven (de vastgelegde aangiften) en wat nog niet is aangegeven; de suppletie
+  is wat er later nog is geboekt in perioden die al zijn aangegeven. De rondrekening met alle perioden (5a, 5b, 5c,
+  aangegeven en verschil) gaat als Excel of PDF mee (*Excel* en *PDF* naast de kop).
   **Aansluiting** tot en met de gekozen periode (`Btwaansluiting`): saldo van de btw-rekeningen op 1 januari, plus te
   betalen volgens de aangiften van het jaar tot dan, plus wat er betaald of ontvangen is (boekingen op de
   btw-rekeningen zonder btw-code), is het verwachte saldo; daarnaast het saldo van de btw-rekeningen in de
