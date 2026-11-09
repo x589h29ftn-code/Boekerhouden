@@ -78,6 +78,8 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
 
     public DbSet<Concept> Concepten => Set<Concept>();
 
+    public DbSet<IngediendeAangifte> IngediendeAangiften => Set<IngediendeAangifte>();
+
     public DbSet<Dashboardindeling> Dashboardindelingen => Set<Dashboardindeling>();
 
     public DbSet<Activum> Activa => Set<Activum>();
@@ -130,6 +132,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(a => a.RekeningLoonheffingen).HasMaxLength(20);
             e.Property(a => a.RekeningVennootschapsbelasting).HasMaxLength(20);
             e.Property(a => a.RekeningInkomstenbelasting).HasMaxLength(20);
+            e.Property(a => a.Btwfrequentie).HasConversion<string>().HasMaxLength(20).HasDefaultValue(Boekhouding.Btw.Aangiftefrequentie.Kwartaal);
             e.Property(a => a.AangemaaktDoor).HasMaxLength(200);
             e.Property(a => a.LimietAutomatisch).HasPrecision(18, 2);
             e.Property(a => a.Bandbreedte).HasPrecision(6, 2);
@@ -346,6 +349,14 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.HasIndex(z => new { z.AdministratieId, z.Relatie, z.Veld }).IsUnique();
             e.Property(z => z.Relatie).HasMaxLength(50);
             e.Property(z => z.Veld).HasConversion<string>().HasMaxLength(30);
+        });
+
+        builder.Entity<IngediendeAangifte>(e =>
+        {
+            e.ToTable("IngediendeAangiften");
+            e.HasIndex(a => new { a.AdministratieId, a.Van, a.Tot }).IsUnique();
+            e.Property(a => a.Voorbelasting).HasPrecision(18, 2);
+            e.Property(a => a.VastgelegdDoor).HasMaxLength(200);
         });
 
         builder.Entity<Concept>(e =>
@@ -568,6 +579,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
         builder.Entity<Leerkeuze>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Zoekplek>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Concept>().HasQueryFilter(e => e.AdministratieId == Geopend);
+        builder.Entity<IngediendeAangifte>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Automatiseringsregel>().HasQueryFilter(e => e.AdministratieId == Geopend);
     }
 

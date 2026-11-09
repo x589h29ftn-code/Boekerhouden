@@ -111,6 +111,20 @@ samenstelpakket.
   of de rekening er een heeft. Op de schermen inkoop, bank (ook Autoherkenning) en memoriaal staat dan geen kolom Btw
   (bij het aanpassen van een oude boeking met btw wel); een nieuwe verkoopregel krijgt *verkoop vrijgesteld*. De
   wijziging staat in het wijzigingslog (*btw-plichtig ja → nee*).
+- **Btw-aangifte** (gebouwd, *Rapportages → Btw-aangifte*, `/a/{id}/btw`, `BtwaangifteDienst`): per jaar de perioden
+  (per maand, kwartaal of jaar; in te stellen per administratie, `Administratie.Btwfrequentie`, standaard kwartaal,
+  wijzigen alleen het kantoor, gelogd) met wat ze te betalen of terug geven en hun status (*open*, *aangegeven*, of
+  *verschil* als er na het vastleggen nog in de periode is geboekt). Per periode het aangifteformulier met de rubrieken
+  1a–4b (omzet/grondslag en btw), 5a verschuldigd, 5b voorbelasting en 5c te betalen of terug te vragen, als Excel en
+  PDF. **Vastleggen als aangegeven** bewaart de bedragen van dat moment (tabel `IngediendeAangiften`, gelogd; weer in te
+  trekken); bij een vastgelegde periode staat de kolom *Aangegeven* ernaast. **Rondrekening over het jaar**: het hele
+  jaar volgens de boekingen tegenover wat er is aangegeven (de vastgelegde aangiften); het verschil is de suppletie.
+  **Aansluiting** tot en met de gekozen periode (`Btwaansluiting`): saldo van de btw-rekeningen op 1 januari, plus te
+  betalen volgens de aangiften van het jaar tot dan, plus wat er betaald of ontvangen is (boekingen op de
+  btw-rekeningen zonder btw-code), is het verwachte saldo; daarnaast het saldo van de btw-rekeningen in de
+  kolommenbalans (doorklikken), en het verschil. Btw-rekeningen zijn de rekeningen met de functie voorbelasting of af
+  te dragen btw, en in een uitgebreid schema ook de rekeningen in de RGS-groepen `BVorVbk` en `BSchBepBtw` (OVPA:
+  1800–1820). De bedragen zijn exact; afronden op hele euro's doet de aangifte zelf.
 - **Aangifte berekenen** (gebouwd in het domein, `Btwaangifte.Bereken`): uit de boekingen van een periode per rubriek de
   grondslag en de btw, de voorbelasting (5b) en het te betalen of terug te vragen bedrag. Het scherm volgt in A10.
 

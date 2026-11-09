@@ -313,6 +313,13 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(true);
 
+                    b.Property<string>("Btwfrequentie")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("Kwartaal");
+
                     b.Property<string>("Documentmap")
                         .HasMaxLength(400)
                         .HasColumnType("TEXT");
@@ -1505,6 +1512,45 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .IsUnique();
 
                     b.ToTable("Relaties", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.IngediendeAangifte", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Rubrieken")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("Tot")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("Van")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("VastgelegdDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("VastgelegdOp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("Voorbelasting")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdministratieId", "Van", "Tot")
+                        .IsUnique();
+
+                    b.ToTable("IngediendeAangiften", (string)null);
                 });
 
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Kantoorinstellingen", b =>

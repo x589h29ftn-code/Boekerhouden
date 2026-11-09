@@ -321,6 +321,13 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasColumnType("boolean")
                         .HasDefaultValue(true);
 
+                    b.Property<string>("Btwfrequentie")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Kwartaal");
+
                     b.Property<string>("Documentmap")
                         .HasMaxLength(400)
                         .HasColumnType("character varying(400)");
@@ -1523,6 +1530,47 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .IsUnique();
 
                     b.ToTable("Relaties", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.IngediendeAangifte", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Rubrieken")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateOnly>("Tot")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("Van")
+                        .HasColumnType("date");
+
+                    b.Property<string>("VastgelegdDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("VastgelegdOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("Voorbelasting")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdministratieId", "Van", "Tot")
+                        .IsUnique();
+
+                    b.ToTable("IngediendeAangiften", (string)null);
                 });
 
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Kantoorinstellingen", b =>

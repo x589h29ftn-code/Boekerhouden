@@ -1072,3 +1072,7 @@ tr[tabindex]:focus-visible {
 *:has(.venster-achtergrond):is([style*="sticky"], .verwerkpaneel, .sticky-top) {
     z-index: 1050;
 }
+
+/* Btw-aangifte: de perioden links, het aangifteformulier en de aansluiting rechts. */
+.btw-module { display: grid; grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+@media (max-width: 900px) { .btw-module { grid-template-columns: 1fr; } }

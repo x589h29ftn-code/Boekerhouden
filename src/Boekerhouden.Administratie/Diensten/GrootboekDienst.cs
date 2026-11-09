@@ -813,6 +813,13 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
     /// als met het hele journaal (balansrekeningen nemen hun stand mee, resultaat van eerder gaat naar het onverdeelde
     /// resultaat), maar de tijd hangt af van de periode en niet van het aantal jaren.
     /// </summary>
+    /// <summary>De posten van een periode (met de beginstand) en het rekeningschema, voor berekeningen als de btw-aangifte.</summary>
+    public async Task<(IReadOnlyList<Journaalpost> Posten, Rekeningschema Schema)> JournaalMetSchema(Uitvoerder wie, Guid administratie, DateOnly van, DateOnly tot)
+    {
+        var journaal = await Journaal(wie, administratie, van, tot);
+        return (journaal.Posten, journaal.Schema);
+    }
+
     private async Task<Journaal> Journaal(Uitvoerder wie, Guid administratie, DateOnly van, DateOnly tot)
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);

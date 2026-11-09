@@ -72,6 +72,9 @@ public sealed class Administratie
 
     public bool BelastingAutomatisch { get; set; }
 
+    /// <summary>Hoe vaak de administratie btw-aangifte doet (maand, kwartaal of jaar).</summary>
+    public Boekhouding.Btw.Aangiftefrequentie Btwfrequentie { get; set; } = Boekhouding.Btw.Aangiftefrequentie.Kwartaal;
+
     public Diensten.Belastinginstellingen Belasting() =>
         new(RekeningOmzetbelasting, RekeningLoonheffingen, RekeningVennootschapsbelasting, RekeningInkomstenbelasting, BelastingAutomatisch);
 
@@ -1118,4 +1121,28 @@ public sealed class Concept : IVanAdministratie
     public DateTimeOffset BewaardOp { get; set; }
 
     public string BewaardDoor { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Een btw-aangifte zoals die is ingediend (vastgelegd): per rubriek grondslag en btw. Wordt er later nog in die periode
+/// geboekt, dan is het verschil met de nieuwe berekening de suppletie.
+/// </summary>
+public sealed class IngediendeAangifte : IVanAdministratie
+{
+    public long Id { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    public DateOnly Van { get; set; }
+
+    public DateOnly Tot { get; set; }
+
+    /// <summary>De rubrieken (JSON: rubriek, grondslag, btw).</summary>
+    public string Rubrieken { get; set; } = "[]";
+
+    public decimal Voorbelasting { get; set; }
+
+    public DateTimeOffset VastgelegdOp { get; set; }
+
+    public string VastgelegdDoor { get; set; } = string.Empty;
 }

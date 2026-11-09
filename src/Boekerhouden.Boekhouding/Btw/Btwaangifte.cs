@@ -39,7 +39,8 @@ public sealed record Btwaangifte(DateOnly Van, DateOnly Tot, IReadOnlyList<Aangi
                 continue;
             }
 
-            switch (schema.Zoek(regel.Rekeningnummer)?.Functie)
+            var rekening = schema.Zoek(regel.Rekeningnummer);
+            switch (rekening is null ? (Rekeningfunctie?)null : Functie(rekening))
             {
                 case Rekeningfunctie.Voorbelasting:
                     voorbelasting += regel.Bedrag;
@@ -61,4 +62,21 @@ public sealed record Btwaangifte(DateOnly Van, DateOnly Tot, IReadOnlyList<Aangi
 
         return new Btwaangifte(van, tot, [.. Volgorde.Select(r => new Aangifterubriek(r, grondslag[r], btw[r]))], voorbelasting);
     }
+
+    /// <summary>
+    /// Is dit een btw-rekening (te vorderen of te betalen)? Op functie, of op de RGS-groep: een uitgebreid schema heeft
+    /// naast de rekening met de functie vaak meer btw-rekeningen (laag tarief, verlegd, afgedragen).
+    /// </summary>
+    public static bool IsBtwrekening(Rekening rekening)
+    {
+        ArgumentNullException.ThrowIfNull(rekening);
+        return Functie(rekening) is Rekeningfunctie.Voorbelasting or Rekeningfunctie.AfTeDragenBtw;
+    }
+
+    private static Rekeningfunctie Functie(Rekening rekening) => rekening.Functie switch
+    {
+        Rekeningfunctie.Geen when rekening.RgsCode?.StartsWith("BVorVbk", StringComparison.Ordinal) == true => Rekeningfunctie.Voorbelasting,
+        Rekeningfunctie.Geen when rekening.RgsCode?.StartsWith("BSchBepBtw", StringComparison.Ordinal) == true => Rekeningfunctie.AfTeDragenBtw,
+        var f => f,
+    };
 }

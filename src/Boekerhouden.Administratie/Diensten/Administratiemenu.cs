@@ -33,6 +33,7 @@ public static class Administratiemenu
         [
             new("/balans", "Balans en W&V", Recht.Lezen),
             new("/kolommenbalans", "Kolommenbalans", Recht.Lezen),
+            new("/btw", "Btw-aangifte", Recht.Lezen),
             new("/debiteuren", "Openstaande debiteuren", Recht.Lezen),
             new("/crediteuren", "Openstaande crediteuren", Recht.Lezen),
             new("/aansluitingen", "Aansluitingen", Recht.Lezen),

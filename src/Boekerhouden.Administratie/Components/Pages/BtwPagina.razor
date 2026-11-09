@@ -1,0 +1,358 @@
+@page "/a/{Id:guid}/btw"
+@using Boekerhouden.Boekhouding.Btw
+@using Boekerhouden.Administratie.Export
+@inject BtwaangifteDienst Btw
+@inject GrootboekDienst Grootboek
+@inject OverzichtDienst Overzicht
+@inject Meldingen Meldingen
+@inject IJSRuntime JS
+
+<AdministratieKader Id="Id" Titel="Btw-aangifte" Actief="/btw" BijOpenen="Open">
+    <Kenmerken>
+        @if (stand is { } s)
+        {
+            <span>@s.Jaar.Jaar</span>
+            <span class="scheiding">·</span>
+            <span>@BtwaangifteDienst.Naam(s.Jaar.Frequentie)</span>
+            <span class="scheiding">·</span>
+            <span>@s.Jaar.Open.Count() open</span>
+        }
+    </Kenmerken>
+    <Acties>
+        <JaarKeuze Jaren="jaren" Jaar="jaar" JaarChanged="KiesJaar" />
+        @if (geopend?.Kop.Mag(Recht.Boekhouden) == true && stand is not null)
+        {
+            <select class="form-select form-select-sm w-auto" aria-label="Aangifte" value="@stand.Jaar.Frequentie" @onchange="KiesFrequentie">
+                <option value="@Aangiftefrequentie.Maand">per maand</option>
+                <option value="@Aangiftefrequentie.Kwartaal">per kwartaal</option>
+                <option value="@Aangiftefrequentie.Jaar">per jaar</option>
+            </select>
+        }
+        <button class="btn btn-sm btn-outline-secondary" disabled="@(bezig || gekozen is null)" title="De aangifte van de gekozen periode als Excel" @onclick="Excel">Excel</button>
+        <button class="btn btn-sm btn-outline-secondary" disabled="@(bezig || gekozen is null)" title="De aangifte van de gekozen periode als PDF" @onclick="Pdf">PDF</button>
+    </Acties>
+    <ChildContent>
+        <Foutmeldingen Fouten="fouten" />
+        @if (stand is { } st)
+        {
+            <div class="btw-module">
+                <div class="card overzichtskaart btw-perioden">
+                    <table class="table table-sm align-middle mb-0 overzichtstabel">
+                        <thead>
+                            <tr><th>Periode</th><th class="text-end">Te betalen</th><th>Status</th></tr>
+                        </thead>
+                        <tbody>
+                            @for (var i = 0; i < st.Jaar.Perioden.Count; i++)
+                            {
+                                var n = i;
+                                var p = st.Jaar.Perioden[n];
+                                <tr class="klikbaar @(n == keuze ? "table-active" : null)" @onclick="() => keuze = n">
+                                    <td>@p.Periode.Naam</td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(p.Berekend.TeBetalen)</td>
+                                    <td>
+                                        @if (p.Vastgelegd is { } v)
+                                        {
+                                            @if (p.Verschil is { } verschil && verschil != 0)
+                                            {
+                                                <Statusstip Soort="Stipsoort.LetOp" Titel="@($"Aangegeven {Weergave.Bedrag(v.TeBetalen)}; volgens de boekingen nu {Weergave.Bedrag(p.Berekend.TeBetalen)}")">verschil @Weergave.Bedrag(verschil)</Statusstip>
+                                            }
+                                            else
+                                            {
+                                                <Statusstip Soort="Stipsoort.Klaar" Titel="@($"Vastgelegd {v.Op.ToLocalTime():dd-MM-yyyy} door {v.Door}")">aangegeven</Statusstip>
+                                            }
+                                        }
+                                        else if (p.Berekend.Verschuldigd != 0 || p.Berekend.Voorbelasting != 0)
+                                        {
+                                            <Statusstip Soort="Stipsoort.Open">open</Statusstip>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr class="generaal" title="De hele jaar volgens de boekingen, tegenover wat er is aangegeven">
+                                <td>Heel jaar</td>
+                                <td class="bedrag text-end">@Weergave.Bedrag(st.Jaar.Jaaraangifte.TeBetalen)</td>
+                                <td></td>
+                            </tr>
+                            <tr class="text-secondary">
+                                <td>Aangegeven</td>
+                                <td class="bedrag text-end">@Weergave.Bedrag(st.Jaar.Aangegeven)</td>
+                                <td></td>
+                            </tr>
+                            <tr class="@(st.Jaar.Suppletie != 0 && st.Jaar.Vastgelegd.Count > 0 ? "fw-semibold" : "text-secondary")">
+                                <td title="Volgens de boekingen over het hele jaar min wat is aangegeven; positief is nog te betalen">Rondrekening</td>
+                                <td class="bedrag text-end">@Weergave.Bedrag(st.Jaar.Suppletie)</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                @if (gekozen is { } g)
+                {
+                    var a = g.Berekend;
+                    var aansluiting = st.Aansluitingen[keuze];
+                    <div class="btw-detail">
+                        <div class="d-flex align-items-baseline gap-2 mb-2">
+                            <span class="fw-semibold">@g.Periode.Naam</span>
+                            <span class="small text-secondary">@Weergave.Datum(g.Periode.Van) t/m @Weergave.Datum(g.Periode.Tot)</span>
+                            @if (geopend?.Kop.Mag(Recht.Boekhouden) == true)
+                            {
+                                @if (g.Vastgelegd is null)
+                                {
+                                    <button class="btn btn-sm btn-primary ms-auto" disabled="@bezig" title="De aangifte is ingediend: de bedragen van nu vastleggen; later boeken in deze periode wordt dan zichtbaar als verschil" @onclick="Vastleggen">Vastleggen als aangegeven</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-link text-secondary ms-auto" disabled="@bezig" @onclick="Intrekken">Intrekken</button>
+                                }
+                            }
+                        </div>
+                        <div class="card overzichtskaart">
+                            <table class="table table-sm align-middle mb-0 overzichtstabel btw-aangifte">
+                                <thead>
+                                    <tr><th style="width:3rem">Rubriek</th><th></th><th class="text-end" style="width:9rem">Omzet / grondslag</th><th class="text-end" style="width:9rem">Btw</th>
+                                        @if (g.Vastgelegd is not null)
+                                        {
+                                            <th class="text-end" style="width:9rem" title="Zoals vastgelegd">Aangegeven</th>
+                                        }
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var (kop, rubrieken) in Indeling)
+                                    {
+                                        <tr class="indeling-kop niveau-1"><td colspan="@(g.Vastgelegd is null ? 4 : 5)">@kop</td></tr>
+                                        @foreach (var r in rubrieken)
+                                        {
+                                            var rubriek = a.Rubriek(r);
+                                            <tr>
+                                                <td class="text-secondary">@r</td>
+                                                <td>@Omschrijving(r)</td>
+                                                <td class="bedrag text-end">@Getal(rubriek.Grondslag)</td>
+                                                <td class="bedrag text-end">@(HeeftBtw(r) ? Getal(rubriek.Btw) : null)</td>
+                                                @if (g.Vastgelegd is { } v)
+                                                {
+                                                    var oud = v.Rubrieken.FirstOrDefault(x => x.Rubriek == r);
+                                                    <td class="bedrag text-end text-secondary">@(oud is null ? null : Getal(HeeftBtw(r) ? oud.Btw : oud.Grondslag))</td>
+                                                }
+                                            </tr>
+                                        }
+                                    }
+                                    <tr class="indeling-kop niveau-1"><td colspan="@(g.Vastgelegd is null ? 4 : 5)">Voorbelasting en totaal</td></tr>
+                                    <tr><td class="text-secondary">5a</td><td>Verschuldigde omzetbelasting</td><td></td><td class="bedrag text-end">@Weergave.Bedrag(a.Verschuldigd)</td>
+                                        @if (g.Vastgelegd is { } v5a)
+                                        {
+                                            <td class="bedrag text-end text-secondary">@Weergave.Bedrag(v5a.Rubrieken.Sum(x => x.Btw))</td>
+                                        }
+                                    </tr>
+                                    <tr><td class="text-secondary">5b</td><td>Voorbelasting</td><td></td><td class="bedrag text-end">@Weergave.Bedrag(a.Voorbelasting)</td>
+                                        @if (g.Vastgelegd is { } v5b)
+                                        {
+                                            <td class="bedrag text-end text-secondary">@Weergave.Bedrag(v5b.Voorbelasting)</td>
+                                        }
+                                    </tr>
+                                </tbody>
+                                <tfoot>
+                                    <tr class="generaal">
+                                        <td>5c</td><td>@(a.TeBetalen >= 0 ? "Te betalen" : "Terug te vragen")</td><td></td>
+                                        <td class="bedrag text-end">@Weergave.Bedrag(Math.Abs(a.TeBetalen))</td>
+                                        @if (g.Vastgelegd is { } v5c)
+                                        {
+                                            <td class="bedrag text-end text-secondary">@Weergave.Bedrag(Math.Abs(v5c.TeBetalen))</td>
+                                        }
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <div class="fw-semibold mt-4 mb-1">Aansluiting t/m @Weergave.Datum(aansluiting.Tot)</div>
+                        <div class="card overzichtskaart btw-aansluiting">
+                            <table class="table table-sm align-middle mb-0 overzichtstabel">
+                                <tbody>
+                                    <tr><td>Saldo btw-rekeningen @Weergave.Datum(aansluiting.Van)</td><td class="bedrag text-end" style="width:9rem">@Weergave.Bedrag(aansluiting.Begin)</td></tr>
+                                    <tr><td>Te betalen volgens de aangiften @Weergave.Datum(aansluiting.Van) t/m @Weergave.Datum(aansluiting.Tot)</td><td class="bedrag text-end">@Weergave.Bedrag(aansluiting.Aangiften)</td></tr>
+                                    <tr><td title="Boekingen op de btw-rekeningen zonder btw-code: betalingen aan en ontvangsten van de Belastingdienst, correcties">Betaald en ontvangen</td><td class="bedrag text-end">@Weergave.Bedrag(aansluiting.Overig)</td></tr>
+                                    <tr class="fw-semibold"><td>Verwacht saldo</td><td class="bedrag text-end">@Weergave.Bedrag(aansluiting.Verwacht)</td></tr>
+                                    <tr>
+                                        <td><a href="/a/@Id/kolommenbalans?@Weergave.Periodequery(aansluiting.Van, aansluiting.Tot)">Saldo btw-rekeningen volgens de kolommenbalans</a></td>
+                                        <td class="bedrag text-end">@Weergave.Bedrag(aansluiting.Saldo)</td>
+                                    </tr>
+                                </tbody>
+                                <tfoot>
+                                    <tr class="generaal">
+                                        <td>Verschil</td>
+                                        <td class="bedrag text-end">
+                                            @if (aansluiting.Verschil == 0)
+                                            {
+                                                <span>0,00</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="status let-op" title="Er staat btw op een btw-rekening die in geen rubriek valt (een btw-code zonder rubriek, of handmatig geboekt met een btw-code)">@Weergave.Bedrag(aansluiting.Verschil)</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private IReadOnlyList<int> jaren = [];
+    private int jaar;
+    private Btwstandjaar? stand;
+    private int keuze;
+    private bool bezig;
+    private IReadOnlyList<string>? fouten;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "jaar")]
+    public int? Jaar { get; set; }
+
+    private Btwperiode? gekozen => stand is { } s && keuze >= 0 && keuze < s.Jaar.Perioden.Count ? s.Jaar.Perioden[keuze] : null;
+
+    /// <summary>De rubrieken van het aangifteformulier, in groepen zoals op het formulier.</summary>
+    private static readonly (string Kop, string[] Rubrieken)[] Indeling =
+    [
+        ("Prestaties binnenland", ["1a", "1b", "1c", "1d", "1e"]),
+        ("Verleggingsregelingen binnenland", ["2a"]),
+        ("Prestaties naar of in het buitenland", ["3a", "3b", "3c"]),
+        ("Prestaties vanuit het buitenland aan u verricht", ["4a", "4b"]),
+    ];
+
+    private static string Omschrijving(string rubriek) => rubriek switch
+    {
+        "1a" => "Leveringen/diensten belast met hoog tarief",
+        "1b" => "Leveringen/diensten belast met laag tarief",
+        "1c" => "Leveringen/diensten belast met overige tarieven, behalve 0%",
+        "1d" => "Privégebruik",
+        "1e" => "Leveringen/diensten belast met 0% of niet bij u belast",
+        "2a" => "Leveringen/diensten waarbij de heffing van omzetbelasting naar u is verlegd",
+        "3a" => "Leveringen naar landen buiten de EU (uitvoer)",
+        "3b" => "Leveringen naar of diensten in landen binnen de EU",
+        "3c" => "Installatie/afstandsverkopen binnen de EU",
+        "4a" => "Leveringen/diensten uit landen buiten de EU",
+        "4b" => "Leveringen/diensten uit landen binnen de EU",
+        _ => rubriek,
+    };
+
+    /// <summary>Rubrieken met een btw-kolom (bij 1e en 3a–3c alleen de omzet).</summary>
+    private static bool HeeftBtw(string rubriek) => rubriek is not ("1e" or "3a" or "3b" or "3c");
+
+    private static string? Getal(decimal bedrag) => bedrag == 0 ? null : Weergave.Bedrag(bedrag);
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        jaren = await Grootboek.Boekjaren(g.Wie, Id);
+        jaar = Jaar is { } j && jaren.Contains(j) ? j : jaren[0];
+        await Laad(kiesHuidig: true);
+    }
+
+    private async Task Laad(bool kiesHuidig = false)
+    {
+        stand = await Btw.Jaar(geopend!.Wie, Id, jaar);
+        if (kiesHuidig)
+        {
+            // De eerste periode die nog niet is aangegeven en btw heeft, anders de laatste met btw.
+            var perioden = stand.Jaar.Perioden;
+            var open = perioden.ToList().FindIndex(p => p.Vastgelegd is null && (p.Berekend.Verschuldigd != 0 || p.Berekend.Voorbelasting != 0));
+            keuze = open >= 0 ? open : Math.Max(0, perioden.ToList().FindLastIndex(p => p.Berekend.Verschuldigd != 0 || p.Berekend.Voorbelasting != 0));
+        }
+
+        keuze = Math.Min(keuze, stand.Jaar.Perioden.Count - 1);
+    }
+
+    private async Task KiesJaar(int j)
+    {
+        jaar = j;
+        await Laad(kiesHuidig: true);
+    }
+
+    private async Task KiesFrequentie(ChangeEventArgs e)
+    {
+        if (Enum.TryParse<Aangiftefrequentie>(e.Value?.ToString(), out var frequentie))
+        {
+            await Btw.ZetFrequentie(geopend!.Wie, Id, frequentie);
+            await Laad(kiesHuidig: true);
+        }
+    }
+
+    private async Task Vastleggen()
+    {
+        bezig = true;
+        var p = gekozen!.Periode;
+        var uitkomst = await Btw.Vastleggen(geopend!.Wie, Id, p.Van, p.Tot);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            Meldingen.Toon($"Btw-aangifte {p.Naam} vastgelegd");
+            await Laad();
+        }
+
+        bezig = false;
+    }
+
+    private async Task Intrekken()
+    {
+        bezig = true;
+        var p = gekozen!.Periode;
+        var uitkomst = await Btw.Intrekken(geopend!.Wie, Id, p.Van, p.Tot);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            Meldingen.Toon($"Btw-aangifte {p.Naam} ingetrokken");
+            await Laad();
+        }
+
+        bezig = false;
+    }
+
+    /// <summary>De aangifte van de gekozen periode zoals op het scherm, voor Excel en PDF.</summary>
+    private Exporttabel Tabel()
+    {
+        var g = gekozen!;
+        var a = g.Berekend;
+        var regels = new List<Exportregel>();
+        foreach (var (kop, rubrieken) in Indeling)
+        {
+            regels.Add(new(Exportsoort.Kop, null, kop, 0, []));
+            regels.AddRange(rubrieken.Select(r => new Exportregel(Exportsoort.Rekening, r, Omschrijving(r), 0,
+                [a.Rubriek(r).Grondslag, HeeftBtw(r) ? a.Rubriek(r).Btw : null])));
+        }
+
+        regels.Add(new(Exportsoort.Kop, null, "Voorbelasting en totaal", 0, []));
+        regels.Add(new(Exportsoort.Rekening, "5a", "Verschuldigde omzetbelasting", 0, [null, a.Verschuldigd]));
+        regels.Add(new(Exportsoort.Rekening, "5b", "Voorbelasting", 0, [null, a.Voorbelasting]));
+        regels.Add(new(Exportsoort.Totaal, "5c", a.TeBetalen >= 0 ? "Te betalen" : "Terug te vragen", 0, [null, Math.Abs(a.TeBetalen)]));
+        return new Exporttabel($"Btw-aangifte {g.Periode.Naam}", g.Periode.Van, g.Periode.Tot, ["Omzet / grondslag", "Btw"], regels);
+    }
+
+    private async Task Excel()
+    {
+        bezig = true;
+        await JS.Bewaar(await Overzicht.TabelExcel(geopend!.Wie, Id, Tabel()), $"Btw-aangifte {gekozen!.Periode.Naam}.xlsx", Download.Excel);
+        bezig = false;
+    }
+
+    private async Task Pdf()
+    {
+        bezig = true;
+        var uitkomst = await Overzicht.TabelPdf(geopend!.Wie, Id, Tabel());
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            await JS.Bewaar(uitkomst.Waarde!, $"Btw-aangifte {gekozen!.Periode.Naam}.pdf", Download.Pdf);
+        }
+
+        bezig = false;
+    }
+}
