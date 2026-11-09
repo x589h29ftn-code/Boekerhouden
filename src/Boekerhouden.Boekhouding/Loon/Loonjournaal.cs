@@ -57,10 +57,17 @@ public enum Loonkoppelbron
 
     /// <summary>Een rekening met dezelfde naam.</summary>
     ZelfdeNaam,
+
+    /// <summary>
+    /// Nieuw in het salarispakket (bijv. een reiskostenvergoeding via de verloning): de andere rekeningen zijn al eerder
+    /// gekoppeld, deze niet. De gebruiker kiest zelf; een voorstel staat erbij.
+    /// </summary>
+    Nieuw,
 }
 
 /// <summary>Een regel van het loonjournaal met de voorgestelde rekening van de administratie.</summary>
-public sealed record Loonkoppeling(Loonjournaalregel Regel, string? Rekening, Loonkoppelbron Bron);
+/// <param name="Voorstel">Bij een nieuwe rekening: wat op nummer of naam zou passen (de gebruiker kiest).</param>
+public sealed record Loonkoppeling(Loonjournaalregel Regel, string? Rekening, Loonkoppelbron Bron, string? Voorstel = null);
 
 /// <summary>
 /// De rekeningen van het salarispakket koppelen aan het rekeningschema: eerst wat bij deze administratie is onthouden,
@@ -81,24 +88,33 @@ public static class Loonkoppelingen
                 return new Loonkoppeling(r, nummer, Loonkoppelbron.Onthouden);
             }
 
-            // Hetzelfde nummer alleen als de naam erop lijkt: 1500 in het salarispakket kan in het schema iets heel anders zijn.
-            if (schema.Zoek(r.Nummer) is { } zelfde && Lijkt(r.Naam, zelfde.Naam))
-            {
-                return new Loonkoppeling(r, zelfde.Nummer, Loonkoppelbron.ZelfdeNummer);
-            }
+            var (rekening, bron) = Voorstel(r, schema);
 
-            var naam = Normaliseer(r.Naam);
-            if (schema.Alle.FirstOrDefault(x => Normaliseer(x.Naam) == naam) is { } opNaam)
-            {
-                return new Loonkoppeling(r, opNaam.Nummer, Loonkoppelbron.ZelfdeNaam);
-            }
-
-            // Eén rekening met een gelijkende naam (bijv. "Af te dragen loonheffing" en "Te betalen loonheffing").
-            var lijkend = schema.Alle.Where(x => Lijkt(r.Naam, x.Naam)).Take(2).ToList();
-            return lijkend.Count == 1
-                ? new Loonkoppeling(r, lijkend[0].Nummer, Loonkoppelbron.ZelfdeNaam)
-                : new Loonkoppeling(r, null, Loonkoppelbron.Geen);
+            // Al eerder geïmporteerd, maar deze rekening niet: nieuw in het salarispakket, de gebruiker kiest.
+            return onthouden.Count > 0
+                ? new Loonkoppeling(r, null, Loonkoppelbron.Nieuw, rekening)
+                : new Loonkoppeling(r, rekening, bron);
         })];
+    }
+
+    /// <summary>Een rekening op nummer (als de naam erop lijkt), dezelfde naam of één gelijkende naam.</summary>
+    private static (string? Rekening, Loonkoppelbron Bron) Voorstel(Loonjournaalregel r, Rekeningschema schema)
+    {
+        // Hetzelfde nummer alleen als de naam erop lijkt: 1500 in het salarispakket kan in het schema iets heel anders zijn.
+        if (schema.Zoek(r.Nummer) is { } zelfde && Lijkt(r.Naam, zelfde.Naam))
+        {
+            return (zelfde.Nummer, Loonkoppelbron.ZelfdeNummer);
+        }
+
+        var naam = Normaliseer(r.Naam);
+        if (schema.Alle.FirstOrDefault(x => Normaliseer(x.Naam) == naam) is { } opNaam)
+        {
+            return (opNaam.Nummer, Loonkoppelbron.ZelfdeNaam);
+        }
+
+        // Eén rekening met een gelijkende naam (bijv. "Af te dragen loonheffing" en "Te betalen loonheffing").
+        var lijkend = schema.Alle.Where(x => Lijkt(r.Naam, x.Naam)).Take(2).ToList();
+        return lijkend.Count == 1 ? (lijkend[0].Nummer, Loonkoppelbron.ZelfdeNaam) : (null, Loonkoppelbron.Geen);
     }
 
     /// <summary>De memoriaalboeking: per regel de gekozen rekening, het bedrag en de naam uit het salarispakket als omschrijving.</summary>

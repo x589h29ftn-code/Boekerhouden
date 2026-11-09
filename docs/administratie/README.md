@@ -610,13 +610,19 @@ het formulier, een maand later, om aan te passen (bijv. andere bedragen) voor he
   *Boeking kopiëren…* (een eerdere boeking kiezen, bijv. de loonjournaalpost van vorige maand) en *Loonjournaal
   importeren…*.
 - **Loonjournaal importeren** (`LoonjournaalDienst`, `PdfLoonjournaal`, domein `Loon/`): het (cumulatieve) journaal uit
-  het salarispakket als PDF (eerst de virusscan). Links de debetrekeningen, rechts de creditrekeningen, elk als *nummer
-  naam* met de bedragen per kostenplaats eronder; die worden per rekening opgeteld. De totaalregel is de controle:
+  het salarispakket als PDF (eerst de virusscan). Elk salarispakket ziet er anders uit; de lezer kijkt naar de teksten
+  en bedragen en probeert meerdere opbouwen, en de lezing die op **saldo nihil** uitkomt (en bij de totaalregel past)
+  wint: *twee kolommen* (links debet, rechts credit, elk *nummer naam* met de bedragen per kostenplaats eronder, per
+  rekening opgeteld) of een *lijst* (één rekening per regel, debet of credit volgens de kolomkop boven het bedrag, een
+  D/C erachter of het teken). De periode uit *periode vanaf/tot en met* of een maand met jaartal in de tekst. De totaalregel is de controle:
   niet in balans, of een opgeteld totaal dat afwijkt van wat er staat, geeft een opmerking en *Naar boeking* kan dan
   niet. Per rekening van het salarispakket een rekening van de administratie: wat de vorige keer is gekozen (onthouden
   per administratie, tabel `Loonkoppelingen`, gelogd), anders hetzelfde nummer als de naam erop lijkt (1500 in het
   salarispakket kan in het schema iets heel anders zijn), anders dezelfde of een gelijkende naam (één rekening met een
-  betekenisvol woord gemeen, bijv. *Af te dragen loonheffing* → *Te betalen loonheffing*); de rest kiest de gebruiker (bijv. *Netto loon* naar de eigen rekening te betalen netto lonen). Een **periode**
+  betekenisvol woord gemeen, bijv. *Af te dragen loonheffing* → *Te betalen loonheffing*); de rest kiest de gebruiker (bijv. *Netto loon* naar de eigen rekening te betalen netto lonen). **Nieuwe
+  looncomponent**: is er al eerder geïmporteerd en staat er een rekening in het journaal die nog nooit is gekoppeld
+  (bijv. *Reiskostenvergoeding via verloning*), dan krijgt die geen automatische keuze maar *nieuw*, een melding
+  bovenaan en een voorstel om aan te klikken; *Naar boeking* kan pas als de gebruiker een rekening heeft gekozen. Een **periode**
   (maand; standaard die van *periode tot en met*, bij vier-wekenperioden december) en een omschrijving; *Naar boeking*
   zet de boeking in het formulier op de laatste dag van die maand, met de namen uit het salarispakket als omschrijving
   per regel. Daar kan nog een regel bij of af, en *Boeken* kan alleen in balans.

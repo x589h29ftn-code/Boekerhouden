@@ -108,8 +108,21 @@
                             @foreach (var k in loonregels)
                             {
                                 <tr>
-                                    <td><span class="rekeningnummer">@k.Regel.Nummer</span> @k.Regel.Naam</td>
-                                    <td title="@Bronnaam(k.Bron)"><RekeningKeuze @bind-Waarde="k.Rekening" Schema="schema" Kader="geopend" Label="@($"Rekening voor {k.Regel.Naam}")" /></td>
+                                    <td>
+                                        <span class="rekeningnummer">@k.Regel.Nummer</span> @k.Regel.Naam
+                                        @if (k.Bron == Boekhouding.Loon.Loonkoppelbron.Nieuw)
+                                        {
+                                            <span class="status let-op ms-2" title="Deze rekening was er de vorige keren niet">nieuw</span>
+                                        }
+                                    </td>
+                                    <td title="@Bronnaam(k.Bron)">
+                                        <RekeningKeuze @bind-Waarde="k.Rekening" Schema="schema" Kader="geopend" Label="@($"Rekening voor {k.Regel.Naam}")" />
+                                        @if (k.Bron == Boekhouding.Loon.Loonkoppelbron.Nieuw && string.IsNullOrWhiteSpace(k.Rekening) && k.Voorstel is { } voorstel)
+                                        {
+                                            var regel = k;
+                                            <button type="button" class="btn btn-sm btn-link p-0 small loon-voorstel" @onclick="() => regel.Rekening = voorstel">Voorstel: @voorstel @(schema.Zoek(voorstel)?.Naam)</button>
+                                        }
+                                    </td>
                                     <td class="bedrag text-end">@(k.Regel.Bedrag > 0 ? Weergave.Bedrag(k.Regel.Bedrag) : null)</td>
                                     <td class="bedrag text-end">@(k.Regel.Bedrag < 0 ? Weergave.Bedrag(-k.Regel.Bedrag) : null)</td>
                                 </tr>
@@ -368,7 +381,7 @@
             if (uitkomst.Waarde is { } v)
             {
                 loon = v;
-                loonregels = [.. v.Koppelingen.Select(k => new Loonregel(k.Regel, k.Rekening, k.Bron))];
+                loonregels = [.. v.Koppelingen.Select(k => new Loonregel(k.Regel, k.Rekening, k.Bron, k.Voorstel))];
                 var (jaar, periode) = Periode(v.Journaal.PeriodeTot) ?? (vandaag.Year, vandaag.Month);
                 loonMaand = new DateTime(jaar, Math.Clamp(periode, 1, 12), 1);
                 loonOmschrijving = v.Journaal.PeriodeVan is { } van && v.Journaal.PeriodeTot is { } tot && van != tot
@@ -391,6 +404,7 @@
         Boekhouding.Loon.Loonkoppelbron.Onthouden => "Zoals de vorige keer",
         Boekhouding.Loon.Loonkoppelbron.ZelfdeNummer => "Hetzelfde rekeningnummer",
         Boekhouding.Loon.Loonkoppelbron.ZelfdeNaam => "Een rekening met dezelfde naam",
+        Boekhouding.Loon.Loonkoppelbron.Nieuw => "Nieuw in het salarispakket: kies de rekening",
         _ => "Kies de rekening",
     };
 
@@ -411,8 +425,10 @@
         formulier++;
     }
 
-    private sealed class Loonregel(Boekhouding.Loon.Loonjournaalregel regel, string? rekening, Boekhouding.Loon.Loonkoppelbron bron)
+    private sealed class Loonregel(Boekhouding.Loon.Loonjournaalregel regel, string? rekening, Boekhouding.Loon.Loonkoppelbron bron, string? voorstel)
     {
+        public string? Voorstel { get; } = voorstel;
+
         public Boekhouding.Loon.Loonjournaalregel Regel { get; } = regel;
 
         public string? Rekening { get; set; } = rekening;

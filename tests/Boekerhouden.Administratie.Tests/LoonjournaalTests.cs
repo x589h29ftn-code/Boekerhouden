@@ -46,4 +46,25 @@ public sealed class LoonjournaalTests(AdministratieFixture app) : IClassFixture<
         var buiten = await app.Gebruiker("Buiten Loon");
         await Assert.ThrowsAsync<GeenToegangException>(() => dienst.Lees(buiten, id, new MemoryStream(FictiefLoonjournaal.Pdf()), "j.pdf"));
     }
+
+    [Fact]
+    public async Task Een_andere_opbouw_en_een_nieuwe_looncomponent()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Loon Lijst B.V.");
+        var dienst = app.Dienst<LoonjournaalDienst>();
+
+        // Een lijst met kolommen Debet en Credit; de keuzes worden onthouden.
+        var eerste = (await dienst.Lees(wie, id, new MemoryStream(FictiefLoonjournaal.Lijst(FictiefLoonjournaal.Lijstsoort.Kolommen)), "maart.pdf")).Waarde!;
+        Assert.Equal((7_000m, 7_000m), (eerste.Journaal.Debet, eerste.Journaal.Credit));
+        var keuzes = eerste.Koppelingen.Select(k => (k.Regel, Rekening: k.Rekening ?? (k.Regel.Nummer == "2100" ? "1800" : "1520"))).ToList();
+        Assert.True((await dienst.Onthoud(wie, id, keuzes)).IsGelukt);
+
+        // De volgende maand staat er een reiskostenvergoeding via de verloning bij: die wordt gesignaleerd.
+        var tweede = (await dienst.Lees(wie, id, new MemoryStream(FictiefLoonjournaal.Lijst(FictiefLoonjournaal.Lijstsoort.DebetCredit, nieuw: true)), "april.pdf")).Waarde!;
+        var nieuw = tweede.Koppelingen.Single(k => k.Regel.Nummer == "4062");
+        Assert.Equal((Loonkoppelbron.Nieuw, (string?)null), (nieuw.Bron, nieuw.Rekening));
+        Assert.Equal("Nieuw in het salarispakket: 4062 Reiskostenvergoeding via verloning. Kies bij welke rekening die hoort.", Assert.Single(tweede.Signalen));
+        Assert.All(tweede.Koppelingen.Where(k => k.Regel.Nummer != "4062"), k => Assert.Equal(Loonkoppelbron.Onthouden, k.Bron));
+    }
 }

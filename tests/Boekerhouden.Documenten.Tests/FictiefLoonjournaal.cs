@@ -41,4 +41,74 @@ public static class FictiefLoonjournaal
         Regel((30, "Cumulatief"), (80, "journaal"), (760, "pagina"), (790, "1"), (800, "van"), (815, "1"));
         return builder.Build();
     }
+
+    /// <summary>De opbouw van een ander salarispakket: één rekening per regel.</summary>
+    public enum Lijstsoort
+    {
+        /// <summary>Kolommen Debet en Credit; het bedrag staat onder de kop waar het hoort.</summary>
+        Kolommen,
+
+        /// <summary>Eén kolom Bedrag met D of C erachter.</summary>
+        DebetCredit,
+
+        /// <summary>Eén kolom Bedrag; credit met een min erachter, geen kolomkoppen.</summary>
+        Teken,
+    }
+
+    /// <summary>Een verzonnen loonjournaal als lijst: per regel nummer, naam en bedrag; met een nieuwe rekening 4062 als <paramref name="nieuw"/>.</summary>
+    public static byte[] Lijst(Lijstsoort soort, bool nieuw = false)
+    {
+        var builder = new PdfDocumentBuilder();
+        var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+        var pagina = builder.AddPage(PageSize.A4);
+        var y = 800.0;
+        void Regel(params (double X, string Tekst)[] delen)
+        {
+            foreach (var (x, tekst) in delen)
+            {
+                pagina.AddText(tekst, 9, new PdfPoint(x, y), font);
+            }
+
+            y -= 14;
+        }
+
+        void Rekening(string nummer, string naam, string bedrag, bool credit)
+        {
+            var delen = new List<(double, string)> { (40, nummer) };
+            var x = 80.0;
+            foreach (var woord in naam.Split(' '))
+            {
+                delen.Add((x, woord));
+                x += (woord.Length * 5) + 4;
+            }
+
+            delen.AddRange(soort switch
+            {
+                Lijstsoort.Kolommen => [(credit ? 470 : 380, bedrag)],
+                Lijstsoort.DebetCredit => [(400, bedrag), (450, credit ? "C" : "D")],
+                _ => [(400, credit ? bedrag + "-" : bedrag)],
+            });
+            Regel([.. delen]);
+        }
+
+        Regel((40, "Journaalpost"), (110, "lonen"), (150, "maart"), (185, "2026"));
+        Regel((40, "Voorbeeld"), (95, "Advies"), (135, "B.V."));
+        if (soort != Lijstsoort.Teken)
+        {
+            Regel((40, "Rekening"), (80, "Omschrijving"), soort == Lijstsoort.Kolommen ? (385, "Debet") : (400, "Bedrag"), soort == Lijstsoort.Kolommen ? (475, "Credit") : (450, "D/C"));
+        }
+
+        Rekening("4000", "Brutolonen", "6.000,00", credit: false);
+        Rekening("4010", "Sociale lasten", "1.000,00", credit: false);
+        if (nieuw)
+        {
+            Rekening("4062", "Reiskostenvergoeding via verloning", "200,00", credit: false);
+        }
+
+        Rekening("1500", "Af te dragen loonheffing", "2.500,00", credit: true);
+        Rekening("2100", "Netto loon", nieuw ? "4.700,00" : "4.500,00", credit: true);
+        var totaal = nieuw ? "7.200,00" : "7.000,00";
+        Regel(soort == Lijstsoort.Kolommen ? [(80, "Totaal"), (380, totaal), (470, totaal)] : [(80, "Totaal"), (400, totaal)]);
+        return builder.Build();
+    }
 }

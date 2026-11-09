@@ -62,7 +62,11 @@ public sealed class LoonjournaalDienst(Toegang toegang, GrootboekDienst grootboe
 
         var schema = await grootboek.Schema(wie, administratie);
         var onthouden = await db.Loonkoppelingen.AsNoTracking().ToDictionaryAsync(k => k.Loonrekening, k => k.Rekeningnummer, StringComparer.Ordinal, annulering);
-        return Uitkomst<Loonjournaalvoorstel>.Met(new Loonjournaalvoorstel(naam, journaal, Loonkoppelingen.Stel(journaal, schema, onthouden), [.. journaal.Controle()]));
+        var koppelingen = Loonkoppelingen.Stel(journaal, schema, onthouden);
+        var signalen = journaal.Controle().ToList();
+        signalen.AddRange(koppelingen.Where(k => k.Bron == Loonkoppelbron.Nieuw)
+            .Select(k => $"Nieuw in het salarispakket: {k.Regel.Nummer} {k.Regel.Naam}. Kies bij welke rekening die hoort."));
+        return Uitkomst<Loonjournaalvoorstel>.Met(new Loonjournaalvoorstel(naam, journaal, koppelingen, signalen));
     }
 
     /// <summary>De gekozen rekeningen onthouden voor het volgende loonjournaal (alleen wat nieuw of gewijzigd is wordt gelogd).</summary>
