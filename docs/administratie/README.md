@@ -606,6 +606,21 @@ ook *okt* en *10-2026*, en het jaar over de jaargrens). Handig voor de loonjourn
 wijzigingslog, net als één voor één boeken). Per regel staat bij aanwijzen ook *Kopiëren*: dan opent de kopie eerst in
 het formulier, een maand later, om aan te passen (bijv. andere bedragen) voor het boeken.
 
+- **Nieuw** (knop met menu in de kop van het memoriaal): *Nieuwe boeking*, *Deze boeking kopiëren* (als er een gekozen is),
+  *Boeking kopiëren…* (een eerdere boeking kiezen, bijv. de loonjournaalpost van vorige maand) en *Loonjournaal
+  importeren…*.
+- **Loonjournaal importeren** (`LoonjournaalDienst`, `PdfLoonjournaal`, domein `Loon/`): het (cumulatieve) journaal uit
+  het salarispakket als PDF (eerst de virusscan). Links de debetrekeningen, rechts de creditrekeningen, elk als *nummer
+  naam* met de bedragen per kostenplaats eronder; die worden per rekening opgeteld. De totaalregel is de controle:
+  niet in balans, of een opgeteld totaal dat afwijkt van wat er staat, geeft een opmerking en *Naar boeking* kan dan
+  niet. Per rekening van het salarispakket een rekening van de administratie: wat de vorige keer is gekozen (onthouden
+  per administratie, tabel `Loonkoppelingen`, gelogd), anders hetzelfde nummer als de naam erop lijkt (1500 in het
+  salarispakket kan in het schema iets heel anders zijn), anders dezelfde of een gelijkende naam (één rekening met een
+  betekenisvol woord gemeen, bijv. *Af te dragen loonheffing* → *Te betalen loonheffing*); de rest kiest de gebruiker (bijv. *Netto loon* naar de eigen rekening te betalen netto lonen). Een **periode**
+  (maand; standaard die van *periode tot en met*, bij vier-wekenperioden december) en een omschrijving; *Naar boeking*
+  zet de boeking in het formulier op de laatste dag van die maand, met de namen uit het salarispakket als omschrijving
+  per regel. Daar kan nog een regel bij of af, en *Boeken* kan alleen in balans.
+
 ### 3.15 Beginbalans uit de jaarrekening
 
 Onder *Inrichting → Beginbalans* (alleen het kantoor) leest *Jaarrekening inlezen* de jaarrekening van vorig jaar als

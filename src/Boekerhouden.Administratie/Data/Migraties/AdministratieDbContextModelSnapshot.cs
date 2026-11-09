@@ -1744,6 +1744,40 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.ToTable("Lidmaatschappen", (string)null);
                 });
 
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Loonrekeningkoppeling", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Loonnaam")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Loonrekening")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Rekeningnummer")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdministratieId", "Loonrekening")
+                        .IsUnique();
+
+                    b.ToTable("Loonkoppelingen", (string)null);
+                });
+
             modelBuilder.Entity("Boekerhouden.Administratie.Data.OpenstaandePost", b =>
                 {
                     b.Property<Guid>("Id")

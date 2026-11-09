@@ -1174,3 +1174,20 @@ public sealed class Btwaanpassing : IVanAdministratie
 
     public string GewijzigdDoor { get; set; } = string.Empty;
 }
+
+/// <summary>Bij welke rekening van de administratie een rekening uit het salarispakket hoort (onthouden bij het importeren).</summary>
+public sealed class Loonrekeningkoppeling : IVanAdministratie
+{
+    public long Id { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    /// <summary>Het rekeningnummer in het salarispakket, bijv. 2100.</summary>
+    public string Loonrekening { get; set; } = string.Empty;
+
+    /// <summary>De naam in het salarispakket, bijv. "Netto loon".</summary>
+    public string Loonnaam { get; set; } = string.Empty;
+
+    /// <summary>De rekening in deze administratie.</summary>
+    public string Rekeningnummer { get; set; } = string.Empty;
+}

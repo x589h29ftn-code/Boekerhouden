@@ -132,6 +132,7 @@ public static class Opstart
         services.AddSingleton<ConceptDienst>();
         services.AddSingleton<BtwaangifteDienst>();
         services.AddSingleton<VpbDienst>();
+        services.AddSingleton<LoonjournaalDienst>();
         services.AddSingleton<ZoekDienst>();
         services.AddSingleton<KantooroverzichtDienst>();
         services.AddScoped<Meldingen>();

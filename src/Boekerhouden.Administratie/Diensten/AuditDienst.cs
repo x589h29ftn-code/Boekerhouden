@@ -82,6 +82,7 @@ public static class AuditActies
     public const string BtwfrequentieGewijzigd = "Btw-frequentie gewijzigd";
     public const string BtwjaaropstellingAangepast = "Btw-jaaropstelling aangepast";
     public const string FiscalepositieAangepast = "Fiscale positie aangepast";
+    public const string LoonkoppelingGewijzigd = "Loonkoppeling gewijzigd";
     public const string FiscaleindelingGewijzigd = "Fiscale indeling gewijzigd";
     public const string RegelVerplaatst = "Regel verplaatst";
     public const string InstellingenGewijzigd = "Instellingen gewijzigd";

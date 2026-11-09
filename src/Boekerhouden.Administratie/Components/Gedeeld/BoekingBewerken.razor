@@ -137,6 +137,10 @@
     [Parameter]
     public Journaalpost? Voorbeeld { get; set; }
 
+    /// <summary>De datum van het voorbeeld houden (bijv. een ingelezen loonjournaal), in plaats van een maand later.</summary>
+    [Parameter]
+    public bool VoorbeeldOpDatum { get; set; }
+
     /// <summary>Na het boeken of opslaan, met een korte melding.</summary>
     [Parameter]
     public EventCallback<string> Opgeslagen { get; set; }
@@ -159,7 +163,7 @@
     /// <summary>Het formulier wordt één keer gevuld; een andere boeking krijgt een nieuw exemplaar (via @key).</summary>
     protected override async Task OnInitializedAsync()
     {
-        var datum = Post?.Datum ?? (Voorbeeld is { } v ? Volgende(v.Datum) : Datum);
+        var datum = Post?.Datum ?? (Voorbeeld is { } v ? (VoorbeeldOpDatum ? v.Datum : Volgende(v.Datum)) : Datum);
         codes = (await Btw.Tabel()).Op(datum);
         if (Post is null && Voorbeeld is not null)
         {

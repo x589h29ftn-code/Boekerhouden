@@ -1720,6 +1720,38 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.ToTable("Lidmaatschappen", (string)null);
                 });
 
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Loonrekeningkoppeling", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Loonnaam")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Loonrekening")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Rekeningnummer")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdministratieId", "Loonrekening")
+                        .IsUnique();
+
+                    b.ToTable("Loonkoppelingen", (string)null);
+                });
+
             modelBuilder.Entity("Boekerhouden.Administratie.Data.OpenstaandePost", b =>
                 {
                     b.Property<Guid>("Id")

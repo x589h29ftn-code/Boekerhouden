@@ -2,18 +2,33 @@
 @using Boekerhouden.Boekhouding.Grootboek
 @inject GrootboekDienst Grootboek
 @inject ActivaDienst Activa
+@inject LoonjournaalDienst Loonjournaal
 @inject TimeProvider Tijd
 @inject NavigationManager Navigatie
 
 <AdministratieKader Id="Id" Titel="Memoriaal" Actief="/memoriaal" BijOpenen="Open">
     <Acties>
-        @if (gekozen is not null)
+        @if (geopend?.Kop.Mag(Recht.Boekhouden) == true)
         {
-            <button class="btn btn-sm btn-outline-secondary" title="Een nieuwe boeking met dezelfde regels, een maand later" @onclick="() => Kopieer(gekozen.Post)">Kopiëren</button>
-        }
-        @if (gekozen is not null || kopie is not null)
-        {
-            <button class="btn btn-sm btn-outline-primary" @onclick="NieuweBoeking">Nieuwe boeking</button>
+            @* Alles wat een nieuwe boeking begint, achter één knop. *@
+            <span class="knopmenu memoriaal-nieuw">
+                <button class="btn btn-sm btn-outline-secondary" aria-expanded="@(menuOpen ? "true" : "false")" @onclick="() => menuOpen = !menuOpen">Nieuw <Icoon Naam="chevron-down" /></button>
+                @if (menuOpen)
+                {
+                    <span class="menu">
+                        <button type="button" @onclick="() => { menuOpen = false; NieuweBoeking(); }">Nieuwe boeking</button>
+                        @if (gekozen is not null)
+                        {
+                            <button type="button" title="Een nieuwe boeking met dezelfde regels, een maand later" @onclick="() => { menuOpen = false; Kopieer(gekozen.Post); }">Deze boeking kopiëren</button>
+                        }
+                        @if (posten is { Count: > 0 })
+                        {
+                            <button type="button" title="Een eerdere boeking overnemen, bijv. de loonjournaalpost van vorige maand" @onclick="() => { menuOpen = false; KopieKiezen(); }">Boeking kopiëren…</button>
+                        }
+                        <label for="loonjournaal" title="Het journaal uit het salarispakket (PDF) als boeking" @onclick="() => menuOpen = false">Loonjournaal importeren…</label>
+                    </span>
+                }
+            </span>
         }
     </Acties>
     <ChildContent>
@@ -56,8 +71,77 @@
             {
                 <div class="bericht mb-2">@bericht</div>
             }
-            <div class="card card-body mb-4">
-                <BoekingBewerken @key="formulier" Kader="geopend" Schema="schema" Dagboek="@dagboek.Code" Post="gekozen?.Post" Voorbeeld="kopie" Datum="vandaag"
+            <InputFile id="loonjournaal" class="d-none" accept=".pdf,application/pdf" OnChange="LeesLoonjournaal" />
+            <Foutmeldingen Fouten="loonfouten" />
+            @if (kopieBron is not null && posten is { Count: > 0 })
+            {
+                <div class="card card-body mb-3 kopie-kiezen">
+                    <div class="d-flex align-items-center flex-wrap gap-2">
+                        <label class="small text-secondary" for="kopiebron">Kopiëren van</label>
+                        <select id="kopiebron" class="form-select form-select-sm w-auto" @bind="kopieBron">
+                            @foreach (var p in posten)
+                            {
+                                <option value="@p.Post.Boekstuk">@Weergave.Datum(p.Post.Datum) · @p.Post.Boekstuk · @p.Post.Omschrijving</option>
+                            }
+                        </select>
+                        <button class="btn btn-sm btn-primary" @onclick="KopieerBron">Kopiëren</button>
+                        <button class="btn btn-sm btn-link text-secondary" @onclick="() => kopieBron = null">Annuleren</button>
+                    </div>
+                </div>
+            }
+            @if (loon is { } lj)
+            {
+                <div class="card card-body mb-3 loonjournaal">
+                    <div class="d-flex align-items-baseline flex-wrap gap-2 mb-2">
+                        <span class="fw-semibold">Loonjournaal</span>
+                        <span class="small text-secondary" title="@lj.Bestandsnaam">@lj.Journaal.Werkgever@(lj.Journaal.PeriodeVan is { } van ? $" · periode {van} t/m {lj.Journaal.PeriodeTot}" : null)</span>
+                    </div>
+                    @foreach (var signaal in lj.Signalen)
+                    {
+                        <div class="status let-op d-block small mb-1">@signaal</div>
+                    }
+                    <table class="table table-sm align-middle mb-2 overzichtstabel regeltabel">
+                        <thead>
+                            <tr><th>Salarispakket</th><th style="width:34%">Rekening</th><th class="text-end" style="width:9rem">Debet</th><th class="text-end" style="width:9rem">Credit</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var k in loonregels)
+                            {
+                                <tr>
+                                    <td><span class="rekeningnummer">@k.Regel.Nummer</span> @k.Regel.Naam</td>
+                                    <td title="@Bronnaam(k.Bron)"><RekeningKeuze @bind-Waarde="k.Rekening" Schema="schema" Kader="geopend" Label="@($"Rekening voor {k.Regel.Naam}")" /></td>
+                                    <td class="bedrag text-end">@(k.Regel.Bedrag > 0 ? Weergave.Bedrag(k.Regel.Bedrag) : null)</td>
+                                    <td class="bedrag text-end">@(k.Regel.Bedrag < 0 ? Weergave.Bedrag(-k.Regel.Bedrag) : null)</td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr class="generaal">
+                                <td colspan="2"></td>
+                                <td class="bedrag text-end">@Weergave.Bedrag(lj.Journaal.Debet)</td>
+                                <td class="bedrag text-end">@Weergave.Bedrag(lj.Journaal.Credit)</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    <div class="d-flex align-items-center flex-wrap gap-2">
+                        <label class="small text-secondary" for="loonmaand">Periode</label>
+                        <input id="loonmaand" type="month" class="form-control form-control-sm w-auto" @bind="loonMaand" @bind:format="yyyy-MM" />
+                        <input class="form-control form-control-sm" style="max-width:24rem" aria-label="Omschrijving" @bind="loonOmschrijving" />
+                        <button class="btn btn-sm btn-primary" disabled="@(lj.Journaal.Debet != lj.Journaal.Credit || loonregels.Any(k => string.IsNullOrWhiteSpace(k.Rekening)))" @onclick="LoonNaarBoeking">Naar boeking</button>
+                        <button class="btn btn-sm btn-link text-secondary" @onclick="() => loon = null">Annuleren</button>
+                        @if (lj.Journaal.Debet != lj.Journaal.Credit)
+                        {
+                            <span class="status let-op">Niet in balans</span>
+                        }
+                        else if (loonregels.Any(k => string.IsNullOrWhiteSpace(k.Rekening)))
+                        {
+                            <span class="status">Kies bij elke regel een rekening</span>
+                        }
+                    </div>
+                </div>
+            }
+            <div class="card card-body mb-4 @(loon is not null || kopieBron is not null ? "d-none" : null)">
+                <BoekingBewerken @key="formulier" Kader="geopend" Schema="schema" Dagboek="@dagboek.Code" Post="gekozen?.Post" Voorbeeld="kopie" VoorbeeldOpDatum="kopieOpDatum" Datum="vandaag"
                                  Opgeslagen="Opgeslagen" Geannuleerd="@(gekozen is null && kopie is null ? default : EventCallback.Factory.Create(this, NieuweBoeking))" />
             </div>
 
@@ -243,14 +327,97 @@
 
     private void Kopieer(Journaalpost post)
     {
-        (gekozen, kopie, bericht) = (null, post, null);
+        (gekozen, kopie, kopieOpDatum, bericht, kopieBron) = (null, post, false, null, null);
         formulier++;
     }
 
     private void NieuweBoeking()
     {
-        (gekozen, kopie, bericht) = (null, null, null);
+        (gekozen, kopie, kopieOpDatum, bericht) = (null, null, false, null);
         formulier++;
+    }
+
+    private bool menuOpen;
+    private bool kopieOpDatum;
+    private string? kopieBron;
+    private Loonjournaalvoorstel? loon;
+    private List<Loonregel> loonregels = [];
+    private DateTime loonMaand;
+    private string loonOmschrijving = "";
+    private IReadOnlyList<string>? loonfouten;
+
+    /// <summary>Kiezen welke boeking wordt overgenomen: de nieuwste staat voorgeselecteerd.</summary>
+    private void KopieKiezen() => (kopieBron, loon) = (posten!.First().Post.Boekstuk, null);
+
+    private void KopieerBron()
+    {
+        if (posten?.FirstOrDefault(p => p.Post.Boekstuk == kopieBron) is { } bron)
+        {
+            Kopieer(bron.Post);
+        }
+    }
+
+    private async Task LeesLoonjournaal(InputFileChangeEventArgs e)
+    {
+        (loonfouten, kopieBron, bericht, menuOpen) = (null, null, null, false);
+        try
+        {
+            await using var stream = e.File.OpenReadStream(LoonjournaalDienst.MaximumBytes);
+            var uitkomst = await Loonjournaal.Lees(geopend!.Wie, Id, stream, e.File.Name);
+            loonfouten = uitkomst.IsGelukt ? null : uitkomst.Fouten;
+            if (uitkomst.Waarde is { } v)
+            {
+                loon = v;
+                loonregels = [.. v.Koppelingen.Select(k => new Loonregel(k.Regel, k.Rekening, k.Bron))];
+                var (jaar, periode) = Periode(v.Journaal.PeriodeTot) ?? (vandaag.Year, vandaag.Month);
+                loonMaand = new DateTime(jaar, Math.Clamp(periode, 1, 12), 1);
+                loonOmschrijving = v.Journaal.PeriodeVan is { } van && v.Journaal.PeriodeTot is { } tot && van != tot
+                    ? $"Loonjournaal {van} t/m {tot}"
+                    : $"Loonjournaal {loonMaand.ToString("MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("nl-NL"))}";
+            }
+        }
+        catch (IOException)
+        {
+            loonfouten = [$"{e.File.Name} is groter dan {LoonjournaalDienst.MaximumBytes / 1024 / 1024} MB."];
+        }
+    }
+
+    /// <summary>Een periode als 2025-13 (vier weken) of 2025-3 (maand): het jaar en het periodenummer.</summary>
+    private static (int Jaar, int Periode)? Periode(string? tekst) =>
+        tekst?.Split('-') is [var j, var p] && int.TryParse(j, out var jaar) && int.TryParse(p, out var periode) ? (jaar, periode) : null;
+
+    private static string Bronnaam(Boekhouding.Loon.Loonkoppelbron bron) => bron switch
+    {
+        Boekhouding.Loon.Loonkoppelbron.Onthouden => "Zoals de vorige keer",
+        Boekhouding.Loon.Loonkoppelbron.ZelfdeNummer => "Hetzelfde rekeningnummer",
+        Boekhouding.Loon.Loonkoppelbron.ZelfdeNaam => "Een rekening met dezelfde naam",
+        _ => "Kies de rekening",
+    };
+
+    /// <summary>De koppelingen onthouden en het loonjournaal als nieuwe boeking in het formulier zetten, op de laatste dag van de periode.</summary>
+    private async Task LoonNaarBoeking()
+    {
+        var keuzes = loonregels.Select(k => (k.Regel, Rekening: k.Rekening!.Trim())).ToList();
+        var uitkomst = await Loonjournaal.Onthoud(geopend!.Wie, Id, keuzes);
+        loonfouten = uitkomst.IsGelukt ? null : uitkomst.Fouten;
+        if (!uitkomst.IsGelukt)
+        {
+            return;
+        }
+
+        var datum = DateOnly.FromDateTime(loonMaand).AddMonths(1).AddDays(-1);
+        var post = Boekhouding.Loon.Loonkoppelingen.Boeking(dagboek!.Code, datum, loonOmschrijving.Trim(), keuzes.Select(k => (k.Rekening, k.Regel)));
+        (gekozen, kopie, kopieOpDatum, loon) = (null, post, true, null);
+        formulier++;
+    }
+
+    private sealed class Loonregel(Boekhouding.Loon.Loonjournaalregel regel, string? rekening, Boekhouding.Loon.Loonkoppelbron bron)
+    {
+        public Boekhouding.Loon.Loonjournaalregel Regel { get; } = regel;
+
+        public string? Rekening { get; set; } = rekening;
+
+        public Boekhouding.Loon.Loonkoppelbron Bron { get; } = bron;
     }
 
     private async Task Opgeslagen(string melding)

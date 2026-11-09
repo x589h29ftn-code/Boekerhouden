@@ -1092,3 +1092,7 @@ tr[tabindex]:focus-visible {
 .knopmenu > .menu > button:hover, .knopmenu > .menu > a:hover { background: var(--bs-tertiary-bg, #f4f6f8); }
 .vpb-module { display: grid; grid-template-columns: minmax(0, 46rem) minmax(16rem, 26rem); gap: 1.5rem; align-items: start; }
 @media (max-width: 1100px) { .vpb-module { grid-template-columns: 1fr; } }
+.knopmenu > .menu > label {
+    display: block; width: 100%; padding: .35rem .9rem; margin: 0; cursor: pointer; font-size: .875rem; white-space: nowrap;
+}
+.knopmenu > .menu > label:hover { background: var(--bs-tertiary-bg, #f4f6f8); }

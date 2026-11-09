@@ -82,6 +82,8 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
 
     public DbSet<Btwaanpassing> Btwaanpassingen => Set<Btwaanpassing>();
 
+    public DbSet<Loonrekeningkoppeling> Loonkoppelingen => Set<Loonrekeningkoppeling>();
+
     public DbSet<Dashboardindeling> Dashboardindelingen => Set<Dashboardindeling>();
 
     public DbSet<Activum> Activa => Set<Activum>();
@@ -362,6 +364,15 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(a => a.VastgelegdDoor).HasMaxLength(200);
         });
 
+        builder.Entity<Loonrekeningkoppeling>(e =>
+        {
+            e.ToTable("Loonkoppelingen");
+            e.HasIndex(k => new { k.AdministratieId, k.Loonrekening }).IsUnique();
+            e.Property(k => k.Loonrekening).HasMaxLength(20);
+            e.Property(k => k.Loonnaam).HasMaxLength(200);
+            e.Property(k => k.Rekeningnummer).HasMaxLength(20);
+        });
+
         builder.Entity<Btwaanpassing>(e =>
         {
             e.ToTable("Btwaanpassingen");
@@ -595,6 +606,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
         builder.Entity<Concept>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<IngediendeAangifte>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Btwaanpassing>().HasQueryFilter(e => e.AdministratieId == Geopend);
+        builder.Entity<Loonrekeningkoppeling>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Automatiseringsregel>().HasQueryFilter(e => e.AdministratieId == Geopend);
     }
 
