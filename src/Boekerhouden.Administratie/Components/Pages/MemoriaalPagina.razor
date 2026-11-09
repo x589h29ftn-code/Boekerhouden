@@ -94,7 +94,7 @@
                 <div class="card card-body mb-3 loonjournaal">
                     <div class="d-flex align-items-baseline flex-wrap gap-2 mb-2">
                         <span class="fw-semibold">Loonjournaal</span>
-                        <span class="small text-secondary" title="@lj.Bestandsnaam">@lj.Journaal.Werkgever@(lj.Journaal.PeriodeVan is { } van ? $" · periode {van} t/m {lj.Journaal.PeriodeTot}" : null)</span>
+                        <span class="small text-secondary" title="@lj.Bestandsnaam">@Kenmerk(lj.Journaal)</span>
                     </div>
                     @foreach (var signaal in lj.Signalen)
                     {
@@ -393,6 +393,13 @@
         {
             loonfouten = [$"{e.File.Name} is groter dan {LoonjournaalDienst.MaximumBytes / 1024 / 1024} MB."];
         }
+    }
+
+    /// <summary>Werkgever en periode, bijv. "Voorbeeld B.V. · periode 2025-1 t/m 2025-13" of "periode 2026-3".</summary>
+    private static string Kenmerk(Boekhouding.Loon.Loonjournaal j)
+    {
+        var periode = j.PeriodeVan is { } van && j.PeriodeTot is { } tot ? (van == tot ? $"periode {van}" : $"periode {van} t/m {tot}") : null;
+        return string.Join(" · ", new[] { j.Werkgever, periode }.Where(t => !string.IsNullOrWhiteSpace(t)));
     }
 
     /// <summary>Een periode als 2025-13 (vier weken) of 2025-3 (maand): het jaar en het periodenummer.</summary>
