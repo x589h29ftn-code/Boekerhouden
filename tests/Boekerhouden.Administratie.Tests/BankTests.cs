@@ -488,6 +488,28 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
     }
 
     [Fact]
+    public async Task Een_betaling_aan_de_belastingdienst_krijgt_de_rekening_van_die_belasting_als_voorstel()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Schema OVPA B.V.", schema: Boekhouding.Grootboek.Schemakeuze.Ovpa);
+        var bank = app.Dienst<BankDienst>();
+        // De naam staat over twee regels ("Kantoor" en "handel Jansen"): de lezer plakt ze aan elkaar.
+        var tekst = new StreamReader(Afschrift()).ReadToEnd()
+            .Replace("CNTP/NL36INGB0007654321/INGBNL2A/Kantoor", "CNTP/NL86INGB0002445588/INGBNL2A/Belasting", StringComparison.Ordinal)
+            .Replace("handel Jansen/ZWOLLE////REMI/USTD//Betaling inkoop/", "dienst/APELDOORN////REMI/USTD//8123.45.678.B.01/", StringComparison.Ordinal);
+        Assert.Contains("NL86INGB0002445588", tekst, StringComparison.Ordinal);
+        await bank.Lees(wie, id, new MemoryStream(Encoding.Latin1.GetBytes(tekst)), "ing.mt940");
+        var betaling = (await bank.Lijst(wie, id)).Single(m => m.Bedrag == -199.65m);
+
+        var advies = (await bank.Verwerking(wie, id, betaling.Id))!.Voorstel.Advies;
+
+        Assert.Equal(("1820", null, false, "Belastingdienst: omzetbelasting"), (advies.Rekeningnummer, advies.BtwCode, advies.Automatisch, advies.Reden));
+        Assert.Equal("1010", (await app.Dienst<GrootboekDienst>().Dagboeken(wie, id)).Single(d => d.Soort == Boekhouding.Grootboek.Dagboeksoort.Bank).Rekeningnummer);
+        Assert.Equal("I21", (await app.Dienst<GrootboekDienst>().Schema(wie, id)).Zoek("4100")!.BtwCode);
+        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.AdministratieAangemaakt && r.Details == "BV; rekeningschema Standaard schema OVPA");
+    }
+
+    [Fact]
     public async Task Zonder_lidmaatschap_of_met_alleen_inzien_geen_bank()
     {
         var beheerder = await app.Beheerder();

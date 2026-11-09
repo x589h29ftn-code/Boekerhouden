@@ -26,6 +26,15 @@
             <option value="@Ondernemingsvorm.Eenmanszaak">Eenmanszaak</option>
         </select>
     </div>
+    <div class="mb-2">
+        <label class="form-label" for="schema">Rekeningschema</label>
+        <select id="schema" class="form-select" @bind="schema">
+            @foreach (var (keuze, schemanaam) in Rekeningschemas.Keuzes)
+            {
+                <option value="@keuze">@schemanaam</option>
+            }
+        </select>
+    </div>
     <div class="row g-2 mb-3">
         <div class="col">
             <label class="form-label" for="kvk">KvK-nummer</label>
@@ -55,6 +64,7 @@
 @code {
     private string naam = "";
     private Ondernemingsvorm vorm = Ondernemingsvorm.BV;
+    private Schemakeuze schema = Schemakeuze.Sifer;
     private string? kvk;
     private string? btw;
     private bool bezig;
@@ -93,7 +103,7 @@
     private async Task Maak()
     {
         bezig = true;
-        var uitkomst = await AdministratieDienst.Maak(new AdministratieInvoer(naam, vorm, kvk, btw), (await Authenticatie).User.AlsUitvoerder());
+        var uitkomst = await AdministratieDienst.Maak(new AdministratieInvoer(naam, vorm, kvk, btw, schema), (await Authenticatie).User.AlsUitvoerder());
         bezig = false;
         if (uitkomst.IsGelukt)
         {

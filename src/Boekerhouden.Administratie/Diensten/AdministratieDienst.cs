@@ -5,7 +5,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Boekerhouden.Administratie.Diensten;
 
-public sealed record AdministratieInvoer(string Naam, Ondernemingsvorm Ondernemingsvorm, string? KvkNummer, string? BtwNummer);
+/// <param name="Schema">Het rekeningschema waarmee de administratie begint.</param>
+public sealed record AdministratieInvoer(string Naam, Ondernemingsvorm Ondernemingsvorm, string? KvkNummer, string? BtwNummer, Schemakeuze Schema = Schemakeuze.Sifer);
 
 /// <summary>Een administratie zoals de gebruiker hem ziet, met zijn eigen rol erin.</summary>
 /// <param name="Gearchiveerd">Gearchiveerd: alleen inzien (<see cref="Mag"/> geeft dan alleen Lezen).</param>
@@ -102,7 +103,7 @@ public sealed class AdministratieDienst(IDbContextFactory<AdministratieDbContext
             AangemaaktDoor = wie.Naam,
         });
         db.Lidmaatschappen.Add(new Lidmaatschap { AdministratieId = id, GebruikerId = wie.Id!.Value, Rol = Lidmaatschapsrol.Kantoor });
-        db.Rekeningen.AddRange(StandaardRekeningschema.Rekeningen(invoer.Ondernemingsvorm).Select(r => new Grootboekrekening
+        db.Rekeningen.AddRange(Rekeningschemas.Rekeningen(invoer.Schema, invoer.Ondernemingsvorm).Select(r => new Grootboekrekening
         {
             Id = Guid.NewGuid(),
             AdministratieId = id,
@@ -111,8 +112,9 @@ public sealed class AdministratieDienst(IDbContextFactory<AdministratieDbContext
             Soort = r.Soort,
             RgsCode = r.RgsCode,
             Functie = r.Functie,
+            BtwCode = r.BtwCode,
         }));
-        db.Dagboeken.AddRange(StandaardRekeningschema.Dagboeken.Select(d => new Dagboekdefinitie
+        db.Dagboeken.AddRange(Rekeningschemas.Dagboeken(invoer.Schema).Select(d => new Dagboekdefinitie
         {
             Id = Guid.NewGuid(),
             AdministratieId = id,
@@ -122,7 +124,7 @@ public sealed class AdministratieDienst(IDbContextFactory<AdministratieDbContext
             Rekeningnummer = d.Rekeningnummer,
         }));
         await db.SaveChangesAsync();
-        await audit.Log(wie, AuditActies.AdministratieAangemaakt, invoer.Naam.Trim(), invoer.Ondernemingsvorm.ToString(), id);
+        await audit.Log(wie, AuditActies.AdministratieAangemaakt, invoer.Naam.Trim(), $"{invoer.Ondernemingsvorm}; rekeningschema {Rekeningschemas.Naam(invoer.Schema)}", id);
         return Uitkomst<Guid>.Met(id);
     }
 

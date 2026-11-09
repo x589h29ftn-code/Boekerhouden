@@ -1,0 +1,378 @@
+# Standaard schema OVPA: nummer;naam;soort;rgs;functie;btw (btw in de codes van Sifer)
+0010;Goodwill deelnemingen;Balans;BIva;;
+0011;Afschrijving Goodwill deelnemingen;Balans;BIva;;
+0020;Goodwill;Balans;BIva;;
+0021;Afschrijving Goodwill;Balans;BIva;;
+0120;Gebouwen;Balans;BMvaBeg;;
+0121;Afschrijving Gebouwen;Balans;BMvaBeg;;
+0150;Verbouwingen;Balans;BMvaBeg;;I21
+0151;Afschrijving Verbouwingen;Balans;BMvaBeg;;
+0190;Schepen;Balans;BMvaObeVvp;;
+0191;Afschrijving Schepen;Balans;BMvaObeCae;;
+0200;Machines en installaties;Balans;BMvaObeVvp;;I21
+0201;Afschrijving Machines en installaties;Balans;BMvaObeCae;;
+0210;Bedrijfsinventaris;Balans;BMvaBeiVvp;;I21
+0211;Afschrijving Bedrijfsinventaris;Balans;BMvaBeiCae;;
+0220;Werkplaatsinventaris;Balans;BMvaBeiVvp;;I21
+0221;Afschrijving Werkplaatsinventaris;Balans;BMvaBeiCae;;
+0230;Kantoorinventaris;Balans;BMvaBeiVvp;;I21
+0231;Afschrijving Kantoorinventaris;Balans;BMvaBeiCae;;
+0240;Computerinventaris;Balans;BMvaBeiVvp;;I21
+0241;Afschrijving Computerinventaris;Balans;BMvaBeiCae;;
+0250;Transportmiddelen;Balans;BMvaTevVvp;;I21
+0251;Afschrijving Transportmiddelen;Balans;BMvaTevCae;;
+0290;Niet dienstbare activa;Balans;BMvaObeVvp;;
+0291;Afschrijving Niet dienstbare activa;Balans;BMvaObeCae;;
+0295;Activa in bestelling;Balans;BMvaObeVvp;;
+0300;Deelneming groepsmij1;Balans;;;
+0330;Lening groepsmij1;Balans;;;
+0350;Deelneming1;Balans;;;
+0370;Lening deeln1;Balans;;;
+0390;Effecten;Balans;;;
+0391;Ledenkapitaal;Balans;;;
+0394;Waarborgsommen;Balans;;;
+0396;Overige vorderingen;Balans;;;
+0500;Gestort aandelenkapitaal;Balans;BEivGokGea;;
+0510;Agio;Balans;;;
+0520;Herwaarderingsreserve;Balans;;;
+0530;Reserve deelnemingen;Balans;;;
+0580;Winstreserve;Balans;BEivOvrOrs;;
+0590;Resultaat boekjaar;Balans;;OnverdeeldResultaat;
+0600;Rekening courant directie;Balans;BVorOvrRcb;;
+0601;Huishoudelijk;Balans;BEivKapPro;;
+0609;Overige prive opnamen;Balans;BEivKapPro;;
+0610;prive stortingen;Balans;BEivKapPrs;;
+0830;Pensioenvoorz. directie;Balans;;;
+0840;Pensioenvoorz. personeel;Balans;;;
+0850;Stamrechtverplichtingen;Balans;;;
+0860;Latente belastingverplichtingern;Balans;;;
+0865;Groot onderhoud;Balans;;;
+0870;Garantieverplichtingen;Balans;;;
+0875;Milieuverplichtingen;Balans;;;
+0880;Deelnemingen;Balans;;;
+0890;Assurantie eigen risico;Balans;;;
+0900;Hypothecaire lening;Balans;BLasSak;;
+0910;Bancaire lening;Balans;BLasSakLvl;;
+0940;Onderhandse lening;Balans;BLas;;
+0960;Lening groepsmaatschappij;Balans;BLas;;
+0970;Lening directie/aandeelh.;Balans;BLas;;
+0980;Leaseverplichtingen;Balans;BLas;;
+0990;Overige schulden;Balans;BLas;;
+1000;Kas;Balans;BLimKasKas;Kas;
+1009;Kleine kas;Balans;BLimKasKas;;
+1010;bank 1;Balans;BLimBanRba;Bank;
+1011;bank 2;Balans;BLimBanRba;;
+1012;bank 3;Balans;BLimBanRba;;
+1013;bank 4;Balans;BLimBanRba;;
+1014;bank 5;Balans;BLimBanRba;;
+1015;bank 6;Balans;BLimBanRba;;
+1020;Postbank;Balans;BLimBanRba;;
+1070;G-rekening;Balans;BLimBan;;
+1080;Depositorekening;Balans;BLimBanSpa;;
+1090;Kruisposten;Balans;BLimBan;;
+1100;Debiteuren (sub);Balans;BVorDebHad;Debiteuren;
+1101;Debiteuren (grootboek);Balans;BVorDebHad;;
+1110;Dubieuze debiteuren;Balans;BVorDebHad;;
+1120;Voorziening dubieuze deb.;Balans;BVorDebVdd;;
+1200;Te factureren;Balans;BVorOva;;
+1210;Vooruitbetaalde kosten;Balans;BVorOvaVan;;
+1240;Voorschotten personeel;Balans;BVorOvrOvk;;
+1250;Rente in leaseverpl.;Balans;BVorOva;;
+1280;Overige vorderingen;Balans;BVorOvrOvk;;
+1290;Overlopende activa;Balans;BVorOva;;
+1300;Aandelen;Balans;;;
+1310;Opties;Balans;;;
+1320;Obligaties;Balans;;;
+1380;Overige effecten;Balans;;;
+1500;Crediteuren (subadm);Balans;BSchCreHac;Crediteuren;
+1501;Crediteuren (grootboek);Balans;BSchCreHac;;
+1510;Investeringscrediteuren;Balans;BSchCreHac;;
+1518;Crediteuren;Balans;BSchCreHac;;
+1520;Rek.courant groepsmij.;Balans;BSchOvs;;
+1550;Afl.verpl. volgend boekjr;Balans;BSchOvs;;
+1730;Ingehouden loonheffing;Balans;BSchBepLhe;;
+1731;Loonheffing over spaarln;Balans;BSchBepLhe;;
+1732;Vermindering loonheffing;Balans;BSchBepLhe;;
+1735;Afgedragen loonheffing;Balans;BSchBepLhe;;
+1750;Af te dragen pensioenfond;Balans;BSchOvs;;
+1755;Afgedragen pensioenfonds;Balans;BSchOvs;;
+1760;Af te dragen VUT-premie;Balans;BSchOvs;;
+1765;Afgedragen Vut-premie;Balans;BSchOvs;;
+1770;Dividendbelasting;Balans;BSchBep;;
+1780;Vennootschapsbelasting;Balans;BSchShbShb;;
+1800;Te betalen BTW hoog;Balans;BSchBepBtw;AfTeDragenBtw;
+1801;Te betalen BTW laag 6%;Balans;BSchBepBtw;;
+1802;Te betalen BTW verlegd;Balans;BSchBepBtw;;
+1803;Te betalen BTW laag 9%;Balans;BSchBepBtw;;
+1804;Te betalen BTW privegebr.;Balans;BSchBepBtw;;
+1805;Te vorderen BTW hoog;Balans;BVorVbkTvo;Voorbelasting;
+1806;Te vorderen BTW laag 6%;Balans;BVorVbkTvo;;
+1807;Te vorderen BTW laag 9%;Balans;BVorVbkTvo;;
+1808;Te vorderen BTW verlegd (5B);Balans;BVorVbkTvo;;
+1809;Te vorderen BTW verlegd (5B);Balans;BVorVbkTvo;;
+1810;Te betalen BTW binnen EU 0% (3B);Balans;BSchBepBtw;;
+1811;Te betalen BTW binnen de EU 0% (4B);Balans;BSchBepBtw;;
+1812;Te vorderen BTW binnen de EU 0% (5B);Balans;BVorVbkTvo;;
+1813;Te betalen BTW buiten EU 0% (3A);Balans;BSchBepBtw;;
+1814;Te betalen BTW buiten de EU 0% (4A);Balans;BSchBepBtw;;
+1815;Te vorderen BTW buiten EU 0% (5B);Balans;BVorVbkTvo;;
+1816;Te betalen BTW margeregeling;Balans;BSchBepBtw;;
+1817;Te vorderen BTW margeregeling;Balans;BVorVbkTvo;;
+1819;BTW oninbare vorderingen;Balans;BSchBepBtw;;
+1820;Afgedragen BTW;Balans;BSchBepBtw;;
+1900;Te betalen rente/kst rc;Balans;BSchOpaNtb;;
+1901;Te bet. rente leningen;Balans;BSchOpaNtb;;
+1910;Te bet. vakantiegeld;Balans;BSchOpaNtb;;
+1920;Te bet. vakantiedagen;Balans;BSchOpaNtb;;
+1925;Te bet. dividend;Balans;BSchOpaNtb;;
+1930;Te bet. accountantskosten;Balans;BSchOpaNtb;;
+1935;Vooruitgefactureerde bedr;Balans;BSchOpa;;
+1940;Termijnen OHW;Balans;BSchOpa;;
+1945;Te bet. tantiemes;Balans;BSchOpaNtb;;
+1950;Te betalen huisvestingsks;Balans;BSchOpaNtb;;
+1951;Te betalen inv/mach.kst;Balans;BSchOpaNtb;;
+1952;Te betalen kantoorkst;Balans;BSchOpaNtb;;
+1953;Te betalen verkoopkst;Balans;BSchOpaNtb;;
+1954;Te betalen autokosten;Balans;BSchOpaNtb;;
+1955;Te betalen algemene kst;Balans;BSchOpaNtb;;
+1956;Te betalen personeelskst;Balans;BSchOpaNtb;;
+1990;Overige schulden;Balans;BSchOvsOvs;;
+2050;Betalingen onderweg;Balans;BLim;;
+2100;Te bet. netto-lonen;Balans;BSchOvs;;
+2105;Betaald netto loon;Balans;BSchOvs;;
+2110;Spaarloon;Balans;BSchOvs;;
+2115;Betaald spaarloon;Balans;BSchOvs;;
+2200;Vraagposten;Balans;;Vraagposten;
+2300;Transitoria debet;Balans;BVorOva;;
+2400;Transitoria credit;Balans;BSchOpa;;
+3000;Grond-en hulpstoffen;Balans;BVrd;;
+3050;Voorraad halffabrikaat;Balans;BVrd;;
+3090;Voorziening grond/hulpst;Balans;BVrd;;
+3095;Voorziening voorraad halffabrikaat;Balans;BVrd;;
+3100;Voorraad gereed product;Balans;BVrd;;
+3190;Voorziening voorraad gereed product;Balans;BVrd;;
+3200;Onderhanden werken;Balans;BVrd;;
+3290;Voorziening OHW;Balans;BVrd;;
+3300;Emballage;Balans;BVrd;;
+3390;Voorziening emballage;Balans;BVrd;;
+3400;Handelsvoorraad;Balans;BVrd;;
+3490;Voorziening handelsvoorraad;Balans;BVrd;;
+4000;Bruto-loon;Resultaat;WPerLesLon;;
+4001;Overwerk / onregelm.toeslag;Resultaat;WPerLesLon;;
+4002;Ziekengeld;Resultaat;WPerLesLon;;
+4003;Vakantietoeslag;Resultaat;WPerLesLon;;
+4004;Tantiemes/gratificaties;Resultaat;WPerLesLon;;
+4005;Provisie;Resultaat;WPerLesLon;;
+4006;Ontslagvergoeding;Resultaat;WPerLesLon;;
+4007;Eindheffingen;Resultaat;WPerLesLon;;
+4008;Vakantiedagen;Resultaat;WPerLesLon;;
+4009;Directiebeloning;Resultaat;WPerLesLon;;
+4019;Doorberekende loonkosten;Resultaat;WPer;;
+4020;Reservering vakantietoesl;Resultaat;WPer;;
+4022;Reservering vakantiedagen;Resultaat;WPer;;
+4030;Sociale lasten bedr.ver.;Resultaat;WPerSolPsv;;
+4031;Soc.lasten vrg.jaren;Resultaat;WPerSolPsv;;
+4032;Res. soc.lasten vak.toesl;Resultaat;WPerSolPsv;;
+4033;Vakantiebonnen;Resultaat;WPerSolPsv;;
+4035;Premie ZW;Resultaat;WPerSolPsv;;
+4036;Premie WAO-gat;Resultaat;WPerSolPsv;;
+4037;Bijdrage ZKV;Resultaat;WPerSolPsv;;
+4038;Dotatie AOV voorziening;Resultaat;WPerSolPsv;;
+4039;Doorberekende sociale lasten;Resultaat;WPerSolPsv;;
+4040;Pensioenpremie;Resultaat;WPerPenPen;;
+4041;Dotatie directiepensioen;Resultaat;WPerPenPen;;
+4042;Dotatie overige pensioen;Resultaat;WPerPenPen;;
+4045;VUT-premie;Resultaat;WPerPenPen;;
+4049;Doorberekende pensioenlasten;Resultaat;WPerPenPen;;
+4050;Ontvangen ziekengeld;Resultaat;WPer;;
+4051;Loonkostensubsidie;Resultaat;WPer;;
+4052;Overige subsidies;Resultaat;WPer;;
+4055;Uitzendkrachten;Resultaat;WPer;;I21
+4060;Reiskostenvergoeding vrijgesteld;Resultaat;WPer;;
+4061;Consumpties en maaltijden vrijgesteld;Resultaat;WPer;;I9
+4062;Opleidingen, studies, seminars ed;Resultaat;WPer;;
+4063;Vakliteratuur;Resultaat;WPer;;I21
+4064;Inschrijving wettelijk/beroeps register;Resultaat;WPer;;
+4065;Kosten medische keuringen;Resultaat;WPer;;
+4066;Outplacementkosten;Resultaat;WPer;;I21
+4069;Overige werkkosten gericht vrijgesteld;Resultaat;WPer;;I21
+4070;Verteerkosten werkplek;Resultaat;WPer;;I9
+4071;Verstrekkingen werkkleding, pbm etc;Resultaat;WPer;;I21
+4072;Arbovoorzieningen;Resultaat;WPer;;I21
+4073;Personeelsfeesten (werkplek);Resultaat;WPer;;
+4074;Bedrijfsfitness (werkplek);Resultaat;WPer;;I21
+4079;Overige werkkosten nihilwaardering;Resultaat;WPer;;I21
+4080;Verteerkosten (niet werkplek);Resultaat;WPer;;I9
+4081;Maaltijden (werkplek);Resultaat;WPer;;I9
+4082;Verg./verstr. electronica (geen noodzaak;Resultaat;WPer;;
+4083;Bovenmatige reiskostenvergoeding;Resultaat;WPer;;
+4084;Vergoeding werkkleding, pmb, etc;Resultaat;WPer;;I21
+4085;Kerstpakketten personeel;Resultaat;WPer;;
+4086;Personeelsfeetsen (niet werkplek);Resultaat;WPer;;
+4087;Geschenken in natura of geld;Resultaat;WPer;;
+4088;Bedrijfsfitness (niet werkplek);Resultaat;WPer;;I21
+4089;Bijdrage pers.ver. en vakbond;Resultaat;WPer;;
+4090;Personeelsreizen;Resultaat;WPer;;
+4091;Autokostenvergoeding;Resultaat;WPer;;
+4092;Representatiekostenvergoeding;Resultaat;WPer;;
+4093;Kosten kinderopvang;Resultaat;WPer;;
+4094;Persoonlijke verzorging;Resultaat;WPer;;
+4098;Personeelskosten;Resultaat;WPer;;
+4099;Overige kosten vrije ruimte;Resultaat;WPer;;
+4100;Huur onroerend goed;Resultaat;WBedHuiBeh;;I21
+4110;Onderhoud onroerend goed;Resultaat;WBedHuiBeh;;I21
+4120;Assurantiekosten;Resultaat;WBedHuiBeh;;
+4130;Belastingen onroerend goe;Resultaat;WBedHuiBeh;;
+4150;Electriciteit;Resultaat;WBedHuiGwe;;I21
+4151;Gas;Resultaat;WBedHuiGwe;;I21
+4152;Water;Resultaat;WBedHuiGwe;;I9
+4190;Overige huisvestingskst;Resultaat;WBedHuiBeh;;I21
+4198;Huisvestingskosten;Resultaat;WBedHuiBeh;;
+4200;Huur machines/inventaris;Resultaat;WBedEem;;I21
+4210;Onderhoud machines/invent;Resultaat;WBedEem;;I21
+4211;Klein gereedschap;Resultaat;WBedEem;;I21
+4212;Kleine aanschaffingen;Resultaat;WBedEem;;I21
+4220;Verzekeringen mach/inv;Resultaat;WBedEem;;
+4230;Belastingen mach/inv;Resultaat;WBedEem;;
+4240;Brandstof machines/invent;Resultaat;WBedEem;;I21
+4290;Overige kosten inv./mach.;Resultaat;WBedEem;;I21
+4298;Exploitatiekosten;Resultaat;WBedEem;;
+4300;Huur kantoorinventaris;Resultaat;WBedKanKan;;I21
+4305;Servicecontracten kantoorinventaris;Resultaat;WBedKanKan;;I21
+4310;Onderhoud kantoorinventaris;Resultaat;WBedKanKan;;I21
+4320;Verzekering kantoorinventaris;Resultaat;WBedKanKan;;
+4330;Telefoon- en faxkosten;Resultaat;WBedKanTef;;I21
+4331;Telefoonkosten mobiel;Resultaat;WBedKanTef;;I21
+4340;Drukwerk/papier;Resultaat;WBedKanKan;;I21
+4350;Portikosten;Resultaat;WBedKanKan;;
+4360;Kantoorbenodigdheden;Resultaat;WBedKanKan;;I21
+4370;Kopieerkosten;Resultaat;WBedKanKan;;I21
+4380;Automatisering;Resultaat;WBedKanKan;;I21
+4381;Internetkosten;Resultaat;WBedKanTef;;I21
+4390;Overige kantoorkosten;Resultaat;WBedKanKan;;I21
+4398;Kantoorkosten;Resultaat;WBedKanKan;;
+4400;Huur/leasing auto;Resultaat;WBedAutRoa;;I21
+4410;Onderhoud auto;Resultaat;WBedAutRoa;;I21
+4420;Verzekeringen auto;Resultaat;WBedAutRoa;;
+4430;Belastingen auto;Resultaat;WBedAutRoa;;
+4440;Brandstof;Resultaat;WBedAutBra;;I21
+4460;Boetes;Resultaat;WBedAutRoa;;
+4470;Kilometervergoeding;Resultaat;WBedAutRoa;;
+4480;Privegebruik auto;Resultaat;WBedAutRoa;;
+4481;BTW prive-gebruik;Resultaat;WBedAutRoa;;
+4490;Overige autokosten;Resultaat;WBedAutRoa;;I21
+4498;Autokosten;Resultaat;WBedAutRoa;;
+4500;Reclamekosten;Resultaat;WBedVkkRea;;I21
+4505;Sponsoring;Resultaat;WBedVkkRea;;I21
+4510;Advertentiekosten;Resultaat;WBedVkkRea;;I21
+4520;Garantiekosten;Resultaat;WBedVkkRea;;I21
+4521;Dotatie garantievoorz.;Resultaat;WBedVkkRea;;
+4530;Representatiekosten;Resultaat;WBedVkkRea;;I21
+4535;Relatiegeschenken;Resultaat;WBedVkkRea;;I21
+4540;Verteringen;Resultaat;WBedVkkRea;;I9
+4550;Verblijfkosten;Resultaat;WBedVkkRev;;I9
+4555;Provisiekosten;Resultaat;WBedVkkRea;;I21
+4560;Beurskosten;Resultaat;WBedVkkRea;;I21
+4570;Etalagekosten;Resultaat;WBedVkkRea;;I21
+4580;Afschr. oninbare debiteur;Resultaat;WBedVkk;;
+4581;Dotatie voorz. dub.deb.;Resultaat;WBedVkk;;
+4590;Overige verkoopkosten;Resultaat;WBedVkk;;I21
+4598;Verkoopkosten;Resultaat;WBedVkk;;
+4600;Contributies/abonnementen;Resultaat;WBedKanCea;;I21
+4605;Vergunningen;Resultaat;WBedAlkOal;;I21
+4610;Administratiekosten;Resultaat;WBedAeaAea;;I21
+4620;Accountantskosten;Resultaat;WBedAeaAea;;I21
+4621;Advieskosten;Resultaat;WBedAeaAea;;I21
+4622;Advocaat;Resultaat;WBedAeaAea;;I21
+4623;Notaris;Resultaat;WBedAeaAea;;I21
+4630;Verzekeringen algemeen;Resultaat;WBedAssOva;;
+4640;Vakliteratuur;Resultaat;WBedAlkOal;;I9
+4650;Congressen/seminars;Resultaat;WBedAlkOal;;I21
+4660;Kantinekosten;Resultaat;WBedAlkOal;;I9
+4670;Afval/milieukosten;Resultaat;WBedAlkOal;;I21
+4680;Naheffingen;Resultaat;WBedAlkOal;;
+4690;Overige algemene kosten;Resultaat;WBedAlkOal;;I21
+4698;Algemene kosten;Resultaat;WBedAlkOal;;
+4700;Afschr. goodwill deeln.;Resultaat;WAfs;;
+4710;Afs. terreinverbetering;Resultaat;WAfsAmvObe;;
+4720;Afs. schepen;Resultaat;WAfsAmvObe;;
+4730;Afs. machines/installatie;Resultaat;WAfsAmvObe;;
+4740;Afs. bedrijfsinventaris;Resultaat;WAfsAmvBei;;
+4750;Afs. transportmiddelen;Resultaat;WAfsAmvTev;;
+4790;Overige afschrijvingen;Resultaat;WAfsAmvObe;;
+4795;Vrijval WIR-premie;Resultaat;WAfs;;
+4796;Vrijval IPR-premie;Resultaat;WAfs;;
+4798;Algemene kosten;Resultaat;WBedAlkOal;;
+4900;Rente hyp.leningen;Resultaat;WFbeRls;;
+4910;Rente bancaire leningen;Resultaat;WFbeRls;;
+4920;Rente onderhandse eningen;Resultaat;WFbeRls;;
+4930;Rente groepmaatschappij;Resultaat;WFbeRls;;
+4940;Rente en bankkosten r/c;Resultaat;WFbeOrlRkb;;
+4941;Kosten creditcards;Resultaat;WFbeOrlRkb;;
+4950;Rente leasing;Resultaat;WFbeRls;;
+4960;Rente r/c directie;Resultaat;WFbeRls;;
+4961;Rente fiscus;Resultaat;WFbeRls;;
+4962;Rente crediteuren;Resultaat;WFbeRls;;
+4963;Kredietbep.crediteuren;Resultaat;WFbeRls;;
+4964;Kredietbeperking debiteur;Resultaat;WFbeRls;;
+4965;Afsluitprovisie;Resultaat;WFbeRls;;
+4966;Hypotheekkosten;Resultaat;WFbeRls;;
+4967;Rente stamrecht;Resultaat;WFbeRls;;
+4968;Overige rentekosten;Resultaat;WFbeRls;;
+4970;Rentebaten;Resultaat;WFbeRlmRlm;;
+4975;Opbrengsten effecten;Resultaat;WFbe;;
+4980;Resultaat deelneming;Resultaat;WFbe;;
+4998;Financiele baten en lasten;Resultaat;WFbe;;
+5000;Inkopen BTW hoog;Resultaat;WKprInhInh;;I21
+5100;Inkopen BTW laag;Resultaat;WKprInhInh;;I9
+5200;Inkopen BTW 0;Resultaat;WKprInhInh;;I0
+5210;Inkopen btw vrij;Resultaat;WKprInhInh;;
+5300;Inkopen bula binnen EG;Resultaat;WKprInhInh;;IEU
+5310;Inkopen bula niet EG;Resultaat;WKprInhInh;;IEX
+5400;Inkoop verpakkingsmateria;Resultaat;WKprInhInh;;I21
+5410;Inkopen hulpmateriaal;Resultaat;WKprInhInh;;I21
+5600;Uitbesteed werk;Resultaat;WKprKuwKuw;;I21
+5610;Commissie (betaald);Resultaat;WKprKuwKuw;;I21
+5800;Kortingen inkoop;Resultaat;WKprInhInh;;
+5810;Betalingsverschillen ink;Resultaat;WKprInhInh;;
+5820;Invoerkosten inkoop;Resultaat;WKprInhInh;;
+5830;Inkoopbonussen;Resultaat;WKprInhInh;;I21
+5840;Vrachtkosten inkoop;Resultaat;WKprInhInh;;I21
+5900;Voorraadmutatie handelsgo;Resultaat;WKprInhInh;;
+5950;Prive gebruik goederen;Resultaat;WKprInhInh;;
+5998;Inkopen;Resultaat;WKprInhInh;;
+6000;Voorraadmutatie;Resultaat;WKprInhInh;;
+6010;Inkoop grondstoffen;Resultaat;WKprInhInh;;I21
+6020;Onderaannemers met BTW;Resultaat;WKprKuwKuw;;I21
+6021;Onderaannemers BTW verl;Resultaat;WKprKuwKuw;;IVL
+6030;Huur materieel BTW;Resultaat;WKprKuwKuw;;I21
+6031;Huur materieel BTW verl;Resultaat;WKprKuwKuw;;IVL
+6040;DUW kosten BTW;Resultaat;WKprKuwKuw;;I21
+6041;DUW kosten BTW verlegd;Resultaat;WKprKuwKuw;;IVL
+8000;Omzet BTW hoog;Resultaat;WOmz;;V21
+8100;Omzet BTW laag;Resultaat;WOmz;;V9
+8200;Omzet BTW 0%;Resultaat;WOmz;;V0
+8240;Omzet BTW vrij;Resultaat;WOmz;;VVR
+8250;Omzet BTW verlegd;Resultaat;WOmz;;VVL
+8300;Omzet Bula EG;Resultaat;WOmz;;VEU
+8350;Omzet Bula niet EG;Resultaat;WOmz;;VEX
+8400;Kortingen verkoop;Resultaat;WOmz;;
+8410;Betalingsverschil verkoop;Resultaat;WOmz;;V21
+8900;Mutatie OHW;Resultaat;WOmz;;
+8998;Omzet;Resultaat;WOmz;;
+9000;KO-regeling;Resultaat;;;
+9010;Ontvangen huurpenningen;Resultaat;;;I21
+9100;Diverse baten;Resultaat;;;
+9130;Boekwinst verkoop activa;Resultaat;;;
+9131;Boekverlies verk. activa;Resultaat;;;
+9140;Boekres. verkoop activa;Resultaat;;;
+9141;Koersverschillen;Resultaat;;;
+9150;Diverse lasten;Resultaat;;;
+9200;Buitengewone baten;Resultaat;;;
+9250;Buitengewone lasten;Resultaat;;;
+9500;Vennootschapsbelasting;Resultaat;WBel;;
+9510;VPB voorgaande jaren;Resultaat;WBel;;
+9520;Mutatie latente belasting;Resultaat;WBel;;
+9528;Vennootschapsbelasting;Resultaat;WBel;;
+9900;Rekenverschillen;Resultaat;;;
+9999;Resultaat boekjaar;Resultaat;;;

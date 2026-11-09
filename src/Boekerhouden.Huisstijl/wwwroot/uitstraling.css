@@ -1065,3 +1065,10 @@ tr[tabindex]:focus-visible {
         height: 1.75rem;
         color: #a3acb5;
     }
+
+/* Een venster (rekeningen, openstaande posten) binnen een paneel dat sticky is, zit in de laag van dat paneel: zonder dit
+   kwamen de vaste tabelkoppen van de lijst ernaast eroverheen. Zolang het venster open is, gaat het paneel bovenop. */
+*:has(> .venster-achtergrond),
+*:has(.venster-achtergrond):is([style*="sticky"], .verwerkpaneel, .sticky-top) {
+    z-index: 1050;
+}

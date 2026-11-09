@@ -1076,7 +1076,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         return sleutels;
     }
 
-    private sealed record Bankcontext(IReadOnlyList<OpenPost> OpenPosten, IReadOnlyList<Relatie> Relaties, IReadOnlyList<Verwerkingsregel> Regels, Leergeheugen Geheugen, Btwtabel Btw, Verwerkingsinstellingen Instellingen, Rekeningschema Schema, bool BtwPlichtig = true);
+    private sealed record Bankcontext(IReadOnlyList<OpenPost> OpenPosten, IReadOnlyList<Relatie> Relaties, IReadOnlyList<Verwerkingsregel> Regels, Leergeheugen Geheugen, Btwtabel Btw, Verwerkingsinstellingen Instellingen, Rekeningschema Schema, bool BtwPlichtig = true, Ondernemingsvorm Vorm = Ondernemingsvorm.BV);
 
     private static async Task<Bankcontext> Context(AdministratieDbContext db, Guid administratie)
     {
@@ -1094,13 +1094,20 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         var posten = (await db.OpenstaandePosten.AsNoTracking().Where(p => p.Openstaand != 0 || p.Datum >= sinds).ToListAsync()).Select(p => p.NaarDomein()).ToList();
         var regels = (await db.Regels.AsNoTracking().OrderBy(r => r.Volgorde).ToListAsync()).Select(r => r.NaarDomein()).ToList();
         var (schema, _) = await GrootboekDienst.Inrichting(db);
-        return new Bankcontext(posten, await Relaties(db), regels, geheugen, await BtwDienst.Lees(db), instellingen, schema, adm.BtwPlichtig);
+        return new Bankcontext(posten, await Relaties(db), regels, geheugen, await BtwDienst.Lees(db), instellingen, schema, adm.BtwPlichtig, adm.Ondernemingsvorm);
     }
 
     /// <summary>Het voorstel bij een mutatie; in een administratie die niet btw-plichtig is zonder btw-code.</summary>
     private static Bankvoorstel Voorstel(Banktransactie t, Bankcontext context)
     {
         var voorstel = Bankverwerker.Verwerk(t.NaarDomein(), context.OpenPosten, context.Relaties, context.Regels, context.Geheugen, context.Btw.Op(t.Datum));
+
+        // Geen regel en niets geleerd: een betaling aan de Belastingdienst herkennen (btw, loonheffingen, vpb, ib).
+        // Alleen als voorstel; boeken doet de gebruiker (of een regel die hij ervan maakt).
+        if (voorstel.Advies.Rekeningnummer is null && Belastingherkenning.Herken(voorstel.Mutatie, context.Schema, context.Vorm) is { Rekening: { } rekening } belasting)
+        {
+            voorstel = voorstel with { Advies = new Verwerkingsadvies(rekening.Nummer, null, Adviesbron.Herkend, false, belasting.Reden) };
+        }
         return context.BtwPlichtig ? voorstel : voorstel with { Advies = voorstel.Advies with { BtwCode = null } };
     }
 

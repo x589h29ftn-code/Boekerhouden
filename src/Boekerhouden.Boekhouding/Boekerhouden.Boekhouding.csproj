@@ -4,4 +4,8 @@
     <ProjectReference Include="..\Boekerhouden.Domain\Boekerhouden.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Grootboek\Schemas\*.csv" />
+  </ItemGroup>
+
 </Project>

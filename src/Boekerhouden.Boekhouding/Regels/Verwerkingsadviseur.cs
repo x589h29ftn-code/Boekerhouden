@@ -9,6 +9,9 @@ public enum Adviesbron
     Regel,
     Geleerd,
     Relatie,
+
+    /// <summary>Herkend aan de tegenpartij, bijv. een betaling aan de Belastingdienst.</summary>
+    Herkend,
 }
 
 /// <summary>Het voorstel voor een factuur of bankmutatie: rekening, btw-code, en of het pakket het zelf mag boeken.</summary>

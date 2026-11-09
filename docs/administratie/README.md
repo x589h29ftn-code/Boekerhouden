@@ -54,6 +54,14 @@ samenstelpakket.
 - **Rekeningschema** per administratie: nummer, naam, RGS-code en eventueel een **functie**
   (bank, kas, debiteuren, crediteuren, te vorderen btw, af te dragen btw, resultaat). Met de functie
   vinden de automatische boekingen de juiste rekening, zonder vaste nummers.
+- **Rekeningschema kiezen** bij een nieuwe administratie (`Rekeningschemas`, `Schemakeuze`): *Sifer* (het
+  standaardschema per rechtsvorm, elke rekening met een RGS-code) of *Standaard schema OVPA*: het uitgebreide schema
+  van het kantoor (377 rekeningen), als CSV in `Grootboek/Schemas/ovpa.csv` (nummer;naam;soort;rgs;functie;btw).
+  De btw-code per rekening is omgezet naar de codes van Sifer (21% inkoop → `I21`, verkoop → `V21`, 9% → `I9`/`V9`,
+  0%, vrijgesteld en verlegd → `V0`/`VVR`/`VVL`/`I0`/`IVL`, binnen en buiten de EU → `VEU`/`IEU`/`VEX`/`IEX`). De
+  RGS-code staat erbij waar die vaststaat (getoetst aan RGS 3.8); de rest vult het kantoor per rekening aan. De
+  functies: bank 1010, kas 1000, debiteuren 1100, crediteuren 1500, af te dragen btw 1800, te vorderen btw 1805,
+  resultaat 0590, vraagposten 2200. Bank- en kasdagboek krijgen de bank- en kasrekening van het gekozen schema.
 - **Dagboeken**: inkoop, verkoop, bank (één per bankrekening, met de grootboekrekening van de
   bank), kas en memoriaal.
 - **Journaalpost**: dagboek, boekstuknummer, datum, omschrijving en regels (rekening, bedrag
@@ -225,6 +233,15 @@ eigen btw-code voor de regel (`InrichtingDienst.WijzigRegel`, `Verwerkingsregel.
     de omschrijving (`Ustrd`), het gestructureerde betalingskenmerk en de end-to-end-id.
   - **Controle**: beginsaldo + mutaties = eindsaldo, en het beginsaldo sluit aan op het vorige afschrift. Een
     mutatie die al eerder is ingelezen, wordt niet nog eens geboekt.
+- **Belastingdienst herkennen** (`Bank/Belastingherkenning`): een betaling aan of teruggaaf van de Belastingdienst
+  (IBAN NL86 INGB 0002 4455 88 of de naam) zonder regel of geleerde keuze krijgt als voorstel de rekening van die
+  belasting. De soort komt uit de letter van het aanslagnummer (`1234.56.789.B.01`: B omzetbelasting, L loonheffingen,
+  V vennootschapsbelasting, H inkomstenbelasting), uit het betalingskenmerk van 16 cijfers (het 10e cijfer 1 =
+  omzetbelasting) of uit de omschrijving (btw, loonheffing, vpb, ib). De rekening: een rekening *afgedragen …* als
+  die er is (OVPA: 1820, 1735), anders de rekening met de functie of RGS-groep (te betalen btw, loonheffing,
+  vennootschapsbelasting); inkomstenbelasting is privé: privé-opnamen bij een eenmanszaak, de rekening-courant met de
+  directeur bij een BV. Alleen een voorstel (`Adviesbron.Herkend`, reden *Belastingdienst: omzetbelasting*): boeken
+  doet de gebruiker, of een regel die hij ervan maakt.
 - **Handmatig inboeken** van een mutatie: op een openstaande post, op een grootboekrekening (met btw-code) of
   gesplitst over meerdere regels.
 - **Afletteren** (§3.8): wat zeker is, wordt automatisch geboekt. Wat waarschijnlijk is, staat klaar als

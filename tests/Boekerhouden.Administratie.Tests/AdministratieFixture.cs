@@ -115,9 +115,10 @@ public class AdministratieFixture : WebApplicationFactory<Program>, IAsyncLifeti
     }
 
     /// <summary>Een nieuwe administratie, aangemaakt door de beheerder (die er kantoorlid van wordt).</summary>
-    public async Task<Guid> Administratie(string naam = "Bakkerij Voorbeeld", Boekhouding.Grootboek.Ondernemingsvorm vorm = Boekhouding.Grootboek.Ondernemingsvorm.BV)
+    public async Task<Guid> Administratie(string naam = "Bakkerij Voorbeeld", Boekhouding.Grootboek.Ondernemingsvorm vorm = Boekhouding.Grootboek.Ondernemingsvorm.BV,
+        Boekhouding.Grootboek.Schemakeuze schema = Boekhouding.Grootboek.Schemakeuze.Sifer)
     {
-        var uitkomst = await Dienst<AdministratieDienst>().Maak(new AdministratieInvoer(naam, vorm, null, null), await Beheerder());
+        var uitkomst = await Dienst<AdministratieDienst>().Maak(new AdministratieInvoer(naam, vorm, null, null, schema), await Beheerder());
         Assert.True(uitkomst.IsGelukt, string.Join("; ", uitkomst.Fouten));
         return uitkomst.Waarde;
     }
