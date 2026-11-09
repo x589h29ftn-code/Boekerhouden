@@ -509,6 +509,32 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
         Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.AdministratieAangemaakt && r.Details == "BV; rekeningschema Standaard schema OVPA");
     }
 
+    [Theory]
+    [InlineData("1123456781601270", 1)]
+    [InlineData("2123456781601270", 0)]
+    public async Task Belastingbetaling_met_geldig_kenmerk_boekt_zelf_op_de_vaste_rekening_als_dat_aan_staat(string kenmerk, int geboekt)
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var inrichting = app.Dienst<InrichtingDienst>();
+        var huidig = await inrichting.Instellingen(wie, id);
+        Assert.True((await inrichting.WijzigInstellingen(wie, id, huidig with { Belasting = new Belastinginstellingen(Omzetbelasting: "1500", Automatisch: true) })).IsGelukt);
+        var bank = app.Dienst<BankDienst>();
+        var tekst = new StreamReader(Afschrift()).ReadToEnd()
+            .Replace("CNTP/NL36INGB0007654321/INGBNL2A/Kantoor", "CNTP/NL86INGB0002445588/INGBNL2A/Belasting", StringComparison.Ordinal)
+            .Replace("handel Jansen/ZWOLLE////REMI/USTD//Betaling inkoop/", $"dienst/APELDOORN////REMI/USTD//{kenmerk}/", StringComparison.Ordinal);
+
+        await bank.Lees(wie, id, new MemoryStream(Encoding.Latin1.GetBytes(tekst)), "ing.mt940");
+
+        // Geldig kenmerk: op 1500 geboekt (de vaste rekening, niet de rekening die het pakket zelf zou kiezen).
+        // Een kenmerk met een fout controlecijfer en zonder woorden in de omschrijving: geen herkenning, blijft staan.
+        Assert.Equal(geboekt == 1, (await bank.Lijst(wie, id)).All(m => m.Bedrag != -199.65m));
+        if (geboekt == 1)
+        {
+            Assert.Equal(199.65m, Saldo(await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026), "1500"));
+        }
+    }
+
     [Fact]
     public async Task Zonder_lidmaatschap_of_met_alleen_inzien_geen_bank()
     {

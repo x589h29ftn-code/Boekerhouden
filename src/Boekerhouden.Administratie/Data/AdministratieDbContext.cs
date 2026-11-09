@@ -124,6 +124,10 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(a => a.KvkNummer).HasMaxLength(20);
             e.Property(a => a.BtwNummer).HasMaxLength(20);
             e.Property(a => a.BtwPlichtig).HasDefaultValue(true);
+            e.Property(a => a.RekeningOmzetbelasting).HasMaxLength(20);
+            e.Property(a => a.RekeningLoonheffingen).HasMaxLength(20);
+            e.Property(a => a.RekeningVennootschapsbelasting).HasMaxLength(20);
+            e.Property(a => a.RekeningInkomstenbelasting).HasMaxLength(20);
             e.Property(a => a.AangemaaktDoor).HasMaxLength(200);
             e.Property(a => a.LimietAutomatisch).HasPrecision(18, 2);
             e.Property(a => a.Bandbreedte).HasPrecision(6, 2);

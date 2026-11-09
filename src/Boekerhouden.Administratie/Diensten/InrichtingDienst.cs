@@ -77,6 +77,39 @@ public sealed record GeleerdeLeverancier(
 /// <summary>De gegevens en instellingen van een administratie.</summary>
 /// <param name="Afwijkend">Waarin de administratie afwijkt van het kantoor; leeg = de kantoorinstelling.</param>
 /// <param name="Kantoor">De instellingen van het kantoor (alleen om te tonen; wijzigen gaat via <see cref="KantoorDienst"/>).</param>
+/// <summary>
+/// Betalingen aan de Belastingdienst: een vaste (balans)rekening per belasting, leeg = het pakket kiest zelf
+/// (<see cref="Boekhouding.Bank.Belastingherkenning"/>), en of een betaling met een geldig betalingskenmerk zelf geboekt mag worden.
+/// </summary>
+public sealed record Belastinginstellingen(string? Omzetbelasting = null, string? Loonheffingen = null, string? Vennootschapsbelasting = null, string? Inkomstenbelasting = null, bool Automatisch = false)
+{
+    public static Belastinginstellingen Leeg { get; } = new();
+
+    /// <summary>De ingevulde rekeningen, met de naam van de belasting.</summary>
+    public IEnumerable<(string Soort, string Rekening)> Rekeningen()
+    {
+        foreach (var (soort, nummer) in new[] { ("omzetbelasting", Omzetbelasting), ("loonheffingen", Loonheffingen), ("vennootschapsbelasting", Vennootschapsbelasting), ("inkomstenbelasting", Inkomstenbelasting) })
+        {
+            if (nummer is not null)
+            {
+                yield return (soort, nummer);
+            }
+        }
+    }
+
+    /// <summary>De vaste rekeningen voor de herkenning.</summary>
+    public IReadOnlyDictionary<Boekhouding.Bank.Belastingsoort, string> Vast() => new Dictionary<Boekhouding.Bank.Belastingsoort, string?>
+    {
+        [Boekhouding.Bank.Belastingsoort.Omzetbelasting] = Omzetbelasting,
+        [Boekhouding.Bank.Belastingsoort.Loonheffingen] = Loonheffingen,
+        [Boekhouding.Bank.Belastingsoort.Vennootschapsbelasting] = Vennootschapsbelasting,
+        [Boekhouding.Bank.Belastingsoort.Inkomstenbelasting] = Inkomstenbelasting,
+    }.Where(p => p.Value is not null).ToDictionary(p => p.Key, p => p.Value!);
+
+    public override string ToString() =>
+        $"btw {Omzetbelasting ?? "-"}, loonheffingen {Loonheffingen ?? "-"}, vpb {Vennootschapsbelasting ?? "-"}, ib {Inkomstenbelasting ?? "-"}, automatisch {(Automatisch ? "aan" : "uit")}";
+}
+
 public sealed record Instellingen(
     string Naam,
     string? KvkNummer,
@@ -85,7 +118,8 @@ public sealed record Instellingen(
     AfwijkendeInstellingen Afwijkend,
     Verwerkingsinstellingen? Kantoor = null,
     Contactgegevens? Contact = null,
-    bool BtwPlichtig = true)
+    bool BtwPlichtig = true,
+    Belastinginstellingen? Belasting = null)
 {
     /// <summary>Wat er voor de administratie geldt.</summary>
     public Verwerkingsinstellingen Geldend => Afwijkend.Op(Kantoor ?? Verwerkingsinstellingen.Standaard);
@@ -476,7 +510,7 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
         var a = await db.Administraties.AsNoTracking().SingleAsync(x => x.Id == administratie);
         return new Instellingen(a.Naam, a.KvkNummer, a.BtwNummer, a.Ibans, a.Afwijkend(), await KantoorDienst.Lees(db),
-            new Contactgegevens(a.Straat, a.Postcode, a.Plaats, a.Land, a.Email, a.Telefoon, a.Website), a.BtwPlichtig);
+            new Contactgegevens(a.Straat, a.Postcode, a.Plaats, a.Land, a.Email, a.Telefoon, a.Website), a.BtwPlichtig, a.Belasting());
     }
 
     public async Task<Uitkomst> WijzigInstellingen(Uitvoerder wie, Guid administratie, Instellingen invoer)
@@ -526,6 +560,25 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
                 fouten.Add($"Op {rekening.Nummer} {rekening.Naam} boek je geen betaalverschillen: die rekening hoort bij de bank, de openstaande posten of de btw.");
             }
         }
+        var belasting = invoer.Belasting is { } bi
+            ? bi with { Omzetbelasting = Leeg(bi.Omzetbelasting), Loonheffingen = Leeg(bi.Loonheffingen), Vennootschapsbelasting = Leeg(bi.Vennootschapsbelasting), Inkomstenbelasting = Leeg(bi.Inkomstenbelasting) }
+            : null;
+        if (belasting is not null)
+        {
+            var (schema, _) = await GrootboekDienst.Inrichting(db);
+            foreach (var (soort, nummer) in belasting.Rekeningen())
+            {
+                if (schema.Zoek(nummer) is not { } rekening)
+                {
+                    fouten.Add($"Rekening {nummer} voor {soort} bestaat niet in deze administratie.");
+                }
+                else if (!rekening.IsBalans)
+                {
+                    fouten.Add($"Voor {soort} kies je een balansrekening; {rekening.Nummer} {rekening.Naam} is een resultaatrekening.");
+                }
+            }
+        }
+
         if (fouten.Count > 0)
         {
             return Uitkomst.Mislukt([.. fouten]);
@@ -535,6 +588,12 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
         var details = $"{KantoorDienst.Verschil(a.Afwijkend().Op(kantoor), afwijkend.Op(kantoor))}; IBAN's [{string.Join(", ", a.Ibans)}] → [{string.Join(", ", ibans)}]"
                       + (a.BtwPlichtig == invoer.BtwPlichtig ? null : $"; btw-plichtig {(a.BtwPlichtig ? "ja" : "nee")} → {(invoer.BtwPlichtig ? "ja" : "nee")}");
         a.BtwPlichtig = invoer.BtwPlichtig;
+        if (belasting is not null && belasting != a.Belasting())
+        {
+            details += $"; belastingdienst {a.Belasting()} → {belasting}";
+            (a.RekeningOmzetbelasting, a.RekeningLoonheffingen, a.RekeningVennootschapsbelasting, a.RekeningInkomstenbelasting, a.BelastingAutomatisch) =
+                (belasting.Omzetbelasting, belasting.Loonheffingen, belasting.Vennootschapsbelasting, belasting.Inkomstenbelasting, belasting.Automatisch);
+        }
         a.Naam = invoer.Naam.Trim();
         a.KvkNummer = Leeg(invoer.KvkNummer);
         a.BtwNummer = string.IsNullOrWhiteSpace(invoer.BtwNummer) ? null : BtwNummer.Normaliseer(invoer.BtwNummer);

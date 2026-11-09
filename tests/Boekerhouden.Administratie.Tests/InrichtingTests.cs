@@ -178,6 +178,25 @@ public sealed class InrichtingTests(AdministratieFixture app) : IClassFixture<Ad
     }
 
     [Fact]
+    public async Task Rekeningen_voor_de_belastingdienst_met_controles_en_log()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var dienst = app.Dienst<InrichtingDienst>();
+        var huidig = await dienst.Instellingen(wie, id);
+        Assert.Equal(Belastinginstellingen.Leeg, huidig.Belasting);
+
+        var fout = await dienst.WijzigInstellingen(wie, id, huidig with { Belasting = new("9999", "4300") });
+        var goed = await dienst.WijzigInstellingen(wie, id, huidig with { Belasting = new(" 1510 ", null, "1550", "", true) });
+
+        Assert.Equal(["Rekening 9999 voor omzetbelasting bestaat niet in deze administratie.", "Voor loonheffingen kies je een balansrekening; 4300 Kantoorbenodigdheden is een resultaatrekening."], fout.Fouten);
+        Assert.True(goed.IsGelukt, string.Join("; ", goed.Fouten));
+        Assert.Equal(new Belastinginstellingen("1510", null, "1550", null, true), (await dienst.Instellingen(wie, id)).Belasting);
+        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.InstellingenGewijzigd
+            && r.Details!.Contains("belastingdienst btw -, loonheffingen -, vpb -, ib -, automatisch uit → btw 1510, loonheffingen -, vpb 1550, ib -, automatisch aan", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Limiet_houdt_automatisch_boeken_tegen_en_eigen_iban_wordt_overgeslagen()
     {
         var wie = await app.Beheerder();

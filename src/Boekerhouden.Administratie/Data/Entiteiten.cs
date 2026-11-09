@@ -59,6 +59,22 @@ public sealed class Administratie
     /// </summary>
     public bool BtwPlichtig { get; set; } = true;
 
+    // Betalingen aan de Belastingdienst: een vaste rekening per belasting (leeg = het pakket kiest), en of een betaling
+    // met een geldig betalingskenmerk zelf geboekt mag worden.
+
+    public string? RekeningOmzetbelasting { get; set; }
+
+    public string? RekeningLoonheffingen { get; set; }
+
+    public string? RekeningVennootschapsbelasting { get; set; }
+
+    public string? RekeningInkomstenbelasting { get; set; }
+
+    public bool BelastingAutomatisch { get; set; }
+
+    public Diensten.Belastinginstellingen Belasting() =>
+        new(RekeningOmzetbelasting, RekeningLoonheffingen, RekeningVennootschapsbelasting, RekeningInkomstenbelasting, BelastingAutomatisch);
+
     /// <summary>De eigen bankrekening(en); staan ook op facturen, maar zijn niet van de leverancier.</summary>
     public List<string> Ibans { get; set; } = [];
 

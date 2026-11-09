@@ -54,7 +54,8 @@ public static partial class Belastingherkenning
     /// <summary>Het rekeningnummer van de Belastingdienst voor betalingen van aanslagen en aangiften.</summary>
     public const string BelastingdienstIban = "NL86INGB0002445588";
 
-    public static Belastingbetaling? Herken(Bankmutatie mutatie, Rekeningschema schema, Ondernemingsvorm vorm)
+    /// <param name="vast">Een vaste rekening per belasting (instelling van de administratie); gaat voor de eigen keuze.</param>
+    public static Belastingbetaling? Herken(Bankmutatie mutatie, Rekeningschema schema, Ondernemingsvorm vorm, IReadOnlyDictionary<Belastingsoort, string>? vast = null)
     {
         ArgumentNullException.ThrowIfNull(mutatie);
         ArgumentNullException.ThrowIfNull(schema);
@@ -72,7 +73,8 @@ public static partial class Belastingherkenning
             return null;
         }
 
-        return new Belastingbetaling(soort, Rekening(soort, schema, vorm), aanslag);
+        var rekening = vast?.TryGetValue(soort, out var nummer) == true && schema.Zoek(nummer) is { } gekozen ? gekozen : Rekening(soort, schema, vorm);
+        return new Belastingbetaling(soort, rekening, aanslag);
     }
 
     /// <summary>

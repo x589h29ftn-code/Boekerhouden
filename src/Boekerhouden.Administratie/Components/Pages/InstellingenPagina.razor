@@ -1,6 +1,7 @@
 @page "/a/{Id:guid}/instellingen"
 @using Boekerhouden.Boekhouding.Regels
 @inject InrichtingDienst Inrichting
+@inject GrootboekDienst Grootboek
 
 <AdministratieKader Id="Id" Titel="Instellingen" Actief="/instellingen" BijOpenen="Open">
     @if (!context.Mag(Recht.Boekhouden))
@@ -36,6 +37,20 @@
                     <div class="col-md-4"><label class="form-label" for="website">Website</label><input id="website" class="form-control" @bind="gegevens.Website" /></div>
                 </div>
             </Formulierblok>
+            <Formulierblok Titel="Belastingdienst">
+                <div class="row g-2 belastingrekeningen">
+                    <div class="col-md-6"><label class="form-label">Omzetbelasting</label><RekeningKeuze @bind-Waarde="belasting.Omzetbelasting" Schema="schema" Kader="geopend" Label="Rekening omzetbelasting" Klasse="form-control" /></div>
+                    <div class="col-md-6"><label class="form-label">Loonheffingen</label><RekeningKeuze @bind-Waarde="belasting.Loonheffingen" Schema="schema" Kader="geopend" Label="Rekening loonheffingen" Klasse="form-control" /></div>
+                    <div class="col-md-6"><label class="form-label">Vennootschapsbelasting</label><RekeningKeuze @bind-Waarde="belasting.Vennootschapsbelasting" Schema="schema" Kader="geopend" Label="Rekening vennootschapsbelasting" Klasse="form-control" /></div>
+                    <div class="col-md-6"><label class="form-label">Inkomstenbelasting</label><RekeningKeuze @bind-Waarde="belasting.Inkomstenbelasting" Schema="schema" Kader="geopend" Label="Rekening inkomstenbelasting" Klasse="form-control" /></div>
+                    <div class="col-12">
+                        <span class="form-check">
+                            <input class="form-check-input" type="checkbox" id="belasting-automatisch" @bind="belasting.Automatisch" />
+                            <label class="form-check-label" for="belasting-automatisch">Automatisch boeken bij een geldig betalingskenmerk</label>
+                        </span>
+                    </div>
+                </div>
+            </Formulierblok>
             <Formulierblok Titel="Verwerken">
                 <InstellingenVelden Invoer="instellingen" Kantoor="kantoor" />
             </Formulierblok>
@@ -49,6 +64,8 @@
     private Gegevens? gegevens;
     private InstellingenInvoer? instellingen;
     private Verwerkingsinstellingen? kantoor;
+    private Belastingformulier belasting = new();
+    private Boekhouding.Grootboek.Rekeningschema? schema;
     private IReadOnlyList<string>? fouten;
     private string? vorige;
     private bool opgeslagen;
@@ -74,12 +91,14 @@
         }
 
         instellingen = InstellingenInvoer.Van(i.Afwijkend);
+        belasting = Belastingformulier.Van(i.Belasting ?? Belastinginstellingen.Leeg);
+        schema = await Grootboek.Schema(g.Wie, Id);
         kantoor = i.Kantoor;
         vorige = Stand();
     }
 
     /// <summary>Alles wat in het formulier staat, om te zien of er iets is gewijzigd.</summary>
-    private string Stand() => System.Text.Json.JsonSerializer.Serialize(new object?[] { gegevens, instellingen });
+    private string Stand() => System.Text.Json.JsonSerializer.Serialize(new object?[] { gegevens, instellingen, belasting });
 
     private bool Gewijzigd => vorige is not null && Stand() != vorige;
 
@@ -102,13 +121,37 @@
         bezig = true;
         var uitkomst = await Inrichting.WijzigInstellingen(geopend!.Wie, Id,
             new Instellingen(gegevens!.Naam, gegevens.KvkNummer, gegevens.BtwNummer, [.. gegevens.Ibans.Split(',', ';')], afwijkend,
-                Contact: new Contactgegevens(gegevens.Straat, gegevens.Postcode, gegevens.Plaats, gegevens.Land, gegevens.Email, gegevens.Telefoon, gegevens.Website), BtwPlichtig: gegevens.BtwPlichtig));
+                Contact: new Contactgegevens(gegevens.Straat, gegevens.Postcode, gegevens.Plaats, gegevens.Land, gegevens.Email, gegevens.Telefoon, gegevens.Website), BtwPlichtig: gegevens.BtwPlichtig, Belasting: belasting.Naar()));
         bezig = false;
         (fouten, opgeslagen) = (uitkomst.Fouten, uitkomst.IsGelukt);
         if (uitkomst.IsGelukt)
         {
             vorige = Stand();
         }
+    }
+
+    private sealed class Belastingformulier
+    {
+        public string? Omzetbelasting { get; set; }
+
+        public string? Loonheffingen { get; set; }
+
+        public string? Vennootschapsbelasting { get; set; }
+
+        public string? Inkomstenbelasting { get; set; }
+
+        public bool Automatisch { get; set; }
+
+        public static Belastingformulier Van(Belastinginstellingen b) => new()
+        {
+            Omzetbelasting = b.Omzetbelasting,
+            Loonheffingen = b.Loonheffingen,
+            Vennootschapsbelasting = b.Vennootschapsbelasting,
+            Inkomstenbelasting = b.Inkomstenbelasting,
+            Automatisch = b.Automatisch,
+        };
+
+        public Belastinginstellingen Naar() => new(Omzetbelasting, Loonheffingen, Vennootschapsbelasting, Inkomstenbelasting, Automatisch);
     }
 
     private sealed class Gegevens

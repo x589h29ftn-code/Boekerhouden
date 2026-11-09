@@ -303,6 +303,9 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasPrecision(6, 2)
                         .HasColumnType("numeric(6,2)");
 
+                    b.Property<bool>("BelastingAutomatisch")
+                        .HasColumnType("boolean");
+
                     b.Property<decimal?>("Betaalverschil")
                         .HasColumnType("numeric");
 
@@ -370,6 +373,22 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("Postcode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("RekeningInkomstenbelasting")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("RekeningLoonheffingen")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("RekeningOmzetbelasting")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("RekeningVennootschapsbelasting")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 

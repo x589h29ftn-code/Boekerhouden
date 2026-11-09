@@ -295,6 +295,9 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasPrecision(6, 2)
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("BelastingAutomatisch")
+                        .HasColumnType("INTEGER");
+
                     b.Property<long?>("Betaalverschil")
                         .HasColumnType("INTEGER");
 
@@ -362,6 +365,22 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Postcode")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RekeningInkomstenbelasting")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RekeningLoonheffingen")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RekeningOmzetbelasting")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RekeningVennootschapsbelasting")
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
 

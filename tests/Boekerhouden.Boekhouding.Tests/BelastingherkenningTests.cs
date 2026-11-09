@@ -99,6 +99,17 @@ public sealed class BelastingherkenningTests
     }
 
     [Fact]
+    public void Een_vaste_rekening_gaat_voor_de_eigen_keuze()
+    {
+        var schema = new Rekeningschema(StandaardRekeningschema.Rekeningen(Ondernemingsvorm.BV));
+        var vast = new Dictionary<Belastingsoort, string> { [Belastingsoort.Omzetbelasting] = "1500", [Belastingsoort.Loonheffingen] = "9999" };
+
+        Assert.Equal("1500", Belastingherkenning.Herken(Betaling("btw"), schema, Ondernemingsvorm.BV, vast)?.Rekening?.Nummer);
+        // Een vaste rekening die niet (meer) bestaat: de eigen keuze.
+        Assert.Equal("1520", Belastingherkenning.Herken(Betaling("loonheffingen"), schema, Ondernemingsvorm.BV, vast)?.Rekening?.Nummer);
+    }
+
+    [Fact]
     public void Alleen_de_belastingdienst_en_alleen_met_een_soort()
     {
         var schema = new Rekeningschema(StandaardRekeningschema.Rekeningen(Ondernemingsvorm.BV));

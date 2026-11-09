@@ -248,7 +248,13 @@ eigen btw-code voor de regel (`InrichtingDienst.WijzigRegel`, `Verwerkingsregel.
   die er is (OVPA: 1820, 1735), anders de rekening met de functie of RGS-groep (te betalen btw, loonheffing,
   vennootschapsbelasting); inkomstenbelasting is privé: privé-opnamen bij een eenmanszaak, de rekening-courant met de
   directeur bij een BV. Alleen een voorstel (`Adviesbron.Herkend`, reden bijv. *Belastingdienst: loonheffingen augustus 2026, aanslag …*): boeken
-  doet de gebruiker, of een regel die hij ervan maakt.
+  doet de gebruiker. Onder *Instellingen → Belastingdienst* per administratie (`Belastinginstellingen`, gelogd):
+  een **vaste rekening** per belasting (omzetbelasting, loonheffingen, vennootschapsbelasting, inkomstenbelasting;
+  alleen balansrekeningen; leeg = het pakket kiest zoals hierboven, een rekening die niet meer bestaat ook) en
+  **Automatisch boeken bij een geldig betalingskenmerk**: dan boekt het pakket de betaling zelf bij het inlezen en
+  bij *Opnieuw herkennen*, maar alleen als het kenmerk een kloppend controlecijfer heeft (zonder kenmerk, of met een
+  typefout, blijft het een voorstel). Een regel of geleerde keuze gaat altijd voor; maak dus geen regel op het IBAN
+  van de Belastingdienst, want die zou alle belastingen op één rekening boeken.
 - **Handmatig inboeken** van een mutatie: op een openstaande post, op een grootboekrekening (met btw-code) of
   gesplitst over meerdere regels.
 - **Afletteren** (§3.8): wat zeker is, wordt automatisch geboekt. Wat waarschijnlijk is, staat klaar als
