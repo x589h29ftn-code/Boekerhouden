@@ -101,23 +101,49 @@ public sealed class BtwjaarTests
         var vastgelegd = new VastgelegdeAangifte(new(2026, 1, 1), new(2026, 3, 31), [], 21m, DateTimeOffset.UnixEpoch, "Bea");
         var jaar = Btwjaar.Maak(2026, Aangiftefrequentie.Kwartaal, Posten, Schema, Codes, [vastgelegd]);
 
-        var regels = Btwrondrekening.Maak(jaar, Posten, Schema, Codes).Jaaropstelling();
+        var rond = Btwrondrekening.Maak(jaar, Posten, Schema, Codes);
+        var regels = rond.Jaaropstelling();
         Jaaropstellingregel Regel(string tekst) => regels.First(r => r.Soort != Rondrekeningsoort.Kop && r.Omschrijving.StartsWith(tekst, StringComparison.Ordinal));
 
-        Assert.Equal((3000m, 630m), (Regel("Omzet hoog tarief").Omzet, Regel("Omzet hoog tarief").Btw));
-        Assert.Equal((3000m, 0m), (Regel("Netto-omzet").Omzet, Regel("Overige verschillen").Omzet));
-        Assert.Equal(21m, Regel("Voorbelasting").Omzet);
-        Assert.Equal(609m, Regel("Te betalen omzetbelasting").Btw);
+        Assert.Equal((3000m, 630m), (Regel("Omzet hoog tarief").Omzet!.Bedrag, Regel("Omzet hoog tarief").Btw!.Bedrag));
+        Assert.Equal((3000m, 0m), (Regel("Netto-omzet").Omzet!.Bedrag, Regel("Overige verschillen").Omzet!.Bedrag));
+        Assert.Equal(21m, Regel("Voorbelasting").Omzet!.Bedrag);
+        Assert.Equal(609m, Regel("Te betalen omzetbelasting").Btw!.Bedrag);
 
         // De afdrachten in de frequentie van de administratie: het 1e kwartaal aangegeven, het 2e nog niet.
-        Assert.Equal(-21m, Regel("1e kwartaal 2026").Omzet);
-        Assert.Null(Regel("2e kwartaal 2026 (nog niet aangegeven)").Omzet);
-        Assert.Equal((-21m, 420m), (Regel("Totaal aangegeven").Btw, Regel("Nog niet aangegeven").Btw));
-        Assert.Equal(("Suppletie omzetbelasting 2026: te betalen", 210m), (Regel("Suppletie").Omschrijving, Regel("Suppletie").Btw));
-        Assert.Equal(609m, Regel("Saldo btw-rekeningen").Btw);
+        Assert.Equal(-21m, Regel("1e kwartaal 2026").Omzet!.Bedrag);
+        Assert.Null(Regel("2e kwartaal 2026 (nog niet aangegeven)").Omzet!.Bedrag);
+        Assert.Equal((-21m, 420m), (Regel("Totaal aangegeven").Btw!.Bedrag, Regel("Nog niet aangegeven").Btw!.Bedrag));
+        Assert.Equal(("Suppletie omzetbelasting 2026: te betalen", 210m), (Regel("Suppletie omzetbelasting 2026").Omschrijving, Regel("Suppletie omzetbelasting 2026").Btw!.Bedrag));
+        Assert.Equal(609m, Regel("Saldo btw-rekeningen").Btw!.Bedrag);
+
+        // Totalen zijn niet aan te passen, ingevoerde bedragen wel.
+        Assert.Null(Regel("Te betalen omzetbelasting").Btw!.Sleutel);
+        Assert.Contains("1a.omzet", rond.Aanpasbaar);
+        Assert.Contains("afdracht.2026-04-01", rond.Aanpasbaar);
 
         var maanden = Btwrondrekening.Maak(Btwjaar.Maak(2026, Aangiftefrequentie.Maand, Posten, Schema, Codes, []), Posten, Schema, Codes).Jaaropstelling();
         Assert.Contains(maanden, r => r.Omschrijving == "februari 2026 (nog niet aangegeven)");
+    }
+
+    [Fact]
+    public void Jaaropstelling_met_de_hand_aangepast_rekent_de_totalen_opnieuw()
+    {
+        var jaar = Btwjaar.Maak(2026, Aangiftefrequentie.Kwartaal, Posten, Schema, Codes, []);
+        var rond = Btwrondrekening.Maak(jaar, Posten, Schema, Codes);
+
+        // 1a btw 10 hoger, nog te factureren omzet 500, en het 2e kwartaal buiten Sifer aangegeven.
+        var regels = rond.Jaaropstelling(new Dictionary<string, decimal> { ["1a.btw"] = 640m, ["tefactureren.omzet"] = 500m, ["afdracht.2026-04-01"] = 420m });
+        Jaaropstellingregel Regel(string tekst) => regels.First(r => r.Soort != Rondrekeningsoort.Kop && r.Omschrijving.StartsWith(tekst, StringComparison.Ordinal));
+
+        var btw = Regel("Omzet hoog tarief").Btw!;
+        Assert.Equal((640m, 630m, true), (btw.Bedrag, btw.Berekend, btw.IsAangepast));
+        Assert.Equal((619m, 640m), (Regel("Te betalen omzetbelasting").Btw!.Bedrag, Regel("Verschuldigde omzetbelasting").Btw!.Bedrag));
+        Assert.Equal(-500m, Regel("Overige verschillen").Omzet!.Bedrag);
+        Assert.Equal(3000m, Regel("Netto-omzet").Omzet!.Bedrag);
+        Assert.Equal("2e kwartaal 2026", Regel("2e kwartaal").Omschrijving);
+        Assert.Equal((420m, 189m), (Regel("Totaal aangegeven").Btw!.Bedrag, Regel("Nog niet aangegeven").Btw!.Bedrag));
+        Assert.Equal(10m, Regel("Suppletie omzetbelasting 2026").Btw!.Bedrag);
     }
 
     [Fact]

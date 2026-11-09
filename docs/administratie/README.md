@@ -125,7 +125,13 @@ samenstelpakket.
   privégebruik zijn geen omzet, de rest is *overige verschillen*), de inkoop uit het buitenland, 5a, de voorbelasting naar
   herkomst (gewoon, verlegd, invoer, binnen de EU) en 5c; onderin de afdrachten per maand of kwartaal zoals de
   administratie aangifte doet (een periode die nog niet is aangegeven staat erbij), de suppletie en de balanspost (saldo
-  van de btw-rekeningen per 31-12). **Per periode**: de rondrekening als matrix: de rubrieken van de aangifte (omzet, btw, 5a–5c) onder elkaar, de perioden naast elkaar (zoals
+  van de btw-rekeningen per 31-12). Elk ingevoerd bedrag (niet de totalen) is met de hand aan te passen: dubbelklikken (of
+  klikken als er geen boekingen achter zitten), Enter bewaart, Escape annuleert en leeg laten zet het terug op het
+  berekende bedrag. Een aangepast bedrag is gestippeld onderstreept, met het berekende bedrag in de tooltip; de totalen
+  rekenen ermee, *overige verschillen* sluit de omzet weer aan op het grootboek. Er zijn twee vrije regels (*mutatie te
+  factureren*, *diverse mutaties*) en een regel voor de suppletie van vorig jaar bij de voorbelasting; een afdracht die
+  buiten Sifer is aangegeven telt na invullen als aangegeven. Opgeslagen per jaar (`Btwaanpassingen`), gelogd, alleen
+  het kantoor. De PDF is staand (A4). **Per periode**: de rondrekening als matrix: de rubrieken van de aangifte (omzet, btw, 5a–5c) onder elkaar, de perioden naast elkaar (zoals
   aangegeven; een periode die nog niet is aangegeven grijs, volgens de boekingen), het totaal, het hele jaar volgens de
   administratie en de afwijking (wat nog in een suppletie hoort). Daaronder de aansluiting met het grootboek per periode:
   de omzet in de aangiften tegenover de omzetrekeningen (RGS-groep netto-omzet) en de btw tegenover wat er met een

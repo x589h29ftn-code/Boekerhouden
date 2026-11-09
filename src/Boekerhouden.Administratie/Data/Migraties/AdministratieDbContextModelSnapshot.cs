@@ -849,6 +849,45 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.ToTable("Boekingsregels", (string)null);
                 });
 
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Btwaanpassing", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Bedrag")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("GewijzigdDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("GewijzigdOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Jaar")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Sleutel")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdministratieId", "Jaar", "Sleutel")
+                        .IsUnique();
+
+                    b.ToTable("Btwaanpassingen", (string)null);
+                });
+
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Btwcodedefinitie", b =>
                 {
                     b.Property<string>("Code")

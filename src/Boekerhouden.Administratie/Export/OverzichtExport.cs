@@ -397,6 +397,11 @@ public static class OverzichtExport
     {
         ArgumentNullException.ThrowIfNull(tabel);
         var html = Begin(tabel.Titel, administratie, tabel.Van, tabel.Tot);
+        if (tabel.Staand)
+        {
+            html.Append("<style>@page { size: A4 portrait; margin: 14mm 14mm; } td, th { padding-top: 1.5pt; padding-bottom: 1.5pt; }</style>");
+        }
+
         var klein = tabel.Koppen.Count > 8 ? " style=\"font-size:7pt\"" : null;
         var nummers = tabel.Regels.Any(r => r.Nummer is not null);
         html.Append(CultureInfo.InvariantCulture, $"""<table{klein}><thead><tr>{(nummers ? "<th>Rekening</th>" : null)}<th style="width:{(tabel.Koppen.Count <= 3 ? 60 : nummers ? 24 : 30)}%">Omschrijving</th>""");

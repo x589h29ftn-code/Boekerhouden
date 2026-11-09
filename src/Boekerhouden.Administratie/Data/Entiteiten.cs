@@ -1146,3 +1146,22 @@ public sealed class IngediendeAangifte : IVanAdministratie
 
     public string VastgelegdDoor { get; set; } = string.Empty;
 }
+
+/// <summary>Een bedrag in de jaaropstelling omzetbelasting dat met de hand is aangepast (per jaar en sleutel).</summary>
+public sealed class Btwaanpassing : IVanAdministratie
+{
+    public long Id { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    public int Jaar { get; set; }
+
+    /// <summary>De sleutel van de cel, bijv. <c>1a.btw</c> of <c>afdracht.2026-04-01</c>.</summary>
+    public string Sleutel { get; set; } = string.Empty;
+
+    public decimal Bedrag { get; set; }
+
+    public DateTimeOffset GewijzigdOp { get; set; }
+
+    public string GewijzigdDoor { get; set; } = string.Empty;
+}

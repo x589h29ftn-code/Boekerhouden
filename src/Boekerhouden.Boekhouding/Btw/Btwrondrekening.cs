@@ -56,15 +56,18 @@ public sealed record Rondrekeningregel(
     decimal? Afwijking,
     Rondrekeningsleutel? Sleutel);
 
-/// <summary>Een regel van de jaaropstelling omzetbelasting: omzet (grondslag) en btw in twee kolommen, elk door te klikken.</summary>
-public sealed record Jaaropstellingregel(
-    Rondrekeningsoort Soort,
-    string? Code,
-    string Omschrijving,
-    decimal? Omzet,
-    decimal? Btw,
-    Rondrekeningsleutel? SleutelOmzet,
-    Rondrekeningsleutel? SleutelBtw);
+/// <summary>Een regel van de jaaropstelling omzetbelasting: omzet (grondslag) en btw in twee kolommen.</summary>
+public sealed record Jaaropstellingregel(Rondrekeningsoort Soort, string? Code, string Omschrijving, Jaaropstellingcel? Omzet, Jaaropstellingcel? Btw);
+
+/// <summary>
+/// Een bedrag in de jaaropstelling. <paramref name="Bron"/>: door te klikken naar de boekingen. <paramref name="Sleutel"/>:
+/// met de hand aan te passen (de totalen niet). <paramref name="Berekend"/>: het bedrag volgens de administratie als het
+/// met de hand is aangepast, anders leeg.
+/// </summary>
+public sealed record Jaaropstellingcel(decimal? Bedrag, Rondrekeningsleutel? Bron = null, string? Sleutel = null, decimal? Berekend = null)
+{
+    public bool IsAangepast => Berekend is not null;
+}
 
 /// <summary>Een boekingsregel achter een getal van de rondrekening, met het teken van dat getal.</summary>
 public sealed record Rondrekeningbronregel(Journaalpost Post, Journaalregel Regel, decimal Bedrag);
@@ -137,98 +140,132 @@ public sealed class Btwrondrekening
     /// De jaaropstelling omzetbelasting: het jaar volgens de administratie onder elkaar met omzet en btw in twee
     /// kolommen; de omzet aangesloten op de netto-omzet in de winst-en-verliesrekening, de voorbelasting naar herkomst,
     /// de afdrachten per periode (maand of kwartaal, zoals de administratie aangifte doet) en wat er overblijft: de suppletie.
+    /// Elk ingevoerd getal (niet de totalen) is met de hand aan te passen; <paramref name="aanpassingen"/> per
+    /// <see cref="Jaaropstellingcel.Sleutel"/>. De totalen rekenen met de aangepaste bedragen.
     /// </summary>
-    public IReadOnlyList<Jaaropstellingregel> Jaaropstelling()
+    public IReadOnlyList<Jaaropstellingregel> Jaaropstelling(IReadOnlyDictionary<string, decimal>? aanpassingen = null)
     {
+        aanpassingen ??= new Dictionary<string, decimal>();
         var j = Jaar.Jaaraangifte;
         var (van, tot) = (new DateOnly(Jaar.Jaar, 1, 1), new DateOnly(Jaar.Jaar, 12, 31));
         var regels = new List<Jaaropstellingregel>();
-        void Kop(string tekst) => regels.Add(new(Rondrekeningsoort.Kop, null, tekst, null, null, null, null));
-        void Rubriek(string code, string tekst, bool metBtw = true) => regels.Add(new(Rondrekeningsoort.Regel, code, tekst, j.Rubriek(code).Grondslag,
-            metBtw ? j.Rubriek(code).Btw : null, new(Rondrekeningbron.Rubriek, code, Btwpost.Grondslag), metBtw ? new(Rondrekeningbron.Rubriek, code, Btwpost.Btw) : null));
 
-        Kop("Omzet");
-        Rubriek("1a", "Omzet hoog tarief");
-        Rubriek("1b", "Omzet laag tarief");
-        Rubriek("1c", "Omzet overige tarieven");
-        Rubriek("1d", "Privégebruik");
-        Rubriek("1e", "Omzet nultarief of niet bij u belast", metBtw: false);
-        Kop("Verleggingsregeling");
-        Rubriek("2a", "Inkoop heffing verlegd");
-        Kop("Omzet naar het buitenland");
-        Rubriek("3a", "Omzet buiten de EU (uitvoer)", metBtw: false);
-        Rubriek("3b", "Omzet binnen de EU", metBtw: false);
-        Rubriek("3c", "Installatie/afstandsverkopen binnen de EU", metBtw: false);
-
-        // De omzet uit de rubrieken aansluiten op de netto-omzet in het grootboek.
-        var rubrieken = Btwaangifte.Volgorde.Take(9).Sum(r => j.Rubriek(r).Grondslag);
-        var grootboek = Grootboek(Rondrekeningbron.OmzetGrootboek, van, tot);
-        var overig = grootboek - rubrieken + j.Rubriek("2a").Grondslag + j.Rubriek("1d").Grondslag;
-        Kop("Overige mutaties");
-        regels.Add(new(Rondrekeningsoort.Regel, null, "Inkoop verlegd is geen omzet", -j.Rubriek("2a").Grondslag, null, null, null));
-        regels.Add(new(Rondrekeningsoort.Regel, null, "Privégebruik is geen omzet", -j.Rubriek("1d").Grondslag, null, null, null));
-        regels.Add(new(Rondrekeningsoort.Regel, null, "Overige verschillen (omzet zonder btw-code, te factureren e.d.)", overig, null, null, null));
-        regels.Add(new(Rondrekeningsoort.Subtotaal, null, "Netto-omzet volgens de winst-en-verliesrekening", grootboek, null, new(Rondrekeningbron.OmzetGrootboek), null));
-
-        Kop("Inkoop vanuit het buitenland");
-        Rubriek("4a", "Inkoop van buiten de EU (invoer)");
-        Rubriek("4b", "Inkoop van binnen de EU");
-        regels.Add(new(Rondrekeningsoort.Subtotaal, "5a", "Verschuldigde omzetbelasting", null, j.Verschuldigd, null, new(Rondrekeningbron.Verschuldigd)));
-
-        Kop("Voorbelasting");
-        var voorbelasting = Btwaangifte.Bijdragen(posten, schema, codes, van, tot).Where(b => b.Soort == Btwpost.Voorbelasting).ToList();
-        foreach (var (herkomst, tekst) in new (string?, string)[]
+        // Een cel die met de hand is aan te passen: het berekende bedrag, of het aangepaste.
+        Jaaropstellingcel Cel(string sleutel, decimal? berekend, Rondrekeningsleutel? bron = null) =>
+            aanpassingen.TryGetValue(sleutel, out var bedrag) ? new(bedrag, bron, sleutel, berekend ?? 0m) : new(berekend, bron, sleutel);
+        static Jaaropstellingcel Vast(decimal? bedrag, Rondrekeningsleutel? bron = null) => new(bedrag, bron);
+        void Kop(string tekst) => regels.Add(new(Rondrekeningsoort.Kop, null, tekst, null, null));
+        void Regel(Rondrekeningsoort soort, string? code, string tekst, Jaaropstellingcel? omzet, Jaaropstellingcel? btw) =>
+            regels.Add(new(soort, code, tekst, omzet, btw));
+        (Jaaropstellingcel Omzet, Jaaropstellingcel? Btw) Rubriek(string code, string tekst, bool metBtw = true)
         {
-            (null, "Voorbelasting"), ("2a", "Inkoop heffing verlegd"), ("4a", "Inkoop van buiten de EU (invoer)"), ("4b", "Inkoop van binnen de EU"),
-        })
-        {
-            var bedrag = voorbelasting.Where(b => Herkomst(b) == herkomst).Sum(b => b.Bedrag);
-            if (herkomst is null || bedrag != 0)
-            {
-                regels.Add(new(Rondrekeningsoort.Regel, "5b", tekst, bedrag, null, new(Rondrekeningbron.VoorbelastingVan, herkomst), null));
-            }
+            var omzet = Cel($"{code}.omzet", j.Rubriek(code).Grondslag, new(Rondrekeningbron.Rubriek, code, Btwpost.Grondslag));
+            var btw = metBtw ? Cel($"{code}.btw", j.Rubriek(code).Btw, new(Rondrekeningbron.Rubriek, code, Btwpost.Btw)) : null;
+            Regel(Rondrekeningsoort.Regel, code, tekst, omzet, btw);
+            return (omzet, btw);
         }
 
-        regels.Add(new(Rondrekeningsoort.Subtotaal, "5b", "Totaal voorbelasting", null, j.Voorbelasting, null, new(Rondrekeningbron.Voorbelasting)));
-        regels.Add(new(Rondrekeningsoort.Totaal, "5c", j.TeBetalen >= 0 ? "Te betalen omzetbelasting" : "Terug te vragen omzetbelasting", null, j.TeBetalen, null, new(Rondrekeningbron.TeBetalen)));
+        var cellen = new Dictionary<string, (Jaaropstellingcel Omzet, Jaaropstellingcel? Btw)>(StringComparer.Ordinal);
+        Kop("Omzet");
+        cellen["1a"] = Rubriek("1a", "Omzet hoog tarief");
+        cellen["1b"] = Rubriek("1b", "Omzet laag tarief");
+        cellen["1c"] = Rubriek("1c", "Omzet overige tarieven");
+        cellen["1d"] = Rubriek("1d", "Privégebruik");
+        cellen["1e"] = Rubriek("1e", "Omzet nultarief of niet bij u belast", metBtw: false);
+        Kop("Verleggingsregeling");
+        cellen["2a"] = Rubriek("2a", "Inkoop heffing verlegd");
+        Kop("Omzet naar het buitenland");
+        cellen["3a"] = Rubriek("3a", "Omzet buiten de EU (uitvoer)", metBtw: false);
+        cellen["3b"] = Rubriek("3b", "Omzet binnen de EU", metBtw: false);
+        cellen["3c"] = Rubriek("3c", "Installatie/afstandsverkopen binnen de EU", metBtw: false);
 
-        // De afdrachten: wat per periode is aangegeven, in de frequentie van de administratie.
+        // De omzet uit de rubrieken aansluiten op de netto-omzet in het grootboek; wat overblijft zijn de overige verschillen.
+        decimal Omzet(string code) => cellen[code].Omzet.Bedrag ?? 0m;
+        var grootboek = Grootboek(Rondrekeningbron.OmzetGrootboek, van, tot);
+        Kop("Overige mutaties");
+        var geenOmzet = new[] { Vast(-Omzet("2a")), Vast(-Omzet("1d")) };
+        Regel(Rondrekeningsoort.Regel, null, "Inkoop verlegd is geen omzet", geenOmzet[0], null);
+        Regel(Rondrekeningsoort.Regel, null, "Privégebruik is geen omzet", geenOmzet[1], null);
+        var handmatig = new[] { Cel("tefactureren.omzet", null), Cel("divers.omzet", null) };
+        Regel(Rondrekeningsoort.Regel, null, "Mutatie te factureren", handmatig[0], null);
+        Regel(Rondrekeningsoort.Regel, null, "Diverse mutaties", handmatig[1], null);
+        var gerekend = cellen.Values.Sum(c => c.Omzet.Bedrag ?? 0m) + geenOmzet.Sum(c => c.Bedrag ?? 0m) + handmatig.Sum(c => c.Bedrag ?? 0m);
+        Regel(Rondrekeningsoort.Regel, null, "Overige verschillen", Vast(grootboek - gerekend), null);
+        Regel(Rondrekeningsoort.Subtotaal, null, "Netto-omzet volgens de winst-en-verliesrekening", Vast(grootboek, new(Rondrekeningbron.OmzetGrootboek)), null);
+
+        Kop("Inkoop vanuit het buitenland");
+        cellen["4a"] = Rubriek("4a", "Inkoop van buiten de EU (invoer)");
+        cellen["4b"] = Rubriek("4b", "Inkoop van binnen de EU");
+        var verschuldigd = cellen.Values.Sum(c => c.Btw?.Bedrag ?? 0m);
+        Regel(Rondrekeningsoort.Subtotaal, "5a", "Verschuldigde omzetbelasting", null, Vast(verschuldigd, new(Rondrekeningbron.Verschuldigd)));
+
+        Kop("Voorbelasting");
+        var bijdragen = Btwaangifte.Bijdragen(posten, schema, codes, van, tot).Where(b => b.Soort == Btwpost.Voorbelasting).ToList();
+        var voorbelasting = new List<Jaaropstellingcel>();
+        foreach (var (herkomst, sleutel, tekst) in new (string?, string, string)[]
+        {
+            (null, "5b", "Voorbelasting"), (null, "5b.suppletie", "Suppletie omzetbelasting vorig jaar"), ("2a", "5b.2a", "Inkoop heffing verlegd"),
+            ("4a", "5b.4a", "Inkoop van buiten de EU (invoer)"), ("4b", "5b.4b", "Inkoop van binnen de EU"),
+        })
+        {
+            var berekend = sleutel == "5b.suppletie" ? (decimal?)null : bijdragen.Where(b => Herkomst(b) == herkomst).Sum(b => b.Bedrag);
+            var cel = Cel(sleutel, berekend, berekend is null ? null : new(Rondrekeningbron.VoorbelastingVan, herkomst));
+            voorbelasting.Add(cel);
+            Regel(Rondrekeningsoort.Regel, "5b", tekst, cel, null);
+        }
+
+        var totaalVoorbelasting = voorbelasting.Sum(c => c.Bedrag ?? 0m);
+        var teBetalen = verschuldigd - totaalVoorbelasting;
+        Regel(Rondrekeningsoort.Subtotaal, "5b", "Totaal voorbelasting", null, Vast(totaalVoorbelasting, new(Rondrekeningbron.Voorbelasting)));
+        Regel(Rondrekeningsoort.Totaal, "5c", teBetalen >= 0 ? "Te betalen omzetbelasting" : "Terug te vragen omzetbelasting", null, Vast(teBetalen, new(Rondrekeningbron.TeBetalen)));
+
+        // De afdrachten: wat per periode is aangegeven, in de frequentie van de administratie. Een periode die nog niet is
+        // vastgelegd maar met de hand een bedrag heeft, telt als aangegeven.
         Kop("Afdrachten omzetbelasting");
         var vastgelegd = Jaar.Vastgelegd.ToList();
+        var aangegeven = 0m;
+        var nietAangegeven = 0m;
         foreach (var p in Perioden)
         {
             vastgelegd.Remove(p.Vastgelegd!);
-            regels.Add(new(Rondrekeningsoort.Regel, null, p.Vastgelegd is null ? $"{p.Periode.Naam} (nog niet aangegeven)" : p.Periode.Naam,
-                p.Vastgelegd is null ? null : p.Vastgelegd.TeBetalen, null, null, null));
+            var cel = Cel($"afdracht.{p.Periode.Van:yyyy-MM-dd}", p.Vastgelegd?.TeBetalen);
+            var open = cel.Bedrag is null;
+            Regel(Rondrekeningsoort.Regel, null, open ? $"{p.Periode.Naam} (nog niet aangegeven)" : p.Periode.Naam, cel, null);
+            aangegeven += cel.Bedrag ?? 0m;
+            nietAangegeven += open ? p.Berekend.TeBetalen : 0m;
         }
 
         // Aangegeven in een andere frequentie (de frequentie is in het jaar gewijzigd).
         foreach (var v in vastgelegd.OrderBy(v => v.Van))
         {
-            regels.Add(new(Rondrekeningsoort.Regel, null, $"{v.Van:dd-MM-yyyy} t/m {v.Tot:dd-MM-yyyy}", v.TeBetalen, null, null, null));
+            Regel(Rondrekeningsoort.Regel, null, $"{v.Van:dd-MM-yyyy} t/m {v.Tot:dd-MM-yyyy}", Vast(v.TeBetalen), null);
+            aangegeven += v.TeBetalen;
         }
 
-        regels.Add(new(Rondrekeningsoort.Subtotaal, null, "Totaal aangegeven", null, Jaar.Aangegeven, null, null));
-        if (Jaar.NietAangegeven != 0)
+        Regel(Rondrekeningsoort.Subtotaal, null, "Totaal aangegeven", null, Vast(aangegeven));
+        if (nietAangegeven != 0)
         {
-            regels.Add(new(Rondrekeningsoort.Regel, null, "Nog niet aangegeven", null, Jaar.NietAangegeven, null, null));
+            Regel(Rondrekeningsoort.Regel, null, "Nog niet aangegeven", null, Vast(nietAangegeven));
         }
 
-        var suppletie = j.TeBetalen - Jaar.Aangegeven - Jaar.NietAangegeven;
-        regels.Add(new(Rondrekeningsoort.Totaal, null, $"Suppletie omzetbelasting {Jaar.Jaar}: {suppletie switch { > 0 => "te betalen", < 0 => "terug te vragen", _ => "geen" }}",
-            null, Math.Abs(suppletie), null, null));
+        var suppletie = teBetalen - aangegeven - nietAangegeven;
+        Regel(Rondrekeningsoort.Totaal, null, $"Suppletie omzetbelasting {Jaar.Jaar}: {suppletie switch { > 0 => "te betalen", < 0 => "terug te vragen", _ => "geen" }}",
+            null, Vast(Math.Abs(suppletie)));
 
         // De balanspost: het saldo van de btw-rekeningen aan het eind van het jaar (een schuld positief).
         var balans = Btwaansluiting.Bereken(posten, schema, codes, van, tot);
         Kop($"Balanspost omzetbelasting per {tot:dd-MM-yyyy}");
-        regels.Add(new(Rondrekeningsoort.Regel, null, "Saldo btw-rekeningen volgens het grootboek", null, balans.Saldo, null, null));
+        Regel(Rondrekeningsoort.Regel, null, "Saldo btw-rekeningen volgens het grootboek", null, Vast(balans.Saldo));
         if (balans.Verschil != 0)
         {
-            regels.Add(new(Rondrekeningsoort.Regel, null, "Waarvan niet uit aangiften of betalingen", null, balans.Verschil, null, null));
+            Regel(Rondrekeningsoort.Regel, null, "Waarvan niet uit aangiften of betalingen", null, Vast(balans.Verschil));
         }
 
         return regels;
     }
+
+    /// <summary>Alle sleutels van de jaaropstelling die met de hand zijn aan te passen.</summary>
+    public IEnumerable<string> Aanpasbaar => Jaaropstelling().SelectMany(r => new[] { r.Omzet, r.Btw }).Where(c => c?.Sleutel is not null).Select(c => c!.Sleutel!);
 
     private static string? Herkomst(Btwbijdrage b) => b.Herkomst is "2a" or "4a" or "4b" ? b.Herkomst : null;
 

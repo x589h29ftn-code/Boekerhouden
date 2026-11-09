@@ -835,6 +835,43 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.ToTable("Boekingsregels", (string)null);
                 });
 
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Btwaanpassing", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Bedrag")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("GewijzigdDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("GewijzigdOp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Jaar")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Sleutel")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdministratieId", "Jaar", "Sleutel")
+                        .IsUnique();
+
+                    b.ToTable("Btwaanpassingen", (string)null);
+                });
+
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Btwcodedefinitie", b =>
                 {
                     b.Property<string>("Code")

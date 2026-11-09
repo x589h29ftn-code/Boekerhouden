@@ -80,6 +80,7 @@ public static class AuditActies
     public const string BtwaangifteVastgelegd = "Btw-aangifte vastgelegd";
     public const string BtwaangifteIngetrokken = "Btw-aangifte ingetrokken";
     public const string BtwfrequentieGewijzigd = "Btw-frequentie gewijzigd";
+    public const string BtwjaaropstellingAangepast = "Btw-jaaropstelling aangepast";
     public const string RegelVerplaatst = "Regel verplaatst";
     public const string InstellingenGewijzigd = "Instellingen gewijzigd";
 

@@ -1711,3 +1711,13 @@ a.kerngetal:hover { color: var(--bh-accent); }
 .herzieningen .herziening:hover .regelactie, .herzieningen .herziening:focus-within .regelactie {
     opacity: 1;
 }
+
+/* Jaaropstelling omzetbelasting: een met de hand aangepast bedrag, en het invoerveld. */
+.btw-jaaropstelling .aangepast {
+    border-bottom: 1px dotted currentColor;
+}
+
+.btw-jaaropstelling .jaaropstelling-invoer {
+    width: 8rem;
+    margin-left: auto;
+}

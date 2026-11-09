@@ -35,7 +35,7 @@
                         <tr><th style="width:3rem"></th><th></th><th class="text-end" style="width:9rem">Omzet</th><th class="text-end" style="width:9rem">Btw</th></tr>
                     </thead>
                     <tbody>
-                        @foreach (var r in opstelling.Jaaropstelling())
+                        @foreach (var r in stand.Jaaropstelling)
                         {
                             var regel = r;
                             @if (r.Soort == Rondrekeningsoort.Kop)
@@ -47,18 +47,8 @@
                             <tr class="@(r.Soort switch { Rondrekeningsoort.Subtotaal => "indeling-subtotaal", Rondrekeningsoort.Totaal => "indeling-subtotaal fw-semibold", _ => null })">
                                 <td class="text-secondary">@r.Code</td>
                                 <td>@r.Omschrijving</td>
-                                @foreach (var (bedrag, sleutel) in new[] { (r.Omzet, r.SleutelOmzet), (r.Btw, r.SleutelBtw) })
-                                {
-                                    var k = sleutel;
-                                    @if (k is not null && bedrag is not null and not 0)
-                                    {
-                                        <td class="bedrag text-end klikbaar" title="De boekingen van @jaar" @onclick="() => Toon(regel.Code, regel.Omschrijving, k)">@Getal(bedrag)</td>
-                                    }
-                                    else
-                                    {
-                                        <td class="bedrag text-end">@Getal(bedrag)</td>
-                                    }
-                                }
+                                @Celweergave(regel, r.Omzet)
+                                @Celweergave(regel, r.Btw)
                             </tr>
                         }
                     </tbody>
@@ -148,6 +138,10 @@
     private Dictionary<string, string> namen = new(StringComparer.Ordinal);
     private (string? Code, string Omschrijving, string Wanneer, IReadOnlyList<Rondrekeningbronregel> Regels)? bron;
     private bool perPeriode;
+    private string? bewerk;
+    private string invoer = "";
+    private bool focus;
+    private ElementReference invoerveld;
     private bool bezig;
     private IReadOnlyList<string>? fouten;
 
@@ -159,6 +153,96 @@
 
     [SupplyParameterFromQuery(Name = "weergave")]
     public string? Weergavekeuze { get; set; }
+
+    /// <summary>
+    /// Een bedrag van de jaaropstelling: klikken toont de boekingen erachter, dubbelklikken (of klikken als er geen
+    /// boekingen achter zitten) past het met de hand aan. Leeg laten zet het terug op het berekende bedrag.
+    /// </summary>
+    private RenderFragment Celweergave(Jaaropstellingregel regel, Jaaropstellingcel? cel) => __builder =>
+    {
+        var mag = geopend?.Kop.Mag(Recht.Boekhouden) == true && cel?.Sleutel is not null;
+        if (cel?.Sleutel is { } sleutel && sleutel == bewerk)
+        {
+            <td class="bedrag text-end py-0">
+                <input @ref="invoerveld" class="form-control form-control-sm text-end jaaropstelling-invoer" aria-label="Bedrag" placeholder="@Getal(cel.Berekend ?? cel.Bedrag)"
+                       @bind="invoer" @bind:event="oninput" @onkeydown="Toets" @onblur="Opslaan" />
+            </td>
+            return;
+        }
+
+        var bron = cel?.Bron is { } b && cel.Bedrag is not null and not 0 ? b : null;
+        var titel = string.Join("; ", new[]
+        {
+            bron is null ? null : $"De boekingen van {jaar}",
+            mag ? (bron is null ? "Klik om aan te passen" : "Dubbelklik om aan te passen") : null,
+            cel?.Berekend is { } berekend ? $"Met de hand aangepast; volgens de administratie {Weergave.Bedrag(berekend)}" : null,
+        }.Where(t => t is not null));
+        <td class="bedrag text-end @(bron is not null || mag ? "klikbaar" : null)" title="@(titel.Length == 0 ? null : titel)"
+            @onclick="() => { if (bron is not null) Toon(regel.Code, regel.Omschrijving, bron); else if (mag) Bewerk(cel!); }"
+            @ondblclick="() => { if (mag) Bewerk(cel!); }">
+            @if (cel?.IsAangepast == true)
+            {
+                <span class="aangepast">@(Getal(cel.Bedrag) ?? "0,00")</span>
+            }
+            else
+            {
+                @Getal(cel?.Bedrag)
+            }
+        </td>
+    };
+
+    private void Bewerk(Jaaropstellingcel cel)
+    {
+        (bewerk, invoer, focus) = (cel.Sleutel, cel.IsAangepast && cel.Bedrag is { } b ? Bedragen.Getal(b) : "", true);
+        bron = null;
+    }
+
+    private async Task Toets(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await Opslaan();
+        }
+        else if (e.Key == "Escape")
+        {
+            bewerk = null;
+        }
+    }
+
+    /// <summary>Het ingevoerde bedrag bewaren; leeg = terug naar het berekende bedrag.</summary>
+    private async Task Opslaan()
+    {
+        if (bewerk is not { } sleutel)
+        {
+            return;
+        }
+
+        bewerk = null;
+        decimal? bedrag = null;
+        if (!string.IsNullOrWhiteSpace(invoer))
+        {
+            if (!BedragParser.TryParse(invoer, out var b))
+            {
+                fouten = [$"{invoer} is geen bedrag."];
+                return;
+            }
+
+            bedrag = b;
+        }
+
+        var uitkomst = await Btw.PasAan(geopend!.Wie, Id, jaar, sleutel, bedrag);
+        fouten = uitkomst.IsGelukt ? null : uitkomst.Fouten;
+        stand = await Btw.Jaar(geopend.Wie, Id, jaar);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (focus && bewerk is not null)
+        {
+            focus = false;
+            await invoerveld.FocusAsync();
+        }
+    }
 
     private RenderFragment Bronlijst() => __builder =>
     {
@@ -241,9 +325,9 @@
     {
         if (!perPeriode)
         {
-            var opstelling = stand!.Rondrekening.Jaaropstelling().Select(r => new Exportregel(Soort(r.Soort), null,
-                r.Code is null ? r.Omschrijving : $"{r.Code} {r.Omschrijving}", 0, r.Soort == Rondrekeningsoort.Kop ? [] : [r.Omzet, r.Btw])).ToList();
-            return new Exporttabel($"Jaaropstelling omzetbelasting {jaar}", new DateOnly(jaar, 1, 1), new DateOnly(jaar, 12, 31), ["Omzet", "Btw"], opstelling);
+            var opstelling = stand!.Jaaropstelling.Select(r => new Exportregel(Soort(r.Soort), null,
+                r.Code is null ? r.Omschrijving : $"{r.Code} {r.Omschrijving}", 0, r.Soort == Rondrekeningsoort.Kop ? [] : [r.Omzet?.Bedrag, r.Btw?.Bedrag])).ToList();
+            return new Exporttabel($"Jaaropstelling omzetbelasting {jaar}", new DateOnly(jaar, 1, 1), new DateOnly(jaar, 12, 31), ["Omzet", "Btw"], opstelling) { Staand = true };
         }
 
         var rond = stand!.Rondrekening;

@@ -68,4 +68,32 @@ public sealed class BtwaangifteTests(AdministratieFixture app) : IClassFixture<A
         var buiten = await app.Gebruiker("Buiten Btw");
         await Assert.ThrowsAsync<GeenToegangException>(() => dienst.Jaar(buiten, id, 2026));
     }
+
+    [Fact]
+    public async Task Jaaropstelling_met_de_hand_aanpassen_en_terugzetten_alleen_het_kantoor()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Btw Aanpassen B.V.");
+        var dienst = app.Dienst<BtwaangifteDienst>();
+        Assert.True((await app.Dienst<GrootboekDienst>().Boek(wie, id, Verkoop("2026-0001", new(2026, 2, 1), 1000m))).IsGelukt);
+        static decimal? Btw(Btwstandjaar s, string tekst) => s.Jaaropstelling.First(r => r.Omschrijving.StartsWith(tekst, StringComparison.Ordinal) && r.Soort != Rondrekeningsoort.Kop).Btw?.Bedrag;
+
+        // Het 1e kwartaal is buiten Sifer aangegeven: met de hand 210 als afdracht.
+        Assert.True((await dienst.PasAan(wie, id, 2026, "afdracht.2026-01-01", 210m)).IsGelukt);
+        var na = await dienst.Jaar(wie, id, 2026);
+        Assert.Equal(210m, na.Aanpassingen["afdracht.2026-01-01"]);
+        Assert.Equal((210m, 0m), (Btw(na, "Totaal aangegeven"), Btw(na, "Suppletie omzetbelasting 2026")));
+        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.BtwjaaropstellingAangepast && r.Details == "berekend → 210.00");
+
+        // Een totaal is niet aan te passen; leeg zet terug.
+        Assert.False((await dienst.PasAan(wie, id, 2026, "5c", 1m)).IsGelukt);
+        Assert.True((await dienst.PasAan(wie, id, 2026, "afdracht.2026-01-01", null)).IsGelukt);
+        Assert.Empty((await dienst.Jaar(wie, id, 2026)).Aanpassingen);
+
+        var ondernemer = await app.Gebruiker("Otto Aanpassen");
+        await app.Dienst<AdministratieDienst>().ZetLid(id, ondernemer.Id!.Value, Lidmaatschapsrol.Ondernemer, wie);
+        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.PasAan(ondernemer, id, 2026, "1a.btw", 1m));
+        var buiten = await app.Gebruiker("Buiten Aanpassen");
+        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.PasAan(buiten, id, 2026, "1a.btw", 1m));
+    }
 }

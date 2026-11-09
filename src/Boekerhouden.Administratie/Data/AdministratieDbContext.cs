@@ -80,6 +80,8 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
 
     public DbSet<IngediendeAangifte> IngediendeAangiften => Set<IngediendeAangifte>();
 
+    public DbSet<Btwaanpassing> Btwaanpassingen => Set<Btwaanpassing>();
+
     public DbSet<Dashboardindeling> Dashboardindelingen => Set<Dashboardindeling>();
 
     public DbSet<Activum> Activa => Set<Activum>();
@@ -359,6 +361,15 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(a => a.VastgelegdDoor).HasMaxLength(200);
         });
 
+        builder.Entity<Btwaanpassing>(e =>
+        {
+            e.ToTable("Btwaanpassingen");
+            e.HasIndex(a => new { a.AdministratieId, a.Jaar, a.Sleutel }).IsUnique();
+            e.Property(a => a.Sleutel).HasMaxLength(50);
+            e.Property(a => a.Bedrag).HasPrecision(18, 2);
+            e.Property(a => a.GewijzigdDoor).HasMaxLength(200);
+        });
+
         builder.Entity<Concept>(e =>
         {
             e.ToTable("Concepten");
@@ -580,6 +591,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
         builder.Entity<Zoekplek>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Concept>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<IngediendeAangifte>().HasQueryFilter(e => e.AdministratieId == Geopend);
+        builder.Entity<Btwaanpassing>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Automatiseringsregel>().HasQueryFilter(e => e.AdministratieId == Geopend);
     }
 

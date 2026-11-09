@@ -17,4 +17,8 @@ public sealed record Exportregel(Exportsoort Soort, string? Nummer, string Tekst
 /// Een overzicht precies zoals het op het scherm staat (bijv. de kolommenbalans per maand of ingedeeld naar RGS), om
 /// als Excel of PDF te bewaren: titel, periode, kolomkoppen na rekening en omschrijving, en de regels.
 /// </summary>
-public sealed record Exporttabel(string Titel, DateOnly Van, DateOnly Tot, IReadOnlyList<string> Koppen, IReadOnlyList<Exportregel> Regels);
+public sealed record Exporttabel(string Titel, DateOnly Van, DateOnly Tot, IReadOnlyList<string> Koppen, IReadOnlyList<Exportregel> Regels)
+{
+    /// <summary>De PDF staand (A4 portrait) in plaats van liggend, voor een smal overzicht.</summary>
+    public bool Staand { get; init; }
+}

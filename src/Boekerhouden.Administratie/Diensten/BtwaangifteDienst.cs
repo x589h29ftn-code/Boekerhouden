@@ -6,7 +6,12 @@ using Microsoft.EntityFrameworkCore;
 namespace Boekerhouden.Administratie.Diensten;
 
 /// <summary>De btw van een jaar: de perioden met hun aangifte, wat is vastgelegd, de aansluiting en de rondrekening.</summary>
-public sealed record Btwstandjaar(Btwjaar Jaar, IReadOnlyList<Btwaansluiting> Aansluitingen, Btwrondrekening Rondrekening);
+/// <param name="Aanpassingen">De met de hand aangepaste bedragen van de jaaropstelling, per sleutel.</param>
+public sealed record Btwstandjaar(Btwjaar Jaar, IReadOnlyList<Btwaansluiting> Aansluitingen, Btwrondrekening Rondrekening, IReadOnlyDictionary<string, decimal> Aanpassingen)
+{
+    /// <summary>De jaaropstelling omzetbelasting met de aangepaste bedragen.</summary>
+    public IReadOnlyList<Jaaropstellingregel> Jaaropstelling => Rondrekening.Jaaropstelling(Aanpassingen);
+}
 
 /// <summary>
 /// De btw-aangifte: per periode (maand, kwartaal of jaar, in te stellen per administratie) wat de boekingen met hun
@@ -50,7 +55,56 @@ public sealed class BtwaangifteDienst(Toegang toegang, GrootboekDienst grootboek
         var (posten, schema) = await grootboek.JournaalMetSchema(wie, administratie, begin, eind);
         var btwjaar = Btwjaar.Maak(jaar, frequentie, posten, schema, codes, vastgelegd);
         var aansluitingen = btwjaar.Perioden.Select(p => Btwaansluiting.Bereken(posten, schema, codes, begin, p.Periode.Tot)).ToList();
-        return new Btwstandjaar(btwjaar, aansluitingen, Btwrondrekening.Maak(btwjaar, posten, schema, codes));
+        var aanpassingen = await db.Btwaanpassingen.AsNoTracking().Where(a => a.Jaar == jaar).ToDictionaryAsync(a => a.Sleutel, a => a.Bedrag, StringComparer.Ordinal);
+        return new Btwstandjaar(btwjaar, aansluitingen, Btwrondrekening.Maak(btwjaar, posten, schema, codes), aanpassingen);
+    }
+
+    /// <summary>
+    /// Een bedrag in de jaaropstelling met de hand aanpassen, of met <paramref name="bedrag"/> leeg terug naar het
+    /// berekende bedrag. Alleen het kantoor; alleen bedragen die geen totaal zijn.
+    /// </summary>
+    public async Task<Uitkomst> PasAan(Uitvoerder wie, Guid administratie, int jaar, string sleutel, decimal? bedrag)
+    {
+        ArgumentNullException.ThrowIfNull(sleutel);
+        await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
+        var stand = await Jaar(wie, administratie, jaar);
+        if (!stand.Rondrekening.Aanpasbaar.Contains(sleutel, StringComparer.Ordinal))
+        {
+            return Uitkomst.Mislukt("Dit bedrag is niet aan te passen.");
+        }
+
+        var oud = await db.Btwaanpassingen.FirstOrDefaultAsync(a => a.Jaar == jaar && a.Sleutel == sleutel);
+        var vorig = oud?.Bedrag;
+        if (bedrag is null)
+        {
+            if (oud is null)
+            {
+                return Uitkomst.Gelukt;
+            }
+
+            db.Btwaanpassingen.Remove(oud);
+        }
+        else if (oud is null)
+        {
+            db.Btwaanpassingen.Add(new Btwaanpassing
+            {
+                AdministratieId = administratie,
+                Jaar = jaar,
+                Sleutel = sleutel,
+                Bedrag = bedrag.Value,
+                GewijzigdOp = tijd.GetUtcNow(),
+                GewijzigdDoor = wie.Naam,
+            });
+        }
+        else
+        {
+            (oud.Bedrag, oud.GewijzigdOp, oud.GewijzigdDoor) = (bedrag.Value, tijd.GetUtcNow(), wie.Naam);
+        }
+
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.BtwjaaropstellingAangepast, $"{jaar} {sleutel}",
+            bedrag is { } b ? $"{vorig?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) ?? "berekend"} → {b.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)}" : "terug naar berekend", administratie);
+        return Uitkomst.Gelukt;
     }
 
     /// <summary>Een aangifte vastleggen zoals hij is ingediend: de berekening van nu, per rubriek.</summary>
