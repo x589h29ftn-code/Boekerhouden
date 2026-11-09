@@ -77,7 +77,14 @@ public sealed record Bankverwerking(
     IReadOnlyList<Relatie> Relaties,
     Rekeningschema Schema,
     IReadOnlyList<BtwCode> BtwCodes,
-    Banksaldo? Saldo = null);
+    Banksaldo? Saldo = null,
+    Regeltreffer? Regel = null);
+
+/// <summary>
+/// De regel die bij een mutatie past (<see cref="Past"/>), of anders de eerste die bijna past (alles behalve het
+/// bedrag): om die regel vanaf de mutatie aan te passen.
+/// </summary>
+public sealed record Regeltreffer(Guid Id, Verwerkingsregel Regel, bool Past);
 
 /// <summary>
 /// De stand van de bankrekening bij een mutatie: het saldo in het grootboek aan het eind van het jaar, en het saldo op
@@ -335,7 +342,18 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         // Alle openstaande posten: eerst die in de richting van de mutatie, dan de rest (bijv. een creditnota).
         var posten = context.OpenPosten.Where(p => !p.IsBetaald)
             .OrderByDescending(p => Math.Sign(p.Openstaand) == Math.Sign(t.Bedrag)).ThenBy(p => p.Datum).ToList();
-        return new Bankverwerking(Regel(t), Voorstel(t, context), posten, context.Relaties, schema, context.Btw.Op(t.Datum), await Saldo(db, t, schema));
+        return new Bankverwerking(Regel(t), Voorstel(t, context), posten, context.Relaties, schema, context.Btw.Op(t.Datum), await Saldo(db, t, schema),
+            await Treffer(db, t, context.Relaties));
+    }
+
+    private static async Task<Regeltreffer?> Treffer(AdministratieDbContext db, Banktransactie t, IReadOnlyList<Relatie> relaties)
+    {
+        var mutatie = t.NaarDomein();
+        var gegevens = Bankverwerker.Gegevens(mutatie, relaties.FirstOrDefault(r => r.HeeftIban(mutatie.TegenIban)));
+        var regels = (await db.Regels.AsNoTracking().OrderBy(r => r.Volgorde).ToListAsync()).Select(r => (r.Id, Regel: r.NaarDomein())).ToList();
+        return regels.FirstOrDefault(r => r.Regel.Past(gegevens)) is { Regel: not null } past ? new Regeltreffer(past.Id, past.Regel, true)
+            : regels.FirstOrDefault(r => r.Regel.PastBijna(gegevens)) is { Regel: not null } bijna ? new Regeltreffer(bijna.Id, bijna.Regel, false)
+            : null;
     }
 
     private static async Task<Banksaldo?> Saldo(AdministratieDbContext db, Banktransactie t, Rekeningschema schema)

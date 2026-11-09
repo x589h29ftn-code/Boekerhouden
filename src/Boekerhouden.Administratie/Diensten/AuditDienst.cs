@@ -74,6 +74,7 @@ public static class AuditActies
     public const string IbanWijzigingGeweigerd = "IBAN wijzigen geweigerd";
     public const string RegelToegevoegd = "Regel toegevoegd";
     public const string RegelVerwijderd = "Regel verwijderd";
+    public const string RegelGewijzigd = "Regel gewijzigd";
     public const string RegelVerplaatst = "Regel verplaatst";
     public const string InstellingenGewijzigd = "Instellingen gewijzigd";
 

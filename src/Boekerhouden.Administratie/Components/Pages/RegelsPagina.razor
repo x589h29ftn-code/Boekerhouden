@@ -4,6 +4,7 @@
 @inject InrichtingDienst Inrichting
 @inject GrootboekDienst Grootboek
 @inject BtwDienst Btw
+@inject Meldingen Meldingen
 
 <AdministratieKader Id="Id" Titel="Regels" Actief="/regels" BijOpenen="Open">
     <Foutmeldingen Fouten="fouten" />
@@ -16,12 +17,12 @@
         <div class="card mb-3">
             <table class="table table-sm align-middle mb-0" data-sleepbaar="regels">
                 <thead>
-                    <tr><th>Regel</th><th>Als</th><th>Dan</th><th></th></tr>
+                    <tr><th>Regel</th><th>Als</th><th>Dan</th><th data-breedte="230"></th></tr>
                 </thead>
                 <tbody>
                     @foreach (var r in regels)
                     {
-                        <tr class="regel-met-acties">
+                        <tr class="regel-met-acties @(bewerkId == r.Id ? "table-active" : null)">
                             <td>@r.Regel.Naam</td>
                             <td class="small text-secondary">@Voorwaarden(r.Regel)</td>
                             <td class="small" title="@r.Regel.Omschrijving">@r.Regel.Rekeningnummer @r.Regel.BtwCode @(r.Regel.Automatisch ? "· automatisch" : null)</td>
@@ -29,9 +30,10 @@
                                 @if (context.Mag(Recht.Boekhouden))
                                 {
                                     <span class="acties">
-                                        <button class="btn btn-sm btn-link p-0" title="Eerder toepassen" @onclick="() => Verplaats(r.Id, true)">↑</button>
-                                        <button class="btn btn-sm btn-link p-0 ms-1" title="Later toepassen" @onclick="() => Verplaats(r.Id, false)">↓</button>
-                                        <button class="btn btn-sm btn-link text-secondary p-0 ms-2" @onclick="() => Verwijder(r.Id)">Verwijderen</button>
+                                        <button type="button" class="btn btn-sm btn-link p-0" title="Eerder toepassen" aria-label="Eerder toepassen" @onclick="() => Verplaats(r.Id, true)"><Icoon Naam="arrow-up" /></button>
+                                        <button type="button" class="btn btn-sm btn-link p-0 ms-1" title="Later toepassen" aria-label="Later toepassen" @onclick="() => Verplaats(r.Id, false)"><Icoon Naam="arrow-down" /></button>
+                                        <button type="button" class="btn btn-sm btn-link p-0 ms-2 regel-bewerken" @onclick="() => Bewerk(r)">Bewerken</button>
+                                        <button type="button" class="btn btn-sm btn-link text-secondary p-0 ms-2 regel-verwijderen" @onclick="() => Verwijder(r.Id)">Verwijderen</button>
                                     </span>
                                 }
                             </td>
@@ -43,7 +45,7 @@
     }
     @if (context.Mag(Recht.Boekhouden))
     {
-        <Uitklapformulier Tekst="Nieuwe regel">
+        <Uitklapformulier @ref="formulier" Tekst="Nieuwe regel">
             <div>
                 <div class="row g-2 mb-2">
                     <div class="col-md-4"><label class="form-label" for="naam">Naam</label><input id="naam" class="form-control" @bind="invoer.Naam" /></div>
@@ -86,7 +88,15 @@
                         <input class="form-check-input" type="checkbox" id="automatisch" @bind="invoer.Automatisch" />
                         <label class="form-check-label" for="automatisch">Automatisch boeken</label>
                     </span>
-                    <button class="btn btn-outline-primary ms-auto" @onclick="VoegToe">Regel toevoegen</button>
+                    @if (bewerkId is not null)
+                    {
+                        <button type="button" class="btn btn-link text-secondary ms-auto" @onclick="StopBewerken">Annuleren</button>
+                        <button type="button" class="btn btn-primary" @onclick="VoegToe">Wijziging opslaan</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-outline-primary ms-auto" @onclick="VoegToe">Regel toevoegen</button>
+                    }
                 </div>
             </div>
         </Uitklapformulier>
@@ -100,6 +110,8 @@
     private IReadOnlyList<Boekhouding.Grootboek.Rekening> rekeningen = [];
     private Invoer invoer = new();
     private IReadOnlyList<string>? fouten;
+    private Uitklapformulier? formulier;
+    private Guid? bewerkId;
 
     [Parameter]
     public Guid Id { get; set; }
@@ -122,13 +134,56 @@
 
         var regel = new Verwerkingsregel(invoer.Naam, invoer.Rekening.Trim(), string.IsNullOrEmpty(invoer.BtwCode) ? null : invoer.BtwCode, invoer.Automatisch,
             invoer.Soort, null, Leeg(invoer.NaamBevat), van, tot, Leeg(invoer.OmschrijvingBevat), Leeg(invoer.Iban), Omschrijving: Leeg(invoer.Omschrijving));
-        var uitkomst = await Inrichting.VoegRegelToe(geopend!.Wie, Id, regel);
+        var uitkomst = bewerkId is { } id
+            ? await Inrichting.WijzigRegel(geopend!.Wie, Id, id, regel with { Relatie = bewerkRelatie, Richting = bewerkRichting })
+            : await Inrichting.VoegRegelToe(geopend!.Wie, Id, regel);
         fouten = uitkomst.Fouten;
         if (uitkomst.IsGelukt)
         {
+            if (bewerkId is not null)
+            {
+                Meldingen.Toon($"Regel {regel.Naam} gewijzigd");
+                StopBewerken();
+            }
+
             invoer = new();
             regels = await Inrichting.Regels(geopend.Wie, Id);
         }
+    }
+
+    private string? bewerkRelatie;
+    private Regelrichting bewerkRichting = Regelrichting.Beide;
+
+    /// <summary>Een regel bewerken: het formulier opent met de waarden van de regel.</summary>
+    private void Bewerk(RegelRegel r)
+    {
+        var g = r.Regel;
+        bewerkId = r.Id;
+        (bewerkRelatie, bewerkRichting) = (g.Relatie, g.Richting);
+        invoer = new()
+        {
+            Naam = g.Naam,
+            Soort = g.Soort,
+            NaamBevat = g.NaamBevat,
+            OmschrijvingBevat = g.OmschrijvingBevat,
+            Van = g.BedragVan is { } v ? Bedragen.Getal(v) : null,
+            Tot = g.BedragTot is { } t ? Bedragen.Getal(t) : null,
+            Iban = g.TegenIban,
+            Rekening = g.Rekeningnummer,
+            BtwCode = g.BtwCode ?? "",
+            Automatisch = g.Automatisch,
+            Omschrijving = g.Omschrijving,
+        };
+        fouten = null;
+        formulier?.Openen();
+    }
+
+    private void StopBewerken()
+    {
+        bewerkId = null;
+        (bewerkRelatie, bewerkRichting) = (null, Regelrichting.Beide);
+        invoer = new();
+        formulier?.Sluiten();
     }
 
     private async Task Verplaats(Guid id, bool omhoog)
@@ -139,7 +194,18 @@
 
     private async Task Verwijder(Guid id)
     {
-        fouten = (await Inrichting.VerwijderRegel(geopend!.Wie, Id, id)).Fouten;
+        var naam = regels?.FirstOrDefault(r => r.Id == id)?.Regel.Naam;
+        var uitkomst = await Inrichting.VerwijderRegel(geopend!.Wie, Id, id);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            Meldingen.Toon($"Regel {naam} verwijderd");
+            if (bewerkId == id)
+            {
+                StopBewerken();
+            }
+        }
+
         regels = await Inrichting.Regels(geopend.Wie, Id);
     }
 

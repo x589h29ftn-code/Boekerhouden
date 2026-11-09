@@ -465,6 +465,29 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
     }
 
     [Fact]
+    public async Task Een_regel_die_bijna_past_staat_bij_de_mutatie_en_na_aanpassen_boekt_hij()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var bank = app.Dienst<BankDienst>();
+        var inrichting = app.Dienst<InrichtingDienst>();
+        await bank.Lees(wie, id, Afschrift(), "ing.mt940");
+        var regel = new Verwerkingsregel("Jansen", "4300", "I21", Automatisch: true, Soort: Verwerkingssoort.Bankmutatie,
+            TegenIban: "NL36INGB0007654321", BedragTot: 100m);
+        Assert.True((await inrichting.VoegRegelToe(wie, id, regel)).IsGelukt);
+        Assert.Equal(0, (await bank.VerwerkOpnieuw(wie, id)).Geboekt);
+        var mutatie = (await bank.Lijst(wie, id)).Single(m => m.Bedrag == -199.65m);
+
+        var treffer = (await bank.Verwerking(wie, id, mutatie.Id))!.Regel;
+
+        Assert.NotNull(treffer);
+        Assert.Equal(("Jansen", false), (treffer.Regel.Naam, treffer.Past));
+        Assert.True((await inrichting.WijzigRegel(wie, id, treffer.Id, treffer.Regel with { BedragTot = 200m })).IsGelukt);
+        Assert.Equal(1, (await bank.VerwerkOpnieuw(wie, id)).Geboekt);
+        Assert.DoesNotContain(await bank.Lijst(wie, id), m => m.Bedrag == -199.65m);
+    }
+
+    [Fact]
     public async Task Zonder_lidmaatschap_of_met_alleen_inzien_geen_bank()
     {
         var beheerder = await app.Beheerder();

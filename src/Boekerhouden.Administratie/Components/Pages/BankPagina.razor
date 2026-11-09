@@ -405,9 +405,23 @@
                             @if (magRegels)
                             {
                                 <div class="mb-3 autoherkenning">
+                                    @if (g.Regel is { } treffer)
+                                    {
+                                        <div class="d-flex align-items-center gap-2 mb-1 small regeltreffer">
+                                            @if (treffer.Past)
+                                            {
+                                                <span class="text-secondary">Herkend met regel @treffer.Regel.Naam</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="status let-op">Regel @treffer.Regel.Naam past bijna: bedrag @Bandbreedte(treffer.Regel)</span>
+                                            }
+                                            <button type="button" class="btn btn-sm btn-link p-0" @onclick="() => RegelAanpassen(treffer)">Regel aanpassen</button>
+                                        </div>
+                                    }
                                     <label class="form-check mb-1">
-                                        <input class="form-check-input" type="checkbox" @bind="autoOpen" />
-                                        <span class="form-check-label paneelkop">Autoherkenning</span>
+                                        <input class="form-check-input" type="checkbox" @bind="autoOpen" @bind:after="NaOpenAuto" />
+                                        <span class="form-check-label paneelkop">@(bewerkRegel is null ? "Autoherkenning" : $"Regel {bewerkRegel.Regel.Naam} aanpassen")</span>
                                     </label>
                                     @if (autoOpen)
                                     {
@@ -425,6 +439,17 @@
                                                 <input id="auto-tot" class="form-control form-control-sm text-end" @bind="autoTot" />
                                             </div>
                                             <div class="col-md-4">
+                                                <label class="form-label small mb-0" for="auto-btw">Btw</label>
+                                                <select id="auto-btw" class="form-select form-select-sm" @bind="autoBtw">
+                                                    <option value="">geen</option>
+                                                    @foreach (var c in g.BtwCodes.Where(c => c.Actief))
+                                                    {
+                                                        <option value="@c.Code" title="@c.Omschrijving">@c.Code · @c.Kort</option>
+                                                    }
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex flex-wrap gap-3 mt-2">
                                                 @if (g.Mutatie.TegenIban is { } autoIbanTekst)
                                                 {
                                                     <label class="form-check mb-0 small">
@@ -436,10 +461,9 @@
                                                     <input class="form-check-input" type="checkbox" @bind="autoAutomatisch" />
                                                     <span class="form-check-label">automatisch boeken</span>
                                                 </label>
-                                            </div>
                                         </div>
                                         <div class="d-flex align-items-center gap-2 mt-2">
-                                            <span class="small text-secondary">@(regels.FirstOrDefault(r => r.Post is null) is { Rekening: { Length: > 0 } ar } ag ? $"Naar {Rekeningnaam(g, ar)}{(ag.BtwCode is { Length: > 0 } ab ? $", {ab}" : null)}" : "Kies hierboven de rekening.")</span>
+                                            <span class="small text-secondary">@(regels.FirstOrDefault(r => r.Post is null) is { Rekening: { Length: > 0 } ar } ? $"Naar {Rekeningnaam(g, ar)}" : "Kies hierboven de rekening.")</span>
                                             <button class="btn btn-sm btn-outline-primary ms-auto" disabled="@(bezig || string.IsNullOrWhiteSpace(regels.FirstOrDefault(r => r.Post is null)?.Rekening))" @onclick="BewaarAutoherkenning">Opslaan en toepassen</button>
                                         </div>
                                     }
@@ -655,6 +679,49 @@
     private string? autoTot;
     private bool autoIban;
     private bool autoAutomatisch = true;
+    private string? autoBtw;
+    private Regeltreffer? bewerkRegel;
+
+    private static string Bandbreedte(Verwerkingsregel regel) =>
+        (regel.BedragVan, regel.BedragTot) switch
+        {
+            (null, { } tot) => $"tot en met {Weergave.Bedrag(tot)}",
+            ({ } van, null) => $"vanaf {Weergave.Bedrag(van)}",
+            ({ } van, { } tot) => $"{Weergave.Bedrag(van)} – {Weergave.Bedrag(tot)}",
+            _ => "",
+        };
+
+    /// <summary>Het paneel Autoherkenning opent voor een nieuwe regel: met de btw van de eerste regel.</summary>
+    private void NaOpenAuto()
+    {
+        if (autoOpen)
+        {
+            bewerkRegel = null;
+            autoBtw = regels.FirstOrDefault(r => r.Post is null)?.BtwCode;
+        }
+    }
+
+    /// <summary>
+    /// Een regel die (bijna) past aanpassen vanaf de mutatie: het paneel met de waarden van de regel; past het bedrag
+    /// niet, dan alvast de grens die het bedrag van deze mutatie meeneemt.
+    /// </summary>
+    private void RegelAanpassen(Regeltreffer treffer)
+    {
+        var regel = treffer.Regel;
+        var bedrag = Math.Abs(gekozen!.Mutatie.Bedrag);
+        bewerkRegel = treffer;
+        autoOpen = true;
+        autoTekst = regel.NaamBevat ?? regel.OmschrijvingBevat;
+        autoVan = regel.BedragVan is { } van ? Bedragen.Getal(Math.Min(van, Math.Floor(bedrag))) : null;
+        autoTot = regel.BedragTot is { } tot ? Bedragen.Getal(Math.Max(tot, Math.Ceiling(bedrag))) : null;
+        autoIban = regel.TegenIban is not null;
+        autoAutomatisch = regel.Automatisch;
+        autoBtw = regel.BtwCode;
+        if (regels.FirstOrDefault(r => r.Post is null) is { } eerste)
+        {
+            (eerste.Rekening, eerste.BtwCode) = (regel.Rekeningnummer, regel.BtwCode);
+        }
+    }
 
     /// <summary>Een regel in het verwerkpaneel: een deel van de mutatie op een openstaande post of op een grootboekrekening.</summary>
     private sealed class Regelinvoer
@@ -786,6 +853,8 @@
         autoTot = Bedragen.Getal(Math.Ceiling(Math.Abs(m.Bedrag) * 1.5m / 10m) * 10m);
         autoIban = m.TegenIban is not null;
         autoAutomatisch = true;
+        autoBtw = advies?.BtwCode;
+        bewerkRegel = null;
     }
 
     private decimal Teken => gekozen is { } g ? Math.Sign(g.Mutatie.Bedrag) : 1;
@@ -877,9 +946,9 @@
 
         var inNaam = tekst is { Length: > 0 } && g.Mutatie.TegenNaam?.Contains(tekst, StringComparison.OrdinalIgnoreCase) == true;
         var regel = new Verwerkingsregel(
-            $"{(string.IsNullOrEmpty(tekst) ? Iban.Toon(g.Mutatie.TegenIban!) : tekst)} naar {Rekeningnaam(g, rekening)}",
+            bewerkRegel?.Regel.Naam ?? $"{(string.IsNullOrEmpty(tekst) ? Iban.Toon(g.Mutatie.TegenIban!) : tekst)} naar {Rekeningnaam(g, rekening)}",
             rekening,
-            string.IsNullOrWhiteSpace(eerste.BtwCode) ? null : eerste.BtwCode,
+            string.IsNullOrWhiteSpace(autoBtw) ? null : autoBtw,
             Automatisch: autoAutomatisch,
             Soort: Verwerkingssoort.Bankmutatie,
             NaamBevat: inNaam ? tekst : null,
@@ -888,11 +957,28 @@
             BedragTot: tot,
             TegenIban: autoIban ? g.Mutatie.TegenIban : null,
             Richting: g.Mutatie.Bedrag < 0 ? Regelrichting.Betaling : Regelrichting.Ontvangst);
+        if (bewerkRegel is { } bestaand)
+        {
+            // Wat de gebruiker niet in het paneel ziet, blijft zoals het was (soort, relatie, omschrijving van de boeking).
+            regel = regel with
+            {
+                Soort = bestaand.Regel.Soort,
+                Relatie = bestaand.Regel.Relatie,
+                Omschrijving = bestaand.Regel.Omschrijving,
+                Richting = bestaand.Regel.Richting,
+                NaamBevat = tekst is { Length: > 0 } && bestaand.Regel.NaamBevat is not null ? tekst : regel.NaamBevat,
+                OmschrijvingBevat = tekst is { Length: > 0 } && bestaand.Regel.OmschrijvingBevat is not null && bestaand.Regel.NaamBevat is null ? tekst : regel.OmschrijvingBevat,
+            };
+        }
+
         bezig = true;
-        var uitkomst = await Inrichting.VoegRegelToe(geopend!.Wie, Id, regel);
+        var uitkomst = bewerkRegel is { } b
+            ? await Inrichting.WijzigRegel(geopend!.Wie, Id, b.Id, regel)
+            : await Inrichting.VoegRegelToe(geopend!.Wie, Id, regel);
         fouten = uitkomst.Fouten;
         if (uitkomst.IsGelukt)
         {
+            bewerkRegel = null;
             opnieuw = await Bank.VerwerkOpnieuw(geopend.Wie, Id);
             gekozen = null;
             await Laad();

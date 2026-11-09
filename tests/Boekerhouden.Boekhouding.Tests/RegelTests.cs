@@ -36,6 +36,21 @@ public sealed class VerwerkingsregelTests
     }
 
     [Fact]
+    public void Hoofdletters_maken_niet_uit_en_een_bedrag_buiten_de_grenzen_past_bijna()
+    {
+        var accountant = new Verwerkingsregel("Accountant", "4400", Soort: Verwerkingssoort.Bankmutatie, NaamBevat: "otviacc", BedragTot: 2000m);
+
+        Assert.True(accountant.Past(new(Verwerkingssoort.Bankmutatie, null, "OTVIACC B.V.", -1500m)));
+        Assert.True(accountant.Past(new(Verwerkingssoort.Bankmutatie, null, "OtViAcc", -2000m)));
+        var tweeEnHalf = new Verwerkingsgegevens(Verwerkingssoort.Bankmutatie, null, "OtviAcc B.V.", -2500m);
+        Assert.False(accountant.Past(tweeEnHalf));
+        Assert.True(accountant.PastBijna(tweeEnHalf));
+        Assert.False(accountant.PastBijna(new(Verwerkingssoort.Bankmutatie, null, "OtviAcc B.V.", -1500m)));
+        Assert.False(accountant.PastBijna(new(Verwerkingssoort.Bankmutatie, null, "Belnet", -2500m)));
+        Assert.False(new Verwerkingsregel("Zonder bedrag", "4400", NaamBevat: "otviacc").PastBijna(tweeEnHalf));
+    }
+
+    [Fact]
     public void Regel_zonder_voorwaarden_past_nooit() =>
         Assert.False(new Verwerkingsregel("Leeg", "4100").Past(new(Verwerkingssoort.Inkoopfactuur, "KPN", "KPN", 10m)));
 }

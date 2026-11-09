@@ -56,6 +56,13 @@ public sealed record Verwerkingsregel(
                };
     }
 
+    /// <summary>
+    /// Past de regel bijna: alle voorwaarden kloppen behalve het bedrag (bijv. de accountant tot € 2.000 en nu € 2.500).
+    /// Dan is het bedrag van de regel misschien aan te passen.
+    /// </summary>
+    public bool PastBijna(Verwerkingsgegevens gegevens) =>
+        !Past(gegevens) && (BedragVan is not null || BedragTot is not null) && (this with { BedragVan = null, BedragTot = null }).Past(gegevens);
+
     /// <summary>Bevat de tekst het zoekwoord, ongeacht hoofdletters, accenten en rechtsvorm ("KPN" in "K.P.N. B.V.")?</summary>
     private static bool Bevat(string? tekst, string zoek)
     {

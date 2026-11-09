@@ -30,4 +30,17 @@ else
     public bool Open { get; set; }
 
     protected override void OnInitialized() => open = Open;
+
+    /// <summary>Opent het formulier van buitenaf (bijv. "Bewerken" bij een regel in de lijst).</summary>
+    public void Openen()
+    {
+        open = true;
+        StateHasChanged();
+    }
+
+    public void Sluiten()
+    {
+        open = false;
+        StateHasChanged();
+    }
 }

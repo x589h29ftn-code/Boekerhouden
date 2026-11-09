@@ -308,6 +308,89 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
     {
         ArgumentNullException.ThrowIfNull(regel);
         await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
+        (regel, var fouten) = await ControleerRegel(db, regel);
+        if (fouten.Count > 0)
+        {
+            return Uitkomst.Mislukt([.. fouten]);
+        }
+
+        var volgorde = (await db.Regels.MaxAsync(r => (int?)r.Volgorde) ?? 0) + 1;
+        var nieuw = new Automatiseringsregel { Id = Guid.NewGuid(), AdministratieId = administratie, Volgorde = volgorde };
+        Zet(nieuw, regel);
+        db.Regels.Add(nieuw);
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.RegelToegevoegd, regel.Naam, $"→ {regel.Rekeningnummer} {regel.BtwCode}{(regel.Automatisch ? ", automatisch" : null)}", administratie);
+        return Uitkomst.Gelukt;
+    }
+
+    /// <summary>Wijzigt een regel (voorwaarden, rekening, btw, automatisch); de plek in de volgorde blijft. Alleen het kantoor.</summary>
+    public async Task<Uitkomst> WijzigRegel(Uitvoerder wie, Guid administratie, Guid id, Verwerkingsregel regel)
+    {
+        ArgumentNullException.ThrowIfNull(regel);
+        await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
+        if (await db.Regels.FirstOrDefaultAsync(r => r.Id == id) is not { } bestaand)
+        {
+            return Uitkomst.Mislukt("Deze regel bestaat niet (meer).");
+        }
+
+        (regel, var fouten) = await ControleerRegel(db, regel);
+        if (fouten.Count > 0)
+        {
+            return Uitkomst.Mislukt([.. fouten]);
+        }
+
+        var oud = bestaand.NaarDomein();
+        Zet(bestaand, regel);
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.RegelGewijzigd, regel.Naam, Verschil(oud, bestaand.NaarDomein()), administratie);
+        return Uitkomst.Gelukt;
+    }
+
+    private static string Verschil(Verwerkingsregel oud, Verwerkingsregel nieuw)
+    {
+        var delen = new List<string>();
+        void Vergelijk(string wat, object? a, object? b)
+        {
+            if (!Equals(a, b))
+            {
+                delen.Add($"{wat} {a ?? "-"} → {b ?? "-"}");
+            }
+        }
+
+        Vergelijk("naam", oud.Naam, nieuw.Naam);
+        Vergelijk("rekening", oud.Rekeningnummer, nieuw.Rekeningnummer);
+        Vergelijk("btw", oud.BtwCode, nieuw.BtwCode);
+        Vergelijk("automatisch", oud.Automatisch, nieuw.Automatisch);
+        Vergelijk("naam bevat", oud.NaamBevat, nieuw.NaamBevat);
+        Vergelijk("omschrijving bevat", oud.OmschrijvingBevat, nieuw.OmschrijvingBevat);
+        Vergelijk("bedrag van", oud.BedragVan, nieuw.BedragVan);
+        Vergelijk("bedrag tot", oud.BedragTot, nieuw.BedragTot);
+        Vergelijk("tegenrekening", oud.TegenIban, nieuw.TegenIban);
+        Vergelijk("soort", oud.Soort, nieuw.Soort);
+        Vergelijk("omschrijving", oud.Omschrijving, nieuw.Omschrijving);
+        return delen.Count == 0 ? "ongewijzigd" : string.Join("; ", delen);
+    }
+
+    private static void Zet(Automatiseringsregel r, Verwerkingsregel regel)
+    {
+        r.Naam = regel.Naam.Trim();
+        r.Rekeningnummer = regel.Rekeningnummer;
+        r.BtwCode = regel.BtwCode;
+        r.Automatisch = regel.Automatisch;
+        r.Soort = regel.Soort;
+        r.Relatie = Leeg(regel.Relatie);
+        r.NaamBevat = Leeg(regel.NaamBevat);
+        r.BedragVan = regel.BedragVan;
+        r.BedragTot = regel.BedragTot;
+        r.OmschrijvingBevat = Leeg(regel.OmschrijvingBevat);
+        r.TegenIban = regel.TegenIban is null ? null : Iban.Normaliseer(regel.TegenIban);
+        r.Richting = regel.Richting;
+        r.Omschrijving = Leeg(regel.Omschrijving);
+    }
+
+    /// <summary>De regel genormaliseerd (bedragen zonder teken, van ≤ tot) en wat er niet klopt.</summary>
+    private static async Task<(Verwerkingsregel Regel, List<string> Fouten)> ControleerRegel(AdministratieDbContext db, Verwerkingsregel regel)
+    {
 
         // Bedragen gelden zonder teken (de richting zegt of het een betaling of ontvangst is): "0 t/m -30.000" is
         // hetzelfde als 0 t/m 30.000, en omgekeerd ingevulde grenzen worden omgedraaid.
@@ -352,34 +435,7 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
             fouten.Add($"Onbekende variabele in de omschrijving: {string.Join(", ", onbekend.Select(o => "#" + o))}.");
         }
 
-        if (fouten.Count > 0)
-        {
-            return Uitkomst.Mislukt([.. fouten]);
-        }
-
-        var volgorde = (await db.Regels.MaxAsync(r => (int?)r.Volgorde) ?? 0) + 1;
-        db.Regels.Add(new Automatiseringsregel
-        {
-            Id = Guid.NewGuid(),
-            AdministratieId = administratie,
-            Volgorde = volgorde,
-            Naam = regel.Naam.Trim(),
-            Rekeningnummer = regel.Rekeningnummer,
-            BtwCode = regel.BtwCode,
-            Automatisch = regel.Automatisch,
-            Soort = regel.Soort,
-            Relatie = Leeg(regel.Relatie),
-            NaamBevat = Leeg(regel.NaamBevat),
-            BedragVan = regel.BedragVan,
-            BedragTot = regel.BedragTot,
-            OmschrijvingBevat = Leeg(regel.OmschrijvingBevat),
-            TegenIban = regel.TegenIban is null ? null : Iban.Normaliseer(regel.TegenIban),
-            Richting = regel.Richting,
-            Omschrijving = Leeg(regel.Omschrijving),
-        });
-        await db.SaveChangesAsync();
-        await audit.Log(wie, AuditActies.RegelToegevoegd, regel.Naam, $"→ {regel.Rekeningnummer} {regel.BtwCode}{(regel.Automatisch ? ", automatisch" : null)}", administratie);
-        return Uitkomst.Gelukt;
+        return (regel, fouten);
     }
 
     public async Task<Uitkomst> VerwijderRegel(Uitvoerder wie, Guid administratie, Guid id)

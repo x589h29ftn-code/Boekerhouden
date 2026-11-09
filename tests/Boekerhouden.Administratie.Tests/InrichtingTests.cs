@@ -113,6 +113,33 @@ public sealed class InrichtingTests(AdministratieFixture app) : IClassFixture<Ad
     }
 
     [Fact]
+    public async Task Regel_wijzigen_met_controles_log_en_alleen_door_het_kantoor()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var ondernemer = await app.Gebruiker("Otto Ondernemer");
+        await app.Dienst<AdministratieDienst>().ZetLid(id, ondernemer.Id!.Value, Lidmaatschapsrol.Ondernemer, wie);
+        var dienst = app.Dienst<InrichtingDienst>();
+        Assert.True((await dienst.VoegRegelToe(wie, id, Telefoon)).IsGelukt);
+        var regel = Assert.Single(await dienst.Regels(wie, id));
+
+        var fout = await dienst.WijzigRegel(wie, id, regel.Id, Telefoon with { Rekeningnummer = "9999" });
+        var gewijzigd = await dienst.WijzigRegel(wie, id, regel.Id, Telefoon with { BedragTot = 40m, BtwCode = null, Automatisch = false });
+        var weg = await dienst.WijzigRegel(wie, id, Guid.NewGuid(), Telefoon);
+
+        Assert.Equal(["Rekening 9999 bestaat niet."], fout.Fouten);
+        Assert.True(gewijzigd.IsGelukt, string.Join("; ", gewijzigd.Fouten));
+        Assert.False(weg.IsGelukt);
+        var nu = Assert.Single(await dienst.Regels(wie, id));
+        Assert.Equal((regel.Id, 40m, null, false), (nu.Id, nu.Regel.BedragTot, nu.Regel.BtwCode, nu.Regel.Automatisch));
+        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.RegelGewijzigd && r.Onderwerp == "Belnet is telefoon");
+
+        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.WijzigRegel(ondernemer, id, regel.Id, Telefoon));
+        var buiten = await app.Gebruiker("Buiten Staander");
+        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.WijzigRegel(buiten, id, regel.Id, Telefoon));
+    }
+
+    [Fact]
     public async Task Limiet_houdt_automatisch_boeken_tegen_en_eigen_iban_wordt_overgeslagen()
     {
         var wie = await app.Beheerder();

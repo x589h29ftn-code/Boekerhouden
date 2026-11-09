@@ -198,6 +198,15 @@ bankmutaties:
 een volgorde: de eerste die past, wint. Kenmerkende bankregels worden standaard meegeleverd, zoals
 *bankkosten → algemene kosten, geen btw*.
 
+Hoofdletters maken bij *naam bevat* en *omschrijving bevat* niet uit (`otviacc` past op *OtviAcc B.V.*), en
+leestekens en spaties in een naam evenmin. Op het scherm *Regels* is elke regel te **bewerken** (de waarden komen in
+het formulier, *Wijziging opslaan*, gelogd als *Regel gewijzigd* met oud en nieuw), te verwijderen en eerder of later
+toe te passen. Op het bankscherm staat onder de boekingsregels welke regel bij de mutatie hoort; past alleen het
+bedrag niet (*Accountant tot en met € 2.000*, betaald € 2.500), dan staat er *past bijna* met de grens, en opent
+*Regel aanpassen* het paneel Autoherkenning met de waarden van die regel en een grens die dit bedrag meeneemt.
+*Opslaan en toepassen* wijzigt dan de regel en verwerkt de te verwerken mutaties opnieuw. Het paneel heeft een
+eigen btw-code voor de regel (`InrichtingDienst.WijzigRegel`, `Verwerkingsregel.PastBijna`, `BankDienst.Regeltreffer`).
+
 ### 3.7 Bank
 
 - **Inlezen**:
