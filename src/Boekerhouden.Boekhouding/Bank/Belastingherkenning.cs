@@ -86,7 +86,7 @@ public static partial class Belastingherkenning
     /// </summary>
     public static Aanslagkenmerk? Lees(string kenmerk, DateOnly datum)
     {
-        if (kenmerk.Length != 16 || !kenmerk.All(char.IsAsciiDigit))
+        if (kenmerk.Length != 16 || !kenmerk.All(char.IsAsciiDigit) || !ControlecijferKlopt(kenmerk))
         {
             return null;
         }
@@ -127,6 +127,35 @@ public static partial class Belastingherkenning
             _ => null,
         };
         return middel is { } m ? new Aanslagkenmerk(m) : null;
+    }
+
+    // De wegingen van rechts naar links over de 15 cijfers na het controlecijfer: machten van 2 modulo 11.
+    private static readonly int[] Wegingen = [2, 4, 8, 5, 10, 9, 7, 3, 6, 1, 2, 4, 8, 5, 10];
+
+    /// <summary>
+    /// Klopt het controlecijfer (het eerste cijfer)? Modulus 11 over de andere 15 cijfers, van rechts naar links gewogen
+    /// met 2, 4, 8, 5, 10, 9, 7, 3, 6, 1, …; het cijfer is 11 min de rest, waarbij 10 een 1 wordt en 11 een 0.
+    /// </summary>
+    public static bool ControlecijferKlopt(string kenmerk)
+    {
+        if (kenmerk.Length != 16 || !kenmerk.All(char.IsAsciiDigit))
+        {
+            return false;
+        }
+
+        var som = 0;
+        for (var i = 0; i < 15; i++)
+        {
+            som += (kenmerk[15 - i] - '0') * Wegingen[i];
+        }
+
+        var cijfer = (11 - (som % 11)) switch
+        {
+            10 => 1,
+            11 => 0,
+            var c => c,
+        };
+        return kenmerk[0] - '0' == cijfer;
     }
 
     private static readonly string[] Maanden = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"];

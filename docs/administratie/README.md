@@ -244,7 +244,7 @@ eigen btw-code voor de regel (`InrichtingDienst.WijzigRegel`, `Verwerkingsregel.
   40 jaar, 71–83 vierwekenperiode) en 16 volgnummer; daaruit het aanslagnummer, bijv. `1234.56.782.L.01.6080` =
   loonheffingen augustus 2026. Bij de andere belastingen staat de soort in twee cijfers vanaf positie 10 (70 H, 73 N,
   71 P inkomstenbelasting, 75 W Zvw, 74/80–84/92–96 V vennootschapsbelasting; houderschapsbelasting, eurovignet en
-  toeslagen worden herkend maar krijgen geen rekening). Het controlecijfer wordt niet nagerekend. De rekening: een rekening *afgedragen …* als
+  toeslagen worden herkend maar krijgen geen rekening). Het controlecijfer moet kloppen (`ControlecijferKlopt`): modulus 11 over de andere 15 cijfers, van rechts naar links gewogen met 2, 4, 8, 5, 10, 9, 7, 3, 6, 1, 2, 4, 8, 5, 10; het cijfer is 11 min de rest, waarbij 10 een 1 wordt en 11 een 0. Een kenmerk dat niet klopt (typefout) geeft geen aanslag; dan beslist de omschrijving. Nagerekend met echte kenmerken van aangiften omzetbelasting en loonheffingen (niet in git). De rekening: een rekening *afgedragen …* als
   die er is (OVPA: 1820, 1735), anders de rekening met de functie of RGS-groep (te betalen btw, loonheffing,
   vennootschapsbelasting); inkomstenbelasting is privé: privé-opnamen bij een eenmanszaak, de rekening-courant met de
   directeur bij een BV. Alleen een voorstel (`Adviesbron.Herkend`, reden bijv. *Belastingdienst: loonheffingen augustus 2026, aanslag …*): boeken
