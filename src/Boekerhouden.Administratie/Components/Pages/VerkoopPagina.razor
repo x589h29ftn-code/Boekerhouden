@@ -36,6 +36,10 @@
             <div class="small mb-1 @(u.Geboekt ? "bericht" : "status let-op d-block")">@u.Melding</div>
         }
         <Foutmeldingen Fouten="bulkfouten" />
+        @if (Bericht is { Length: > 0 })
+        {
+            <div class="bericht mb-3">@Bericht</div>
+        }
         @if (teMaken > 0)
         {
             <div class="bericht mb-3">
@@ -156,6 +160,10 @@
 
     [Parameter]
     public Guid Id { get; set; }
+
+    /// <summary>Een bevestiging van de pagina hiervoor (bijv. "12 concepten gemaakt").</summary>
+    [SupplyParameterFromQuery(Name = "bericht")]
+    public string? Bericht { get; set; }
 
     [SupplyParameterFromQuery(Name = "van")]
     public string? VanTekst { get; set; }

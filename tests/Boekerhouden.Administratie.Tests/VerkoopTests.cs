@@ -63,6 +63,33 @@ public sealed class VerkoopTests(AdministratieFixture app) : IClassFixture<Admin
     }
 
     [Fact]
+    public async Task Per_maand_twaalf_concepten_met_de_maand_in_de_omschrijving()
+    {
+        var (wie, id) = await Administratie();
+        var klant = await Klant(wie, id, "Fee Klant B.V.");
+        var verkoop = app.Dienst<VerkoopDienst>();
+        var bron = await verkoop.Bewaar(wie, id, null, new Verkoopinvoer(klant, new(2026, 1, 31), new(2026, 2, 14), "Fee januari 2026",
+            [new Verkoopregel("Vaste fee #maand", 1m, 500m, "8000", "V21")]));
+
+        var uitkomst = await verkoop.MaakPerMaand(wie, id, bron.Waarde, 2026, 2, 12);
+
+        Assert.True(uitkomst.IsGelukt, string.Join("; ", uitkomst.Fouten));
+        Assert.Equal(12, uitkomst.Waarde);
+        var concepten = (await verkoop.Lijst(wie, id, new(2026, 1, 1), new(2027, 12, 31))).Where(r => r.Id != bron.Waarde).OrderBy(r => r.Datum).ToList();
+        Assert.Equal(12, concepten.Count);
+        Assert.Equal((new DateOnly(2026, 2, 28), new DateOnly(2027, 1, 31)), (concepten[0].Datum, concepten[^1].Datum));
+        var februari = (await verkoop.Open(wie, id, concepten[0].Id))!;
+        Assert.Equal(("Fee februari 2026", "Vaste fee februari 2026", new DateOnly(2026, 3, 14)),
+            (februari.Factuur.Omschrijving, februari.Factuur.Regels[0].Omschrijving, februari.Factuur.Vervaldatum));
+        Assert.Equal("Fee januari 2027", (await verkoop.Open(wie, id, concepten[^1].Id))!.Factuur.Omschrijving);
+        Assert.False((await verkoop.MaakPerMaand(wie, id, bron.Waarde, 2026, 2, 25)).IsGelukt);
+
+        var inzien = await app.Gebruiker("Inge Fee");
+        await app.Dienst<AdministratieDienst>().ZetLid(id, inzien.Id!.Value, Lidmaatschapsrol.Inzien, wie);
+        await Assert.ThrowsAsync<GeenToegangException>(() => verkoop.MaakPerMaand(inzien, id, bron.Waarde, 2026, 2, 1));
+    }
+
+    [Fact]
     public async Task Definitief_geeft_het_volgende_nummer_een_kenmerk_en_boekt_op_debiteuren()
     {
         var (wie, id) = await Administratie();

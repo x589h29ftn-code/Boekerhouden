@@ -25,9 +25,19 @@ public static class Journaalkopie
         };
     }
 
-    /// <summary>De maand (voluit of afgekort) en het jaar van de oude datum vervangen door die van de nieuwe.</summary>
-    internal static string Omschrijving(string tekst, DateOnly van, DateOnly naar)
+    /// <summary>
+    /// De maand (voluit of afgekort) en het jaar van de oude datum vervangen door die van de nieuwe, en de variabelen
+    /// <c>#maand</c>/<c>#periode</c> (oktober 2026), <c>#kwartaal</c> en <c>#jaar</c> invullen voor de nieuwe datum.
+    /// </summary>
+    public static string Omschrijving(string tekst, DateOnly van, DateOnly naar)
     {
+        ArgumentNullException.ThrowIfNull(tekst);
+        tekst = Regex.Replace(tekst, "#(maand|periode|kwartaal|jaar)", m => m.Groups[1].Value.ToLowerInvariant() switch
+        {
+            "kwartaal" => $"{((naar.Month - 1) / 3) + 1}e kwartaal {naar.Year}",
+            "jaar" => naar.Year.ToString(CultureInfo.InvariantCulture),
+            _ => naar.ToString("MMMM yyyy", Nl),
+        }, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         var oudeMaand = Nl.DateTimeFormat.MonthNames[van.Month - 1];
         var nieuweMaand = Nl.DateTimeFormat.MonthNames[naar.Month - 1];
         var oudKort = Nl.DateTimeFormat.AbbreviatedMonthNames[van.Month - 1].TrimEnd('.');

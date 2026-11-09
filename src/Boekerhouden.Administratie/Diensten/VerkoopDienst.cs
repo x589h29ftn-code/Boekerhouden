@@ -572,6 +572,67 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
         return fouten;
     }
 
+    /// <summary>Het meeste aantal facturen dat in één keer per maand gemaakt wordt.</summary>
+    public const int MaximumPerMaand = 24;
+
+    /// <summary>
+    /// Vanuit een factuur een reeks concepten, één per maand (bijv. de fee voor twaalf maanden): dezelfde klant en
+    /// regels, gedateerd op dezelfde dag in elke maand (of de laatste dag van een kortere maand) met dezelfde
+    /// betalingstermijn, en de maand in de omschrijvingen mee ("Fee januari 2026" wordt "Fee februari 2026", en
+    /// <c>#maand</c> wordt de maand). De concepten zijn na te kijken en daarna definitief te maken.
+    /// </summary>
+    public async Task<Uitkomst<int>> MaakPerMaand(Uitvoerder wie, Guid administratie, Guid id, int jaar, int maand, int aantal)
+    {
+        if (aantal is < 1 or > MaximumPerMaand)
+        {
+            return Uitkomst<int>.Mislukt($"Per maand kan 1 tot {MaximumPerMaand} facturen.");
+        }
+
+        if (maand is < 1 or > 12 || jaar is < 1900 or > 9999)
+        {
+            return Uitkomst<int>.Mislukt("Kies een geldige eerste maand.");
+        }
+
+        Verkoopinvoer bron;
+        await using (var db = await toegang.Open(wie, administratie, Recht.Invoeren))
+        {
+            if (await db.Verkoopdocumenten.AsNoTracking().Include(v => v.Regels).FirstOrDefaultAsync(v => v.Id == id) is not { } v)
+            {
+                return Uitkomst<int>.Mislukt("Deze factuur bestaat niet (meer).");
+            }
+
+            bron = Invoer(v) with { Verdeling = null, Factuurnummer = null };
+        }
+
+        var termijn = bron.Vervaldatum.DayNumber - bron.Datum.DayNumber;
+        var gemaakt = 0;
+        for (var i = 0; i < aantal; i++)
+        {
+            var eerste = new DateOnly(jaar, maand, 1).AddMonths(i);
+            var datum = new DateOnly(eerste.Year, eerste.Month, Math.Min(bron.Datum.Day, DateTime.DaysInMonth(eerste.Year, eerste.Month)));
+            string Tekst(string tekst) => Boekhouding.Grootboek.Journaalkopie.Omschrijving(tekst, bron.Datum, datum);
+            var invoer = bron with
+            {
+                Datum = datum,
+                Vervaldatum = datum.AddDays(termijn),
+                Omschrijving = Tekst(bron.Omschrijving),
+                Tekst = bron.Tekst is { } t ? Tekst(t) : null,
+                Regels = [.. bron.Regels.Select(r => r with { Omschrijving = Tekst(r.Omschrijving) })],
+            };
+            var uitkomst = await Bewaar(wie, administratie, null, invoer);
+            if (!uitkomst.IsGelukt)
+            {
+                return gemaakt == 0
+                    ? Uitkomst<int>.Mislukt([.. uitkomst.Fouten])
+                    : Uitkomst<int>.Mislukt([$"{gemaakt} van de {aantal} concepten zijn gemaakt; {datum:MM-yyyy} niet:", .. uitkomst.Fouten]);
+            }
+
+            gemaakt++;
+        }
+
+        return Uitkomst<int>.Met(gemaakt);
+    }
+
     /// <summary>Een nieuw concept met dezelfde klant en regels, gedateerd vandaag.</summary>
     public async Task<Uitkomst<Guid>> Kopieer(Uitvoerder wie, Guid administratie, Guid id)
     {

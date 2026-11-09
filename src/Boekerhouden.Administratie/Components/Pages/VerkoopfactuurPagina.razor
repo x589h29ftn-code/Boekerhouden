@@ -40,6 +40,10 @@
                 <button class="btn btn-outline-secondary" disabled="@bezig" @onclick="Crediteer" title="Een creditfactuur met dezelfde regels, negatief">Crediteren</button>
             }
         }
+        @if (weergave is not null && Factuur is not null && geopend?.Kop.Mag(Recht.Invoeren) == true)
+        {
+            <button class="btn btn-outline-secondary per-maand-knop" disabled="@bezig" title="Een concept per maand met deze klant en regels, bijv. de fee voor twaalf maanden" @onclick="OpenPerMaand">Per maand…</button>
+        }
         @if (weergave is { Ingelezen: true })
         {
             <button class="btn btn-outline-secondary" @onclick="Origineel" title="@weergave.Bestandsnaam">Origineel</button>
@@ -59,6 +63,23 @@
     </Acties>
     <ChildContent>
         <Foutmeldingen Fouten="fouten" />
+        @if (perMaandOpen)
+        {
+            <div class="card card-body mb-3 per-maand">
+                <div class="d-flex align-items-end flex-wrap gap-3">
+                    <div>
+                        <label class="form-label small" for="eerste-maand">Eerste maand</label>
+                        <input id="eerste-maand" type="month" class="form-control form-control-sm" @bind="eersteMaand" @bind:format="yyyy-MM" />
+                    </div>
+                    <div>
+                        <label class="form-label small" for="aantal-maanden">Aantal facturen</label>
+                        <input id="aantal-maanden" type="number" min="1" max="@VerkoopDienst.MaximumPerMaand" class="form-control form-control-sm" style="width:6rem" @bind="aantalMaanden" />
+                    </div>
+                    <button class="btn btn-sm btn-primary" disabled="@bezig" @onclick="MaakPerMaand">@aantalMaanden concepten maken</button>
+                    <button class="btn btn-sm btn-link text-secondary" @onclick="() => perMaandOpen = false">Annuleren</button>
+                </div>
+            </div>
+        }
         @if (bericht is not null)
         {
             <div class="bericht mb-2">@bericht</div>
@@ -538,6 +559,29 @@
         if (uitkomst.IsGelukt)
         {
             Navigatie.NavigateTo($"/a/{Id}/verkoop");
+        }
+    }
+
+    private bool perMaandOpen;
+    private DateTime eersteMaand;
+    private int aantalMaanden = 12;
+
+    /// <summary>Voorstel: twaalf facturen, vanaf de maand na deze factuur.</summary>
+    private void OpenPerMaand()
+    {
+        var datum = weergave!.Factuur.Datum;
+        (eersteMaand, aantalMaanden, perMaandOpen) = (new DateTime(datum.Year, datum.Month, 1).AddMonths(1), 12, true);
+    }
+
+    private async Task MaakPerMaand()
+    {
+        bezig = true;
+        var uitkomst = await Verkoop.MaakPerMaand(geopend!.Wie, Id, Factuur!.Value, eersteMaand.Year, eersteMaand.Month, aantalMaanden);
+        bezig = false;
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            Navigatie.NavigateTo($"/a/{Id}/verkoop?bericht={Uri.EscapeDataString($"{uitkomst.Waarde} concepten gemaakt, vanaf {eersteMaand.ToString("MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("nl-NL"))}.")}");
         }
     }
 

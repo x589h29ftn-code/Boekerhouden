@@ -510,6 +510,16 @@ gebouwen) en een overzicht voor de investeringsaftrek.
 - **Heropenen na btw-plichtig uit**: een oude factuur of bankboeking met btw houdt bij heropenen zijn btw-kolommen; de
   kolom verdwijnt alleen als geen enkele regel btw heeft. Aanpassen (ook via de boeking) toont altijd wat er geboekt is.
 
+### 3.18 Verkoopfacturen per maand
+
+Op een verkoopfactuur (concept of definitief) maakt **Per maand…** in één keer een reeks concepten, één per maand:
+*Eerste maand* (voorgesteld: de maand na de factuur) en *Aantal facturen* (standaard 12, hoogstens 24). Elk concept
+heeft dezelfde klant, regels, prijzen en btw, de factuurdatum op dezelfde dag in zijn maand (of de laatste dag van
+een kortere maand) en dezelfde betalingstermijn; de maand in de omschrijving, de regels en de tekst gaat mee (*Fee
+januari 2026* → *Fee februari 2026*) en `#maand`, `#periode`, `#kwartaal` en `#jaar` worden ingevuld. Daarna staan ze
+als concept in de lijst, na te kijken en met de vinkjes definitief te maken (`VerkoopDienst.MaakPerMaand`). Voor een
+factuur die elke maand vanzelf moet komen blijft *Herhalen…* (terugkerende facturen) de weg.
+
 ### 3.17 Memoriaalposten kopiëren
 
 In de lijst *Geboekt in …* van het memoriaal zijn boekingen aan te vinken (ook alles tegelijk). De actiebalk eronder
