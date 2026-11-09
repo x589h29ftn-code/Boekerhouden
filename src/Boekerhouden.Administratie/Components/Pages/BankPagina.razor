@@ -11,6 +11,7 @@
 @inject IJSRuntime JS
 @inject IServiceProvider Diensten
 @inject Meldingen Meldingen
+@inject ConceptDienst Concepten
 
 <AdministratieKader Id="Id" Titel="Bank" Actief="/bank" BijOpenen="Open">
     <Kenmerken>
@@ -238,6 +239,10 @@
                                             {
                                                 <Statusstip Soort="Stipsoort.LetOp">dubbel?</Statusstip>
                                             }
+                                            @if (metConcept.Contains(m.Id) && m.Status == Banktransactiestatus.TeVerwerken)
+                                            {
+                                                <span class="status ms-1 concept-markering">bewaard</span>
+                                            }
                                         </span>
                                     </td>
                                     <td class="bedrag text-end text-nowrap"><Euro Waarde="m.Bedrag" /></td>
@@ -406,7 +411,12 @@
                                 <span>Posten <Euro Waarde="Postentotaal" /></span>
                                 <span>Regels <Euro Waarde="Regeltotaal" /></span>
                                 <span class="@(Verschil == 0 ? "text-secondary" : "status let-op")">Verschil <Euro Waarde="Verschil" /></span>
-                                <button class="btn btn-sm btn-primary ms-auto" disabled="@bezig" @onclick="Boeken">Boeken</button>
+                                @if (metConcept.Contains(g.Mutatie.Id))
+                                {
+                                    <button class="btn btn-sm btn-link text-secondary p-0 ms-auto" disabled="@bezig" @onclick="OpnieuwBeginnen">Opnieuw beginnen</button>
+                                }
+                                <button class="btn btn-sm btn-outline-secondary @(metConcept.Contains(g.Mutatie.Id) ? null : "ms-auto") bewaar-concept" disabled="@bezig" title="Tussentijds bewaren en later verder gaan" @onclick="BewaarConcept">Bewaren</button>
+                                <button class="btn btn-sm btn-primary" disabled="@bezig" @onclick="Boeken">Boeken</button>
                             </div>
                             @if (magRegels)
                             {
@@ -444,7 +454,7 @@
                                                 <label class="form-label small mb-0" for="auto-tot">tot</label>
                                                 <input id="auto-tot" class="form-control form-control-sm text-end" @bind="autoTot" />
                                             </div>
-                                            <div class="col-md-4 @(ZonderBtw ? "d-none" : null)">
+                                            <div class="col-md-4 @(NietBtwPlichtig ? "d-none" : null)">
                                                 <label class="form-label small mb-0" for="auto-btw">Btw</label>
                                                 <select id="auto-btw" class="form-select form-select-sm" @bind="autoBtw">
                                                     <option value="">geen</option>
@@ -509,7 +519,10 @@
     private Geopend? geopend;
 
     /// <summary>De administratie is niet btw-plichtig: geen btw op het scherm en in de boekingen.</summary>
-    private bool ZonderBtw => geopend?.Kop.BtwPlichtig == false;
+    private bool NietBtwPlichtig => geopend?.Kop.BtwPlichtig == false;
+
+    /// <summary>Geen btw op het scherm: niet btw-plichtig en geen regel met een btw-code (een oude boeking houdt zijn btw).</summary>
+    private bool ZonderBtw => NietBtwPlichtig && regels.All(r => string.IsNullOrEmpty(r.BtwCode));
     private IReadOnlyList<BankmutatieRegel>? mutaties;
 
     /// <summary>Per bankrekening het laatste afschrift en wat er te verwerken is: de regel onder de titel.</summary>
@@ -779,6 +792,7 @@
     private async Task Laad()
     {
         mutaties = await Bank.Lijst(geopend!.Wie, Id, ookGeboekt);
+        metConcept = await Concepten.Met(geopend.Wie, Id, Conceptsoort.Bank);
         stand = await Bank.Stand(geopend.Wie, Id);
         schema ??= await Grootboek.Schema(geopend.Wie, Id);
         if (btwcodes.Count == 0)
@@ -871,6 +885,53 @@
         autoAutomatisch = true;
         autoBtw = advies?.BtwCode;
         bewerkRegel = null;
+
+        // Tussentijds bewaard: de regels zoals ze waren.
+        if (gekozen is not null && metConcept.Contains(m.Id)
+            && await Concepten.Lees<List<Bankconceptregel>>(geopend.Wie, Id, Conceptsoort.Bank, m.Id) is { Inhoud: { Count: > 0 } bewaard })
+        {
+            regels = [.. bewaard.Select(x => new Regelinvoer { Post = x.Post, Rekening = x.Rekening, BtwCode = x.BtwCode, Bedrag = x.Bedrag, Omschrijving = x.Omschrijving })];
+        }
+    }
+
+    private IReadOnlySet<Guid> metConcept = new HashSet<Guid>();
+
+    /// <summary>Een regel van een tussentijds bewaarde bankmutatie.</summary>
+    public sealed record Bankconceptregel(Guid? Post, string? Rekening, string? BtwCode, string? Bedrag, string? Omschrijving);
+
+    /// <summary>Tussentijds bewaren: de regels van deze mutatie, om later verder te gaan.</summary>
+    private async Task BewaarConcept()
+    {
+        if (gekozen is not { } g)
+        {
+            return;
+        }
+
+        bezig = true;
+        await Concepten.Bewaar(geopend!.Wie, Id, Conceptsoort.Bank, g.Mutatie.Id,
+            regels.Select(x => new Bankconceptregel(x.Post, x.Rekening, x.BtwCode, x.Bedrag, x.Omschrijving)).ToList(),
+            $"{g.Mutatie.TegenNaam ?? g.Mutatie.Omschrijving} {Weergave.Datum(g.Mutatie.Datum)}".Trim());
+        metConcept = await Concepten.Met(geopend.Wie, Id, Conceptsoort.Bank);
+        bezig = false;
+        Meldingen.Toon("Mutatie bewaard");
+    }
+
+    /// <summary>Het bewaarde concept weg en de regels weer zoals het pakket ze voorstelde.</summary>
+    private async Task OpnieuwBeginnen()
+    {
+        if (gekozen is not { } g)
+        {
+            return;
+        }
+
+        await Concepten.Verwijder(geopend!.Wie, Id, Conceptsoort.Bank, g.Mutatie.Id);
+        metConcept = await Concepten.Met(geopend.Wie, Id, Conceptsoort.Bank);
+        var mutatie = mutaties?.FirstOrDefault(x => x.Id == g.Mutatie.Id);
+        gekozen = null;
+        if (mutatie is not null)
+        {
+            await Kies(mutatie);
+        }
     }
 
     private decimal Teken => gekozen is { } g ? Math.Sign(g.Mutatie.Bedrag) : 1;
@@ -964,7 +1025,7 @@
         var regel = new Verwerkingsregel(
             bewerkRegel?.Regel.Naam ?? $"{(string.IsNullOrEmpty(tekst) ? Iban.Toon(g.Mutatie.TegenIban!) : tekst)} naar {Rekeningnaam(g, rekening)}",
             rekening,
-            ZonderBtw || string.IsNullOrWhiteSpace(autoBtw) ? null : autoBtw,
+            NietBtwPlichtig || string.IsNullOrWhiteSpace(autoBtw) ? null : autoBtw,
             Automatisch: autoAutomatisch,
             Soort: Verwerkingssoort.Bankmutatie,
             NaamBevat: inNaam ? tekst : null,
@@ -1070,6 +1131,11 @@
     private async Task Na(Uitkomst uitkomst)
     {
         fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt && gekozen is { } klaar && metConcept.Contains(klaar.Mutatie.Id))
+        {
+            await Concepten.Verwijder(geopend!.Wie, Id, Conceptsoort.Bank, klaar.Mutatie.Id);
+        }
+
         if (uitkomst.IsGelukt)
         {
             var lijst = mutatiesortering.Pas(mutaties ?? []).ToList();
@@ -1198,7 +1264,7 @@
     {
         var nieuw = regel.Rekening != waarde;
         regel.Rekening = waarde;
-        if (nieuw && !ZonderBtw && gekozen?.Schema.Zoek(waarde)?.BtwCode is { } code && gekozen.BtwCodes.Any(c => c.Code == code))
+        if (nieuw && !NietBtwPlichtig && gekozen?.Schema.Zoek(waarde)?.BtwCode is { } code && gekozen.BtwCodes.Any(c => c.Code == code))
         {
             regel.BtwCode = code;
         }

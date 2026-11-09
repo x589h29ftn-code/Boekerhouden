@@ -1051,6 +1051,43 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         });
                 });
 
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Concept", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BewaardDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("BewaardOp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Inhoud")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("Sleutel")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Soort")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdministratieId", "Soort", "Sleutel")
+                        .IsUnique();
+
+                    b.ToTable("Concepten", (string)null);
+                });
+
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Dagboekdefinitie", b =>
                 {
                     b.Property<Guid>("Id")

@@ -76,6 +76,8 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
 
     public DbSet<Zoekplek> Zoekplekken => Set<Zoekplek>();
 
+    public DbSet<Concept> Concepten => Set<Concept>();
+
     public DbSet<Dashboardindeling> Dashboardindelingen => Set<Dashboardindeling>();
 
     public DbSet<Activum> Activa => Set<Activum>();
@@ -346,6 +348,14 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(z => z.Veld).HasConversion<string>().HasMaxLength(30);
         });
 
+        builder.Entity<Concept>(e =>
+        {
+            e.ToTable("Concepten");
+            e.HasIndex(c => new { c.AdministratieId, c.Soort, c.Sleutel }).IsUnique();
+            e.Property(c => c.Soort).HasMaxLength(20);
+            e.Property(c => c.BewaardDoor).HasMaxLength(200);
+        });
+
         builder.Entity<Afschrift>(e =>
         {
             e.ToTable("Afschriften");
@@ -557,6 +567,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
         builder.Entity<Banktransactie>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Leerkeuze>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Zoekplek>().HasQueryFilter(e => e.AdministratieId == Geopend);
+        builder.Entity<Concept>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Automatiseringsregel>().HasQueryFilter(e => e.AdministratieId == Geopend);
     }
 

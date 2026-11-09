@@ -7,7 +7,13 @@
 
 <AdministratieKader Id="Id" Titel="Grootboekkaart" Actief="/grootboek" BijOpenen="Open">
     <Kenmerken>
-        @if (kaart is { } k)
+        @if (Alle && kaarten is not null)
+        {
+            <span>@Weergave.Datum(van) t/m @Weergave.Datum(tot)</span>
+            <span class="scheiding">·</span>
+            <span>@kaarten.Count @(kaarten.Count == 1 ? "rekening" : "rekeningen")</span>
+        }
+        else if (kaart is { } k)
         {
             <span>@Weergave.Datum(k.Van) t/m @Weergave.Datum(k.Tot)</span>
             <span class="scheiding">·</span>
@@ -20,6 +26,7 @@
     </Kenmerken>
     <Acties>
         <select class="form-select form-select-sm w-auto" aria-label="Rekening" value="@Rekening" @onchange="KiesRekening">
+            <option value="@AlleWaarde">Alle rekeningen</option>
             @foreach (var r in rekeningen)
             {
                 <option value="@r.Nummer">@r.Nummer @r.Naam</option>
@@ -30,10 +37,67 @@
         <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De grootboekkaart als PDF (A4 liggend)" @onclick="Pdf">PDF</button>
     </Acties>
     <ChildContent>
-        @if (kaart is not null)
+        @if (Alle && kaarten is not null)
         {
             <div class="d-flex align-items-center gap-2 mb-2">
-                <a class="btn btn-sm btn-link text-secondary px-0" href="/a/@Id/kolommenbalans?@Weergave.Periodequery(van, tot)" title="Naar de kolommenbalans">←</a>
+                <a class="btn btn-sm btn-link text-secondary px-0" href="/a/@Id/kolommenbalans?@Weergave.Periodequery(van, tot)" title="Naar de kolommenbalans" aria-label="Naar de kolommenbalans"><Icoon Naam="arrow-left" /></a>
+                <input class="form-control form-control-sm ms-auto kaartzoeken" placeholder="Zoeken op omschrijving, bedrag, relatie of factuurnummer" aria-label="Zoeken"
+                       @bind="zoek" @bind:event="oninput" />
+            </div>
+            <Foutmeldingen Fouten="fouten" />
+            @if (kaarten.Count == 0)
+            {
+                <LegeStaat Icoon="file-text" Tekst="Geen boekingen in deze periode" />
+            }
+            @foreach (var k in kaarten.Where(k => string.IsNullOrWhiteSpace(zoek) || k.Mutaties.Any(Past)))
+            {
+                var mutaties = k.Mutaties.Where(Past).ToList();
+                <div class="alle-kaart mb-3">
+                    <div class="d-flex align-items-baseline gap-2 mb-1">
+                        <a class="rekeningnummer" href="/a/@Id/grootboek?rekening=@Uri.EscapeDataString(k.Rekening.Nummer)&@Weergave.Periodequery(van, tot)" title="Alleen deze kaart">@k.Rekening.Nummer</a>
+                        <span class="fw-semibold">@k.Rekening.Naam</span>
+                        <span class="small text-secondary ms-auto">eind @Weergave.Bedrag(k.Eindsaldo)</span>
+                    </div>
+                    <div class="card overzichtskaart">
+                        <table class="table align-middle mb-0 overzichtstabel grootboekkaart">
+                            <thead>
+                                <tr><th style="width:7rem">Datum</th><th style="width:4.5rem">Dagboek</th><th style="width:7rem">Boekstuk</th><th>Omschrijving</th><th style="width:4rem">Btw</th><th class="text-end" style="width:7rem">Btw-bedrag</th><th style="width:8rem">Factuur</th><th class="text-end" style="width:8rem">Debet</th><th class="text-end" style="width:8rem">Credit</th><th class="text-end" style="width:8rem">Saldo</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr class="text-secondary"><td>@Weergave.Datum(k.Van)</td><td colspan="6">Beginsaldo</td><td></td><td></td><td class="bedrag text-end">@Weergave.Bedrag(k.Beginsaldo)</td></tr>
+                                @foreach (var m in mutaties)
+                                {
+                                    <tr class="klikbaar" @onclick="() => NaarBoeking(m.Dagboek, m.Boekstuk)">
+                                        <td class="text-nowrap">@Weergave.Datum(m.Datum)</td>
+                                        <td>@m.Dagboek</td>
+                                        <td class="text-nowrap">@m.Boekstuk</td>
+                                        <td class="text-truncate" title="@m.Omschrijving">@m.Omschrijving</td>
+                                        <td class="text-secondary">@m.BtwCode</td>
+                                        <td class="bedrag text-end">@(m.Btw is { } btw ? Weergave.Bedrag(btw) : null)</td>
+                                        <td class="text-secondary text-truncate" title="@m.Relatie">@m.Factuurnummer</td>
+                                        <td class="bedrag text-end">@(m.Bedrag > 0 ? Weergave.Bedrag(m.Bedrag) : null)</td>
+                                        <td class="bedrag text-end">@(m.Bedrag < 0 ? Weergave.Bedrag(-m.Bedrag) : null)</td>
+                                        <td class="bedrag text-end">@Weergave.Bedrag(m.Saldo)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot>
+                                <tr class="generaal">
+                                    <td colspan="7">Totaal en eindsaldo</td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(k.TotaalDebet)</td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(k.TotaalCredit)</td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(k.Eindsaldo)</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            }
+        }
+        else if (kaart is not null)
+        {
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <a class="btn btn-sm btn-link text-secondary px-0" href="/a/@Id/kolommenbalans?@Weergave.Periodequery(van, tot)" title="Naar de kolommenbalans" aria-label="Naar de kolommenbalans"><Icoon Naam="arrow-left" /></a>
                 <span class="rekeningnummer">@kaart.Rekening.Nummer</span>
                 <span class="fw-semibold">@kaart.Rekening.Naam</span>
                 <span class="btn-group btn-group-sm ms-2 bladeren">
@@ -131,6 +195,12 @@
     private DateOnly tot;
     private IReadOnlyList<Boekhouding.Grootboek.Rekening> rekeningen = [];
     private Boekhouding.Grootboek.Grootboekkaart? kaart;
+    private IReadOnlyList<Boekhouding.Grootboek.Grootboekkaart>? kaarten;
+
+    /// <summary>De keuze "Alle rekeningen": alle kaarten met een saldo of mutaties onder elkaar.</summary>
+    private const string AlleWaarde = "alle";
+
+    private bool Alle => Rekening == AlleWaarde;
     private IReadOnlyList<Boekhouding.Grootboek.Rekening> metMutaties = [];
     private Rekeningschema? schema;
     private string? zoek;
@@ -220,18 +290,19 @@
     private async Task Excel()
     {
         bezig = true;
-        await JS.Bewaar(await Overzicht.KaartExcel(geopend!.Wie, Id, Rekening!, van, tot), $"Grootboekkaart {Rekening} {van:yyyy-MM-dd} {tot:yyyy-MM-dd}.xlsx", Download.Excel);
+        await JS.Bewaar(Alle ? await Overzicht.KaartenExcel(geopend!.Wie, Id, van, tot) : await Overzicht.KaartExcel(geopend!.Wie, Id, Rekening!, van, tot),
+            $"{(Alle ? "Grootboekkaarten" : $"Grootboekkaart {Rekening}")} {van:yyyy-MM-dd} {tot:yyyy-MM-dd}.xlsx", Download.Excel);
         bezig = false;
     }
 
     private async Task Pdf()
     {
         bezig = true;
-        var uitkomst = await Overzicht.KaartPdf(geopend!.Wie, Id, Rekening!, van, tot);
+        var uitkomst = Alle ? await Overzicht.KaartenPdf(geopend!.Wie, Id, van, tot) : await Overzicht.KaartPdf(geopend!.Wie, Id, Rekening!, van, tot);
         fouten = uitkomst.Fouten;
         if (uitkomst.IsGelukt)
         {
-            await JS.Bewaar(uitkomst.Waarde!, $"Grootboekkaart {Rekening} {van:yyyy-MM-dd} {tot:yyyy-MM-dd}.pdf", Download.Pdf);
+            await JS.Bewaar(uitkomst.Waarde!, $"{(Alle ? "Grootboekkaarten" : $"Grootboekkaart {Rekening}")} {van:yyyy-MM-dd} {tot:yyyy-MM-dd}.pdf", Download.Pdf);
         }
 
         bezig = false;
@@ -259,13 +330,14 @@
         schema = await Grootboek.Schema(g.Wie, Id);
         rekeningen = [.. schema.Alle];
         (van, tot) = Weergave.Periode(VanTekst, TotTekst) ?? Boekhouding.Grootboek.Periode.Jaar(Jaar is { } j && jaren.Contains(j) ? j : jaren[0]);
-        Rekening = rekeningen.Any(r => r.Nummer == Rekening) ? Rekening : rekeningen.FirstOrDefault(r => r.Functie == Rekeningfunctie.Bank)?.Nummer ?? rekeningen.FirstOrDefault()?.Nummer;
+        Rekening = Rekening == AlleWaarde || rekeningen.Any(r => r.Nummer == Rekening) ? Rekening : rekeningen.FirstOrDefault(r => r.Functie == Rekeningfunctie.Bank)?.Nummer ?? rekeningen.FirstOrDefault()?.Nummer;
         await Laad();
     }
 
     private async Task Laad()
     {
-        kaart = Rekening is null ? null : await Grootboek.Kaart(geopend!.Wie, Id, Rekening, van, tot);
+        kaarten = Alle ? await Grootboek.Kaarten(geopend!.Wie, Id, van, tot) : null;
+        kaart = Rekening is null || Alle ? null : await Grootboek.Kaart(geopend!.Wie, Id, Rekening, van, tot);
         gekozen.Clear();
         // Bladeren gaat langs de rekeningen met een saldo of mutaties in de periode, zoals in de kolommenbalans.
         metMutaties = [.. (await Grootboek.Kolommenbalans(geopend!.Wie, Id, van, tot)).Regels.Where(r => r.Debet != 0 || r.Credit != 0).Select(r => r.Rekening)];

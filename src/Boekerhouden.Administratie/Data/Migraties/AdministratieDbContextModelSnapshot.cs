@@ -1067,6 +1067,45 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         });
                 });
 
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Concept", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("BewaardDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("BewaardOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Inhoud")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("Sleutel")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Soort")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdministratieId", "Soort", "Sleutel")
+                        .IsUnique();
+
+                    b.ToTable("Concepten", (string)null);
+                });
+
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Dagboekdefinitie", b =>
                 {
                     b.Property<Guid>("Id")

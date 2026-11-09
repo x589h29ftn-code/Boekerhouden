@@ -1095,3 +1095,27 @@ public sealed class ActivumDesinvestering : IVanAdministratie
 
     public Boekhouding.Activa.Desinvesteringsstap NaarStap() => new(Datum, Aanschaf, Afschrijving, Restwaarde);
 }
+
+/// <summary>
+/// Een formulier dat tussentijds bewaard is, om later verder te gaan: een inkoopfactuur of een bankmutatie die nog niet
+/// geboekt is. Na het boeken verdwijnt het concept.
+/// </summary>
+public sealed class Concept : IVanAdministratie
+{
+    public long Id { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    /// <summary>Waar het concept bij hoort, bijv. "inkoop" of "bank".</summary>
+    public string Soort { get; set; } = string.Empty;
+
+    /// <summary>Het document of de bankmutatie.</summary>
+    public Guid Sleutel { get; set; }
+
+    /// <summary>De inhoud van het formulier (JSON).</summary>
+    public string Inhoud { get; set; } = string.Empty;
+
+    public DateTimeOffset BewaardOp { get; set; }
+
+    public string BewaardDoor { get; set; } = string.Empty;
+}

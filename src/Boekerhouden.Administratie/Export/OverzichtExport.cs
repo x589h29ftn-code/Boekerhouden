@@ -20,46 +20,65 @@ public static class OverzichtExport
     public static byte[] KaartExcel(Grootboekkaart kaart, string administratie)
     {
         ArgumentNullException.ThrowIfNull(kaart);
+        return KaartenExcel([kaart], administratie, kaart.Van, kaart.Tot, $"Grootboekkaart {kaart.Rekening.Nummer} {kaart.Rekening.Naam}");
+    }
+
+    /// <summary>Alle grootboekkaarten onder elkaar op één blad: per rekening een kop, het beginsaldo, de mutaties en het eindsaldo.</summary>
+    public static byte[] KaartenExcel(IReadOnlyList<Grootboekkaart> kaarten, string administratie, DateOnly van, DateOnly tot, string titel = "Grootboekkaarten")
+    {
+        ArgumentNullException.ThrowIfNull(kaarten);
         using var boek = new XLWorkbook();
         var blad = boek.AddWorksheet("Grootboekkaart");
-        Kop(blad, $"Grootboekkaart {kaart.Rekening.Nummer} {kaart.Rekening.Naam}", administratie, kaart.Van, kaart.Tot);
+        Kop(blad, titel, administratie, van, tot);
         string[] koppen = ["Datum", "Dagboek", "Boekstuk", "Omschrijving", "Btw", "Btw-bedrag", "Factuur", "Debet", "Credit", "Saldo"];
         var rij = Koppen(blad, 4, koppen);
-        blad.Cell(rij, 1).Value = kaart.Van.ToDateTime(TimeOnly.MinValue);
-        blad.Cell(rij, 4).Value = "Beginsaldo";
-        blad.Cell(rij, 10).Value = kaart.Beginsaldo;
-        rij++;
-        foreach (var m in kaart.Mutaties)
+        foreach (var kaart in kaarten)
         {
-            blad.Cell(rij, 1).Value = m.Datum.ToDateTime(TimeOnly.MinValue);
-            blad.Cell(rij, 2).Value = m.Dagboek;
-            blad.Cell(rij, 3).Value = m.Boekstuk;
-            blad.Cell(rij, 4).Value = m.Omschrijving;
-            blad.Cell(rij, 5).Value = m.BtwCode ?? "";
-            if (m.Btw is { } btw)
+            if (kaarten.Count > 1)
             {
-                blad.Cell(rij, 6).Value = btw;
+                blad.Cell(rij, 1).Value = $"{kaart.Rekening.Nummer} {kaart.Rekening.Naam}";
+                blad.Row(rij).Style.Font.Bold = true;
+                rij++;
             }
 
-            blad.Cell(rij, 7).Value = m.Factuurnummer ?? "";
-            if (m.Bedrag > 0)
-            {
-                blad.Cell(rij, 8).Value = m.Bedrag;
-            }
-            else if (m.Bedrag < 0)
-            {
-                blad.Cell(rij, 9).Value = -m.Bedrag;
-            }
-
-            blad.Cell(rij, 10).Value = m.Saldo;
+            blad.Cell(rij, 1).Value = kaart.Van.ToDateTime(TimeOnly.MinValue);
+            blad.Cell(rij, 4).Value = "Beginsaldo";
+            blad.Cell(rij, 10).Value = kaart.Beginsaldo;
             rij++;
+            foreach (var m in kaart.Mutaties)
+            {
+                blad.Cell(rij, 1).Value = m.Datum.ToDateTime(TimeOnly.MinValue);
+                blad.Cell(rij, 2).Value = m.Dagboek;
+                blad.Cell(rij, 3).Value = m.Boekstuk;
+                blad.Cell(rij, 4).Value = m.Omschrijving;
+                blad.Cell(rij, 5).Value = m.BtwCode ?? "";
+                if (m.Btw is { } btw)
+                {
+                    blad.Cell(rij, 6).Value = btw;
+                }
+
+                blad.Cell(rij, 7).Value = m.Factuurnummer ?? "";
+                if (m.Bedrag > 0)
+                {
+                    blad.Cell(rij, 8).Value = m.Bedrag;
+                }
+                else if (m.Bedrag < 0)
+                {
+                    blad.Cell(rij, 9).Value = -m.Bedrag;
+                }
+
+                blad.Cell(rij, 10).Value = m.Saldo;
+                rij++;
+            }
+
+            blad.Cell(rij, 1).Value = "Totaal en eindsaldo";
+            blad.Cell(rij, 8).Value = kaart.TotaalDebet;
+            blad.Cell(rij, 9).Value = kaart.TotaalCredit;
+            blad.Cell(rij, 10).Value = kaart.Eindsaldo;
+            blad.Row(rij).Style.Font.Bold = true;
+            rij += kaarten.Count > 1 ? 2 : 1;
         }
 
-        blad.Cell(rij, 1).Value = "Totaal en eindsaldo";
-        blad.Cell(rij, 8).Value = kaart.TotaalDebet;
-        blad.Cell(rij, 9).Value = kaart.TotaalCredit;
-        blad.Cell(rij, 10).Value = kaart.Eindsaldo;
-        blad.Row(rij).Style.Font.Bold = true;
         blad.Column(1).Style.DateFormat.Format = "dd-mm-yyyy";
         foreach (var kolom in new[] { 6, 8, 9, 10 })
         {
@@ -276,18 +295,34 @@ public static class OverzichtExport
     public static string KaartHtml(Grootboekkaart kaart, string administratie)
     {
         ArgumentNullException.ThrowIfNull(kaart);
-        var html = Begin($"Grootboekkaart {kaart.Rekening.Nummer} {kaart.Rekening.Naam}", administratie, kaart.Van, kaart.Tot);
-        html.Append("""<table><colgroup><col style="width:8%"><col style="width:6%"><col style="width:9%"><col><col style="width:5%"><col style="width:8%"><col style="width:11%"><col style="width:9%"><col style="width:9%"><col style="width:9%"></colgroup>""");
-        html.Append("""<thead><tr><th>Datum</th><th>Dagboek</th><th>Boekstuk</th><th>Omschrijving</th><th>Btw</th><th class="r">Btw-bedrag</th><th>Factuur</th><th class="r">Debet</th><th class="r">Credit</th><th class="r">Saldo</th></tr></thead><tbody>""");
-        html.Append(CultureInfo.InvariantCulture, $"""<tr class="zacht"><td class="datum">{Datum(kaart.Van)}</td><td colspan="8">Beginsaldo</td><td class="r">{Bedrag(kaart.Beginsaldo)}</td></tr>""");
-        foreach (var m in kaart.Mutaties)
+        return KaartenHtml([kaart], administratie, kaart.Van, kaart.Tot, $"Grootboekkaart {kaart.Rekening.Nummer} {kaart.Rekening.Naam}");
+    }
+
+    /// <summary>Alle grootboekkaarten onder elkaar, per rekening een eigen tabel met kop.</summary>
+    public static string KaartenHtml(IReadOnlyList<Grootboekkaart> kaarten, string administratie, DateOnly van, DateOnly tot, string titel = "Grootboekkaarten")
+    {
+        ArgumentNullException.ThrowIfNull(kaarten);
+        var html = Begin(titel, administratie, van, tot);
+        foreach (var kaart in kaarten)
         {
+            if (kaarten.Count > 1)
+            {
+                html.Append(CultureInfo.InvariantCulture, $"""<h2 style="font-size:10pt;margin:14px 0 4px">{E(kaart.Rekening.Nummer)} {E(kaart.Rekening.Naam)}</h2>""");
+            }
+
+            html.Append("""<table><colgroup><col style="width:8%"><col style="width:6%"><col style="width:9%"><col><col style="width:5%"><col style="width:8%"><col style="width:11%"><col style="width:9%"><col style="width:9%"><col style="width:9%"></colgroup>""");
+            html.Append("""<thead><tr><th>Datum</th><th>Dagboek</th><th>Boekstuk</th><th>Omschrijving</th><th>Btw</th><th class="r">Btw-bedrag</th><th>Factuur</th><th class="r">Debet</th><th class="r">Credit</th><th class="r">Saldo</th></tr></thead><tbody>""");
+            html.Append(CultureInfo.InvariantCulture, $"""<tr class="zacht"><td class="datum">{Datum(kaart.Van)}</td><td colspan="8">Beginsaldo</td><td class="r">{Bedrag(kaart.Beginsaldo)}</td></tr>""");
+            foreach (var m in kaart.Mutaties)
+            {
+                html.Append(CultureInfo.InvariantCulture,
+                    $"""<tr><td class="datum">{Datum(m.Datum)}</td><td>{E(m.Dagboek)}</td><td>{E(m.Boekstuk)}</td><td>{E(m.Omschrijving)}</td><td class="zacht">{E(m.BtwCode ?? "")}</td><td class="r">{(m.Btw is { } b ? Bedrag(b) : "")}</td><td class="zacht">{E(m.Factuurnummer ?? "")}</td><td class="r">{(m.Bedrag > 0 ? Bedrag(m.Bedrag) : "")}</td><td class="r">{(m.Bedrag < 0 ? Bedrag(-m.Bedrag) : "")}</td><td class="r">{Bedrag(m.Saldo)}</td></tr>""");
+            }
+
             html.Append(CultureInfo.InvariantCulture,
-                $"""<tr><td class="datum">{Datum(m.Datum)}</td><td>{E(m.Dagboek)}</td><td>{E(m.Boekstuk)}</td><td>{E(m.Omschrijving)}</td><td class="zacht">{E(m.BtwCode ?? "")}</td><td class="r">{(m.Btw is { } b ? Bedrag(b) : "")}</td><td class="zacht">{E(m.Factuurnummer ?? "")}</td><td class="r">{(m.Bedrag > 0 ? Bedrag(m.Bedrag) : "")}</td><td class="r">{(m.Bedrag < 0 ? Bedrag(-m.Bedrag) : "")}</td><td class="r">{Bedrag(m.Saldo)}</td></tr>""");
+                $"""<tr class="totaal"><td colspan="7">Totaal en eindsaldo</td><td class="r">{Bedrag(kaart.TotaalDebet)}</td><td class="r">{Bedrag(kaart.TotaalCredit)}</td><td class="r">{Bedrag(kaart.Eindsaldo)}</td></tr></tbody></table>""");
         }
 
-        html.Append(CultureInfo.InvariantCulture,
-            $"""<tr class="totaal"><td colspan="7">Totaal en eindsaldo</td><td class="r">{Bedrag(kaart.TotaalDebet)}</td><td class="r">{Bedrag(kaart.TotaalCredit)}</td><td class="r">{Bedrag(kaart.Eindsaldo)}</td></tr></tbody></table>""");
         html.Append("</body></html>");
         return html.ToString();
     }
@@ -308,6 +343,74 @@ public static class OverzichtExport
         {
             html.Append(CultureInfo.InvariantCulture,
                 $"""<tr class="totaal"><td colspan="2">{E(naam)}</td><td class="r">{Leeg(a)}</td><td class="r">{Leeg(b)}</td><td class="r">{Leeg(c)}</td><td class="r">{Leeg(d)}</td></tr>""");
+        }
+
+        html.Append("</tbody></table></body></html>");
+        return html.ToString();
+    }
+
+    /// <summary>Een overzicht zoals op het scherm als Excel: koppen en subtotalen vet, ingesprongen naar niveau.</summary>
+    public static byte[] TabelExcel(Exporttabel tabel, string administratie)
+    {
+        ArgumentNullException.ThrowIfNull(tabel);
+        using var boek = new XLWorkbook();
+        var blad = boek.AddWorksheet(tabel.Titel.Length > 31 ? tabel.Titel[..31] : tabel.Titel);
+        Kop(blad, tabel.Titel, administratie, tabel.Van, tabel.Tot);
+        var rij = Koppen(blad, 4, ["Rekening", "Omschrijving", .. tabel.Koppen]);
+        foreach (var r in tabel.Regels)
+        {
+            blad.Cell(rij, 1).Value = r.Nummer ?? "";
+            blad.Cell(rij, 2).Value = r.Tekst;
+            blad.Cell(rij, 2).Style.Alignment.Indent = r.Soort == Exportsoort.Rekening ? r.Niveau + 1 : r.Niveau;
+            for (var k = 0; k < r.Bedragen.Count; k++)
+            {
+                if (r.Bedragen[k] is { } b)
+                {
+                    Zet(blad, rij, k + 3, b);
+                }
+            }
+
+            if (r.Soort != Exportsoort.Rekening)
+            {
+                blad.Row(rij).Style.Font.Bold = true;
+            }
+
+            rij++;
+        }
+
+        for (var k = 0; k < tabel.Koppen.Count; k++)
+        {
+            blad.Column(k + 3).Style.NumberFormat.Format = Getalnotatie;
+        }
+
+        return Bewaar(boek, blad);
+    }
+
+    /// <summary>Een overzicht zoals op het scherm als HTML voor de PDF (A4 liggend).</summary>
+    public static string TabelHtml(Exporttabel tabel, string administratie)
+    {
+        ArgumentNullException.ThrowIfNull(tabel);
+        var html = Begin(tabel.Titel, administratie, tabel.Van, tabel.Tot);
+        var klein = tabel.Koppen.Count > 8 ? " style=\"font-size:7pt\"" : null;
+        html.Append(CultureInfo.InvariantCulture, $"""<table{klein}><thead><tr><th>Rekening</th><th>Omschrijving</th>""");
+        foreach (var kop in tabel.Koppen)
+        {
+            html.Append(CultureInfo.InvariantCulture, $"""<th class="r">{E(kop)}</th>""");
+        }
+
+        html.Append("</tr></thead><tbody>");
+        foreach (var r in tabel.Regels)
+        {
+            var klasse = r.Soort switch { Exportsoort.Kop => "kopregel", Exportsoort.Rekening => null, _ => "totaal" };
+            var inspringen = (r.Soort == Exportsoort.Rekening ? r.Niveau + 1 : r.Niveau) * 0.8;
+            html.Append(CultureInfo.InvariantCulture,
+                $"""<tr{(klasse is null ? null : $" class=\"{klasse}\"")}><td>{E(r.Nummer ?? "")}</td><td style="padding-left:{inspringen.ToString("0.0", CultureInfo.InvariantCulture)}em{(r.Soort == Exportsoort.Kop ? ";font-weight:600" : null)}">{E(r.Tekst)}</td>""");
+            for (var k = 0; k < tabel.Koppen.Count; k++)
+            {
+                html.Append(CultureInfo.InvariantCulture, $"""<td class="r">{(k < r.Bedragen.Count && r.Bedragen[k] is { } b ? Leeg(b) : null)}</td>""");
+            }
+
+            html.Append("</tr>");
         }
 
         html.Append("</tbody></table></body></html>");

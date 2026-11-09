@@ -288,8 +288,39 @@ public sealed class BoekenTests(AdministratieFixture app) : IClassFixture<Admini
         var html = Export.OverzichtExport.KaartHtml(await grootboek.Kaart(wie, id, "4300", new(2026, 1, 1), new(2026, 12, 31)), "Export Overzicht B.V.");
         Assert.Contains("100,40", html, StringComparison.Ordinal);
         Assert.Contains("150,00", html, StringComparison.Ordinal);
+        // Alle grootboekkaarten onder elkaar: elke rekening met mutaties, met kop.
+        var alle = await grootboek.Kaarten(wie, id, new(2026, 1, 1), new(2026, 12, 31));
+        Assert.Contains(alle, k => k.Rekening.Nummer == "4300");
+        Assert.All(alle, k => Assert.NotEmpty(k.Mutaties));
+        using (var boek = new ClosedXML.Excel.XLWorkbook(new MemoryStream(await overzicht.KaartenExcel(wie, id, new(2026, 1, 1), new(2026, 12, 31)))))
+        {
+            Assert.Equal(alle.Count, boek.Worksheets.First().CellsUsed().Count(c => c.GetString() == "Totaal en eindsaldo"));
+        }
+
+        Assert.Contains("<h2", Export.OverzichtExport.KaartenHtml(alle, "Export Overzicht B.V.", new(2026, 1, 1), new(2026, 12, 31)), StringComparison.Ordinal);
+
+        // Per maand of uitgebreid: de export volgt het scherm (koppen, subtotalen en kolommen per maand).
+        var tabel = new Export.Exporttabel("Kolommenbalans per maand", new(2026, 1, 1), new(2026, 2, 28), ["Beginbalans", "jan 26", "feb 26", "Eindbalans"],
+        [
+            new(Export.Exportsoort.Kop, null, "Kosten", 0, []),
+            new(Export.Exportsoort.Rekening, "4300", "Kantoorbenodigdheden", 2, [null, 100.40m, 49.60m, 150m]),
+            new(Export.Exportsoort.Subtotaal, null, "Totaal kosten", 0, [null, 100.40m, 49.60m, 150m]),
+        ]);
+        using (var boek = new ClosedXML.Excel.XLWorkbook(new MemoryStream(await overzicht.TabelExcel(wie, id, tabel))))
+        {
+            var blad = boek.Worksheets.First();
+            Assert.Equal(["Rekening", "Omschrijving", "Beginbalans", "jan 26", "feb 26", "Eindbalans"], blad.Row(4).Cells(1, 6).Select(c => c.GetString()));
+            Assert.Equal(("Totaal kosten", 49.60m), (blad.Cell(7, 2).GetString(), blad.Cell(7, 5).GetValue<decimal>()));
+            Assert.True(blad.Cell(5, 2).Style.Font.Bold);
+        }
+
+        var tabelHtml = Export.OverzichtExport.TabelHtml(tabel, "Export Overzicht B.V.");
+        Assert.Contains("jan 26", tabelHtml, StringComparison.Ordinal);
+        Assert.Contains("Totaal kosten", tabelHtml, StringComparison.Ordinal);
+        Assert.Contains("49,60", tabelHtml, StringComparison.Ordinal);
         var buiten = await app.Gebruiker("Buiten Export");
         await Assert.ThrowsAsync<GeenToegangException>(() => overzicht.KaartExcel(buiten, id, "4300", new(2026, 1, 1), new(2026, 12, 31)));
+        await Assert.ThrowsAsync<GeenToegangException>(() => overzicht.TabelExcel(buiten, id, tabel));
     }
 
     [Fact]

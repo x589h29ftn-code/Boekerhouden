@@ -12,11 +12,27 @@ public sealed class OverzichtDienst(Toegang toegang, GrootboekDienst grootboek, 
     public async Task<Uitkomst<byte[]>> KaartPdf(Uitvoerder wie, Guid administratie, string rekening, DateOnly van, DateOnly tot, CancellationToken stoppen = default) =>
         await pdf.Maak(OverzichtExport.KaartHtml(await grootboek.Kaart(wie, administratie, rekening, van, tot), await Naam(wie, administratie)), stoppen);
 
+    /// <summary>Alle grootboekkaarten (rekeningen met een saldo of mutaties) onder elkaar, als Excel.</summary>
+    public async Task<byte[]> KaartenExcel(Uitvoerder wie, Guid administratie, DateOnly van, DateOnly tot) =>
+        OverzichtExport.KaartenExcel(await grootboek.Kaarten(wie, administratie, van, tot), await Naam(wie, administratie), van, tot);
+
+    /// <summary>Alle grootboekkaarten onder elkaar, als PDF.</summary>
+    public async Task<Uitkomst<byte[]>> KaartenPdf(Uitvoerder wie, Guid administratie, DateOnly van, DateOnly tot, CancellationToken stoppen = default) =>
+        await pdf.Maak(OverzichtExport.KaartenHtml(await grootboek.Kaarten(wie, administratie, van, tot), await Naam(wie, administratie), van, tot), stoppen);
+
     public async Task<byte[]> KolommenbalansExcel(Uitvoerder wie, Guid administratie, DateOnly van, DateOnly tot) =>
         OverzichtExport.KolommenbalansExcel(await grootboek.Kolommenbalans(wie, administratie, van, tot), await Naam(wie, administratie));
 
     public async Task<Uitkomst<byte[]>> KolommenbalansPdf(Uitvoerder wie, Guid administratie, DateOnly van, DateOnly tot, CancellationToken stoppen = default) =>
         await pdf.Maak(OverzichtExport.KolommenbalansHtml(await grootboek.Kolommenbalans(wie, administratie, van, tot), await Naam(wie, administratie)), stoppen);
+
+    /// <summary>Een overzicht zoals het op het scherm staat (bijv. de kolommenbalans per maand of uitgebreid), als Excel.</summary>
+    public async Task<byte[]> TabelExcel(Uitvoerder wie, Guid administratie, Exporttabel tabel) =>
+        OverzichtExport.TabelExcel(tabel, await Naam(wie, administratie));
+
+    /// <summary>Een overzicht zoals het op het scherm staat, als PDF (A4 liggend).</summary>
+    public async Task<Uitkomst<byte[]>> TabelPdf(Uitvoerder wie, Guid administratie, Exporttabel tabel, CancellationToken stoppen = default) =>
+        await pdf.Maak(OverzichtExport.TabelHtml(tabel, await Naam(wie, administratie)), stoppen);
 
     /// <summary>De kolommenbalans met dezelfde periode een jaar eerder ernaast, als Excel.</summary>
     public async Task<byte[]> VergelijkingExcel(Uitvoerder wie, Guid administratie, DateOnly van, DateOnly tot) =>

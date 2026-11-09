@@ -6,6 +6,7 @@
 @inject InkoopDienst Inkoop
 @inject ActivaDienst Activa
 @inject Meldingen Meldingen
+@inject ConceptDienst Concepten
 @inject NavigationManager Navigatie
 @inject IJSRuntime JS
 @inject IServiceProvider Diensten
@@ -394,6 +395,15 @@
                                 {
                                     <button class="btn btn-link text-secondary" @onclick="StopAanpassen" disabled="@bezig">Annuleren</button>
                                 }
+                                else if (verwerking?.Document.Status == Documentstatus.TeVerwerken)
+                                {
+                                    <button class="btn btn-outline-secondary bewaar-concept" @onclick="BewaarConcept" disabled="@bezig" title="Tussentijds bewaren en later verder gaan">Bewaren</button>
+                                    @if (concept is { } c)
+                                    {
+                                        <span class="small text-secondary text-nowrap concept-stand" title="Bewaard door @c.BewaardDoor">bewaard @c.BewaardOp.ToLocalTime().ToString("dd-MM HH:mm")</span>
+                                        <button class="btn btn-sm btn-link text-secondary p-0" @onclick="OpnieuwBeginnen" disabled="@bezig">Opnieuw beginnen</button>
+                                    }
+                                }
                                 @if (overgenomen is not null)
                                 {
                                     <span class="small text-secondary text-truncate">@overgenomen</span>
@@ -531,7 +541,13 @@
     private bool Toon(string sleutel) => weergave.Contains(sleutel);
 
     /// <summary>De administratie is niet btw-plichtig: geen btw op het scherm, de regels met de code zonder btw.</summary>
-    private bool ZonderBtw => geopend?.Kop.BtwPlichtig == false;
+    private bool NietBtwPlichtig => geopend?.Kop.BtwPlichtig == false;
+
+    /// <summary>
+    /// Geen btw op het scherm: de administratie is niet btw-plichtig én geen regel heeft btw. Een oude factuur (van
+    /// toen de administratie nog btw-plichtig was) houdt bij heropenen zijn btw-kolommen.
+    /// </summary>
+    private bool ZonderBtw => NietBtwPlichtig && regels.All(r => BtwCodes.Zoek(Codes, r.BtwCode) is null or { Soort: Btwsoort.GeenBtw });
 
     /// <summary>De btw-codes met de tarieven op de factuurdatum (een nieuw tarief geldt vanaf zijn ingangsdatum).</summary>
     private IReadOnlyList<BtwCode> Codes => verwerking?.Btwtabel.Op(datum) ?? [];
@@ -589,7 +605,7 @@
         // Btw verlegd ("reverse charge"): de verlegde code (binnenland, EU of buiten de EU), geen btw op de factuur.
         var verlegd = herkend is null ? null : Inkoopverwerker.VerlegdeCode(herkend, Codes);
         var standaardCode = voorstel?.Advies.BtwCode ?? verlegd?.Code ?? "I21";
-        regels = ZonderBtw && voorstel?.Factuur is null && Boekerhouden.Administratie.Diensten.InkoopDienst.ZonderBtw(Codes) is { } geen
+        regels = NietBtwPlichtig && voorstel?.Factuur is null && Boekerhouden.Administratie.Diensten.InkoopDienst.ZonderBtw(Codes) is { } geen
             ? [new Invoerregel { Rekening = rekening, BtwCode = geen.Code, Bedrag = herkend?.TotaalInclusief is { } incl ? Bedragen.Getal(Math.Abs(incl)) : null }]
             : voorstel?.Factuur is { } f
             ? [.. f.Regels.Select(r => new Invoerregel { Rekening = r.Rekeningnummer, BtwCode = r.BtwCode, Bedrag = Bedragen.Getal(r.Bedrag), Btw = r.Btw is { } b ? Bedragen.Getal(b) : null })]
@@ -625,6 +641,14 @@
         }
 
         aanpassen &= geboekteFactuur is not null;
+
+        // Aanpassen: altijd het formulier met wat er geboekt is, ook als de pagina opnieuw laadt (anders kwam het
+        // voorstel van nu in het formulier, bijv. zonder btw nadat de administratie niet meer btw-plichtig is).
+        if (aanpassen && heropend is null)
+        {
+            heropend = geboekteFactuur;
+        }
+
         if (heropend is { } h && (verwerking.Document.Status == Documentstatus.TeVerwerken || aanpassen))
         {
             VulMet(h);
@@ -636,6 +660,16 @@
 
         await LaadHistorie();
         await ControleerHerkenning();
+
+        // Tussentijds bewaard: het formulier zoals het was.
+        concept = verwerking.Document.Status == Documentstatus.TeVerwerken
+            ? await Concepten.Lees<Inkoopconcept>(g.Wie, Id, Conceptsoort.Inkoop, DocumentId)
+            : null;
+        if (concept is { Inhoud: var bewaard })
+        {
+            VulMet(bewaard);
+            return;
+        }
 
         // Btw van de factuur die afwijkt van het tarief (afronding van de leverancier) geldt als aangepast.
         foreach (var r in regels)
@@ -1046,6 +1080,41 @@
         }
     }
 
+    private Conceptinhoud<Inkoopconcept>? concept;
+
+    /// <summary>Tussentijds bewaren: alles wat in het formulier staat, om later (of op een andere computer) verder te gaan.</summary>
+    private async Task BewaarConcept()
+    {
+        bezig = true;
+        var inhoud = new Inkoopconcept(leverancier, nieuw.Naam, nieuw.Iban, nieuw.BtwNummer, nieuw.KvkNummer, factuurnummer, datum, vervaldatum, omschrijving, kenmerk,
+            soort, factuurbedrag, verdelen, verdeelVan, verdeelTot, verdeelRekening,
+            [.. regels.Select(x => new Inkoopconceptregel(x.Rekening, x.BtwCode, x.Bedrag, x.Btw, x.BtwHandmatig, x.Omschrijving))]);
+        await Concepten.Bewaar(geopend!.Wie, Id, Conceptsoort.Inkoop, DocumentId, inhoud, $"{Variabelen.Leverancier} {factuurnummer}".Trim());
+        concept = await Concepten.Lees<Inkoopconcept>(geopend.Wie, Id, Conceptsoort.Inkoop, DocumentId);
+        bezig = false;
+        Meldingen.Toon($"{$"{Variabelen.Leverancier} {factuurnummer}".Trim()} bewaard");
+    }
+
+    private void VulMet(Inkoopconcept c)
+    {
+        (leverancier, factuurnummer, datum, vervaldatum, omschrijving, kenmerk) = (c.Leverancier, c.Factuurnummer, c.Datum, c.Vervaldatum, c.Omschrijving, c.Kenmerk);
+        nieuw = new NieuweLeverancier { Naam = c.NieuwNaam, Iban = c.NieuwIban, BtwNummer = c.NieuwBtwNummer, KvkNummer = c.NieuwKvkNummer };
+        (soort, factuurbedrag, verdelen, verdeelVan, verdeelTot, verdeelRekening) = (c.Soort, c.Factuurbedrag, c.Verdelen, c.VerdeelVan, c.VerdeelTot, c.VerdeelRekening);
+        regels = [.. c.Regels.Select(x => new Invoerregel { Rekening = x.Rekening, BtwCode = x.BtwCode, Bedrag = x.Bedrag, Btw = x.Btw, BtwHandmatig = x.BtwHandmatig, Omschrijving = x.Omschrijving })];
+        if (regels.Count == 0)
+        {
+            regels.Add(new Invoerregel());
+        }
+    }
+
+    /// <summary>Het bewaarde concept weg en het formulier weer zoals het pakket het herkende.</summary>
+    private async Task OpnieuwBeginnen()
+    {
+        await Concepten.Verwijder(geopend!.Wie, Id, Conceptsoort.Inkoop, DocumentId);
+        concept = null;
+        await Open(geopend);
+    }
+
     private async Task Boek()
     {
         var ongeldig = regels.Select((r, i) => (r, i)).Where(x => Getal(x.r.Bedrag) is null || (BtwTekst(x.r) is { Length: > 0 } b && Getal(b) is null)).Select(x => $"Regel {x.i + 1}: het bedrag is niet te lezen.").ToList();
@@ -1073,6 +1142,12 @@
         {
             fouten = uitkomst.Fouten;
             return;
+        }
+
+        if (concept is not null)
+        {
+            await Concepten.Verwijder(geopend.Wie, Id, Conceptsoort.Inkoop, DocumentId);
+            concept = null;
         }
 
         if (aanpassen)
@@ -1378,6 +1453,15 @@
 
         zelf?.Dispose();
     }
+
+    /// <summary>Het formulier zoals het tussentijds bewaard wordt.</summary>
+    public sealed record Inkoopconcept(
+        string Leverancier, string NieuwNaam, string? NieuwIban, string? NieuwBtwNummer, string? NieuwKvkNummer,
+        string Factuurnummer, DateOnly Datum, DateOnly Vervaldatum, string Omschrijving, string? Kenmerk,
+        Documentsoort Soort, string? Factuurbedrag, bool Verdelen, DateOnly VerdeelVan, DateOnly VerdeelTot, string VerdeelRekening,
+        IReadOnlyList<Inkoopconceptregel> Regels);
+
+    public sealed record Inkoopconceptregel(string Rekening, string BtwCode, string? Bedrag, string? Btw, bool BtwHandmatig, string? Omschrijving);
 
     private sealed class NieuweLeverancier
     {

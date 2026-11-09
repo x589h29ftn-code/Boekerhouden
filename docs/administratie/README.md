@@ -478,6 +478,24 @@ gebouwen) en een overzicht voor de investeringsaftrek.
 | gepland | **Ontbrekende factuur** (batch 2, scenario 16 en 18): een betaling zonder factuur (huur, pinbon) markeren als *factuur ontbreekt*, tijdelijk op een tussenrekening, en de vaste last later automatisch | Vaste lasten en bonnetjes netjes opvolgen |
 | later | Online voor ondernemers (AD2), facturen per e-mail, directe bankkoppeling (PSD2), herinneringen, terugkerende facturen, kas, AI-herkenning als extra motor, e-facturen verzenden (Peppol) | |
 
+### 3.16 Tussentijds bewaren, alle grootboekkaarten en export zoals op het scherm
+
+- **Bewaren** (`ConceptDienst`, tabel `Concepten`): naast *Boeken* bij een inkoopfactuur in Te verwerken en bij een
+  bankmutatie. Het formulier (leverancier, nummer, datums, omschrijving, regels, periodeverdeling; bij de bank de
+  regels met posten, rekeningen, btw en omschrijving) wordt bewaard per document of mutatie; wie het later opent (ook
+  op een andere computer of een collega) krijgt het formulier zoals het was, met *bewaard 09-11 15:02* en *Opnieuw
+  beginnen*. In de lijsten staat *bewaard*. Na het boeken verdwijnt het concept. Bewaren mag wie mag invoeren
+  (gelogd: *Concept bewaard*).
+- **Alle grootboekkaarten**: op de grootboekkaart de keuze *Alle rekeningen*: alle rekeningen met een saldo of
+  mutaties in de periode onder elkaar, door te scrollen, elk met beginsaldo, mutaties en eindsaldo; zoeken werkt over
+  alle kaarten; het rekeningnummer opent die ene kaart. Excel en PDF dan ook met alle kaarten
+  (`GrootboekDienst.Kaarten`, `OverzichtExport.KaartenExcel`/`KaartenHtml`).
+- **Kolommenbalans per maand of uitgebreid**: Excel en PDF zijn de tabel zoals op het scherm, met koppen, subtotalen en
+  de kolommen per maand (`Exporttabel`, `OverzichtExport.TabelExcel`/`TabelHtml`); de gewone weergave en *vorig jaar*
+  houden hun eigen export.
+- **Heropenen na btw-plichtig uit**: een oude factuur of bankboeking met btw houdt bij heropenen zijn btw-kolommen; de
+  kolom verdwijnt alleen als geen enkele regel btw heeft. Aanpassen (ook via de boeking) toont altijd wat er geboekt is.
+
 ### 3.15 Beginbalans uit de jaarrekening
 
 Onder *Inrichting → Beginbalans* (alleen het kantoor) leest *Jaarrekening inlezen* de jaarrekening van vorig jaar als

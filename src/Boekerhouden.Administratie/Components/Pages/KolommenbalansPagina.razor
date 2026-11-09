@@ -337,16 +337,59 @@
     /// <summary>Excel en PDF volgen het scherm: met vorig jaar ernaast als dat aan staat (bij Totaal).</summary>
     private bool MetVorigJaar => vergelijk && !perMaand;
 
-    private string Bestandsnaam => $"Kolommenbalans {(MetVorigJaar ? "met vorig jaar " : null)}{van:yyyy-MM-dd} {tot:yyyy-MM-dd}";
+    private string Bestandsnaam => $"Kolommenbalans {(perMaand ? "per maand " : null)}{(uitgebreid ? "uitgebreid " : null)}{(MetVorigJaar ? "met vorig jaar " : null)}{van:yyyy-MM-dd} {tot:yyyy-MM-dd}";
+
+    /// <summary>
+    /// Per maand of uitgebreid: de export is de tabel zoals op het scherm (koppen, subtotalen, maanden, met of zonder
+    /// rekeningen zonder saldo). Leeg bij de gewone weergave en bij vorig jaar: die hebben hun eigen export.
+    /// </summary>
+    private Boekerhouden.Administratie.Export.Exporttabel? Schermtabel()
+    {
+        if (perMaand && maanden is not null)
+        {
+            var aantal = maanden.Maanden.Count + 2;
+            var regels = Exportregels(Presentatie(maanden.Regels.Where(r => metNul || !r.Leeg), r => r.Rekening), r => r.Rekening, aantal);
+            regels.Add(new(Boekerhouden.Administratie.Export.Exportsoort.Totaal, null, "Resultaat", 0,
+                [null, .. Enumerable.Range(1, aantal - 1).Select(k => (decimal?)-maanden.Regels.Where(r => !r.Rekening.IsBalans).Sum(r => W(r.Rekening, k)))]));
+            return new("Kolommenbalans per maand", van, tot,
+                ["Beginbalans", .. maanden.Maanden.Select(m => m.ToString("MMM yy", Nederlands)), "Eindbalans"], regels);
+        }
+
+        if (!perMaand && uitgebreid && !MetVorigJaar && koba is not null)
+        {
+            var regels = Exportregels(Presentatie(koba.Regels.Where(r => metNul || r.Saldo != 0), r => r.Rekening), r => r.Rekening, 4);
+            regels.Add(new(Boekerhouden.Administratie.Export.Exportsoort.Totaal, null, "Totaal", 0, [.. Enumerable.Range(0, 4).Select(k => (decimal?)Kolomtotaal(k))]));
+            regels.Add(new(Boekerhouden.Administratie.Export.Exportsoort.Totaal, null, "Resultaat", 0,
+                [Math.Max(Resultaat, 0), Math.Max(-Resultaat, 0), Math.Max(-Resultaat, 0), Math.Max(Resultaat, 0)]));
+            regels.Add(new(Boekerhouden.Administratie.Export.Exportsoort.Totaal, null, "Totaal generaal", 0,
+                [Kolomtotaal(0) + Math.Max(Resultaat, 0), Kolomtotaal(1) + Math.Max(-Resultaat, 0), Kolomtotaal(2) + Math.Max(-Resultaat, 0), Kolomtotaal(3) + Math.Max(Resultaat, 0)]));
+            return new("Kolommenbalans uitgebreid", van, tot, ["Debet W&V", "Credit W&V", "Debet balans", "Credit balans"], regels);
+        }
+
+        return null;
+    }
+
+    private List<Boekerhouden.Administratie.Export.Exportregel> Exportregels<T>(IEnumerable<Presentatieregel<T>> presentatie, Func<T, Rekening> rekening, int kolommen)
+        where T : class =>
+        [.. presentatie.Select(p => p switch
+        {
+            { Regel: { } r } => new Boekerhouden.Administratie.Export.Exportregel(Boekerhouden.Administratie.Export.Exportsoort.Rekening, rekening(r).Nummer, rekening(r).Naam, p.Niveau,
+                [.. Enumerable.Range(0, kolommen).Select(k => (decimal?)W(rekening(r), k))]),
+            { Soort: Presentatiesoort.Kop } => new Boekerhouden.Administratie.Export.Exportregel(Boekerhouden.Administratie.Export.Exportsoort.Kop, null, p.Tekst, p.Niveau, []),
+            _ => new Boekerhouden.Administratie.Export.Exportregel(Boekerhouden.Administratie.Export.Exportsoort.Subtotaal, null, p.Tekst, p.Niveau,
+                [.. Enumerable.Range(0, kolommen).Select(k => (decimal?)p.Onder.Sum(x => W(rekening(x), k)))]),
+        })];
 
     private async Task Excel()
     {
         bezig = true;
         try
         {
-            var inhoud = MetVorigJaar
-                ? await Overzicht.VergelijkingExcel(geopend!.Wie, Id, van, tot)
-                : await Overzicht.KolommenbalansExcel(geopend!.Wie, Id, van, tot);
+            var inhoud = Schermtabel() is { } tabel
+                ? await Overzicht.TabelExcel(geopend!.Wie, Id, tabel)
+                : MetVorigJaar
+                    ? await Overzicht.VergelijkingExcel(geopend!.Wie, Id, van, tot)
+                    : await Overzicht.KolommenbalansExcel(geopend!.Wie, Id, van, tot);
             await JS.Bewaar(inhoud, $"{Bestandsnaam}.xlsx", Download.Excel);
         }
         finally
@@ -360,9 +403,11 @@
         bezig = true;
         try
         {
-            var uitkomst = MetVorigJaar
-                ? await Overzicht.VergelijkingPdf(geopend!.Wie, Id, van, tot)
-                : await Overzicht.KolommenbalansPdf(geopend!.Wie, Id, van, tot);
+            var uitkomst = Schermtabel() is { } tabel
+                ? await Overzicht.TabelPdf(geopend!.Wie, Id, tabel)
+                : MetVorigJaar
+                    ? await Overzicht.VergelijkingPdf(geopend!.Wie, Id, van, tot)
+                    : await Overzicht.KolommenbalansPdf(geopend!.Wie, Id, van, tot);
             fouten = uitkomst.Fouten;
             if (uitkomst.IsGelukt)
             {

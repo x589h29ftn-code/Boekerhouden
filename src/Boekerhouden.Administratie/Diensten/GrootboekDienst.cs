@@ -432,6 +432,13 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
     public async Task<Grootboekkaart> Kaart(Uitvoerder wie, Guid administratie, string rekening, DateOnly van, DateOnly tot) =>
         (await Journaal(wie, administratie, van, tot)).Kaart(rekening, van, tot);
 
+    /// <summary>De grootboekkaarten van alle rekeningen met een saldo of mutaties in de periode, in de volgorde van het schema.</summary>
+    public async Task<IReadOnlyList<Grootboekkaart>> Kaarten(Uitvoerder wie, Guid administratie, DateOnly van, DateOnly tot)
+    {
+        var journaal = await Journaal(wie, administratie, van, tot);
+        return [.. journaal.Kolommenbalans(van, tot).Regels.Where(r => r.Debet != 0 || r.Credit != 0).Select(r => journaal.Kaart(r.Rekening.Nummer, van, tot))];
+    }
+
     public async Task<Proefbalans> Proefbalans(Uitvoerder wie, Guid administratie, int boekjaar) =>
         (await Journaal(wie, administratie, new DateOnly(boekjaar, 1, 1), new DateOnly(boekjaar, 12, 31))).Proefbalans(boekjaar);
 

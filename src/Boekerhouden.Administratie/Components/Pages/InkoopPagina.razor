@@ -2,6 +2,7 @@
 @using Boekerhouden.Documenten
 @inject InkoopDienst Inkoop
 @inject Meldingen Meldingen
+@inject ConceptDienst Concepten
 
 <AdministratieKader Id="Id" Titel="Inkoop" Actief="/inkoop" BijOpenen="Open">
     <Kenmerken>
@@ -86,7 +87,10 @@
                                 <td>@d.Factuurnummer</td>
                                 <td class="text-nowrap">@(d.Factuurdatum is { } fd ? Weergave.Datum(fd) : null)</td>
                                 <td class="bedrag text-end"><Euro Waarde="d.Totaal" /></td>
-                                <td class="small text-secondary">@d.Melding</td>
+                                <td class="small text-secondary">@if (metConcept.Contains(d.Id))
+                                    {
+                                        <span class="status me-1 concept-markering">bewaard</span>
+                                    }@d.Melding</td>
                                 <td class="small text-secondary text-nowrap" title="@d.IngelezenDoor, @Weergave.DatumTijd(d.IngelezenOp)">@Weergave.Moment(d.IngelezenOp)</td>
                             </tr>
                         }
@@ -110,6 +114,7 @@
 
     private Geopend? geopend;
     private IReadOnlyList<DocumentRegel>? teVerwerken;
+    private IReadOnlySet<Guid> metConcept = new HashSet<Guid>();
 
     private readonly Sortering<DocumentRegel> sortering = new(
         new("Leverancier", d => (d.Leverancier ?? d.Bestandsnaam).ToUpperInvariant()),
@@ -135,6 +140,7 @@
     private async Task Laad()
     {
         teVerwerken = [.. (await Inkoop.Lijst(geopend!.Wie, Id)).Where(d => d.Status == Documentstatus.TeVerwerken)];
+        metConcept = await Concepten.Met(geopend.Wie, Id, Conceptsoort.Inkoop);
         gekozen.IntersectWith(teVerwerken.Select(d => d.Id));
     }
 
