@@ -853,7 +853,14 @@
         venster = null;
         // Kan de mutatie de betaling van een factuur zijn, dan geen rekening vooraf: anders staat de kost er twee keer in.
         var advies = gekozen?.Voorstel.Afletteren.Kandidaten.Count == 0 ? gekozen.Voorstel.Advies : null;
-        regels = [new Regelinvoer { Rekening = advies?.Rekeningnummer, BtwCode = advies?.BtwCode, Bedrag = Bedragen.Getal(Math.Abs(m.Bedrag)) }];
+        regels = [new Regelinvoer
+        {
+            Rekening = advies?.Rekeningnummer,
+            BtwCode = advies?.BtwCode,
+            Bedrag = Bedragen.Getal(Math.Abs(m.Bedrag)),
+            // Herkend (bijv. de Belastingdienst): de omschrijving staat al klaar, zoals "Omzetbelasting 3e kwartaal 2026".
+            Omschrijving = advies?.Bron == Adviesbron.Herkend ? advies.Omschrijving : null,
+        }];
 
         // Autoherkenning: de naam van de tegenpartij (of de eerste woorden van de omschrijving) en een ruime bandbreedte.
         autoOpen = false;

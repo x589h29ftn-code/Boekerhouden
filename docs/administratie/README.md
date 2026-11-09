@@ -247,7 +247,7 @@ eigen btw-code voor de regel (`InrichtingDienst.WijzigRegel`, `Verwerkingsregel.
   toeslagen worden herkend maar krijgen geen rekening). Het controlecijfer moet kloppen (`ControlecijferKlopt`): modulus 11 over de andere 15 cijfers, van rechts naar links gewogen met 2, 4, 8, 5, 10, 9, 7, 3, 6, 1, 2, 4, 8, 5, 10; het cijfer is 11 min de rest, waarbij 10 een 1 wordt en 11 een 0. Een kenmerk dat niet klopt (typefout) geeft geen aanslag; dan beslist de omschrijving. Nagerekend met echte kenmerken van aangiften omzetbelasting en loonheffingen (niet in git). De rekening: een rekening *afgedragen …* als
   die er is (OVPA: 1820, 1735), anders de rekening met de functie of RGS-groep (te betalen btw, loonheffing,
   vennootschapsbelasting); inkomstenbelasting is privé: privé-opnamen bij een eenmanszaak, de rekening-courant met de
-  directeur bij een BV. Alleen een voorstel (`Adviesbron.Herkend`, reden bijv. *Belastingdienst: loonheffingen augustus 2026, aanslag …*): boeken
+  directeur bij een BV. Alleen een voorstel (`Adviesbron.Herkend`, reden bijv. *Belastingdienst: loonheffingen augustus 2026, aanslag …*); de omschrijving van de boeking staat al klaar, bijv. *Omzetbelasting 3e kwartaal 2026* of *Loonheffingen augustus 2026* (`Belastingbetaling.Omschrijving`), ook bij automatisch boeken: boeken
   doet de gebruiker. Onder *Instellingen → Belastingdienst* per administratie (`Belastinginstellingen`, gelogd):
   een **vaste rekening** per belasting (omzetbelasting, loonheffingen, vennootschapsbelasting, inkomstenbelasting;
   alleen balansrekeningen; leeg = het pakket kiest zoals hierboven, een rekening die niet meer bestaat ook) en

@@ -532,6 +532,8 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
         if (geboekt == 1)
         {
             Assert.Equal(199.65m, Saldo(await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026), "1500"));
+            await using var db = await app.Dienst<Toegang>().Open(wie, id, Recht.Lezen);
+            Assert.Contains(await db.Boekingsregels.Where(r => r.Rekeningnummer == "1500").Select(r => r.Omschrijving).ToListAsync(), o => o == "Omzetbelasting 3e kwartaal 2026");
         }
     }
 

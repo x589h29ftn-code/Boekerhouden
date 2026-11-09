@@ -98,6 +98,18 @@ public sealed class BelastingherkenningTests
         Assert.Equal(["1820", "1735", "1780"], Vier.Take(3).Select(o => Rekening(o, ovpa)));
     }
 
+    [Theory]
+    [InlineData("/REMI//CDTRREFTP//CD/SCOR/ISSR/CUR/CDTRREF/1123456781601270/ISDT/2026-10-30", "Omzetbelasting 3e kwartaal 2026")]
+    [InlineData("/CDTRREF/0123456786601080/", "Loonheffingen augustus 2026")]
+    [InlineData("/CDTRREF/2123456785602400/", "Naheffingsaanslag omzetbelasting heel jaar 2026")]
+    [InlineData("Vpb voorlopige aanslag", "Vennootschapsbelasting")]
+    public void Omschrijving_van_de_boeking(string omschrijving, string boeking)
+    {
+        var schema = new Rekeningschema(StandaardRekeningschema.Rekeningen(Ondernemingsvorm.BV));
+
+        Assert.Equal(boeking, Belastingherkenning.Herken(Betaling(omschrijving), schema, Ondernemingsvorm.BV)?.Omschrijving);
+    }
+
     [Fact]
     public void Een_vaste_rekening_gaat_voor_de_eigen_keuze()
     {

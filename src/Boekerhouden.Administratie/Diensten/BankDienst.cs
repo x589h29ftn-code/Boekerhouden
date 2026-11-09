@@ -280,7 +280,8 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
                 : voorstel.Automatisch switch
                 {
                     Bankactie.Afletteren => await BoekAfletteren(db, administratie, transactie, [.. voorstel.Afletteren.Automatisch!.Posten.Select(p => p.Id)], wie, voorstel.Reden),
-                    Bankactie.OpRekening => await BoekOpRekening(db, administratie, transactie, voorstel.Advies.Rekeningnummer!, voorstel.Advies.BtwCode, null, voorstel.Relatie, wie, voorstel.Reden),
+                    Bankactie.OpRekening => await BoekOpRekening(db, administratie, transactie, voorstel.Advies.Rekeningnummer!, voorstel.Advies.BtwCode,
+                        voorstel.Advies.Bron == Adviesbron.Herkend ? voorstel.Advies.Omschrijving : null, voorstel.Relatie, wie, voorstel.Reden),
                     _ => null,
                 };
             if (uitkomst?.IsGelukt == true)
@@ -1109,7 +1110,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             && Belastingherkenning.Herken(voorstel.Mutatie, context.Schema, context.Vorm, context.Belasting?.Vast()) is { Rekening: { } rekening } belasting)
         {
             var automatisch = context.Belasting?.Automatisch == true && belasting.Aanslag is not null;
-            voorstel = voorstel with { Advies = new Verwerkingsadvies(rekening.Nummer, null, Adviesbron.Herkend, automatisch, belasting.Reden) };
+            voorstel = voorstel with { Advies = new Verwerkingsadvies(rekening.Nummer, null, Adviesbron.Herkend, automatisch, belasting.Reden, Omschrijving: belasting.Omschrijving) };
         }
         return context.BtwPlichtig ? voorstel : voorstel with { Advies = voorstel.Advies with { BtwCode = null } };
     }

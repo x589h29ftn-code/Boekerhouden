@@ -16,21 +16,30 @@ public enum Belastingsoort
 /// <param name="Aanslag">Wat het betalingskenmerk zegt (aanslagnummer, jaar, tijdvak), als er een is.</param>
 public sealed record Belastingbetaling(Belastingsoort Soort, Rekening? Rekening, Aanslagkenmerk? Aanslag = null)
 {
-    public string Reden
+    /// <summary>De omschrijving van de boeking, bijv. "Omzetbelasting 3e kwartaal 2026" of "Loonheffingen augustus 2026".</summary>
+    public string Omschrijving
     {
         get
         {
-            var soort = Soort switch
-            {
-                Belastingsoort.Omzetbelasting => "omzetbelasting",
-                Belastingsoort.Loonheffingen => "loonheffingen",
-                Belastingsoort.Vennootschapsbelasting => "vennootschapsbelasting",
-                _ => Aanslag?.Letter == 'W' ? "bijdrage Zvw" : "inkomstenbelasting",
-            };
-            var delen = new[] { Aanslag?.Naheffing == true ? $"naheffingsaanslag {soort}" : soort, Aanslag?.Tijdvak, Aanslag?.Jaar?.ToString(System.Globalization.CultureInfo.InvariantCulture) }
-                .Where(d => d is not null);
-            return $"Belastingdienst: {string.Join(' ', delen)}{(Aanslag?.Aanslagnummer is { } a ? $", aanslag {a}" : null)}";
+            var tekst = Kort();
+            return char.ToUpperInvariant(tekst[0]) + tekst[1..];
         }
+    }
+
+    public string Reden => $"Belastingdienst: {Kort()}{(Aanslag?.Aanslagnummer is { } a ? $", aanslag {a}" : null)}";
+
+    private string Kort()
+    {
+        var soort = Soort switch
+        {
+            Belastingsoort.Omzetbelasting => "omzetbelasting",
+            Belastingsoort.Loonheffingen => "loonheffingen",
+            Belastingsoort.Vennootschapsbelasting => "vennootschapsbelasting",
+            _ => Aanslag?.Letter == 'W' ? "bijdrage Zvw" : "inkomstenbelasting",
+        };
+        var delen = new[] { Aanslag?.Naheffing == true ? $"naheffingsaanslag {soort}" : soort, Aanslag?.Tijdvak, Aanslag?.Jaar?.ToString(System.Globalization.CultureInfo.InvariantCulture) }
+            .Where(d => d is not null);
+        return string.Join(' ', delen);
     }
 }
 
