@@ -510,6 +510,17 @@ gebouwen) en een overzicht voor de investeringsaftrek.
 - **Heropenen na btw-plichtig uit**: een oude factuur of bankboeking met btw houdt bij heropenen zijn btw-kolommen; de
   kolom verdwijnt alleen als geen enkele regel btw heeft. Aanpassen (ook via de boeking) toont altijd wat er geboekt is.
 
+### 3.17 Memoriaalposten kopiëren
+
+In de lijst *Geboekt in …* van het memoriaal zijn boekingen aan te vinken (ook alles tegelijk). De actiebalk eronder
+heeft *Kopiëren naar* een maand (voorgesteld: de maand na de laatste gekozen boeking) en **Kopiëren**: elke gekozen
+boeking wordt een nieuwe boeking in die maand, op dezelfde dag (of de laatste dag van een kortere maand), met een nieuw
+boekstuk en dezelfde regels; de maand in de omschrijvingen gaat mee (*Lonen oktober 2026* → *Lonen november 2026*,
+ook *okt* en *10-2026*, en het jaar over de jaargrens). Handig voor de loonjournaalpost en andere vaste posten
+(`GrootboekDienst.KopieerNaarMaand`, domein `Grootboek/Journaalkopie`; elke kopie gaat door de gewone controles en het
+wijzigingslog, net als één voor één boeken). Per regel staat bij aanwijzen ook *Kopiëren*: dan opent de kopie eerst in
+het formulier, een maand later, om aan te passen (bijv. andere bedragen) voor het boeken.
+
 ### 3.15 Beginbalans uit de jaarrekening
 
 Onder *Inrichting → Beginbalans* (alleen het kantoor) leest *Jaarrekening inlezen* de jaarrekening van vorig jaar als

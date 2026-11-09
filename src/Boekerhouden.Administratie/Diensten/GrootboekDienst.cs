@@ -268,6 +268,34 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
     /// maand een kopie op dezelfde dag (of de laatste dag van een kortere maand) met een eigen boekstuknummer, in totaal
     /// <paramref name="maanden"/> keer. Stopt bij de eerste fout; het aantal geboekte staat in de uitkomst.
     /// </summary>
+    /// <summary>
+    /// Een geboekte memoriaalpost kopiëren naar een andere maand (bijv. de loonjournaalpost): dezelfde regels, dezelfde
+    /// dag in die maand, de maand in de omschrijving mee, en een nieuw boekstuk. Geeft het nieuwe boekstuk.
+    /// </summary>
+    public async Task<Uitkomst<string>> KopieerNaarMaand(Uitvoerder wie, Guid administratie, string dagboek, string boekstuk, int jaar, int maand)
+    {
+        Journaalpost bron;
+        await using (var db = await toegang.Open(wie, administratie, Recht.Boekhouden))
+        {
+            if (await db.Geldend.AsNoTracking().Include(b => b.Regels).FirstOrDefaultAsync(b => b.Dagboek == dagboek && b.Boekstuk == boekstuk) is not { } boeking)
+            {
+                return Uitkomst<string>.Mislukt($"Boeking {dagboek} {boekstuk} bestaat niet.");
+            }
+
+            bron = boeking.NaarDomein();
+        }
+
+        if (maand is < 1 or > 12 || jaar is < 1900 or > 9999)
+        {
+            return Uitkomst<string>.Mislukt("Kies een geldige maand.");
+        }
+
+        var kopie = Journaalkopie.NaarMaand(bron, jaar, maand);
+        kopie = kopie with { Boekstuk = await VolgendBoekstuk(wie, administratie, dagboek, kopie.Datum.Year) };
+        var uitkomst = await Boek(wie, administratie, kopie);
+        return uitkomst.IsGelukt ? Uitkomst<string>.Met(kopie.Boekstuk) : Uitkomst<string>.Mislukt([.. uitkomst.Fouten]);
+    }
+
     public async Task<Uitkomst<int>> BoekPerMaand(Uitvoerder wie, Guid administratie, Journaalpost eerste, int maanden)
     {
         ArgumentNullException.ThrowIfNull(eerste);

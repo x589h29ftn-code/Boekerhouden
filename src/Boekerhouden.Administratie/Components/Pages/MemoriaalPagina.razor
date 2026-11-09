@@ -68,6 +68,7 @@
                     <table class="table table-sm align-middle mb-0 overzichtstabel memoriaal-lijst" data-sleepbaar="memoriaal">
                         <thead>
                             <tr>
+                                <th class="kiesvak"><input class="form-check-input" type="checkbox" aria-label="Alles kiezen" checked="@(geselecteerd.Count > 0 && geselecteerd.Count == posten.Count)" @onchange="e => KiesAlle(e.Value is true)" /></th>
                                 <SorteerKop Sortering="sortering" Naam="Datum" Gewijzigd="StateHasChanged" />
                                 <SorteerKop Sortering="sortering" Naam="Boekstuk" Gewijzigd="StateHasChanged" />
                                 <SorteerKop Sortering="sortering" Naam="Omschrijving" Gewijzigd="StateHasChanged" />
@@ -77,19 +78,32 @@
                         <tbody>
                             @foreach (var p in sortering.Pas(posten))
                             {
-                                <tr class="klikbaar @(p.Post.Boekstuk == gekozen?.Post.Boekstuk ? "gemarkeerd" : null)" @onclick="() => Kies(p)" title="Geboekt door @p.GeboektDoor op @Weergave.DatumTijd(p.GeboektOp)">
+                                <tr class="klikbaar regel-met-acties @(p.Post.Boekstuk == gekozen?.Post.Boekstuk ? "gemarkeerd" : null) @(geselecteerd.Contains(p.Post.Boekstuk) ? "gekozen" : null)" @onclick="() => Kies(p)" title="Geboekt door @p.GeboektDoor op @Weergave.DatumTijd(p.GeboektOp)">
+                                    <td class="kiesvak" @onclick:stopPropagation><input class="form-check-input" type="checkbox" aria-label="Kiezen" checked="@geselecteerd.Contains(p.Post.Boekstuk)" @onchange="e => KiesPost(p.Post.Boekstuk, e.Value is true)" /></td>
                                     <td class="text-nowrap">@Weergave.Datum(p.Post.Datum)</td>
                                     <td class="text-nowrap">@p.Post.Boekstuk</td>
                                     <td>@p.Post.Omschrijving@if (teActiveren.Contains($"{p.Post.Dagboek} {p.Post.Boekstuk}"))
                                         {
                                             <button class="btn btn-sm btn-link p-0 ms-2 regelactie" disabled="@bezigActiveren" title="Een vast actief maken van de aanschaf op de activarekening" @onclick="() => Activeer(p.Post)" @onclick:stopPropagation>Activeren</button>
                                         }</td>
-                                    <td class="bedrag text-end text-nowrap">@Weergave.Bedrag(p.Post.TotaalDebet)</td>
+                                    <td class="bedrag text-end text-nowrap">
+                                        <button class="btn btn-sm btn-link p-0 me-2 regelactie memoriaal-kopieer" title="Een nieuwe boeking met dezelfde regels, een maand later" @onclick="() => Kopieer(p.Post)" @onclick:stopPropagation>Kopiëren</button>@Weergave.Bedrag(p.Post.TotaalDebet)
+                                    </td>
                                 </tr>
                             }
                         </tbody>
                     </table>
                 </div>
+                @if (geselecteerd.Count > 0)
+                {
+                    <div class="actiebalk">
+                        <span>@geselecteerd.Count @(geselecteerd.Count == 1 ? "boeking" : "boekingen") gekozen</span>
+                        <label class="small text-secondary" for="kopieermaand">Kopiëren naar</label>
+                        <input id="kopieermaand" type="month" class="form-control form-control-sm w-auto" @bind="kopieerMaand" @bind:format="yyyy-MM" />
+                        <button class="btn btn-sm btn-primary" disabled="@bezigKopieren" @onclick="KopieerGekozen">Kopiëren</button>
+                        <button class="btn btn-sm btn-link text-secondary ms-auto" @onclick="() => geselecteerd.Clear()">Niets kiezen</button>
+                    </div>
+                }
             }
             else if (posten is not null)
             {
@@ -107,6 +121,60 @@
     private IReadOnlyList<GeboektePost>? posten;
     private GeboektePost? gekozen;
     private Journaalpost? kopie;
+    private readonly HashSet<string> geselecteerd = [];
+    private DateTime kopieerMaand;
+    private bool bezigKopieren;
+
+    private void KiesPost(string boekstuk, bool aan)
+    {
+        if (aan)
+        {
+            geselecteerd.Add(boekstuk);
+        }
+        else
+        {
+            geselecteerd.Remove(boekstuk);
+        }
+
+        StelMaandVoor();
+    }
+
+    private void KiesAlle(bool aan)
+    {
+        geselecteerd.Clear();
+        if (aan)
+        {
+            geselecteerd.UnionWith(posten!.Select(p => p.Post.Boekstuk));
+        }
+
+        StelMaandVoor();
+    }
+
+    /// <summary>Voorstel: de maand na de laatste gekozen boeking.</summary>
+    private void StelMaandVoor()
+    {
+        if (posten?.Where(p => geselecteerd.Contains(p.Post.Boekstuk)).Select(p => p.Post.Datum).DefaultIfEmpty().Max() is { Year: > 1 } laatste)
+        {
+            kopieerMaand = new DateTime(laatste.Year, laatste.Month, 1).AddMonths(1);
+        }
+    }
+
+    /// <summary>De gekozen boekingen kopiëren naar de gekozen maand: elk een nieuwe boeking, zoals één voor één.</summary>
+    private async Task KopieerGekozen()
+    {
+        bezigKopieren = true;
+        var gekozenPosten = posten!.Where(p => geselecteerd.Contains(p.Post.Boekstuk)).OrderBy(p => p.Post.Datum).ThenBy(p => p.Post.Boekstuk, StringComparer.Ordinal).ToList();
+        var uitkomst = await Bulk.Voer(gekozenPosten,
+            async p => (Uitkomst)await Grootboek.KopieerNaarMaand(geopend!.Wie, Id, p.Post.Dagboek, p.Post.Boekstuk, kopieerMaand.Year, kopieerMaand.Month),
+            p => p.Post.Boekstuk);
+        geselecteerd.Clear();
+        bezigKopieren = false;
+        await Laad();
+        var maandnaam = kopieerMaand.ToString("MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("nl-NL"));
+        bericht = uitkomst.Fouten.Count == 0
+            ? $"{uitkomst.Gelukt} {(uitkomst.Gelukt == 1 ? "boeking" : "boekingen")} gekopieerd naar {maandnaam}."
+            : $"{uitkomst.Gelukt} gekopieerd naar {maandnaam}; niet gelukt: {string.Join(" ", uitkomst.Fouten)}";
+    }
 
     private readonly Sortering<GeboektePost> sortering = new(
         new("Datum", p => p.Post.Datum, EerstOplopend: false),
