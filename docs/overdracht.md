@@ -126,6 +126,12 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     zichtbare teksten van beide apps, de Windows-app (`Sifer.exe`, venster, zip `Sifer-win-x64`, pictogram
     `sifer.ico`), de naam in de authenticator-app en de auditfile. Intern blijft het Boekerhouden (zie CLAUDE.md).
 
+18. **Afschrijving wijzigen per datum** (README §3.14): `Herziening` (ingangsmaand, percentage per jaar) op het actief
+    (kolom `Herzieningen`, JSON; migratie AfschrijvingHerzien in beide databases); het plan rekent er vanaf die maand mee,
+    dus ook afschrijven, activastaat en achterstand. Let op: `Activum` (domein) is een record met een lijst erin; vergelijk
+    niet met `==` zonder die lijst gelijk te zetten (zie `ActivaDienst.Bewaar`). Foutmeldingen van Opslaan op de
+    activakaart staan nu bij de knop (ze stonden bovenaan, buiten beeld). `HerzieningTests`, `ActivaTests`.
+
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).
 

@@ -420,4 +420,53 @@ public sealed class ActivaTests(AdministratieFixture app) : IClassFixture<Admini
         Assert.Equal(24000m, (await dienst.Stand(wie, id, new DateOnly(2026, 6, 30)))["0300"]);
         Assert.Equal(18000m, (await dienst.Stand(wie, id, new DateOnly(2026, 9, 30)))["0300"]);
     }
+
+    [Fact]
+    public async Task Afschrijving_wijzigen_per_datum_werkt_alleen_vooruit_en_staat_in_het_log()
+    {
+        var (wie, id) = await Administratie();
+        var (laptop, _) = await Activa(wie, id);
+        var dienst = app.Dienst<ActivaDienst>();
+        Assert.True((await dienst.Afschrijven(wie, id, new DateOnly(2026, 5, 31), Afschrijvingsfrequentie.Maand, laptop)).IsGelukt);
+
+        // Vóór of in een geboekte maand kan niet; daarna wel.
+        var tevroeg = await dienst.Herzie(wie, id, laptop, new DateOnly(2026, 5, 1), 10m);
+        Assert.Contains(tevroeg.Fouten, f => f.Contains("al afgeschreven", StringComparison.Ordinal));
+        Assert.False((await dienst.Herzie(wie, id, laptop, new DateOnly(2026, 6, 1), 0m)).IsGelukt);
+        Assert.True((await dienst.Herzie(wie, id, laptop, new DateOnly(2026, 6, 20), 10m)).IsGelukt);
+
+        var detail = (await dienst.Open(wie, id, laptop))!;
+        Assert.Equal(new DateOnly(2026, 6, 1), Assert.Single(detail.Herzieningen!).Ingang);
+        Assert.Equal(100m, detail.Plan.Where(m => m.Geboekt).Sum(m => m.Bedrag));
+        Assert.All(detail.Plan.Where(m => !m.Geboekt), m => Assert.Equal(10m, m.Bedrag));
+        Assert.Equal(1200m, detail.Plan.Sum(m => m.Bedrag));
+        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.ActivumHerzien && r.AdministratieId == id && r.Details == "vanaf 06-2026 10% per jaar");
+
+        // Opnieuw in dezelfde maand vervangt; verwijderen zolang er nog niets vanaf die maand is geboekt.
+        Assert.True((await dienst.Herzie(wie, id, laptop, new DateOnly(2026, 6, 1), 12.5m)).IsGelukt);
+        Assert.Equal(12.5m, Assert.Single((await dienst.Open(wie, id, laptop))!.Herzieningen!).PercentagePerJaar);
+        Assert.True((await dienst.VerwijderHerziening(wie, id, laptop, new DateOnly(2026, 6, 1))).IsGelukt);
+        Assert.Empty((await dienst.Open(wie, id, laptop))!.Herzieningen!);
+
+        Assert.True((await dienst.Herzie(wie, id, laptop, new DateOnly(2026, 6, 1), 10m)).IsGelukt);
+        Assert.True((await dienst.Afschrijven(wie, id, new DateOnly(2026, 6, 30), Afschrijvingsfrequentie.Maand, laptop)).IsGelukt);
+        Assert.Equal(10m, (await dienst.Open(wie, id, laptop))!.Plan.Single(m => m.Maand == new DateOnly(2026, 6, 1)).Bedrag);
+        Assert.False((await dienst.VerwijderHerziening(wie, id, laptop, new DateOnly(2026, 6, 1))).IsGelukt);
+    }
+
+    [Fact]
+    public async Task Afschrijving_wijzigen_mag_alleen_het_kantoor()
+    {
+        var (wie, id) = await Administratie();
+        var (laptop, _) = await Activa(wie, id);
+        var ondernemer = await app.Gebruiker("Olga Ondernemer");
+        await app.Dienst<AdministratieDienst>().ZetLid(id, ondernemer.Id!.Value, Lidmaatschapsrol.Ondernemer, wie);
+        var buiten = await app.Gebruiker("Bert Buiten");
+        var dienst = app.Dienst<ActivaDienst>();
+
+        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.Herzie(ondernemer, id, laptop, new DateOnly(2027, 1, 1), 10m));
+        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.Herzie(buiten, id, laptop, new DateOnly(2027, 1, 1), 10m));
+        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.VerwijderHerziening(ondernemer, id, laptop, new DateOnly(2027, 1, 1)));
+        Assert.Empty((await dienst.Open(wie, id, laptop))!.Herzieningen!);
+    }
 }

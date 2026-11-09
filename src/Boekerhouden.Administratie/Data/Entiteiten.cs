@@ -996,8 +996,23 @@ public sealed class Activum : IVanAdministratie
 
     public string AangemaaktDoor { get; set; } = string.Empty;
 
+    /// <summary>De wijzigingen van de afschrijving per datum (<see cref="Boekhouding.Activa.Herziening"/>), als JSON; leeg = geen.</summary>
+    public string? Herzieningen { get; set; }
+
+    public IReadOnlyList<Boekhouding.Activa.Herziening> HerzieningLijst() =>
+        string.IsNullOrEmpty(Herzieningen) ? [] : System.Text.Json.JsonSerializer.Deserialize<List<Boekhouding.Activa.Herziening>>(Herzieningen) ?? [];
+
+    public void ZetHerzieningen(IEnumerable<Boekhouding.Activa.Herziening> herzieningen)
+    {
+        var lijst = herzieningen.OrderBy(h => h.Maand).ToList();
+        Herzieningen = lijst.Count == 0 ? null : System.Text.Json.JsonSerializer.Serialize(lijst);
+    }
+
     public Boekhouding.Activa.Activum NaarDomein() =>
-        new(Omschrijving, Aanschafdatum, Aanschafwaarde, Restwaarde, BeginAfschrijving, Looptijd, Methode, Activarekening, Afschrijvingsrekening, Kostenrekening, AfgeschrevenVoorBegin);
+        new(Omschrijving, Aanschafdatum, Aanschafwaarde, Restwaarde, BeginAfschrijving, Looptijd, Methode, Activarekening, Afschrijvingsrekening, Kostenrekening, AfgeschrevenVoorBegin)
+        {
+            Herzieningen = HerzieningLijst(),
+        };
 }
 
 /// <summary>De geboekte afschrijving van één actief in één maand, met de boeking in het memoriaal.</summary>

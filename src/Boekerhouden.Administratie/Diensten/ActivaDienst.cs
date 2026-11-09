@@ -62,7 +62,7 @@ public sealed record Desinvesteringsregel(
 public sealed record Activumdetail(
     Guid Id, int Nummer, ActivumInvoer Invoer, IReadOnlyList<Afschrijvingsmaand> Plan, IReadOnlyDictionary<DateOnly, string> Boekstukken,
     DateOnly? BuitenGebruikOp, IReadOnlyList<Desinvesteringsregel> Desinvesteringen, bool Vast, DateTimeOffset AangemaaktOp, string AangemaaktDoor,
-    decimal Aanschafwaarde, decimal Afgeschreven, decimal Restwaarde, int TeBoeken)
+    decimal Aanschafwaarde, decimal Afgeschreven, decimal Restwaarde, int TeBoeken, IReadOnlyList<Herziening>? Herzieningen = null)
 {
     public decimal Boekwaarde => Aanschafwaarde - Afgeschreven;
 
@@ -164,7 +164,62 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
         return new Activumdetail(a.Id, a.Nummer, Invoer(a), plan, rijen.ToDictionary(r => r.Maand, r => r.Boekstuk), a.BuitenGebruikOp,
             [.. desinvesteringen.Select(x => new Desinvesteringsregel(x.Id, x.Datum, x.Soort, x.Deel, x.Aanschaf, x.Afschrijving, x.Opbrengst, x.Boekstuk, x.Tegenboeking, x.Id == laatste))],
             rijen.Count > 0 || desinvesteringen.Count > 0, a.AangemaaktOp, a.AangemaaktDoor, aanschaf, afgeschreven, rest,
-            a.BuitenGebruikOp is null ? plan.Count(m => !m.Geboekt && m.Maand <= VorigeMaand) : 0);
+            a.BuitenGebruikOp is null ? plan.Count(m => !m.Geboekt && m.Maand <= VorigeMaand) : 0, a.HerzieningLijst());
+    }
+
+    /// <summary>
+    /// De afschrijving wijzigen per datum: vanaf de maand van <paramref name="ingang"/> een ander percentage per jaar
+    /// (bijv. van 20% naar 10%). Alleen vooruit: na de laatst geboekte maand. Een herziening in dezelfde maand vervangt
+    /// de vorige. Recht Boekhouden; in het wijzigingslog.
+    /// </summary>
+    public async Task<Uitkomst> Herzie(Uitvoerder wie, Guid administratie, Guid id, DateOnly ingang, decimal percentagePerJaar)
+    {
+        ArgumentNullException.ThrowIfNull(wie);
+        await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
+        if (await db.Activa.FirstOrDefaultAsync(a => a.Id == id) is not { } a)
+        {
+            return Uitkomst.Mislukt("Dit actief bestaat niet (meer).");
+        }
+
+        if (a.BuitenGebruikOp is not null)
+        {
+            return Uitkomst.Mislukt("Dit actief is buiten gebruik.");
+        }
+
+        var laatst = await db.Afschrijvingen.Where(x => x.ActivumId == id).Select(x => (DateOnly?)x.Maand).MaxAsync();
+        var herziening = new Herziening(ingang, Math.Round(percentagePerJaar, 2, MidpointRounding.AwayFromZero));
+        if (herziening.Controleer(a.NaarDomein(), laatst).ToList() is { Count: > 0 } fouten)
+        {
+            return Uitkomst.Mislukt([.. fouten]);
+        }
+
+        a.ZetHerzieningen([.. a.HerzieningLijst().Where(h => h.Maand != herziening.Maand), herziening with { Ingang = herziening.Maand }]);
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.ActivumHerzien, $"{a.Nummer} {a.Omschrijving}",
+            $"vanaf {herziening.Maand:MM-yyyy} {herziening.PercentagePerJaar.ToString("0.##", CultureInfo.GetCultureInfo("nl-NL"))}% per jaar", administratie);
+        return Uitkomst.Gelukt;
+    }
+
+    /// <summary>Een herziening weer weghalen, zolang er vanaf haar maand nog niets is geboekt.</summary>
+    public async Task<Uitkomst> VerwijderHerziening(Uitvoerder wie, Guid administratie, Guid id, DateOnly maand)
+    {
+        ArgumentNullException.ThrowIfNull(wie);
+        await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
+        if (await db.Activa.FirstOrDefaultAsync(a => a.Id == id) is not { } a || a.HerzieningLijst().FirstOrDefault(h => h.Maand == maand) is not { } herziening)
+        {
+            return Uitkomst.Mislukt("Deze wijziging bestaat niet (meer).");
+        }
+
+        if (await db.Afschrijvingen.AnyAsync(x => x.ActivumId == id && x.Maand >= maand))
+        {
+            return Uitkomst.Mislukt("Vanaf deze maand is al afgeschreven; de wijziging blijft staan.");
+        }
+
+        a.ZetHerzieningen(a.HerzieningLijst().Where(h => h.Maand != maand));
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.ActivumHerzieningVerwijderd, $"{a.Nummer} {a.Omschrijving}",
+            $"vanaf {maand:MM-yyyy} {herziening.PercentagePerJaar.ToString("0.##", CultureInfo.GetCultureInfo("nl-NL"))}% per jaar", administratie);
+        return Uitkomst.Gelukt;
     }
 
     /// <summary>Aanschafwaarde, cumulatieve afschrijving en restwaarde nu: na de geboekte afschrijvingen en desinvesteringen.</summary>
@@ -216,7 +271,7 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
             var oud = a.NaarDomein();
             if (geboekt.Count > 0 || stappen.Count > 0 || a.BuitenGebruikOp is not null)
             {
-                if (oud with { Omschrijving = domein.Omschrijving, Restwaarde = domein.Restwaarde, Looptijd = domein.Looptijd } != domein)
+                if (oud with { Omschrijving = domein.Omschrijving, Restwaarde = domein.Restwaarde, Looptijd = domein.Looptijd, Herzieningen = domein.Herzieningen } != domein)
                 {
                     return Uitkomst<Guid>.Mislukt("Er zijn al afschrijvingen geboekt: aanschaf, begin, methode en rekeningen liggen vast. Omschrijving, restwaarde en looptijd kunnen nog.");
                 }

@@ -1698,3 +1698,16 @@ a.kerngetal:hover { color: var(--bh-accent); }
 .actiebalk .verwijderknop {
     margin-left: 0;
 }
+
+/* Activakaart: de wijzigingen van de afschrijving, één per regel; Verwijderen pas bij aanwijzen. */
+.herzieningen .herziening {
+    font-size: .875rem;
+}
+
+.herzieningen .herziening .regelactie {
+    opacity: 0;
+}
+
+.herzieningen .herziening:hover .regelactie, .herzieningen .herziening:focus-within .regelactie {
+    opacity: 1;
+}

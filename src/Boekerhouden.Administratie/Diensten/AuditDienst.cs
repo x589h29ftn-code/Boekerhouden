@@ -135,6 +135,8 @@ public static class AuditActies
     public const string ActivumToegevoegd = "Vast actief toegevoegd";
     public const string ActivumGewijzigd = "Vast actief gewijzigd";
     public const string ActivumVerwijderd = "Vast actief verwijderd";
+    public const string ActivumHerzien = "Afschrijving vast actief gewijzigd";
+    public const string ActivumHerzieningVerwijderd = "Wijziging afschrijving verwijderd";
     public const string AfschrijvingenGeboekt = "Afschrijvingen geboekt";
     public const string ActivumGedesinvesteerd = "Vast actief gedesinvesteerd";
     public const string DesinvesteringTeruggedraaid = "Desinvestering teruggedraaid";

@@ -91,10 +91,28 @@
                             <DatumVeld Id="begin" @bind-Waarde="f.Begin" Uit="Vast" Label="Eerste maand" />
                             <span class="small text-secondary">in</span>
                             <input id="looptijd" class="form-control form-control-sm text-end" style="width:5rem" aria-label="Looptijd in maanden" @bind="f.Looptijd" disabled="@IsWeg" />
-                            <span class="small text-secondary" title="@(f.Looptijd is > 0 and var l ? $"{l / 12m:0.#} jaar" : null)">maanden</span>
+                            <span class="small text-secondary" title="@(f.Looptijd is > 0 and var l ? $"{l / 12m:0.#} jaar" : null)">maanden@(f.Looptijd is > 0 and var lt ? $" ({Procent(1200m / lt)} per jaar)" : null)</span>
                         }
                     </div>
                 </div>
+                @if (detail is { Herzieningen.Count: > 0 } metHerziening)
+                {
+                    <div class="formulier-rij">
+                        <span class="text-secondary small">Gewijzigd</span>
+                        <div class="herzieningen">
+                            @foreach (var h in metHerziening.Herzieningen!)
+                            {
+                                <div class="herziening">
+                                    <span>vanaf @h.Maand.ToString("MMMM yyyy", Nl): @Procent(h.PercentagePerJaar) per jaar</span>
+                                    @if (mag && !metHerziening.Plan.Any(m => m.Geboekt && m.Maand >= h.Maand))
+                                    {
+                                        <button type="button" class="btn btn-sm btn-link p-0 ms-3 regelactie text-secondary" disabled="@bezig" @onclick="() => VerwijderHerziening(h.Maand)">Verwijderen</button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
                 @if (f.Methode == Afschrijvingsmethode.Lineair)
                 {
                     <div class="formulier-rij">
@@ -137,6 +155,7 @@
                     <label for="notitie">Notitie</label>
                     <input id="notitie" class="form-control form-control-sm" style="max-width:32rem" maxlength="1000" @bind="f.Notitie" />
                 </div>
+                <Foutmeldingen Fouten="formfouten" />
                 <div class="d-flex align-items-center gap-2 mt-3">
                     <button class="btn btn-primary" disabled="@bezig" @onclick="Bewaar">Opslaan</button>
                     <a class="btn btn-link text-secondary" href="/a/@Id/activa">Annuleren</a>
@@ -181,6 +200,35 @@
                             }
                         </tbody>
                     </table>
+                </div>
+            }
+
+            @if (detail is { BuitenGebruikOp: null, Invoer.Methode: Afschrijvingsmethode.Lineair } && mag)
+            {
+                <div class="mt-4">
+                    <Uitklapformulier Tekst="Afschrijving wijzigen">
+                        <div class="verkoopformulier herzien">
+                            <div class="formulier-rij">
+                                <label for="herzien-vanaf">Vanaf</label>
+                                <div class="d-flex"><span style="width:9.5rem"><DatumVeld Id="herzien-vanaf" @bind-Waarde="herzien.Vanaf" /></span></div>
+                            </div>
+                            <div class="formulier-rij">
+                                <label for="herzien-procent">Per jaar</label>
+                                <div class="d-flex gap-2 align-items-center flex-wrap">
+                                    <input id="herzien-procent" class="form-control form-control-sm text-end" style="width:6rem" @bind="herzien.Percentage" @bind:event="oninput" />
+                                    <span class="small text-secondary">% van de aanschafwaarde</span>
+                                    @if (Vooruitblik() is { } v)
+                                    {
+                                        <span class="small text-secondary ms-3">@Weergave.Bedrag(v.PerMaand) per maand, klaar in @v.Eind.ToString("MMMM yyyy", Nl)</span>
+                                    }
+                                </div>
+                            </div>
+                            <div class="formulier-rij">
+                                <span></span>
+                                <span><button class="btn btn-sm btn-primary" disabled="@bezig" @onclick="Herzie">Wijzigen</button></span>
+                            </div>
+                        </div>
+                    </Uitklapformulier>
                 </div>
             }
 
@@ -450,6 +498,69 @@
     private Activumdetail? detail;
     private Formulier? f;
     private Desinvesteringsformulier weg = new();
+    private IReadOnlyList<string>? formfouten;
+    private readonly Herzieningsformulier herzien = new();
+    private static readonly System.Globalization.CultureInfo Nl = System.Globalization.CultureInfo.GetCultureInfo("nl-NL");
+
+    private sealed class Herzieningsformulier
+    {
+        public DateOnly Vanaf { get; set; }
+
+        public string? Percentage { get; set; }
+    }
+
+    private static string Procent(decimal procent) => $"{procent.ToString("0.##", Nl)}%";
+
+    /// <summary>Wat de wijziging doet: het nieuwe bedrag per maand en de laatste maand (zonder latere desinvesteringen).</summary>
+    private (decimal PerMaand, DateOnly Eind)? Vooruitblik()
+    {
+        if (detail is null || !BedragParser.TryParse(herzien.Percentage ?? "", out var procent) || procent is <= 0 or > 100)
+        {
+            return null;
+        }
+
+        var vanaf = new DateOnly(herzien.Vanaf.Year, herzien.Vanaf.Month, 1);
+        var perMaand = Math.Round((detail.Aanschafwaarde - detail.Restwaarde) * procent / 100m / 12m, 2, MidpointRounding.AwayFromZero);
+        var over = detail.Boekwaarde - detail.Restwaarde - detail.Plan.Where(m => !m.Geboekt && m.Maand < vanaf).Sum(m => m.Bedrag);
+        return perMaand <= 0 || over <= 0 ? null : (perMaand, vanaf.AddMonths((int)Math.Ceiling(over / perMaand) - 1));
+    }
+
+    private void ZetHerzienVoorstel()
+    {
+        herzien.Vanaf = detail?.Plan.FirstOrDefault(m => !m.Geboekt)?.Maand ?? new DateOnly(DateTime.Today.Year + 1, 1, 1);
+        var huidig = detail?.Herzieningen is { Count: > 0 } h ? h[^1].PercentagePerJaar : detail is { Invoer.Looptijd: > 0 } d ? 1200m / d.Invoer.Looptijd : 0m;
+        herzien.Percentage = huidig > 0 ? huidig.ToString("0.##", Nl) : null;
+    }
+
+    private async Task Herzie()
+    {
+        if (!BedragParser.TryParse(herzien.Percentage ?? "", out var procent))
+        {
+            fouten = ["Het percentage is niet te lezen."];
+            return;
+        }
+
+        bezig = true;
+        var uitkomst = await Activa.Herzie(geopend!.Wie, Id, detail!.Id, herzien.Vanaf, procent);
+        bezig = false;
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            await Herlaad($"Afschrijving gewijzigd: vanaf {herzien.Vanaf.ToString("MMMM yyyy", Nl)} {Procent(procent)} per jaar.");
+        }
+    }
+
+    private async Task VerwijderHerziening(DateOnly maand)
+    {
+        bezig = true;
+        var uitkomst = await Activa.VerwijderHerziening(geopend!.Wie, Id, detail!.Id, maand);
+        bezig = false;
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            await Herlaad("Wijziging van de afschrijving verwijderd.");
+        }
+    }
     private Boekingsdetail? aanschaf;
     private bool toonFactuur;
     private Desinvesteringsvoorstel? voorstel;
@@ -507,6 +618,7 @@
             }
 
             f = Formulier.Van(detail.Invoer);
+            ZetHerzienVoorstel();
             if (detail.Invoer.Bron is { } bron && bron.Split(' ', 2) is [var dagboek, var boekstuk])
             {
                 aanschaf = await Grootboek.Boeking(g.Wie, Id, dagboek, boekstuk);
@@ -546,13 +658,13 @@
     {
         if (f!.Invoer() is not { } invoer)
         {
-            fouten = ["Een bedrag is niet te lezen."];
+            formfouten = ["Een bedrag is niet te lezen."];
             return;
         }
 
         bezig = true;
         var uitkomst = await Activa.Bewaar(geopend!.Wie, Id, detail?.Id, invoer);
-        fouten = uitkomst.Fouten;
+        formfouten = uitkomst.Fouten;
         bezig = false;
         if (!uitkomst.IsGelukt)
         {
@@ -660,7 +772,8 @@
     {
         detail = await Activa.Open(geopend!.Wie, Id, detail!.Id);
         f = Formulier.Van(detail!.Invoer);
-        bericht = melding;
+        (bericht, formfouten) = (melding, null);
+        ZetHerzienVoorstel();
         await StartDesinvestering();
     }
 }

@@ -150,6 +150,9 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.Property<DateOnly?>("BuitenGebruikOp")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Herzieningen")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Kostenrekening")
                         .IsRequired()
                         .HasMaxLength(20)

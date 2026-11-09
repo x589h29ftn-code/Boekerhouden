@@ -156,6 +156,9 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.Property<DateOnly?>("BuitenGebruikOp")
                         .HasColumnType("date");
 
+                    b.Property<string>("Herzieningen")
+                        .HasColumnType("text");
+
                     b.Property<string>("Kostenrekening")
                         .IsRequired()
                         .HasMaxLength(20)
