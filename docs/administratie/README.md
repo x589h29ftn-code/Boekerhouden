@@ -119,8 +119,13 @@ samenstelpakket.
   PDF. **Vastleggen als aangegeven** bewaart de bedragen van dat moment (tabel `IngediendeAangiften`, gelogd; weer in te
   trekken); bij een vastgelegde periode staat de kolom *Aangegeven* ernaast. **Rondrekening over het jaar**: het hele
   jaar volgens de boekingen, wat er is aangegeven (de vastgelegde aangiften) en wat nog niet is aangegeven; de suppletie
-  is wat er later nog is geboekt in perioden die al zijn aangegeven. *Per rubriek* opent de rondrekening als matrix
-  (`/btw/rondrekening`): de rubrieken van de aangifte (omzet, btw, 5a–5c) onder elkaar, de perioden naast elkaar (zoals
+  is wat er later nog is geboekt in perioden die al zijn aangegeven. *Uitgebreid* opent de rondrekening (`/btw/rondrekening`) in twee
+  weergaven. **Jaaropstelling** (standaard): het jaar volgens de administratie onder elkaar met omzet en btw in twee
+  kolommen; de omzet per rubriek aangesloten op de netto-omzet in de winst-en-verliesrekening (inkoop verlegd en
+  privégebruik zijn geen omzet, de rest is *overige verschillen*), de inkoop uit het buitenland, 5a, de voorbelasting naar
+  herkomst (gewoon, verlegd, invoer, binnen de EU) en 5c; onderin de afdrachten per maand of kwartaal zoals de
+  administratie aangifte doet (een periode die nog niet is aangegeven staat erbij), de suppletie en de balanspost (saldo
+  van de btw-rekeningen per 31-12). **Per periode**: de rondrekening als matrix: de rubrieken van de aangifte (omzet, btw, 5a–5c) onder elkaar, de perioden naast elkaar (zoals
   aangegeven; een periode die nog niet is aangegeven grijs, volgens de boekingen), het totaal, het hele jaar volgens de
   administratie en de afwijking (wat nog in een suppletie hoort). Daaronder de aansluiting met het grootboek per periode:
   de omzet in de aangiften tegenover de omzetrekeningen (RGS-groep netto-omzet) en de btw tegenover wat er met een

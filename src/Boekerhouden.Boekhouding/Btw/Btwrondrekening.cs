@@ -25,6 +25,9 @@ public enum Rondrekeningbron
 
     /// <summary>Wat er met een btw-code op de btw-rekeningen is geboekt.</summary>
     Btwrekeningen,
+
+    /// <summary>Voorbelasting naar herkomst: <see cref="Rondrekeningsleutel.Rubriek"/> 2a, 4a of 4b (verlegd), of leeg voor de rest.</summary>
+    VoorbelastingVan,
 }
 
 public enum Rondrekeningsoort
@@ -52,6 +55,16 @@ public sealed record Rondrekeningregel(
     decimal? Administratie,
     decimal? Afwijking,
     Rondrekeningsleutel? Sleutel);
+
+/// <summary>Een regel van de jaaropstelling omzetbelasting: omzet (grondslag) en btw in twee kolommen, elk door te klikken.</summary>
+public sealed record Jaaropstellingregel(
+    Rondrekeningsoort Soort,
+    string? Code,
+    string Omschrijving,
+    decimal? Omzet,
+    decimal? Btw,
+    Rondrekeningsleutel? SleutelOmzet,
+    Rondrekeningsleutel? SleutelBtw);
 
 /// <summary>Een boekingsregel achter een getal van de rondrekening, met het teken van dat getal.</summary>
 public sealed record Rondrekeningbronregel(Journaalpost Post, Journaalregel Regel, decimal Bedrag);
@@ -114,10 +127,110 @@ public sealed class Btwrondrekening
                 Rondrekeningbron.Verschuldigd => b.Soort == Btwpost.Btw,
                 Rondrekeningbron.Voorbelasting => b.Soort == Btwpost.Voorbelasting,
                 Rondrekeningbron.TeBetalen => b.Soort != Btwpost.Grondslag,
+                Rondrekeningbron.VoorbelastingVan => b.Soort == Btwpost.Voorbelasting && Herkomst(b) == sleutel.Rubriek,
                 _ => b.Soort == Btwpost.Grondslag && Omzetrubrieken.Contains(b.Rubriek),
             })
             .Select(b => new Rondrekeningbronregel(b.Post, b.Regel, sleutel.Bron == Rondrekeningbron.TeBetalen && b.Soort == Btwpost.Voorbelasting ? -b.Bedrag : b.Bedrag))];
     }
+
+    /// <summary>
+    /// De jaaropstelling omzetbelasting: het jaar volgens de administratie onder elkaar met omzet en btw in twee
+    /// kolommen; de omzet aangesloten op de netto-omzet in de winst-en-verliesrekening, de voorbelasting naar herkomst,
+    /// de afdrachten per periode (maand of kwartaal, zoals de administratie aangifte doet) en wat er overblijft: de suppletie.
+    /// </summary>
+    public IReadOnlyList<Jaaropstellingregel> Jaaropstelling()
+    {
+        var j = Jaar.Jaaraangifte;
+        var (van, tot) = (new DateOnly(Jaar.Jaar, 1, 1), new DateOnly(Jaar.Jaar, 12, 31));
+        var regels = new List<Jaaropstellingregel>();
+        void Kop(string tekst) => regels.Add(new(Rondrekeningsoort.Kop, null, tekst, null, null, null, null));
+        void Rubriek(string code, string tekst, bool metBtw = true) => regels.Add(new(Rondrekeningsoort.Regel, code, tekst, j.Rubriek(code).Grondslag,
+            metBtw ? j.Rubriek(code).Btw : null, new(Rondrekeningbron.Rubriek, code, Btwpost.Grondslag), metBtw ? new(Rondrekeningbron.Rubriek, code, Btwpost.Btw) : null));
+
+        Kop("Omzet");
+        Rubriek("1a", "Omzet hoog tarief");
+        Rubriek("1b", "Omzet laag tarief");
+        Rubriek("1c", "Omzet overige tarieven");
+        Rubriek("1d", "Privégebruik");
+        Rubriek("1e", "Omzet nultarief of niet bij u belast", metBtw: false);
+        Kop("Verleggingsregeling");
+        Rubriek("2a", "Inkoop heffing verlegd");
+        Kop("Omzet naar het buitenland");
+        Rubriek("3a", "Omzet buiten de EU (uitvoer)", metBtw: false);
+        Rubriek("3b", "Omzet binnen de EU", metBtw: false);
+        Rubriek("3c", "Installatie/afstandsverkopen binnen de EU", metBtw: false);
+
+        // De omzet uit de rubrieken aansluiten op de netto-omzet in het grootboek.
+        var rubrieken = Btwaangifte.Volgorde.Take(9).Sum(r => j.Rubriek(r).Grondslag);
+        var grootboek = Grootboek(Rondrekeningbron.OmzetGrootboek, van, tot);
+        var overig = grootboek - rubrieken + j.Rubriek("2a").Grondslag + j.Rubriek("1d").Grondslag;
+        Kop("Overige mutaties");
+        regels.Add(new(Rondrekeningsoort.Regel, null, "Inkoop verlegd is geen omzet", -j.Rubriek("2a").Grondslag, null, null, null));
+        regels.Add(new(Rondrekeningsoort.Regel, null, "Privégebruik is geen omzet", -j.Rubriek("1d").Grondslag, null, null, null));
+        regels.Add(new(Rondrekeningsoort.Regel, null, "Overige verschillen (omzet zonder btw-code, te factureren e.d.)", overig, null, null, null));
+        regels.Add(new(Rondrekeningsoort.Subtotaal, null, "Netto-omzet volgens de winst-en-verliesrekening", grootboek, null, new(Rondrekeningbron.OmzetGrootboek), null));
+
+        Kop("Inkoop vanuit het buitenland");
+        Rubriek("4a", "Inkoop van buiten de EU (invoer)");
+        Rubriek("4b", "Inkoop van binnen de EU");
+        regels.Add(new(Rondrekeningsoort.Subtotaal, "5a", "Verschuldigde omzetbelasting", null, j.Verschuldigd, null, new(Rondrekeningbron.Verschuldigd)));
+
+        Kop("Voorbelasting");
+        var voorbelasting = Btwaangifte.Bijdragen(posten, schema, codes, van, tot).Where(b => b.Soort == Btwpost.Voorbelasting).ToList();
+        foreach (var (herkomst, tekst) in new (string?, string)[]
+        {
+            (null, "Voorbelasting"), ("2a", "Inkoop heffing verlegd"), ("4a", "Inkoop van buiten de EU (invoer)"), ("4b", "Inkoop van binnen de EU"),
+        })
+        {
+            var bedrag = voorbelasting.Where(b => Herkomst(b) == herkomst).Sum(b => b.Bedrag);
+            if (herkomst is null || bedrag != 0)
+            {
+                regels.Add(new(Rondrekeningsoort.Regel, "5b", tekst, bedrag, null, new(Rondrekeningbron.VoorbelastingVan, herkomst), null));
+            }
+        }
+
+        regels.Add(new(Rondrekeningsoort.Subtotaal, "5b", "Totaal voorbelasting", null, j.Voorbelasting, null, new(Rondrekeningbron.Voorbelasting)));
+        regels.Add(new(Rondrekeningsoort.Totaal, "5c", j.TeBetalen >= 0 ? "Te betalen omzetbelasting" : "Terug te vragen omzetbelasting", null, j.TeBetalen, null, new(Rondrekeningbron.TeBetalen)));
+
+        // De afdrachten: wat per periode is aangegeven, in de frequentie van de administratie.
+        Kop("Afdrachten omzetbelasting");
+        var vastgelegd = Jaar.Vastgelegd.ToList();
+        foreach (var p in Perioden)
+        {
+            vastgelegd.Remove(p.Vastgelegd!);
+            regels.Add(new(Rondrekeningsoort.Regel, null, p.Vastgelegd is null ? $"{p.Periode.Naam} (nog niet aangegeven)" : p.Periode.Naam,
+                p.Vastgelegd is null ? null : p.Vastgelegd.TeBetalen, null, null, null));
+        }
+
+        // Aangegeven in een andere frequentie (de frequentie is in het jaar gewijzigd).
+        foreach (var v in vastgelegd.OrderBy(v => v.Van))
+        {
+            regels.Add(new(Rondrekeningsoort.Regel, null, $"{v.Van:dd-MM-yyyy} t/m {v.Tot:dd-MM-yyyy}", v.TeBetalen, null, null, null));
+        }
+
+        regels.Add(new(Rondrekeningsoort.Subtotaal, null, "Totaal aangegeven", null, Jaar.Aangegeven, null, null));
+        if (Jaar.NietAangegeven != 0)
+        {
+            regels.Add(new(Rondrekeningsoort.Regel, null, "Nog niet aangegeven", null, Jaar.NietAangegeven, null, null));
+        }
+
+        var suppletie = j.TeBetalen - Jaar.Aangegeven - Jaar.NietAangegeven;
+        regels.Add(new(Rondrekeningsoort.Totaal, null, $"Suppletie omzetbelasting {Jaar.Jaar}: {suppletie switch { > 0 => "te betalen", < 0 => "terug te vragen", _ => "geen" }}",
+            null, Math.Abs(suppletie), null, null));
+
+        // De balanspost: het saldo van de btw-rekeningen aan het eind van het jaar (een schuld positief).
+        var balans = Btwaansluiting.Bereken(posten, schema, codes, van, tot);
+        Kop($"Balanspost omzetbelasting per {tot:dd-MM-yyyy}");
+        regels.Add(new(Rondrekeningsoort.Regel, null, "Saldo btw-rekeningen volgens het grootboek", null, balans.Saldo, null, null));
+        if (balans.Verschil != 0)
+        {
+            regels.Add(new(Rondrekeningsoort.Regel, null, "Waarvan niet uit aangiften of betalingen", null, balans.Verschil, null, null));
+        }
+
+        return regels;
+    }
+
+    private static string? Herkomst(Btwbijdrage b) => b.Herkomst is "2a" or "4a" or "4b" ? b.Herkomst : null;
 
     /// <summary>Een rekening in de RGS-groep netto-omzet.</summary>
     public static bool IsOmzet(Rekening rekening)

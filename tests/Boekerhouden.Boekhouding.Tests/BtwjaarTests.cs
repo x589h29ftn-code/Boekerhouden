@@ -96,6 +96,31 @@ public sealed class BtwjaarTests
     }
 
     [Fact]
+    public void Jaaropstelling_omzet_en_btw_onder_elkaar_met_afdrachten_per_periode_en_suppletie()
+    {
+        var vastgelegd = new VastgelegdeAangifte(new(2026, 1, 1), new(2026, 3, 31), [], 21m, DateTimeOffset.UnixEpoch, "Bea");
+        var jaar = Btwjaar.Maak(2026, Aangiftefrequentie.Kwartaal, Posten, Schema, Codes, [vastgelegd]);
+
+        var regels = Btwrondrekening.Maak(jaar, Posten, Schema, Codes).Jaaropstelling();
+        Jaaropstellingregel Regel(string tekst) => regels.First(r => r.Soort != Rondrekeningsoort.Kop && r.Omschrijving.StartsWith(tekst, StringComparison.Ordinal));
+
+        Assert.Equal((3000m, 630m), (Regel("Omzet hoog tarief").Omzet, Regel("Omzet hoog tarief").Btw));
+        Assert.Equal((3000m, 0m), (Regel("Netto-omzet").Omzet, Regel("Overige verschillen").Omzet));
+        Assert.Equal(21m, Regel("Voorbelasting").Omzet);
+        Assert.Equal(609m, Regel("Te betalen omzetbelasting").Btw);
+
+        // De afdrachten in de frequentie van de administratie: het 1e kwartaal aangegeven, het 2e nog niet.
+        Assert.Equal(-21m, Regel("1e kwartaal 2026").Omzet);
+        Assert.Null(Regel("2e kwartaal 2026 (nog niet aangegeven)").Omzet);
+        Assert.Equal((-21m, 420m), (Regel("Totaal aangegeven").Btw, Regel("Nog niet aangegeven").Btw));
+        Assert.Equal(("Suppletie omzetbelasting 2026: te betalen", 210m), (Regel("Suppletie").Omschrijving, Regel("Suppletie").Btw));
+        Assert.Equal(609m, Regel("Saldo btw-rekeningen").Btw);
+
+        var maanden = Btwrondrekening.Maak(Btwjaar.Maak(2026, Aangiftefrequentie.Maand, Posten, Schema, Codes, []), Posten, Schema, Codes).Jaaropstelling();
+        Assert.Contains(maanden, r => r.Omschrijving == "februari 2026 (nog niet aangegeven)");
+    }
+
+    [Fact]
     public void Btw_rekeningen_op_functie_of_rgs_groep()
     {
         var ovpa = new Rekeningschema(Rekeningschemas.Rekeningen(Schemakeuze.Ovpa, Ondernemingsvorm.BV));

@@ -14,7 +14,8 @@ public enum Btwpost
 }
 
 /// <summary>Wat één boekingsregel bijdraagt aan de aangifte, met het teken van de aangifte (omzet en btw positief).</summary>
-public sealed record Btwbijdrage(Journaalpost Post, Journaalregel Regel, string Rubriek, Btwpost Soort, decimal Bedrag);
+/// <param name="Herkomst">Bij voorbelasting: de rubriek van de grondslag van de code (bijv. 2a of 4b bij verlegde inkoop).</param>
+public sealed record Btwbijdrage(Journaalpost Post, Journaalregel Regel, string Rubriek, Btwpost Soort, decimal Bedrag, string? Herkomst = null);
 
 /// <summary>
 /// De aangifte omzetbelasting over een periode, berekend uit de boekingen met hun btw-code. Per regel bepaalt de rekening
@@ -81,7 +82,7 @@ public sealed record Btwaangifte(DateOnly Van, DateOnly Tot, IReadOnlyList<Aangi
                 switch (rekening is null ? (Rekeningfunctie?)null : Functie(rekening))
                 {
                     case Rekeningfunctie.Voorbelasting:
-                        yield return new(post, regel, "5b", Btwpost.Voorbelasting, regel.Bedrag);
+                        yield return new(post, regel, "5b", Btwpost.Voorbelasting, regel.Bedrag, code.Rubriek);
                         break;
                     case Rekeningfunctie.AfTeDragenBtw when code.RubriekBtw is { } rubriek:
                         yield return new(post, regel, rubriek, Btwpost.Btw, -regel.Bedrag);
