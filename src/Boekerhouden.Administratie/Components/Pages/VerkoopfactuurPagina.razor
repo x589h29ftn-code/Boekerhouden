@@ -31,18 +31,27 @@
         }
     </Kenmerken>
     <Acties>
-        @if (weergave is { Status: Verkoopstatus.Definitief } getoond && geopend?.Kop.Mag(Recht.Invoeren) == true)
-        {
-            <button class="btn btn-outline-secondary" disabled="@bezig" @onclick="Kopieer" title="Een nieuw concept met dezelfde klant en regels">Kopiëren</button>
-            <a class="btn btn-outline-secondary" href="/a/@Id/verkoop/terugkerend?factuur=@getoond.Id" title="Een terugkerende factuur maken met deze klant en regels (bijv. elke maand)">Herhalen…</a>
-            @if (getoond.CreditVoorId is null)
-            {
-                <button class="btn btn-outline-secondary" disabled="@bezig" @onclick="Crediteer" title="Een creditfactuur met dezelfde regels, negatief">Crediteren</button>
-            }
-        }
         @if (weergave is not null && Factuur is not null && geopend?.Kop.Mag(Recht.Invoeren) == true)
         {
-            <button class="btn btn-outline-secondary per-maand-knop" disabled="@bezig" title="Een concept per maand met deze klant en regels, bijv. de fee voor twaalf maanden" @onclick="OpenPerMaand">Per maand…</button>
+            @* Alles wat een nieuwe factuur maakt van deze, achter één knop: de knoppenrij blijft rustig. *@
+            <span class="knopmenu">
+                <button class="btn btn-outline-secondary" disabled="@bezig" aria-expanded="@(menuOpen ? "true" : "false")" @onclick="() => menuOpen = !menuOpen">Nieuw van deze <Icoon Naam="chevron-down" /></button>
+                @if (menuOpen)
+                {
+                    <span class="menu">
+                        <button type="button" title="Een nieuw concept met dezelfde klant en regels" @onclick="async () => { menuOpen = false; await Kopieer(); }">Kopiëren</button>
+                        <button type="button" class="per-maand-knop" title="Een concept per maand met deze klant en regels, bijv. de fee voor twaalf maanden" @onclick="() => { menuOpen = false; OpenPerMaand(); }">Per maand…</button>
+                        @if (weergave is { Status: Verkoopstatus.Definitief } getoond)
+                        {
+                            <a href="/a/@Id/verkoop/terugkerend?factuur=@getoond.Id" title="Een terugkerende factuur maken met deze klant en regels (bijv. elke maand)">Herhalen…</a>
+                            @if (getoond.CreditVoorId is null)
+                            {
+                                <button type="button" title="Een creditfactuur met dezelfde regels, negatief" @onclick="async () => { menuOpen = false; await Crediteer(); }">Crediteren</button>
+                            }
+                        }
+                    </span>
+                }
+            </span>
         }
         @if (weergave is { Ingelezen: true })
         {
@@ -563,6 +572,7 @@
     }
 
     private bool perMaandOpen;
+    private bool menuOpen;
     private DateTime eersteMaand;
     private int aantalMaanden = 12;
 
