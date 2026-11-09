@@ -36,6 +36,7 @@
         @if (stand is { } st)
         {
             <div class="btw-module">
+                <div>
                 <div class="card overzichtskaart btw-perioden">
                     <table class="table table-sm align-middle mb-0 overzichtstabel">
                         <thead>
@@ -69,24 +70,23 @@
                                 </tr>
                             }
                         </tbody>
+                    </table>
+                </div>
+                <div class="fw-semibold mt-4 mb-1">Rondrekening @st.Jaar.Jaar</div>
+                <div class="card overzichtskaart btw-rondrekening">
+                    <table class="table table-sm align-middle mb-0 overzichtstabel">
+                        <tbody>
+                            <tr><td>Heel jaar volgens de boekingen</td><td class="bedrag text-end" style="width:8rem">@Weergave.Bedrag(st.Jaar.Jaaraangifte.TeBetalen)</td></tr>
+                            <tr><td>Aangegeven</td><td class="bedrag text-end">@Weergave.Bedrag(st.Jaar.Aangegeven)</td></tr>
+                        </tbody>
                         <tfoot>
-                            <tr class="generaal" title="De hele jaar volgens de boekingen, tegenover wat er is aangegeven">
-                                <td>Heel jaar</td>
-                                <td class="bedrag text-end">@Weergave.Bedrag(st.Jaar.Jaaraangifte.TeBetalen)</td>
-                                <td></td>
-                            </tr>
-                            <tr class="text-secondary">
-                                <td>Aangegeven</td>
-                                <td class="bedrag text-end">@Weergave.Bedrag(st.Jaar.Aangegeven)</td>
-                                <td></td>
-                            </tr>
-                            <tr class="@(st.Jaar.Suppletie != 0 && st.Jaar.Vastgelegd.Count > 0 ? "fw-semibold" : "text-secondary")">
-                                <td title="Volgens de boekingen over het hele jaar min wat is aangegeven; positief is nog te betalen">Rondrekening</td>
-                                <td class="bedrag text-end">@Weergave.Bedrag(st.Jaar.Suppletie)</td>
-                                <td></td>
+                            <tr class="generaal">
+                                <td>@(st.Jaar.Suppletie switch { > 0 => "Nog te betalen", < 0 => "Terug te vragen", _ => "Verschil" })</td>
+                                <td class="bedrag text-end">@Weergave.Bedrag(Math.Abs(st.Jaar.Suppletie))</td>
                             </tr>
                         </tfoot>
                     </table>
+                </div>
                 </div>
                 @if (gekozen is { } g)
                 {
