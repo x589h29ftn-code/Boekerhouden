@@ -35,6 +35,11 @@ public sealed class BtwaangifteTests(AdministratieFixture app) : IClassFixture<A
         var na = await dienst.Jaar(wie, id, 2026);
         Assert.Equal((231m, 21m), (na.Jaar.Perioden[0].Berekend.TeBetalen, na.Jaar.Perioden[0].Verschil));
         Assert.Equal((210m, 21m, 0m), (na.Jaar.Aangegeven, na.Jaar.Suppletie, na.Jaar.NietAangegeven));
+
+        // De rondrekening: 5c van het 1e kwartaal zoals aangegeven, de administratie met de latere boeking, en de afwijking.
+        var vijfC = na.Rondrekening.Regels.Single(r => r.Code == "5c");
+        Assert.Equal((210m, 231m, 21m), (vijfC.Perioden[0], vijfC.Administratie, vijfC.Afwijking));
+        Assert.Equal(["2026-0001", "2026-0002"], na.Rondrekening.Bronnen(vijfC.Sleutel!, new(2026, 1, 1), new(2026, 3, 31)).Select(b => b.Post.Boekstuk).Distinct());
         Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.BtwaangifteVastgelegd && r.Onderwerp == "1e kwartaal 2026");
 
         Assert.True((await dienst.Intrekken(wie, id, new(2026, 1, 1), new(2026, 3, 31))).IsGelukt);

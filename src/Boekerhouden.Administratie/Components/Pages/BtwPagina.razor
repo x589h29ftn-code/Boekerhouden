@@ -74,8 +74,7 @@
                 </div>
                 <div class="d-flex align-items-baseline gap-2 mt-4 mb-1">
                     <span class="fw-semibold">Rondrekening @st.Jaar.Jaar</span>
-                    <button class="btn btn-sm btn-link text-secondary p-0 ms-auto rondrekening-excel" disabled="@bezig" title="De rondrekening met alle perioden als Excel" @onclick="RondrekeningExcel">Excel</button>
-                    <button class="btn btn-sm btn-link text-secondary p-0 rondrekening-pdf" disabled="@bezig" title="De rondrekening met alle perioden als PDF" @onclick="RondrekeningPdf">PDF</button>
+                    <a class="small ms-auto rondrekening-openen" href="/a/@Id/btw/rondrekening?jaar=@st.Jaar.Jaar" title="Per rubriek met de perioden naast elkaar, de administratie en de afwijking">Per rubriek</a>
                 </div>
                 <div class="card overzichtskaart btw-rondrekening">
                     <table class="table table-sm align-middle mb-0 overzichtstabel">
@@ -343,57 +342,6 @@
         regels.Add(new(Exportsoort.Rekening, "5b", "Voorbelasting", 0, [null, a.Voorbelasting]));
         regels.Add(new(Exportsoort.Totaal, "5c", a.TeBetalen >= 0 ? "Te betalen" : "Terug te vragen", 0, [null, Math.Abs(a.TeBetalen)]));
         return new Exporttabel($"Btw-aangifte {g.Periode.Naam}", g.Periode.Van, g.Periode.Tot, ["Omzet / grondslag", "Btw"], regels);
-    }
-
-    /// <summary>
-    /// De rondrekening van het jaar: per periode verschuldigd, voorbelasting en te betalen volgens de boekingen, wat is
-    /// aangegeven en het verschil; daaronder het jaar en wat er nog te betalen of terug te vragen is.
-    /// </summary>
-    private Exporttabel Rondrekening()
-    {
-        var j = stand!.Jaar;
-        var regels = new List<Exportregel> { new(Exportsoort.Kop, null, "Perioden", 0, []) };
-        foreach (var p in j.Perioden)
-        {
-            regels.Add(new(Exportsoort.Rekening, null, p.Periode.Naam, 0,
-                [p.Berekend.Verschuldigd, p.Berekend.Voorbelasting, p.Berekend.TeBetalen, p.Vastgelegd?.TeBetalen, p.Verschil]));
-        }
-
-        regels.Add(new(Exportsoort.Subtotaal, null, "Totaal perioden", 0,
-            [j.Perioden.Sum(p => p.Berekend.Verschuldigd), j.Perioden.Sum(p => p.Berekend.Voorbelasting), j.Perioden.Sum(p => p.Berekend.TeBetalen), j.Aangegeven, null]));
-        regels.Add(new(Exportsoort.Kop, null, $"Rondrekening {j.Jaar}", 0, []));
-        regels.Add(new(Exportsoort.Rekening, null, "Heel jaar volgens de boekingen", 0, [j.Jaaraangifte.Verschuldigd, j.Jaaraangifte.Voorbelasting, j.Jaaraangifte.TeBetalen, null, null]));
-        regels.Add(new(Exportsoort.Rekening, null, "Aangegeven", 0, [null, null, null, j.Aangegeven, null]));
-        regels.Add(new(Exportsoort.Rekening, null, "Nog niet aangegeven", 0, [null, null, j.NietAangegeven, null, null]));
-        if (j.Rest != 0)
-        {
-            regels.Add(new(Exportsoort.Rekening, null, "Overig (frequentie gewijzigd)", 0, [null, null, j.Rest, null, null]));
-        }
-
-        regels.Add(new(Exportsoort.Totaal, null, $"Suppletie: {j.Suppletie switch { > 0 => "nog te betalen", < 0 => "terug te vragen", _ => "geen" }}", 0,
-            [null, null, null, null, Math.Abs(j.Suppletie)]));
-        return new Exporttabel($"Btw-rondrekening {j.Jaar}", new DateOnly(j.Jaar, 1, 1), new DateOnly(j.Jaar, 12, 31),
-            ["Verschuldigd (5a)", "Voorbelasting (5b)", "Te betalen (5c)", "Aangegeven", "Verschil"], regels);
-    }
-
-    private async Task RondrekeningExcel()
-    {
-        bezig = true;
-        await JS.Bewaar(await Overzicht.TabelExcel(geopend!.Wie, Id, Rondrekening()), $"Btw-rondrekening {jaar}.xlsx", Download.Excel);
-        bezig = false;
-    }
-
-    private async Task RondrekeningPdf()
-    {
-        bezig = true;
-        var uitkomst = await Overzicht.TabelPdf(geopend!.Wie, Id, Rondrekening());
-        fouten = uitkomst.Fouten;
-        if (uitkomst.IsGelukt)
-        {
-            await JS.Bewaar(uitkomst.Waarde!, $"Btw-rondrekening {jaar}.pdf", Download.Pdf);
-        }
-
-        bezig = false;
     }
 
     private async Task Excel()

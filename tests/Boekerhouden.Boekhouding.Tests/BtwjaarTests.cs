@@ -60,6 +60,42 @@ public sealed class BtwjaarTests
     }
 
     [Fact]
+    public void Rondrekening_per_rubriek_met_perioden_naast_elkaar_administratie_en_afwijking()
+    {
+        // Het 1e kwartaal is aangegeven voordat V-1 geboekt was: alleen de voorbelasting van de inkoop.
+        var vastgelegd = new VastgelegdeAangifte(new(2026, 1, 1), new(2026, 3, 31), [], 21m, DateTimeOffset.UnixEpoch, "Bea");
+        var jaar = Btwjaar.Maak(2026, Aangiftefrequentie.Kwartaal, Posten, Schema, Codes, [vastgelegd]);
+
+        var rond = Btwrondrekening.Maak(jaar, Posten, Schema, Codes);
+        Rondrekeningregel Regel(string omschrijving, int welke = 0) => rond.Regels.Where(r => r.Omschrijving == omschrijving || r.Code == omschrijving).ElementAt(welke);
+
+        // Alleen rubrieken met cijfers: 1a (omzet en btw), en altijd 5a–5c.
+        Assert.Equal(["1a", "1a", "5a", "5b", "5c"], rond.Regels.Where(r => r.Code is not null).Select(r => r.Code));
+        var omzet = Regel("1a");
+        Assert.Equal([0m, 2000m, 0m, 0m], omzet.Perioden);
+        Assert.Equal((2000m, 3000m, 1000m), (omzet.Totaal, omzet.Administratie, omzet.Afwijking));
+        var btw = Regel("1a", 1);
+        Assert.Equal((420m, 630m, 210m), (btw.Totaal, btw.Administratie, btw.Afwijking));
+        var teBetalen = Regel("5c");
+        Assert.Equal([-21m, 420m, 0m, 0m], teBetalen.Perioden);
+        Assert.Equal((399m, 609m, 210m), (teBetalen.Totaal, teBetalen.Administratie, teBetalen.Afwijking));
+
+        // Aansluiting met het grootboek per periode: de omzet die niet in de aangifte van het 1e kwartaal zat.
+        Assert.Equal([1000m, 2000m, 0m, 0m], Regel("Omzet volgens het grootboek").Perioden);
+        Assert.Equal([1000m, 0m, 0m, 0m], Regel("Verschil omzet").Perioden);
+        Assert.Equal([189m, 420m, 0m, 0m], Regel("Btw geboekt op de btw-rekeningen").Perioden);
+        Assert.Equal([210m, 0m, 0m, 0m], Regel("Verschil btw").Perioden);
+
+        // Doorklikken: de boekingsregels achter een getal tellen op tot dat getal.
+        var bron = rond.Bronnen(omzet.Sleutel!, new(2026, 1, 1), new(2026, 12, 31));
+        Assert.Equal(["V-1", "V-2"], bron.Select(b => b.Post.Boekstuk));
+        Assert.Equal(3000m, bron.Sum(b => b.Bedrag));
+        Assert.Equal(609m, rond.Bronnen(teBetalen.Sleutel!, new(2026, 1, 1), new(2026, 12, 31)).Sum(b => b.Bedrag));
+        Assert.Equal(1000m, rond.Bronnen(Regel("Omzet volgens het grootboek").Sleutel!, new(2026, 1, 1), new(2026, 3, 31)).Sum(b => b.Bedrag));
+        Assert.Equal("1e kw", jaar.Perioden[0].Periode.Kort);
+    }
+
+    [Fact]
     public void Btw_rekeningen_op_functie_of_rgs_groep()
     {
         var ovpa = new Rekeningschema(Rekeningschemas.Rekeningen(Schemakeuze.Ovpa, Ondernemingsvorm.BV));

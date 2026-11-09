@@ -399,7 +399,7 @@ public static class OverzichtExport
         var html = Begin(tabel.Titel, administratie, tabel.Van, tabel.Tot);
         var klein = tabel.Koppen.Count > 8 ? " style=\"font-size:7pt\"" : null;
         var nummers = tabel.Regels.Any(r => r.Nummer is not null);
-        html.Append(CultureInfo.InvariantCulture, $"""<table{klein}><thead><tr>{(nummers ? "<th>Rekening</th>" : null)}<th>Omschrijving</th>""");
+        html.Append(CultureInfo.InvariantCulture, $"""<table{klein}><thead><tr>{(nummers ? "<th>Rekening</th>" : null)}<th style="width:{(nummers ? 24 : 30)}%">Omschrijving</th>""");
         foreach (var kop in tabel.Koppen)
         {
             html.Append(CultureInfo.InvariantCulture, $"""<th class="r">{E(kop)}</th>""");

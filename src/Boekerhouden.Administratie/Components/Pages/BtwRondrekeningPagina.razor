@@ -1,0 +1,211 @@
+@page "/a/{Id:guid}/btw/rondrekening"
+@using Boekerhouden.Boekhouding.Btw
+@using Boekerhouden.Administratie.Export
+@inject BtwaangifteDienst Btw
+@inject GrootboekDienst Grootboek
+@inject OverzichtDienst Overzicht
+@inject IJSRuntime JS
+
+<AdministratieKader Id="Id" Titel="Btw-rondrekening" Actief="/btw" BijOpenen="Open">
+    <Kenmerken>
+        @if (stand is { } s)
+        {
+            <span>@s.Jaar.Jaar</span>
+            <span class="scheiding">·</span>
+            <span>@BtwaangifteDienst.Naam(s.Jaar.Frequentie)</span>
+        }
+    </Kenmerken>
+    <Acties>
+        <a class="btn btn-sm btn-link text-secondary px-0" href="/a/@Id/btw?jaar=@jaar" title="Naar de btw-aangifte" aria-label="Naar de btw-aangifte"><Icoon Naam="arrow-left" /></a>
+        <JaarKeuze Jaren="jaren" Jaar="jaar" JaarChanged="KiesJaar" />
+        <button class="btn btn-sm btn-outline-secondary" disabled="@(bezig || stand is null)" title="De rondrekening als Excel" @onclick="Excel">Excel</button>
+        <button class="btn btn-sm btn-outline-secondary" disabled="@(bezig || stand is null)" title="De rondrekening als PDF" @onclick="Pdf">PDF</button>
+    </Acties>
+    <ChildContent>
+        <Foutmeldingen Fouten="fouten" />
+        @if (stand?.Rondrekening is { } rond)
+        {
+            var n = rond.Perioden.Count;
+            <div class="card overzichtskaart maandoverzicht-kaart">
+                <table class="table table-sm align-middle mb-0 overzichtstabel maandoverzicht btw-rondrekening-matrix">
+                    <thead>
+                        <tr>
+                            <th>Rubriek</th>
+                            @foreach (var p in rond.Perioden)
+                            {
+                                <th class="text-end @(p.Vastgelegd is null ? "text-secondary fst-italic" : null)" title="@Kolomtitel(p)">@p.Periode.Kort</th>
+                            }
+                            <th class="text-end" title="Opgeteld zoals per periode aangegeven">Totaal</th>
+                            <th class="text-end" title="Het hele jaar volgens de boekingen nu">Administratie</th>
+                            <th class="text-end" title="Administratie min totaal: wat nog in een suppletie hoort">Afwijking</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in rond.Regels)
+                        {
+                            var regel = r;
+                            @if (r.Soort == Rondrekeningsoort.Kop)
+                            {
+                                <tr class="indeling-kop niveau-1"><td colspan="@(n + 4)">@r.Omschrijving</td></tr>
+                                continue;
+                            }
+
+                            <tr class="@(r.Soort switch { Rondrekeningsoort.Subtotaal => "indeling-subtotaal", Rondrekeningsoort.Totaal => "indeling-subtotaal fw-semibold", _ => null })">
+                                <td class="text-truncate" style="max-width:24rem" title="@r.Omschrijving">
+                                    @if (r.Code is not null)
+                                    {
+                                        <span class="text-secondary me-2">@r.Code</span>
+                                    }
+                                    @r.Omschrijving
+                                </td>
+                                @for (var i = 0; i < n; i++)
+                                {
+                                    var p = rond.Perioden[i];
+                                    var bedrag = r.Perioden.Count > i ? r.Perioden[i] : null;
+                                    @if (r.Sleutel is not null && bedrag is not null and not 0)
+                                    {
+                                        <td class="bedrag text-end klikbaar @(p.Vastgelegd is null ? "text-secondary" : null)" title="De boekingen van @p.Periode.Naam" @onclick="() => Toon(regel, p.Periode.Naam, p.Periode.Van, p.Periode.Tot)">@Getal(bedrag)</td>
+                                    }
+                                    else
+                                    {
+                                        <td class="bedrag text-end @(p.Vastgelegd is null ? "text-secondary" : null)">@Getal(bedrag)</td>
+                                    }
+                                }
+                                <td class="bedrag text-end fw-semibold">@Getal(r.Totaal)</td>
+                                @if (r.Sleutel is not null && r.Administratie is not null and not 0)
+                                {
+                                    <td class="bedrag text-end klikbaar" title="De boekingen van het hele jaar" @onclick="() => Toon(regel, jaar.ToString(System.Globalization.CultureInfo.InvariantCulture), new(jaar, 1, 1), new(jaar, 12, 31))">@Getal(r.Administratie)</td>
+                                }
+                                else
+                                {
+                                    <td class="bedrag text-end">@Getal(r.Administratie)</td>
+                                }
+                                <td class="bedrag text-end">
+                                    @if (r.Afwijking is { } afwijking and not 0)
+                                    {
+                                        <span class="status let-op">@Weergave.Bedrag(afwijking)</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (bron is { } b)
+            {
+                <div class="d-flex align-items-baseline gap-2 mt-4 mb-1 rondrekening-bron">
+                    <span class="fw-semibold">@(b.Regel.Code is null ? null : $"{b.Regel.Code} ")@b.Regel.Omschrijving</span>
+                    <span class="small text-secondary">@b.Wanneer</span>
+                    <button type="button" class="btn btn-sm btn-link text-secondary p-0 ms-auto" title="Sluiten" aria-label="Sluiten" @onclick="() => bron = null"><Icoon Naam="x" /></button>
+                </div>
+                <div class="card overzichtskaart">
+                    <table class="table table-sm align-middle mb-0 overzichtstabel">
+                        <thead>
+                            <tr><th style="width:7rem">Datum</th><th style="width:10rem">Boeking</th><th>Omschrijving</th><th>Rekening</th><th class="text-end" style="width:9rem">Bedrag</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var x in b.Regels)
+                            {
+                                <tr>
+                                    <td>@Weergave.Datum(x.Post.Datum)</td>
+                                    <td><a href="/a/@Id/boeking/@x.Post.Dagboek/@x.Post.Boekstuk" title="Naar de boeking">@x.Post.Dagboek @x.Post.Boekstuk</a></td>
+                                    <td class="text-truncate" style="max-width:24rem" title="@(x.Regel.Omschrijving ?? x.Post.Omschrijving)">@(x.Regel.Omschrijving ?? x.Post.Omschrijving)</td>
+                                    <td title="@x.Regel.BtwCode"><span class="rekeningnummer">@x.Regel.Rekeningnummer</span> @Rekeningnaam(x.Regel.Rekeningnummer)</td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(x.Bedrag)</td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr class="generaal">
+                                <td colspan="4">@b.Regels.Count @(b.Regels.Count == 1 ? "regel" : "regels")</td>
+                                <td class="bedrag text-end">@Weergave.Bedrag(b.Regels.Sum(x => x.Bedrag))</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            }
+        }
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private IReadOnlyList<int> jaren = [];
+    private int jaar;
+    private Btwstandjaar? stand;
+    private Dictionary<string, string> namen = new(StringComparer.Ordinal);
+    private (Rondrekeningregel Regel, string Wanneer, IReadOnlyList<Rondrekeningbronregel> Regels)? bron;
+    private bool bezig;
+    private IReadOnlyList<string>? fouten;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "jaar")]
+    public int? Jaar { get; set; }
+
+    private static string? Getal(decimal? bedrag) => bedrag is null or 0 ? null : Weergave.Bedrag(bedrag.Value);
+
+    private static string Kolomtitel(Btwperiode p) => p.Vastgelegd is { } v
+        ? $"{p.Periode.Naam}: aangegeven {v.Op.ToLocalTime():dd-MM-yyyy} door {v.Door}"
+        : $"{p.Periode.Naam}: nog niet aangegeven, volgens de boekingen";
+
+    private string? Rekeningnaam(string nummer) => namen.GetValueOrDefault(nummer);
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        jaren = await Grootboek.Boekjaren(g.Wie, Id);
+        jaar = Jaar is { } j && jaren.Contains(j) ? j : jaren[0];
+        await Laad();
+    }
+
+    private async Task Laad()
+    {
+        bron = null;
+        stand = await Btw.Jaar(geopend!.Wie, Id, jaar);
+        namen = (await Grootboek.Schema(geopend.Wie, Id)).Alle.ToDictionary(r => r.Nummer, r => r.Naam, StringComparer.Ordinal);
+    }
+
+    private async Task KiesJaar(int j)
+    {
+        jaar = j;
+        await Laad();
+    }
+
+    private void Toon(Rondrekeningregel regel, string wanneer, DateOnly van, DateOnly tot) =>
+        bron = (regel, wanneer, stand!.Rondrekening.Bronnen(regel.Sleutel!, van, tot));
+
+    /// <summary>De rondrekening zoals op het scherm, voor Excel en PDF.</summary>
+    private Exporttabel Tabel()
+    {
+        var rond = stand!.Rondrekening;
+        var regels = rond.Regels.Select(r => new Exportregel(
+            r.Soort switch { Rondrekeningsoort.Kop => Exportsoort.Kop, Rondrekeningsoort.Subtotaal => Exportsoort.Subtotaal, Rondrekeningsoort.Totaal => Exportsoort.Totaal, _ => Exportsoort.Rekening },
+            null, r.Code is null ? r.Omschrijving : $"{r.Code} {r.Omschrijving}", 0,
+            r.Soort == Rondrekeningsoort.Kop ? [] : [.. r.Perioden, r.Totaal, r.Administratie, r.Afwijking is 0 ? null : r.Afwijking])).ToList();
+        return new Exporttabel($"Btw-rondrekening {jaar}", new DateOnly(jaar, 1, 1), new DateOnly(jaar, 12, 31),
+            [.. rond.Perioden.Select(p => p.Periode.Kort), "Totaal", "Administratie", "Afwijking"], regels);
+    }
+
+    private async Task Excel()
+    {
+        bezig = true;
+        await JS.Bewaar(await Overzicht.TabelExcel(geopend!.Wie, Id, Tabel()), $"Btw-rondrekening {jaar}.xlsx", Download.Excel);
+        bezig = false;
+    }
+
+    private async Task Pdf()
+    {
+        bezig = true;
+        var uitkomst = await Overzicht.TabelPdf(geopend!.Wie, Id, Tabel());
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            await JS.Bewaar(uitkomst.Waarde!, $"Btw-rondrekening {jaar}.pdf", Download.Pdf);
+        }
+
+        bezig = false;
+    }
+}

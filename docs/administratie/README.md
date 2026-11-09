@@ -119,8 +119,13 @@ samenstelpakket.
   PDF. **Vastleggen als aangegeven** bewaart de bedragen van dat moment (tabel `IngediendeAangiften`, gelogd; weer in te
   trekken); bij een vastgelegde periode staat de kolom *Aangegeven* ernaast. **Rondrekening over het jaar**: het hele
   jaar volgens de boekingen, wat er is aangegeven (de vastgelegde aangiften) en wat nog niet is aangegeven; de suppletie
-  is wat er later nog is geboekt in perioden die al zijn aangegeven. De rondrekening met alle perioden (5a, 5b, 5c,
-  aangegeven en verschil) gaat als Excel of PDF mee (*Excel* en *PDF* naast de kop).
+  is wat er later nog is geboekt in perioden die al zijn aangegeven. *Per rubriek* opent de rondrekening als matrix
+  (`/btw/rondrekening`): de rubrieken van de aangifte (omzet, btw, 5a–5c) onder elkaar, de perioden naast elkaar (zoals
+  aangegeven; een periode die nog niet is aangegeven grijs, volgens de boekingen), het totaal, het hele jaar volgens de
+  administratie en de afwijking (wat nog in een suppletie hoort). Daaronder de aansluiting met het grootboek per periode:
+  de omzet in de aangiften tegenover de omzetrekeningen (RGS-groep netto-omzet) en de btw tegenover wat er met een
+  btw-code op de btw-rekeningen is geboekt. Elk getal klikt door naar de boekingsregels erachter; Excel en PDF zoals op
+  het scherm.
   **Aansluiting** tot en met de gekozen periode (`Btwaansluiting`): saldo van de btw-rekeningen op 1 januari, plus te
   betalen volgens de aangiften van het jaar tot dan, plus wat er betaald of ontvangen is (boekingen op de
   btw-rekeningen zonder btw-code), is het verwachte saldo; daarnaast het saldo van de btw-rekeningen in de

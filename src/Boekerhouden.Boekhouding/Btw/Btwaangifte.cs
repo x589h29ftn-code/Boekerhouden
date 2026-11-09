@@ -5,6 +5,17 @@ namespace Boekerhouden.Boekhouding.Btw;
 /// <summary>Eén rubriek van de aangifte: de grondslag (omzet of inkoop zonder btw) en de btw daarover.</summary>
 public sealed record Aangifterubriek(string Rubriek, decimal Grondslag, decimal Btw);
 
+/// <summary>Wat een bedrag in de aangifte is: de grondslag (omzet), de btw in een rubriek, of voorbelasting.</summary>
+public enum Btwpost
+{
+    Grondslag,
+    Btw,
+    Voorbelasting,
+}
+
+/// <summary>Wat één boekingsregel bijdraagt aan de aangifte, met het teken van de aangifte (omzet en btw positief).</summary>
+public sealed record Btwbijdrage(Journaalpost Post, Journaalregel Regel, string Rubriek, Btwpost Soort, decimal Bedrag);
+
 /// <summary>
 /// De aangifte omzetbelasting over een periode, berekend uit de boekingen met hun btw-code. Per regel bepaalt de rekening
 /// wat het bedrag is: op de rekening voor voorbelasting is het aftrekbare btw (5b), op de rekening voor af te dragen btw
@@ -26,41 +37,67 @@ public sealed record Btwaangifte(DateOnly Van, DateOnly Tot, IReadOnlyList<Aangi
 
     public static Btwaangifte Bereken(IEnumerable<Journaalpost> posten, Rekeningschema schema, IReadOnlyList<BtwCode> codes, DateOnly van, DateOnly tot)
     {
-        ArgumentNullException.ThrowIfNull(posten);
-        ArgumentNullException.ThrowIfNull(schema);
-        ArgumentNullException.ThrowIfNull(codes);
         var grondslag = Volgorde.ToDictionary(r => r, _ => 0m, StringComparer.Ordinal);
         var btw = Volgorde.ToDictionary(r => r, _ => 0m, StringComparer.Ordinal);
         var voorbelasting = 0m;
-        foreach (var regel in posten.Where(p => p.Datum >= van && p.Datum <= tot).SelectMany(p => p.Regels).Where(r => r.BtwCode is not null))
+        foreach (var b in Bijdragen(posten, schema, codes, van, tot))
         {
-            if (BtwCodes.Zoek(codes, regel.BtwCode) is not { } code)
+            switch (b.Soort)
             {
-                continue;
-            }
-
-            var rekening = schema.Zoek(regel.Rekeningnummer);
-            switch (rekening is null ? (Rekeningfunctie?)null : Functie(rekening))
-            {
-                case Rekeningfunctie.Voorbelasting:
-                    voorbelasting += regel.Bedrag;
+                case Btwpost.Voorbelasting:
+                    voorbelasting += b.Bedrag;
                     break;
-                case Rekeningfunctie.AfTeDragenBtw when code.RubriekBtw is { } rubriek:
-                    btw[rubriek] -= regel.Bedrag;
-                    break;
-                case Rekeningfunctie.AfTeDragenBtw:
+                case Btwpost.Btw:
+                    btw[b.Rubriek] += b.Bedrag;
                     break;
                 default:
-                    if (code.Rubriek is { } r)
-                    {
-                        grondslag[r] += code.Richting == BtwRichting.Verkoop ? -regel.Bedrag : regel.Bedrag;
-                    }
-
+                    grondslag[b.Rubriek] += b.Bedrag;
                     break;
             }
         }
 
         return new Btwaangifte(van, tot, [.. Volgorde.Select(r => new Aangifterubriek(r, grondslag[r], btw[r]))], voorbelasting);
+    }
+
+    /// <summary>
+    /// Per boekingsregel met een btw-code wat die aan de aangifte bijdraagt: grondslag of btw in een rubriek, of
+    /// voorbelasting (rubriek 5b). De som per rubriek is de aangifte; zo is elk getal terug te voeren op de boekingen.
+    /// </summary>
+    public static IEnumerable<Btwbijdrage> Bijdragen(IEnumerable<Journaalpost> posten, Rekeningschema schema, IReadOnlyList<BtwCode> codes, DateOnly van, DateOnly tot)
+    {
+        ArgumentNullException.ThrowIfNull(posten);
+        ArgumentNullException.ThrowIfNull(schema);
+        ArgumentNullException.ThrowIfNull(codes);
+        foreach (var post in posten.Where(p => p.Datum >= van && p.Datum <= tot))
+        {
+            foreach (var regel in post.Regels.Where(r => r.BtwCode is not null))
+            {
+                if (BtwCodes.Zoek(codes, regel.BtwCode) is not { } code)
+                {
+                    continue;
+                }
+
+                var rekening = schema.Zoek(regel.Rekeningnummer);
+                switch (rekening is null ? (Rekeningfunctie?)null : Functie(rekening))
+                {
+                    case Rekeningfunctie.Voorbelasting:
+                        yield return new(post, regel, "5b", Btwpost.Voorbelasting, regel.Bedrag);
+                        break;
+                    case Rekeningfunctie.AfTeDragenBtw when code.RubriekBtw is { } rubriek:
+                        yield return new(post, regel, rubriek, Btwpost.Btw, -regel.Bedrag);
+                        break;
+                    case Rekeningfunctie.AfTeDragenBtw:
+                        break;
+                    default:
+                        if (code.Rubriek is { } r)
+                        {
+                            yield return new(post, regel, r, Btwpost.Grondslag, code.Richting == BtwRichting.Verkoop ? -regel.Bedrag : regel.Bedrag);
+                        }
+
+                        break;
+                }
+            }
+        }
     }
 
     /// <summary>

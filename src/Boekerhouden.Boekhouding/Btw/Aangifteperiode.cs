@@ -33,6 +33,14 @@ public sealed record Aangifteperiode(DateOnly Van, DateOnly Tot, Aangiftefrequen
     /// <summary>De periode erna.</summary>
     public Aangifteperiode Volgende => Waarin(Tot.AddDays(1), Frequentie);
 
+    /// <summary>Kort, als kolomkop: "3e kw", "sep" of "2026".</summary>
+    public string Kort => Frequentie switch
+    {
+        Aangiftefrequentie.Maand => Maandnamen[Van.Month - 1][..3],
+        Aangiftefrequentie.Kwartaal => $"{((Van.Month - 1) / 3) + 1}e kw",
+        _ => $"{Van.Year}",
+    };
+
     /// <summary>Bijv. "3e kwartaal 2026", "september 2026" of "2026".</summary>
     public string Naam => Frequentie switch
     {

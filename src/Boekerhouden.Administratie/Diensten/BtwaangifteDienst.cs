@@ -5,8 +5,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Boekerhouden.Administratie.Diensten;
 
-/// <summary>De btw van een jaar: de perioden met hun aangifte, wat is vastgelegd, de rondrekening en de aansluiting.</summary>
-public sealed record Btwstandjaar(Btwjaar Jaar, IReadOnlyList<Btwaansluiting> Aansluitingen);
+/// <summary>De btw van een jaar: de perioden met hun aangifte, wat is vastgelegd, de aansluiting en de rondrekening.</summary>
+public sealed record Btwstandjaar(Btwjaar Jaar, IReadOnlyList<Btwaansluiting> Aansluitingen, Btwrondrekening Rondrekening);
 
 /// <summary>
 /// De btw-aangifte: per periode (maand, kwartaal of jaar, in te stellen per administratie) wat de boekingen met hun
@@ -50,7 +50,7 @@ public sealed class BtwaangifteDienst(Toegang toegang, GrootboekDienst grootboek
         var (posten, schema) = await grootboek.JournaalMetSchema(wie, administratie, begin, eind);
         var btwjaar = Btwjaar.Maak(jaar, frequentie, posten, schema, codes, vastgelegd);
         var aansluitingen = btwjaar.Perioden.Select(p => Btwaansluiting.Bereken(posten, schema, codes, begin, p.Periode.Tot)).ToList();
-        return new Btwstandjaar(btwjaar, aansluitingen);
+        return new Btwstandjaar(btwjaar, aansluitingen, Btwrondrekening.Maak(btwjaar, posten, schema, codes));
     }
 
     /// <summary>Een aangifte vastleggen zoals hij is ingediend: de berekening van nu, per rubriek.</summary>
