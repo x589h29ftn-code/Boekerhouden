@@ -2,7 +2,14 @@
 @inject GrootboekDienst Grootboek
 @inject NavigationManager Navigatie
 
-<AdministratieKader Id="Id" Titel="Journaal" Actief="/journaal" BijOpenen="Open">
+<AdministratieKader Id="Id" Titel="Journaal" Actief="/journaal" BijOpenen="Open" KopVast="true">
+    <Kenmerken>
+        @if (posten is not null)
+        {
+            var gevonden = Gevonden.Count;
+            <span>@(gevonden == posten.Count ? $"{posten.Count}" : $"{gevonden} van {posten.Count}") @(posten.Count == 1 ? "boeking" : "boekingen")</span>
+        }
+    </Kenmerken>
     <Acties>
         <button class="btn btn-outline-secondary btn-sm" @onclick="Controleer" title="Is er buiten de app iets gewijzigd?">Keten controleren</button>
         @if (geopend is not null)
@@ -24,9 +31,27 @@
                 }
             </div>
         }
+        @if (posten is { Count: > 0 })
+        {
+            <div class="d-flex align-items-center gap-2 mb-2 onderkop">
+                <select class="form-select form-select-sm w-auto" aria-label="Dagboek" @bind="dagboek">
+                    <option value="">Alle dagboeken</option>
+                    @foreach (var d in posten.Select(p => p.Post.Dagboek).Distinct().Order())
+                    {
+                        <option value="@d">@d</option>
+                    }
+                </select>
+                <input class="form-control form-control-sm kaartzoeken" placeholder="Zoeken op omschrijving, boekstuk, rekening, bedrag, relatie of factuurnummer" aria-label="Zoeken"
+                       @bind="zoek" @bind:event="oninput" />
+            </div>
+        }
         @if (posten is { Count: 0 })
         {
-            <div class="card card-body text-center text-secondary py-5">Geen boekingen in deze periode.</div>
+            <LegeStaat Icoon="file-text" Tekst="Geen boekingen in deze periode" />
+        }
+        else if (posten is not null && Gevonden.Count == 0)
+        {
+            <LegeStaat Icoon="search" Tekst="Geen boekingen gevonden" />
         }
         else if (posten is not null)
         {
@@ -38,19 +63,19 @@
                             <SorteerKop Sortering="sortering" Naam="Datum" Gewijzigd="StateHasChanged" />
                             <SorteerKop Sortering="sortering" Naam="Dagboek" Gewijzigd="StateHasChanged" />
                             <SorteerKop Sortering="sortering" Naam="Boekstuk" Gewijzigd="StateHasChanged" />
-                            <SorteerKop Sortering="sortering" Naam="Omschrijving" Gewijzigd="StateHasChanged" />
+                            <SorteerKop Sortering="sortering" Naam="Omschrijving" Klasse="rekt" Gewijzigd="StateHasChanged" />
                             <SorteerKop Sortering="sortering" Naam="Bedrag" Klasse="text-end" Gewijzigd="StateHasChanged" />
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var p in sortering.Pas(posten))
+                        @foreach (var p in sortering.Pas(Gevonden))
                         {
                             <tr class="klikbaar" @onclick="() => Wissel(p.Volgnummer)">
                                 <td class="text-secondary" title="Geboekt door @p.GeboektDoor op @Weergave.DatumTijd(p.GeboektOp)">@p.Volgnummer</td>
-                                <td>@Weergave.Datum(p.Post.Datum)</td>
+                                <td class="text-nowrap">@Weergave.Datum(p.Post.Datum)</td>
                                 <td>@p.Post.Dagboek</td>
-                                <td>@p.Post.Boekstuk</td>
-                                <td>@p.Post.Omschrijving</td>
+                                <td class="text-nowrap">@p.Post.Boekstuk</td>
+                                <td class="text-truncate" title="@p.Post.Omschrijving">@p.Post.Omschrijving</td>
                                 <td class="bedrag text-end">@Weergave.Bedrag(p.Post.TotaalDebet)</td>
                             </tr>
                             @if (open.Contains(p.Volgnummer))
@@ -59,7 +84,7 @@
                                 {
                                     <tr class="small">
                                         <td></td>
-                                        <td colspan="3" class="text-secondary">@r.Rekeningnummer</td>
+                                        <td colspan="3" class="text-secondary">@r.Rekeningnummer @schema?.Zoek(r.Rekeningnummer)?.Naam</td>
                                         <td class="text-secondary">@r.Omschrijving @r.BtwCode</td>
                                         <td class="bedrag text-end">@Weergave.Bedrag(r.Bedrag)</td>
                                     </tr>
@@ -85,6 +110,13 @@
         new("Omschrijving", p => p.Post.Omschrijving.ToUpperInvariant()),
         new("Bedrag", p => p.Post.TotaalDebet, EerstOplopend: false));
     private IReadOnlyList<long>? keten;
+    private Boekhouding.Grootboek.Rekeningschema? schema;
+    private string? zoek;
+    private string dagboek = "";
+
+    /// <summary>De boekingen die bij het dagboek en de zoektekst passen.</summary>
+    private IReadOnlyList<GeboektePost> Gevonden =>
+        [.. (posten ?? []).Where(p => (dagboek.Length == 0 || p.Post.Dagboek == dagboek) && Boekhouding.Grootboek.Journaalzoeker.Past(p.Post, zoek, schema))];
     private readonly HashSet<long> open = [];
     private DateOnly van;
     private DateOnly tot;
@@ -102,6 +134,7 @@
     private async Task Open(Geopend g)
     {
         geopend = g;
+        schema = await Grootboek.Schema(g.Wie, Id);
         (van, tot) = Weergave.Periode(VanTekst, TotTekst) ?? Boekhouding.Grootboek.Periode.Jaar((await Grootboek.Boekjaren(g.Wie, Id))[0]);
         await Laad();
     }

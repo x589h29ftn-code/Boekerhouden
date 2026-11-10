@@ -326,6 +326,11 @@ a {
     border-bottom: 0;
 }
 
+/* Totalen die onderaan in beeld blijven staan (kolommenbalans): niet doorzichtig, anders schijnen de regels erdoorheen. */
+.kolommenbalans > tfoot td, .maandoverzicht > tfoot td {
+    background: var(--bh-vlak);
+}
+
 .overzichtstabel > tfoot > tr:first-child > td:is(.bedrag, .text-end):not(:empty),
 .table > tfoot > tr:first-child > td:is(.bedrag, .text-end):not(:empty) {
     box-shadow: inset 0 1px 0 var(--bh-tekst);

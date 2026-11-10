@@ -19,6 +19,10 @@
         }
     </Kenmerken>
     <Acties>
+        <span class="form-check mb-0 small text-nowrap">
+            <input class="form-check-input" type="checkbox" id="alle-regels" @bind="alles" />
+            <label class="form-check-label text-secondary" for="alle-regels" title="Ook de regels zonder bedrag, om er een in te vullen">Alle regels</label>
+        </span>
         <JaarKeuze Jaren="jaren" Jaar="jaar" JaarChanged="KiesJaar" />
         <button class="btn btn-sm btn-outline-secondary" disabled="@(bezig || stand is null)" title="De fiscale positie als Excel" @onclick="Excel">Excel</button>
         <button class="btn btn-sm btn-outline-secondary" disabled="@(bezig || stand is null)" title="De fiscale positie als PDF" @onclick="Pdf">PDF</button>
@@ -39,7 +43,7 @@
                             <tr><th>Berekening belastbaar bedrag @p.Jaar</th><th class="text-end" style="width:9rem"></th><th class="text-end" style="width:9rem"></th></tr>
                         </thead>
                         <tbody>
-                            @foreach (var r in p.Regels)
+                            @foreach (var r in Zichtbaar(p.Regels))
                             {
                                 @if (r.Soort == Fiscaleregelsoort.Kop)
                                 {
@@ -57,6 +61,8 @@
                     </table>
                 </div>
                 <div>
+                    @if (alles || p.Beperkt.Count > 0)
+                    {
                     <div class="fw-semibold mb-1">Beperkt aftrekbare kosten</div>
                     <div class="card overzichtskaart vpb-beperkt">
                         <table class="table table-sm align-middle mb-0 overzichtstabel">
@@ -71,7 +77,11 @@
                         </table>
                     </div>
 
-                    <div class="fw-semibold mt-4 mb-1">Niet aftrekbare kosten</div>
+                    }
+
+                    @if (alles || p.NietAftrekbaar.Count > 0)
+                    {
+                    <div class="fw-semibold mb-1 @(alles || p.Beperkt.Count > 0 ? "mt-4" : null)">Niet aftrekbare kosten</div>
                     <div class="card overzichtskaart vpb-niet">
                         <table class="table table-sm align-middle mb-0 overzichtstabel">
                             <tbody>
@@ -84,7 +94,9 @@
                         </table>
                     </div>
 
-                    <div class="d-flex align-items-baseline gap-2 mt-4 mb-1">
+                    }
+
+                    <div class="d-flex align-items-baseline gap-2 mb-1 @(alles || p.Beperkt.Count > 0 || p.NietAftrekbaar.Count > 0 ? "mt-4" : null)">
                         <span class="fw-semibold">Uitgangspunten</span>
                         @if (!p.Tarieven.Bekend)
                         {
@@ -95,7 +107,7 @@
                     <div class="card overzichtskaart vpb-uitgangspunten">
                         <table class="table table-sm align-middle mb-0 overzichtstabel">
                             <tbody>
-                                @foreach (var r in p.Uitgangspunten.Take(tarieven ? int.MaxValue : 3))
+                                @foreach (var r in p.Uitgangspunten.Take(tarieven ? int.MaxValue : 3).Where((r, i) => alles || tarieven || i == 0 || !Leeg(r.Bedrag)))
                                 {
                                     <tr><td>@r.Omschrijving</td>@Celweergave(r.Bedrag)</tr>
                                 }
@@ -116,6 +128,7 @@
     private Vpbstand? stand;
     private bool geenBv;
     private bool tarieven;
+    private bool alles;
     private bool bezig;
     private IReadOnlyList<string>? fouten;
     private string? bewerk;
@@ -128,6 +141,45 @@
 
     [SupplyParameterFromQuery(Name = "jaar")]
     public int? Jaar { get; set; }
+
+    /// <summary>Een bedrag dat niets zegt: leeg of nul, en niet met de hand ingevuld.</summary>
+    private static bool Leeg(Fiscalecel? cel) => cel is null || (!cel.IsAangepast && (cel.Bedrag ?? 0m) == 0m);
+
+    /// <summary>
+    /// De regels die er toe doen: zonder <c>Alle regels</c> vallen de regels zonder bedrag weg (ze zijn er om in te
+    /// vullen), net als een totaal van nul daarvan, "na correctie" zonder correctie en een kop waar niets meer onder staat.
+    /// </summary>
+    private IReadOnlyList<Fiscaleregel> Zichtbaar(IReadOnlyList<Fiscaleregel> regels)
+    {
+        if (alles)
+        {
+            return regels;
+        }
+
+        var over = new List<Fiscaleregel>();
+        for (var i = 0; i < regels.Count; i++)
+        {
+            var r = regels[i];
+            var leeg = Leeg(r.Bedrag) && Leeg(r.Totaal);
+            var weg = r.Soort switch
+            {
+                Fiscaleregelsoort.Regel => i > 0 && leeg && (r.Bedrag?.Sleutel is not null || r.Totaal?.Sleutel is not null || r.Bedrag is not null),
+                Fiscaleregelsoort.Subtotaal => leeg && r.Omschrijving.StartsWith("Totaal ", StringComparison.Ordinal),
+                _ => false,
+            };
+            if (!weg)
+            {
+                over.Add(r);
+            }
+        }
+
+        // "Resultaat na correctie" zegt alleen iets als er een correctie is.
+        var correctie = over.Any(r => r.Omschrijving == "Correctie");
+        over.RemoveAll(r => !correctie && r.Omschrijving == "Resultaat na correctie");
+
+        // Een kop waar geen regel meer onder staat.
+        return [.. over.Where((r, i) => r.Soort != Fiscaleregelsoort.Kop || (i + 1 < over.Count && over[i + 1].Soort == Fiscaleregelsoort.Regel))];
+    }
 
     private static string Procent(decimal getal) => getal.ToString("0.##", System.Globalization.CultureInfo.GetCultureInfo("nl-NL")) + "%";
 

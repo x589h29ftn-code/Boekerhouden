@@ -44,7 +44,7 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   effect op resultaat en eigen vermogen, gecorrigeerde saldi; `Doorlezen/`: signalen bij het doorlezen; `Rapport/`: rapportmodel en `RapportOpbouw` voor balans, W&V
   en specificaties, `RapportVariabelen` voor `{boekjaar}` e.d. in teksten, `Samenstellingsverklaring` voor de BV); geen I/O.
 - `src/Boekerhouden.Boekhouding` – domein van het **administratiepakket** (ontwerp: `docs/administratie/README.md`), geen I/O:
-  `Grootboek/` (rekeningschema met RGS-code en functie, dagboeken, journaal, grootboekkaart, proefbalans, balans en W&V; `Afsluiting` = afgesloten perioden),
+  `Grootboek/` (rekeningschema met RGS-code en functie, dagboeken, journaal, grootboekkaart, proefbalans, balans en W&V; `Afsluiting` = afgesloten perioden; `Journaalzoeker` = zoeken in het journaal),
   `Activa/` (vast actief, afschrijvingsplan, desinvestering, activastaat; `Privegebruik` = privégebruik per vervoermiddel en de controle op de btw privégebruik), `Vpb/` (fiscale positie van een BV: fiscale indeling per rekening, tarieven per jaar, `Fiscalepositie`),
   `Btw/` (btw-codes met soort en tarief, koppeling met de aangifterubrieken, tarieven per datum, aangifte berekenen), `Relaties/` (IBAN, btw-nummer, namen vergelijken), `Facturen/` (facturen boeken,
   openstaande posten), `Bank/` (MT940, CAMT.053, bankboekingen), `Afletteren/`, `Regels/` (verwerkingsregels, leergeheugen,
@@ -64,7 +64,7 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   `Lokaal/` (`LokaleApp` = samenstelling voor de Windows-app: SQLite, lokale gebruiker zonder inloggen), `Identiteit/` (inloggen, beveiligingsheaders,
   tweestap verplicht voor de beheerder), `Components/` (schermen; accountpagina's statisch, de rest interactief).
   Negatieve toegangstests horen bij elke dienst. Geen inline scripts (CSP): JavaScript als los bestand in `wwwroot/`
-  (`thema.js` = licht/donker en dichtheid, `donker.css` = de donkere kleuren; `factuurviewer.js` = de PDF-viewer met gebied aanwijzen; `factuurontwerp.js` = blokken slepen in de factuurontwerper; pdf.js staat in `wwwroot/lib/pdfjs`, Apache-2.0).
+  (`thema.js` = licht/donker en dichtheid, `donker.css` = de donkere kleuren; `factuurviewer.js` = de PDF-viewer met gebied aanwijzen; `factuurontwerp.js` = blokken slepen in de factuurontwerper; `kolommen.js` = kolombreedtes slepen, tabellen passend houden en de vaste kop (`AdministratieKader KopVast`); `rekeningkeuze.js` = het rekeningveld selecteren; pdf.js staat in `wwwroot/lib/pdfjs`, Apache-2.0).
 - `src/Boekerhouden.Administratie.Windows` – de Windows-app voor de tests: WinForms met BlazorWebView (dezelfde
   schermen, geen webserver), SQLite in `%LOCALAPPDATA%`, geen inloggen. Bouwt op Linux (`EnableWindowsTargeting`),
   draait alleen op Windows. `scripts/maak-windows-app.ps1` / `.sh` maken de zip; de CI ook, en start hem op Windows.

@@ -27,6 +27,13 @@ function zet(tabel, koppen, breedtes) {
 // Zonder eigen breedtes: de tabel vult de beschikbare ruimte en alleen de kolom met class "rekt" groeit of krimpt mee
 // (bijv. als er rechts een paneel bij komt); de andere kolommen houden hun breedte.
 function vul(tabel, koppen, breedtes, rekt) {
+    // Blijft er voor de meegevende kolom te weinig over, dan houdt alles zijn breedte en schuift de tabel (schuifbalk).
+    const ruimte = tabel.parentElement ? tabel.parentElement.clientWidth : 0;
+    if (ruimte > 0 && ruimte - breedtes.reduce((a, b, i) => a + (i === rekt ? 0 : b), 0) < 80) {
+        zet(tabel, koppen, breedtes.map((b, i) => i === rekt ? Math.max(80, Math.min(b, 240)) : b));
+        return;
+    }
+
     koppen.forEach((k, i) => k.style.width = i === rekt ? "" : breedtes[i] + "px");
     tabel.style.width = "100%";
 }
@@ -58,15 +65,26 @@ export function maak(tabel, sleutel) {
     if (ruimte > 0 && breedste >= 0 && ((rest > 0 && rest <= koppen.length + 2) || (rest < 0 && oorspronkelijk[breedste] + rest >= 80))) {
         oorspronkelijk[breedste] += rest;
     }
-    const bewaard = lees(sleutel);
     const rekbaar = koppen.findIndex(k => k.classList.contains("rekt"));
-    const standaard = () => rekbaar >= 0 ? vul(tabel, koppen, oorspronkelijk, rekbaar) : zet(tabel, koppen, oorspronkelijk);
+    // De kolom die meegeeft als de ruimte verandert: de kolom met class "rekt", anders de breedste.
+    const meegevend = rekbaar >= 0 ? rekbaar : breedste;
+    const standaard = () => meegevend >= 0 ? vul(tabel, koppen, oorspronkelijk, meegevend) : zet(tabel, koppen, oorspronkelijk);
+    // Eigen breedtes gelden zolang ze passen; is het venster smaller geworden (of kwam er een schuifbalk bij), dan
+    // vult de tabel de ruimte en geeft de meegevende kolom toe, zodat de laatste kolom niet buiten beeld valt.
+    const pas = () => {
+        const bewaard = lees(sleutel);
+        const beschikbaar = tabel.parentElement ? tabel.parentElement.clientWidth : 0;
+        if (!bewaard || bewaard.length !== koppen.length) {
+            standaard();
+        } else if (beschikbaar > 0 && meegevend >= 0 && bewaard.reduce((a, b) => a + b, 0) > beschikbaar + 1) {
+            vul(tabel, koppen, bewaard, meegevend);
+        } else {
+            zet(tabel, koppen, bewaard);
+        }
+    };
     tabel.style.tableLayout = "fixed";
-    if (bewaard && bewaard.length === koppen.length) {
-        zet(tabel, koppen, bewaard);
-    } else {
-        standaard();
-    }
+    tabel.kolommenPas = pas;
+    pas();
 
     koppen.forEach((kop, i) => {
         const greep = document.createElement("span");
@@ -112,8 +130,29 @@ const breedte = typeof ResizeObserver !== "undefined"
 function past(kaart) {
     const tabel = kaart && kaart.querySelector(":scope > table");
     if (tabel) {
-        kaart.classList.toggle("te-breed", tabel.scrollWidth > kaart.clientWidth + 1);
+        if (tabel.kolommenPas && !document.body.classList.contains("kolom-slepen") && tabel.kolommenRuimte !== kaart.clientWidth) {
+            tabel.kolommenRuimte = kaart.clientWidth;
+            tabel.kolommenPas();
+        }
+        // De breedte van de tabel zelf: de sleepgreep van de laatste kolom steekt een paar pixels uit en telt niet mee.
+        kaart.classList.toggle("te-breed", tabel.offsetWidth > kaart.clientWidth + 1);
     }
+}
+
+// Een kop die blijft staan (.kop-vast): de hoogte van de kop en van de balk eronder als variabelen, zodat de balk onder
+// de kop en de kolomkoppen daar weer onder blijven staan.
+function vasteKoppen() {
+    document.querySelectorAll(".administratie-inhoud.kop-vast").forEach(inhoud => {
+        const kop = inhoud.firstElementChild;
+        const onder = inhoud.querySelector(":scope > .onderkop");
+        const hoogte = kop ? Math.floor(kop.getBoundingClientRect().height) : 0;
+        const totaal = hoogte + (onder ? Math.floor(onder.getBoundingClientRect().height) : 0);
+        if (inhoud.dataset.kopVast !== `${hoogte}/${totaal}`) {
+            inhoud.dataset.kopVast = `${hoogte}/${totaal}`;
+            inhoud.style.setProperty("--kop-hoogte", hoogte + "px");
+            inhoud.style.setProperty("--kop-vast", totaal + "px");
+        }
+    });
 }
 
 // Elke tabel met data-sleepbaar="sleutel" krijgt vanzelf versleepbare kolommen, ook als Blazor hem later tekent.
@@ -136,8 +175,10 @@ if (typeof document !== "undefined" && !window.kolommenGekoppeld) {
     new MutationObserver(() => {
         if (!gepland) {
             gepland = true;
-            requestAnimationFrame(() => { gepland = false; koppelAlle(); });
+            requestAnimationFrame(() => { gepland = false; koppelAlle(); vasteKoppen(); });
         }
     }).observe(document.documentElement, { childList: true, subtree: true });
+    window.addEventListener("resize", vasteKoppen);
     koppelAlle();
+    vasteKoppen();
 }
