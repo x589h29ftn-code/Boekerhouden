@@ -119,7 +119,7 @@ samenstelpakket.
   PDF. **Vastleggen als aangegeven** bewaart de bedragen van dat moment (tabel `IngediendeAangiften`, gelogd; weer in te
   trekken); bij een vastgelegde periode staat de kolom *Aangegeven* ernaast. **Rondrekening over het jaar**: het hele
   jaar volgens de boekingen, wat er is aangegeven (de vastgelegde aangiften) en wat nog niet is aangegeven; de suppletie
-  is wat er later nog is geboekt in perioden die al zijn aangegeven. *Uitgebreid* opent de rondrekening (`/btw/rondrekening`) in twee
+  is wat er later nog is geboekt in perioden die al zijn aangegeven. *Jaaropstelling* (of de kop *Rondrekening*) opent de rondrekening (`/btw/rondrekening`) in twee
   weergaven. **Jaaropstelling** (standaard): het jaar volgens de administratie onder elkaar met omzet en btw in twee
   kolommen; de omzet per rubriek aangesloten op de netto-omzet in de winst-en-verliesrekening (inkoop verlegd en
   privégebruik zijn geen omzet, de rest is *overige verschillen*), de inkoop uit het buitenland, 5a, de voorbelasting naar
