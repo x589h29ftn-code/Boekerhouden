@@ -28,6 +28,7 @@ public static class Administratiemenu
         [
             new("/inkoop", "Inkoop", Recht.Lezen),
             new("/verkoop", "Verkoop", Recht.Lezen),
+            new("/facturen", "Facturen maken", Recht.Lezen),
             new("/verkoop/terugkerend", "Terugkerende facturen", Recht.Lezen),
             new("/bank", "Bank", Recht.Lezen),
             new("/memoriaal", "Memoriaal", Recht.Boekhouden),

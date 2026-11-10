@@ -97,7 +97,7 @@ else
                             }</td>
                         <td class="text-end">@if (ws is { Concepten: > 0 })
                             {
-                                <a href="/a/@a.Id/verkoop" title="@ws.Concepten @(ws.Concepten == 1 ? "concept" : "concepten")">@ws.Concepten</a>
+                                <a href="/a/@a.Id/facturen" title="@ws.Concepten @(ws.Concepten == 1 ? "concept" : "concepten")">@ws.Concepten</a>
                             }</td>
                         <td class="text-end text-nowrap">@if (ws is { Vervallen: > 0 })
                             {

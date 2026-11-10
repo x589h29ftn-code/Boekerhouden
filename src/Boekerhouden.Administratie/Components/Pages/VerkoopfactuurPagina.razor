@@ -12,7 +12,7 @@
 @inject NavigationManager Navigatie
 @inject IJSRuntime JS
 
-<AdministratieKader Id="Id" Titel="@Titel" Actief="/verkoop" Terug="@(Terug ?? $"/a/{Id}/verkoop")" BijOpenen="Open">
+<AdministratieKader Id="Id" Titel="@Titel" Actief="@Lijst" Terug="@(Terug ?? $"/a/{Id}{Lijst}")" BijOpenen="Open">
     <Kenmerken>
         @if (weergave is { Status: Verkoopstatus.Definitief } w)
         {
@@ -31,7 +31,7 @@
         }
     </Kenmerken>
     <Acties>
-        @if (weergave is not null && Factuur is not null && geopend?.Kop.Mag(Recht.Invoeren) == true)
+        @if (weergave is { Ingelezen: false } && Factuur is not null && geopend?.Kop.Mag(Recht.Invoeren) == true)
         {
             @* Alles wat een nieuwe factuur maakt van deze, achter één knop: de knoppenrij blijft rustig. *@
             <span class="knopmenu">
@@ -129,7 +129,7 @@
         }
         else if (weergave is { Status: Verkoopstatus.Definitief } definitief)
         {
-            <div class="verkoop-maken verkoop-definitief">
+            <div class="verkoop-maken verkoop-definitief @(definitief.Ingelezen ? "verkoop-verwerken" : null)">
                 <div class="verkoop-info">
                     @if (boeking is { } geboekt)
                     {
@@ -177,6 +177,10 @@
                     }
                     </div>
                 </div>
+                @if (definitief.Ingelezen)
+                {
+                    <aside class="verkoop-origineel" aria-label="De ingelezen factuur"><Verkooporigineel Wie="geopend!.Wie" Administratie="Id" Factuur="definitief.Id" /></aside>
+                }
                 @if (voorbeeld is { } v)
                 {
                     <div class="factuurvoorbeeld">
@@ -189,7 +193,7 @@
         else
         {
             var codes = Codes;
-            <div class="verkoop-maken">
+            <div class="verkoop-maken @(Extern ? "verkoop-verwerken" : null)">
             <div class="verkoopformulier">
                 <div class="formulier-rij">
                     <label for="klant">Klant</label>
@@ -273,7 +277,7 @@
                     <Verkoopregels Regels="invoer.Regels" Schema="Schema" Codes="codes" Kader="geopend" Omzetrekening="@(Gekozen?.Omzetrekening ?? verkoop.Omzetrekening)" BtwCode="@(Gekozen?.Verkoopbtwcode)" Gewijzigd="StateHasChanged" />
                 </div>
 
-                <div class="formulier-rij mt-3">
+                <div class="formulier-rij mt-3 @(Extern ? "d-none" : null)">
                     <label for="tekst">Tekst</label>
                     <textarea id="tekst" class="form-control form-control-sm" rows="2" @bind="invoer.Tekst" @bind:event="oninput" placeholder="Een eigen tekst onder de regels (optioneel)"></textarea>
                 </div>
@@ -308,7 +312,11 @@
                     </div>
                 }
             </div>
-            @if (layoutVoorbeeld is { } lay)
+            @if (Extern)
+            {
+                <aside class="verkoop-origineel" aria-label="De ingelezen factuur"><Verkooporigineel Wie="geopend!.Wie" Administratie="Id" Factuur="weergave!.Id" /></aside>
+            }
+            else if (layoutVoorbeeld is { } lay)
             {
                 <aside class="verkoop-voorbeeld" aria-label="Voorbeeld van de factuur">
                     <style>@((MarkupString)Export.FactuurHtml.Css(lay.Ontwerp))</style>
@@ -365,8 +373,15 @@
 
     private Klantkeuze? Gekozen => verkoop?.Klanten.FirstOrDefault(k => k.Code == invoer.Relatie);
 
+    /// <summary>Een factuur die de klant zelf (elders) heeft gemaakt en hier is ingelezen: verwerken in het verkoopboek, met het origineel ernaast.</summary>
+    private bool Extern => weergave?.Ingelezen == true;
+
+    /// <summary>De lijst waar deze factuur bij hoort: het verkoopboek (ingelezen) of de gemaakte facturen.</summary>
+    private string Lijst => Extern ? "/verkoop" : "/facturen";
+
     private string Titel => weergave switch
     {
+        { Status: Verkoopstatus.Concept, Ingelezen: true } => "Verkoopfactuur verwerken",
         { Status: Verkoopstatus.Definitief } w => $"{(w.Factuur.IsCredit ? "Creditfactuur" : "Factuur")} {w.Factuur.Nummer}",
         { } => "Concept verkoopfactuur",
         _ => Factuur is null ? "Nieuwe verkoopfactuur" : "Verkoopfactuur",
@@ -591,7 +606,7 @@
         fouten = uitkomst.Fouten;
         if (uitkomst.IsGelukt)
         {
-            Navigatie.NavigateTo($"/a/{Id}/verkoop");
+            Navigatie.NavigateTo($"/a/{Id}{Lijst}");
         }
     }
 
@@ -615,7 +630,7 @@
         fouten = uitkomst.Fouten;
         if (uitkomst.IsGelukt)
         {
-            Navigatie.NavigateTo($"/a/{Id}/verkoop?bericht={Uri.EscapeDataString($"{uitkomst.Waarde} concepten gemaakt, vanaf {eersteMaand.ToString("MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("nl-NL"))}.")}");
+            Navigatie.NavigateTo($"/a/{Id}/facturen?bericht={Uri.EscapeDataString($"{uitkomst.Waarde} concepten gemaakt, vanaf {eersteMaand.ToString("MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("nl-NL"))}.")}");
         }
     }
 

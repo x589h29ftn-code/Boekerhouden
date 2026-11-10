@@ -1,0 +1,98 @@
+@* Het origineel van een ingelezen verkoopfactuur naast het formulier, alleen om te bekijken: een PDF in de
+   factuurviewer, een scan of foto als afbeelding. Een e-factuur (XML) heeft geen beeld. *@
+@implements IAsyncDisposable
+@inject VerkoopimportDienst Import
+@inject IJSRuntime JS
+
+@if (afbeelding is not null)
+{
+    <div class="factuurviewer verkoop-scan"><img src="@afbeelding" alt="@naam" /></div>
+}
+else if (!geenBeeld)
+{
+    <div @ref="viewer" class="factuurviewer"></div>
+}
+
+@code {
+    private ElementReference viewer;
+    private IJSObjectReference? module;
+    private IJSObjectReference? koppeling;
+    private Guid getoond;
+    private string? afbeelding;
+    private string? naam;
+    private bool geenBeeld;
+
+    [Parameter, EditorRequired]
+    public Uitvoerder Wie { get; set; } = default!;
+
+    [Parameter]
+    public Guid Administratie { get; set; }
+
+    [Parameter]
+    public Guid Factuur { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (getoond == Factuur)
+        {
+            return;
+        }
+
+        getoond = Factuur;
+        await Sluit();
+        (afbeelding, geenBeeld) = (null, false);
+        if (await Import.Bestand(Wie, Administratie, Factuur) is not { } bestand)
+        {
+            geenBeeld = true;
+        }
+        else if (bestand.Inhoudstype == "application/pdf")
+        {
+            module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./factuurviewer.js");
+            koppeling = await module.InvokeAsync<IJSObjectReference>("bekijk", viewer, new DotNetStreamReference(new MemoryStream(bestand.Inhoud)), Factuur.ToString());
+            return;
+        }
+        else if (bestand.Inhoudstype.StartsWith("image/", StringComparison.Ordinal))
+        {
+            (afbeelding, naam) = ($"data:{bestand.Inhoudstype};base64,{Convert.ToBase64String(bestand.Inhoud)}", bestand.Bestandsnaam);
+        }
+        else
+        {
+            geenBeeld = true;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task Sluit()
+    {
+        try
+        {
+            if (koppeling is not null)
+            {
+                await koppeling.InvokeVoidAsync("sluit");
+                await koppeling.DisposeAsync();
+                koppeling = null;
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // Het circuit is al weg.
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await Sluit();
+        try
+        {
+            if (module is not null)
+            {
+                await module.DisposeAsync();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // Het circuit is al weg.
+        }
+    }
+}

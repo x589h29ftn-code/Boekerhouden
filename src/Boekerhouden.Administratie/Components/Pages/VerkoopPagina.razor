@@ -1,4 +1,5 @@
 @page "/a/{Id:guid}/verkoop"
+@page "/a/{Id:guid}/facturen"
 @inject VerkoopDienst Verkoop
 @inject FactuuropmaakDienst Opmaak
 @inject AbonnementDienst Abonnementen
@@ -6,29 +7,35 @@
 @inject NavigationManager Navigatie
 @inject Meldingen Meldingen
 
-<AdministratieKader Id="Id" Titel="Verkoop" Actief="/verkoop" BijOpenen="Open">
+<AdministratieKader Id="Id" Titel="@(Maken ? "Facturen maken" : "Verkoop")" Actief="@Pad" BijOpenen="Open">
     <Kenmerken>
         @if (regels is not null)
         {
-            var concepten = regels.Count(r => r.Status == Verkoopstatus.Concept);
-            var facturen = regels.Count(r => r.Status == Verkoopstatus.Definitief);
-            <span>@concepten @(concepten == 1 ? "concept" : "concepten")</span>
+            var concepten = Eigen.Count(r => r.Status == Verkoopstatus.Concept);
+            var facturen = Eigen.Count(r => r.Status == Verkoopstatus.Definitief);
+            <span>@concepten @(Maken ? (concepten == 1 ? "concept" : "concepten") : "te verwerken")</span>
             <span class="scheiding">·</span>
             <span>@facturen @(facturen == 1 ? "factuur" : "facturen") in @Periodetekst</span>
             <span class="scheiding">·</span>
-            <span>open @Weergave.Bedrag(regels.Sum(r => r.Openstaand ?? 0m))</span>
+            <span>open @Weergave.Bedrag(Eigen.Sum(r => r.Openstaand ?? 0m))</span>
         }
     </Kenmerken>
     <Acties>
         <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
         @if (geopend?.Kop.Mag(Recht.Invoeren) == true)
         {
-            <label class="btn btn-outline-secondary @(bezig ? "disabled" : null)" for="verkoopbestanden" aria-busy="@(bezig ? "true" : null)" title="Verkoopfacturen uit een ander pakket: PDF, e-factuur (UBL) of scan; slepen op de pagina kan ook">Inlezen</label>
-            <a class="btn btn-primary" href="/a/@Id/verkoop/nieuw"><Icoon Naam="plus" /> Nieuwe factuur</a>
+            @if (Maken)
+            {
+                <a class="btn btn-primary" href="/a/@Id/verkoop/nieuw"><Icoon Naam="plus" /> Nieuwe factuur</a>
+            }
+            else
+            {
+                <label class="btn btn-primary @(bezig ? "disabled" : null)" for="verkoopbestanden" aria-busy="@(bezig ? "true" : null)" title="Verkoopfacturen die de klant zelf heeft gemaakt: PDF, e-factuur (UBL) of scan; slepen op de pagina kan ook">Facturen inlezen</label>
+            }
         }
     </Acties>
     <ChildContent>
-        @if (geopend?.Kop.Mag(Recht.Invoeren) == true)
+        @if (!Maken && geopend?.Kop.Mag(Recht.Invoeren) == true)
         {
             <Sleepvlak Id="verkoopbestanden" Pagina="true" Tekst="Verkoopfacturen inlezen" Accept=".pdf,.xml,.jpg,.jpeg,.png,application/pdf,application/xml,text/xml,image/jpeg,image/png" OnChange="LeesIn" Bezig="bezig" />
         }
@@ -41,7 +48,7 @@
         {
             <div class="bericht mb-3">@Bericht</div>
         }
-        @if (teMaken > 0)
+        @if (Maken && teMaken > 0)
         {
             <div class="bericht mb-3">
                 @teMaken terugkerende @(teMaken == 1 ? "factuur" : "facturen") klaar om te maken · <a href="/a/@Id/verkoop/terugkerend">Bekijken en maken</a>
@@ -51,12 +58,19 @@
         {
             <Laadschets />
         }
-        else if (regels.Count == 0)
+        else if (Eigen.Count == 0)
         {
-            <LegeStaat Icoon="file-text" Tekst="Geen verkoopfacturen in deze periode">
+            <LegeStaat Icoon="file-text" Tekst="@(Maken ? "Geen gemaakte facturen in deze periode" : "Geen ingelezen verkoopfacturen in deze periode")">
                 @if (geopend?.Kop.Mag(Recht.Invoeren) == true)
                 {
-                    <a class="btn btn-sm btn-outline-primary" href="/a/@Id/verkoop/nieuw">Nieuwe factuur</a>
+                    @if (Maken)
+                    {
+                        <a class="btn btn-sm btn-outline-primary" href="/a/@Id/verkoop/nieuw">Nieuwe factuur</a>
+                    }
+                    else
+                    {
+                        <label class="btn btn-sm btn-outline-primary" for="verkoopbestanden">Facturen inlezen</label>
+                    }
                 }
             </LegeStaat>
         }
@@ -69,7 +83,7 @@
                     <label class="form-check-label text-secondary" for="alleen-open">Alleen open</label>
                 </span>
             </div>
-            var zichtbaar = sortering.Pas(regels.Where(Past)).ToList();
+            var zichtbaar = sortering.Pas(Eigen.Where(Past)).ToList();
             <div class="card overzichtskaart">
                 <table class="table align-middle mb-0 overzichtstabel verkooplijst" data-sleepbaar="verkoop">
                     <thead>
@@ -126,8 +140,8 @@
             @if (gekozen.Count > 0)
             {
                 <div class="actiebalk">
-                    <span>@gekozen.Count @(gekozen.Count == 1 ? "concept" : "concepten") gekozen</span>
-                    <button class="btn btn-sm btn-primary" disabled="@bezig" @onclick="MaakDefinitief">Definitief maken</button>
+                    <span>@gekozen.Count gekozen</span>
+                    <button class="btn btn-sm btn-primary" disabled="@bezig" @onclick="MaakDefinitief">@(Maken ? "Definitief maken" : "Boeken")</button>
                     <VerwijderKnop Bezig="bezig" Bevestigd="VerwijderGekozen" />
                     <button class="btn btn-sm btn-link text-secondary ms-auto" @onclick="() => gekozen.Clear()">Niets kiezen</button>
                 </div>
@@ -162,6 +176,17 @@
     [Parameter]
     public Guid Id { get; set; }
 
+    /// <summary>
+    /// Twee lijsten op één pagina: <c>/facturen</c> = de facturen die hier gemaakt zijn (concepten, eigen lay-out),
+    /// <c>/verkoop</c> = het verkoopboek van ingelezen facturen die de klant zelf (elders) heeft gemaakt.
+    /// </summary>
+    private bool Maken => new Uri(Navigatie.Uri).AbsolutePath.EndsWith("/facturen", StringComparison.OrdinalIgnoreCase);
+
+    private string Pad => Maken ? "/facturen" : "/verkoop";
+
+    /// <summary>De facturen van deze lijst: gemaakt of ingelezen.</summary>
+    private IReadOnlyList<Verkooplijstregel> Eigen => [.. (regels ?? []).Where(r => r.Ingelezen != Maken)];
+
     /// <summary>Een bevestiging van de pagina hiervoor (bijv. "12 concepten gemaakt").</summary>
     [SupplyParameterFromQuery(Name = "bericht")]
     public string? Bericht { get; set; }
@@ -186,7 +211,7 @@
     {
         regels = await Verkoop.Lijst(geopend!.Wie, Id, van, tot);
         teMaken = await Abonnementen.TeMaken(geopend.Wie, Id);
-        gekozen.IntersectWith(regels.Where(r => r.Status == Verkoopstatus.Concept).Select(r => r.Id));
+        gekozen.IntersectWith(Eigen.Where(r => r.Status == Verkoopstatus.Concept).Select(r => r.Id));
     }
 
     // Meerdere concepten tegelijk: kiezen met het vinkje, dan definitief maken of verwijderen (regel voor regel via de
@@ -258,7 +283,7 @@
     private async Task KiesPeriode((DateOnly Van, DateOnly Tot) periode)
     {
         (van, tot) = periode;
-        Navigatie.NavigateTo($"/a/{Id}/verkoop?{Weergave.Periodequery(van, tot)}", replace: true);
+        Navigatie.NavigateTo($"/a/{Id}{Pad}?{Weergave.Periodequery(van, tot)}", replace: true);
         await Laad();
     }
 
@@ -270,7 +295,7 @@
     private RenderFragment Stip(Verkooplijstregel r) => r.Stand(vandaag) switch
     {
         Verkoopstand.Concept => @<Statusstip Soort="Stipsoort.Open" Titel="@r.Melding">concept</Statusstip>,
-        Verkoopstand.Ingelezen => @<Statusstip Soort="@(r.Melding is null ? Stipsoort.Open : Stipsoort.LetOp)" Titel="@r.Melding">ingelezen</Statusstip>,
+        Verkoopstand.Ingelezen => @<Statusstip Soort="@(r.Melding is null ? Stipsoort.Open : Stipsoort.LetOp)" Titel="@r.Melding">te verwerken</Statusstip>,
         Verkoopstand.Vervallen => @<Statusstip Soort="Stipsoort.LetOp" Titel="@($"Vervallen op {Weergave.Datum(r.Vervaldatum)}")">vervallen</Statusstip>,
         Verkoopstand.Open => @<Statusstip Soort="Stipsoort.Open">open</Statusstip>,
         _ => @<Statusstip Soort="Stipsoort.Klaar">betaald</Statusstip>,

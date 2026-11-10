@@ -72,7 +72,7 @@ public sealed class VerkoopimportDienst(
             var eigen = new EigenGegevens(a.Ibans, a.BtwNummer is null ? [] : [a.BtwNummer], [a.Naam]);
             var ocr = ocrMotoren.FirstOrDefault() is { } motor ? new OcrLezer(motor) : null;
             var herkenning = await Factuurherkenning.Standaard(eigen, ocr: ocr).HerkenAsync(new MemoryStream(bytes), naam, inhoudstype, annulering);
-            var herkend = herkenning.Factuur ?? new HerkendeFactuur(Herkenningsbron.Tekst);
+            var herkend = ZonderEigenKvk(herkenning.Factuur ?? new HerkendeFactuur(Herkenningsbron.Tekst), a.KvkNummer);
 
             var context = await verkoop.Context(wie, administratie);
             var relaties = await db.Relaties.AsNoTracking().ToListAsync(annulering);
@@ -134,6 +134,27 @@ public sealed class VerkoopimportDienst(
         }
 
         return new(id, false, $"{naam}: {melding}");
+    }
+
+    /// <summary>
+    /// Op een eigen verkoopfactuur staat het eigen KvK-nummer: dat is niet van de klant. Net als de eigen naam, het
+    /// btw-nummer en de IBAN's telt het niet mee bij het zoeken van de afnemer.
+    /// </summary>
+    public static HerkendeFactuur ZonderEigenKvk(HerkendeFactuur herkend, string? eigenKvk)
+    {
+        ArgumentNullException.ThrowIfNull(herkend);
+        static string Cijfers(string? tekst) => new((tekst ?? "").Where(char.IsAsciiDigit).ToArray());
+        var eigen = Cijfers(eigenKvk);
+        if (eigen.Length == 0)
+        {
+            return herkend;
+        }
+
+        return herkend with
+        {
+            KvkNummer = Cijfers(herkend.KvkNummer) == eigen ? null : herkend.KvkNummer,
+            Afnemer = herkend.Afnemer is { } afnemer && Cijfers(afnemer.KvkNummer) == eigen ? afnemer with { KvkNummer = null } : herkend.Afnemer,
+        };
     }
 
     /// <summary>Het origineel van een ingelezen verkoopfactuur.</summary>

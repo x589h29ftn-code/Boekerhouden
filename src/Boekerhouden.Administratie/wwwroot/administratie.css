@@ -1786,3 +1786,24 @@ a.kerngetal:hover { color: var(--bh-accent); }
 
 /* Journaal: lucht tussen datum, dagboek en boekstuk, ook als een lange omschrijving de kolommen smal maakt. */
 table[data-sleepbaar="journaal"] :is(th, td):not(:last-child) { padding-right: 1.25rem; }
+
+/* Een ingelezen verkoopfactuur verwerken: het formulier links, het origineel rechts (zoals bij inkoop). */
+.verkoop-maken.verkoop-verwerken { grid-template-columns: minmax(0, 1fr) minmax(22rem, 45%); }
+.verkoop-origineel { position: sticky; top: 1rem; min-width: 0; }
+.verkoop-origineel .factuurviewer { height: calc(100vh - 9rem); resize: vertical; overflow: hidden; min-height: 20rem; }
+.verkoop-scan { overflow: auto !important; }
+.verkoop-scan img { display: block; max-width: 100%; }
+@media (max-width: 1199.98px) {
+    .verkoop-maken.verkoop-verwerken { grid-template-columns: 1fr; }
+    .verkoop-origineel { position: static; }
+}
+/* Bij het verwerken telt alleen omschrijving, bedrag, rekening en btw: aantal, eenheid en korting horen bij het maken. */
+.verkoop-verwerken .verkoopregels > :is(thead, tbody) > tr > :is(th, td):is(:nth-child(2), :nth-child(3), :nth-child(5)) {
+    width: 0 !important;
+    max-width: 0;
+    padding: 0 !important;
+    overflow: hidden;
+    font-size: 0;
+    border-left: 0 !important;
+}
+.verkoop-verwerken .verkoopregels > tbody > tr > td:is(:nth-child(2), :nth-child(3), :nth-child(5)) > * { display: none; }

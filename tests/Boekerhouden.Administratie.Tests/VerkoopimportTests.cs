@@ -151,4 +151,30 @@ public sealed class VerkoopimportTests(AdministratieFixture app) : IClassFixture
         Assert.NotNull(await import.Bestand(inzien, id, gelezen.Id!.Value));
         Assert.Null(await import.Bestand(wie, await app.Administratie("Andere Zaak"), gelezen.Id.Value));
     }
+
+    [Fact]
+    public void Het_eigen_kvk_nummer_op_de_factuur_is_niet_van_de_klant()
+    {
+        var herkend = new Boekhouding.Herkenning.HerkendeFactuur(Boekhouding.Herkenning.Herkenningsbron.Tekst) with
+        {
+            KvkNummer = "12 34 56 78",
+            Afnemer = new("Klant B.V.", KvkNummer: "12345678"),
+        };
+
+        var zonder = VerkoopimportDienst.ZonderEigenKvk(herkend, "12345678");
+        Assert.Null(zonder.KvkNummer);
+        Assert.Equal(("Klant B.V.", null), (zonder.Afnemer!.Naam, zonder.Afnemer.KvkNummer));
+
+        // Het nummer van de klant blijft staan; zonder eigen nummer verandert er niets.
+        Assert.Equal("12 34 56 78", VerkoopimportDienst.ZonderEigenKvk(herkend, "87654321").KvkNummer);
+        Assert.Same(herkend, VerkoopimportDienst.ZonderEigenKvk(herkend, null));
+    }
+
+    [Fact]
+    public void Het_menu_heeft_het_verkoopboek_en_een_eigen_plek_om_facturen_te_maken()
+    {
+        var boekhouden = Administratiemenu.Groepen[0].Items.Select(i => (i.Pad, i.Naam)).ToList();
+        Assert.Contains(("/verkoop", "Verkoop"), boekhouden);
+        Assert.Contains(("/facturen", "Facturen maken"), boekhouden);
+    }
 }
