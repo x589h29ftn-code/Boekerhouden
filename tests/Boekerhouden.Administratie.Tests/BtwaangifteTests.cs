@@ -48,6 +48,28 @@ public sealed class BtwaangifteTests(AdministratieFixture app) : IClassFixture<A
     }
 
     [Fact]
+    public async Task Buiten_het_pakket_aangegeven_en_via_de_bank_betaald_telt_als_aangegeven()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var grootboek = app.Dienst<GrootboekDienst>();
+        Assert.True((await grootboek.Boek(wie, id, Verkoop("2026-0001", new(2026, 8, 1), 1000m))).IsGelukt);
+        Assert.True((await grootboek.Boek(wie, id, new Journaalpost("MEM", "2026-0002", new(2026, 10, 28), "Omzetbelasting 3e kwartaal 2026",
+            [new("1510", 210m), new("1100", -210m)]))).IsGelukt);
+
+        var stand = await app.Dienst<BtwaangifteDienst>().Jaar(wie, id, 2026);
+        var q3 = stand.Jaar.Perioden[2];
+        Assert.Null(q3.Vastgelegd);
+        Assert.Equal(210m, Assert.Single(stand.Rondrekening.BetaaldZonderVastleggen(q3)).Bedrag);
+        var regel = stand.Jaaropstelling.Single(r => r.Omschrijving.StartsWith("3e kwartaal 2026", StringComparison.Ordinal));
+        Assert.Equal(("3e kwartaal 2026 (betaald 28-10-2026)", 210m), (regel.Omschrijving, regel.Omzet!.Bedrag));
+        Assert.Equal(0m, stand.Jaaropstelling.Single(r => r.Omschrijving.StartsWith("Suppletie omzetbelasting 2026", StringComparison.Ordinal)).Btw!.Bedrag);
+        Assert.DoesNotContain(stand.Jaaropstelling, r => r.Omschrijving == "Nog niet aangegeven");
+        Assert.Equal((210m, 0m, 0m), stand.Rondrekening.Stand());
+        Assert.Equal((0m, 210m, 0m), (stand.Jaar.Aangegeven, stand.Jaar.NietAangegeven, stand.Jaar.Suppletie));
+    }
+
+    [Fact]
     public async Task Frequentie_per_administratie_en_alleen_het_kantoor_legt_vast()
     {
         var wie = await app.Beheerder();

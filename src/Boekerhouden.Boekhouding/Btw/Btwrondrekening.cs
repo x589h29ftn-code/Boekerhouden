@@ -28,6 +28,9 @@ public enum Rondrekeningbron
 
     /// <summary>Voorbelasting naar herkomst: <see cref="Rondrekeningsleutel.Rubriek"/> 2a, 4a of 4b (verlegd), of leeg voor de rest.</summary>
     VoorbelastingVan,
+
+    /// <summary>Betalingen aan de Belastingdienst voor een periode die niet is vastgelegd: <see cref="Rondrekeningsleutel.Rubriek"/> = begin van de periode (jjjj-mm-dd).</summary>
+    Betaald,
 }
 
 public enum Rondrekeningsoort
@@ -102,6 +105,33 @@ public sealed class Btwrondrekening
 
     public IReadOnlyList<Rondrekeningregel> Regels { get; }
 
+    /// <summary>De betalingen en teruggaven van btw in het jaar, met de periode waar ze bij horen.</summary>
+    public IReadOnlyList<Btwbetaling> Betalingen => betalingen ??= Btwbetalingen.Zoek(posten, schema, Jaar.Frequentie);
+
+    private IReadOnlyList<Btwbetaling>? betalingen;
+
+    /// <summary>Wat er is betaald voor perioden die niet zijn vastgelegd: dat telt als aangegeven.</summary>
+    public decimal BetaaldZonderVastleggen() => Perioden.Sum(p => BetaaldZonderVastleggen(p).Sum(b => b.Bedrag));
+
+    /// <summary>
+    /// Het jaar met de betaalde perioden als aangegeven: aangegeven (vastgelegd plus betaald), nog niet aangegeven
+    /// (zonder de betaalde perioden) en de suppletie (ook wat een betaalde periode volgens de boekingen nu meer of minder geeft).
+    /// </summary>
+    public (decimal Aangegeven, decimal NietAangegeven, decimal Suppletie) Stand()
+    {
+        var betaald = Perioden.Where(p => BetaaldZonderVastleggen(p).Count > 0).ToList();
+        var bedrag = BetaaldZonderVastleggen();
+        var berekend = betaald.Sum(p => p.Berekend.TeBetalen);
+        return (Jaar.Aangegeven + bedrag, Jaar.NietAangegeven - berekend, Jaar.Suppletie + berekend - bedrag);
+    }
+
+    /// <summary>Wat er voor een periode is betaald (of ontvangen), als die niet is vastgelegd: de aangifte is buiten het pakket gedaan.</summary>
+    public IReadOnlyList<Btwbetaling> BetaaldZonderVastleggen(Btwperiode periode)
+    {
+        ArgumentNullException.ThrowIfNull(periode);
+        return periode.Vastgelegd is null ? [.. Betalingen.Where(b => b.Periode == periode.Periode)] : [];
+    }
+
     public static Btwrondrekening Maak(Btwjaar jaar, IReadOnlyList<Journaalpost> posten, Rekeningschema schema, IReadOnlyList<BtwCode> codes)
     {
         ArgumentNullException.ThrowIfNull(jaar);
@@ -115,6 +145,13 @@ public sealed class Btwrondrekening
     public IReadOnlyList<Rondrekeningbronregel> Bronnen(Rondrekeningsleutel sleutel, DateOnly van, DateOnly tot)
     {
         ArgumentNullException.ThrowIfNull(sleutel);
+        if (sleutel.Bron == Rondrekeningbron.Betaald)
+        {
+            return [.. Betalingen.Where(b => $"{b.Periode.Van:yyyy-MM-dd}" == sleutel.Rubriek)
+                .SelectMany(b => b.Post.Regels.Where(r => r.BtwCode is null && schema.Zoek(r.Rekeningnummer) is { } rekening && Btwaangifte.IsBtwrekening(rekening))
+                    .Select(r => new Rondrekeningbronregel(b.Post, r, r.Bedrag)))];
+        }
+
         if (sleutel.Bron is Rondrekeningbron.OmzetGrootboek or Rondrekeningbron.Btwrekeningen)
         {
             var rekeningen = schema.Alle.Where(r => sleutel.Bron == Rondrekeningbron.OmzetGrootboek ? IsOmzet(r) : Btwaangifte.IsBtwrekening(r))
@@ -221,7 +258,8 @@ public sealed class Btwrondrekening
         Regel(Rondrekeningsoort.Totaal, "5c", teBetalen >= 0 ? "Te betalen omzetbelasting" : "Terug te vragen omzetbelasting", null, Vast(teBetalen, new(Rondrekeningbron.TeBetalen)));
 
         // De afdrachten: wat per periode is aangegeven, in de frequentie van de administratie. Een periode die nog niet is
-        // vastgelegd maar met de hand een bedrag heeft, telt als aangegeven.
+        // vastgelegd maar wel betaald (de aangifte is buiten het pakket gedaan) telt met het betaalde bedrag als
+        // aangegeven, net als een periode met een bedrag met de hand.
         Kop("Afdrachten omzetbelasting");
         var vastgelegd = Jaar.Vastgelegd.ToList();
         var aangegeven = 0m;
@@ -229,9 +267,14 @@ public sealed class Btwrondrekening
         foreach (var p in Perioden)
         {
             vastgelegd.Remove(p.Vastgelegd!);
-            var cel = Cel($"afdracht.{p.Periode.Van:yyyy-MM-dd}", p.Vastgelegd?.TeBetalen);
+            var betaald = BetaaldZonderVastleggen(p);
+            var cel = betaald.Count > 0
+                ? Cel($"afdracht.{p.Periode.Van:yyyy-MM-dd}", betaald.Sum(b => b.Bedrag), new(Rondrekeningbron.Betaald, $"{p.Periode.Van:yyyy-MM-dd}"))
+                : Cel($"afdracht.{p.Periode.Van:yyyy-MM-dd}", p.Vastgelegd?.TeBetalen);
             var open = cel.Bedrag is null;
-            Regel(Rondrekeningsoort.Regel, null, open ? $"{p.Periode.Naam} (nog niet aangegeven)" : p.Periode.Naam, cel, null);
+            var tekst = open ? $"{p.Periode.Naam} (nog niet aangegeven)"
+                : betaald.Count > 0 ? $"{p.Periode.Naam} (betaald {string.Join(", ", betaald.Select(b => $"{b.Post.Datum:dd-MM-yyyy}"))})" : p.Periode.Naam;
+            Regel(Rondrekeningsoort.Regel, null, tekst, cel, null);
             aangegeven += cel.Bedrag ?? 0m;
             nietAangegeven += open ? p.Berekend.TeBetalen : 0m;
         }

@@ -15,7 +15,7 @@
             <span class="scheiding">·</span>
             <span>@BtwaangifteDienst.Naam(s.Jaar.Frequentie)</span>
             <span class="scheiding">·</span>
-            <span>@s.Jaar.Open.Count() open</span>
+            <span>@s.Jaar.Open.Count(p => s.Rondrekening.BetaaldZonderVastleggen(p).Count == 0) open</span>
         }
     </Kenmerken>
     <Acties>
@@ -62,6 +62,10 @@
                                                 <Statusstip Soort="Stipsoort.Klaar" Titel="@($"Vastgelegd {v.Op.ToLocalTime():dd-MM-yyyy} door {v.Door}")">aangegeven</Statusstip>
                                             }
                                         }
+                                        else if (st.Rondrekening.BetaaldZonderVastleggen(p) is { Count: > 0 } betaald)
+                                        {
+                                            <Statusstip Soort="Stipsoort.Klaar" Titel="@($"Niet vastgelegd; betaald {string.Join(", ", betaald.Select(b => $"{b.Post.Datum:dd-MM-yyyy} {Weergave.Bedrag(b.Bedrag)}"))}")">betaald</Statusstip>
+                                        }
                                         else if (p.Berekend.Verschuldigd != 0 || p.Berekend.Voorbelasting != 0)
                                         {
                                             <Statusstip Soort="Stipsoort.Open">open</Statusstip>
@@ -81,12 +85,16 @@
                     <a class="fw-semibold text-reset text-decoration-none" href="/a/@Id/btw/rondrekening?jaar=@st.Jaar.Jaar" title="De jaaropstelling omzetbelasting en de rondrekening per periode">Rondrekening @st.Jaar.Jaar</a>
                     <a class="small ms-auto rondrekening-openen" href="/a/@Id/btw/rondrekening?jaar=@st.Jaar.Jaar" title="De jaaropstelling omzetbelasting en de rondrekening per periode">Jaaropstelling</a>
                 </div>
+                @{
+                    var (aangegeven, nietAangegeven, suppletie) = st.Rondrekening.Stand();
+                    var betaaldTotaal = st.Rondrekening.BetaaldZonderVastleggen();
+                }
                 <div class="card overzichtskaart btw-rondrekening">
                     <table class="table table-sm align-middle mb-0 overzichtstabel">
                         <tbody>
                             <tr><td>Heel jaar volgens de boekingen</td><td class="bedrag text-end" style="width:8rem">@Weergave.Bedrag(st.Jaar.Jaaraangifte.TeBetalen)</td></tr>
-                            <tr><td>Aangegeven</td><td class="bedrag text-end">@Weergave.Bedrag(st.Jaar.Aangegeven)</td></tr>
-                            <tr><td>Nog niet aangegeven</td><td class="bedrag text-end">@Weergave.Bedrag(st.Jaar.NietAangegeven)</td></tr>
+                            <tr><td title="@(betaaldTotaal != 0 ? $"Waarvan betaald zonder vastleggen {Weergave.Bedrag(betaaldTotaal)}" : null)">Aangegeven</td><td class="bedrag text-end">@Weergave.Bedrag(aangegeven)</td></tr>
+                            <tr><td>Nog niet aangegeven</td><td class="bedrag text-end">@Weergave.Bedrag(nietAangegeven)</td></tr>
                             @if (st.Jaar.Rest != 0)
                             {
                                 <tr><td title="Na een wijziging van de frequentie in het jaar vallen aangegeven en berekende perioden niet samen">Overig</td><td class="bedrag text-end">@Weergave.Bedrag(st.Jaar.Rest)</td></tr>
@@ -94,8 +102,8 @@
                         </tbody>
                         <tfoot>
                             <tr class="generaal">
-                                <td title="Later geboekt in perioden die al zijn aangegeven">Suppletie: @(st.Jaar.Suppletie switch { > 0 => "nog te betalen", < 0 => "terug te vragen", _ => "geen" })</td>
-                                <td class="bedrag text-end">@Weergave.Bedrag(Math.Abs(st.Jaar.Suppletie))</td>
+                                <td title="Later geboekt in perioden die al zijn aangegeven">Suppletie: @(suppletie switch { > 0 => "nog te betalen", < 0 => "terug te vragen", _ => "geen" })</td>
+                                <td class="bedrag text-end">@Weergave.Bedrag(Math.Abs(suppletie))</td>
                             </tr>
                         </tfoot>
                     </table>

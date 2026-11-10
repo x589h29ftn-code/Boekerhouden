@@ -130,7 +130,12 @@ samenstelpakket.
   berekende bedrag. Een aangepast bedrag is gestippeld onderstreept, met het berekende bedrag in de tooltip; de totalen
   rekenen ermee, *overige verschillen* sluit de omzet weer aan op het grootboek. Er zijn twee vrije regels (*mutatie te
   factureren*, *diverse mutaties*) en een regel voor de suppletie van vorig jaar bij de voorbelasting; een afdracht die
-  buiten Sifer is aangegeven telt na invullen als aangegeven. Opgeslagen per jaar (`Btwaanpassingen`), gelogd, alleen
+  buiten Sifer is aangegeven telt na invullen als aangegeven. Is een periode niet vastgelegd maar wel betaald (een
+  bankboeking op een btw-rekening zonder btw-code, `Btwbetalingen`), dan telt die automatisch als aangegeven met het
+  betaalde bedrag (*3e kwartaal 2026 (betaald 28-10-2026)*, door te klikken naar de betaling); ook in het overzicht
+  (*betaald* in plaats van *open*). De periode komt uit de omschrijving (*Omzetbelasting 3e kwartaal 2026*, *Q3 2026*,
+  *september 2026*, zoals de herkenning van de Belastingdienst boekt), anders is het de laatste periode die bij de
+  betaling voorbij was; een teruggaaf telt negatief. Opgeslagen per jaar (`Btwaanpassingen`), gelogd, alleen
   het kantoor. De PDF is staand (A4). **Per periode**: de rondrekening als matrix: de rubrieken van de aangifte (omzet, btw, 5a–5c) onder elkaar, de perioden naast elkaar (zoals
   aangegeven; een periode die nog niet is aangegeven grijs, volgens de boekingen), het totaal, het hele jaar volgens de
   administratie en de afwijking (wat nog in een suppletie hoort). Daaronder de aansluiting met het grootboek per periode:
