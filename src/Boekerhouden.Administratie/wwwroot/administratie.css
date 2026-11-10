@@ -664,6 +664,7 @@ body.scheiding-slepen {
     text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--bs-secondary-color);
+    cursor: text;
 }
 
 .rekeningkeuze-alle {

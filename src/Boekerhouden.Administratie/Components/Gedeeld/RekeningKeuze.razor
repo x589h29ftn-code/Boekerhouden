@@ -3,17 +3,18 @@
    passende rekening gekozen. De naam van de gekozen rekening staat achter het nummer. F2 of de knop opent een venster
    met alle rekeningen, waar (met het recht Boekhouden) ook een rekening bij kan. *@
 @using Boekerhouden.Boekhouding.Grootboek
+@inject IJSRuntime JS
 
 <div class="rekeningkeuze">
-    <div class="rekeningkeuze-rij @Klasse">
+    <div class="rekeningkeuze-rij @Klasse" @onclick="Bewerk">
         <input @ref="invoer" id="@Id" class="rekeningkeuze-invoer" value="@Waarde" aria-label="@Label" autocomplete="off" title="@Gekozen?.Naam"
                style="@(Gekozen is null ? null : $"width:{Math.Max(4, Waarde!.Length) + 1}ch;flex:none")"
                @oninput="Typ" @onkeydown="Toets" @onfocus="Open" @onblur="Verlaat" />
         @if (Gekozen is { } gekozen)
         {
-            <span class="rekeningkeuze-naam" title="@gekozen.Naam">@gekozen.Naam</span>
+            <span class="rekeningkeuze-naam" title="@gekozen.Naam" @onmousedown:preventDefault>@gekozen.Naam</span>
         }
-        <button type="button" class="rekeningkeuze-alle" tabindex="-1" title="Alle rekeningen (F2)" aria-label="Alle rekeningen" @onmousedown:preventDefault @onclick="OpenVenster"><Icoon Naam="ellipsis" /></button>
+        <button type="button" class="rekeningkeuze-alle" tabindex="-1" title="Alle rekeningen (F2)" aria-label="Alle rekeningen" @onmousedown:preventDefault @onclick="OpenVenster" @onclick:stopPropagation><Icoon Naam="ellipsis" /></button>
     </div>
     @if (open && treffers.Count > 0)
     {
@@ -70,6 +71,31 @@
     public Geopend? Kader { get; set; }
 
     private Rekening? Gekozen => Schema?.Zoek(Waarde);
+
+    /// <summary>
+    /// Klikken in het vak (ook op de naam): de cursor in het veld met de gekozen rekening geselecteerd, zodat typen
+    /// hem meteen vervangt; de lijst gaat open.
+    /// </summary>
+    private async Task Bewerk()
+    {
+        if (Gekozen is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "./rekeningkeuze.js");
+            await module.InvokeVoidAsync("selecteer", invoer);
+        }
+        catch (JSDisconnectedException)
+        {
+            // Het circuit is al weg.
+        }
+
+        open = true;
+        Zoek(null);
+    }
 
     private void Open()
     {
