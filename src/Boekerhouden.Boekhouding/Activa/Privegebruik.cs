@@ -8,7 +8,10 @@ public enum Privegebruik
     /// <summary>Nog niet vastgelegd.</summary>
     Onbekend,
 
-    /// <summary>Ja; btw volgens het forfait: 2,7% van de cataloguswaarde, vanaf het vijfde jaar na ingebruikname 1,5%.</summary>
+    /// <summary>
+    /// Ja; btw volgens het forfait, bij aankoop is btw afgetrokken: 2,7% van de cataloguswaarde, vanaf het vijfde jaar
+    /// na het jaar van ingebruikname 1,5%.
+    /// </summary>
     JaForfait,
 
     /// <summary>Ja; btw over het werkelijke privégebruik (kilometeradministratie).</summary>
@@ -25,6 +28,12 @@ public enum Privegebruik
 
     /// <summary>Nee; anders onderbouwd (zie de notitie).</summary>
     NeeAnders,
+
+    /// <summary>
+    /// Ja; btw volgens het forfait, bij aankoop is geen btw afgetrokken (gekocht van een particulier of onder de
+    /// margeregeling): vanaf het begin 1,5% van de cataloguswaarde.
+    /// </summary>
+    JaForfaitZonderBtw,
 }
 
 /// <summary>Een vervoermiddel uit de vaste activa, voor de controle op de btw privégebruik.</summary>
@@ -44,13 +53,24 @@ public static class Privegebruikcontrole
 
     private static string B(decimal bedrag) => bedrag.ToString("N2", Nl);
 
-    public static bool IsJa(Privegebruik p) => p is Privegebruik.JaForfait or Privegebruik.JaWerkelijk;
+    public static bool IsJa(Privegebruik p) => p is Privegebruik.JaForfait or Privegebruik.JaForfaitZonderBtw or Privegebruik.JaWerkelijk;
 
-    public static bool IsNee(Privegebruik p) => p is >= Privegebruik.NeeRittenregistratie;
+    public static bool IsForfait(Privegebruik p) => p is Privegebruik.JaForfait or Privegebruik.JaForfaitZonderBtw;
+
+    public static bool IsNee(Privegebruik p) =>
+        p is Privegebruik.NeeRittenregistratie or Privegebruik.NeeVerklaring or Privegebruik.NeeBestelauto or Privegebruik.NeeAnders;
+
+    /// <summary>De keuzes in de volgorde van het scherm: niet vastgelegd, ja (forfait met en zonder btw-aftrek, werkelijk), nee.</summary>
+    public static IReadOnlyList<Privegebruik> Keuzes { get; } =
+    [
+        Privegebruik.Onbekend, Privegebruik.JaForfait, Privegebruik.JaForfaitZonderBtw, Privegebruik.JaWerkelijk,
+        Privegebruik.NeeRittenregistratie, Privegebruik.NeeVerklaring, Privegebruik.NeeBestelauto, Privegebruik.NeeAnders,
+    ];
 
     public static string Naam(Privegebruik p) => p switch
     {
-        Privegebruik.JaForfait => "Ja, forfait (2,7% / 1,5%)",
+        Privegebruik.JaForfait => "Ja, forfait: btw afgetrokken bij aankoop",
+        Privegebruik.JaForfaitZonderBtw => "Ja, forfait: gekocht zonder btw-aftrek",
         Privegebruik.JaWerkelijk => "Ja, werkelijk privégebruik",
         Privegebruik.NeeRittenregistratie => "Nee, rittenregistratie",
         Privegebruik.NeeVerklaring => "Nee, verklaring geen privégebruik",
@@ -79,6 +99,26 @@ public static class Privegebruikcontrole
     /// <summary>Het percentage van het forfait in een jaar: 2,7%, of 1,5% vanaf het vijfde jaar na het jaar van ingebruikname.</summary>
     public static decimal Forfaitpercentage(DateOnly inGebruik, int jaar) => jaar - inGebruik.Year >= 5 ? 1.5m : 2.7m;
 
+    /// <summary>
+    /// Het percentage van het forfait voor dit vervoermiddel in een jaar: 1,5% als er bij aankoop geen btw is afgetrokken
+    /// of vanaf het vijfde jaar na het jaar van ingebruikname, anders 2,7%.
+    /// </summary>
+    public static decimal Forfaitpercentage(Privegebruik privegebruik, DateOnly inGebruik, int jaar) =>
+        privegebruik == Privegebruik.JaForfaitZonderBtw ? 1.5m : Forfaitpercentage(inGebruik, jaar);
+
+    /// <summary>Waarom dit percentage geldt, bijv. "2,7%: btw afgetrokken bij aankoop; 1,5% vanaf 2031".</summary>
+    public static string Forfaitreden(Privegebruik privegebruik, DateOnly inGebruik, int jaar)
+    {
+        if (privegebruik == Privegebruik.JaForfaitZonderBtw)
+        {
+            return "1,5%: bij aankoop geen btw afgetrokken";
+        }
+
+        return jaar - inGebruik.Year >= 5
+            ? $"1,5%: vanaf het vijfde jaar na ingebruikname ({inGebruik.Year})"
+            : $"2,7%: btw afgetrokken bij aankoop; 1,5% vanaf {inGebruik.Year + 5}";
+    }
+
     /// <summary>De maanden van het jaar dat het vervoermiddel in gebruik was (de maand van ingebruikname en van verkoop tellen mee).</summary>
     public static int Maanden(Vervoermiddel v, int jaar)
     {
@@ -92,12 +132,12 @@ public static class Privegebruikcontrole
     public static decimal? Verwacht(Vervoermiddel v, int jaar)
     {
         ArgumentNullException.ThrowIfNull(v);
-        if (v.Privegebruik != Privegebruik.JaForfait || v.Cataloguswaarde is not { } waarde)
+        if (!IsForfait(v.Privegebruik) || v.Cataloguswaarde is not { } waarde)
         {
             return null;
         }
 
-        return Math.Round(waarde * Forfaitpercentage(v.InGebruik, jaar) / 100m * Maanden(v, jaar) / 12m, 2);
+        return Math.Round(waarde * Forfaitpercentage(v.Privegebruik, v.InGebruik, jaar) / 100m * Maanden(v, jaar) / 12m, 2);
     }
 
     /// <summary>
@@ -123,19 +163,19 @@ public static class Privegebruikcontrole
                 case Privegebruik.Onbekend:
                     signalen.Add(new($"{naam}: leg vast of er privégebruik is en hoe dat is onderbouwd.", v.Id));
                     break;
-                case Privegebruik.JaForfait when v.Cataloguswaarde is null:
+                case Privegebruik.JaForfait or Privegebruik.JaForfaitZonderBtw when v.Cataloguswaarde is null:
                     signalen.Add(new($"{naam}: privégebruik volgens het forfait, maar zonder cataloguswaarde.", v.Id));
                     break;
             }
 
             if (IsJa(v.Privegebruik) && geboekt == 0)
             {
-                var verwacht = Verwacht(v, jaar) is { } b ? $" (forfait {Forfaitpercentage(v.InGebruik, jaar).ToString("0.0", Nl)}%: {B(b)})" : null;
+                var verwacht = Verwacht(v, jaar) is { } b ? $" (forfait {Forfaitpercentage(v.Privegebruik, v.InGebruik, jaar).ToString("0.0", Nl)}%: {B(b)})" : null;
                 signalen.Add(new($"{naam}: privégebruik ja, maar geen btw privégebruik geboekt in {jaar}{verwacht}.", v.Id));
             }
         }
 
-        var forfait = inGebruik.Where(v => v.Privegebruik == Privegebruik.JaForfait).Select(v => Verwacht(v, jaar)).ToList();
+        var forfait = inGebruik.Where(v => IsForfait(v.Privegebruik)).Select(v => Verwacht(v, jaar)).ToList();
         if (geboekt != 0 && forfait.Count > 0 && forfait.All(b => b is not null) && inGebruik.All(v => v.Privegebruik != Privegebruik.JaWerkelijk))
         {
             var verwacht = forfait.Sum()!.Value;

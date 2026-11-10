@@ -59,4 +59,28 @@ public sealed class PrivegebruikTests
         Assert.Contains("geen vervoermiddel met privégebruik", Assert.Single(Privegebruikcontrole.Signalen(2026, [Auto(Privegebruik.NeeVerklaring)], 900m)).Tekst, StringComparison.Ordinal);
         Assert.Contains("zonder cataloguswaarde", Privegebruikcontrole.Signalen(2026, [Auto(Privegebruik.JaForfait, catalogus: null)], 500m)[0].Tekst, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Zonder_btw_aftrek_bij_aankoop_is_het_forfait_vanaf_het_begin_anderhalf_procent()
+    {
+        // Met btw-aftrek: 2,7% in de eerste vijf jaar (met het jaar van ingebruikname), daarna 1,5%.
+        Assert.Equal(2.7m, Privegebruikcontrole.Forfaitpercentage(Privegebruik.JaForfait, new(2022, 6, 1), 2026));
+        Assert.Equal(1.5m, Privegebruikcontrole.Forfaitpercentage(Privegebruik.JaForfait, new(2022, 6, 1), 2027));
+        Assert.Equal("2,7%: btw afgetrokken bij aankoop; 1,5% vanaf 2027", Privegebruikcontrole.Forfaitreden(Privegebruik.JaForfait, new(2022, 6, 1), 2026));
+        Assert.Equal("1,5%: vanaf het vijfde jaar na ingebruikname (2022)", Privegebruikcontrole.Forfaitreden(Privegebruik.JaForfait, new(2022, 6, 1), 2027));
+
+        // Zonder btw-aftrek (particulier, marge): altijd 1,5%.
+        Assert.Equal(1.5m, Privegebruikcontrole.Forfaitpercentage(Privegebruik.JaForfaitZonderBtw, new(2026, 1, 1), 2026));
+        Assert.Equal("1,5%: bij aankoop geen btw afgetrokken", Privegebruikcontrole.Forfaitreden(Privegebruik.JaForfaitZonderBtw, new(2026, 1, 1), 2026));
+        Assert.Equal(750m, Privegebruikcontrole.Verwacht(Auto(Privegebruik.JaForfaitZonderBtw), 2026));
+        Assert.Equal(1_350m, Privegebruikcontrole.Verwacht(Auto(Privegebruik.JaForfait), 2026));
+
+        // Hij telt als ja en als forfait, niet als nee; en staat bij de andere ja-keuzes.
+        Assert.True(Privegebruikcontrole.IsJa(Privegebruik.JaForfaitZonderBtw) && Privegebruikcontrole.IsForfait(Privegebruik.JaForfaitZonderBtw));
+        Assert.False(Privegebruikcontrole.IsNee(Privegebruik.JaForfaitZonderBtw));
+        Assert.Equal(Enum.GetValues<Privegebruik>().Order(), Privegebruikcontrole.Keuzes.Order());
+        Assert.Equal(2, Privegebruikcontrole.Keuzes.ToList().IndexOf(Privegebruik.JaForfaitZonderBtw));
+        Assert.Contains("zonder cataloguswaarde", Privegebruikcontrole.Signalen(2026, [Auto(Privegebruik.JaForfaitZonderBtw, catalogus: null)], 500m)[0].Tekst, StringComparison.Ordinal);
+        Assert.Contains("forfait 1,5%: 750,00", Assert.Single(Privegebruikcontrole.Signalen(2026, [Auto(Privegebruik.JaForfaitZonderBtw)], 0m)).Tekst, StringComparison.Ordinal);
+    }
 }

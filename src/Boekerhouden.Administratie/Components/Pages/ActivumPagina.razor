@@ -157,18 +157,18 @@
                         <label for="privegebruik">Privégebruik</label>
                         <div class="d-flex gap-2 align-items-center flex-wrap">
                             <select id="privegebruik" class="form-select form-select-sm w-auto" @bind="f.Privegebruik">
-                                @foreach (var keuze in Enum.GetValues<Privegebruik>())
+                                @foreach (var keuze in Privegebruikcontrole.Keuzes)
                                 {
                                     <option value="@keuze">@Privegebruikcontrole.Naam(keuze)</option>
                                 }
                             </select>
-                            @if (f.Privegebruik == Privegebruik.JaForfait)
+                            @if (Privegebruikcontrole.IsForfait(f.Privegebruik))
                             {
                                 <input class="form-control form-control-sm text-end" style="width:9rem" aria-label="Cataloguswaarde" placeholder="cataloguswaarde"
                                        title="Cataloguswaarde inclusief btw en bpm" @bind="f.Cataloguswaarde" />
                                 @if (Forfait() is { } forfait)
                                 {
-                                    <span class="small text-secondary" title="Btw privégebruik volgens het forfait over @forfait.Jaar, naar rato van de maanden in gebruik">btw @forfait.Jaar: @Weergave.Bedrag(forfait.Bedrag)</span>
+                                    <span class="small text-secondary" title="Btw privégebruik volgens het forfait over @forfait.Jaar, naar rato van de maanden in gebruik">@forfait.Reden · btw @forfait.Jaar: @Weergave.Bedrag(forfait.Bedrag)</span>
                                 }
                             }
                         </div>
@@ -446,7 +446,7 @@
     private static readonly CultureInfo Nederlands = CultureInfo.GetCultureInfo("nl-NL");
 
     /// <summary>De btw privégebruik volgens het forfait over dit jaar (of het jaar van buiten gebruik), als de cataloguswaarde er is.</summary>
-    private (int Jaar, decimal Bedrag)? Forfait()
+    private (int Jaar, decimal Bedrag, string Reden)? Forfait()
     {
         var jaar = Math.Min(DateTime.Today.Year, detail?.BuitenGebruikOp?.Year ?? int.MaxValue);
         if (f?.Invoer() is not { Cataloguswaarde: { } } invoer)
@@ -455,7 +455,7 @@
         }
 
         var v = new Vervoermiddel(Guid.Empty, 0, invoer.Omschrijving, invoer.Aanschafdatum, invoer.BeginAfschrijving, detail?.BuitenGebruikOp, invoer.Privegebruik, invoer.Cataloguswaarde);
-        return Privegebruikcontrole.Verwacht(v, jaar) is { } bedrag ? (jaar, bedrag) : null;
+        return Privegebruikcontrole.Verwacht(v, jaar) is { } bedrag ? (jaar, bedrag, Privegebruikcontrole.Forfaitreden(v.Privegebruik, v.InGebruik, jaar)) : null;
     }
 
     private sealed class Formulier
@@ -502,7 +502,7 @@
         {
             static decimal? Lees(string? tekst) => string.IsNullOrWhiteSpace(tekst) ? 0m : BedragParser.TryParse(tekst, out var b) ? b : null;
             if (Lees(Aanschafwaarde) is not { } aanschaf || Lees(Restwaarde) is not { } rest || Lees(Eerder ? VoorBegin : null) is not { } voor
-                || Lees(Privegebruik == Privegebruik.JaForfait ? Cataloguswaarde : null) is not { } catalogus)
+                || Lees(Privegebruikcontrole.IsForfait(Privegebruik) ? Cataloguswaarde : null) is not { } catalogus)
             {
                 return null;
             }
