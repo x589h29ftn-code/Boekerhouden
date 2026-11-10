@@ -138,6 +138,10 @@
             case "Enter" when !e.CtrlKey && open && gemarkeerd >= 0 && gemarkeerd < treffers.Count:
                 await Kies(treffers[gemarkeerd]);
                 break;
+            // Tab neemt de gemarkeerde rekening over (bijv. "pensio" en Pensioenpremies staat bovenaan) en gaat door naar het volgende veld.
+            case "Tab" when !e.ShiftKey && open && Gekozen is null && gemarkeerd >= 0 && gemarkeerd < treffers.Count:
+                await Kies(treffers[gemarkeerd]);
+                break;
             case "Escape":
                 open = false;
                 break;
