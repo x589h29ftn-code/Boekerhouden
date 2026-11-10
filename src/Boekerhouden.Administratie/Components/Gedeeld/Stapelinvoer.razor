@@ -1,0 +1,60 @@
+@* De knop Stapel splitsen bij inkoop en verkoop: één PDF met veel facturen aanleveren, die daarna op het
+   stapelscherm in losse facturen wordt geknipt. Staat er nog een stapel open, dan een link om verder te gaan. *@
+@using Boekerhouden.Boekhouding.Facturen
+@using Boekerhouden.Documenten
+@inject StapelDienst Stapels
+@inject NavigationManager Navigatie
+
+@foreach (var s in open)
+{
+    <a class="btn btn-sm btn-link stapel-open" href="/a/@Administratie/stapel/@s.Id" title="@s.Bestandsnaam, @s.Paginas pagina's, ingelezen @Weergave.Moment(s.IngelezenOp): verder met knippen">Stapel verder splitsen</a>
+}
+<label class="btn btn-sm btn-outline-secondary @(bezig ? "disabled" : null)" aria-busy="@(bezig ? "true" : null)"
+       title="Eén PDF met alle facturen (bijv. een gescande map): je knipt hem in losse facturen, daarna staan ze hier per stuk">
+    @(bezig ? "Stapel inlezen" : "Stapel splitsen")
+    <InputFile class="d-none" accept=".pdf,application/pdf" OnChange="LeesIn" disabled="@bezig" aria-label="Stapel splitsen" />
+</label>
+@if (fout is not null)
+{
+    <span class="status let-op stapel-fout" role="alert">@fout</span>
+}
+
+@code {
+    private IReadOnlyList<Stapelkop> open = [];
+    private bool bezig;
+    private string? fout;
+
+    [Parameter, EditorRequired]
+    public Uitvoerder Wie { get; set; } = default!;
+
+    [Parameter]
+    public Guid Administratie { get; set; }
+
+    [Parameter]
+    public Factuursoort Soort { get; set; }
+
+    protected override async Task OnInitializedAsync() => open = await Stapels.Lijst(Wie, Administratie, Soort);
+
+    private async Task LeesIn(InputFileChangeEventArgs e)
+    {
+        (bezig, fout) = (true, null);
+        try
+        {
+            await using var stream = e.File.OpenReadStream(PdfStapel.MaximumBytes);
+            var uitkomst = await Stapels.Lees(Wie, Administratie, Soort, stream, e.File.Name);
+            if (uitkomst.IsGelukt)
+            {
+                Navigatie.NavigateTo($"/a/{Administratie}/stapel/{uitkomst.Waarde}");
+                return;
+            }
+
+            fout = string.Join(" ", uitkomst.Fouten);
+        }
+        catch (IOException)
+        {
+            fout = $"{e.File.Name} is groter dan {PdfStapel.MaximumBytes / 1024 / 1024} MB; lever de stapel in delen aan.";
+        }
+
+        bezig = false;
+    }
+}

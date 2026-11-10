@@ -132,6 +132,15 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     niet met `==` zonder die lijst gelijk te zetten (zie `ActivaDienst.Bewaar`). Foutmeldingen van Opslaan op de
     activakaart staan nu bij de knop (ze stonden bovenaan, buiten beeld). `HerzieningTests`, `ActivaTests`.
 
+19. **Stapel splitsen** (README §3.19): één PDF met veel inkoop- of verkoopfacturen aanleveren, voorstel waar te
+    knippen (`Stapelsplitser`), miniaturen met knipplekken en een pagina groot ernaast (`Stapelvlak`, `stapel.js`),
+    scans op de achtergrond door de tekstherkenning, na Splitsen elke factuur via de gewone weg van inlezen
+    (`StapelDienst`). `PdfStapelTests`, `StapelTests`; browsercontrole met `node scripts/ui/stapel.js <map>` (maakt de
+    stapel met `scripts/ui/maak-stapel.py`, vereist reportlab). Let op: `scripts/ui/schermafbeeldingen.js` loopt op
+    10 november vast op een oudere stap (memoriaal, link *Herhalen*) en moet nog worden bijgewerkt. De overdracht mist
+    nog de btw-module, vennootschapsbelasting, loonjournaal, privégebruik auto en het verkoopboek voor ingelezen
+    facturen (wel in README §3.2–§3.18).
+
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).
 
@@ -150,7 +159,9 @@ Afgesproken of voorgesteld maar nog niet gebouwd, ongeveer in volgorde van wens:
 | Verkoop: vervolg | Versturen vanuit het pakket (SMTP of Peppol) in plaats van een .eml; terugkerende facturen vanzelf maken (zonder klik); herinneringen; ouderdomsanalyse debiteuren |
 | Btw-aangifte (A10) | Aangifte per rubriek en afdracht (perioden afsluiten is er: na de aangifte de periode afsluiten) |
 | Saldibalans naar het samenstelpakket (A12) | Jaarrekening zonder export |
-| Gepland (README §5) | Regels splitsen per leverancier, verzamel-PDF splitsen, vreemde valuta, ontbrekende factuur |
+| Gepland (README §5) | Regels splitsen per leverancier, vreemde valuta, ontbrekende factuur |
+| Stapel splitsen: vervolg | Pagina's blijvend draaien en verplaatsen (om en om gescande voor- en achterkanten), voortgang bij het uploaden; afstellen op een echte gescande stapel van de gebruiker |
+| Bonnetjes (foto's) | Zie het voorstel in het gesprek van 10 november: foto rechtzetten, bon als eigen soort, koppelen aan de pinbetaling, leren per winkel |
 | Dashboard: vervolg | Voorgesteld, nog niet gevraagd: afwijking marge in procentpunten; in de kwartaalweergave ook vorig jaar per kwartaal; btw-frequentie (maand/kwartaal) als instelling van de administratie in plaats van per widget |
 | Auditfile: vervolg | De btw-code per boekingsregel zit niet in de XAF-export; XAF 4.0 is alleen met een zelfgemaakt voorbeeld getest |
 | Vaste activa: vervolg | Degressief en fiscaal naast commercieel, overzicht investeringsaftrek (KIA) |

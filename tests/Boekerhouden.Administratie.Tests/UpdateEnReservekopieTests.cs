@@ -134,6 +134,7 @@ public sealed class UpdateEnReservekopieTests : IDisposable
     [InlineData("20261106205721_Dashboard")]
     [InlineData("20261107195623_PeriodenAfsluiten")]
     [InlineData("20261107200506_VasteActiva")]
+    [InlineData("20261109203124_Loonkoppelingen")]
     public async Task Bijwerken_vanaf_een_eerdere_versie(string versie)
     {
         var (_, boekingen) = await GevuldeApp();

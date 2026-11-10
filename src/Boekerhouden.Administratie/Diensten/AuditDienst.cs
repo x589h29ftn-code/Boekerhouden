@@ -72,6 +72,9 @@ public static class AuditActies
     public const string Geboekt = "Geboekt";
     public const string AutomatischGeboekt = "Automatisch geboekt";
     public const string DocumentIngelezen = "Document ingelezen";
+    public const string StapelIngelezen = "Stapel ingelezen";
+    public const string StapelGesplitst = "Stapel gesplitst";
+    public const string StapelVerwijderd = "Stapel verwijderd";
     public const string RelatieToegevoegd = "Relatie toegevoegd";
     public const string RelatieGewijzigd = "Relatie gewijzigd";
     public const string IbanGewijzigd = "IBAN gewijzigd";

@@ -159,7 +159,8 @@ public sealed class InkoopDienst(
     /// </summary>
     /// <param name="banktransactie">De bankmutatie waarbij de gebruiker de factuur uploadt: na het boeken worden ze gekoppeld.</param>
     public async Task<Inleesuitkomst> Lees(
-        Uitvoerder wie, Guid administratie, Stream inhoud, string bestandsnaam, string? inhoudstype, Guid? banktransactie = null, CancellationToken annulering = default)
+        Uitvoerder wie, Guid administratie, Stream inhoud, string bestandsnaam, string? inhoudstype, Guid? banktransactie = null,
+        IReadOnlyList<Tekstwoord>? bekendeTekst = null, CancellationToken annulering = default)
     {
         ArgumentNullException.ThrowIfNull(wie);
         ArgumentNullException.ThrowIfNull(inhoud);
@@ -216,7 +217,7 @@ public sealed class InkoopDienst(
         var gegevens = await db.Administraties.AsNoTracking().SingleAsync(a => a.Id == administratie, annulering);
         var eigen = new EigenGegevens(gegevens.Ibans, gegevens.BtwNummer is null ? [] : [gegevens.BtwNummer], [gegevens.Naam]);
         var ocr = ocrMotoren.FirstOrDefault() is { } motor ? new OcrLezer(motor) : null;
-        var herkenning = await Factuurherkenning.Standaard(eigen, ocr: ocr).HerkenAsync(new MemoryStream(bytes), naam, inhoudstype, annulering);
+        var herkenning = await Factuurherkenning.Standaard(eigen, ocr: ocr).HerkenAsync(new MemoryStream(bytes), naam, inhoudstype, bekendeTekst, annulering);
 
         // Een foto wordt bewaard als PDF (de foto als pagina), zodat de viewer en het aanwijzen werken.
         string? tekstlaag = null;

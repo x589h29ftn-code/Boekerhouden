@@ -27,7 +27,12 @@ public sealed class VerkoopimportDienst(
     IEnumerable<IVirusscanner> virusscanners,
     IEnumerable<IOcrMotor> ocrMotoren)
 {
-    public async Task<Verkoopinleesuitkomst> Lees(Uitvoerder wie, Guid administratie, Stream inhoud, string bestandsnaam, string? inhoudstype, CancellationToken annulering = default)
+    public Task<Verkoopinleesuitkomst> Lees(Uitvoerder wie, Guid administratie, Stream inhoud, string bestandsnaam, string? inhoudstype, CancellationToken annulering = default) =>
+        Lees(wie, administratie, inhoud, bestandsnaam, inhoudstype, null, annulering);
+
+    /// <param name="bekendeTekst">De woorden van een scan die al gelezen zijn (bij het splitsen van een stapel).</param>
+    public async Task<Verkoopinleesuitkomst> Lees(
+        Uitvoerder wie, Guid administratie, Stream inhoud, string bestandsnaam, string? inhoudstype, IReadOnlyList<Tekstwoord>? bekendeTekst, CancellationToken annulering = default)
     {
         ArgumentNullException.ThrowIfNull(inhoud);
         var naam = Path.GetFileName(bestandsnaam);
@@ -71,7 +76,7 @@ public sealed class VerkoopimportDienst(
             var a = await db.Administraties.AsNoTracking().SingleAsync(x => x.Id == administratie, annulering);
             var eigen = new EigenGegevens(a.Ibans, a.BtwNummer is null ? [] : [a.BtwNummer], [a.Naam]);
             var ocr = ocrMotoren.FirstOrDefault() is { } motor ? new OcrLezer(motor) : null;
-            var herkenning = await Factuurherkenning.Standaard(eigen, ocr: ocr).HerkenAsync(new MemoryStream(bytes), naam, inhoudstype, annulering);
+            var herkenning = await Factuurherkenning.Standaard(eigen, ocr: ocr).HerkenAsync(new MemoryStream(bytes), naam, inhoudstype, bekendeTekst, annulering);
             var herkend = ZonderEigenKvk(herkenning.Factuur ?? new HerkendeFactuur(Herkenningsbron.Tekst), a.KvkNummer);
 
             var context = await verkoop.Context(wie, administratie);

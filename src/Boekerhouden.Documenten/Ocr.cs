@@ -207,6 +207,10 @@ public sealed class OcrLezer(IOcrMotor motor)
         : inhoud.StartsWith((ReadOnlySpan<byte>)[0x89, (byte)'P', (byte)'N', (byte)'G']) ? "png"
         : null;
 
+    /// <summary>De woorden van één afbeelding uit een PDF (zie <see cref="Afbeeldingen(byte[], long, int)"/>), in PDF-punten.</summary>
+    public async Task<IReadOnlyList<Tekstwoord>> LeesPaginaAsync(int pagina, byte[] afbeelding, PdfPlek plek, CancellationToken annulering = default) =>
+        [.. NaarPunten(pagina, await motor.LeesAsync(afbeelding, annulering).ConfigureAwait(false), plek)];
+
     public async Task<Ocrlaag?> LeesAsync(byte[] inhoud, CancellationToken annulering = default)
     {
         ArgumentNullException.ThrowIfNull(inhoud);
@@ -271,10 +275,13 @@ public sealed class OcrLezer(IOcrMotor motor)
     /// Per pagina van een PDF zonder tekst de grootste afbeelding (de scan) met zijn plek: JPEG zoals hij erin staat,
     /// andere soorten als PNG. Een afbeelding die niet te lezen is, slaat de OCR over.
     /// </summary>
-    public static IReadOnlyList<(int Pagina, byte[] Afbeelding, PdfPlek Plek)> Afbeeldingen(byte[] pdf)
+    public static IReadOnlyList<(int Pagina, byte[] Afbeelding, PdfPlek Plek)> Afbeeldingen(byte[] pdf) => Afbeeldingen(pdf, PdfTekst.MaximumBytes, PdfTekst.MaximumPaginas);
+
+    /// <summary>Als <see cref="Afbeeldingen(byte[])"/>, met eigen grenzen (een stapel mag groter zijn dan een factuur).</summary>
+    public static IReadOnlyList<(int Pagina, byte[] Afbeelding, PdfPlek Plek)> Afbeeldingen(byte[] pdf, long maximumBytes, int maximumPaginas)
     {
         ArgumentNullException.ThrowIfNull(pdf);
-        if (pdf.Length > PdfTekst.MaximumBytes || pdf.AsSpan(0, Math.Min(pdf.Length, 1024)).IndexOf("%PDF-"u8) < 0)
+        if (pdf.Length > maximumBytes || pdf.AsSpan(0, Math.Min(pdf.Length, 1024)).IndexOf("%PDF-"u8) < 0)
         {
             return [];
         }
@@ -283,7 +290,7 @@ public sealed class OcrLezer(IOcrMotor motor)
         try
         {
             using var document = PdfDocument.Open(pdf, new ParsingOptions { UseLenientParsing = true, SkipMissingFonts = true });
-            foreach (var pagina in document.GetPages().Take(PdfTekst.MaximumPaginas))
+            foreach (var pagina in document.GetPages().Take(maximumPaginas))
             {
                 if (pagina.GetImages().MaxBy(i => i.BoundingBox.Width * i.BoundingBox.Height) is not { } beeld)
                 {

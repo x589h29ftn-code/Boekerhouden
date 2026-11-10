@@ -117,6 +117,7 @@ public static class Opstart
         services.AddSingleton<FactuuropmaakDienst>();
         services.AddSingleton<AbonnementDienst>();
         services.AddSingleton<VerkoopimportDienst>();
+        services.AddSingleton<StapelDienst>();
         services.AddSingleton<BankDienst>();
         services.AddSingleton<AuditfileDienst>();
         services.AddSingleton<DashboardDienst>();
@@ -243,6 +244,28 @@ public static class Opstart
             return pdf
                 ? Results.File(b.Inhoud, "application/pdf", enableRangeProcessing: true)
                 : Results.File(b.Inhoud, "application/octet-stream", b.Bestandsnaam);
+        });
+
+        // De PDF van een stapel (voor de miniaturen bij het splitsen): alleen voor leden, als PDF in een sandbox.
+        app.MapGet("/a/{administratie:guid}/stapels/{stapel:guid}", async (Guid administratie, Guid stapel, HttpContext context, StapelDienst stapels) =>
+        {
+            byte[]? inhoud;
+            try
+            {
+                inhoud = await stapels.Inhoud(context.User.AlsUitvoerder(), administratie, stapel);
+            }
+            catch (GeenToegangException)
+            {
+                inhoud = null;
+            }
+
+            if (inhoud is null)
+            {
+                return Results.NotFound("Deze stapel bestaat niet of je hebt er geen toegang toe.");
+            }
+
+            context.Response.Headers.ContentSecurityPolicy = "sandbox; default-src 'none'; object-src 'self'; style-src 'unsafe-inline'";
+            return Results.File(inhoud, "application/pdf", enableRangeProcessing: true);
         });
 
         // Passkeys: de opties voor de browser (navigator.credentials.create/get). De uitdaging staat in een cookie;

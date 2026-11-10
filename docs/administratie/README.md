@@ -578,7 +578,7 @@ gebouwen) en een overzicht voor de investeringsaftrek.
 | A11 ✅ | **Scans**: Tesseract voor scans en foto's (`TesseractOcr`, `OcrLezer`); in de Windows-app als Tesseract op de pc staat | Ook papieren bonnen |
 | A12 | **Saldibalans naar het samenstelpakket** | Jaarrekening zonder export |
 | gepland | **Regels splitsen per leverancier** (wens gebruiker, oktober 2026): de factuurregels uitlezen en per leverancier een vaste verdeling over rekeningen leren (energie: levering en netbeheer; telefoon: abonnement en toestel; groothandel: 9% en 21%), en die de volgende keer voorstellen | Ook gesplitste facturen vanzelf |
-| gepland | **Verzamel-PDF splitsen** (wens gebruiker, oktober 2026): een PDF met meerdere facturen (één per pagina of meer) bij het inlezen opdelen in losse documenten, per factuurnummer of leverancier, met een controle-overzicht voor het splitsen | Een stapel facturen in één keer uploaden |
+| ✅ | **Stapel splitsen** (§3.19; wens gebruiker, oktober 2026): een PDF met meerdere facturen (één per pagina of meer) bij het inlezen opdelen in losse documenten, per factuurnummer of leverancier, met een controle-overzicht voor het splitsen | Een stapel facturen in één keer uploaden |
 | gepland | **Bijtelling auto eenmanszaak/vof** (wens gebruiker, november 2026, §3.2b): bijtelling per auto met privégebruik (percentage voor 60 maanden, elektrisch, youngtimer), maximaal de werkelijke autokosten, journaalpost privé aan autokosten bijtelling | Bijtelling zonder spreadsheet |
 | gepland | **Vreemde valuta** (batch 2, scenario 8): factuur in USD e.d. op de koers van de factuurdatum, betaling op de werkelijke koers, het verschil naar koersverschillen; bankkosten apart | Buitenlandse leveranciers zonder handwerk |
 | gepland | **Ontbrekende factuur** (batch 2, scenario 16 en 18): een betaling zonder factuur (huur, pinbon) markeren als *factuur ontbreekt*, tijdelijk op een tussenrekening, en de vaste last later automatisch | Vaste lasten en bonnetjes netjes opvolgen |
@@ -659,6 +659,34 @@ het formulier, een maand later, om aan te passen (bijv. andere bedragen) voor he
   (maand; standaard die van *periode tot en met*, bij vier-wekenperioden december) en een omschrijving; *Naar boeking*
   zet de boeking in het formulier op de laatste dag van die maand, met de namen uit het salarispakket als omschrijving
   per regel. Daar kan nog een regel bij of af, en *Boeken* kan alleen in balans.
+
+### 3.19 Stapel splitsen (bulk inlezen)
+
+Eén PDF met alle inkoop- of verkoopfacturen (bijv. een gescande map van een jaar) aanleveren en in losse facturen
+knippen. Knop *Stapel splitsen* bij *Inkoop* en bij *Verkoop*; hoogstens 500 pagina's en 300 MB per stapel.
+
+- **Voorstel** (`Herkenning/Stapelsplitser`): per overgang tussen twee pagina's tellen aanwijzingen op: paginanummering
+  ("pagina 2 van 3"), een ander of hetzelfde factuurnummer, een andere afzender (alleen inkoop), een factuurkop
+  bovenaan, een totaal op de vorige pagina, "vervolg" of "transport", een pagina zonder bedragen (voorwaarden). Hoog =
+  knip, laag = geen knip, ertussen een keuze met *twijfel* (warme kleur; *n twijfel* in de kop springt naar de
+  volgende). Een (bijna) lege pagina wordt weggelaten. Zonder tekst: elke pagina een eigen factuur, met twijfel.
+- **Scherm** (`/a/{id}/stapel/{stapel}`, `Stapelvlak`, `wwwroot/stapel.js`): alle pagina's als miniatuur, facturen om
+  en om getint, vóór elke pagina een knipplek (klik = knip zetten of weghalen), per pagina *Weglaten*. Een klik op een
+  pagina toont hem groot ernaast zonder weg te gaan: pijltjes bladeren, **K** knipt vóór de pagina, **W** laat hem
+  weg, Esc sluit; draaien alleen om te kijken. Elke wijziging wordt meteen bewaard; een open stapel staat bij
+  inkoop of verkoop als *Stapel verder splitsen*.
+- **Scans**: pagina's zonder tekst gaan op de achtergrond een voor een door de tekstherkenning (voortgang in de kop);
+  daarna komt het voorstel opnieuw, maar knippen die de gebruiker al zette blijven staan. De gelezen tekst gaat mee
+  naar de losse facturen, dus er wordt niet twee keer gelezen.
+- **Splitsen** (`StapelDienst.Verwerk`, `PdfStapel.Splits`): elke factuur wordt een eigen PDF (pagina's ongewijzigd
+  overgenomen) met de naam `<stapel> p. 14-16.pdf` en gaat door de gewone weg: `InkoopDienst.Lees` of
+  `VerkoopimportDienst.Lees` (virusscan, herkenning, dubbel, automatisch boeken). Lukt een deel niet (bijv. de
+  virusscanner valt weg), dan blijft de stapel open en gaat *Splitsen* de volgende keer verder met de rest. Een
+  factuur mag hoogstens 50 pagina's hebben. De stapel zelf blijft bewaard (tabellen `Stapels`, `StapelInhouden`);
+  dezelfde stapel nog een keer aanleveren wordt geweigerd. In het wijzigingslog: ingelezen, gesplitst (aantallen),
+  weggegooid. Recht: invoeren; inzien mag kijken.
+- Nog niet: pagina's blijvend draaien, pagina's verplaatsen (voor- en achterkanten die apart zijn gescand) en een
+  voortgangsbalk tijdens het uploaden van een grote stapel.
 
 ### 3.15 Beginbalans uit de jaarrekening
 

@@ -1191,3 +1191,66 @@ public sealed class Loonrekeningkoppeling : IVanAdministratie
     /// <summary>De rekening in deze administratie.</summary>
     public string Rekeningnummer { get; set; } = string.Empty;
 }
+
+public enum Stapelstatus
+{
+    /// <summary>Ingelezen; de gebruiker zet de knippen.</summary>
+    Open,
+
+    /// <summary>Gesplitst: de facturen staan los bij inkoop of verkoop.</summary>
+    Verwerkt,
+}
+
+/// <summary>
+/// Een stapel: één PDF met veel facturen (bijv. een gescande jaaradministratie) die de gebruiker in losse facturen
+/// knipt. De PDF zelf staat apart (<see cref="StapelInhoud"/>).
+/// </summary>
+public sealed class Stapel : IVanAdministratie
+{
+    public Guid Id { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    /// <summary>Inkoop of verkoop: waar de facturen na het splitsen heen gaan.</summary>
+    public Boekhouding.Facturen.Factuursoort Soort { get; set; }
+
+    public string Bestandsnaam { get; set; } = string.Empty;
+
+    public long Grootte { get; set; }
+
+    public string Sha256 { get; set; } = string.Empty;
+
+    public int Paginas { get; set; }
+
+    /// <summary>Per pagina het voorstel en de keuze van de gebruiker (JSON, zie <c>StapelDienst</c>).</summary>
+    public string Indeling { get; set; } = "[]";
+
+    /// <summary>De gebruiker heeft de knippen zelf gewijzigd: een nieuw voorstel (na de tekstherkenning) schrijft ze niet over.</summary>
+    public bool Aangepast { get; set; }
+
+    /// <summary>Pagina's zonder tekst die nog door de tekstherkenning moeten.</summary>
+    public int TeLezen { get; set; }
+
+    public Stapelstatus Status { get; set; }
+
+    public DateTimeOffset IngelezenOp { get; set; }
+
+    public string IngelezenDoor { get; set; } = string.Empty;
+
+    public DateTimeOffset? VerwerktOp { get; set; }
+
+    /// <summary>In hoeveel facturen de stapel is gesplitst.</summary>
+    public int? Facturen { get; set; }
+}
+
+public sealed class StapelInhoud : IVanAdministratie
+{
+    public Guid StapelId { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    public byte[] Inhoud { get; set; } = [];
+
+    /// <summary>De woorden die de tekstherkenning vond, per pagina (JSON); leeg bij een PDF met tekst.</summary>
+    public string? Tekstlaag { get; set; }
+}

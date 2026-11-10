@@ -1835,6 +1835,93 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.ToTable("OpenstaandePosten", (string)null);
                 });
 
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Stapel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Aangepast")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Bestandsnaam")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("character varying(260)");
+
+                    b.Property<int?>("Facturen")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("Grootte")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Indeling")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("IngelezenDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("IngelezenOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Paginas")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character(64)")
+                        .IsFixedLength();
+
+                    b.Property<string>("Soort")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("TeLezen")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("VerwerktOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdministratieId", "Soort", "Status");
+
+                    b.ToTable("Stapels", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.StapelInhoud", b =>
+                {
+                    b.Property<Guid>("StapelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("uuid");
+
+                    b.Property<byte[]>("Inhoud")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("Tekstlaag")
+                        .HasColumnType("text");
+
+                    b.HasKey("StapelId");
+
+                    b.ToTable("StapelInhouden", (string)null);
+                });
+
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Verkoopbestand", b =>
                 {
                     b.Property<Guid>("VerkoopdocumentId")
@@ -2450,6 +2537,24 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.HasOne("Boekerhouden.Administratie.Data.Boeking", null)
                         .WithMany()
                         .HasForeignKey("BoekingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Stapel", b =>
+                {
+                    b.HasOne("Boekerhouden.Administratie.Data.Administratie", null)
+                        .WithMany()
+                        .HasForeignKey("AdministratieId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.StapelInhoud", b =>
+                {
+                    b.HasOne("Boekerhouden.Administratie.Data.Stapel", null)
+                        .WithOne()
+                        .HasForeignKey("Boekerhouden.Administratie.Data.StapelInhoud", "StapelId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
