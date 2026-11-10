@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Boekerhouden.Administratie.Data;
 using Boekerhouden.Administratie.Export;
+using Boekerhouden.Boekhouding.Facturen;
 using Boekerhouden.Boekhouding.Verkoop;
 using Boekerhouden.Documenten;
 using Microsoft.EntityFrameworkCore;
@@ -225,6 +226,56 @@ public sealed class FactuuropmaakDienst(Toegang toegang, AuditDienst audit, Time
         return uitkomst.IsGelukt
             ? Uitkomst<Factuurbestand>.Met(new Factuurbestand(uitkomst.Waarde!, $"{Bestandsnaam(b.Beeld)}.pdf", "application/pdf"))
             : Uitkomst<Factuurbestand>.Mislukt([.. uitkomst.Fouten]);
+    }
+
+    /// <summary>
+    /// Een kopie van de definitieve verkoopfactuur (PDF) in de documentmap van de administratie, net als bij een
+    /// geboekte inkoopfactuur (soort <c>Verkoop</c>). Zonder documentmap gebeurt er niets (leeg pad). Lukt het niet, dan
+    /// blijft de factuur gewoon staan en komt de reden in het log.
+    /// </summary>
+    public async Task<Uitkomst<string?>> ZetInDocumentmap(Uitvoerder wie, Guid administratie, Guid factuur, CancellationToken stoppen = default)
+    {
+        string sjabloon;
+        string naam;
+        await using (var db = await toegang.Open(wie, administratie, Recht.Invoeren))
+        {
+            var adm = await db.Administraties.AsNoTracking().SingleAsync(a => a.Id == administratie, stoppen);
+            if (adm.Afwijkend().Op(await KantoorDienst.Lees(db)).Documentmap is not { Length: > 0 } map)
+            {
+                return Uitkomst<string?>.Met(null);
+            }
+
+            (sjabloon, naam) = (map, adm.Naam);
+        }
+
+        if (await Beeld(wie, administratie, factuur) is not { Beeld: { Concept: false } beeld })
+        {
+            return Uitkomst<string?>.Mislukt("Alleen een definitieve factuur gaat naar de documentmap.");
+        }
+
+        var onderwerp = Bestandsnaam(beeld);
+        var bestand = await Pdf(wie, administratie, factuur, stoppen);
+        if (!bestand.IsGelukt)
+        {
+            await audit.Log(wie, AuditActies.DocumentNietOpgeslagen, onderwerp, string.Join(" ", bestand.Fouten), administratie);
+            return Uitkomst<string?>.Mislukt([.. bestand.Fouten]);
+        }
+
+        var gegevens = new Documentgegevens(naam, "Verkoop", beeld.Factuur.Datum, beeld.Factuur.Klant.Naam, beeld.Factuur.Nummer, ".pdf");
+        string? pad = null;
+        try
+        {
+            var map = Documentpad.Map(sjabloon, gegevens);
+            Directory.CreateDirectory(map);
+            pad = await InkoopDienst.SchrijfNieuw(Path.Combine(map, Documentpad.Bestandsnaam(gegevens)), bestand.Waarde!.Inhoud);
+            await audit.Log(wie, AuditActies.DocumentOpgeslagen, onderwerp, pad, administratie);
+            return Uitkomst<string?>.Met(pad);
+        }
+        catch (Exception fout) when (fout is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            await audit.Log(wie, AuditActies.DocumentNietOpgeslagen, onderwerp, $"{pad ?? sjabloon}: {fout.Message}", administratie);
+            return Uitkomst<string?>.Mislukt($"Niet in de documentmap gezet: {fout.Message}");
+        }
     }
 
     /// <summary>Een voorbeeld als PDF (in de ontwerper, met voorbeeldgegevens): alleen opmaak, geen gegevens uit de administratie.</summary>

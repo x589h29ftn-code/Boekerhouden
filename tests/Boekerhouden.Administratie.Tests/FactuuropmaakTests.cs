@@ -238,6 +238,55 @@ public sealed class FactuuropmaakTests(AdministratieFixture app) : IClassFixture
     }
 
     [PdfBrowserFact]
+    public async Task Een_definitieve_factuur_komt_als_pdf_in_de_documentmap()
+    {
+        var (wie, id, klant) = await Administratie();
+        var opmaak = app.Dienst<FactuuropmaakDienst>();
+        var inrichting = app.Dienst<InrichtingDienst>();
+        var factuur = await Factuur(wie, id, klant);
+
+        // Zonder documentmap gebeurt er niets.
+        var zonder = await opmaak.ZetInDocumentmap(wie, id, factuur);
+        Assert.True(zonder.IsGelukt);
+        Assert.Null(zonder.Waarde);
+
+        var basis = Path.Combine(Path.GetTempPath(), "boekerhouden-tests", Guid.NewGuid().ToString("N"));
+        var huidig = await inrichting.Instellingen(wie, id);
+        await inrichting.WijzigInstellingen(wie, id, huidig with { Afwijkend = huidig.Afwijkend with { Documentmap = basis + "/#jaar/#soort" } });
+        try
+        {
+            var kopie = await opmaak.ZetInDocumentmap(wie, id, factuur);
+            Assert.True(kopie.IsGelukt, string.Join("; ", kopie.Fouten));
+            Assert.StartsWith(Path.Combine(basis, "2026", "Verkoop", "2026-03-01 "), kopie.Waarde, StringComparison.Ordinal);
+            Assert.EndsWith(".pdf", kopie.Waarde, StringComparison.Ordinal);
+            using (var document = PdfDocument.Open(await File.ReadAllBytesAsync(kopie.Waarde!)))
+            {
+                Assert.True(document.NumberOfPages >= 1);
+            }
+
+            Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.DocumentOpgeslagen && r.Details == kopie.Waarde);
+
+            // Nog een keer overschrijft niets: hetzelfde bestand blijft staan, of een ander bestand krijgt (2).
+            var tweede = (await opmaak.ZetInDocumentmap(wie, id, factuur)).Waarde!;
+            Assert.True(tweede == kopie.Waarde || tweede.EndsWith(" (2).pdf", StringComparison.Ordinal), tweede);
+            Assert.True(File.Exists(kopie.Waarde));
+
+            // Een concept gaat er niet in; en zonder het recht Invoeren of van buiten kan het niet.
+            var concept = await Factuur(wie, id, klant, definitief: false);
+            Assert.False((await opmaak.ZetInDocumentmap(wie, id, concept)).IsGelukt);
+            var buiten = await app.Gebruiker("Map Buiten");
+            await Assert.ThrowsAsync<GeenToegangException>(() => opmaak.ZetInDocumentmap(buiten, id, factuur));
+        }
+        finally
+        {
+            if (Directory.Exists(basis))
+            {
+                Directory.Delete(basis, recursive: true);
+            }
+        }
+    }
+
+    [PdfBrowserFact]
     public async Task De_pdf_loopt_door_op_een_volgende_pagina_met_de_voettekst_op_elke_pagina()
     {
         var beeld = Verkoopbeeld.Voorbeeld(Afzender, BtwCodes.Standaard, new(2026, 10, 31));

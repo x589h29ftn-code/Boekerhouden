@@ -56,7 +56,7 @@ public sealed record Aanmaakverslag(IReadOnlyList<(Guid Id, string? Nummer)> Fac
 /// met een datum: als concept, of meteen definitief; eventueel met de omzet verdeeld over de periode van de factuur.
 /// Een factuur die niet definitief kan (bijv. een ontbrekend adres), blijft als concept staan met de reden.
 /// </summary>
-public sealed class AbonnementDienst(Toegang toegang, VerkoopDienst verkoop, AuditDienst audit, TimeProvider tijd)
+public sealed class AbonnementDienst(Toegang toegang, VerkoopDienst verkoop, AuditDienst audit, TimeProvider tijd, FactuuropmaakDienst opmaak)
 {
     private static readonly JsonSerializerOptions Json = new();
 
@@ -250,6 +250,7 @@ public sealed class AbonnementDienst(Toegang toegang, VerkoopDienst verkoop, Aud
                 if (definitief.IsGelukt)
                 {
                     nummer = definitief.Waarde;
+                    await opmaak.ZetInDocumentmap(wie, administratie, id);
                 }
                 else
                 {

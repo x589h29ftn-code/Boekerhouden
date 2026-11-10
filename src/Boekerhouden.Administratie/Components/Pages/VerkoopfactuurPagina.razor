@@ -78,15 +78,37 @@
                 <div class="d-flex align-items-end flex-wrap gap-3">
                     <div>
                         <label class="form-label small" for="eerste-maand">Eerste maand</label>
-                        <input id="eerste-maand" type="month" class="form-control form-control-sm" @bind="eersteMaand" @bind:format="yyyy-MM" />
+                        <input id="eerste-maand" type="month" class="form-control form-control-sm" @bind="eersteMaand" @bind:format="yyyy-MM" @bind:event="oninput" />
                     </div>
                     <div>
                         <label class="form-label small" for="aantal-maanden">Aantal facturen</label>
-                        <input id="aantal-maanden" type="number" min="1" max="@VerkoopDienst.MaximumPerMaand" class="form-control form-control-sm" style="width:6rem" @bind="aantalMaanden" />
+                        <input id="aantal-maanden" type="number" min="1" max="@VerkoopDienst.MaximumPerMaand" class="form-control form-control-sm" style="width:6rem" @bind="aantalMaanden" @bind:event="oninput" />
                     </div>
                     <button class="btn btn-sm btn-primary" disabled="@bezig" @onclick="MaakPerMaand">@aantalMaanden concepten maken</button>
                     <button class="btn btn-sm btn-link text-secondary" @onclick="() => perMaandOpen = false">Annuleren</button>
                 </div>
+                @if (weergave is not null && VerkoopDienst.PerMaand(weergave.Invoer, eersteMaand.Year, eersteMaand.Month, aantalMaanden) is { Count: > 0 } teMaken)
+                {
+                    <table class="table table-sm align-middle mb-0 mt-3 overzichtstabel per-maand-voorbeeld">
+                        <thead>
+                            <tr><th style="width:7rem">Datum</th><th style="width:7rem">Vervalt</th><th>Omschrijving</th><th class="text-end" style="width:9rem">Bedrag excl. btw</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var m in teMaken)
+                            {
+                                <tr>
+                                    <td class="text-nowrap">@Weergave.Datum(m.Datum)</td>
+                                    <td class="text-nowrap text-secondary">@Weergave.Datum(m.Vervaldatum)</td>
+                                    <td class="text-truncate" title="@string.Join(" · ", m.Regels.Select(r => r.Omschrijving))">@m.Omschrijving</td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(m.Regels.Sum(r => r.Bedrag))</td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr class="generaal"><td colspan="3">@teMaken.Count @(teMaken.Count == 1 ? "factuur" : "facturen")</td><td class="bedrag text-end">@Weergave.Bedrag(teMaken.Sum(m => m.Regels.Sum(r => r.Bedrag)))</td></tr>
+                        </tfoot>
+                    </table>
+                }
             </div>
         }
         @if (bericht is not null)
@@ -538,6 +560,8 @@
             fouten = uitkomst.Fouten;
             if (uitkomst.IsGelukt)
             {
+                var kopie = await Opmaak.ZetInDocumentmap(geopend!.Wie, Id, id);
+                fouten = kopie.IsGelukt ? fouten : kopie.Fouten;
                 var melding = $"Factuur {uitkomst.Waarde} definitief en geboekt.";
                 if (Factuur == id)
                 {

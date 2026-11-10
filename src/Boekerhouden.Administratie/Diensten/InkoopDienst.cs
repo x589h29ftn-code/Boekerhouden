@@ -1125,7 +1125,7 @@ public sealed class InkoopDienst(
     }
 
     /// <summary>Schrijft het bestand zonder iets te overschrijven: staat er al een ander bestand, dan "naam (2).pdf".</summary>
-    private static async Task<string> SchrijfNieuw(string pad, byte[] inhoud)
+    internal static async Task<string> SchrijfNieuw(string pad, byte[] inhoud)
     {
         var map = Path.GetDirectoryName(pad)!;
         var naam = Path.GetFileNameWithoutExtension(pad);

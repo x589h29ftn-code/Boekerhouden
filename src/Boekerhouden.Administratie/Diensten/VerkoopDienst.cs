@@ -576,6 +576,40 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
     public const int MaximumPerMaand = 24;
 
     /// <summary>
+    /// De facturen die "per maand" maakt van <paramref name="bron"/>: vanaf de eerste maand elke maand één, op dezelfde
+    /// dag van de maand (of de laatste dag als de maand korter is), met dezelfde betalingstermijn en de maand in de
+    /// teksten aangepast. Ook voor het voorbeeld op het scherm.
+    /// </summary>
+    public static IReadOnlyList<Verkoopinvoer> PerMaand(Verkoopinvoer bron, int jaar, int maand, int aantal)
+    {
+        ArgumentNullException.ThrowIfNull(bron);
+        if (aantal is < 1 or > MaximumPerMaand || maand is < 1 or > 12 || jaar is < 1900 or > 9999)
+        {
+            return [];
+        }
+
+        bron = bron with { Verdeling = null, Factuurnummer = null };
+        var termijn = bron.Vervaldatum.DayNumber - bron.Datum.DayNumber;
+        var facturen = new List<Verkoopinvoer>();
+        for (var i = 0; i < aantal; i++)
+        {
+            var eerste = new DateOnly(jaar, maand, 1).AddMonths(i);
+            var datum = new DateOnly(eerste.Year, eerste.Month, Math.Min(bron.Datum.Day, DateTime.DaysInMonth(eerste.Year, eerste.Month)));
+            string Tekst(string tekst) => Boekhouding.Grootboek.Journaalkopie.Omschrijving(tekst, bron.Datum, datum);
+            facturen.Add(bron with
+            {
+                Datum = datum,
+                Vervaldatum = datum.AddDays(termijn),
+                Omschrijving = Tekst(bron.Omschrijving),
+                Tekst = bron.Tekst is { } t ? Tekst(t) : null,
+                Regels = [.. bron.Regels.Select(r => r with { Omschrijving = Tekst(r.Omschrijving) })],
+            });
+        }
+
+        return facturen;
+    }
+
+    /// <summary>
     /// Vanuit een factuur een reeks concepten, één per maand (bijv. de fee voor twaalf maanden): dezelfde klant en
     /// regels, gedateerd op dezelfde dag in elke maand (of de laatste dag van een kortere maand) met dezelfde
     /// betalingstermijn, en de maand in de omschrijvingen mee ("Fee januari 2026" wordt "Fee februari 2026", en
@@ -604,27 +638,15 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
             bron = Invoer(v) with { Verdeling = null, Factuurnummer = null };
         }
 
-        var termijn = bron.Vervaldatum.DayNumber - bron.Datum.DayNumber;
         var gemaakt = 0;
-        for (var i = 0; i < aantal; i++)
+        foreach (var invoer in PerMaand(bron, jaar, maand, aantal))
         {
-            var eerste = new DateOnly(jaar, maand, 1).AddMonths(i);
-            var datum = new DateOnly(eerste.Year, eerste.Month, Math.Min(bron.Datum.Day, DateTime.DaysInMonth(eerste.Year, eerste.Month)));
-            string Tekst(string tekst) => Boekhouding.Grootboek.Journaalkopie.Omschrijving(tekst, bron.Datum, datum);
-            var invoer = bron with
-            {
-                Datum = datum,
-                Vervaldatum = datum.AddDays(termijn),
-                Omschrijving = Tekst(bron.Omschrijving),
-                Tekst = bron.Tekst is { } t ? Tekst(t) : null,
-                Regels = [.. bron.Regels.Select(r => r with { Omschrijving = Tekst(r.Omschrijving) })],
-            };
             var uitkomst = await Bewaar(wie, administratie, null, invoer);
             if (!uitkomst.IsGelukt)
             {
                 return gemaakt == 0
                     ? Uitkomst<int>.Mislukt([.. uitkomst.Fouten])
-                    : Uitkomst<int>.Mislukt([$"{gemaakt} van de {aantal} concepten zijn gemaakt; {datum:MM-yyyy} niet:", .. uitkomst.Fouten]);
+                    : Uitkomst<int>.Mislukt([$"{gemaakt} van de {aantal} concepten zijn gemaakt; {invoer.Datum:MM-yyyy} niet:", .. uitkomst.Fouten]);
             }
 
             gemaakt++;

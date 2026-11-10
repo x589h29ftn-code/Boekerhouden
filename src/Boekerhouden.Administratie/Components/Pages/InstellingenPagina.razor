@@ -41,6 +41,9 @@
                     <div class="col-md-4"><label class="form-label" for="website">Website</label><input id="website" class="form-control" @bind="gegevens.Website" /></div>
                 </div>
             </Formulierblok>
+            <Formulierblok Titel="Documenten">
+                <Documentmapveld Invoer="instellingen" Kantoor="kantoor" Label="Map voor facturen" Administratie="@gegevens.Naam" />
+            </Formulierblok>
             <Formulierblok Titel="Belastingdienst">
                 <div class="row g-2 belastingrekeningen">
                     <div class="col-md-6"><label class="form-label">Omzetbelasting</label><RekeningKeuze @bind-Waarde="belasting.Omzetbelasting" Schema="schema" Kader="geopend" Label="Rekening omzetbelasting" Klasse="form-control" /></div>
@@ -121,7 +124,7 @@
                 </Formulierblok>
             }
             <Formulierblok Titel="Verwerken">
-                <InstellingenVelden Invoer="instellingen" Kantoor="kantoor" />
+                <InstellingenVelden Invoer="instellingen" Kantoor="kantoor" MetDocumentmap="false" />
             </Formulierblok>
             <Opslaanbalk Gewijzigd="Gewijzigd" Opgeslagen="opgeslagen" Bezig="bezig" Opslaan="Bewaar" Herstel="Herstel" />
         </div>

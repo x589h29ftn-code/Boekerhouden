@@ -1,5 +1,6 @@
 @page "/a/{Id:guid}/verkoop"
 @inject VerkoopDienst Verkoop
+@inject FactuuropmaakDienst Opmaak
 @inject AbonnementDienst Abonnementen
 @inject VerkoopimportDienst Import
 @inject NavigationManager Navigatie
@@ -223,7 +224,16 @@
     private async Task MaakDefinitief()
     {
         bezig = true;
-        var uitkomst = await Bulk.Voer(Gekozen, async r => await Verkoop.MaakDefinitief(geopend!.Wie, Id, r.Id), Naam);
+        var uitkomst = await Bulk.Voer(Gekozen, async r =>
+        {
+            var definitief = await Verkoop.MaakDefinitief(geopend!.Wie, Id, r.Id);
+            if (definitief.IsGelukt)
+            {
+                await Opmaak.ZetInDocumentmap(geopend!.Wie, Id, r.Id);
+            }
+
+            return definitief;
+        }, Naam);
         await NaBulk(uitkomst, "definitief gemaakt");
     }
 

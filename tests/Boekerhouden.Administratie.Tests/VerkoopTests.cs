@@ -84,6 +84,13 @@ public sealed class VerkoopTests(AdministratieFixture app) : IClassFixture<Admin
         Assert.Equal("Fee januari 2027", (await verkoop.Open(wie, id, concepten[^1].Id))!.Factuur.Omschrijving);
         Assert.False((await verkoop.MaakPerMaand(wie, id, bron.Waarde, 2026, 2, 25)).IsGelukt);
 
+        // Het voorbeeld op het scherm is precies wat er gemaakt wordt.
+        var voorbeeld = VerkoopDienst.PerMaand((await verkoop.Open(wie, id, bron.Waarde))!.Invoer, 2026, 2, 12);
+        Assert.Equal(concepten.Select(c => (c.Datum, c.Omschrijving)), voorbeeld.Select(v => (v.Datum, v.Omschrijving)));
+        Assert.Equal((new DateOnly(2026, 3, 14), 500m), (voorbeeld[0].Vervaldatum, voorbeeld[0].Regels.Sum(r => r.Bedrag)));
+        Assert.Empty(VerkoopDienst.PerMaand(voorbeeld[0], 2026, 2, 0));
+        Assert.Empty(VerkoopDienst.PerMaand(voorbeeld[0], 2026, 13, 1));
+
         var inzien = await app.Gebruiker("Inge Fee");
         await app.Dienst<AdministratieDienst>().ZetLid(id, inzien.Id!.Value, Lidmaatschapsrol.Inzien, wie);
         await Assert.ThrowsAsync<GeenToegangException>(() => verkoop.MaakPerMaand(inzien, id, bron.Waarde, 2026, 2, 1));

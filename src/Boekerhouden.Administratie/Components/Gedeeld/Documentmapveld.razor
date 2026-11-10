@@ -1,0 +1,44 @@
+@* De map waar een kopie van elke geboekte inkoopfactuur en elke definitieve verkoopfactuur komt (bijv. een OneDrive-map
+   per klant en boekjaar), met eronder waar een factuur van vandaag terechtkomt. Leeg bij een administratie = zoals het kantoor. *@
+@using Boekerhouden.Boekhouding.Facturen
+@using Boekerhouden.Boekhouding.Regels
+@inject TimeProvider Tijd
+
+<label class="form-label" for="documentmap">@Label</label>
+<input id="documentmap" class="form-control" @bind="Invoer.Documentmap" @bind:event="oninput"
+       placeholder="@(Kantoor is null ? Voorbeeldmap : Kantoor.Documentmap is { Length: > 0 } k ? $"kantoor: {k}" : Voorbeeldmap)"
+       title="@string.Join(", ", Documentpad.Variabelen.Select(v => $"{v.Naam} = {v.Betekenis}"))" />
+@if (Voorbeeld() is { } pad)
+{
+    <div class="small text-secondary mt-1 text-break" title="Waar een inkoopfactuur van vandaag komt">@pad</div>
+}
+
+@code {
+    private const string Voorbeeldmap = @"bijv. C:\Users\naam\OneDrive\Klanten\#administratie\#jaar\#soort";
+
+    [Parameter, EditorRequired]
+    public InstellingenInvoer Invoer { get; set; } = default!;
+
+    [Parameter]
+    public Verwerkingsinstellingen? Kantoor { get; set; }
+
+    [Parameter]
+    public string Label { get; set; } = "Documentmap";
+
+    /// <summary>De naam van de administratie voor het voorbeeld; bij het kantoor een voorbeeldnaam.</summary>
+    [Parameter]
+    public string? Administratie { get; set; }
+
+    /// <summary>De map en bestandsnaam van een inkoopfactuur van vandaag, als de map (hier of bij het kantoor) geldig is.</summary>
+    private string? Voorbeeld()
+    {
+        var sjabloon = string.IsNullOrWhiteSpace(Invoer.Documentmap) ? Kantoor?.Documentmap : Invoer.Documentmap.Trim();
+        if (string.IsNullOrWhiteSpace(sjabloon) || Documentpad.Controleer(sjabloon).Count > 0)
+        {
+            return null;
+        }
+
+        var gegevens = new Documentgegevens(Administratie ?? "Voorbeeld B.V.", "Inkoop", DateOnly.FromDateTime(Tijd.GetLocalNow().DateTime), "Leverancier B.V.", "2026-0042", ".pdf");
+        return System.IO.Path.Combine(Documentpad.Map(sjabloon, gegevens), Documentpad.Bestandsnaam(gegevens));
+    }
+}
