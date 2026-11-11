@@ -420,6 +420,25 @@ debiteuren, een betaling bij crediteuren. Elke kandidaat krijgt een **zekerheid*
 - Getest met twee praktijksets (oktober 2026, verzonnen): `BankpraktijkTests` (deelbetaling in twee delen, dubbele
   betaling en terugbetaling; kenmerk, factuur min creditnota, sombetaling, betalingskorting en een ander IBAN).
 
+**Pinbetaling van een bon** (`Afletteren/Pinbetaling`): een afschrijving zonder tegenrekening heeft geen factuurnummer
+en geen IBAN. Dan tellen het bedrag (exact), de dag en de naam van de winkel:
+
+- de **dag** van de betaling staat meestal in de omschrijving ("11.11.26/10.19", "11-11-2026 10:19"); dan moet de bon
+  van die dag zijn (of de dag ervoor). Staat hij er niet in, dan mag de boekdatum hoogstens 4 dagen na de bon liggen;
+- de **naam** van de winkel moet in de omschrijving of de naam van de tegenpartij staan. De bank schrijft hem anders dan
+  de bon: hoofdletters, een betaaldienst ervoor ("CCV*", "SumUp *"), plaats of filiaalnummer erachter, afgekapt
+  ("Banketb Roomha", "Lunchroom De Kad"), aan elkaar ("BRANDSTOFNOORD") of ingekort ("Gamar 0412" voor Bouwhal Gamar).
+  Woorden als *bakkerij*, *supermarkt* en *B.V.* tellen niet mee; een kort woord als "Spar" alleen als los woord;
+- klopt dat bij precies één openstaande bon, dan is het **zeker** en wordt hij vanzelf afgeletterd. Twee bonnen van
+  dezelfde winkel met hetzelfde bedrag: alleen zeker als de omschrijving de dag noemt en één bon van die dag is;
+- zonder herkende naam (de bank noemt de exploitant, niet de naam op de bon) een **voorstel** "Bedrag en datum", de
+  dichtste dag bovenaan. Een andere dag, een ander bedrag of een IBAN dat niet van de winkel is: nooit vanzelf.
+
+Test met 50 willekeurige bonnen (`PinbetalingTests.Vijftig_willekeurige_bonnen_tegen_het_bankafschrift`, vast zaadje):
+16 winkels, met opzet dubbele bedragen, 46 pinregels in de vorm van vier banken en 30 afleiders (pinbetalingen zonder
+bon). Uitkomst: alle 42 bonnen waarvan de winkelnaam op het afschrift staat vanzelf goed, de 4 zonder naam als voorstel
+bovenaan, geen enkele verkeerd en geen afleider vanzelf.
+
 ### 3.9 Rechten en gebruikers
 
 - Een gebruiker heeft per administratie de rol **inzien** (alleen overzichten), **ondernemer** (inlezen,

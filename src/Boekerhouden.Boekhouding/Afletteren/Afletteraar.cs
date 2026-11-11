@@ -61,6 +61,7 @@ public sealed record Afletteradvies(Bankmutatie Mutatie, IReadOnlyList<Afletterk
 /// <item>betalingskenmerk gelijk;</item>
 /// <item>factuurnummer in de omschrijving;</item>
 /// <item>IBAN van de relatie en hetzelfde bedrag (ook zonder factuurnummer);</item>
+/// <item>pinbetaling van een bon: hetzelfde bedrag, de dag van de bon en de naam van de winkel in de mutatie (<see cref="Pinbetaling"/>);</item>
 /// <item>IBAN van de relatie en de som van enkele posten (verzamelbetaling);</item>
 /// <item>naam van de tegenpartij en hetzelfde bedrag;</item>
 /// <item>alleen hetzelfde bedrag, als dat maar bij één post voorkomt.</item>
@@ -168,6 +169,33 @@ public static partial class Afletteraar
             var ander = Factuurnummers.AnderNummerUitReeks(post.Factuurnummer, tekst);
             Voegtoe([post], gelijk.Count == 1 && !ander ? Zekerheid.Zeker : Zekerheid.Voorstel,
                 ander ? "IBAN en bedrag, maar een ander factuurnummer" : gelijk.Count == 1 ? "IBAN en bedrag" : "IBAN en bedrag, meerdere facturen");
+        }
+
+        // 3b. Pinbetaling van een bon (een afschrijving zonder tegenrekening): geen factuurnummer, wel hetzelfde bedrag, de dag van
+        // de bon (uit de omschrijving, anders de boekdatum hoogstens een paar dagen later) en de naam van de winkel in
+        // de tekst van de mutatie. Zeker als dat bij precies één post zo is; bij meer (twee bonnen van dezelfde winkel
+        // met hetzelfde bedrag) alleen als één ervan precies op de dag van de betaling valt.
+        if (string.IsNullOrWhiteSpace(mutatie.TegenIban) && mutatie.Bedrag < 0)
+        {
+            var naamtekst = string.Join(' ', mutatie.TegenNaam, mutatie.Omschrijving);
+            var namen = relatielijst.GroupBy(r => r.Code, StringComparer.Ordinal).ToDictionary(g => g.Key, g => Pinbetaling.NaamKomtVoor(g.First().Naam, naamtekst), StringComparer.Ordinal);
+            var betaaldag = Pinbetaling.Betaaldag(mutatie);
+            int? Dagen(OpenPost p) =>
+                (betaaldag ?? mutatie.Datum).DayNumber - p.Datum.DayNumber is var dagen && dagen >= 0 && dagen <= (betaaldag is null ? Pinbetaling.Boekdagen : 1) ? dagen : null;
+            var opDag = posten.Where(p => p.Openstaand == mutatie.Bedrag && !gebruikt.Contains(p.Id) && Dagen(p) is not null && !AnderIban(p)).ToList();
+            var metNaam = opDag.Where(p => namen.GetValueOrDefault(p.Relatie)).ToList();
+            var precies = metNaam.Where(p => Dagen(p) == 0).ToList();
+            var zekere = metNaam is [var enig] ? enig : precies is [var opDeDag] ? opDeDag : null;
+            foreach (var post in metNaam.OrderBy(p => Dagen(p)))
+            {
+                Voegtoe([post], post == zekere ? Zekerheid.Zeker : Zekerheid.Voorstel, post == zekere ? "Pinbetaling: bedrag, datum en naam" : "Pinbetaling: bedrag, datum en naam, meerdere bonnen");
+            }
+
+            // Zonder herkende naam (de bank noemt een andere naam dan er op de bon staat): een voorstel, de dichtste dag eerst.
+            foreach (var post in opDag.Where(p => !gebruikt.Contains(p.Id)).OrderBy(p => Dagen(p)))
+            {
+                Voegtoe([post], Zekerheid.Voorstel, "Bedrag en datum");
+            }
         }
 
         // 4. Verzamelbetaling: de som van enkele posten van de relatie (ook met een creditnota).

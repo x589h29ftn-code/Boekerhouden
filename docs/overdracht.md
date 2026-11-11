@@ -151,6 +151,10 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     (`BonnenstressTests`, draait alleen met `BOEKERHOUDEN_BONNENMAP`); 24 van 25 goed. Tesseract leest sindsdien in twee
     standen (psm 3 en 4) en kiest de beste. Een echte bon van de gebruiker staat in `testdata/bonnen/` (niet in git).
 
+22. **Pinbetaling bij een bon** (README §3.8): het afletteren herkent een afschrijving zonder tegenrekening als de
+    betaling van een bon op bedrag, dag (uit de omschrijving of de boekdatum) en winkelnaam (`Afletteren/Pinbetaling`,
+    stap 3b in `Afletteraar`); zeker bij precies één bon. `PinbetalingTests` met 50 willekeurige bonnen.
+
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).
 

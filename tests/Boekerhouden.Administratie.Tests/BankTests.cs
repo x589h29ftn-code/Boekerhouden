@@ -119,6 +119,47 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
     }
 
     [Fact]
+    public async Task Een_pinbetaling_wordt_op_bedrag_datum_en_winkelnaam_vanzelf_afgeletterd_op_de_bon()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var inkoop = app.Dienst<InkoopDienst>();
+
+        // Een bon van de bouwmarkt van 14 maart (€ 24,99), geboekt op een leverancier zonder IBAN.
+        var gelezen = await inkoop.Lees(wie, id, new MemoryStream(InkoopTests.Belnet("0048213", "2026-03-14")), "bon.xml", null);
+        Assert.True((await inkoop.Boek(wie, id, gelezen.DocumentId!.Value, new Factuurinvoer(null, new NieuweRelatie("Bouwmarkt De Hamer", null, null, null), "0048213",
+            new(2026, 3, 14), new(2026, 3, 14), "Schroeven", [new Boekhouding.Facturen.Factuurregel("Schroeven", "4310", "I21", 20.65m, 4.34m)]))).IsGelukt);
+
+        // Het afschrift: de pinbetaling twee dagen later geboekt, met de dag en de winkel in de omschrijving; en later
+        // in de maand nog een keer hetzelfde bedrag bij dezelfde winkel, zonder bon.
+        const string Mt940 = """
+            :20:P260331000000001
+            :25:NL20INGB0001234567EUR
+            :28C:00000
+            :60F:C260301EUR000000005000,00
+            :61:2603160316D000000000024,99NBEANONREF
+            :86:BEA, Betaalpas BOUWMARKT DE HAMER,PAS012
+            NR:4SF001, 14.03.26/16.42 AMERSFOORT
+            :61:2603300330D000000000024,99NBEANONREF
+            :86:BEA, Betaalpas BOUWMARKT DE HAMER,PAS012
+            NR:4SF001, 30.03.26/09.15 AMERSFOORT
+            :62F:C260331EUR000000004950,02
+            -
+            """;
+
+        var bank = await app.Dienst<BankDienst>().Lees(wie, id, new MemoryStream(Encoding.Latin1.GetBytes(Mt940)), "pin.mt940");
+
+        Assert.True(bank.IsGelukt, string.Join("; ", bank.Fouten));
+        Assert.Equal((2, 1), (bank.Waarde!.Nieuw, bank.Waarde.Automatisch));
+        await using var db = await app.Dienst<Toegang>().Open(wie, id, Recht.Lezen);
+        Assert.Equal(0m, (await db.OpenstaandePosten.SingleAsync()).Openstaand);
+        var mutaties = await db.Banktransacties.OrderBy(t => t.Datum).ToListAsync();
+        Assert.Equal([Banktransactiestatus.Geboekt, Banktransactiestatus.TeVerwerken], mutaties.Select(t => t.Status));
+        Assert.StartsWith("Afgeletterd", mutaties[0].Melding, StringComparison.Ordinal);
+        Assert.Contains("pinbetaling", mutaties[0].Melding, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Factuurnummer_en_bedrag_gelijk_wordt_automatisch_afgeletterd()
     {
         var wie = await app.Beheerder();
