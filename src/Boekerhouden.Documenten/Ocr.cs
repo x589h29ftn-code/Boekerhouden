@@ -23,7 +23,7 @@ public interface IOcrMotor
 /// terug. Zonder shell, met een tijdslimiet, en het proces wordt bij overschrijding gestopt. Talen: Nederlands en
 /// Engels, voor zover geïnstalleerd.
 /// </summary>
-public sealed class TesseractOcr : IOcrMotor
+public sealed partial class TesseractOcr : IOcrMotor
 {
     public static readonly TimeSpan Tijdslimiet = TimeSpan.FromSeconds(90);
 
@@ -84,10 +84,32 @@ public sealed class TesseractOcr : IOcrMotor
         return null;
     }
 
+    /// <summary>
+    /// Leest de afbeelding in twee standen tegelijk en neemt de beste. De automatische indeling (psm 3) is goed voor een
+    /// factuur met kolommen en blokken, maar slaat op een kassabon vaak de rechterkolom met bedragen over; als één
+    /// kolom (psm 4) komen die wel mee. De beste is de stand met de meeste bedragen (bij gelijke stand de meeste woorden).
+    /// </summary>
     public async Task<OcrUitkomst> LeesAsync(byte[] afbeelding, CancellationToken annulering = default)
     {
         ArgumentNullException.ThrowIfNull(afbeelding);
-        List<string> argumenten = ["stdin", "stdout", "--psm", "3"];
+        var standen = await Task.WhenAll(Lees(afbeelding, 3, annulering), Lees(afbeelding, 4, annulering)).ConfigureAwait(false);
+        return standen.MaxBy(Kwaliteit)!;
+    }
+
+    /// <summary>Hoe bruikbaar een leesresultaat is: vooral het aantal bedragen, daarna het aantal woorden dat zeker is.</summary>
+    internal static int Kwaliteit(OcrUitkomst ocr)
+    {
+        ArgumentNullException.ThrowIfNull(ocr);
+        var zeker = ocr.Woorden.Where(w => w.Zekerheid >= 40).ToList();
+        return (zeker.Count(w => Bedrag().IsMatch(w.Tekst)) * 1000) + zeker.Count;
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"^-?[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}$|^-?[0-9]+[.,][0-9]{2}$")]
+    private static partial System.Text.RegularExpressions.Regex Bedrag();
+
+    private async Task<OcrUitkomst> Lees(byte[] afbeelding, int stand, CancellationToken annulering)
+    {
+        List<string> argumenten = ["stdin", "stdout", "--psm", stand.ToString(CultureInfo.InvariantCulture)];
         if (talen is not null)
         {
             argumenten.InsertRange(2, ["-l", talen]);

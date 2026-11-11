@@ -50,9 +50,16 @@ public static class Fotoverbetering
                     var i = (y * breedte) + x;
 
                     // Vlaktrekken: de helderheid ten opzichte van het papier op die plek.
-                    var vlak = Math.Min(255, grijs[i] * 255 / Math.Max(Achtergrond(papier, x, y), 40));
-                    uit[i] = (byte)Math.Clamp((vlak - Zwart) * 255 / (Wit - Zwart), 0, 255);
+                    uit[i] = (byte)Math.Min(255, grijs[i] * 255 / Math.Max(Achtergrond(papier, x, y), 40));
                 }
+            }
+
+            // Contrast: wat donkerder is dan de inkt wordt zwart, papier wit. Vervaagde (thermische) of dunne inkt is
+            // lichter dan gewone drukinkt; dan schuift de grens mee, zodat ook die letters zwart worden.
+            var zwart = Inktgrens(uit);
+            for (var i = 0; i < uit.Length; i++)
+            {
+                uit[i] = (byte)Math.Clamp((uit[i] - zwart) * 255 / (Wit - zwart), 0, 255);
             }
 
             WisVlakken(uit, breedte, hoogte);
@@ -198,6 +205,39 @@ public static class Fotoverbetering
         using var beeld = SKImage.FromBitmap(bron);
         canvas.DrawImage(beeld, new SKRect(0, 0, bron.Width, bron.Height), new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None));
         return doel;
+    }
+
+    /// <summary>
+    /// De helderheid waaronder iets inkt is: gewoonlijk <see cref="Zwart"/>, maar hoger als de inkt op deze foto lichter is
+    /// (de mediaan van alles wat duidelijk geen papier is), tot een grens waarbij papier nog wit blijft.
+    /// </summary>
+    private static int Inktgrens(byte[] vlak)
+    {
+        var telling = new int[256];
+        foreach (var waarde in vlak)
+        {
+            telling[waarde]++;
+        }
+
+        // Alles onder 170 is geen papier (letters, lijnen); te weinig daarvan: niets te zeggen.
+        var donker = 0;
+        for (var w = 0; w < 170; w++)
+        {
+            donker += telling[w];
+        }
+
+        if (donker < vlak.Length / 500)
+        {
+            return Zwart;
+        }
+
+        var (half, mediaan) = (donker / 2, 0);
+        while (mediaan < 169 && (half -= telling[mediaan]) > 0)
+        {
+            mediaan++;
+        }
+
+        return Math.Clamp(mediaan + 15, Zwart, 165);
     }
 
     /// <summary>De foto rechtop (zoals de camera hem bedoelde) en hoogstens <see cref="MaximumZijde"/> groot.</summary>

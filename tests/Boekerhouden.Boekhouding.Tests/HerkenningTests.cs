@@ -48,6 +48,67 @@ public sealed class FactuurtekstTests
     }
 
     [Fact]
+    public void Leesfouten_op_bonnen_uit_de_stresstest()
+    {
+        // Tankbon: "BIW" voor BTW en een spatie in een bedrag.
+        var tank = Factuurtekst.Analyseer("""
+            Brandstof Noord
+            Rijksweg 163
+            4608 EF Franeker
+            Bonnr: 4614-905    04-11-2026 22:46
+            35,33 L x € 2,107/L    74,44
+            Broodje gezond    4,75
+            Koffie groot    2,95
+            Totaal incl. BTW EUR    82,14
+            BTW 9% over 7,06    0, 64
+            BIW 21% over 61,52    12,92
+            Betaald met PIN    82,14
+            """, Herkenningsbron.Ocr);
+        Assert.Equal(("Brandstof Noord", "4614-905", 82.14m), (tank.Naam, tank.Factuurnummer, tank.TotaalInclusief));
+        Assert.Equal([(21m, 12.92m), (9m, 0.64m)], tank.Btwregels.Select(b => (b.Percentage, b.Btw)));
+
+        // Horeca: het tarief van een rij is weggevallen, het nummer staat achter "Rekening".
+        var horeca = Factuurtekst.Analyseer("""
+            Eetcafe Het Anker
+            Havenkade 7, Stavoren
+            Rekening 53834    22/07/2026
+            1x Cappuccino    3,40
+            1x Rode wijn glas    5,25
+            Te betalen    € 24,45
+            Btw    Grondslag    Btw-bedrag
+            %    12,80    1,15
+            21%    8,68    1,82
+            Pin    24,45
+            """, Herkenningsbron.Ocr);
+        Assert.Equal(("53834", 24.45m), (horeca.Factuurnummer, horeca.TotaalInclusief));
+        Assert.Equal([(21m, 1.82m), (9m, 1.15m)], horeca.Btwregels.Select(b => (b.Percentage, b.Btw)));
+
+        // Bouwmarkt: de grondslag verkeerd gelezen (717,39), btw en totaal op de rij kloppen wel.
+        var bouw = Factuurtekst.Analyseer("""
+            BOUWHAL GAMAR
+            Industrieweg 8
+            Kassa 01    Bon 458132
+            TOTAAL    93,64
+            BTW%    Excl    BTW    Incl
+            21%    717,39    16,25    93,64
+            Transactie 26233182
+            """, Herkenningsbron.Ocr);
+        Assert.Equal(("458132", 77.39m, 16.25m, 93.64m), (bouw.Factuurnummer, bouw.TotaalExclusief, bouw.TotaalBtw, bouw.TotaalInclusief));
+
+        // Supermarkt: van de 21%-rij is alleen het btw-bedrag leesbaar; drogist: het procentteken ontbreekt.
+        var super = Factuurtekst.Analyseer("TOTAAL    24,59\nPINNEN    24,59\nBTW    OVER    EUR\n9%    21,10    1,90\n21%    2,3)    0,28\nTOTAAL    22,41    2,18", Herkenningsbron.Ocr);
+        Assert.Equal((24.59m, 2.18m), (super.TotaalInclusief, super.TotaalBtw));
+        var drogist = Factuurtekst.Analyseer("Totaal    18,75\nPinbetaling    18,75\nBTW 9    0,39\nBTW 21    2,42\nTotaal exclusief BTW    15,94", Herkenningsbron.Ocr);
+        Assert.Equal((18.75m, 15.94m, 2.81m), (drogist.TotaalInclusief, drogist.TotaalExclusief, drogist.TotaalBtw));
+
+        // Parkeren: "Bedrag" als totaal; kiosk: de naam lijkt op een adres maar staat boven het adres; een flard is geen naam.
+        var parkeren = Factuurtekst.Analyseer("Parkeergarage Centrum\nGroningen\nTicket 438916\nBedrag    EUR 3,50\nIncl. 21% BTW    EUR 0,61", Herkenningsbron.Ocr);
+        Assert.Equal(("438916", 3.50m, 0.61m), (parkeren.Factuurnummer, parkeren.TotaalInclusief, parkeren.TotaalBtw));
+        Assert.Equal("Kiosk Perron 1", Factuurtekst.Analyseer("Kiosk Perron 1\nStationsplein 4, Zwolle\nPostzegels NL 10st    12,10\nTotaal    12,10", Herkenningsbron.Ocr).Naam);
+        Assert.Equal("Banketbakker Roomhart", Factuurtekst.Analyseer("nnen\nBanketbakker Roomhart\nMarktplein 16\n5238 HK Joure\nTotaal    € 18,00", Herkenningsbron.Ocr).Naam);
+    }
+
+    [Fact]
     public void Een_kassabon_met_totaal_btw_blok_en_bonnummer()
     {
         const string Bon = """

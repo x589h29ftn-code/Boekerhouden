@@ -688,6 +688,21 @@ Bij een bon met leesfouten helpt de analyse zichzelf: een btw-rij die met het ta
 grootste bedrag verkeerd is gelezen); staat de naam alleen in het logo, dan komt hij uit het webadres (ook "www. "
 met een spatie), aangevuld met wat er van het logo wel gelezen is ("Zoet Banketb" + domein → "Zoet Banketbakkerij").
 
+**Stresstest**: `python3 scripts/bonnen/maak-bonnen.py <map>` maakt 25 verzonnen telefoonfoto's (bouwmarkt, supermarkt,
+bakkerij, tankstation, horeca, drogist, parkeren, een bon zonder btw; scheef tot 6 graden, wazig, schaduw, vervaagde
+inkt, ruis; 9%, 21% en gemengd) en `BOEKERHOUDEN_BONNENMAP=<map> dotnet test tests/Boekerhouden.Documenten.Tests
+--filter Bonnenstress` haalt ze door de hele keten en schrijft `verslag.txt` (per bon en per veld). Stand 11 november
+2026: 24 van de 25 helemaal goed (naam, datum, totaal, btw per tarief, bonnummer); de bon met heel dunne, vervaagde
+letters leest de tekstherkenning niet. Wat de test opleverde:
+
+- de tekstherkenning leest in **twee standen** (automatische indeling en één kolom) en neemt die met de meeste
+  bedragen: bij de automatische indeling viel op een bon vaak de hele rechterkolom weg (`TesseractOcr.Kwaliteit`);
+- het contrast schuift mee met **vervaagde inkt**; "BIW" wordt BTW; een spatie in een bedrag ("24, 39") gaat weg;
+- btw-rijen met leesfouten: het tarief weggevallen, de grondslag verkeerd, alleen het btw-bedrag leesbaar, "BTW 9"
+  zonder procentteken; het totaal ook achter *Pinnen*, *Pin betaald*, *Bedrag*;
+- het nummer ook achter *Rekening* (horeca) en *Ticket*; een naam die op een adres lijkt maar boven het adres staat;
+  een flard ("nnen") is geen naam.
+
 Nog niet: HEIC-foto's van een iPhone (eerst als JPEG delen), bijsnijden op het papier, meerdere foto's van één lange
 bon samenvoegen, en een eigen soort *bon* die direct tegen de pinbetaling of kas boekt.
 

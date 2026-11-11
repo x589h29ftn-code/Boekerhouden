@@ -147,6 +147,10 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     van de instellingen van een administratie terug naar het hoofdscherm met de melding linksonder.
     `FotoverbeteringTests`, `tests/Fictief/administratie/maak-bon.py` maakt de verzonnen telefoonfoto.
 
+21. **Bonnen-stresstest** (README §3.20): 25 verzonnen bonnen (`scripts/bonnen/maak-bonnen.py`) door de hele keten
+    (`BonnenstressTests`, draait alleen met `BOEKERHOUDEN_BONNENMAP`); 24 van 25 goed. Tesseract leest sindsdien in twee
+    standen (psm 3 en 4) en kiest de beste. Een echte bon van de gebruiker staat in `testdata/bonnen/` (niet in git).
+
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).
 
