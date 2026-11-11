@@ -336,6 +336,10 @@ eigen btw-code voor de regel (`InrichtingDienst.WijzigRegel`, `Verwerkingsregel.
     daaronder.
   - **CAMT.053** (XML, ISO 20022): per mutatie het bedrag, debet/credit, de datum, de tegenpartij met IBAN,
     de omschrijving (`Ustrd`), het gestructureerde betalingskenmerk en de end-to-end-id.
+    Beide versies: de oude `camt.053.001.02` en die van 2019 (`camt.053.001.08`, waar de banken naar overgaan): de
+    tegenpartij onder `Pty`, de status als code (`Sts/Cd`), datums met een tijdzone (de dag zoals de bank hem schrijft,
+    zonder omrekenen). Een reservering (`PDNG`) of informatieve regel telt niet mee; een verzamelboeking wordt in zijn
+    transacties gesplitst, ook met bij- en afschrijvingen door elkaar.
   - **Controle**: beginsaldo + mutaties = eindsaldo, en het beginsaldo sluit aan op het vorige afschrift. Een
     mutatie die al eerder is ingelezen, wordt niet nog eens geboekt.
 - **Belastingdienst herkennen** (`Bank/Belastingherkenning`): een betaling aan of teruggaaf van de Belastingdienst
@@ -659,6 +663,26 @@ het formulier, een maand later, om aan te passen (bijv. andere bedragen) voor he
   (maand; standaard die van *periode tot en met*, bij vier-wekenperioden december) en een omschrijving; *Naar boeking*
   zet de boeking in het formulier op de laatste dag van die maand, met de namen uit het salarispakket als omschrijving
   per regel. Daar kan nog een regel bij of af, en *Boeken* kan alleen in balans.
+
+### 3.20 Foto's van bonnetjes
+
+Een foto (JPEG of PNG) van een bonnetje of factuur gaat gewoon via *Inkoop* → *Facturen inlezen*; er is geen aparte
+module. Vóór de tekstherkenning wordt de foto een **scan** (`Documenten/Fotoverbetering`, SkiaSharp):
+
+- rechtop gezet volgens de camera (EXIF) en verkleind tot hoogstens 2600 pixels;
+- in grijstinten, met de belichting per plek vlakgetrokken (schaduw en vergeeld papier worden wit) en het contrast
+  verhoogd (inkt wordt zwart);
+- grote donkere vlakken naast het papier (de tafel, een vinger) worden wit;
+- rechtgezet als de foto scheef is genomen (tot tien graden), zodat de regels weer horizontaal lopen.
+
+Die scan gaat door de tekstherkenning en wordt als PDF van één pagina bewaard (kleiner en beter leesbaar dan de
+foto); de controle op dubbel inlezen gaat op de foto zelf. Een bon heeft geen factuurnummer: dan wordt het
+**bonnummer** ("Bon 0048213", "Bonnr", "Ticket") genomen, en anders het transactienummer van de pinbetaling. Het
+totaal en het btw-blokje (per tarief: exclusief, btw, inclusief) worden gelezen als bij een factuur. De bon wordt als
+inkoopfactuur geboekt; de pinbetaling op het bankafschrift lettert hem af.
+
+Nog niet: HEIC-foto's van een iPhone (eerst als JPEG delen), bijsnijden op het papier, meerdere foto's van één lange
+bon samenvoegen, en een eigen soort *bon* die direct tegen de pinbetaling of kas boekt.
 
 ### 3.19 Stapel splitsen (bulk inlezen)
 

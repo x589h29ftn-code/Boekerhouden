@@ -282,4 +282,24 @@ public sealed class InkoopOpmaakTests(AdministratieFixture app) : IClassFixture<
         // Dezelfde foto nog eens: herkend als al ingelezen (op de inhoud van het origineel).
         Assert.Contains("al ingelezen", (await inkoop.Lees(wie, id, new MemoryStream(foto), "bon (2).png", "image/png")).Melding, StringComparison.Ordinal);
     }
+
+    [OcrFact]
+    public async Task Telefoonfoto_van_een_kassabon_met_schaduw_wordt_een_scan_en_het_totaal_wordt_gelezen()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Test Bon BV");
+        var inkoop = app.Dienst<InkoopDienst>();
+        var foto = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fictief", "administratie", "foto-bon-bouwmarkt.jpg"));
+
+        var gelezen = await inkoop.Lees(wie, id, new MemoryStream(foto), "IMG_2041.jpg", "image/jpeg");
+
+        var herkend = (await inkoop.Verwerking(wie, id, gelezen.DocumentId!.Value))!.Herkend!;
+        Assert.Equal(("BOUWMARKT DE HAMER", "0048213", new DateOnly(2026, 3, 14), Herkenningsbron.Ocr), (herkend.Naam, herkend.Factuurnummer, herkend.Factuurdatum, herkend.Bron));
+        Assert.Equal((66.24m, 13.91m, 80.15m), (herkend.TotaalExclusief, herkend.TotaalBtw, herkend.TotaalInclusief));
+        var bewaard = (await inkoop.Inhoud(wie, id, gelezen.DocumentId.Value))!.Value;
+        Assert.Equal((".pdf", "IMG_2041.pdf"), (Bestandssoort.Extensie(bewaard.Inhoud), bewaard.Bestandsnaam));
+
+        // Dezelfde foto nog eens: dubbel, op de inhoud van de foto zelf (niet van de scan).
+        Assert.True((await inkoop.Lees(wie, id, new MemoryStream(foto), "IMG_2041 (1).jpg", "image/jpeg")).Dubbel);
+    }
 }

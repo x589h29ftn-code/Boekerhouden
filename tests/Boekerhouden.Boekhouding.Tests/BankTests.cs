@@ -146,6 +146,26 @@ public sealed class Mt940Tests
 public sealed class Camt053Tests
 {
     [Fact]
+    public void De_versie_van_2019_met_partij_onder_Pty_status_als_code_en_datums_met_tijdzone()
+    {
+        var afschrift = Assert.Single(Mt940Tests.Lees("camt053-2019-2026-05.xml"));
+
+        Assert.Equal(("NL20INGB0001234567", "5", "EUR"), (afschrift.Iban, afschrift.Nummer, afschrift.Valuta));
+        Assert.Equal((new DateOnly(2026, 5, 1), 6720.65m, new DateOnly(2026, 5, 31), 7355.15m), (afschrift.Begindatum, afschrift.Beginsaldo, afschrift.Einddatum, afschrift.Eindsaldo));
+
+        // De reservering (PDNG) telt niet mee; de verzamelboeking is gesplitst; het saldo sluit.
+        Assert.Equal(3, afschrift.Mutaties.Count);
+        Assert.Equal(afschrift.Eindsaldo, afschrift.Beginsaldo + afschrift.Mutaties.Sum(m => m.Bedrag));
+        var ontvangst = afschrift.Mutaties[0];
+        Assert.Equal((new DateOnly(2026, 5, 4), 1210.00m, "Lunchroom De Hoek", "NL91ABNA0417164300", "Factuur 20260012", (string?)null),
+            (ontvangst.Datum, ontvangst.Bedrag, ontvangst.TegenNaam, ontvangst.TegenIban, ontvangst.Omschrijving, ontvangst.EndToEndId));
+        Assert.Equal((new DateOnly(2026, 5, 12), -500.00m, "Meelhandel Korenaar B.V.", "RF18539007547034"),
+            (afschrift.Mutaties[1].Datum, afschrift.Mutaties[1].Bedrag, afschrift.Mutaties[1].TegenNaam, afschrift.Mutaties[1].Betalingskenmerk));
+        Assert.Equal((-75.50m, "Belnet B.V.", "Telefoon mei", "BN-2026-0511"),
+            (afschrift.Mutaties[2].Bedrag, afschrift.Mutaties[2].TegenNaam, afschrift.Mutaties[2].Omschrijving, afschrift.Mutaties[2].EndToEndId));
+    }
+
+    [Fact]
     public void Afschrift_met_saldi_tegenpartijen_kenmerk_en_verzamelboeking()
     {
         var afschrift = Assert.Single(Mt940Tests.Lees("camt053-2026-04.xml"));

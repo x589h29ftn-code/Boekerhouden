@@ -141,6 +141,12 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     nog de btw-module, vennootschapsbelasting, loonjournaal, privégebruik auto en het verkoopboek voor ingelezen
     facturen (wel in README §3.2–§3.18).
 
+20. **Bonnetjes, CAMT.053 van 2019, instellingen** (11 november): een foto wordt vóór de tekstherkenning een scan
+    (`Fotoverbetering`: rechtop, grijs, belichting vlak, contrast, vlakken weg, rechtzetten; SkiaSharp, MIT) en een bon
+    krijgt zijn bonnummer als factuurnummer (README §3.20); CAMT.053 `001.08` naast `001.02` (README §3.7); na Opslaan
+    van de instellingen van een administratie terug naar het hoofdscherm met de melding linksonder.
+    `FotoverbeteringTests`, `tests/Fictief/administratie/maak-bon.py` maakt de verzonnen telefoonfoto.
+
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).
 
@@ -161,7 +167,7 @@ Afgesproken of voorgesteld maar nog niet gebouwd, ongeveer in volgorde van wens:
 | Saldibalans naar het samenstelpakket (A12) | Jaarrekening zonder export |
 | Gepland (README §5) | Regels splitsen per leverancier, vreemde valuta, ontbrekende factuur |
 | Stapel splitsen: vervolg | Pagina's blijvend draaien en verplaatsen (om en om gescande voor- en achterkanten), voortgang bij het uploaden; afstellen op een echte gescande stapel van de gebruiker |
-| Bonnetjes (foto's) | Zie het voorstel in het gesprek van 10 november: foto rechtzetten, bon als eigen soort, koppelen aan de pinbetaling, leren per winkel |
+| Bonnetjes: vervolg | HEIC, bijsnijden op het papier, meerdere foto's van één bon, eigen soort bon die direct tegen de pinbetaling of kas boekt; afstellen op echte foto's van de gebruiker |
 | Dashboard: vervolg | Voorgesteld, nog niet gevraagd: afwijking marge in procentpunten; in de kwartaalweergave ook vorig jaar per kwartaal; btw-frequentie (maand/kwartaal) als instelling van de administratie in plaats van per widget |
 | Auditfile: vervolg | De btw-code per boekingsregel zit niet in de XAF-export; XAF 4.0 is alleen met een zelfgemaakt voorbeeld getest |
 | Vaste activa: vervolg | Degressief en fiscaal naast commercieel, overzicht investeringsaftrek (KIA) |

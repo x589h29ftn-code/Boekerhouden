@@ -5,6 +5,7 @@
 @inject VpbDienst Vpb
 @inject LoonjournaalDienst Loon
 @inject Meldingen Meldingen
+@inject NavigationManager Navigatie
 @using Boekerhouden.Boekhouding.Vpb
 
 <AdministratieKader Id="Id" Titel="Instellingen" Actief="/instellingen" BijOpenen="Open">
@@ -270,7 +271,14 @@
         (fouten, opgeslagen) = (uitkomst.Fouten, uitkomst.IsGelukt);
         if (uitkomst.IsGelukt)
         {
+            // Klaar: terug naar het hoofdscherm van de administratie, met de bevestiging linksonder.
             vorige = Stand();
+            Meldingen.Toon("De instellingen zijn opgeslagen.");
+
+            // Eerst tekenen: de opslaanbalk moet weten dat er niets meer openstaat, anders vraagt hij om bevestiging.
+            StateHasChanged();
+            await Task.Yield();
+            Navigatie.NavigateTo($"/a/{Id}");
         }
     }
 

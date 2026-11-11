@@ -6,6 +6,38 @@ namespace Boekerhouden.Boekhouding.Tests;
 
 public sealed class FactuurtekstTests
 {
+    [Fact]
+    public void Een_kassabon_met_totaal_btw_blok_en_bonnummer()
+    {
+        const string Bon = """
+            BOUWMARKT DE HAMER
+            Industrieweg 14
+            3811 AB Amersfoort
+            BTW NL805512342B01
+            Datum 14-03-2026    Tijd 16:42
+            Kassa 03    Bon 0048213
+            Houtschroeven 4x40 200st    8,95
+            Muurverf wit 10L    39,95
+            TOTAAL    80,15
+            PIN    80,15
+            BTW%    Excl    BTW    Incl
+            21%    66,24    13,91    80,15
+            Terminal 7K21B4 Periode 3074
+            Transactie 02213564
+            Kaart xxxxxxxxxxxx4411
+            """;
+
+        var bon = Factuurtekst.Analyseer(Bon);
+
+        Assert.Equal(("BOUWMARKT DE HAMER", "NL805512342B01", "0048213", new DateOnly(2026, 3, 14)), (bon.Naam, bon.BtwNummer, bon.Factuurnummer, bon.Factuurdatum));
+        Assert.Equal((66.24m, 13.91m, 80.15m, 21m), (bon.TotaalExclusief, bon.TotaalBtw, bon.TotaalInclusief, bon.EnigTarief));
+
+        // Zonder bonnummer het transactienummer van de pinbetaling; een factuurnummer gaat altijd voor.
+        Assert.Equal("02213564", Factuurtekst.Analyseer(Bon.Replace("    Bon 0048213", "", StringComparison.Ordinal)).Factuurnummer);
+        Assert.Equal("F-77", Factuurtekst.Analyseer("Factuurnummer: F-77\n" + Bon).Factuurnummer);
+        Assert.Null(Factuurtekst.Analyseer("Bedankt voor uw bestelling\nBon appetit\nTotaal 12,00").Factuurnummer);
+    }
+
     private const string EigenBtw = "NL123456782B01";
 
     [Fact]

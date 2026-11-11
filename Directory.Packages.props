@@ -10,6 +10,10 @@
     <PackageVersion Include="SixLabors.Fonts" Version="1.0.0" />
     <!-- Tekst uit PDF's halen voor de factuurherkenning (Apache-2.0, zonder afhankelijkheden). -->
     <PackageVersion Include="PdfPig" Version="0.1.16" />
+    <!-- Foto's van bonnetjes en facturen rechtzetten (EXIF), grijs maken en het contrast verhogen vóór de tekstherkenning
+         (MIT). De Linux-variant zonder systeemafhankelijkheden (geen fontconfig nodig); Windows zit in het hoofdpakket. -->
+    <PackageVersion Include="SkiaSharp" Version="4.155.0" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.155.0" />
     <!-- QR-code voor het instellen van de authenticator-app (MIT). Versie 1.6.0: voor .NET 6+ zonder afhankelijkheden
          (latere versies trekken System.Drawing.Common mee). -->
     <PackageVersion Include="QRCoder" Version="1.6.0" />

@@ -451,8 +451,26 @@ public static partial class Factuurtekst
             }
         }
 
+        // Een kassabon heeft geen factuurnummer: dan het bonnummer, en anders het transactienummer van de pinbetaling.
+        foreach (var label in new[] { Bonnummer(), Transactienummer() })
+        {
+            foreach (var regel in regels)
+            {
+                if (label.Match(regel) is { Success: true } m)
+                {
+                    return m.Groups[1].Value;
+                }
+            }
+        }
+
         return null;
     }
+
+    [GeneratedRegex(@"(?<![\p{L}-])(?:kassabon|bonnummer|bonnr\.?|bon|ticket(?:nummer|nr\.?)?)\s*[:#]?\s*([A-Z0-9][A-Z0-9/-]*[0-9][A-Z0-9/-]{2,})(?![\p{L}])", RegexOptions.IgnoreCase)]
+    private static partial Regex Bonnummer();
+
+    [GeneratedRegex(@"(?<![\p{L}-])transactie(?:nummer|nr\.?)?\s*[:#]?\s*([A-Z0-9][A-Z0-9/-]*[0-9][A-Z0-9/-]{2,})(?![\p{L}])", RegexOptions.IgnoreCase)]
+    private static partial Regex Transactienummer();
 
     /// <summary>
     /// De naam van de leverancier. Elke regel wordt in kolommen gesplitst (en op "·" of "|", zoals in een voettekst); de

@@ -192,7 +192,8 @@ public sealed class TesseractOcr : IOcrMotor
 public sealed record Ocrlaag(IReadOnlyList<Tekstwoord> Woorden, byte[]? Pdf);
 
 /// <summary>
-/// Scans en foto's lezen met OCR. Een foto wordt een PDF van één pagina (A4-breed, de foto erin); van een gescande PDF
+/// Scans en foto's lezen met OCR. Een foto wordt eerst verbeterd (<see cref="Fotoverbetering"/>) en dan een PDF van
+/// één pagina (A4-breed, de foto erin); van een gescande PDF
 /// gaat per pagina de grootste afbeelding door de OCR. De woorden komen in PDF-punten op de plek van de afbeelding, zodat
 /// regels, aanwijzen en oplichten werken als bij een PDF met tekst.
 /// </summary>
@@ -216,6 +217,13 @@ public sealed class OcrLezer(IOcrMotor motor)
         ArgumentNullException.ThrowIfNull(inhoud);
         if (Afbeeldingssoort(inhoud) is { } soort)
         {
+            // Een foto wordt eerst een scan (rechtop, grijs, belichting vlak, contrast omhoog): dat leest beter en is
+            // wat er bewaard wordt. Lukt dat niet, dan de foto zoals hij is.
+            if (Fotoverbetering.Verbeter(inhoud) is { } scan)
+            {
+                (inhoud, soort) = (scan, "jpeg");
+            }
+
             var ocr = await motor.LeesAsync(inhoud, annulering).ConfigureAwait(false);
             if (ocr.Breedte <= 0 || ocr.Hoogte <= 0)
             {
