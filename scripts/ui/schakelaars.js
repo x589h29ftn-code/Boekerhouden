@@ -99,7 +99,7 @@ function totp(sleutel) {
   if (!afdruk.includes('Factuurnummer')) log.push('afdrukken: de factuur staat niet in het frame');
 
   // Terugkerend: van de factuur een maandelijkse maken.
-  await page.click('a:has-text("Herhalen")'); await page.waitForSelector('#naam'); await page.waitForTimeout(800);
+  await page.click('button:has-text("Nieuw van deze")'); await page.click('a:has-text("Herhalen")'); await page.waitForSelector('#naam'); await page.waitForTimeout(800);
   await page.fill('#naam', 'Onderhoud installatie'); await page.fill('#omschrijving', 'Onderhoud #periode');
   await page.click('fieldset button:has-text("Opslaan")'); await page.waitForTimeout(1200);
   await page.screenshot({ path: `${uit}/${pre}-terugkerend.png` });
@@ -118,7 +118,7 @@ function totp(sleutel) {
   await page.goto(`${basis}/a/${id}/verkoop`); await page.waitForTimeout(1500);
   await page.setInputFiles('#verkoopbestanden', path.join(fictief, 'verkoop-ander-pakket.xml')); await page.waitForTimeout(2500);
   await page.screenshot({ path: `${uit}/${pre}-verkoop-ingelezen.png` });
-  await page.locator('tr:has-text("ingelezen")').first().click(); await page.waitForSelector('#nummer'); await page.waitForTimeout(1200);
+  await page.locator('tr:has-text("te verwerken")').first().click(); await page.waitForSelector('#nummer'); await page.waitForTimeout(1200);
   await page.screenshot({ path: `${uit}/${pre}-verkoopfactuur-ingelezen.png` });
 
   // Optioneel: een echt PDF-afschrift (buiten git) omzetten naar MT940 en inlezen: BANKPDF=pad/naar/afschrift.pdf.

@@ -14,7 +14,15 @@ internal sealed class HoofdVenster : Form
         Text = Naam;
         Icon = Merk.Icoon ?? Icon;
         Size = new Size(1440, 960);
+        MinimumSize = new Size(1024, 700);
         StartPosition = FormStartPosition.CenterScreen;
+
+        // Op een kleiner scherm (een laptop) past het venster niet: dan beeldvullend, anders valt de rand buiten beeld.
+        if (proefmap is null && Screen.PrimaryScreen?.WorkingArea is { } scherm && (scherm.Width < Width || scherm.Height < Height))
+        {
+            WindowState = FormWindowState.Maximized;
+        }
+
         var webview = new BlazorWebView { Dock = DockStyle.Fill, HostPage = Path.Combine("wwwroot", "index.html"), Services = diensten };
         webview.RootComponents.Add<Routes>("#app");
         webview.RootComponents.Add<HeadOutlet>("head::after");

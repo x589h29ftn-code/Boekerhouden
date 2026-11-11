@@ -351,6 +351,11 @@ html.zijbalk-smal .zijbalk {
     font-size: .875rem;
 }
 
+/* De kop op dezelfde lijn als de regels eronder (die beginnen zonder inspringing). */
+.overzicht > .card-header {
+    padding-left: 0;
+}
+
 .overzicht .pijl {
     display: inline-block;
     width: 1rem;
@@ -1002,7 +1007,7 @@ body.scheiding-slepen {
 }
 
 .periodekeuze .datumveld > input:first-child {
-    width: 8.25rem;
+    width: 7rem;
 }
 
 .overzichtstabel {
@@ -1360,6 +1365,13 @@ body.kolom-slepen { cursor: col-resize; user-select: none; }
     .verkoop-voorbeeld { position: static; justify-self: start; }
 }
 
+/* Een factuur invullen heeft de breedte nodig voor de regels (omschrijving, aantal, prijs, rekening, btw): op het
+   gewone venster van de Windows-app (1440 breed) staat het voorbeeld daarom onder het formulier, pas daarboven ernaast. */
+@media (max-width: 1560px) {
+    .verkoop-maken:not(.verkoop-definitief, .verkoop-verwerken) { grid-template-columns: 1fr; }
+    .verkoop-maken:not(.verkoop-definitief, .verkoop-verwerken) > .verkoop-voorbeeld { position: static; justify-self: start; }
+}
+
 /* Het verwerkpaneel van de bank: rechtsboven de stand van de bankrekening, daaronder de transactiegegevens. */
 .verwerkpaneel .min-w-0 { min-width: 0; }
 .banksaldo { font-size: .85rem; min-width: 13rem; }
@@ -1447,7 +1459,7 @@ body *:not(#geen):not(.factuurvoorbeeld-pagina *, .ontwerpvlak-pagina *)::after 
     --grafiek-1: #3168b8; /* omzet */
     --grafiek-2: #c9622c; /* inkoop of kosten */
     --grafiek-3: #17946a; /* resultaat */
-    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--r3); align-items: start;
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--r3); align-items: stretch;
 }
 @media (max-width: 1199.98px) { .dashboard { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 575.98px) { .dashboard { grid-template-columns: minmax(0, 1fr); } .dashboard .breed { grid-column: auto !important; } }

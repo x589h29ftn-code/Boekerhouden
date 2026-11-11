@@ -244,9 +244,11 @@
                         <DatumVeld Id="datum" Waarde="invoer.Datum" WaardeChanged="KiesDatum" />
                         <label class="small text-secondary" for="verval">Vervaldatum</label>
                         <DatumVeld Id="verval" Waarde="invoer.Vervaldatum" WaardeChanged="KiesVervaldatum" />
-                        <label class="small text-secondary" for="referentie">Uw referentie</label>
-                        <input id="referentie" class="form-control form-control-sm w-auto" @bind="invoer.Referentie" @bind:event="oninput" placeholder="bijv. inkoopordernummer" />
                     </div>
+                </div>
+                <div class="formulier-rij">
+                    <label for="referentie">Uw referentie</label>
+                    <input id="referentie" class="form-control form-control-sm" style="max-width:14rem" @bind="invoer.Referentie" @bind:event="oninput" placeholder="bijv. inkoopordernummer" />
                 </div>
                 <div class="formulier-rij">
                     <label for="omschrijving">Omschrijving</label>

@@ -33,8 +33,10 @@
             }
         </select>
         <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
-        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De grootboekkaart als Excel" @onclick="Excel">Excel</button>
-        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De grootboekkaart als PDF (A4 liggend)" @onclick="Pdf">PDF</button>
+        <div class="btn-group btn-group-sm text-nowrap" role="group" aria-label="Downloaden">
+            <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De grootboekkaart als Excel" @onclick="Excel">Excel</button>
+            <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De grootboekkaart als PDF (A4 liggend)" @onclick="Pdf">PDF</button>
+        </div>
     </Acties>
     <ChildContent>
         @if (Alle && kaarten is not null)

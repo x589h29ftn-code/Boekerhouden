@@ -25,6 +25,7 @@ internal static class Proef
         "grootboek?rekening=4300", "journaal", "inkoopboek", "verkoopboek", "crediteuren", "debiteuren", "aansluitingen", "bank",
         "bank/openstaand", "inkoop", "verkoop", "verkoop/nieuw", "verkoop/terugkerend", "memoriaal", "relaties", "regels",
         "rekeningschema", "instellingen", "factuurlayout", "activa", "activa?weergave=staat", "activa/nieuw", "perioden",
+        "btw", "btw/rondrekening", "vpb", "beginbalans", "facturen",
     ];
 
     public static async Task<Proefuitkomst> Voorbereiden(IServiceProvider diensten)

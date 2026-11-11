@@ -1014,6 +1014,19 @@ tr[tabindex]:focus-visible {
     padding-right: 2px;
 }
 
+/* In de paginakop zijn alle knoppen en keuzelijsten even groot (klein), ook waar een pagina de kleine maat niet noemt. */
+.administratie-inhoud > .d-flex:first-child .btn {
+    --bs-btn-padding-y: .25rem;
+    --bs-btn-padding-x: .5rem;
+    --bs-btn-font-size: .875rem;
+}
+
+.administratie-inhoud > .d-flex:first-child .form-select {
+    min-height: var(--bh-hoogte);
+    padding: .25rem 2.25rem .25rem .5rem;
+    font-size: .875rem;
+}
+
 /* Knoppen en velden in werkbalken even hoog; vinkjes op dezelfde lijn als de velden. */
 .btn-sm, .form-control-sm, .form-select-sm, .administratie-inhoud > .d-flex:first-child .btn {
     min-height: var(--bh-hoogte);
