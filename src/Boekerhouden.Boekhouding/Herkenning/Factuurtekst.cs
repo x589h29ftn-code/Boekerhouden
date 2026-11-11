@@ -315,17 +315,22 @@ public static partial class Factuurtekst
     private static (decimal Exclusief, Btwregel Btw)? BtwUitDrietal(List<string> regels)
     {
         var alle = AlleBedragen(regels);
-        if (alle.Count < 3 || alle.MaxBy(Math.Abs) is var totaal && totaal == 0)
+        if (alle.Count < 3)
         {
             return null;
         }
 
-        foreach (var e in alle.Where(e => e != totaal && Math.Sign(e) == Math.Sign(totaal)).OrderByDescending(Math.Abs))
+        // Het totaal is meestal het grootste bedrag; bij een scan kan dat verkeerd gelezen zijn (25,99 voor 25,95), dus
+        // ook de twee bedragen daaronder proberen.
+        foreach (var totaal in alle.Distinct().OrderByDescending(Math.Abs).Take(3).Where(t => t != 0))
         {
-            var btw = totaal - e;
-            if (btw != e && alle.Contains(btw) && Tarieven.Where(p => Btw.BtwBerekening.Klopt(e, btw, p)).Select(p => (decimal?)p).FirstOrDefault() is { } percentage)
+            foreach (var e in alle.Where(e => e != totaal && Math.Sign(e) == Math.Sign(totaal) && Math.Abs(e) < Math.Abs(totaal)).OrderByDescending(Math.Abs))
             {
-                return (e, new Btwregel(percentage, e, btw));
+                var btw = totaal - e;
+                if (btw != e && alle.Contains(btw) && Tarieven.Where(p => Btw.BtwBerekening.Klopt(e, btw, p)).Select(p => (decimal?)p).FirstOrDefault() is { } percentage)
+                {
+                    return (e, new Btwregel(percentage, e, btw));
+                }
             }
         }
 
@@ -391,6 +396,21 @@ public static partial class Factuurtekst
             {
                 perTarief[tabelPercentage] = new Btwregel(tabelPercentage, grondslag, tabelBtw);
                 continue;
+            }
+
+            // Een rij die met een tarief begint en waarvan de bedragen kloppen, ook zonder herkende kop (een kassabon:
+            // "9,0% € 23,80 € 2,15", of met het totaal erachter: "21% 66,24 13,91 80,15").
+            if (TabelRegel().Match(regel) is { Success: true } los
+                && decimal.Parse(los.Groups[1].Value.Replace(',', '.'), CultureInfo.InvariantCulture) is var losPercentage and (21m or 9m)
+                && Bedragen(regel[(los.Index + los.Length)..]) is { Count: >= 2 } losBedragen)
+            {
+                var paar = new[] { (losBedragen[^2], losBedragen[^1]), (losBedragen[0], losBedragen[1]) }
+                    .Where(x => x.Item1 > 0 && Btw.BtwBerekening.Klopt(x.Item1, x.Item2, losPercentage)).Select(x => ((decimal, decimal)?)x).FirstOrDefault();
+                if (paar is var (losGrondslag, losBtw))
+                {
+                    perTarief[losPercentage] = new Btwregel(losPercentage, losGrondslag, losBtw);
+                    continue;
+                }
             }
 
             var m = BtwRegel().Match(regel);
@@ -532,6 +552,14 @@ public static partial class Factuurtekst
             return tekst.Trim(' ', ',', '.', '-', '–', '|');
         }
 
+        // Het logo is maar voor een deel gelezen ("Puur Posth" bij puurposthuma.nl): de gelezen tekst geeft de woorden en
+        // de hoofdletters, het domein de rest.
+        if (stukken.FirstOrDefault(t => t.Length <= 60 && Compact(t) is { Length: >= 5 } begin && begin.Length < kern.Length && kern.StartsWith(begin, StringComparison.Ordinal)
+                                        && t.All(c => char.IsLetter(c) || c == ' ')) is { } deel)
+        {
+            return deel.Trim() + kern[Compact(deel).Length..];
+        }
+
         return string.Join(' ', domein.Split('-', StringSplitOptions.RemoveEmptyEntries).Select(d => char.ToUpperInvariant(d[0]) + d[1..]));
     }
 
@@ -560,7 +588,7 @@ public static partial class Factuurtekst
     private static partial Regex ContactLabel();
 
     /// <summary>Een e-mailadres (afzender en domein) of website (domein), bijv. info@p2-projecten.nl of www.p2-projecten.nl.</summary>
-    [GeneratedRegex(@"(?:([a-z0-9._%+\-]+)@|www\.|https?://)(?:[a-z0-9\-]+\.)*?([a-z0-9][a-z0-9\-]*[a-z0-9])\.(?:[a-z]{2,6})(?![a-z0-9\-])", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"(?:([a-z0-9._%+\-]+)@|www\.\s?|https?://)(?:[a-z0-9\-]+\.)*?([a-z0-9][a-z0-9\-]*[a-z0-9])\.(?:[a-z]{2,6})(?![a-z0-9\-])", RegexOptions.IgnoreCase)]
     private static partial Regex Domein();
 
     /// <summary>Btw-nummers: Nederlandse overal in de tekst, buitenlandse (EU) na een label als "VAT" of "BTW".</summary>

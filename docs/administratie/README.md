@@ -681,6 +681,13 @@ foto); de controle op dubbel inlezen gaat op de foto zelf. Een bon heeft geen fa
 totaal en het btw-blokje (per tarief: exclusief, btw, inclusief) worden gelezen als bij een factuur. De bon wordt als
 inkoopfactuur geboekt; de pinbetaling op het bankafschrift lettert hem af.
 
+Ook een **gescande bon in een PDF** (bijv. zwart-wit van een kopieerapparaat) gaat vóór het lezen door dezelfde
+verbetering, maar zonder draaien, zodat de woorden op hun plek op de pagina blijven; de PDF zelf blijft zoals hij is.
+Bij een bon met leesfouten helpt de analyse zichzelf: een btw-rij die met het tarief begint telt ook zonder kop
+("9,0% € 23,80 € 2,15"); kloppen exclusief + btw = totaal bij één tarief, dan volgt het tarief daaruit (ook als het
+grootste bedrag verkeerd is gelezen); staat de naam alleen in het logo, dan komt hij uit het webadres (ook "www. "
+met een spatie), aangevuld met wat er van het logo wel gelezen is ("Zoet Banketb" + domein → "Zoet Banketbakkerij").
+
 Nog niet: HEIC-foto's van een iPhone (eerst als JPEG delen), bijsnijden op het papier, meerdere foto's van één lange
 bon samenvoegen, en een eigen soort *bon* die direct tegen de pinbetaling of kas boekt.
 

@@ -210,7 +210,14 @@ public sealed class OcrLezer(IOcrMotor motor)
 
     /// <summary>De woorden van één afbeelding uit een PDF (zie <see cref="Afbeeldingen(byte[], long, int)"/>), in PDF-punten.</summary>
     public async Task<IReadOnlyList<Tekstwoord>> LeesPaginaAsync(int pagina, byte[] afbeelding, PdfPlek plek, CancellationToken annulering = default) =>
-        [.. NaarPunten(pagina, await motor.LeesAsync(afbeelding, annulering).ConfigureAwait(false), plek)];
+        [.. NaarPunten(pagina, await motor.LeesAsync(Scan(afbeelding), annulering).ConfigureAwait(false), plek)];
+
+    /// <summary>
+    /// Een gescande pagina klaar voor de tekstherkenning: grijs met vloeiende randen op een werkbare maat en met het
+    /// contrast omhoog (een scan in twee kleuren, zoals van een kopieerapparaat, leest zo veel beter). De pagina wordt
+    /// niet gedraaid, zodat de woorden op hun plek blijven.
+    /// </summary>
+    private static byte[] Scan(byte[] afbeelding) => Fotoverbetering.Verbeter(afbeelding, rechtzetten: false) ?? afbeelding;
 
     public async Task<Ocrlaag?> LeesAsync(byte[] inhoud, CancellationToken annulering = default)
     {
@@ -237,7 +244,7 @@ public sealed class OcrLezer(IOcrMotor motor)
         var woorden = new List<Tekstwoord>();
         foreach (var (pagina, afbeelding, plek) in Afbeeldingen(inhoud))
         {
-            woorden.AddRange(NaarPunten(pagina, await motor.LeesAsync(afbeelding, annulering).ConfigureAwait(false), plek));
+            woorden.AddRange(NaarPunten(pagina, await motor.LeesAsync(Scan(afbeelding), annulering).ConfigureAwait(false), plek));
         }
 
         return woorden.Count == 0 ? null : new Ocrlaag(woorden, null);

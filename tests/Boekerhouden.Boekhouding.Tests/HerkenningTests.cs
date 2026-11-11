@@ -7,6 +7,47 @@ namespace Boekerhouden.Boekhouding.Tests;
 public sealed class FactuurtekstTests
 {
     [Fact]
+    public void Een_gescande_bon_met_leesfouten_laag_tarief_en_de_naam_alleen_in_het_logo()
+    {
+        // Zoals de tekstherkenning een gescande bon van een banketbakker teruggeeft: het logo maar half gelezen, "BIW"
+        // voor BTW, het grote totaal verkeerd (18,99 voor 18,95) en een spatie in het webadres.
+        const string Bon = """
+            Zoet Banketb
+            Marktplein 5
+            1234 AB Ergens
+            0123 456789
+            1    Appeltaart punt    €    3,25
+            2    Slagroom gebakje    €    6,50
+            2X€ 3,25
+            Totaal    € 18,99
+            Pin betaald    € 18.95
+            BIW    Over
+            9,0% €    17,39 €    1,56
+            Totaal €    17,39 €    1,56
+            Kopie Kaarthouder
+            Terminal: 4SF001 Merchant: 221619
+            Totaal: 18,95 EUR
+            AKKOORD
+            Datum    Woensdag 11-11-2026
+            Bonnummer    40852548
+            Bedankt en graag tot ziens!
+            www. zoetbanketbakkerij.nl
+            """;
+
+        var bon = Factuurtekst.Analyseer(Bon, Herkenningsbron.Ocr);
+
+        Assert.Equal(("Zoet Banketbakkerij", "40852548", new DateOnly(2026, 11, 11)), (bon.Naam, bon.Factuurnummer, bon.Factuurdatum));
+        Assert.Equal((17.39m, 1.56m, 18.95m, 9m), (bon.TotaalExclusief, bon.TotaalBtw, bon.TotaalInclusief, bon.EnigTarief));
+
+        // Zonder de btw-rij (onleesbaar) volgt het tarief uit de bedragen: 17,39 + 1,56 = 18,95 klopt alleen bij 9%.
+        var zonderRij = Factuurtekst.Analyseer(Bon.Replace("9,0% €    17,39 €    1,56", "90% € 1739 € 1,", StringComparison.Ordinal), Herkenningsbron.Ocr);
+        Assert.Equal((17.39m, 1.56m, 9m), (zonderRij.TotaalExclusief, zonderRij.TotaalBtw, zonderRij.EnigTarief));
+
+        // Zonder iets van het logo de naam uit het webadres.
+        Assert.Equal("Zoetbanketbakkerij", Factuurtekst.Analyseer(Bon.Replace("Zoet Banketb\n", "", StringComparison.Ordinal), Herkenningsbron.Ocr).Naam);
+    }
+
+    [Fact]
     public void Een_kassabon_met_totaal_btw_blok_en_bonnummer()
     {
         const string Bon = """

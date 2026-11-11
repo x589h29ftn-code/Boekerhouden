@@ -22,7 +22,13 @@ public static class Fotoverbetering
     private const int Wit = 205;
 
     /// <summary>De verbeterde foto als JPEG in grijstinten; leeg als het bestand geen leesbare afbeelding is.</summary>
-    public static byte[]? Verbeter(byte[] foto)
+    public static byte[]? Verbeter(byte[] foto) => Verbeter(foto, rechtzetten: true);
+
+    /// <param name="rechtzetten">
+    /// Een scheve foto rechtzetten. Niet bij een scan die al als pagina in een PDF staat: daar moeten de woorden op hun
+    /// plek op de pagina blijven (voor aanwijzen en oplichten).
+    /// </param>
+    public static byte[]? Verbeter(byte[] foto, bool rechtzetten)
     {
         ArgumentNullException.ThrowIfNull(foto);
         try
@@ -52,7 +58,7 @@ public static class Fotoverbetering
             WisVlakken(uit, breedte, hoogte);
             using var resultaat = new SKBitmap(new SKImageInfo(breedte, hoogte, SKColorType.Gray8, SKAlphaType.Opaque));
             System.Runtime.InteropServices.Marshal.Copy(uit, 0, resultaat.GetPixels(), uit.Length);
-            var hoek = Scheefstand(uit, breedte, hoogte);
+            var hoek = rechtzetten ? Scheefstand(uit, breedte, hoogte) : 0;
             using var recht = Math.Abs(hoek) < 0.3 ? null : Gedraaid(resultaat, -hoek);
             using var beeld = SKImage.FromBitmap(recht ?? resultaat);
             using var jpeg = beeld.Encode(SKEncodedImageFormat.Jpeg, 82);
