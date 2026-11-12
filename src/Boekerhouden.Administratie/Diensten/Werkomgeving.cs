@@ -2,9 +2,15 @@ namespace Boekerhouden.Administratie.Diensten;
 
 /// <summary>
 /// Waar de app draait. <see cref="Lokaal"/> is de Windows-app op één pc: één gebruiker die niet inlogt, zonder
-/// webserver; schermen laten dan uitloggen, wachtwoord en tweestapsverificatie weg.
+/// webserver; schermen laten dan uitloggen, wachtwoord en tweestapsverificatie weg. <see cref="Kantoorserver"/> is de
+/// Windows-app die zijn gegevens deelt met andere pc's op kantoor: wel een webserver en meerdere gebruikers, maar
+/// inloggen gaat met de sleutel van een gekoppelde werkplek (<see cref="ApparaatDienst"/>), zonder wachtwoord.
 /// </summary>
-public sealed record Werkomgeving(bool Lokaal);
+public sealed record Werkomgeving(bool Lokaal, bool Kantoorserver = false)
+{
+    /// <summary>Er zijn geen wachtwoorden: de Windows-app alleen, of de kantoorserver met gekoppelde werkplekken.</summary>
+    public bool ZonderWachtwoord => Lokaal || Kantoorserver;
+}
 
 /// <summary>
 /// Documenten openen in de Windows-app, waar geen webserver is: het origineel in het standaardprogramma, en de

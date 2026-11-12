@@ -58,6 +58,12 @@ public static class AuditActies
     public const string WachtwoordGewijzigd = "Wachtwoord gewijzigd";
     public const string EersteBeheerderAangemaakt = "Eerste beheerder aangemaakt";
     public const string GebruikerAangemaakt = "Gebruiker aangemaakt";
+    public const string GebruikerGewijzigd = "Gebruiker gewijzigd";
+    public const string WerkplekAangemeld = "Werkplek aangemeld";
+    public const string WerkplekGekoppeld = "Werkplek gekoppeld";
+    public const string WerkplekVerwijderd = "Werkplek verwijderd";
+    public const string IngelogdMetWerkplek = "Ingelogd met werkplek";
+    public const string LidmaatschapIngetrokken = "Lidmaatschap ingetrokken";
     public const string AdministratieAangemaakt = "Administratie aangemaakt";
     public const string AdministratieGearchiveerd = "Administratie gearchiveerd";
     public const string AdministratieHersteld = "Administratie uit het archief gehaald";

@@ -15,6 +15,37 @@ public sealed class Gebruiker : IdentityUser<Guid>
     public bool MoetWachtwoordWijzigen { get; set; }
 }
 
+/// <summary>
+/// Een werkplek die bij de kantoorserver hoort: de sleutel van één Windows-gebruiker op één pc. De beheerder koppelt
+/// het apparaat aan een gebruiker; daarna logt die werkplek zonder wachtwoord in met zijn sleutel (beveiliging §4.10).
+/// </summary>
+public sealed class Apparaat
+{
+    public Guid Id { get; set; }
+
+    /// <summary>De publieke sleutel (ECDSA P-256, SubjectPublicKeyInfo).</summary>
+    public byte[] Sleutel { get; set; } = [];
+
+    /// <summary>SHA-256 van de sleutel (hex), om het apparaat terug te vinden.</summary>
+    public string Vingerafdruk { get; set; } = string.Empty;
+
+    /// <summary>De naam van het Windows-account, zoals de werkplek hem opgaf (alleen ter herkenning).</summary>
+    public string WindowsNaam { get; set; } = string.Empty;
+
+    public string Computer { get; set; } = string.Empty;
+
+    public DateTimeOffset AangevraagdOp { get; set; }
+
+    /// <summary>De gebruiker waaraan het apparaat gekoppeld is; leeg = wacht op de beheerder.</summary>
+    public Guid? GebruikerId { get; set; }
+
+    public DateTimeOffset? GekoppeldOp { get; set; }
+
+    public string? GekoppeldDoor { get; set; }
+
+    public DateTimeOffset? LaatstGezien { get; set; }
+}
+
 /// <summary>De rollen in het pakket zelf; de rechten in een administratie staan in <see cref="Lidmaatschap"/>.</summary>
 public static class Rollen
 {

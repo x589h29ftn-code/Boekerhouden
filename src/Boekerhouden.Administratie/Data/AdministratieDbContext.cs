@@ -76,6 +76,8 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
 
     public DbSet<Kantoorinstellingen> Kantoorinstellingen => Set<Kantoorinstellingen>();
 
+    public DbSet<Apparaat> Apparaten => Set<Apparaat>();
+
     public DbSet<VerwijderdeAdministratie> VerwijderdeAdministraties => Set<VerwijderdeAdministratie>();
 
     public DbSet<Zoekplek> Zoekplekken => Set<Zoekplek>();
@@ -161,6 +163,17 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.HasKey(v => v.AdministratieId);
             e.Property(v => v.Naam).HasMaxLength(300);
             e.Property(v => v.VerwijderdDoor).HasMaxLength(200);
+        });
+
+        builder.Entity<Apparaat>(e =>
+        {
+            e.ToTable("Apparaten");
+            e.Property(a => a.Vingerafdruk).HasMaxLength(64);
+            e.Property(a => a.WindowsNaam).HasMaxLength(100);
+            e.Property(a => a.Computer).HasMaxLength(100);
+            e.Property(a => a.GekoppeldDoor).HasMaxLength(200);
+            e.HasIndex(a => a.Vingerafdruk).IsUnique();
+            e.HasOne<Gebruiker>().WithMany().HasForeignKey(a => a.GebruikerId).OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<Kantoorinstellingen>(e =>

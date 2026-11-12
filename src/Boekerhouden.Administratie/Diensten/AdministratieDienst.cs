@@ -165,6 +165,22 @@ public sealed class AdministratieDienst(IDbContextFactory<AdministratieDbContext
         return Uitkomst.Gelukt;
     }
 
+    /// <summary>Neemt een gebruiker de toegang tot een administratie af; alleen voor de beheerder.</summary>
+    public async Task<Uitkomst> VerwijderLid(Guid administratie, Guid gebruiker, Uitvoerder wie)
+    {
+        ArgumentNullException.ThrowIfNull(wie);
+        await using var db = await dbFactory.CreateDbContextAsync();
+        if (await db.Lidmaatschappen.FindAsync(administratie, gebruiker) is { } bestaand)
+        {
+            var naam = (await db.Users.FindAsync(gebruiker))?.Naam;
+            db.Lidmaatschappen.Remove(bestaand);
+            await db.SaveChangesAsync();
+            await audit.Log(wie, AuditActies.LidmaatschapIngetrokken, naam, bestaand.Rol.ToString(), administratie);
+        }
+
+        return Uitkomst.Gelukt;
+    }
+
     /// <summary>
     /// Archiveert een administratie (einde van de klantrelatie): daarna alleen nog inzien, en niet meer in de gewone
     /// lijst. Voor het kantoor (rol Kantoor in de administratie).

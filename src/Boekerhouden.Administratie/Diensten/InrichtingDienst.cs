@@ -307,8 +307,8 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
     {
         ArgumentNullException.ThrowIfNull(ibans);
         await using var db = await toegang.Open(wie, administratie, Recht.Invoeren);
-        // In de Windows-app op één pc is er geen wachtwoord; het log houdt oud en nieuw wel bij.
-        if (!omgeving.Lokaal && !await WachtwoordKlopt(wie, wachtwoord))
+        // In de Windows-app (alleen of als kantoorserver) is er geen wachtwoord; het log houdt oud en nieuw wel bij.
+        if (!omgeving.ZonderWachtwoord && !await WachtwoordKlopt(wie, wachtwoord))
         {
             await audit.Log(wie, AuditActies.IbanWijzigingGeweigerd, id.ToString(), "wachtwoord onjuist", administratie);
             return Uitkomst.Mislukt("Bevestig met je wachtwoord; het ingevulde wachtwoord klopt niet.");

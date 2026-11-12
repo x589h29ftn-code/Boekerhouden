@@ -81,6 +81,76 @@ public sealed class GebruikerDienst(IServiceScopeFactory scopeFactory, AuditDien
         return Uitkomst<string>.Met(wachtwoord);
     }
 
+    /// <summary>
+    /// Maakt een gebruiker zonder wachtwoord (kantoorserver): inloggen gaat met een gekoppelde werkplek. Het e-mailadres
+    /// mag leeg blijven; dan krijgt de gebruiker een intern adres als gebruikersnaam.
+    /// </summary>
+    public async Task<Uitkomst<Guid>> MaakZonderWachtwoord(string naam, string? initialen, string? email, IReadOnlyCollection<string> rollen, Uitvoerder wie)
+    {
+        ArgumentNullException.ThrowIfNull(rollen);
+        ArgumentNullException.ThrowIfNull(wie);
+        naam = (naam ?? "").Trim();
+        var adres = string.IsNullOrWhiteSpace(email) ? $"{Guid.NewGuid():N}@werkplek.sifer.local" : email.Trim();
+        var letters = string.IsNullOrWhiteSpace(initialen)
+            ? string.Concat(naam.Split([' ', '.', '_', '-'], StringSplitOptions.RemoveEmptyEntries).Select(w => char.ToUpperInvariant(w[0])).Take(2))
+            : initialen.Trim();
+        var invoer = new GebruikerInvoer(adres, naam, letters, rollen);
+        var fouten = Valideer(invoer);
+        if (fouten.Count > 0)
+        {
+            return Uitkomst<Guid>.Mislukt([.. fouten]);
+        }
+
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<Gebruiker>>();
+        var gebruiker = Nieuw(invoer);
+        var resultaat = await users.CreateAsync(gebruiker);
+        if (!resultaat.Succeeded)
+        {
+            return Uitkomst<Guid>.Mislukt([.. resultaat.Errors.Select(e => e.Description)]);
+        }
+
+        if (rollen.Count > 0)
+        {
+            await users.AddToRolesAsync(gebruiker, rollen.Distinct());
+        }
+
+        await audit.Log(wie, AuditActies.GebruikerAangemaakt, gebruiker.Naam, $"zonder wachtwoord; rollen: {string.Join(", ", rollen)}");
+        return Uitkomst<Guid>.Met(gebruiker.Id);
+    }
+
+    /// <summary>
+    /// Zet een gebruiker op actief of niet actief. Niet actief = geen toegang meer (ook niet met een gekoppelde
+    /// werkplek); zijn naam blijft in het log staan. De laatste actieve beheerder kan niet uit.
+    /// </summary>
+    public async Task<Uitkomst> ZetActief(Guid gebruiker, bool actief, Uitvoerder wie)
+    {
+        ArgumentNullException.ThrowIfNull(wie);
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<Gebruiker>>();
+        if (await users.FindByIdAsync(gebruiker.ToString()) is not { } persoon)
+        {
+            return Uitkomst.Mislukt("Deze gebruiker bestaat niet (meer).");
+        }
+
+        if (!actief && await users.IsInRoleAsync(persoon, Rollen.Beheerder)
+            && !(await users.GetUsersInRoleAsync(Rollen.Beheerder)).Any(g => g.Id != gebruiker && g.Actief))
+        {
+            return Uitkomst.Mislukt("Dit is de enige actieve beheerder; maak eerst iemand anders beheerder.");
+        }
+
+        if (persoon.Actief != actief)
+        {
+            persoon.Actief = actief;
+            // Een nieuw stempel maakt lopende sessies van deze gebruiker ongeldig.
+            await users.UpdateSecurityStampAsync(persoon);
+            await users.UpdateAsync(persoon);
+            await audit.Log(wie, AuditActies.GebruikerGewijzigd, persoon.Naam, actief ? "actief" : "niet actief");
+        }
+
+        return Uitkomst.Gelukt;
+    }
+
     public async Task<IReadOnlyList<GebruikerRegel>> Lijst()
     {
         await using var scope = scopeFactory.CreateAsyncScope();

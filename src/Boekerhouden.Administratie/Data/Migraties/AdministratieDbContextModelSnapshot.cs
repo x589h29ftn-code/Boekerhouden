@@ -525,6 +525,57 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.ToTable("Afschrijvingen", (string)null);
                 });
 
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Apparaat", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AangevraagdOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Computer")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid?>("GebruikerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("GekoppeldDoor")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset?>("GekoppeldOp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("LaatstGezien")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("Sleutel")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("Vingerafdruk")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("WindowsNaam")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GebruikerId");
+
+                    b.HasIndex("Vingerafdruk")
+                        .IsUnique();
+
+                    b.ToTable("Apparaten", (string)null);
+                });
+
             modelBuilder.Entity("Boekerhouden.Administratie.Data.AuditRegel", b =>
                 {
                     b.Property<long>("Id")
@@ -2420,6 +2471,14 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasForeignKey("AdministratieId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Apparaat", b =>
+                {
+                    b.HasOne("Boekerhouden.Administratie.Data.Gebruiker", null)
+                        .WithMany()
+                        .HasForeignKey("GebruikerId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Automatiseringsregel", b =>

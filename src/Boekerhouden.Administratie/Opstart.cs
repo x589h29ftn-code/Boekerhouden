@@ -32,6 +32,7 @@ public static class Opstart
         services.AddScoped<Doorverwijzer>();
         services.AddScoped<AuthenticationStateProvider, HervaliderendeAuthenticatieStatus>();
 
+        var kantoorserver = Lokaal.Kantoorserver.Configureer(builder);
         var identiteit = ConfigureerKern(services, builder.Configuration, builder.Environment.IsDevelopment(), lokaal: false);
         identiteit.AddSignInManager();
 
@@ -56,7 +57,8 @@ public static class Opstart
             o.Cookie.HttpOnly = true;
             o.Cookie.SameSite = SameSiteMode.Strict;
             o.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
-            o.LoginPath = "/inloggen";
+            // Kantoorserver: er is geen inlogpagina; een onbekende bezoeker ziet dat hij een gekoppelde werkplek nodig heeft.
+            o.LoginPath = kantoorserver ? Lokaal.Kantoorserver.GeenWerkplek : "/inloggen";
             o.LogoutPath = "/account/uitloggen";
             o.AccessDeniedPath = "/geen-toegang";
             o.ExpireTimeSpan = TimeSpan.FromHours(10);
@@ -77,7 +79,8 @@ public static class Opstart
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuratie);
-        services.AddSingleton(new Werkomgeving(lokaal));
+        var kantoorserver = !lokaal && Lokaal.Kantoorserver.Aan(configuratie);
+        services.AddSingleton(new Werkomgeving(lokaal, kantoorserver));
 
         var verbinding = configuratie.GetConnectionString(Verbindingsnaam)
                          ?? throw new InvalidOperationException($"Verbindingsgegevens '{Verbindingsnaam}' ontbreken in appsettings.json.");
@@ -108,6 +111,7 @@ public static class Opstart
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<AuditDienst>();
         services.AddSingleton<GebruikerDienst>();
+        services.AddSingleton<ApparaatDienst>();
         services.AddSingleton<Toegang>();
         services.AddSingleton<AdministratieDienst>();
         services.AddSingleton<GrootboekDienst>();
@@ -141,12 +145,13 @@ public static class Opstart
         services.AddSingleton<Export.PdfDienst>();
 
         // Virusscan vóór het openen van elk document (besluit B3). Zonder instelling: op de server fail closed; in
-        // ontwikkeling (zonder ClamAV) en in de Windows-app (eigen bestanden van de gebruiker, op één pc) zonder scan.
+        // ontwikkeling (zonder ClamAV) en in de Windows-app (eigen bestanden van de gebruiker, op één pc of gedeeld
+        // met de collega's op kantoor) zonder scan.
         if (configuratie["Virusscan:Adres"] is { Length: > 0 } adres)
         {
             services.AddSingleton<IVirusscanner>(ClamAvScanner.Van(adres));
         }
-        else if (!ontwikkeling && !lokaal)
+        else if (!ontwikkeling && !lokaal && !kantoorserver)
         {
             services.AddSingleton<IVirusscanner, OntbrekendeVirusscanner>();
         }
@@ -200,14 +205,29 @@ public static class Opstart
 
         app.UseMiddleware<Beveiligingsheaders>();
         app.UseStatusCodePagesWithReExecute("/niet-gevonden", createScopeForStatusCodePages: true);
+        var kantoorserver = app.Services.GetRequiredService<Werkomgeving>().Kantoorserver;
         app.UseAuthentication();
         app.UseAuthorization();
-        app.UseMiddleware<WachtwoordWijzigenVerplicht>();
-        app.UseMiddleware<TweestapVerplicht>();
+        if (kantoorserver)
+        {
+            // Geen wachtwoorden: de pagina's om in te loggen, een wachtwoord te kiezen of tweestap in te stellen bestaan niet.
+            app.Use(Lokaal.Kantoorserver.ZonderWachtwoordpaginas);
+        }
+        else
+        {
+            app.UseMiddleware<WachtwoordWijzigenVerplicht>();
+            app.UseMiddleware<TweestapVerplicht>();
+        }
+
         app.UseAntiforgery();
 
         app.MapStaticAssets().AllowAnonymous();
         app.MapRazorComponents<App>().AddInteractiveServerRenderMode(o => o.ContentSecurityFrameAncestorsPolicy = null);
+
+        if (kantoorserver)
+        {
+            Lokaal.Kantoorserver.MapWerkplekken(app);
+        }
 
         app.MapPost("/account/uitloggen", async (SignInManager<Gebruiker> signIn, AuditDienst audit, HttpContext context) =>
         {

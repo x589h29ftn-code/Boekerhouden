@@ -515,6 +515,57 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.ToTable("Afschrijvingen", (string)null);
                 });
 
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Apparaat", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("AangevraagdOp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Computer")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("GebruikerId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("GekoppeldDoor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("GekoppeldOp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("LaatstGezien")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("Sleutel")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("Vingerafdruk")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("WindowsNaam")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GebruikerId");
+
+                    b.HasIndex("Vingerafdruk")
+                        .IsUnique();
+
+                    b.ToTable("Apparaten", (string)null);
+                });
+
             modelBuilder.Entity("Boekerhouden.Administratie.Data.AuditRegel", b =>
                 {
                     b.Property<long>("Id")
@@ -2384,6 +2435,14 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasForeignKey("AdministratieId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Apparaat", b =>
+                {
+                    b.HasOne("Boekerhouden.Administratie.Data.Gebruiker", null)
+                        .WithMany()
+                        .HasForeignKey("GebruikerId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Automatiseringsregel", b =>

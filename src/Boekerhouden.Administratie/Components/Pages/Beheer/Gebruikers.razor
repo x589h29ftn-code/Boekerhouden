@@ -3,10 +3,13 @@
 @attribute [Authorize(Roles = Rollen.Beheerder)]
 @inject GebruikerDienst GebruikerDienst
 @inject AdministratieDienst AdministratieDienst
+@inject ApparaatDienst Apparaten
+@inject Werkomgeving Omgeving
+@inject Meldingen Meldingen
 
-<PageTitle>Gebruikers en leden - Sifer</PageTitle>
+<PageTitle>Gebruikers en toegang - Sifer</PageTitle>
 
-<h1 class="h3 mb-3">Gebruikers en leden</h1>
+<h1 class="h3 mb-3">Gebruikers en toegang</h1>
 <Foutmeldingen Fouten="fouten" />
 @if (tijdelijk is not null)
 {
@@ -15,20 +18,26 @@
 
 <div class="row g-4">
     <div class="col-lg-6">
-        <div class="card">
+        <div class="card gebruikerskaart">
             <div class="card-header fw-semibold">Gebruikers</div>
             <table class="table table-sm align-middle mb-0">
                 <tbody>
                     @foreach (var g in gebruikers)
                     {
-                        <tr>
-                            <td title="@g.Email">@g.Naam</td>
+                        <tr class="@(g.Actief ? null : "text-secondary")">
+                            <td title="@(g.Email.EndsWith("@werkplek.sifer.local", StringComparison.Ordinal) ? null : g.Email)">@g.Naam</td>
                             <td class="small text-secondary">@string.Join(", ", g.Rollen)</td>
-                            <td class="text-end">
-                                @if (g.MoetWachtwoordWijzigen)
+                            <td class="text-end text-nowrap">
+                                @if (!g.Actief)
+                                {
+                                    <Statusstip Soort="Stipsoort.Open">niet actief</Statusstip>
+                                }
+                                else if (g.MoetWachtwoordWijzigen && !Omgeving.ZonderWachtwoord)
                                 {
                                     <Statusstip Soort="Stipsoort.Open">tijdelijk wachtwoord</Statusstip>
                                 }
+                                <button class="btn btn-sm btn-link text-secondary p-0 ms-2 rij-actie" title="@(g.Actief ? "Geen toegang meer; de naam blijft in het log staan" : "Weer toegang geven")"
+                                        @onclick="() => ZetActief(g)">@(g.Actief ? "Uitzetten" : "Aanzetten")</button>
                             </td>
                         </tr>
                     }
@@ -37,81 +46,155 @@
             <div class="card-body border-top">
                 <Uitklapformulier Tekst="Nieuwe gebruiker">
                 <div class="row g-2">
-                    <div class="col-6"><input class="form-control form-control-sm" placeholder="Naam" @bind="naam" aria-label="Naam" /></div>
-                    <div class="col-2"><input class="form-control form-control-sm" placeholder="Initialen" @bind="initialen" aria-label="Initialen" /></div>
-                    <div class="col-4"><input class="form-control form-control-sm" placeholder="E-mailadres" @bind="email" aria-label="E-mailadres" /></div>
+                    <div class="@(Omgeving.ZonderWachtwoord ? "col-9" : "col-6")"><input class="form-control form-control-sm" placeholder="Naam" @bind="naam" aria-label="Naam" /></div>
+                    <div class="@(Omgeving.ZonderWachtwoord ? "col-3" : "col-2")"><input class="form-control form-control-sm" placeholder="Initialen" @bind="initialen" aria-label="Initialen" /></div>
+                    @if (!Omgeving.ZonderWachtwoord)
+                    {
+                        <div class="col-4"><input class="form-control form-control-sm" placeholder="E-mailadres" @bind="email" aria-label="E-mailadres" /></div>
+                    }
                 </div>
                 <div class="d-flex align-items-center gap-3 mt-2">
                     <span class="form-check mb-0 small">
                         <input class="form-check-input" type="checkbox" id="rol-kantoor" @bind="kantoor" />
-                        <label class="form-check-label" for="rol-kantoor">Kantoor</label>
+                        <label class="form-check-label" for="rol-kantoor" title="Medewerker van het kantoor: mag administraties aanmaken">Kantoor</label>
                     </span>
                     <span class="form-check mb-0 small">
                         <input class="form-check-input" type="checkbox" id="rol-beheer" @bind="beheerder" />
-                        <label class="form-check-label" for="rol-beheer">Beheerder</label>
+                        <label class="form-check-label" for="rol-beheer" title="Gebruikers, werkplekken en toegang beheren">Beheerder</label>
                     </span>
                     <button class="btn btn-sm btn-outline-primary ms-auto" @onclick="MaakGebruiker">Gebruiker toevoegen</button>
                 </div>
                 </Uitklapformulier>
             </div>
         </div>
+
+        @if (Omgeving.Kantoorserver)
+        {
+            <div class="card mt-4 werkplekkenkaart">
+                <div class="card-header fw-semibold">Werkplekken</div>
+                @if (werkplekken.Count == 0)
+                {
+                    <div class="card-body small text-secondary">Nog geen werkplekken.</div>
+                }
+                else
+                {
+                    <table class="table table-sm align-middle mb-0">
+                        <tbody>
+                            @foreach (var w in werkplekken)
+                            {
+                                <tr>
+                                    <td title="@($"aangemeld {Weergave.DatumTijd(w.AangevraagdOp)}{(w.LaatstGezien is { } gezien ? $", laatst gezien {Weergave.DatumTijd(gezien)}" : null)}")">
+                                        @w.WindowsNaam <span class="text-secondary small">op @w.Computer</span>
+                                    </td>
+                                    @if (w.GebruikerId is null)
+                                    {
+                                        <td class="text-nowrap"><span class="status let-op" title="Dezelfde code staat op het scherm van de werkplek">code @w.Code</span></td>
+                                        <td class="text-end text-nowrap">
+                                            <select class="form-select form-select-sm d-inline-block w-auto" aria-label="Gebruiker van deze werkplek" @onchange="e => keuze[w.Id] = e.Value as string ?? string.Empty">
+                                                <option value="">Gebruiker…</option>
+                                                <option value="@NieuweGebruiker">Nieuwe gebruiker @w.WindowsNaam</option>
+                                                @foreach (var g in gebruikers.Where(g => g.Actief))
+                                                {
+                                                    <option value="@g.Id">@g.Naam</option>
+                                                }
+                                            </select>
+                                            <button class="btn btn-sm btn-outline-primary ms-1" @onclick="() => Koppel(w)">Koppelen</button>
+                                            <button class="btn btn-sm btn-link text-secondary p-0 ms-2" @onclick="() => VerwijderWerkplek(w)">Afwijzen</button>
+                                        </td>
+                                    }
+                                    else
+                                    {
+                                        <td class="small text-secondary">@w.Gebruiker</td>
+                                        <td class="text-end"><button class="btn btn-sm btn-link text-secondary p-0 rij-actie" title="Deze werkplek kan daarna niet meer inloggen" @onclick="() => VerwijderWerkplek(w)">Ontkoppelen</button></td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        }
     </div>
     <div class="col-lg-6">
-        <div class="card">
-            <div class="card-header fw-semibold">Leden per administratie</div>
-            <table class="table table-sm align-middle mb-0">
-                <tbody>
-                    @foreach (var a in administraties)
+        <div class="card toegangskaart">
+            <div class="card-header fw-semibold d-flex align-items-center gap-2">
+                <span class="me-auto">Toegang per administratie</span>
+                <select class="form-select form-select-sm w-auto fw-normal" aria-label="Gebruiker" @bind="toegangVan">
+                    <option value="">Gebruiker…</option>
+                    @foreach (var g in gebruikers.Where(g => g.Actief))
                     {
-                        <tr>
-                            <td>@a.Naam</td>
-                            <td class="small text-secondary">@string.Join(", ", a.Leden.Select(l => $"{l.Naam} ({Weergave.Tekst(l.Rol)})"))</td>
-                        </tr>
+                        <option value="@g.Id">@g.Naam</option>
                     }
-                </tbody>
-            </table>
-            <div class="card-body border-top">
-                <Uitklapformulier Tekst="Nieuw lidmaatschap">
-                <div class="row g-2">
-                    <div class="col-5">
-                        <select class="form-select form-select-sm" @bind="lidGebruiker" aria-label="Gebruiker">
-                            <option value="">Gebruiker…</option>
-                            @foreach (var g in gebruikers)
-                            {
-                                <option value="@g.Id">@g.Naam</option>
-                            }
-                        </select>
-                    </div>
-                    <div class="col-4">
-                        <select class="form-select form-select-sm" @bind="lidAdministratie" aria-label="Administratie">
-                            <option value="">Administratie…</option>
-                            @foreach (var a in administraties)
-                            {
-                                <option value="@a.Id">@a.Naam</option>
-                            }
-                        </select>
-                    </div>
-                    <div class="col-3">
-                        <select class="form-select form-select-sm" @bind="lidRol" aria-label="Rol">
-                            @foreach (var rol in Enum.GetValues<Lidmaatschapsrol>())
-                            {
-                                <option value="@rol">@Weergave.Tekst(rol)</option>
-                            }
-                        </select>
-                    </div>
-                </div>
-                <div class="text-end mt-2">
-                    <button class="btn btn-sm btn-outline-primary" @onclick="ZetLid">Lid maken</button>
-                </div>
-                </Uitklapformulier>
+                </select>
             </div>
+            @if (toegangVan is not { } persoon)
+            {
+                <table class="table table-sm align-middle mb-0">
+                    <tbody>
+                        @foreach (var a in administraties)
+                        {
+                            <tr>
+                                <td>@a.Naam</td>
+                                <td class="small text-secondary">@string.Join(", ", a.Leden.Select(l => $"{l.Naam} ({Weergave.Tekst(l.Rol)})"))</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                @if (administraties.Count > 12)
+                {
+                    <div class="card-body py-2 border-bottom">
+                        <input class="form-control form-control-sm" placeholder="Administratie zoeken" aria-label="Administratie zoeken" @bind="zoek" @bind:event="oninput" />
+                    </div>
+                }
+                <table class="table table-sm align-middle mb-0">
+                    <tbody>
+                        @foreach (var a in administraties.Where(a => string.IsNullOrWhiteSpace(zoek) || a.Naam.Contains(zoek.Trim(), StringComparison.OrdinalIgnoreCase)))
+                        {
+                            var rol = a.Leden.FirstOrDefault(l => l.GebruikerId == persoon)?.Rol;
+                            <tr>
+                                <td class="@(rol is null ? "text-secondary" : null)">@a.Naam</td>
+                                <td class="text-end">
+                                    <select class="form-select form-select-sm d-inline-block w-auto" aria-label="Toegang tot @a.Naam" value="@(rol?.ToString() ?? string.Empty)" @onchange="e => ZetToegang(a, persoon, e.Value as string)">
+                                        <option value="">Geen toegang</option>
+                                        @foreach (var r in Enum.GetValues<Lidmaatschapsrol>())
+                                        {
+                                            <option value="@r">@Weergave.Tekst(r)</option>
+                                        }
+                                    </select>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                @if (administraties.Count > 1)
+                {
+                    <div class="card-body border-top py-2 d-flex align-items-center gap-2 small">
+                        <span class="text-secondary me-auto">Alle administraties</span>
+                        <select class="form-select form-select-sm w-auto" aria-label="Toegang tot alle administraties" @bind="alleRol">
+                            <option value="">Geen toegang</option>
+                            @foreach (var r in Enum.GetValues<Lidmaatschapsrol>())
+                            {
+                                <option value="@r">@Weergave.Tekst(r)</option>
+                            }
+                        </select>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => ZetAlle(persoon)">Toepassen</button>
+                    </div>
+                }
+            }
         </div>
     </div>
 </div>
 
 @code {
+    private const string NieuweGebruiker = "+";
+
     private IReadOnlyList<GebruikerRegel> gebruikers = [];
     private IReadOnlyList<AdministratieMetLeden> administraties = [];
+    private IReadOnlyList<Werkplekregel> werkplekken = [];
+    private readonly Dictionary<Guid, string> keuze = [];
     private IReadOnlyList<string>? fouten;
     private (string Email, string Wachtwoord)? tijdelijk;
     private string naam = "";
@@ -119,19 +202,22 @@
     private string email = "";
     private bool kantoor;
     private bool beheerder;
-    private Guid? lidGebruiker;
-    private Guid? lidAdministratie;
-    private Lidmaatschapsrol lidRol = Lidmaatschapsrol.Ondernemer;
+    private Guid? toegangVan;
+    private string? zoek;
+    private string alleRol = "";
 
     [CascadingParameter]
     private Task<AuthenticationState> Authenticatie { get; set; } = default!;
 
     protected override Task OnInitializedAsync() => Laad();
 
+    private async Task<Uitvoerder> Wie() => (await Authenticatie).User.AlsUitvoerder();
+
     private async Task Laad()
     {
         gebruikers = await GebruikerDienst.Lijst();
         administraties = await AdministratieDienst.AlleMetLeden();
+        werkplekken = Omgeving.Kantoorserver ? await Apparaten.Lijst() : [];
     }
 
     private async Task MaakGebruiker()
@@ -147,27 +233,126 @@
             rollen.Add(Rollen.Beheerder);
         }
 
-        var uitkomst = await GebruikerDienst.Maak(new GebruikerInvoer(email, naam, initialen, rollen), (await Authenticatie).User.AlsUitvoerder());
+        if (Omgeving.ZonderWachtwoord)
+        {
+            var nieuw = await GebruikerDienst.MaakZonderWachtwoord(naam, initialen, null, rollen, await Wie());
+            fouten = nieuw.Fouten;
+            if (!nieuw.IsGelukt)
+            {
+                return;
+            }
+
+            Meldingen.Toon($"{naam.Trim()} toegevoegd");
+            toegangVan = nieuw.Waarde;
+        }
+        else
+        {
+            var uitkomst = await GebruikerDienst.Maak(new GebruikerInvoer(email, naam, initialen, rollen), await Wie());
+            fouten = uitkomst.Fouten;
+            if (!uitkomst.IsGelukt)
+            {
+                return;
+            }
+
+            tijdelijk = (email.Trim(), uitkomst.Waarde!);
+        }
+
+        naam = initialen = email = "";
+        kantoor = beheerder = false;
+        await Laad();
+    }
+
+    private async Task ZetActief(GebruikerRegel g)
+    {
+        var uitkomst = await GebruikerDienst.ZetActief(g.Id, !g.Actief, await Wie());
         fouten = uitkomst.Fouten;
         if (uitkomst.IsGelukt)
         {
-            tijdelijk = (email.Trim(), uitkomst.Waarde!);
-            naam = initialen = email = "";
-            kantoor = beheerder = false;
-            await Laad();
+            Meldingen.Toon(g.Actief ? $"{g.Naam} heeft geen toegang meer" : $"{g.Naam} heeft weer toegang");
+            if (toegangVan == g.Id)
+            {
+                toegangVan = null;
+            }
         }
+
+        await Laad();
     }
 
-    private async Task ZetLid()
+    /// <summary>Een aangemelde werkplek aan een gebruiker koppelen; "nieuwe gebruiker" maakt hem eerst aan met de Windows-naam.</summary>
+    private async Task Koppel(Werkplekregel w)
     {
-        if (lidGebruiker is not { } g || lidAdministratie is not { } a)
+        var wie = await Wie();
+        Guid gebruiker;
+        if (keuze.GetValueOrDefault(w.Id) is not { Length: > 0 } gekozen)
         {
-            fouten = ["Kies een gebruiker en een administratie."];
+            fouten = ["Kies de gebruiker van deze werkplek."];
             return;
         }
 
-        var uitkomst = await AdministratieDienst.ZetLid(a, g, lidRol, (await Authenticatie).User.AlsUitvoerder());
+        if (gekozen == NieuweGebruiker)
+        {
+            var nieuw = await GebruikerDienst.MaakZonderWachtwoord(w.WindowsNaam, null, null, [], wie);
+            fouten = nieuw.Fouten;
+            if (!nieuw.IsGelukt)
+            {
+                return;
+            }
+
+            gebruiker = nieuw.Waarde;
+        }
+        else
+        {
+            gebruiker = Guid.Parse(gekozen);
+        }
+
+        var uitkomst = await Apparaten.Koppel(wie, w.Id, gebruiker);
         fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            keuze.Remove(w.Id);
+            toegangVan = gebruiker;
+            Meldingen.Toon($"Werkplek {w.Computer} gekoppeld");
+        }
+
+        await Laad();
+    }
+
+    private async Task VerwijderWerkplek(Werkplekregel w)
+    {
+        fouten = (await Apparaten.Verwijder(await Wie(), w.Id)).Fouten;
+        await Laad();
+    }
+
+    private async Task ZetToegang(AdministratieMetLeden a, Guid gebruiker, string? rol)
+    {
+        var wie = await Wie();
+        var uitkomst = Enum.TryParse<Lidmaatschapsrol>(rol, out var gekozen)
+            ? await AdministratieDienst.ZetLid(a.Id, gebruiker, gekozen, wie)
+            : await AdministratieDienst.VerwijderLid(a.Id, gebruiker, wie);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            Meldingen.Toon(rol is { Length: > 0 } ? $"{a.Naam}: {Weergave.Tekst(gekozen)}" : $"{a.Naam}: geen toegang");
+        }
+
+        await Laad();
+    }
+
+    private async Task ZetAlle(Guid gebruiker)
+    {
+        var wie = await Wie();
+        var heeftRol = Enum.TryParse<Lidmaatschapsrol>(alleRol, out var gekozen);
+        foreach (var a in administraties)
+        {
+            var uitkomst = heeftRol ? await AdministratieDienst.ZetLid(a.Id, gebruiker, gekozen, wie) : await AdministratieDienst.VerwijderLid(a.Id, gebruiker, wie);
+            if (!uitkomst.IsGelukt)
+            {
+                fouten = uitkomst.Fouten;
+                break;
+            }
+        }
+
+        Meldingen.Toon(heeftRol ? $"Alle administraties: {Weergave.Tekst(gekozen)}" : "Alle administraties: geen toegang");
         await Laad();
     }
 }
