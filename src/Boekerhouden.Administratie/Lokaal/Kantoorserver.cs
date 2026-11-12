@@ -38,6 +38,23 @@ public static class Kantoorserver
         return configuratie.GetValue("Kantoorserver:Aan", false) || !string.IsNullOrWhiteSpace(configuratie["Kantoorserver:Gegevensmap"]);
     }
 
+    /// <summary>
+    /// Start de kantoorserver in dit proces (de Windows-app doet dat zelf, er is geen los serverprogramma): dezelfde
+    /// webapp op de gegevens in <paramref name="map"/>. Vooraf hoort <see cref="Kantoorstart.Bereid"/> gedraaid te zijn.
+    /// </summary>
+    /// <param name="extra">Diensten van de Windows-app zelf, bijv. opnieuw starten.</param>
+    public static async Task<WebApplication> Start(string map, int poort, Action<IServiceCollection>? extra = null)
+    {
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = [.. Kantoorstart.Argumenten(map, poort)], ContentRootPath = AppContext.BaseDirectory });
+        Opstart.ConfigureerDiensten(builder);
+        extra?.Invoke(builder.Services);
+        var app = builder.Build();
+        await Opstart.InitialiseerDatabase(app.Services).ConfigureAwait(false);
+        Opstart.ConfigureerPijplijn(app);
+        await app.StartAsync().ConfigureAwait(false);
+        return app;
+    }
+
     /// <summary>Zet de database, de poort en het certificaat als de app als kantoorserver start; geeft of dat zo is.</summary>
     public static bool Configureer(WebApplicationBuilder builder)
     {
@@ -50,6 +67,10 @@ public static class Kantoorserver
             var certificaat = Certificaat(map);
             Certificaatvingerafdruk = certificaat.GetCertHashString(HashAlgorithmName.SHA256);
             builder.WebHost.ConfigureKestrel(o => o.Listen(IPAddress.Any, poort, l => l.UseHttps(certificaat)));
+
+            // Reservekopieën en de werkwijze van deze pc, zoals in de Windows-app alleen.
+            builder.Services.AddSingleton(sp => new Reservekopieen(map, sp.GetRequiredService<TimeProvider>()));
+            builder.Services.AddSingleton(sp => new Werkwijzebeheer(map, sp.GetService<IHerstart>()));
         }
 
         return Aan(builder.Configuration);

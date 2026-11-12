@@ -35,7 +35,7 @@ internal static class Proef
         return await Proefgegevens.Vul(diensten, wie, new Proefomvang(), DateTime.Today.Year);
     }
 
-    public static async Task Voer(HoofdVenster venster, WebView2 webview, string map, Proefuitkomst? gegevens)
+    public static async Task Voer(Proefvenster venster, WebView2 webview, string map, Proefuitkomst? gegevens)
     {
         var verslag = new StringBuilder();
         var fouten = new List<string>();

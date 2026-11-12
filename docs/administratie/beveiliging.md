@@ -360,6 +360,38 @@ het moment waarop een klant of accountant erom vraagt.
     uploads worden niet door het pakket gescand (eigen bestanden op de eigen pc; de virusscanner van Windows doet
     dat al), en een document opent alleen als PDF of XML. Bedoeld
     voor tests op één pc, niet voor een kantoor met meerdere gebruikers (daarvoor de server, §4.11).
+16. **Windows-app als kantoorserver** (november 2026, besluit van de gebruiker: gegevens op één pc op kantoor,
+    aanmelden met het Windows-account zonder wachtwoord). Eén pc deelt zijn gegevens (*Beheer, Delen*): de Windows-app
+    start dan dezelfde webapp in zijn eigen proces (`Kantoorserver.Start`) op het SQLite-bestand, en luistert op het
+    kantoornetwerk (poort 5095). De andere pc's draaien de Windows-app als *werkplek*: alleen een venster op die server.
+    - **Geen wachtwoorden, wel een sleutel per werkplek.** Een werkplek is één Windows-gebruiker op één pc. De app
+      maakt daar een sleutelpaar (ECDSA P-256); de geheime sleutel staat in de gegevensmap van die gebruiker,
+      versleuteld met zijn Windows-account (DPAPI). De werkplek meldt zich met de publieke sleutel
+      (`/werkplek/meld`); de beheerder koppelt hem aan een gebruiker (`ApparaatDienst.Koppel`). Inloggen is een
+      eenmalige uitdaging (één minuut geldig) ondertekenen (`/werkplek/binnen`); daarna geldt het gewone sessiecookie.
+      Een andere pc of een ander Windows-account kan zich dus niet als deze gebruiker voordoen; de naam van het
+      Windows-account die de werkplek opgeeft is alleen ter herkenning. **Wie achter een ontgrendelde, gekoppelde pc
+      zit, werkt onder die naam**: dat is de bewuste keuze; vergrendelen bij weglopen is de maatregel.
+    - **Versleuteld, met een vastgelegd certificaat.** De server maakt één keer een eigen certificaat (in de
+      gegevensmap, naast de gegevens). Het is door niemand ondertekend: de werkplek legt de vingerafdruk vast bij de
+      eerste verbinding en neemt daarna alleen dat certificaat aan (ook het venster zelf). De **controlecode** die bij
+      het koppelen op beide schermen staat, hangt af van de sleutel van de werkplek én het certificaat dat de werkplek
+      zag: zit er bij die eerste verbinding iemand tussen, dan verschillen de codes. De beheerder vergelijkt ze.
+    - **Geen inlogpagina.** Op de kantoorserver bestaan de pagina's voor wachtwoord, tweestap en passkeys niet; een
+      gewone browser ziet alleen "deze pc is niet gekoppeld". Melden en inloggen zijn begrensd per adres (60 per
+      minuut) en er kunnen hoogstens 25 werkplekken tegelijk wachten; een aanmelding waar niets mee gebeurt, verdwijnt
+      na 14 dagen. Tweestap voor de beheerder (B1) geldt hier niet: de beheerder is de gebruiker van de kantoor-pc en
+      komt alleen daar binnen, met de sleutel van die pc.
+    - **Toegang.** Ongewijzigd: per administratie een lidmaatschap met een rol (`Toegang`); de beheerder zet dat per
+      gebruiker (*Gebruikers en toegang*). Een gebruiker uitzetten of een werkplek ontkoppelen werkt direct voor
+      nieuwe aanmeldingen; lopende sessies vervallen bij de eerstvolgende controle van het beveiligingsstempel.
+    - **Wat blijft zoals in de Windows-app alleen**: geen virusscan door het pakket (bestanden van de eigen
+      medewerkers; de virusscanner van Windows), updates en reservekopieën op de kantoor-pc (vóór de server start),
+      documentmap, tekstherkenning en PDF op de kantoor-pc. De kantoor-pc moet aan staan met de app open.
+    - **Niet hiervoor bedoeld**: toegang van buiten kantoor (thuis, klanten). Zet de poort niet open naar internet;
+      daarvoor is de gehoste server met wachtwoord en tweestap (§4.11).
+    Getest: `WerkplekTests` (melden, koppelen, inloggen, en wat niet mag) en `KantoorserverProcesTests` (de echte
+    server als proces, met het vastgelegde certificaat); de CI start de Windows-app ook als kantoorserver.
 
 Bekende beperking: de databaserol van de app is eigenaar van de tabellen en kan de triggers dus uitschakelen. De
 hash-keten maakt zo'n wijziging zichtbaar; aparte databaserollen (app zonder eigenaarschap) volgen vóór F2.

@@ -155,6 +155,23 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     betaling van een bon op bedrag, dag (uit de omschrijving of de boekdatum) en winkelnaam (`Afletteren/Pinbetaling`,
     stap 3b in `Afletteraar`); zeker bij precies één bon. `PinbetalingTests` met 50 willekeurige bonnen.
 
+23. **Verkoopfactuur verwerken als inkoop** (12 november): gebied aanwijzen op het origineel, variabelen in de
+    omschrijving (`#klant`, `#maandnr`), een standaardomschrijving voor ingelezen verkoopfacturen (kantoor), en het
+    scherm in de opzet van het verwerkscherm van inkoop (`Verkoopregels` met `Verwerken`, `Verkooporigineel`).
+
+24. **Omvangtest** (`OmvangStressTests`, `BOEKERHOUDEN_OMVANG=300`): 300 administraties × 5 jaar × 500 facturen en
+    500 bankmutaties (1,5 miljoen boekingen, 4,2 GB in PostgreSQL): alle schermen onder 150 ms. Niet gemeten:
+    SQLite, meerdere gebruikers tegelijk, echte PDF-groottes (documenten staan in de database).
+
+25. **Samenwerken vanuit de Windows-app** (beveiliging.md, punt 16 in §5; LEESMIJ van de app): de app kent drie
+    werkwijzen (`Lokaal/Werkwijze`): alleen, kantoorserver (de app start de webapp in zijn eigen proces op het
+    SQLite-bestand, `Kantoorserver.Start`) en werkplek (`Kantoorvenster`: een WebView2-venster op de server).
+    Inloggen zonder wachtwoord met een sleutel per Windows-gebruiker per pc (`ApparaatDienst`, `Werkpleksleutel`,
+    `Werkplekopslag` met DPAPI); de beheerder koppelt werkplekken en zet de toegang per administratie onder
+    *Beheer, Gebruikers en toegang*; wisselen van werkwijze onder *Beheer, Delen* (`Werkwijzebeheer`).
+    Het Windows-deel is alleen in de CI te draaien (`--proef map --kantoorserver`); een tweede pc koppelen is
+    niet automatisch getest: dat moet de gebruiker op twee pc's proberen.
+
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).
 

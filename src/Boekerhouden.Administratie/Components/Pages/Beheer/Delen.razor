@@ -1,0 +1,91 @@
+@page "/beheer/delen"
+@layout BeheerLayout
+@attribute [Authorize(Roles = Rollen.Beheerder)]
+@using Boekerhouden.Administratie.Lokaal
+@inject IServiceProvider Diensten
+@inject AuditDienst Audit
+
+<PageTitle>Delen - Sifer</PageTitle>
+
+<h1 class="h3 mb-3">Delen</h1>
+<Foutmeldingen Fouten="fouten" />
+@if (beheer is not { Wijzigbaar: true })
+{
+    <div class="bericht">De werkwijze is alleen in de Windows-app te wijzigen.</div>
+}
+else if (!opDezePc)
+{
+    <div class="bericht">De werkwijze van de kantoor-pc wijzig je op de kantoor-pc zelf.</div>
+}
+else if (beheer.Huidig.Stand == Werkwijzestand.Kantoorserver)
+{
+    <div class="formulieren">
+        <Formulierblok Titel="Deze pc deelt de gegevens">
+            <dl class="row mb-0 small">
+                <dt class="col-sm-4 fw-normal text-secondary">Adres voor de andere pc's</dt>
+                <dd class="col-sm-8 mb-1"><code class="fs-6 delen-adres">@Werkwijzebeheer.Computernaam</code>@(beheer.Huidig.Poort == Kantoorserver.StandaardPoort ? null : $":{beheer.Huidig.Poort}")</dd>
+                <dt class="col-sm-4 fw-normal text-secondary">Poort</dt>
+                <dd class="col-sm-8 mb-0">@beheer.Huidig.Poort</dd>
+            </dl>
+            <div class="mt-3">
+                <a class="btn btn-sm btn-outline-secondary" href="/beheer/gebruikers">Gebruikers en werkplekken</a>
+                <button class="btn btn-sm btn-link text-secondary ms-2" disabled="@bezig" title="De andere pc's kunnen daarna niet meer werken; de app start opnieuw" @onclick="() => Zet(Werkwijzestand.Alleen)">Stoppen met delen</button>
+            </div>
+        </Formulierblok>
+    </div>
+}
+else
+{
+    <div class="formulieren">
+        <Formulierblok Titel="Deze pc als kantoorserver">
+            <button class="btn btn-sm btn-primary delen-aan" disabled="@bezig" title="De gegevens van deze pc delen met de andere pc's op kantoor; de app start opnieuw" @onclick="() => Zet(Werkwijzestand.Kantoorserver)">Delen met andere pc's</button>
+        </Formulierblok>
+        <Formulierblok Titel="Verbinden met een kantoorserver">
+            <div class="d-flex gap-2 align-items-center">
+                <input class="form-control form-control-sm" style="max-width:18rem" placeholder="Naam van de kantoor-pc" aria-label="Naam of adres van de kantoor-pc" @bind="adres" />
+                <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="Voortaan in de gegevens van de kantoor-pc werken; de gegevens op deze pc blijven staan maar worden niet gebruikt" @onclick="Verbind">Verbinden</button>
+            </div>
+        </Formulierblok>
+    </div>
+}
+
+@code {
+    private Werkwijzebeheer? beheer;
+    private IReadOnlyList<string>? fouten;
+    private string? adres;
+    private bool bezig;
+    private bool opDezePc;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> Authenticatie { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        beheer = Diensten.GetService<Werkwijzebeheer>();
+
+        // Alleen de gebruiker van de kantoor-pc zelf (die logt alleen daar in) wisselt de werkwijze van die pc.
+        var gebruiker = (await Authenticatie).User;
+        opDezePc = Diensten.GetRequiredService<Werkomgeving>().Lokaal
+            || string.Equals(gebruiker.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? gebruiker.Identity?.Name, LokaleGebruiker.Email, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task Zet(Werkwijzestand stand)
+    {
+        bezig = true;
+        await Audit.Log((await Authenticatie).User.AlsUitvoerder(), AuditActies.WerkwijzeGewijzigd, stand.ToString());
+        beheer!.Zet(beheer.Huidig with { Stand = stand, Server = null, Certificaat = null });
+    }
+
+    private async Task Verbind()
+    {
+        if (Werkwijze.Adres(adres) is not { } server)
+        {
+            fouten = ["Vul de naam of het adres van de kantoor-pc in."];
+            return;
+        }
+
+        bezig = true;
+        await Audit.Log((await Authenticatie).User.AlsUitvoerder(), AuditActies.WerkwijzeGewijzigd, $"werkplek van {server.Host}");
+        beheer!.Zet(new Werkwijze(Werkwijzestand.Werkplek, Server: server.ToString()));
+    }
+}

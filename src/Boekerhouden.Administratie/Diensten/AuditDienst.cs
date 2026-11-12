@@ -59,6 +59,7 @@ public static class AuditActies
     public const string EersteBeheerderAangemaakt = "Eerste beheerder aangemaakt";
     public const string GebruikerAangemaakt = "Gebruiker aangemaakt";
     public const string GebruikerGewijzigd = "Gebruiker gewijzigd";
+    public const string WerkwijzeGewijzigd = "Werkwijze gewijzigd";
     public const string WerkplekAangemeld = "Werkplek aangemeld";
     public const string WerkplekGekoppeld = "Werkplek gekoppeld";
     public const string WerkplekVerwijderd = "Werkplek verwijderd";

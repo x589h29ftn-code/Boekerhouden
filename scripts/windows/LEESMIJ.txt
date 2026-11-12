@@ -39,3 +39,20 @@ Fouten
 
 Meegeleverd
   .NET (MIT), SQLite (public domain), pdf.js (Apache-2.0), WebView2-SDK (BSD). Alles open source.
+
+Samenwerken: meerdere pc's in dezelfde gegevens
+  Eén pc op kantoor houdt de gegevens bij (de kantoor-pc); de andere pc's werken daarin mee.
+  1. Op de kantoor-pc: Beheer > Delen > "Delen met andere pc's". De app start opnieuw en deelt nu de gegevens.
+     Windows vraagt de eerste keer of Sifer het netwerk op mag: sta dat toe voor particuliere netwerken.
+     Onder Beheer > Delen staat de naam van de pc die de anderen nodig hebben.
+  2. Op een andere pc: start Sifer en kies "Verbinden" met de naam van de kantoor-pc (of, als die pc al eigen
+     gegevens heeft: Beheer > Delen > Verbinden). Het venster toont "Wacht op de beheerder" met een code.
+  3. Op de kantoor-pc: Beheer > Gebruikers en toegang > Werkplekken. Controleer dat de code dezelfde is, kies de
+     gebruiker (of "Nieuwe gebruiker") en klik Koppelen. De andere pc gaat vanzelf verder.
+  4. Stel in hetzelfde scherm per gebruiker in tot welke administraties hij toegang heeft (geen toegang, inzien,
+     ondernemer of kantoor).
+  Inloggen is er niet: wie in Windows is aangemeld op een gekoppelde pc, werkt onder zijn eigen naam. Vergrendel
+  de pc dus als je wegloopt. Een pc of gebruiker de toegang afnemen: Ontkoppelen of Uitzetten in hetzelfde scherm.
+  De kantoor-pc moet aan staan met Sifer open; sluit je Sifer daar, dan kunnen de anderen niet verder.
+  Het verkeer tussen de pc's is versleuteld. De gegevens, updates en reservekopieën staan alleen op de kantoor-pc.
+  Stoppen met delen: Beheer > Delen op de kantoor-pc.

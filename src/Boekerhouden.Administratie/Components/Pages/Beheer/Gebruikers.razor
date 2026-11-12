@@ -82,15 +82,15 @@
                         <tbody>
                             @foreach (var w in werkplekken)
                             {
-                                <tr>
-                                    <td title="@($"aangemeld {Weergave.DatumTijd(w.AangevraagdOp)}{(w.LaatstGezien is { } gezien ? $", laatst gezien {Weergave.DatumTijd(gezien)}" : null)}")">
+                                <tr @key="w.Id">
+                                    <td class="text-nowrap" title="@($"aangemeld {Weergave.DatumTijd(w.AangevraagdOp)}{(w.LaatstGezien is { } gezien ? $", laatst gezien {Weergave.DatumTijd(gezien)}" : null)}")">
                                         @w.WindowsNaam <span class="text-secondary small">op @w.Computer</span>
                                     </td>
                                     @if (w.GebruikerId is null)
                                     {
                                         <td class="text-nowrap"><span class="status let-op" title="Dezelfde code staat op het scherm van de werkplek">code @w.Code</span></td>
                                         <td class="text-end text-nowrap">
-                                            <select class="form-select form-select-sm d-inline-block w-auto" aria-label="Gebruiker van deze werkplek" @onchange="e => keuze[w.Id] = e.Value as string ?? string.Empty">
+                                            <select class="form-select form-select-sm d-inline-block w-auto" aria-label="Gebruiker van deze werkplek" value="@(keuze.GetValueOrDefault(w.Id) ?? string.Empty)" @onchange="e => keuze[w.Id] = e.Value as string ?? string.Empty">
                                                 <option value="">Gebruiker…</option>
                                                 <option value="@NieuweGebruiker">Nieuwe gebruiker @w.WindowsNaam</option>
                                                 @foreach (var g in gebruikers.Where(g => g.Actief))

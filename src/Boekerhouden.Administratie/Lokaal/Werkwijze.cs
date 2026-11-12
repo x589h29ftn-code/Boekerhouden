@@ -8,7 +8,7 @@ using Microsoft.Data.Sqlite;
 namespace Boekerhouden.Administratie.Lokaal;
 
 /// <summary>Hoe de Windows-app op deze pc werkt.</summary>
-public enum Werkstand
+public enum Werkwijzestand
 {
     /// <summary>Alleen op deze pc: eigen gegevens, geen netwerk (zoals het altijd was).</summary>
     Alleen,
@@ -26,7 +26,7 @@ public enum Werkstand
 /// <param name="Poort">Kantoorserver: de poort waarop hij luistert.</param>
 /// <param name="Server">Werkplek: het adres van de kantoorserver (https://naam:poort).</param>
 /// <param name="Certificaat">Werkplek: de vingerafdruk van het certificaat van de server, vastgelegd bij de eerste verbinding.</param>
-public sealed record Werkwijze(Werkstand Stand = Werkstand.Alleen, int Poort = Kantoorserver.StandaardPoort, string? Server = null, string? Certificaat = null)
+public sealed record Werkwijze(Werkwijzestand Stand = Werkwijzestand.Alleen, int Poort = Kantoorserver.StandaardPoort, string? Server = null, string? Certificaat = null)
 {
     public const string Bestand = "werkwijze.json";
 
@@ -164,4 +164,31 @@ public static class Kantoorstart
     /// <summary>De opdrachtregel waarmee de server start (na het programma zelf).</summary>
     public static IReadOnlyList<string> Argumenten(string map, int poort) =>
         [$"--Kantoorserver:Gegevensmap={map}", $"--Kantoorserver:Poort={poort.ToString(System.Globalization.CultureInfo.InvariantCulture)}"];
+}
+
+/// <summary>
+/// De werkwijze van deze pc bekijken en wijzigen vanuit het scherm (Beheer, Delen). Wijzigen kan alleen in de
+/// Windows-app zelf (die kan opnieuw starten); de nieuwe werkwijze gaat in bij die herstart.
+/// </summary>
+public sealed class Werkwijzebeheer(string map, IHerstart? herstart)
+{
+    public Werkwijze Huidig => Werkwijze.Lees(map) ?? new Werkwijze();
+
+    /// <summary>Kan de werkwijze hier gewijzigd worden (de Windows-app, met herstart)?</summary>
+    public bool Wijzigbaar => herstart is not null;
+
+    /// <summary>De naam van deze pc, zoals de andere pc's hem intikken om te verbinden.</summary>
+    public static string Computernaam => Environment.MachineName;
+
+    public void Zet(Werkwijze nieuw)
+    {
+        ArgumentNullException.ThrowIfNull(nieuw);
+        if (herstart is null)
+        {
+            throw new InvalidOperationException("De werkwijze is alleen in de Windows-app te wijzigen.");
+        }
+
+        nieuw.Bewaar(map);
+        herstart.Herstart();
+    }
 }

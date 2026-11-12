@@ -1,6 +1,7 @@
 @inherits LayoutComponentBase
 @layout HoofdLayout
 @inject Werkomgeving Omgeving
+@inject IServiceProvider Diensten
 
 <div class="beheer">
     <nav class="beheermenu" aria-label="Beheer">
@@ -12,9 +13,13 @@
         <NavLink href="/beheer/instellingen">Kantoorinstellingen</NavLink>
         <NavLink href="/beheer/btw">Btw-tabel</NavLink>
         <NavLink href="/beheer/wijzigingslog">Wijzigingslog</NavLink>
-        @if (Omgeving.Lokaal)
+        @if (Diensten.GetService<Lokaal.Reservekopieen>() is not null)
         {
             <NavLink href="/beheer/reservekopieen">Reservekopieën</NavLink>
+        }
+        @if (Diensten.GetService<Lokaal.Werkwijzebeheer>() is { Wijzigbaar: true })
+        {
+            <NavLink href="/beheer/delen">Delen</NavLink>
         }
     </nav>
     <div class="beheer-inhoud">

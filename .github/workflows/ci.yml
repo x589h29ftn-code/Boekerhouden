@@ -79,9 +79,23 @@ jobs:
           if (Test-Path "$map\proef.txt") { Get-Content "$map\proef.txt" }
           if ($proces.ExitCode -ne 0) { throw "De proef van de Windows-app vond fouten (code $($proces.ExitCode)), zie hierboven." }
           Write-Host "De Windows-app doorstond de proef."
+      # Dezelfde proef, maar met de app als kantoorserver: de server in de app, het venster als werkplek (versleuteld,
+      # ingelogd met de sleutel van de pc).
+      - shell: pwsh
+        run: |
+          $map = Join-Path $env:RUNNER_TEMP "proef-kantoor"
+          $proces = Start-Process "app\Sifer\Sifer.exe" -ArgumentList "--proef", "`"$map`"", "--kantoorserver" -PassThru
+          if (-not $proces.WaitForExit(900000)) { Stop-Process $proces -Force; throw "De Windows-app (kantoorserver) reageerde niet." }
+          if (Test-Path "$map\fouten.log") { Get-Content "$map\fouten.log" }
+          if (Test-Path "$map\proef.txt") { Get-Content "$map\proef.txt" }
+          if ($proces.ExitCode -ne 0) { throw "De proef van de Windows-app als kantoorserver vond fouten (code $($proces.ExitCode)), zie hierboven." }
+          Write-Host "De Windows-app doorstond de proef als kantoorserver."
       - if: always()
         uses: actions/upload-artifact@v4
         with:
           name: windows-app-proef
-          path: ${{ runner.temp }}/proef/proef*
+          path: |
+            ${{ runner.temp }}/proef/proef*
+            ${{ runner.temp }}/proef-kantoor/proef*
+            ${{ runner.temp }}/proef-kantoor/fouten.log
           if-no-files-found: ignore
