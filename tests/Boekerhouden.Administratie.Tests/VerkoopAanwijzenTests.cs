@@ -72,6 +72,22 @@ public sealed class VerkoopAanwijzenTests(AdministratieFixture app) : IClassFixt
     }
 
     [Fact]
+    public async Task Het_betalingskenmerk_van_een_ingelezen_factuur_is_aan_te_passen()
+    {
+        var (wie, id) = await Administratie();
+        var verkoop = app.Dienst<VerkoopDienst>();
+        var gelezen = await app.Dienst<VerkoopimportDienst>().Lees(wie, id, Ubl("D-400", new(2026, 6, 2), "Nog Onbekend B.V.", "BE0123456789"), "d-400.xml", null);
+        var concept = (await verkoop.Open(wie, id, gelezen.Id!.Value))!;
+        Assert.Equal(Betalingskenmerk.Maak("D-400"), concept.Invoer.Betalingskenmerk);
+        var klant = await Klant(wie, id, "Nog Onbekend B.V.", "BE0123456789");
+
+        Assert.True((await verkoop.Bewaar(wie, id, concept.Id, concept.Invoer with { Relatie = klant, Betalingskenmerk = "PO-7781" })).IsGelukt);
+        Assert.True((await verkoop.MaakDefinitief(wie, id, concept.Id)).IsGelukt);
+
+        Assert.Equal("PO-7781", (await verkoop.Open(wie, id, concept.Id))!.Factuur.Betalingskenmerk);
+    }
+
+    [Fact]
     public async Task Zonder_standaard_blijft_de_omschrijving_van_de_factuur()
     {
         var (wie, id) = await Administratie();

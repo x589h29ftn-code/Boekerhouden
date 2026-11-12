@@ -6,16 +6,42 @@
 @inject VerkoopimportDienst Import
 @inject IJSRuntime JS
 
-@if (afbeelding is not null)
+@if (Paneel)
 {
-    <div class="factuurviewer verkoop-scan"><img src="@afbeelding" alt="@naam" /></div>
+    <div @ref="scheiding" class="verwerken-scheiding" title="Sleep om de factuur breder of smaller te maken; dubbelklik voor de standaardbreedte"></div>
+    <div @ref="paneel" class="verwerken-viewer">
+        @Beeld
+    </div>
 }
-else if (!geenBeeld)
+else
 {
-    <div @ref="viewer" class="factuurviewer"></div>
+    @Beeld
 }
 
 @code {
+    private RenderFragment Beeld => @<text>
+        @if (afbeelding is not null)
+        {
+            <div class="factuurviewer verkoop-scan"><img src="@afbeelding" alt="@naam" /></div>
+        }
+        else if (geenBeeld)
+        {
+            <div class="factuurviewer"><div class="p-4 text-secondary">Dit document is niet als PDF te tonen.</div></div>
+        }
+        else
+        {
+            <div @ref="viewer" class="factuurviewer"></div>
+        }
+    </text>;
+
+    private ElementReference scheiding;
+    private ElementReference paneel;
+    private bool gekoppeld;
+
+    /// <summary>Als paneel rechts van het formulier, met de versleepbare scheiding van het verwerkscherm van inkoop.</summary>
+    [Parameter]
+    public bool Paneel { get; set; }
+
     private ElementReference viewer;
     private IJSObjectReference? module;
     private IJSObjectReference? koppeling;
@@ -51,6 +77,13 @@ else if (!geenBeeld)
 
         getoond = Factuur;
         await Sluit();
+        if (Paneel && !gekoppeld)
+        {
+            gekoppeld = true;
+            module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./factuurviewer.js");
+            await module.InvokeVoidAsync("scheiding", scheiding, paneel);
+        }
+
         (afbeelding, geenBeeld) = (null, false);
         woorden = [];
         if (await Import.Beeld(Wie, Administratie, Factuur) is not { } beeld)

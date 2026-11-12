@@ -24,7 +24,8 @@ public sealed record Verkoopinvoer(
     string? Tekst = null,
     Periodeverdeling? Verdeling = null,
     Guid? LayoutId = null,
-    string? Factuurnummer = null);
+    string? Factuurnummer = null,
+    string? Betalingskenmerk = null);
 
 /// <summary>Een verkoopfactuur in de lijst.</summary>
 /// <param name="Openstaand">Wat de klant nog moet betalen (alleen bij een definitieve factuur).</param>
@@ -300,6 +301,7 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
         if (document.Ingelezen)
         {
             document.ExternNummer = Leeg(invoer.Factuurnummer, 30);
+            document.Betalingskenmerk = Leeg(invoer.Betalingskenmerk, 50);
         }
 
         document.Verdeling = invoer.Verdeling is { } v ? JsonSerializer.Serialize(new Verdelingsgegevens(v.Van, v.Tot, v.Rekening, [], []), Json) : null;
@@ -757,7 +759,8 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
 
     private static Verkoopinvoer Invoer(Verkoopdocument v) =>
         new(v.Relatie, v.Datum, v.Vervaldatum, v.Omschrijving, [.. v.Regels.OrderBy(r => r.Volgorde).Select(r => r.NaarDomein())], v.Referentie, v.Tekst,
-            Verdeling(v) is { } g ? new Periodeverdeling(g.Van, g.Tot, g.Rekening) : null, v.LayoutId, v.Ingelezen ? v.Nummer ?? v.ExternNummer : null);
+            Verdeling(v) is { } g ? new Periodeverdeling(g.Van, g.Tot, g.Rekening) : null, v.LayoutId, v.Ingelezen ? v.Nummer ?? v.ExternNummer : null,
+            v.Ingelezen ? v.Betalingskenmerk : null);
 
     private static Verdelingsgegevens? Verdeling(Verkoopdocument v) =>
         v.Verdeling is { } json ? JsonSerializer.Deserialize<Verdelingsgegevens>(json, Json) : null;

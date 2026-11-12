@@ -1820,6 +1820,10 @@ table[data-sleepbaar="journaal"] :is(th, td):not(:last-child) { padding-right: 1
 }
 .verkoop-verwerken .verkoopregels > tbody > tr > td:is(:nth-child(2), :nth-child(3), :nth-child(5)) > * { display: none; }
 
+/* De totalen onder de regels van een ingelezen verkoopfactuur: exclusief, btw per tarief, inclusief. */
+.verwerktotalen td { padding: .1rem 0 .1rem 1.5rem; white-space: nowrap; }
+.verwerktotalen tr.totaal td { border-top: 1px solid var(--bh-lijn-sterk); padding-top: .25rem; }
+
 /* Naast het origineel is het formulier smal: de vaste kolommen krimpen, zodat de omschrijving van de regel leesbaar blijft. */
 .verkoop-verwerken .verkoopregels > thead > tr > th:nth-child(4) { width: 6rem !important; }
 .verkoop-verwerken .verkoopregels > thead > tr > th:nth-child(6) { width: 10rem !important; }

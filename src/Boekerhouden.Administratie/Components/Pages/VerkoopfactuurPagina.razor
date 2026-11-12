@@ -192,6 +192,120 @@
                 }
             </div>
         }
+        else if (Extern)
+        {
+            @* Een ingelezen factuur verwerken: dezelfde velden en opzet als het verwerkscherm van inkoop, met het
+               origineel rechts achter de versleepbare scheiding. *@
+            <div class="verwerken">
+                <div class="verwerken-formulier">
+                    <div class="card mb-3 boekformulier">
+                        <div class="card-body">
+                            <div class="veld">
+                                <label for="nummer">Factuurnummer</label>
+                                <input id="nummer" class="form-control" @bind="invoer.Factuurnummer" @bind:event="oninput" title="Het nummer uit het andere pakket" data-doel="nummer" data-doelnaam="Factuurnummer" />
+                            </div>
+                            <div class="veld">
+                                <label for="klant">Klant</label>
+                                <select id="klant" class="form-select" value="@(nieuweKlant is null ? invoer.Relatie : NieuweKlantKeuze)" @onchange="KiesKlantOfNieuw" data-doel="klant" data-doelnaam="Klant">
+                                    <option value="">Kies een klant…</option>
+                                    <option value="@NieuweKlantKeuze">Nieuwe klant…</option>
+                                    @foreach (var k in verkoop.Klanten)
+                                    {
+                                        <option value="@k.Code">@k.Naam</option>
+                                    }
+                                </select>
+                            </div>
+                            @if (nieuweKlant is not null)
+                            {
+                                <div class="veld">
+                                    <label for="kn">Naam</label>
+                                    <input id="kn" class="form-control" @bind="nieuweKlant.Naam" data-doel="naam" data-doelnaam="Naam" />
+                                </div>
+                                <div class="veld">
+                                    <label for="kb">Btw-nummer</label>
+                                    <input id="kb" class="form-control" @bind="nieuweKlant.BtwNummer" data-doel="btwnr" data-doelnaam="Btw-nummer" />
+                                </div>
+                            }
+                            <div class="veld">
+                                <label for="datum">Factuurdatum</label>
+                                <div class="veld-rij"><DatumVeld Id="datum" Klasse="form-control" Waarde="invoer.Datum" WaardeChanged="KiesDatum" data-doel="datum" data-doelnaam="Factuurdatum" /></div>
+                            </div>
+                            <div class="veld">
+                                <label for="verval">Vervaldatum</label>
+                                <div class="veld-rij"><DatumVeld Id="verval" Klasse="form-control" Waarde="invoer.Vervaldatum" WaardeChanged="KiesVervaldatum" data-doel="verval" data-doelnaam="Vervaldatum" /></div>
+                            </div>
+                            <div class="veld">
+                                <label for="kenmerk">Betalingskenmerk</label>
+                                <input id="kenmerk" class="form-control" @bind="invoer.Betalingskenmerk" @bind:event="oninput" data-doel="kenmerk" data-doelnaam="Betalingskenmerk" />
+                            </div>
+                            <div class="veld veld-boven">
+                                <label for="omschrijving">Omschrijving</label>
+                                <div>
+                                    <div class="input-group">
+                                        <input id="omschrijving" class="form-control" @bind="invoer.Omschrijving" @bind:event="oninput" data-doel="omschrijving" data-doelnaam="Omschrijving" />
+                                        <select @key="variabeleKeuze" class="form-select flex-grow-0 variabelekeuze" aria-label="Variabele invoegen" title="Variabele invoegen" @onchange="VoegVariabeleToe">
+                                            <option value="">#</option>
+                                            @foreach (var (naam, betekenis) in Omschrijvingssjabloon.Variabelen.Where(v => v.Naam != "#leverancier"))
+                                            {
+                                                <option value="@naam" title="@betekenis">@naam</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    @if (Omschrijvingssjabloon.IsSjabloon(invoer.Omschrijving))
+                                    {
+                                        <div class="small text-secondary mt-1 omschrijving-voorbeeld" title="Zo komt de omschrijving in de boeking">@Omschrijvingssjabloon.Vul(invoer.Omschrijving!, Variabelen)</div>
+                                    }
+                                    @foreach (var o in Omschrijvingssjabloon.Onbekend(invoer.Omschrijving))
+                                    {
+                                        <div class="status let-op mt-1">#@o is geen variabele.</div>
+                                    }
+                                </div>
+                            </div>
+
+                            <Verkoopregels Regels="invoer.Regels" Schema="Schema" Codes="Codes" Kader="geopend" Omzetrekening="@(Gekozen?.Omzetrekening ?? verkoop.Omzetrekening)" BtwCode="@(Gekozen?.Verkoopbtwcode)" Gewijzigd="StateHasChanged" Aanwijzen="true" Verwerken="true" />
+
+                            <div class="veld mt-3">
+                                <label for="verdelen">Periode verdelen</label>
+                                <div class="veld-rij flex-nowrap">
+                                    <span class="form-check mb-0">
+                                        <input id="verdelen" class="form-check-input" type="checkbox" checked="@invoer.Verdelen" @onchange="WisselVerdelen" title="De omzet over de maanden van een periode verdelen, via een balansrekening" />
+                                    </span>
+                                    @if (invoer.Verdelen)
+                                    {
+                                        <DatumVeld Klasse="form-control" @bind-Waarde="invoer.VerdeelVan" Label="Periode van" />
+                                        <span class="text-secondary">t/m</span>
+                                        <DatumVeld Klasse="form-control" @bind-Waarde="invoer.VerdeelTot" Label="Periode tot en met" />
+                                    }
+                                </div>
+                            </div>
+                            @if (invoer.Verdelen)
+                            {
+                                <div class="veld veld-boven">
+                                    <label for="verdeelrekening">Via rekening</label>
+                                    <div>
+                                        <RekeningKeuze Id="verdeelrekening" Label="Rekening voor de verdeling" Klasse="form-control" @bind-Waarde="invoer.Verdeelrekening" Schema="Schema" Kader="geopend" />
+                                        <div class="small text-secondary mt-1">@Maanden maanden</div>
+                                    </div>
+                                </div>
+                            }
+                            @if (context.Mag(Recht.Invoeren))
+                            {
+                                <div class="d-flex align-items-center gap-3 mt-3">
+                                    <button class="btn btn-primary" disabled="@bezig" @onclick="MaakDefinitief" title="Boeken met het nummer van het andere pakket en op de debiteuren zetten">Boeken</button>
+                                    <button class="btn btn-outline-secondary" disabled="@bezig" @onclick="Bewaar" title="Tussentijds bewaren en later verder gaan">Bewaren</button>
+                                    @if (overgenomen is not null)
+                                    {
+                                        <span class="small text-secondary text-truncate overgenomen" role="status">@overgenomen</span>
+                                    }
+                                    <VerwijderKnop Bezig="bezig" Bevestigd="Verwijder" />
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <Verkooporigineel Wie="geopend!.Wie" Administratie="Id" Factuur="weergave!.Id" Aangewezen="Aangewezen" Paneel="true" />
+            </div>
+        }
         else
         {
             var codes = Codes;
@@ -454,6 +568,12 @@
         if (weergave is not null)
         {
             invoer = Formulier.Van(weergave.Invoer);
+            // Verwerkscherm: een klant die nog niet bestaat staat meteen klaar als nieuwe klant, met de naam van de factuur.
+            nieuweKlant = null;
+            if (weergave is { Ingelezen: true, Status: Verkoopstatus.Concept } && invoer.Relatie.Length == 0 && weergave.Factuur.Klant.Naam.Length > 0)
+            {
+                BeginKlant();
+            }
             vervaldatumZelf = true;
         }
         else if (Factuur is null)
@@ -475,11 +595,28 @@
         BtwCode = Gekozen?.Verkoopbtwcode ?? Standaardcode,
     };
 
+    /// <summary>De keuze "Nieuwe klant…" in de lijst met klanten van het verwerkscherm.</summary>
+    private const string NieuweKlantKeuze = "+";
+
+    private void KiesKlantOfNieuw(ChangeEventArgs e)
+    {
+        if (e.Value as string == NieuweKlantKeuze)
+        {
+            BeginKlant();
+            invoer.Relatie = "";
+        }
+        else
+        {
+            nieuweKlant = null;
+            KiesKlant(e);
+        }
+    }
+
     private int variabeleKeuze;
     private string? overgenomen;
 
     /// <summary>Waarmee de variabelen in de omschrijving van een ingelezen factuur worden gevuld (het voorbeeld eronder).</summary>
-    private Factuurvariabelen Variabelen => new(invoer.Factuurnummer, null, Gekozen?.Naam, invoer.Datum, invoer.Vervaldatum, null);
+    private Factuurvariabelen Variabelen => new(invoer.Factuurnummer, null, nieuweKlant?.Naam ?? Gekozen?.Naam, invoer.Datum, invoer.Vervaldatum, invoer.Betalingskenmerk);
 
     private void VoegVariabeleToe(ChangeEventArgs e)
     {
@@ -530,6 +667,15 @@
             case "referentie":
                 invoer.Referentie = tekst;
                 return true;
+            case "kenmerk":
+                invoer.Betalingskenmerk = tekst;
+                return true;
+            case "naam" when nieuweKlant is not null:
+                nieuweKlant.Naam = tekst;
+                return true;
+            case "btwnr" when nieuweKlant is not null:
+                nieuweKlant.BtwNummer = tekst.Replace(" ", "", StringComparison.Ordinal);
+                return true;
             case "klant":
                 var klant = verkoop!.Klanten.FirstOrDefault(k => string.Equals(k.Naam, tekst, StringComparison.OrdinalIgnoreCase))
                     ?? verkoop.Klanten.FirstOrDefault(k => tekst.Contains(k.Naam, StringComparison.OrdinalIgnoreCase) || (tekst.Length >= 4 && k.Naam.Contains(tekst, StringComparison.OrdinalIgnoreCase)));
@@ -542,6 +688,7 @@
                 {
                     BeginKlant();
                     nieuweKlant!.Naam = tekst;
+                    invoer.Relatie = "";
                 }
 
                 return true;
@@ -650,11 +797,21 @@
 
         return new Verkoopinvoer(invoer.Relatie, invoer.Datum, invoer.Vervaldatum, invoer.Omschrijving ?? "", regels,
             invoer.Referentie, invoer.Tekst, invoer.Verdelen ? new Periodeverdeling(invoer.VerdeelVan, invoer.VerdeelTot, invoer.Verdeelrekening ?? "") : null,
-            invoer.LayoutId, invoer.Factuurnummer);
+            invoer.LayoutId, invoer.Factuurnummer, invoer.Betalingskenmerk);
     }
 
     private async Task<Guid?> BewaarConcept()
     {
+        // Verwerkscherm: een nieuwe klant wordt bij het boeken of bewaren aangemaakt, zoals een nieuwe leverancier bij inkoop.
+        if (Extern && nieuweKlant is not null)
+        {
+            await VoegKlantToe();
+            if (nieuweKlant is not null)
+            {
+                return null;
+            }
+        }
+
         if (Lees() is not { } teBewaren)
         {
             return null;
@@ -914,6 +1071,8 @@
 
         public string? Factuurnummer { get; set; }
 
+        public string? Betalingskenmerk { get; set; }
+
         public static Formulier Van(Verkoopinvoer v)
         {
             var f = new Formulier
@@ -930,6 +1089,7 @@
                 Verdeelrekening = v.Verdeling?.Rekening,
                 LayoutId = v.LayoutId,
                 Factuurnummer = v.Factuurnummer,
+                Betalingskenmerk = v.Betalingskenmerk,
             };
             f.Regels.AddRange(v.Regels.Select(Verkoopregelinvoer.Van));
             if (f.Regels.Count == 0)

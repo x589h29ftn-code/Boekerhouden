@@ -5,6 +5,56 @@
 @using Boekerhouden.Boekhouding.Grootboek
 @using Boekerhouden.Boekhouding.Verkoop
 
+@if (Verwerken)
+{
+    @* Een ingelezen factuur verwerken: dezelfde kolommen als bij inkoop (omschrijving, grootboekrekening, btw, bedrag
+       exclusief btw); aantal, eenheid, prijs en korting doen er niet toe. Daaronder de btw per tarief en het totaal. *@
+    <table class="table table-sm align-middle regeltabel verwerkregels mt-3 mb-1">
+        <thead>
+            <tr>
+                <th>Omschrijving</th>
+                <th style="width:27%">Grootboekrekening</th>
+                <th style="width:21%">Btw</th>
+                <th class="text-end" style="width:15%">Excl. btw</th>
+                <th style="width:1.75rem"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var regel in Regels)
+            {
+                <tr>
+                    <td><input class="form-control form-control-sm" @bind="regel.Omschrijving" @bind:event="oninput" @bind:after="Meld" aria-label="Omschrijving" data-doel="@Doel("regel", regel)" data-doelnaam="Omschrijving regel @(Regels.IndexOf(regel) + 1)" /></td>
+                    <td><RekeningKeuze @bind-Waarde="regel.Rekening" @bind-Waarde:after="Meld" Schema="Schema" Kader="Kader" Label="Grootboekrekening" /></td>
+                    <td>
+                        <select class="form-select form-select-sm" @bind="regel.BtwCode" @bind:after="Meld" aria-label="Btw-code">
+                            @foreach (var c in Codes.Where(c => c.Richting == BtwRichting.Verkoop && (c.Actief || c.Code == regel.BtwCode)))
+                            {
+                                <option value="@c.Code" title="@c.Code · @c.Omschrijving">@c.Kort</option>
+                            }
+                        </select>
+                    </td>
+                    <td><input class="form-control form-control-sm text-end" @bind="regel.Prijs" @bind:event="oninput" @bind:after="Meld" aria-label="Bedrag exclusief btw" data-doel="@Doel("bedrag", regel)" data-doelnaam="Bedrag exclusief btw" /></td>
+                    <td><button class="btn btn-sm btn-link text-secondary p-0 regel-weg" title="Regel verwijderen" @onclick="() => Verwijder(regel)" disabled="@(Regels.Count <= 1)"><Icoon Naam="x" /></button></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <div class="d-flex align-items-start gap-3">
+        <button class="btn btn-sm btn-link nog-een-regel" @onclick="RegelErbij"><Icoon Naam="plus" /> Nog een regel</button>
+        <table class="ms-auto small verwerktotalen">
+            <tbody>
+                <tr><td>Totaal excl. btw</td><td class="bedrag text-end">@Weergave.Bedrag(Factuur.TotaalExclusief)</td></tr>
+                @foreach (var b in Btw.Where(b => b.Btw != 0))
+                {
+                    <tr class="text-secondary"><td>Btw @Btwpercentage.Tekst(b.Code.Percentage) over @Weergave.Bedrag(b.Grondslag)</td><td class="bedrag text-end">@Weergave.Bedrag(b.Btw)</td></tr>
+                }
+                <tr class="totaal"><td>Totaal incl. btw</td><td class="bedrag text-end fw-semibold">@Weergave.Bedrag(Factuur.TotaalExclusief + Btw.Sum(b => b.Btw))</td></tr>
+            </tbody>
+        </table>
+    </div>
+}
+else
+{
 <div class="card overzichtskaart">
     <table class="table table-sm align-middle mb-0 overzichtstabel regeltabel verkoopregels">
         <thead>
@@ -61,6 +111,7 @@
         </tfoot>
     </table>
 </div>
+}
 @foreach (var v in Verkoopcontrole.Vermeldingen(Factuur, Codes))
 {
     <div class="small text-secondary mt-2">Op de factuur: @v</div>
@@ -95,6 +146,10 @@
     /// </summary>
     [Parameter]
     public bool Aanwijzen { get; set; }
+
+    /// <summary>De vorm van het verwerkscherm (een ingelezen factuur): de kolommen van inkoop, zonder aantal en prijs.</summary>
+    [Parameter]
+    public bool Verwerken { get; set; }
 
     private string? Doel(string soort, Verkoopregelinvoer regel) =>
         Aanwijzen ? $"{soort}:{Regels.IndexOf(regel).ToString(System.Globalization.CultureInfo.InvariantCulture)}" : null;
