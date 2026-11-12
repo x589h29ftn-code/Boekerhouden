@@ -590,6 +590,20 @@ public sealed class InkoopDienst(
     /// <summary>Boekt een document zoals de gebruiker het heeft ingevuld (of bevestigd), en onthoudt de keuze.</summary>
     public async Task<Uitkomst> Boek(Uitvoerder wie, Guid administratie, Guid document, Factuurinvoer invoer)
     {
+        try
+        {
+            return await BoekFactuur(wie, administratie, document, invoer);
+        }
+        catch (DbUpdateException fout) when (Databasefout.IsDubbel(fout))
+        {
+            // Twee gebruikers legden op hetzelfde moment hetzelfde vast (bijv. dezelfde nieuwe leverancier): niets is
+            // geboekt; opnieuw proberen ziet wat de ander deed.
+            return Uitkomst.Mislukt("Een collega legde op hetzelfde moment hetzelfde vast (bijv. dezelfde nieuwe leverancier). Er is niets geboekt; probeer het opnieuw.");
+        }
+    }
+
+    private async Task<Uitkomst> BoekFactuur(Uitvoerder wie, Guid administratie, Guid document, Factuurinvoer invoer)
+    {
         ArgumentNullException.ThrowIfNull(invoer);
         await using var db = await toegang.Open(wie, administratie, Recht.Invoeren);
         if (await db.Documenten.FirstOrDefaultAsync(d => d.Id == document) is not { } d)

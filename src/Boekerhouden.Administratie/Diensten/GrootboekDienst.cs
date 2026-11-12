@@ -251,11 +251,21 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
             return Uitkomst<long>.Mislukt([.. fouten]);
         }
 
-        await using var transactie = await db.Database.BeginTransactionAsync();
-        var boeking = await VoegToeAanKeten(db, administratie, post, wie);
-        await WerkOpenstaandePostenBij(db, post, schema);
-        await db.SaveChangesAsync();
-        await transactie.CommitAsync();
+        Boeking boeking;
+        try
+        {
+            await using var transactie = await db.Database.BeginTransactionAsync();
+            boeking = await VoegToeAanKeten(db, administratie, post, wie);
+            await WerkOpenstaandePostenBij(db, post, schema);
+            await db.SaveChangesAsync();
+            await transactie.CommitAsync();
+        }
+        catch (DbUpdateException fout) when (Databasefout.IsDubbel(fout))
+        {
+            // Een collega boekte op hetzelfde moment met hetzelfde boekstuknummer: dezelfde melding als bij de controle vooraf.
+            return Uitkomst<long>.Mislukt($"Boekstuk {post.Boekstuk} bestaat al in dagboek {post.Dagboek}.");
+        }
+
         await audit.Log(wie, AuditActies.Geboekt, $"{post.Dagboek} {boeking.Boekstuk}", $"{boeking.Omschrijving}; {post.TotaalDebet:0.00}", administratie);
         return Uitkomst<long>.Met(boeking.Volgnummer);
     }
