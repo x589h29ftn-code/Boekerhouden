@@ -2,6 +2,8 @@
 @page "/a/{Id:guid}/verkoop/{Factuur:guid}"
 @using System.Globalization
 @using Boekerhouden.Boekhouding.Btw
+@using Boekerhouden.Boekhouding.Facturen
+@using Boekerhouden.Boekhouding.Herkenning
 @using Boekerhouden.Boekhouding.Grootboek
 @using Boekerhouden.Boekhouding.Verkoop
 @inject VerkoopDienst Verkoop
@@ -195,12 +197,16 @@
             var codes = Codes;
             <div class="verkoop-maken @(Extern ? "verkoop-verwerken" : null)">
             <div class="verkoopformulier">
+                @if (overgenomen is not null)
+                {
+                    <div class="small text-secondary mb-2 overgenomen" role="status">@overgenomen</div>
+                }
                 <div class="formulier-rij">
                     <label for="klant">Klant</label>
                     <div class="d-flex gap-2 align-items-center flex-wrap">
                         @if (nieuweKlant is null)
                         {
-                            <select id="klant" class="form-select form-select-sm w-auto" value="@invoer.Relatie" @onchange="KiesKlant">
+                            <select id="klant" class="form-select form-select-sm w-auto" value="@invoer.Relatie" @onchange="KiesKlant" data-doel="@(Extern ? "klant" : null)" data-doelnaam="Klant">
                                 <option value="">Kies een klant…</option>
                                 @foreach (var k in verkoop.Klanten)
                                 {
@@ -231,7 +237,7 @@
                             <div class="col-md-3"><label class="form-label" for="kb">Btw-nummer</label><input id="kb" class="form-control form-control-sm" @bind="nieuweKlant.BtwNummer" /></div>
                             <div class="col-md-4"><label class="form-label" for="ke">E-mail</label><input id="ke" class="form-control form-control-sm" type="email" @bind="nieuweKlant.Email" /></div>
                             <div class="col-md-2"><label class="form-label" for="kt">Termijn (dagen)</label><input id="kt" class="form-control form-control-sm text-end" @bind="nieuweKlant.Termijn" /></div>
-                            <div class="col-md-2 d-flex align-items-end gap-2">
+                            <div class="col-md-auto d-flex align-items-end gap-2">
                                 <button class="btn btn-sm btn-primary" @onclick="VoegKlantToe">Toevoegen</button>
                                 <button class="btn btn-sm btn-link text-secondary" @onclick="() => nieuweKlant = null">Annuleren</button>
                             </div>
@@ -241,24 +247,51 @@
                 <div class="formulier-rij">
                     <label for="datum">Factuurdatum</label>
                     <div class="d-flex gap-3 align-items-center flex-wrap">
-                        <DatumVeld Id="datum" Waarde="invoer.Datum" WaardeChanged="KiesDatum" />
+                        <DatumVeld Id="datum" Waarde="invoer.Datum" WaardeChanged="KiesDatum" data-doel="@(Extern ? "datum" : null)" data-doelnaam="Factuurdatum" />
                         <label class="small text-secondary" for="verval">Vervaldatum</label>
-                        <DatumVeld Id="verval" Waarde="invoer.Vervaldatum" WaardeChanged="KiesVervaldatum" />
+                        <DatumVeld Id="verval" Waarde="invoer.Vervaldatum" WaardeChanged="KiesVervaldatum" data-doel="@(Extern ? "verval" : null)" data-doelnaam="Vervaldatum" />
                     </div>
                 </div>
                 <div class="formulier-rij">
                     <label for="referentie">Uw referentie</label>
-                    <input id="referentie" class="form-control form-control-sm" style="max-width:14rem" @bind="invoer.Referentie" @bind:event="oninput" placeholder="bijv. inkoopordernummer" />
+                    <input id="referentie" class="form-control form-control-sm" style="max-width:14rem" @bind="invoer.Referentie" @bind:event="oninput" placeholder="bijv. inkoopordernummer" data-doel="@(Extern ? "referentie" : null)" data-doelnaam="Uw referentie" />
                 </div>
                 <div class="formulier-rij">
                     <label for="omschrijving">Omschrijving</label>
-                    <input id="omschrijving" class="form-control form-control-sm" @bind="invoer.Omschrijving" @bind:event="oninput" placeholder="bijv. Werkzaamheden maart 2026" />
+                    @if (Extern)
+                    {
+                        @* Een ingelezen factuur: de omschrijving van de boeking, met variabelen zoals bij inkoop. *@
+                        <div>
+                            <div class="input-group input-group-sm">
+                                <input id="omschrijving" class="form-control form-control-sm" @bind="invoer.Omschrijving" @bind:event="oninput" placeholder="bijv. Verkoop #klant #maandnr-#jaar" data-doel="omschrijving" data-doelnaam="Omschrijving" />
+                                <select @key="variabeleKeuze" class="form-select form-select-sm flex-grow-0 variabelekeuze" aria-label="Variabele invoegen" title="Variabele invoegen" @onchange="VoegVariabeleToe">
+                                    <option value="">#</option>
+                                    @foreach (var (naam, betekenis) in Omschrijvingssjabloon.Variabelen.Where(v => v.Naam != "#leverancier"))
+                                    {
+                                        <option value="@naam" title="@betekenis">@naam</option>
+                                    }
+                                </select>
+                            </div>
+                            @if (Omschrijvingssjabloon.IsSjabloon(invoer.Omschrijving))
+                            {
+                                <div class="small text-secondary mt-1 omschrijving-voorbeeld" title="Zo komt de omschrijving in de boeking">@Omschrijvingssjabloon.Vul(invoer.Omschrijving!, Variabelen)</div>
+                            }
+                            @foreach (var o in Omschrijvingssjabloon.Onbekend(invoer.Omschrijving))
+                            {
+                                <div class="status let-op mt-1">#@o is geen variabele.</div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <input id="omschrijving" class="form-control form-control-sm" @bind="invoer.Omschrijving" @bind:event="oninput" placeholder="bijv. Werkzaamheden maart 2026" />
+                    }
                 </div>
                 @if (weergave is { Ingelezen: true })
                 {
                     <div class="formulier-rij">
                         <label for="nummer">Factuurnummer</label>
-                        <input id="nummer" class="form-control form-control-sm" style="max-width:14rem" @bind="invoer.Factuurnummer" @bind:event="oninput" title="Het nummer uit het andere pakket" />
+                        <input id="nummer" class="form-control form-control-sm" style="max-width:14rem" @bind="invoer.Factuurnummer" @bind:event="oninput" title="Het nummer uit het andere pakket" data-doel="nummer" data-doelnaam="Factuurnummer" />
                     </div>
                 }
                 else if (layouts.Count > 1)
@@ -276,7 +309,7 @@
                 }
 
                 <div class="mt-3">
-                    <Verkoopregels Regels="invoer.Regels" Schema="Schema" Codes="codes" Kader="geopend" Omzetrekening="@(Gekozen?.Omzetrekening ?? verkoop.Omzetrekening)" BtwCode="@(Gekozen?.Verkoopbtwcode)" Gewijzigd="StateHasChanged" />
+                    <Verkoopregels Regels="invoer.Regels" Schema="Schema" Codes="codes" Kader="geopend" Omzetrekening="@(Gekozen?.Omzetrekening ?? verkoop.Omzetrekening)" BtwCode="@(Gekozen?.Verkoopbtwcode)" Gewijzigd="StateHasChanged" Aanwijzen="Extern" />
                 </div>
 
                 <div class="formulier-rij mt-3 @(Extern ? "d-none" : null)">
@@ -316,7 +349,7 @@
             </div>
             @if (Extern)
             {
-                <aside class="verkoop-origineel" aria-label="De ingelezen factuur"><Verkooporigineel Wie="geopend!.Wie" Administratie="Id" Factuur="weergave!.Id" /></aside>
+                <aside class="verkoop-origineel" aria-label="De ingelezen factuur"><Verkooporigineel Wie="geopend!.Wie" Administratie="Id" Factuur="weergave!.Id" Aangewezen="Aangewezen" /></aside>
             }
             else if (layoutVoorbeeld is { } lay)
             {
@@ -441,6 +474,99 @@
         Rekening = Gekozen?.Omzetrekening ?? verkoop?.Omzetrekening,
         BtwCode = Gekozen?.Verkoopbtwcode ?? Standaardcode,
     };
+
+    private int variabeleKeuze;
+    private string? overgenomen;
+
+    /// <summary>Waarmee de variabelen in de omschrijving van een ingelezen factuur worden gevuld (het voorbeeld eronder).</summary>
+    private Factuurvariabelen Variabelen => new(invoer.Factuurnummer, null, Gekozen?.Naam, invoer.Datum, invoer.Vervaldatum, null);
+
+    private void VoegVariabeleToe(ChangeEventArgs e)
+    {
+        if (e.Value is string { Length: > 0 } variabele)
+        {
+            invoer.Omschrijving = $"{invoer.Omschrijving?.TrimEnd()} {variabele}".TrimStart();
+        }
+
+        variabeleKeuze++;
+    }
+
+    /// <summary>
+    /// De gebruiker wees een gebied op de ingelezen factuur aan: de tekst gaat naar het veld dat de focus had (zonder
+    /// veld: de omschrijving). Een datum of bedrag wordt uit de tekst gelezen; een klantnaam wordt bij de klanten
+    /// gezocht en anders voorgesteld als nieuwe klant.
+    /// </summary>
+    private void Aangewezen(Verkooporigineel.Aanwijzing a)
+    {
+        var (veld, naam) = a.Veld is { Length: > 0 } v ? (v, a.Naam ?? v) : ("omschrijving", "Omschrijving");
+        overgenomen = a.Tekst.Length == 0 ? "Geen tekst in dit gebied."
+            : Vul(veld, a.Tekst) ? $"{naam}: {a.Tekst}"
+            : $"Geen {(veld.StartsWith("bedrag", StringComparison.Ordinal) ? "bedrag" : "datum")} in ‘{a.Tekst}’.";
+    }
+
+    private bool Vul(string veld, string tekst)
+    {
+        switch (veld)
+        {
+            case "datum" or "verval":
+                if (Factuurtekst.Datums(tekst) is not [var d, ..])
+                {
+                    return false;
+                }
+
+                if (veld == "datum")
+                {
+                    KiesDatum(d);
+                }
+                else
+                {
+                    KiesVervaldatum(d);
+                }
+
+                return true;
+            case "nummer":
+                invoer.Factuurnummer = tekst;
+                return true;
+            case "referentie":
+                invoer.Referentie = tekst;
+                return true;
+            case "klant":
+                var klant = verkoop!.Klanten.FirstOrDefault(k => string.Equals(k.Naam, tekst, StringComparison.OrdinalIgnoreCase))
+                    ?? verkoop.Klanten.FirstOrDefault(k => tekst.Contains(k.Naam, StringComparison.OrdinalIgnoreCase) || (tekst.Length >= 4 && k.Naam.Contains(tekst, StringComparison.OrdinalIgnoreCase)));
+                if (klant is not null)
+                {
+                    nieuweKlant = null;
+                    KiesKlant(new ChangeEventArgs { Value = klant.Code });
+                }
+                else
+                {
+                    BeginKlant();
+                    nieuweKlant!.Naam = tekst;
+                }
+
+                return true;
+            default:
+                if (veld.Split(':') is [var soort, var index] && int.TryParse(index, NumberStyles.None, CultureInfo.InvariantCulture, out var n) && n < invoer.Regels.Count)
+                {
+                    if (soort == "regel")
+                    {
+                        invoer.Regels[n].Omschrijving = tekst;
+                        return true;
+                    }
+
+                    if (Factuurtekst.Bedragen(tekst) is not [.., var bedrag])
+                    {
+                        return false;
+                    }
+
+                    invoer.Regels[n].Prijs = Bedragen.Getal(Math.Abs(bedrag));
+                    return true;
+                }
+
+                invoer.Omschrijving = tekst;
+                return true;
+        }
+    }
 
     private void KiesKlant(ChangeEventArgs e)
     {

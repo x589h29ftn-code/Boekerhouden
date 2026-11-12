@@ -603,8 +603,12 @@ public sealed class Kantoorinstellingen
     /// <summary>De standaardomschrijving van een inkoopfactuur, met variabelen; leeg = uit.</summary>
     public string? Standaardomschrijving { get; set; }
 
+    /// <summary>De standaardomschrijving van een ingelezen verkoopfactuur, met variabelen; leeg = uit.</summary>
+    public string? StandaardomschrijvingVerkoop { get; set; }
+
     public Boekhouding.Regels.Verwerkingsinstellingen NaarDomein() =>
-        new(DrempelAutomatisch, Bandbreedte, LimietAutomatisch, Betalingstermijn, Adrescontrole, Documentmap, Betaalverschil, Verschilrekening, Standaardomschrijving);
+        new(DrempelAutomatisch, Bandbreedte, LimietAutomatisch, Betalingstermijn, Adrescontrole, Documentmap, Betaalverschil, Verschilrekening, Standaardomschrijving,
+            StandaardomschrijvingVerkoop);
 }
 
 /// <summary>Een aangewezen plek op de factuur van een leverancier (zoektemplate), per veld de laatste.</summary>

@@ -1666,6 +1666,10 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("StandaardomschrijvingVerkoop")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<string>("Verschilrekening")
                         .HasColumnType("text");
 

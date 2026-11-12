@@ -14,8 +14,14 @@ public sealed class OmschrijvingssjabloonTests
     [InlineData("#kwartaal #jaar, vervalt #vervaldatum", "Q4 2026, vervalt 17-10-2026")]
     [InlineData("Artikel #123 en #onbekend", "Artikel #123 en #onbekend")]
     [InlineData("Kenmerk #kenmerk van #datum", "Kenmerk 1234567890123456 van 03-10-2026")]
+    [InlineData("Verkoop #klant #maandnr-#jaar", "Verkoop Belnet B.V. 10-2026")]
+    [InlineData("#maandnr en #maand", "10 en oktober")]
     public void Variabelen_worden_gevuld(string sjabloon, string verwacht) =>
         Assert.Equal(verwacht, Omschrijvingssjabloon.Vul(sjabloon, Gegevens));
+
+    [Fact]
+    public void De_maand_als_getal_heeft_geen_voorloopnul() =>
+        Assert.Equal("Verkoop klant 3-2026", Omschrijvingssjabloon.Vul("Verkoop klant #maandnr-#jaar", Gegevens with { Datum = new(2026, 3, 14) }));
 
     [Fact]
     public void Lege_variabele_laat_geen_dubbele_spaties_achter() =>

@@ -234,7 +234,7 @@
                                         <input id="omschrijving" class="form-control @Doel("omschrijving")" @bind="omschrijving" @bind:event="oninput" data-doel="omschrijving" data-doelnaam="Omschrijving" @onfocus='() => Kies("omschrijving", "Omschrijving")' />
                                         <select @key="variabeleKeuze" class="form-select flex-grow-0 variabelekeuze" aria-label="Variabele invoegen" title="Variabele invoegen" @onchange="VoegVariabeleToe">
                                             <option value="">#</option>
-                                            @foreach (var (naam, betekenis) in Omschrijvingssjabloon.Variabelen)
+                                            @foreach (var (naam, betekenis) in Omschrijvingssjabloon.Variabelen.Where(v => v.Naam != "#klant"))
                                             {
                                                 <option value="@naam" title="@betekenis">@naam</option>
                                             }

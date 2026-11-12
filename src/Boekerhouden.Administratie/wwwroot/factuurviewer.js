@@ -252,6 +252,32 @@ export async function bekijk(container, bron, id) {
     return { sluit: () => viewer.waarneming.disconnect() };
 }
 
+/**
+ * Bekijken en een gebied aanwijzen, zonder apart venster (een ingelezen verkoopfactuur): het veld met de focus
+ * (data-doel) bepaalt waar het gebied heen gaat; de viewer toont de naam van dat veld.
+ */
+export async function wijsAan(container, bron, id, dotnet) {
+    let veld = null;
+    const viewer = new Viewer(container, bron, {
+        id,
+        opGebied: (pagina, x0, y0, x1, y1) => dotnet.invokeMethodAsync('Gebied', veld?.doel ?? null, veld?.naam ?? null, pagina, x0, y0, x1, y1),
+    });
+    const focus = (e) => {
+        const d = e.target?.dataset;
+        if (!d?.doel) return;
+        veld = { doel: d.doel, naam: d.doelnaam ?? d.doel };
+        viewer.zetDoel(veld.naam);
+    };
+    document.addEventListener('focusin', focus);
+    await viewer.laad();
+    return {
+        sluit: () => {
+            document.removeEventListener('focusin', focus);
+            viewer.waarneming.disconnect();
+        },
+    };
+}
+
 /** De viewer op het verwerkscherm; een gebied gaat naar .NET (Gebied), ook als het in het externe venster is aangewezen. */
 export async function toon(container, bron, id, dotnet) {
     const verbinding = kanaal(id);

@@ -13,6 +13,14 @@ namespace Boekerhouden.Administratie.Diensten;
 public sealed record Verkoopinleesuitkomst(Guid? Id, bool Geboekt, string Melding, bool Dubbel = false);
 
 /// <summary>
+/// Het origineel van een ingelezen verkoopfactuur om naast het formulier te tonen en er gebieden op aan te wijzen.
+/// </summary>
+/// <param name="Pdf">De PDF voor de viewer: het bestand zelf, of een foto als pagina; leeg als er alleen een afbeelding is.</param>
+/// <param name="Afbeelding">Een foto of scan waar geen PDF van te maken was (geen tekstherkenning): alleen bekijken.</param>
+/// <param name="Woorden">De woorden met hun plek (uit de PDF of van de tekstherkenning); leeg = aanwijzen kan niet.</param>
+public sealed record Verkooporigineelbeeld(byte[]? Pdf, (byte[] Inhoud, string Inhoudstype)? Afbeelding, IReadOnlyList<Tekstwoord> Woorden, string Bestandsnaam);
+
+/// <summary>
 /// Verkoopfacturen uit een ander pakket inlezen: een PDF, e-factuur (UBL) of scan. Eerst de virusscan, dan dezelfde
 /// herkenning als bij inkoop (bij een verkoopfactuur is de eigen onderneming de afzender, dus de andere partij op de
 /// factuur is de klant). Herkent het pakket de klant en klopt alles (nummer, datum, sluitende bedragen, niet dubbel),
@@ -89,8 +97,9 @@ public sealed class VerkoopimportDienst(
             var codes = context.Btwtabel.Op(datum);
             var omzet = relatie?.Omzetrekening ?? context.Omzetrekening ?? "";
             var regels = Verkoopimport.Regels(herkend, codes, omzet, relatie?.Land ?? herkend.Afnemer?.Land);
-            var invoer = new Verkoopinvoer(relatie?.Code ?? "", datum, herkend.Vervaldatum ?? datum.AddDays(relatie?.Betalingstermijn ?? context.Betalingstermijn),
-                herkend.Omschrijving ?? $"Factuur {herkend.Factuurnummer}".Trim(), regels, Factuurnummer: herkend.Factuurnummer);
+            var vervaldatum = herkend.Vervaldatum ?? datum.AddDays(relatie?.Betalingstermijn ?? context.Betalingstermijn);
+            var invoer = new Verkoopinvoer(relatie?.Code ?? "", datum, vervaldatum,
+                Omschrijving(context.OmschrijvingIngelezen, herkend, relatie?.Naam, datum, vervaldatum), regels, Factuurnummer: herkend.Factuurnummer);
             var klant = relatie ?? new Handelsrelatie
             {
                 Code = "",
@@ -142,6 +151,25 @@ public sealed class VerkoopimportDienst(
     }
 
     /// <summary>
+    /// De omschrijving van een ingelezen factuur: de standaard van het kantoor (met variabelen) als die er is, anders
+    /// de omschrijving op de factuur. Is de klant nog niet bekend, dan blijven de variabelen staan; ze worden gevuld
+    /// bij het definitief maken, als de klant gekozen is.
+    /// </summary>
+    internal static string Omschrijving(string? standaard, HerkendeFactuur herkend, string? klant, DateOnly datum, DateOnly vervaldatum)
+    {
+        if (string.IsNullOrWhiteSpace(standaard))
+        {
+            return herkend.Omschrijving ?? $"Factuur {herkend.Factuurnummer}".Trim();
+        }
+
+        // De omschrijving op de factuur is alleen nu bekend: die gaat er meteen in.
+        var metOmschrijving = standaard.Replace("#omschrijving", herkend.Omschrijving ?? "", StringComparison.OrdinalIgnoreCase);
+        return klant is null || herkend.Factuurnummer is null
+            ? metOmschrijving
+            : Boekhouding.Facturen.Omschrijvingssjabloon.Vul(metOmschrijving, new(herkend.Factuurnummer, herkend.Omschrijving, klant, datum, vervaldatum, herkend.Betalingskenmerk));
+    }
+
+    /// <summary>
     /// Op een eigen verkoopfactuur staat het eigen KvK-nummer: dat is niet van de klant. Net als de eigen naam, het
     /// btw-nummer en de IBAN's telt het niet mee bij het zoeken van de afnemer.
     /// </summary>
@@ -169,6 +197,58 @@ public sealed class VerkoopimportDienst(
         return await db.Verkoopbestanden.AsNoTracking().FirstOrDefaultAsync(b => b.VerkoopdocumentId == factuur) is { } b
             ? (b.Inhoud, b.Inhoudstype, b.Bestandsnaam)
             : null;
+    }
+
+    /// <summary>
+    /// Het origineel met de woorden en hun plek, voor het aanwijzen van een gebied (zoals bij inkoop). Een PDF met tekst
+    /// geeft zijn eigen woorden; een scan of foto gaat door de tekstherkenning (een foto wordt daarbij een PDF van één
+    /// pagina). Een e-factuur (XML) heeft geen beeld: leeg.
+    /// </summary>
+    public async Task<Verkooporigineelbeeld?> Beeld(Uitvoerder wie, Guid administratie, Guid factuur, CancellationToken annulering = default)
+    {
+        if (await Bestand(wie, administratie, factuur) is not { } bestand)
+        {
+            return null;
+        }
+
+        var ocr = ocrMotoren.FirstOrDefault() is { } motor ? new OcrLezer(motor) : null;
+        if (bestand.Inhoudstype == "application/pdf")
+        {
+            IReadOnlyList<Tekstwoord> woorden;
+            try
+            {
+                woorden = PdfTekst.Woorden(bestand.Inhoud);
+                if (woorden.Count < 5 && ocr is not null && await ocr.LeesAsync(bestand.Inhoud, annulering) is { } laag)
+                {
+                    woorden = laag.Woorden;
+                }
+            }
+            catch (DocumentException)
+            {
+                woorden = [];
+            }
+
+            return new(bestand.Inhoud, null, woorden, bestand.Bestandsnaam);
+        }
+
+        if (!bestand.Inhoudstype.StartsWith("image/", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        try
+        {
+            if (ocr is not null && await ocr.LeesAsync(bestand.Inhoud, annulering) is { Pdf: { } pdf } foto)
+            {
+                return new(pdf, null, foto.Woorden, bestand.Bestandsnaam);
+            }
+        }
+        catch (DocumentException)
+        {
+            // Niet te lezen: dan alleen de afbeelding.
+        }
+
+        return new(null, (bestand.Inhoud, bestand.Inhoudstype), [], bestand.Bestandsnaam);
     }
 
     private static async Task<byte[]> LeesBegrensd(Stream stream, CancellationToken annulering)

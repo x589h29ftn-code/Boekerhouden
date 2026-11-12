@@ -100,6 +100,7 @@ public sealed record Klantkeuze(string Code, string Naam, Partij Gegevens, int? 
 /// <summary>Alles wat het factuurscherm nodig heeft: rekeningen, btw, klanten en de standaarden.</summary>
 /// <param name="Omzetrekening">De standaard omzetrekening (de eerste W&amp;V-rekening met RGS-omzet).</param>
 /// <param name="Verdeelrekening">De voorgestelde rekening voor een periodeverdeling (vooruitontvangen omzet).</param>
+/// <param name="OmschrijvingIngelezen">De standaardomschrijving van een ingelezen verkoopfactuur (kantoor), met variabelen.</param>
 public sealed record Verkoopcontext(
     Rekeningschema Schema,
     Btwtabel Btwtabel,
@@ -107,7 +108,8 @@ public sealed record Verkoopcontext(
     Partij Afzender,
     int Betalingstermijn,
     string? Omzetrekening,
-    string? Verdeelrekening);
+    string? Verdeelrekening,
+    string? OmschrijvingIngelezen = null);
 
 /// <summary>
 /// Verkoopfacturen maken: een concept invullen en bewaren, dan definitief maken. Definitief krijgt de factuur het
@@ -141,7 +143,7 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
             ?? schema.Alle.FirstOrDefault(r => r.IsBalans && r.RgsCode?.StartsWith("BSchOpa", StringComparison.Ordinal) == true)?.Nummer;
         return new Verkoopcontext(schema, await BtwDienst.Lees(db),
             [.. relaties.Select(r => new Klantkeuze(r.Code, r.Naam, r.AlsKlant(), r.Betalingstermijn, r.Omzetrekening, r.Verkoopbtwcode))],
-            a.Afzender(), a.Afwijkend().Op(kantoor).Betalingstermijn, omzet, verdeel);
+            a.Afzender(), a.Afwijkend().Op(kantoor).Betalingstermijn, omzet, verdeel, kantoor.OmschrijvingVerkoop);
     }
 
     /// <summary>De concepten en de definitieve facturen in de periode (op factuurdatum), nieuwste eerst.</summary>
@@ -455,7 +457,10 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
         {
             Nummer = nummer,
             Betalingskenmerk = kenmerk,
-            Omschrijving = string.IsNullOrWhiteSpace(factuur.Omschrijving) ? $"Factuur {nummer} {relatie.Naam}" : factuur.Omschrijving,
+            Omschrijving = string.IsNullOrWhiteSpace(factuur.Omschrijving) ? $"Factuur {nummer} {relatie.Naam}"
+                // Een ingelezen factuur kan variabelen in de omschrijving hebben (#klant, #maandnr): hier worden ze gevuld.
+                : document.Ingelezen ? Kort(Omschrijvingssjabloon.Vul(factuur.Omschrijving, new(nummer, null, relatie.Naam, document.Datum, document.Vervaldatum, kenmerk)), 500)
+                : factuur.Omschrijving,
         };
         Journaalpost post;
         OpenPost open;

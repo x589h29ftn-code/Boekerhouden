@@ -1644,6 +1644,10 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("StandaardomschrijvingVerkoop")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Verschilrekening")
                         .HasColumnType("TEXT");
 

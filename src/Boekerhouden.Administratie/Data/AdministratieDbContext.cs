@@ -170,6 +170,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(k => k.LimietAutomatisch).HasPrecision(18, 2);
             e.Property(k => k.Bandbreedte).HasPrecision(6, 2);
             e.Property(k => k.Standaardomschrijving).HasMaxLength(200);
+            e.Property(k => k.StandaardomschrijvingVerkoop).HasMaxLength(200);
             e.Property(k => k.OverzichtLetter).HasDefaultValue(100);
             e.Property(k => k.Documentmap).HasMaxLength(400);
         });

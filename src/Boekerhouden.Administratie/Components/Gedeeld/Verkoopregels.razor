@@ -24,10 +24,10 @@
             @foreach (var regel in Regels)
             {
                 <tr>
-                    <td><input class="form-control form-control-sm" @bind="regel.Omschrijving" @bind:event="oninput" @bind:after="Meld" aria-label="Omschrijving" placeholder="@Placeholder" /></td>
+                    <td><input class="form-control form-control-sm" @bind="regel.Omschrijving" @bind:event="oninput" @bind:after="Meld" aria-label="Omschrijving" placeholder="@Placeholder" data-doel="@Doel("regel", regel)" data-doelnaam="Omschrijving regel @(Regels.IndexOf(regel) + 1)" /></td>
                     <td><input class="form-control form-control-sm text-end" @bind="regel.Aantal" @bind:event="oninput" @bind:after="Meld" aria-label="Aantal" placeholder="vast" title="Leeg = een vast bedrag: alleen het bedrag op de factuur" /></td>
                     <td><input class="form-control form-control-sm" @bind="regel.Eenheid" @bind:event="oninput" @bind:after="Meld" aria-label="Eenheid" placeholder="@(regel.Vast ? null : "uur, stuk")" disabled="@regel.Vast" /></td>
-                    <td><input class="form-control form-control-sm text-end" @bind="regel.Prijs" @bind:event="oninput" @bind:after="Meld" aria-label="@(regel.Vast ? "Bedrag exclusief btw" : "Prijs per eenheid exclusief btw")" placeholder="@(regel.Vast ? "bedrag" : null)" /></td>
+                    <td><input class="form-control form-control-sm text-end" @bind="regel.Prijs" @bind:event="oninput" @bind:after="Meld" aria-label="@(regel.Vast ? "Bedrag exclusief btw" : "Prijs per eenheid exclusief btw")" data-doel="@Doel("bedrag", regel)" data-doelnaam="Bedrag regel @(Regels.IndexOf(regel) + 1)" placeholder="@(regel.Vast ? "bedrag" : null)" /></td>
                     <td><input class="form-control form-control-sm text-end" @bind="regel.Korting" @bind:event="oninput" @bind:after="Meld" aria-label="Korting in procenten" placeholder="0" /></td>
                     <td><RekeningKeuze @bind-Waarde="regel.Rekening" @bind-Waarde:after="Meld" Schema="Schema" Kader="Kader" Label="Omzetrekening" /></td>
                     <td>
@@ -88,6 +88,16 @@
 
     [Parameter]
     public string Placeholder { get; set; } = "Wat is er geleverd?";
+
+    /// <summary>
+    /// Er staat een factuur naast waarop gebieden aan te wijzen zijn (een ingelezen verkoopfactuur): de omschrijving
+    /// en het bedrag van een regel zijn dan een doel (regel:0, bedrag:0).
+    /// </summary>
+    [Parameter]
+    public bool Aanwijzen { get; set; }
+
+    private string? Doel(string soort, Verkoopregelinvoer regel) =>
+        Aanwijzen ? $"{soort}:{Regels.IndexOf(regel).ToString(System.Globalization.CultureInfo.InvariantCulture)}" : null;
 
     private Verkoopfactuur Factuur => new("", new Partij("", new()), null, DateOnly.MinValue, DateOnly.MinValue, "", [.. Regels.Select(r => r.Domein()).OfType<Verkoopregel>()]);
 

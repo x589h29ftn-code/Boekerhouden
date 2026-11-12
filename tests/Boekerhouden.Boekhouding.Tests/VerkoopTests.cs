@@ -317,4 +317,8 @@ public sealed class AbonnementsplanTests
         Assert.Equal("februari 2026 · 1e kwartaal 2026 · 2026 · 1-2-2026 t/m 28-2-2026 #onbekend", plan.Vul("#maand · #kwartaal · #jaar · #van t/m #tot #onbekend", 0));
         Assert.Contains(new Abonnementsplan(new(2026, 2, 1), Herhaling.Maand, new(2026, 1, 1)).Controleer(), f => f.Contains("einddatum", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void Een_terugkerende_factuur_kent_de_maand_als_getal() =>
+        Assert.Equal("Fee 3-2026", new Abonnementsplan(new(2026, 1, 1), Herhaling.Maand).Vul("Fee #maandnr-#jaar", 2));
 }

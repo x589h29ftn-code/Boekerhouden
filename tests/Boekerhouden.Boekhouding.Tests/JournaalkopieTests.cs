@@ -31,4 +31,8 @@ public sealed class JournaalkopieTests
         Assert.Equal("Lonen februari 2027", januari.Omschrijving);
         Assert.Equal("Huur", Journaalkopie.NaarMaand(Lonen with { Omschrijving = "Huur" }, 2026, 11).Omschrijving);
     }
+
+    [Fact]
+    public void De_maand_als_getal_volgt_de_nieuwe_datum() =>
+        Assert.Equal("Huur 3-2026 (maart 2026)", Journaalkopie.Omschrijving("Huur #maandnr-#jaar (#maand)", new(2026, 1, 1), new(2026, 3, 1)));
 }

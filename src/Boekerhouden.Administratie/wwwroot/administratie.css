@@ -1820,6 +1820,12 @@ table[data-sleepbaar="journaal"] :is(th, td):not(:last-child) { padding-right: 1
 }
 .verkoop-verwerken .verkoopregels > tbody > tr > td:is(:nth-child(2), :nth-child(3), :nth-child(5)) > * { display: none; }
 
+/* Naast het origineel is het formulier smal: de vaste kolommen krimpen, zodat de omschrijving van de regel leesbaar blijft. */
+.verkoop-verwerken .verkoopregels > thead > tr > th:nth-child(4) { width: 6rem !important; }
+.verkoop-verwerken .verkoopregels > thead > tr > th:nth-child(6) { width: 10rem !important; }
+.verkoop-verwerken .verkoopregels > thead > tr > th:nth-child(7) { width: 6.5rem !important; }
+.verkoop-verwerken .verkoopregels > thead > tr > th:nth-child(8) { width: 6.5rem !important; }
+
 /* Stapel splitsen: de pagina's van een PDF als miniaturen, met vóór elke pagina een knipplek; een knip begint een
    nieuwe factuur. Facturen wisselen van tint (even/oneven) zodat je ziet wat bij elkaar hoort. */
 .stapelkop { display: flex; align-items: center; flex-wrap: wrap; gap: var(--r1) var(--r2); margin-bottom: var(--r2); font-size: .875rem; color: var(--bh-zacht);

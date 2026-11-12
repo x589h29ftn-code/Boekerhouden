@@ -62,7 +62,7 @@ public sealed partial record Abonnementsplan(DateOnly Begin, Herhaling Herhaling
 
     /// <summary>
     /// Variabelen in een omschrijving: <c>#periode</c> (oktober 2026, 4e kwartaal 2026, 1e halfjaar 2026, 2026 of
-    /// 1-10-2026 t/m 30-9-2027 als de periode niet samenvalt met een maand, kwartaal of jaar), <c>#maand</c>,
+    /// 1-10-2026 t/m 30-9-2027 als de periode niet samenvalt met een maand, kwartaal of jaar), <c>#maand</c>, <c>#maandnr</c> (maart is 3),
     /// <c>#kwartaal</c>, <c>#jaar</c>, <c>#van</c> en <c>#tot</c>.
     /// </summary>
     public string Vul(string tekst, int volgnummer)
@@ -73,6 +73,7 @@ public sealed partial record Abonnementsplan(DateOnly Begin, Herhaling Herhaling
         {
             "periode" => Periodetekst(van, tot),
             "maand" => van.ToString("MMMM yyyy", Nl),
+            "maandnr" => van.Month.ToString(Nl),
             "kwartaal" => $"{(van.Month + 2) / 3}e kwartaal {van.Year}",
             "jaar" => van.Year.ToString(Nl),
             "van" => van.ToString("d-M-yyyy", Nl),
@@ -85,6 +86,7 @@ public sealed partial record Abonnementsplan(DateOnly Begin, Herhaling Herhaling
     [
         ("#periode", "de periode van de factuur (oktober 2026, 4e kwartaal 2026, 2026)"),
         ("#maand", "de maand waarin de periode begint"),
+        ("#maandnr", "die maand als getal, maart is 3"),
         ("#kwartaal", "het kwartaal waarin de periode begint"),
         ("#jaar", "het jaar waarin de periode begint"),
         ("#van", "de eerste dag van de periode"),
