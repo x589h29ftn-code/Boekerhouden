@@ -486,7 +486,7 @@ public sealed class ActivaTests(AdministratieFixture app) : IClassFixture<Admini
         Assert.True((await dienst.Bewaar(wie, id, auto, detail.Invoer with { Privegebruik = Privegebruik.JaForfait, Cataloguswaarde = 30_000m })).IsGelukt);
         Assert.Equal((Privegebruik.JaForfait, 30_000m), ((await dienst.Open(wie, id, auto))!.Invoer.Privegebruik, (await dienst.Open(wie, id, auto))!.Invoer.Cataloguswaarde));
         var signaal = Assert.Single((await btw.Jaar(wie, id, 2026)).Signalen);
-        Assert.Contains("geen btw privégebruik geboekt in 2026 (forfait 2,7%: 607,50)", signaal.Tekst, StringComparison.Ordinal);
+        Assert.Contains("geen btw privégebruik geboekt in 2026 (forfait 2,7%: 608,00)", signaal.Tekst, StringComparison.Ordinal);
         Assert.Equal(auto, signaal.Activum);
 
         // In de activastaat: alleen de auto is een vervoermiddel; nee (bestelauto) geeft geen opmerking meer.

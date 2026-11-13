@@ -300,3 +300,12 @@ scripts/ui/herstart.sh && node scripts/ui/schermafbeeldingen.js /tmp/schermen vo
   (15 oktober 2026); diensten die "vandaag" gebruiken horen `TimeProvider` te injecteren.
 - **Selectors in `schermafbeeldingen.js`**: de liquiditeitsgrafiek gebruikt ook de class `maandgrafiek`; kies in het
   script een widget via `[data-widget="..."]`.
+
+27. **Wensen van 13 november** (bank, belastingen, navigatie, journaal, btw privégebruik): regel toevoegen met het
+    juiste teken en niet boeken met een verschil; motorrijtuigenbelasting en het kenmerk uit de MT940-omschrijving,
+    automatisch boeken van belastingen standaard aan (migratie `BelastingMrbEnAutomatisch`); bankpaneel overlapt niet
+    meer met een breder gesleepte lijst (`data-groeit` in `kolommen.js`); geen browser-aanvulling in bedragvelden;
+    terugpijl bij inkoop verwerken; een regel aanklikken bij Inrichting → Regels; na een nieuw actief terug naar de
+    activastaat; journaal: een boeking aanklikken opent de boeking (pijltje voor de regels, rekening naar de
+    grootboekkaart), niets gevonden → *Zoeken in alle boekjaren*; forfait btw privégebruik op hele euro's; een
+    zelf aangemaakte rekening "btw privé" (zonder functie of RGS) telt in rubriek 1d en de aansluiting.

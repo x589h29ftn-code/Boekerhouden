@@ -181,8 +181,8 @@
     {
         var zichtbaar = mutatiesortering.Pas(mutaties.Where(PastFilter)).ToList();
         var teKiezen = zichtbaar.Where(m => m.Status == Banktransactiestatus.TeVerwerken).ToList();
-        <div class="row g-3 bankwerk">
-            <div class="@(gekozen is null ? "col-12" : "col-lg-5")">
+        <div class="row g-3 bankwerk @(gekozen is null ? null : "met-paneel")">
+            <div class="@(gekozen is null ? "col-12" : "col-lg-5 banklijst")" data-groeit="@(gekozen is null ? null : "544")">
                 @if (gekozen is null)
                 {
                     <Foutmeldingen Fouten="fouten" />
@@ -271,7 +271,7 @@
                     </div>
                 }
             </div>
-            <div class="@(gekozen is null ? "d-none" : "col-lg-7")">
+            <div class="@(gekozen is null ? "d-none" : "col-lg-7 bankpaneel")">
                 @if (gekozen is { } g)
                 {
                     <div class="card card-body verwerkpaneel">
@@ -393,8 +393,8 @@
                                                         </select>
                                                     </td>
                                                 }
-                                                <td><input id="@($"regel-bedrag-{n}")" class="form-control form-control-sm text-end" @bind="regel.Bedrag" aria-label="Bedrag" /></td>
-                                                <td><input id="@($"regel-omschrijving-{n}")" class="form-control form-control-sm" @bind="regel.Omschrijving" aria-label="Omschrijving" placeholder="@(post is not null ? $"Betaling {post.Factuurnummer}" : Standaardomschrijving(g.Mutatie))" /></td>
+                                                <td><input id="@($"regel-bedrag-{n}")" autocomplete="off" class="form-control form-control-sm text-end" @bind="regel.Bedrag" aria-label="Bedrag" /></td>
+                                                <td><input id="@($"regel-omschrijving-{n}")" autocomplete="off" class="form-control form-control-sm" @bind="regel.Omschrijving" aria-label="Omschrijving" placeholder="@(post is not null ? $"Betaling {post.Factuurnummer}" : Standaardomschrijving(g.Mutatie))" /></td>
                                                 <td>
                                                     @if (regels.Count > 1)
                                                     {
@@ -444,15 +444,15 @@
                                         <div class="row g-2 align-items-end">
                                             <div class="col-md-4">
                                                 <label class="form-label small mb-0" for="auto-tekst">Tekst bevat</label>
-                                                <input id="auto-tekst" class="form-control form-control-sm" @bind="autoTekst" />
+                                                <input id="auto-tekst" autocomplete="off" class="form-control form-control-sm" @bind="autoTekst" />
                                             </div>
                                             <div class="col-md-2">
                                                 <label class="form-label small mb-0" for="auto-van">Bedrag van</label>
-                                                <input id="auto-van" class="form-control form-control-sm text-end" @bind="autoVan" />
+                                                <input id="auto-van" autocomplete="off" class="form-control form-control-sm text-end" @bind="autoVan" />
                                             </div>
                                             <div class="col-md-2">
                                                 <label class="form-label small mb-0" for="auto-tot">tot</label>
-                                                <input id="auto-tot" class="form-control form-control-sm text-end" @bind="autoTot" />
+                                                <input id="auto-tot" autocomplete="off" class="form-control form-control-sm text-end" @bind="autoTot" />
                                             </div>
                                             <div class="col-md-4 @(NietBtwPlichtig ? "d-none" : null)">
                                                 <label class="form-label small mb-0" for="auto-btw">Btw</label>

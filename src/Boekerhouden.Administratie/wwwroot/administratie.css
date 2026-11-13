@@ -576,6 +576,14 @@ body.scheiding-slepen {
 .bankmutaties tr.geboekt > td { color: var(--bs-secondary-color); }
 .bankmutaties td.omschrijving { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bankwerk .verwerkpaneel { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; }
+/* Met een mutatie open: de lijst is zo breed als de tabel (breder gesleepte kolommen maken hem breder) en het paneel
+   krijgt de rest, minstens 34rem; ze schuiven nooit over elkaar. */
+@media (min-width: 992px) {
+    .bankwerk.met-paneel { flex-wrap: nowrap; }
+    .bankwerk.met-paneel > .banklijst { flex: 0 0 auto; width: auto; min-width: 41.666%; max-width: calc(100% - 34rem); }
+    .bankwerk.met-paneel > .banklijst > .card { overflow-x: auto; }
+    .bankwerk.met-paneel > .bankpaneel { flex: 1 1 0; width: auto; min-width: 34rem; }
+}
 .verwerkpaneel .paneelkop { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--bs-secondary-color); margin-bottom: .25rem; }
 .verwerkpaneel .kandidaat + .kandidaat { border-top: 1px solid var(--bs-border-color-translucent); }
 .verwerkpaneel .regelactie { opacity: 0; }
@@ -1030,7 +1038,7 @@ body.scheiding-slepen {
     padding: .25rem .6rem;
 }
 
-.overzichtstabel tr.klikbaar {
+.overzichtstabel tr.klikbaar, tr.regel-met-acties.klikbaar {
     cursor: pointer;
 }
 

@@ -51,7 +51,12 @@
         }
         else if (posten is not null && Gevonden.Count == 0)
         {
-            <LegeStaat Icoon="search" Tekst="Geen boekingen gevonden" />
+            <LegeStaat Icoon="search" Tekst="Geen boekingen gevonden">
+                @if (!AlleJaren)
+                {
+                    <button class="btn btn-sm btn-outline-primary alle-jaren" @onclick="ZoekInAlleJaren">Zoeken in alle boekjaren</button>
+                }
+            </LegeStaat>
         }
         else if (posten is not null)
         {
@@ -70,8 +75,10 @@
                     <tbody>
                         @foreach (var p in sortering.Pas(Gevonden))
                         {
-                            <tr class="klikbaar" @onclick="() => Wissel(p.Volgnummer)">
-                                <td class="text-secondary" title="Geboekt door @p.GeboektDoor op @Weergave.DatumTijd(p.GeboektOp)">@p.Volgnummer</td>
+                            <tr class="klikbaar" @onclick="() => OpenBoeking(p)" title="Openen: bekijken of aanpassen">
+                                <td class="text-secondary text-nowrap" title="Geboekt door @p.GeboektDoor op @Weergave.DatumTijd(p.GeboektOp)">
+                                    <button type="button" class="btn btn-sm btn-link text-secondary p-0 me-1 regels-tonen" title="Regels tonen" aria-label="Regels tonen" @onclick="() => Wissel(p.Volgnummer)" @onclick:stopPropagation="true"><Icoon Naam="@(open.Contains(p.Volgnummer) ? "chevron-down" : "chevron-right")" /></button>@p.Volgnummer
+                                </td>
                                 <td class="text-nowrap">@Weergave.Datum(p.Post.Datum)</td>
                                 <td>@p.Post.Dagboek</td>
                                 <td class="text-nowrap">@p.Post.Boekstuk</td>
@@ -84,7 +91,7 @@
                                 {
                                     <tr class="small">
                                         <td></td>
-                                        <td colspan="3" class="text-secondary">@r.Rekeningnummer @schema?.Zoek(r.Rekeningnummer)?.Naam</td>
+                                        <td colspan="3" class="text-secondary"><a href="/a/@Id/grootboek?rekening=@Uri.EscapeDataString(r.Rekeningnummer)&@Weergave.Periodequery(van, tot)" title="De grootboekkaart van deze rekening">@r.Rekeningnummer @schema?.Zoek(r.Rekeningnummer)?.Naam</a></td>
                                         <td class="text-secondary">@r.Omschrijving @r.BtwCode</td>
                                         <td class="bedrag text-end">@Weergave.Bedrag(r.Bedrag)</td>
                                     </tr>
@@ -135,7 +142,8 @@
     {
         geopend = g;
         schema = await Grootboek.Schema(g.Wie, Id);
-        (van, tot) = Weergave.Periode(VanTekst, TotTekst) ?? Boekhouding.Grootboek.Periode.Jaar((await Grootboek.Boekjaren(g.Wie, Id))[0]);
+        boekjaren = await Grootboek.Boekjaren(g.Wie, Id);
+        (van, tot) = Weergave.Periode(VanTekst, TotTekst) ?? Boekhouding.Grootboek.Periode.Jaar(boekjaren[0]);
         await Laad();
     }
 
@@ -150,6 +158,22 @@
     }
 
     private async Task Controleer() => keten = await Grootboek.ControleerKeten(geopend!.Wie, Id);
+
+    /// <summary>De boeking openen (bekijken of aanpassen); de terugknop brengt je weer hier, in dezelfde periode.</summary>
+    private void OpenBoeking(GeboektePost p) =>
+        Navigatie.NavigateTo($"/a/{Id}/boeking/{Uri.EscapeDataString(p.Post.Dagboek)}/{Uri.EscapeDataString(p.Post.Boekstuk)}?terug={Uri.EscapeDataString($"/a/{Id}/journaal?{Weergave.Periodequery(van, tot)}")}");
+
+    private IReadOnlyList<int>? boekjaren;
+
+    /// <summary>Staat de periode al op alle boekjaren?</summary>
+    private bool AlleJaren => boekjaren is { Count: > 0 } j && van <= new DateOnly(j.Min(), 1, 1) && tot >= new DateOnly(j.Max(), 12, 31);
+
+    /// <summary>Niets gevonden in deze periode: dezelfde zoekopdracht over alle boekjaren.</summary>
+    private async Task ZoekInAlleJaren()
+    {
+        boekjaren ??= await Grootboek.Boekjaren(geopend!.Wie, Id);
+        await KiesPeriode((new DateOnly(boekjaren.Min(), 1, 1), new DateOnly(boekjaren.Max(), 12, 31)));
+    }
 
     private void Wissel(long volgnummer)
     {

@@ -365,7 +365,16 @@ eigen btw-code voor de regel (`InrichtingDienst.WijzigRegel`, `Verwerkingsregel.
   **Automatisch boeken bij een geldig betalingskenmerk**: dan boekt het pakket de betaling zelf bij het inlezen en
   bij *Opnieuw herkennen*, maar alleen als het kenmerk een kloppend controlecijfer heeft (zonder kenmerk, of met een
   typefout, blijft het een voorstel). Een regel of geleerde keuze gaat altijd voor; maak dus geen regel op het IBAN
-  van de Belastingdienst, want die zou alle belastingen op één rekening boeken.
+  van de Belastingdienst, want die zou alle belastingen op één rekening boeken. Automatisch boeken staat sinds
+  13 november 2026 standaard aan (ook voor bestaande administraties). **Motorrijtuigenbelasting** (middelcode 78 of 87
+  in het kenmerk, of "MRB"/"motorrijtuigenbelasting" in de omschrijving) gaat op een kostenrekening: de vaste rekening
+  uit de instellingen (alleen een resultaatrekening) of een rekening met *motorrijtuigenbelasting*, *MRB* of
+  *wegenbelasting* in de naam; omschrijving *Motorrijtuigenbelasting 2026* (het jaar van de betaling). In MT940 wordt
+  een kenmerk van 16 cijfers met een kloppend controlecijfer ook uit de omschrijving gehaald (ook in groepjes van vier).
+- **Verwerkpaneel**: *Regel toevoegen* zet het ontbrekende bedrag erop, met een min als er te veel is verdeeld; met
+  een verschil wordt niet geboekt (alleen hele posten mogen een verschil op de post laten openstaan). Met een mutatie
+  open is de lijst zo breed als de tabel (breder gesleepte kolommen) en krijgt het paneel de rest, minstens 34rem.
+  De velden van autoherkenning en de bedragen hebben geen formulier-aanvulling van de browser.
 - **Handmatig inboeken** van een mutatie: op een openstaande post, op een grootboekrekening (met btw-code) of
   gesplitst over meerdere regels.
 - **Afletteren** (§3.8): wat zeker is, wordt automatisch geboekt. Wat waarschijnlijk is, staat klaar als

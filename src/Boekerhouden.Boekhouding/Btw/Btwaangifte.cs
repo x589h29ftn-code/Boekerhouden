@@ -109,13 +109,15 @@ public sealed record Btwaangifte(DateOnly Van, DateOnly Tot, IReadOnlyList<Aangi
 
     /// <summary>
     /// Een btw-rekening voor het privégebruik (bijv. "Te betalen btw privégebruik"): wat erop wordt geboekt hoort in
-    /// rubriek 1d, ook zonder btw-code.
+    /// rubriek 1d, ook zonder btw-code. Een btw-rekening (functie of RGS) met "priv" in de naam, of een balansrekening
+    /// met "btw" en "priv" in de naam (zelf aangemaakt of uit een auditfile, zonder functie of RGS-code).
     /// </summary>
     public static bool IsPrivegebruikrekening(Rekening rekening)
     {
         ArgumentNullException.ThrowIfNull(rekening);
         var naam = rekening.Naam.ToLowerInvariant().Replace('é', 'e');
-        return IsBtwrekening(rekening) && naam.Contains("priv", StringComparison.Ordinal);
+        return naam.Contains("priv", StringComparison.Ordinal)
+               && (IsBtwrekening(rekening) || (rekening.IsBalans && (naam.Contains("btw", StringComparison.Ordinal) || naam.Contains("omzetbelasting", StringComparison.Ordinal))));
     }
 
     /// <summary>

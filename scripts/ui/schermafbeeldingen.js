@@ -179,6 +179,24 @@ function totp(sleutel) {
   if (await page.locator('table.bankmutaties tbody tr', { hasText: 'dubbel?' }).count() > 0) log.push('mogelijk dubbele mutaties niet verwijderd');
   await page.screenshot({ path: `${uit}/${pre}-bank-dubbel-verwijderd.png` });
 
+  // Bank: kolommen breed gesleept (bewaard in deze browser) en een mutatie open: de lijst wordt breder, het paneel
+  // smaller, ze overlappen niet.
+  await page.goto(`${basis}/a/${id}/bank`); await page.waitForTimeout(1500);
+  const kolommen = await page.locator('table.bankmutaties thead th').count();
+  await page.evaluate(n => localStorage.setItem('kolommen:bankmutaties', JSON.stringify(Array(n).fill(170))), kolommen);
+  await page.reload(); await page.waitForTimeout(1500);
+  await page.locator('table.bankmutaties tbody tr').first().click(); await page.waitForTimeout(1200);
+  const lijst = await page.locator('.banklijst').boundingBox(); const paneelvak = await page.locator('.bankpaneel .verwerkpaneel').boundingBox();
+  if (!lijst || !paneelvak || lijst.x + lijst.width > paneelvak.x + 1) log.push('lijst en paneel overlappen');
+  await page.screenshot({ path: `${uit}/${pre}-bank-breed-paneel.png` });
+  await page.evaluate(() => localStorage.removeItem('kolommen:bankmutaties'));
+
+  // Journaal: een boeking aanklikken opent de boeking (bekijken of aanpassen); de pijl brengt je terug.
+  await page.goto(`${basis}/a/${id}/journaal`); await page.waitForTimeout(1500);
+  await page.locator('table tbody tr.klikbaar').first().click(); await page.waitForURL(/\/boeking\//); await page.waitForTimeout(1500);
+  await page.screenshot({ path: `${uit}/${pre}-journaal-boeking.png` });
+  await page.click('a.terug'); await page.waitForURL(/\/journaal/);
+
   // Dashboard: de standaardwidgets, dan aanpassen (btw per maand, verkoop erbij, grafiek met alle kosten) en de tabel.
   await page.goto(`${basis}/a/${id}`); await page.waitForSelector('.dashboard'); await page.waitForTimeout(1200);
   if (await page.locator('.maandgrafiek svg').count() === 0) log.push('dashboard zonder maandgrafiek');

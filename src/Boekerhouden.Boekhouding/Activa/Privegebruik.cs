@@ -137,7 +137,7 @@ public static class Privegebruikcontrole
             return null;
         }
 
-        return Math.Round(waarde * Forfaitpercentage(v.Privegebruik, v.InGebruik, jaar) / 100m * Maanden(v, jaar) / 12m, 2);
+        return Math.Round(waarde * Forfaitpercentage(v.Privegebruik, v.InGebruik, jaar) / 100m * Maanden(v, jaar) / 12m, 0, MidpointRounding.AwayFromZero);
     }
 
     /// <summary>

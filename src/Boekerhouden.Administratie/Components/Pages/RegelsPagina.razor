@@ -22,14 +22,14 @@
                 <tbody>
                     @foreach (var r in regels)
                     {
-                        <tr class="regel-met-acties @(bewerkId == r.Id ? "table-active" : null)">
+                        <tr class="regel-met-acties @(bewerkId == r.Id ? "table-active" : null) @(context.Mag(Recht.Boekhouden) ? "klikbaar" : null)" @onclick="() => KlikRegel(r, context.Mag(Recht.Boekhouden))">
                             <td>@r.Regel.Naam</td>
                             <td class="small text-secondary">@Voorwaarden(r.Regel)</td>
                             <td class="small" title="@r.Regel.Omschrijving">@r.Regel.Rekeningnummer @r.Regel.BtwCode @(r.Regel.Automatisch ? "· automatisch" : null)</td>
                             <td class="text-end text-nowrap">
                                 @if (context.Mag(Recht.Boekhouden))
                                 {
-                                    <span class="acties">
+                                    <span class="acties" @onclick:stopPropagation="true">
                                         <button type="button" class="btn btn-sm btn-link p-0" title="Eerder toepassen" aria-label="Eerder toepassen" @onclick="() => Verplaats(r.Id, true)"><Icoon Naam="arrow-up" /></button>
                                         <button type="button" class="btn btn-sm btn-link p-0 ms-1" title="Later toepassen" aria-label="Later toepassen" @onclick="() => Verplaats(r.Id, false)"><Icoon Naam="arrow-down" /></button>
                                         <button type="button" class="btn btn-sm btn-link p-0 ms-2 regel-bewerken" @onclick="() => Bewerk(r)">Bewerken</button>
@@ -59,8 +59,8 @@
                     </div>
                     <div class="col-md-3"><label class="form-label" for="bevat">Naam bevat</label><input id="bevat" class="form-control" @bind="invoer.NaamBevat" /></div>
                     <div class="col-md-3"><label class="form-label" for="omschr">Omschrijving bevat</label><input id="omschr" class="form-control" @bind="invoer.OmschrijvingBevat" /></div>
-                    <div class="col-md-2"><label class="form-label" for="van">Bedrag van</label><input id="van" class="form-control" @bind="invoer.Van" /></div>
-                    <div class="col-md-2"><label class="form-label" for="tot">tot en met</label><input id="tot" class="form-control" @bind="invoer.Tot" /></div>
+                    <div class="col-md-2"><label class="form-label" for="van">Bedrag van</label><input id="van" class="form-control" autocomplete="off" @bind="invoer.Van" /></div>
+                    <div class="col-md-2"><label class="form-label" for="tot">tot en met</label><input id="tot" class="form-control" autocomplete="off" @bind="invoer.Tot" /></div>
                     <div class="col-md-4"><label class="form-label" for="iban">Tegenrekening (IBAN)</label><input id="iban" class="form-control" @bind="invoer.Iban" /></div>
                     <div class="col-md-2"><label class="form-label" for="rek">Rekening</label><input id="rek" class="form-control" list="rekeningen" @bind="invoer.Rekening" /></div>
                     <div class="col-md-2">
@@ -155,6 +155,15 @@
     private Regelrichting bewerkRichting = Regelrichting.Beide;
 
     /// <summary>Een regel bewerken: het formulier opent met de waarden van de regel.</summary>
+    /// <summary>Op een regel klikken opent hem om te bewerken, net als de knop Bewerken.</summary>
+    private void KlikRegel(RegelRegel r, bool mag)
+    {
+        if (mag)
+        {
+            Bewerk(r);
+        }
+    }
+
     private void Bewerk(RegelRegel r)
     {
         var g = r.Regel;

@@ -32,6 +32,17 @@ public sealed class PrivegebruikTests
     }
 
     [Fact]
+    public void Een_zelf_aangemaakte_rekening_btw_prive_gebruik_zonder_functie_of_rgs_telt_ook_in_1d()
+    {
+        var schema = new Rekeningschema([.. StandaardRekeningschema.Rekeningen(Ondernemingsvorm.BV), new Rekening("1804", "Btw privé gebruik", Rekeningsoort.Balans), new Rekening("4481", "Btw privégebruik auto", Rekeningsoort.Resultaat)]);
+        Journaalpost[] posten = [new("MEM", "2026-0010", new(2026, 12, 31), "Btw privégebruik auto", [new("4481", 1_350m), new("1804", -1_350m)])];
+
+        Assert.Equal(1_350m, Btwaangifte.Bereken(posten, schema, BtwCodes.Standaard, new(2026, 10, 1), new(2026, 12, 31)).Rubriek("1d").Btw);
+        Assert.False(Btwaangifte.IsPrivegebruikrekening(schema.Zoek("4481")!));
+        Assert.Equal(0m, Btwaansluiting.Bereken(posten, schema, BtwCodes.Standaard, new(2026, 1, 1), new(2026, 12, 31)).Verschil);
+    }
+
+    [Fact]
     public void Vervoermiddel_forfait_en_maanden()
     {
         Assert.True(Privegebruikcontrole.IsVervoermiddel(Ovpa.Zoek("0250"), "Volkswagen Golf"));

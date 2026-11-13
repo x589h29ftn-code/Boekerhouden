@@ -11,7 +11,7 @@
 @inject IJSRuntime JS
 @inject IServiceProvider Diensten
 
-<AdministratieKader Id="Id" Titel="Factuur verwerken" Actief="/inkoop" BijOpenen="Open" Terug="@Terug">
+<AdministratieKader Id="Id" Titel="Factuur verwerken" Actief="/inkoop" BijOpenen="Open" Terug="@(Terug ?? $"/a/{Id}/inkoop")">
     <Acties>
         @if (werkvoorraad is { Count: > 0 } && geopend?.Kop.Mag(Recht.Invoeren) == true)
         {

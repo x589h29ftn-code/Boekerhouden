@@ -23,7 +23,7 @@ public sealed record Btwaansluiting(DateOnly Van, DateOnly Tot, decimal Begin, d
     {
         ArgumentNullException.ThrowIfNull(posten);
         ArgumentNullException.ThrowIfNull(schema);
-        var btwrekening = schema.Alle.Where(Btwaangifte.IsBtwrekening).Select(r => r.Nummer).ToHashSet(StringComparer.Ordinal);
+        var btwrekening = schema.Alle.Where(r => Btwaangifte.IsBtwrekening(r) || Btwaangifte.IsPrivegebruikrekening(r)).Select(r => r.Nummer).ToHashSet(StringComparer.Ordinal);
         var regels = posten.Where(p => p.Datum <= tot).SelectMany(p => p.Regels.Select(r => (Post: p, Regel: r))).Where(x => btwrekening.Contains(x.Regel.Rekeningnummer)).ToList();
         var begin = -regels.Where(x => x.Post.Datum < van).Sum(x => x.Regel.Bedrag);
         var saldo = -regels.Sum(x => x.Regel.Bedrag);

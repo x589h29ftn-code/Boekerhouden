@@ -73,7 +73,12 @@ export function maak(tabel, sleutel) {
     // vult de tabel de ruimte en geeft de meegevende kolom toe, zodat de laatste kolom niet buiten beeld valt.
     const pas = () => {
         const bewaard = lees(sleutel);
-        const beschikbaar = tabel.parentElement ? tabel.parentElement.clientWidth : 0;
+        // Een kader dat meegroeit met de tabel (data-groeit: de ruimte die ernaast vrij moet blijven, bijv. voor een
+        // paneel): de tabel mag zo breed worden als de rij min die ruimte.
+        const groeit = tabel.closest("[data-groeit]");
+        const beschikbaar = groeit && groeit.parentElement
+            ? groeit.parentElement.clientWidth - Number(groeit.dataset.groeit)
+            : (tabel.parentElement ? tabel.parentElement.clientWidth : 0);
         if (!bewaard || bewaard.length !== koppen.length) {
             standaard();
         } else if (beschikbaar > 0 && meegevend >= 0 && bewaard.reduce((a, b) => a + b, 0) > beschikbaar + 1) {
