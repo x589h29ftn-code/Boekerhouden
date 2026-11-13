@@ -59,7 +59,19 @@ public static class Databaseupdate
             throw new DatabaseupdateMisluktException("De database is beschadigd (integriteitscontrole); de update is niet uitgevoerd. Zet een reservekopie terug.");
         }
 
-        var kopie = kopieen.Maak(Reservekopiesoort.VoorUpdate, $"vóór de update van {toegepast[^1]} naar {naar}");
+        // Ruimte voor de reservekopie én voor het bijwerken zelf (dat kan tijdelijk nog eens de grootte van de database
+        // kosten). Past het niet, dan gebeurt er niets: de gegevens blijven op de oude versie staan.
+        Reservekopie kopie;
+        try
+        {
+            kopieen.MaakRuimte(kopieen.NodigVoorKopie + kopieen.Databasegrootte, "de update (een reservekopie en het bijwerken)");
+            kopie = kopieen.Maak(Reservekopiesoort.VoorUpdate, $"vóór de update van {toegepast[^1]} naar {naar}");
+        }
+        catch (OnvoldoendeSchijfruimteException ruimte)
+        {
+            throw new DatabaseupdateMisluktException($"De update is niet uitgevoerd en er is niets veranderd. {ruimte.Message} Gebruik tot die tijd de vorige versie van het pakket.", ruimte);
+        }
+
         string? fout = null;
         Exception? oorzaak = null;
         try

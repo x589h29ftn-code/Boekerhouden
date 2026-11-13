@@ -24,6 +24,11 @@ Reservekopieën
   Staan in %LOCALAPPDATA%\Boekerhouden\Administratie\reservekopieen. De app maakt er zelf een:
     - vóór elke update (de laatste 5 blijven);
     - één per dag bij het starten (14 dagen, daarna de eerste van elke maand, een jaar lang).
+  Elke kopie is een volledige kopie, ook van alle documenten: reken op ongeveer 20 tot 30 keer de grootte van
+  de gegevens als alle kopieën van het bewaarschema er staan. Wordt de schijf krap, dan gooit de app vóór een nieuwe
+  kopie de oudste vanzelf gemaakte kopieën weg (handmatige kopieën, de laatste van vóór een update en de twee
+  nieuwste dagelijkse blijven altijd). Past het dan nog niet, dan maakt de app geen kopie en meldt hij dat; een
+  update begint dan niet en alles blijft zoals het was. De vrije ruimte staat onder Beheer > Reservekopieën.
   Onder Beheer > Reservekopieën: nu een kopie maken, controleren, terugzetten (bij de volgende start; de huidige
   gegevens worden eerst bewaard), en een tweede map instellen waar elke kopie ook naartoe gaat. Kies daarvoor een
   netwerkschijf, een externe schijf of een map die naar de cloud gaat: een kopie op dezelfde schijf helpt niet als

@@ -234,6 +234,15 @@ De Windows-app staat op één pc, zonder beheerder: een update moet vanzelf veil
 | Terugzetten | Onder Beheer, Reservekopieën: de kopie wordt eerst gecontroleerd (controlegetal en integriteit) en klaargezet; bij de volgende start (dan is de database niet open) eerst een kopie van de huidige gegevens (*vóór terugzetten*, dus ook terugzetten is ongedaan te maken), dan de kopie terug. Een kopie die niet meer klopt, wordt niet teruggezet |
 | Vertrouwelijk | Een kopie bevat alle administraties en documenten; hij staat in de gegevensmap van de gebruiker en hoort net zo beschermd te zijn als de pc (BitLocker). Versleutelen van de kopieën zelf is een vervolgstap |
 
+**Schijfruimte** (november 2026, na de stresstest `KopieEnUpdateStressTests`): elke kopie is het volledige bestand,
+met de documenten; comprimeren helpt daar weinig (PDF's en scans zijn al gecomprimeerd). Vóór elke kopie controleert
+`Reservekopieen.MaakRuimte` de vrije ruimte (de database plus een marge; vóór een update het dubbele, voor het
+bijwerken zelf). Is het krap, dan gaan de oudste vanzelf gemaakte kopieën weg; wat altijd blijft: elke handmatige
+kopie, de nieuwste van vóór een update, de nieuwste van vóór een terugzetting en de twee nieuwste dagelijkse. Past
+het dan nog niet (`OnvoldoendeSchijfruimteException`): geen kopie, een update begint niet (de gegevens blijven op
+de oude versie) en een terugzetting gaat niet door. Loopt de schijf vol tijdens het kopiëren, dan blijft er geen
+halve kopie staan.
+
 Getest in `UpdateEnReservekopieTests` op echte SQLite-bestanden: bijwerken vanaf elk van de laatste zeven
 databaseversies met gegevens (boekingen, bank, inkoop met documenten, een actief met afschrijvingen), een database van
 een nieuwere versie (niet geopend, bestand ongewijzigd), een mislukte migratie (alles terug, ook een eigen tabel van

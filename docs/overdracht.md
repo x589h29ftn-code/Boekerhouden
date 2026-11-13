@@ -172,6 +172,14 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     Het Windows-deel is alleen in de CI te draaien (`--proef map --kantoorserver`); een tweede pc koppelen is
     niet automatisch getest: dat moet de gebruiker op twee pc's proberen.
 
+26. **Stresstests samenwerken, reservekopie en update** (12-13 november): `GelijktijdigStressTests`
+    (`BOEKERHOUDEN_GELIJKTIJDIG=5`; vijf gebruikers tegelijk, op PostgreSQL en SQLite: geen fouten; twee gebruikers
+    met hetzelfde boekstuk of dezelfde nieuwe leverancier krijgen een gewone melding, `Databasefout.IsDubbel`) en
+    `KopieEnUpdateStressTests` (`BOEKERHOUDEN_KOPIESTRESS=600`; kopieën terwijl er gewerkt wordt, update, mislukte
+    update, onderbroken situaties). Daaruit: de ruimtecontrole vóór een kopie of update (`Reservekopieen.MaakRuimte`).
+    Open: inkoop inlezen wordt traag (1 s per factuur) als vijf gebruikers dat tegelijk in dezelfde administratie
+    doen; en één CI-run was rood op een niet-gevonden wankele test (run 197).
+
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).
 

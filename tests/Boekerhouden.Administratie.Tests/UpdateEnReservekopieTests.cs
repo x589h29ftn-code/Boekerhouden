@@ -394,4 +394,90 @@ public sealed class UpdateEnReservekopieTests : IDisposable
 
         public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
     }
+
+    [Fact]
+    public async Task Bij_te_weinig_schijfruimte_gaan_oude_kopieen_weg_en_anders_gebeurt_er_niets()
+    {
+        await GevuldeApp();
+        await using var diensten = Bouw();
+        await LokaleApp.Start(diensten, "Piet Proef");
+        var kopieen = diensten.GetRequiredService<Reservekopieen>();
+        var handmatig = kopieen.Maak(Reservekopiesoort.Handmatig);
+        var dagelijks = Enumerable.Range(0, 5).Select(_ => kopieen.Maak(Reservekopiesoort.Dagelijks)).ToList();
+        var voorUpdate = Enumerable.Range(0, 3).Select(_ => kopieen.Maak(Reservekopiesoort.VoorUpdate)).ToList();
+        var aantal = kopieen.Lijst().Count;
+
+        // Genoeg ruimte: er verdwijnt niets.
+        kopieen.VrijeRuimte = _ => long.MaxValue;
+        Assert.Equal(0, kopieen.MaakRuimte(kopieen.NodigVoorKopie, "een reservekopie"));
+        Assert.Equal(aantal, kopieen.Lijst().Count);
+
+        // Krap: elke weggegooide kopie maakt zijn grootte vrij; de oudste vanzelf gemaakte gaan eerst.
+        long Bezet() => kopieen.Lijst().Sum(k => k.Grootte);
+        var vol = Bezet();
+        kopieen.VrijeRuimte = _ => kopieen.NodigVoorKopie - 1 + (vol - Bezet());
+        var kopie = kopieen.Maak(Reservekopiesoort.Handmatig);
+        Assert.Contains("opgeruimd om ruimte te maken", kopie.Opmerking, StringComparison.Ordinal);
+        var over = kopieen.Lijst();
+        Assert.Contains(over, k => k.Bestand == handmatig.Bestand);
+        Assert.True(over.Count < aantal + 1);
+        Assert.Null(kopieen.Controleer(kopie));
+
+        // Echt geen ruimte: alleen wat altijd blijft staat er nog, en er komt geen (halve) kopie bij.
+        kopieen.VrijeRuimte = _ => 0;
+        var fout = Assert.Throws<OnvoldoendeSchijfruimteException>(() => kopieen.Maak(Reservekopiesoort.Handmatig));
+        Assert.Contains("te weinig vrije schijfruimte", fout.Message, StringComparison.Ordinal);
+        var rest = kopieen.Lijst();
+        Assert.Equal(2, rest.Count(k => k.Soort == Reservekopiesoort.Handmatig));
+        Assert.True(rest.Count(k => k.Soort == Reservekopiesoort.Dagelijks) <= 2);
+        Assert.True(rest.Count(k => k.Soort == Reservekopiesoort.VoorUpdate) <= 1);
+        Assert.Equal(rest.Count, Directory.GetFiles(kopieen.Map, "*.db").Length);
+        Assert.All(rest, k => Assert.Null(kopieen.Controleer(k)));
+        _ = (dagelijks, voorUpdate);
+    }
+
+    [Fact]
+    public async Task Zonder_schijfruimte_wordt_de_update_niet_begonnen_en_blijft_alles_zoals_het_was()
+    {
+        var (_, boekingen) = await GevuldeApp();
+        await NaarVersie(OudeVersie);
+        var voor = await Toegepast();
+
+        await using (var diensten = Bouw())
+        {
+            diensten.GetRequiredService<Reservekopieen>().VrijeRuimte = _ => 1024;
+            var fout = await Assert.ThrowsAsync<DatabaseupdateMisluktException>(() => LokaleApp.Start(diensten, "Piet Proef"));
+            Assert.Contains("niet uitgevoerd en er is niets veranderd", fout.Message, StringComparison.Ordinal);
+            Assert.Contains("te weinig vrije schijfruimte", fout.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain(diensten.GetRequiredService<Reservekopieen>().Lijst(), k => k.Soort == Reservekopiesoort.VoorUpdate);
+        }
+
+        SqliteConnection.ClearAllPools();
+        Assert.Equal(voor, await Toegepast());
+        Assert.Equal(boekingen, Reservekopieen.Onderzoek(Database).Boekingen);
+
+        // Met ruimte lukt de update daarna gewoon.
+        await using (var diensten = Bouw())
+        {
+            Assert.Empty(await LokaleApp.Start(diensten, "Piet Proef"));
+        }
+    }
+
+    [Fact]
+    public async Task Zonder_schijfruimte_wordt_er_niet_teruggezet()
+    {
+        var (_, boekingen) = await GevuldeApp();
+        await using (var diensten = Bouw())
+        {
+            await LokaleApp.Start(diensten, "Piet Proef");
+            var kopieen = diensten.GetRequiredService<Reservekopieen>();
+            Assert.Null(kopieen.PlanTerugzetten(kopieen.Maak(Reservekopiesoort.Handmatig)));
+        }
+
+        SqliteConnection.ClearAllPools();
+        var krap = new Reservekopieen(map, TimeProvider.System) { VrijeRuimte = _ => 0 };
+        Assert.StartsWith("Niet teruggezet: Er is te weinig vrije schijfruimte", krap.VoerGeplandTerugzettenUit(), StringComparison.Ordinal);
+        Assert.Null(krap.GeplandTerugzetten);
+        Assert.Equal(boekingen, Reservekopieen.Onderzoek(Database).Boekingen);
+    }
 }
