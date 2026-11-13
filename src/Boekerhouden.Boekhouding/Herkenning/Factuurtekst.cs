@@ -517,7 +517,7 @@ public static partial class Factuurtekst
         return null;
     }
 
-    [GeneratedRegex(@"(?<![\p{L}-])(?:kassabon|bonnummer|bonnr\.?|bon|ticket(?:nummer|nr\.?)?)\s*[:#]?\s*([A-Z0-9][A-Z0-9/-]*[0-9][A-Z0-9/-]{2,})(?![\p{L}])", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"(?<![\p{L}-])(?:kassabon|bonnum\p{L}{0,3}|bonnr\.?|bon|ticket(?:nummer|nr\.?)?)\s*[:#]?\s*([A-Z0-9][A-Z0-9/-]*[0-9][A-Z0-9/-]{2,})(?![\p{L}])", RegexOptions.IgnoreCase)]
     private static partial Regex Bonnummer();
 
     /// <summary>"Rekening 68531" vooraan een regel (horeca): een kort nummer, geen bankrekening.</summary>

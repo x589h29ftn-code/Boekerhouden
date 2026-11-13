@@ -150,6 +150,10 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
 21. **Bonnen-stresstest** (README §3.20): 25 verzonnen bonnen (`scripts/bonnen/maak-bonnen.py`) door de hele keten
     (`BonnenstressTests`, draait alleen met `BOEKERHOUDEN_BONNENMAP`); 24 van 25 goed. Tesseract leest sindsdien in twee
     standen (psm 3 en 4) en kiest de beste. Een echte bon van de gebruiker staat in `testdata/bonnen/` (niet in git).
+    13 november: bonnen in een ordner (`maak-ordnerbonnen.py`, 7 van 10): ringen weg (`WisDik`), de bon uitsnijden
+    (`Uitsnede`), zachter contrast bij lichte inkt. Vier echte foto's van de gebruiker (alleen als kleine afbeelding,
+    640×480) in `testdata/bonnen/echt/`: de uitsnede klopt; voor de tekstherkenning zijn ze te klein, de originelen
+    (volle grootte) zijn nog nodig om de herkenning echt te toetsen.
 
 22. **Pinbetaling bij een bon** (README §3.8): het afletteren herkent een afschrijving zonder tegenrekening als de
     betaling van een bon op bedrag, dag (uit de omschrijving of de boekdatum) en winkelnaam (`Afletteren/Pinbetaling`,

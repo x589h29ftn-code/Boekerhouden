@@ -43,6 +43,9 @@ public sealed class FactuurtekstTests
         var zonderRij = Factuurtekst.Analyseer(Bon.Replace("9,0% €    17,39 €    1,56", "90% € 1739 € 1,", StringComparison.Ordinal), Herkenningsbron.Ocr);
         Assert.Equal((17.39m, 1.56m, 9m), (zonderRij.TotaalExclusief, zonderRij.TotaalBtw, zonderRij.EnigTarief));
 
+        // Het label half gelezen (de bon in een ordner, de rand van de ring erover).
+        Assert.Equal("40852548", Factuurtekst.Analyseer(Bon.Replace("Bonnummer    ", "Bonnumm ", StringComparison.Ordinal), Herkenningsbron.Ocr).Factuurnummer);
+
         // Zonder iets van het logo de naam uit het webadres.
         Assert.Equal("Zoetbanketbakkerij", Factuurtekst.Analyseer(Bon.Replace("Zoet Banketb\n", "", StringComparison.Ordinal), Herkenningsbron.Ocr).Naam);
     }

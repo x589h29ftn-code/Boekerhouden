@@ -98,10 +98,13 @@ public sealed class BonnenstressTests
         await File.WriteAllTextAsync(Path.Combine(map, "verslag.txt"), verslag.ToString());
 
         // De ondergrens waar we nu op staan; omhoog zetten als de herkenning beter wordt.
-        // De stand van 11 november 2026: 24 van 25 helemaal goed (bon 9, dunne vervaagde letters, leest de
-        // tekstherkenning niet). Eén bon speling, omdat de tekstherkenning per versie iets anders leest.
-        Assert.True(helemaal >= aantal - 2, $"helemaal goed: {helemaal} van {aantal}; zie verslag.txt");
-        Assert.True(goed["totaal"] >= aantal - 2, $"totaal goed bij {goed["totaal"]} van {aantal}; zie verslag.txt");
-        Assert.True(goed["btw"] >= aantal - 2, $"btw goed bij {goed["btw"]} van {aantal}; zie verslag.txt");
+        // De stand van 13 november 2026: 25 van 25 helemaal goed; van de 10 ordnerbonnen (maak-ordnerbonnen.py) 7, de
+        // andere missen de datum (onder een ring) of het bonnummer. Speling, omdat de tekstherkenning per versie iets
+        // anders leest.
+        var ordner = verwacht.RootElement.EnumerateArray().Any(v => v.GetProperty("bestand").GetString()!.StartsWith("ordner", StringComparison.Ordinal));
+        var (speling, spelingBedragen) = ordner ? (4, 2) : (2, 2);
+        Assert.True(helemaal >= aantal - speling, $"helemaal goed: {helemaal} van {aantal}; zie verslag.txt");
+        Assert.True(goed["totaal"] >= aantal - spelingBedragen, $"totaal goed bij {goed["totaal"]} van {aantal}; zie verslag.txt");
+        Assert.True(goed["btw"] >= aantal - spelingBedragen, $"btw goed bij {goed["btw"]} van {aantal}; zie verslag.txt");
     }
 }

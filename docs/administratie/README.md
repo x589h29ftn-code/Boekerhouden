@@ -691,8 +691,14 @@ module. Vóór de tekstherkenning wordt de foto een **scan** (`Documenten/Fotove
 - rechtop gezet volgens de camera (EXIF) en verkleind tot hoogstens 2600 pixels;
 - in grijstinten, met de belichting per plek vlakgetrokken (schaduw en vergeeld papier worden wit) en het contrast
   verhoogd (inkt wordt zwart);
-- grote donkere vlakken naast het papier (de tafel, een vinger) worden wit;
-- rechtgezet als de foto scheef is genomen (tot tien graden), zodat de regels weer horizontaal lopen.
+- grote donkere vormen (de ringen van een ordner, een vinger, de rand van de tafel) worden wit, vóór het contrast;
+- rechtgezet als de foto scheef is genomen (tot tien graden), zodat de regels weer horizontaal lopen;
+- een **smalle bon tussen andere dingen** (in een ordner, op een factuur die erachter uitsteekt) wordt uitgesneden:
+  de strook met de meeste tekst is de bon; een kolom ernaast hoort erbij als de regels op dezelfde hoogte staan
+  (de bedragen) of als er alleen een korte vouw tussen ligt; een lange rand (de rand van een ander vel, de rug van de
+  ordner) of tekst op eigen regels hoort er niet bij. Een foto die al helemaal bon of pagina is, blijft heel;
+- bij lichte of dunne inkt (thermisch papier, een matrixprinter) blijft er een glijdende overgang naar het papier,
+  zodat dunne streepjes niet wegvallen.
 
 Die scan gaat door de tekstherkenning en wordt als PDF van één pagina bewaard (kleiner en beter leesbaar dan de
 foto); de controle op dubbel inlezen gaat op de foto zelf. Een bon heeft geen factuurnummer: dan wordt het
@@ -712,7 +718,10 @@ bakkerij, tankstation, horeca, drogist, parkeren, een bon zonder btw; scheef tot
 inkt, ruis; 9%, 21% en gemengd) en `BOEKERHOUDEN_BONNENMAP=<map> dotnet test tests/Boekerhouden.Documenten.Tests
 --filter Bonnenstress` haalt ze door de hele keten en schrijft `verslag.txt` (per bon en per veld). Stand 11 november
 2026: 24 van de 25 helemaal goed (naam, datum, totaal, btw per tarief, bonnummer); de bon met heel dunne, vervaagde
-letters leest de tekstherkenning niet. Wat de test opleverde:
+letters leest de tekstherkenning niet. Stand 13 november 2026: 25 van 25. `python3 scripts/bonnen/maak-ordnerbonnen.py
+<map>` maakt 10 bonnen zoals ze in een ordner worden gefotografeerd (lichte thermische inkt, een factuur erachter, de
+ringen erover, de rug ernaast); daarvan 7 helemaal goed, de andere missen de datum onder een ring of het bonnummer.
+Een afgekapt label ("Bonnumm") telt ook. Wat de test opleverde:
 
 - de tekstherkenning leest in **twee standen** (automatische indeling en één kolom) en neemt die met de meeste
   bedragen: bij de automatische indeling viel op een bon vaak de hele rechterkolom weg (`TesseractOcr.Kwaliteit`);
