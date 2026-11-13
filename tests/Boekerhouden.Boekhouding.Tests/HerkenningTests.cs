@@ -51,6 +51,22 @@ public sealed class FactuurtekstTests
     }
 
     [Fact]
+    public void Een_bon_waarvan_het_logo_niet_te_lezen_is_heeft_niet_de_straat_als_naam()
+    {
+        // Het logo bovenaan is onleesbaar: de eerste regel is de straat, met de postcode eronder.
+        var bon = Factuurtekst.Analyseer("""
+            Marktweg 164
+            9201 GT Ergens
+            0512583010
+            OMSCHRIJVING    BEDRAG IN €
+            WATER    4,68
+            Totaal    4,68
+            """, Herkenningsbron.Ocr);
+        Assert.True(bon.Naam is null, bon.Naam);
+        Assert.Equal(4.68m, bon.TotaalInclusief);
+    }
+
+    [Fact]
     public void Leesfouten_op_bonnen_uit_de_stresstest()
     {
         // Tankbon: "BIW" voor BTW en een spatie in een bedrag.

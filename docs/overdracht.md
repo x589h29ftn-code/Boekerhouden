@@ -153,7 +153,10 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     13 november: bonnen in een ordner (`maak-ordnerbonnen.py`, 7 van 10): ringen weg (`WisDik`), de bon uitsnijden
     (`Uitsnede`), zachter contrast bij lichte inkt. Vier echte foto's van de gebruiker (alleen als kleine afbeelding,
     640×480) in `testdata/bonnen/echt/`: de uitsnede klopt; voor de tekstherkenning zijn ze te klein, de originelen
-    (volle grootte) zijn nog nodig om de herkenning echt te toetsen.
+    (volle grootte) zijn nog nodig om de herkenning echt te toetsen. Daarna in 1500×2000 (`testdata/bonnen/groot/`): de scans
+    zijn goed leesbaar, maar Tesseract leest matrixletters (Poiesz, Primera) slecht; een extra leesronde met dikkere
+    inkt (3×3-minimum) won niet op de bonnen zelf en is niet opgenomen. Een onleesbaar logo geeft geen straat of
+    kolomkop meer als naam.
 
 22. **Pinbetaling bij een bon** (README §3.8): het afletteren herkent een afschrijving zonder tegenrekening als de
     betaling van een bon op bedrag, dag (uit de omschrijving of de boekdatum) en winkelnaam (`Afletteren/Pinbetaling`,

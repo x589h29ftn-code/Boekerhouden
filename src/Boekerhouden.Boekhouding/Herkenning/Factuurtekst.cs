@@ -543,8 +543,13 @@ public static partial class Factuurtekst
             .Where(x => !IsEigen(x.Tekst, eigenNamen) && !KlantLabel().IsMatch(x.Tekst) && (!IsAdres(x.Tekst) || NaamBovenAdres(x.Regel)) && !FactuurnummerLabel().IsMatch(x.Tekst)
                         && !ContactLabel().IsMatch(x.Tekst) && !Ruis(x.Tekst))
             .ToList();
-        // De allereerste regel lijkt op een adres ("Kiosk Perron 1") maar er staat een echt adres direct onder: een naam.
-        bool NaamBovenAdres(int i) => i == 0 && regels.Count > 1 && Postcode.Zoek(regels[0].ToUpperInvariant()).Count == 0 && IsAdres(regels[1]);
+        // De allereerste regel lijkt op een adres ("Kiosk Perron 1") maar direct onder staat de straat: een naam. Staat er
+        // de postcode onder, dan is de eerste regel zelf de straat (het logo met de naam was niet te lezen).
+        bool NaamBovenAdres(int i) => i == 0 && regels.Count > 1 && Postcode.Zoek(regels[0].ToUpperInvariant()).Count == 0
+            && (Straat().IsMatch(regels[1]) || Postbus().IsMatch(regels[1])) && Postcode.Zoek(regels[1].ToUpperInvariant()).Count == 0;
+
+        // Wat onder de kop van de regels staat (Omschrijving, Artikel) is een artikel, geen naam.
+        int Kopregel() => regels.FindIndex(r => KopregelOmschrijving().IsMatch(r)) is var k and >= 0 ? k : int.MaxValue;
 
         // Een flard van de tekstherkenning (een rand of schaduw gelezen als "nnen" of "mm"): geen naam.
         static bool Ruis(string t) => t.Length <= 5 && !t.Any(char.IsUpper) && !t.Any(char.IsDigit) && !t.Contains(' ', StringComparison.Ordinal);
@@ -552,8 +557,9 @@ public static partial class Factuurtekst
         return stukken.Where(x => x.Regel < 15).Select(x => x.Tekst).FirstOrDefault(MetRechtsvorm)
                ?? stukken.Select(x => x.Tekst).FirstOrDefault(MetRechtsvorm)
                ?? NaamUitDomein(regels, stukken.Select(x => x.Tekst), eigenNamen)
-               ?? stukken.Where(x => x.Regel < 15).Select(x => x.Tekst).FirstOrDefault(t => t.Count(char.IsLetter) >= 3
+               ?? stukken.Where(x => x.Regel < Math.Min(15, Kopregel())).Select(x => x.Tekst).FirstOrDefault(t => t.Count(char.IsLetter) >= 3
                    && !Regex.IsMatch(t, "^(fa[ck]tuur|invoice|nota|creditnota|credit note)\\b", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1))
+                   && !Regex.IsMatch(t, "^(omschrijving|artikel|aantal|bedrag|prijs|kassa|datum|kopie)\\b", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1))
                    && Datums(t).Count == 0 && Bedragen(t).Count == 0);
     }
 
