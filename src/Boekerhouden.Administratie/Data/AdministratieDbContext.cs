@@ -142,6 +142,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(a => a.RekeningLoonheffingen).HasMaxLength(20);
             e.Property(a => a.RekeningVennootschapsbelasting).HasMaxLength(20);
             e.Property(a => a.RekeningInkomstenbelasting).HasMaxLength(20);
+            e.Property(a => a.RekeningMotorrijtuigenbelasting).HasMaxLength(20);
             e.Property(a => a.Btwfrequentie).HasConversion<string>().HasMaxLength(20).HasDefaultValue(Boekhouding.Btw.Aangiftefrequentie.Kwartaal);
             e.Property(a => a.AangemaaktDoor).HasMaxLength(200);
             e.Property(a => a.LimietAutomatisch).HasPrecision(18, 2);

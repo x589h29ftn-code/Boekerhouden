@@ -983,8 +983,13 @@
         }
     }
 
+    /// <summary>
+    /// Een regel erbij met wat er nog ontbreekt. De bedragen op de regels staan in de richting van de mutatie (bij een
+    /// afschrijving zonder min): is er te veel verdeeld (5.000 op een afschrijving van 4.557,62), dan krijgt de nieuwe
+    /// regel het verschil met een min (-442,38), zodat het verschil nul wordt.
+    /// </summary>
     private void RegelErbij() =>
-        regels.Add(new Regelinvoer { Bedrag = Verschil == 0 ? null : Bedragen.Getal(Math.Abs(Verschil)) });
+        regels.Add(new Regelinvoer { Bedrag = Verschil == 0 ? null : Bedragen.Getal(Teken * Verschil) });
 
     /// <summary>
     /// Boeken zoals het paneel staat: alleen hele posten (een verschil blijft op de post openstaan, te veel wordt te
@@ -992,11 +997,19 @@
     /// </summary>
     private async Task Boeken()
     {
-        bezig = true;
         var ingevuld = regels.Where(r => r.Post is not null || !string.IsNullOrWhiteSpace(r.Rekening) || r.Waarde != 0).ToList();
         var posten = ingevuld.Where(r => r.Post is not null).ToList();
         var heel = posten.Count > 0 && posten.Count == ingevuld.Count
                    && posten.All(r => gekozen!.OpenPosten.FirstOrDefault(p => p.Id == r.Post) is { } open && Math.Abs(open.Openstaand) == r.Waarde);
+
+        // Met een verschil wordt er niet geboekt (alleen hele posten mogen een verschil laten openstaan op de post).
+        if (!heel && Verschil != 0)
+        {
+            fouten = [$"Er is nog een verschil van {Bedragen.Getal(Verschil)}: de regels moeten precies op het bedrag van de mutatie sluiten."];
+            return;
+        }
+
+        bezig = true;
         var uitkomst = heel
             ? await Bank.Afletteren(geopend!.Wie, Id, gekozen!.Mutatie.Id, [.. posten.Select(r => r.Post!.Value)])
             : await Bank.Verdeel(geopend!.Wie, Id, gekozen!.Mutatie.Id, [],

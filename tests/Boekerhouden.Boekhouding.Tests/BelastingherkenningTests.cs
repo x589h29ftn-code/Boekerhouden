@@ -57,6 +57,20 @@ public sealed class BelastingherkenningTests
     }
 
     [Theory]
+    [InlineData("8123456787812345")]
+    [InlineData("0987654327854321")]
+    public void Motorrijtuigenbelasting_uit_het_kenmerk_op_een_kostenrekening_met_die_naam(string kenmerk)
+    {
+        var rekeningen = StandaardRekeningschema.Rekeningen(Ondernemingsvorm.BV).Append(new Rekening("4519", "Motorrijtuigenbelasting", Rekeningsoort.Resultaat));
+        var schema = new Rekeningschema(rekeningen);
+
+        var betaling = Belastingherkenning.Herken(Betaling("Belastingdienst", kenmerk: kenmerk), schema, Ondernemingsvorm.BV);
+
+        Assert.Equal((Belastingsoort.Motorrijtuigenbelasting, "4519", "Motorrijtuigenbelasting 2026"), (betaling?.Soort, betaling?.Rekening?.Nummer, betaling?.Omschrijving));
+        Assert.Equal('M', betaling?.Aanslag?.Letter);
+    }
+
+    [Theory]
     [InlineData("1000000547165445", true)]
     [InlineData("1123456781601270", true)]
     [InlineData("2123456781601270", false)]

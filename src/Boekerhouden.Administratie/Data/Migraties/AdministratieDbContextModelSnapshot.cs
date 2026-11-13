@@ -400,6 +400,10 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<string>("RekeningMotorrijtuigenbelasting")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<string>("RekeningOmzetbelasting")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");

@@ -392,6 +392,10 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("RekeningMotorrijtuigenbelasting")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("RekeningOmzetbelasting")
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");

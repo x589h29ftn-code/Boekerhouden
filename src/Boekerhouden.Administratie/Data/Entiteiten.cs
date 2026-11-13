@@ -101,13 +101,17 @@ public sealed class Administratie
 
     public string? RekeningInkomstenbelasting { get; set; }
 
-    public bool BelastingAutomatisch { get; set; }
+    /// <summary>Kostenrekening voor de motorrijtuigenbelasting (een resultaatrekening).</summary>
+    public string? RekeningMotorrijtuigenbelasting { get; set; }
+
+    /// <summary>Een betaling aan de Belastingdienst met een geldig betalingskenmerk zelf boeken; standaard aan.</summary>
+    public bool BelastingAutomatisch { get; set; } = true;
 
     /// <summary>Hoe vaak de administratie btw-aangifte doet (maand, kwartaal of jaar).</summary>
     public Boekhouding.Btw.Aangiftefrequentie Btwfrequentie { get; set; } = Boekhouding.Btw.Aangiftefrequentie.Kwartaal;
 
     public Diensten.Belastinginstellingen Belasting() =>
-        new(RekeningOmzetbelasting, RekeningLoonheffingen, RekeningVennootschapsbelasting, RekeningInkomstenbelasting, BelastingAutomatisch);
+        new(RekeningOmzetbelasting, RekeningLoonheffingen, RekeningVennootschapsbelasting, RekeningInkomstenbelasting, BelastingAutomatisch, RekeningMotorrijtuigenbelasting);
 
     /// <summary>De eigen bankrekening(en); staan ook op facturen, maar zijn niet van de leverancier.</summary>
     public List<string> Ibans { get; set; } = [];

@@ -448,7 +448,9 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
 
         Assert.Contains("sluiten niet", (await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("4300", "I21", 150m)])).Fouten[0], StringComparison.Ordinal);
         Assert.Contains("openstaande post", (await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("1600", null, 199.65m)])).Fouten[0], StringComparison.Ordinal);
-        var verdeeld = await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("4300", "I21", 150m, "Papier"), new Bankregelinvoer("4330", null, 49.65m, "Contributie")]);
+        // Te veel op een regel en het verschil met een min op een volgende regel (zoals "Regel toevoegen" voorstelt).
+        Assert.Contains("sluiten niet", (await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("4300", "I21", 150m), new Bankregelinvoer("4330", null, 60m), new Bankregelinvoer("4330", null, 10.35m)])).Fouten[0], StringComparison.Ordinal);
+        var verdeeld = await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("4300", "I21", 150m, "Papier"), new Bankregelinvoer("4330", null, 60m, "Contributie"), new Bankregelinvoer("4330", null, -10.35m, "Korting contributie")]);
         Assert.True(verdeeld.IsGelukt, string.Join("; ", verdeeld.Fouten));
 
         var post = (await bank.OpenPosten(wie, id)).Single();
@@ -576,6 +578,28 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
             await using var db = await app.Dienst<Toegang>().Open(wie, id, Recht.Lezen);
             Assert.Contains(await db.Boekingsregels.Where(r => r.Rekeningnummer == "1500").Select(r => r.Omschrijving).ToListAsync(), o => o == "Omzetbelasting 3e kwartaal 2026");
         }
+    }
+
+    [Fact]
+    public async Task Motorrijtuigenbelasting_uit_een_kenmerk_in_de_omschrijving_wordt_standaard_zelf_geboekt()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var inrichting = app.Dienst<InrichtingDienst>();
+        var huidig = await inrichting.Instellingen(wie, id);
+        Assert.True(huidig.Belasting!.Automatisch);
+        Assert.Contains("kostenrekening", (await inrichting.WijzigInstellingen(wie, id, huidig with { Belasting = huidig.Belasting! with { Motorrijtuigenbelasting = "1500" } })).Fouten[0], StringComparison.Ordinal);
+        Assert.True((await inrichting.WijzigInstellingen(wie, id, huidig with { Belasting = huidig.Belasting! with { Motorrijtuigenbelasting = "4300" } })).IsGelukt);
+        var bank = app.Dienst<BankDienst>();
+        var tekst = new StreamReader(Afschrift()).ReadToEnd()
+            .Replace("CNTP/NL36INGB0007654321/INGBNL2A/Kantoor", "CNTP/NL86INGB0002445588/INGBNL2A/Belasting", StringComparison.Ordinal)
+            .Replace("handel Jansen/ZWOLLE////REMI/USTD//Betaling inkoop/", "dienst/APELDOORN////REMI/USTD//8123 4567 8781 2345/", StringComparison.Ordinal);
+
+        await bank.Lees(wie, id, new MemoryStream(Encoding.Latin1.GetBytes(tekst)), "ing.mt940");
+
+        Assert.DoesNotContain(await bank.Lijst(wie, id), m => m.Bedrag == -199.65m);
+        await using var db = await app.Dienst<Toegang>().Open(wie, id, Recht.Lezen);
+        Assert.Contains(await db.Boekingsregels.Where(r => r.Rekeningnummer == "4300").Select(r => r.Omschrijving).ToListAsync(), o => o == "Motorrijtuigenbelasting 2026");
     }
 
     [Fact]

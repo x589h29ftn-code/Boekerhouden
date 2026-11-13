@@ -51,6 +51,7 @@
                     <div class="col-md-6"><label class="form-label">Loonheffingen</label><RekeningKeuze @bind-Waarde="belasting.Loonheffingen" Schema="schema" Kader="geopend" Label="Rekening loonheffingen" Klasse="form-control" /></div>
                     <div class="col-md-6"><label class="form-label">Vennootschapsbelasting</label><RekeningKeuze @bind-Waarde="belasting.Vennootschapsbelasting" Schema="schema" Kader="geopend" Label="Rekening vennootschapsbelasting" Klasse="form-control" /></div>
                     <div class="col-md-6"><label class="form-label">Inkomstenbelasting</label><RekeningKeuze @bind-Waarde="belasting.Inkomstenbelasting" Schema="schema" Kader="geopend" Label="Rekening inkomstenbelasting" Klasse="form-control" /></div>
+                    <div class="col-md-6"><label class="form-label">Motorrijtuigenbelasting</label><RekeningKeuze @bind-Waarde="belasting.Motorrijtuigenbelasting" Schema="schema" Kader="geopend" Label="Rekening motorrijtuigenbelasting" Klasse="form-control" /></div>
                     <div class="col-12">
                         <span class="form-check">
                             <input class="form-check-input" type="checkbox" id="belasting-automatisch" @bind="belasting.Automatisch" />
@@ -292,6 +293,8 @@
 
         public string? Inkomstenbelasting { get; set; }
 
+        public string? Motorrijtuigenbelasting { get; set; }
+
         public bool Automatisch { get; set; }
 
         public static Belastingformulier Van(Belastinginstellingen b) => new()
@@ -300,10 +303,11 @@
             Loonheffingen = b.Loonheffingen,
             Vennootschapsbelasting = b.Vennootschapsbelasting,
             Inkomstenbelasting = b.Inkomstenbelasting,
+            Motorrijtuigenbelasting = b.Motorrijtuigenbelasting,
             Automatisch = b.Automatisch,
         };
 
-        public Belastinginstellingen Naar() => new(Omzetbelasting, Loonheffingen, Vennootschapsbelasting, Inkomstenbelasting, Automatisch);
+        public Belastinginstellingen Naar() => new(Omzetbelasting, Loonheffingen, Vennootschapsbelasting, Inkomstenbelasting, Automatisch, Motorrijtuigenbelasting);
     }
 
     private sealed class Gegevens

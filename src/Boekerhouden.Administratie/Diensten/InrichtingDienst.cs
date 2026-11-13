@@ -81,14 +81,14 @@ public sealed record GeleerdeLeverancier(
 /// Betalingen aan de Belastingdienst: een vaste (balans)rekening per belasting, leeg = het pakket kiest zelf
 /// (<see cref="Boekhouding.Bank.Belastingherkenning"/>), en of een betaling met een geldig betalingskenmerk zelf geboekt mag worden.
 /// </summary>
-public sealed record Belastinginstellingen(string? Omzetbelasting = null, string? Loonheffingen = null, string? Vennootschapsbelasting = null, string? Inkomstenbelasting = null, bool Automatisch = false)
+public sealed record Belastinginstellingen(string? Omzetbelasting = null, string? Loonheffingen = null, string? Vennootschapsbelasting = null, string? Inkomstenbelasting = null, bool Automatisch = false, string? Motorrijtuigenbelasting = null)
 {
     public static Belastinginstellingen Leeg { get; } = new();
 
     /// <summary>De ingevulde rekeningen, met de naam van de belasting.</summary>
     public IEnumerable<(string Soort, string Rekening)> Rekeningen()
     {
-        foreach (var (soort, nummer) in new[] { ("omzetbelasting", Omzetbelasting), ("loonheffingen", Loonheffingen), ("vennootschapsbelasting", Vennootschapsbelasting), ("inkomstenbelasting", Inkomstenbelasting) })
+        foreach (var (soort, nummer) in new[] { ("omzetbelasting", Omzetbelasting), ("loonheffingen", Loonheffingen), ("vennootschapsbelasting", Vennootschapsbelasting), ("inkomstenbelasting", Inkomstenbelasting), ("motorrijtuigenbelasting", Motorrijtuigenbelasting) })
         {
             if (nummer is not null)
             {
@@ -104,10 +104,11 @@ public sealed record Belastinginstellingen(string? Omzetbelasting = null, string
         [Boekhouding.Bank.Belastingsoort.Loonheffingen] = Loonheffingen,
         [Boekhouding.Bank.Belastingsoort.Vennootschapsbelasting] = Vennootschapsbelasting,
         [Boekhouding.Bank.Belastingsoort.Inkomstenbelasting] = Inkomstenbelasting,
+        [Boekhouding.Bank.Belastingsoort.Motorrijtuigenbelasting] = Motorrijtuigenbelasting,
     }.Where(p => p.Value is not null).ToDictionary(p => p.Key, p => p.Value!);
 
     public override string ToString() =>
-        $"btw {Omzetbelasting ?? "-"}, loonheffingen {Loonheffingen ?? "-"}, vpb {Vennootschapsbelasting ?? "-"}, ib {Inkomstenbelasting ?? "-"}, automatisch {(Automatisch ? "aan" : "uit")}";
+        $"btw {Omzetbelasting ?? "-"}, loonheffingen {Loonheffingen ?? "-"}, vpb {Vennootschapsbelasting ?? "-"}, ib {Inkomstenbelasting ?? "-"}, mrb {Motorrijtuigenbelasting ?? "-"}, automatisch {(Automatisch ? "aan" : "uit")}";
 }
 
 public sealed record Instellingen(
@@ -561,7 +562,7 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
             }
         }
         var belasting = invoer.Belasting is { } bi
-            ? bi with { Omzetbelasting = Leeg(bi.Omzetbelasting), Loonheffingen = Leeg(bi.Loonheffingen), Vennootschapsbelasting = Leeg(bi.Vennootschapsbelasting), Inkomstenbelasting = Leeg(bi.Inkomstenbelasting) }
+            ? bi with { Omzetbelasting = Leeg(bi.Omzetbelasting), Loonheffingen = Leeg(bi.Loonheffingen), Vennootschapsbelasting = Leeg(bi.Vennootschapsbelasting), Inkomstenbelasting = Leeg(bi.Inkomstenbelasting), Motorrijtuigenbelasting = Leeg(bi.Motorrijtuigenbelasting) }
             : null;
         if (belasting is not null)
         {
@@ -572,9 +573,11 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
                 {
                     fouten.Add($"Rekening {nummer} voor {soort} bestaat niet in deze administratie.");
                 }
-                else if (!rekening.IsBalans)
+                else if (soort == "motorrijtuigenbelasting" ? rekening.IsBalans : !rekening.IsBalans)
                 {
-                    fouten.Add($"Voor {soort} kies je een balansrekening; {rekening.Nummer} {rekening.Naam} is een resultaatrekening.");
+                    fouten.Add(soort == "motorrijtuigenbelasting"
+                        ? $"Voor motorrijtuigenbelasting kies je een kostenrekening; {rekening.Nummer} {rekening.Naam} is een balansrekening."
+                        : $"Voor {soort} kies je een balansrekening; {rekening.Nummer} {rekening.Naam} is een resultaatrekening.");
                 }
             }
         }
@@ -591,8 +594,8 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
         if (belasting is not null && belasting != a.Belasting())
         {
             details += $"; belastingdienst {a.Belasting()} → {belasting}";
-            (a.RekeningOmzetbelasting, a.RekeningLoonheffingen, a.RekeningVennootschapsbelasting, a.RekeningInkomstenbelasting, a.BelastingAutomatisch) =
-                (belasting.Omzetbelasting, belasting.Loonheffingen, belasting.Vennootschapsbelasting, belasting.Inkomstenbelasting, belasting.Automatisch);
+            (a.RekeningOmzetbelasting, a.RekeningLoonheffingen, a.RekeningVennootschapsbelasting, a.RekeningInkomstenbelasting, a.BelastingAutomatisch, a.RekeningMotorrijtuigenbelasting) =
+                (belasting.Omzetbelasting, belasting.Loonheffingen, belasting.Vennootschapsbelasting, belasting.Inkomstenbelasting, belasting.Automatisch, belasting.Motorrijtuigenbelasting);
         }
         a.Naam = invoer.Naam.Trim();
         a.KvkNummer = Leeg(invoer.KvkNummer);

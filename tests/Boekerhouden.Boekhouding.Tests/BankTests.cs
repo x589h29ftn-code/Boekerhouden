@@ -119,6 +119,32 @@ public sealed class Mt940Tests
     }
 
     [Fact]
+    public void Een_betalingskenmerk_in_de_omschrijving_wordt_het_kenmerk_ook_in_groepjes_van_vier()
+    {
+        const string tekst = """
+            :20:R1
+            :25:NL20INGB0001234567
+            :28C:00001/001
+            :60F:C261001EUR1000,00
+            :61:2610021002D120,00NTRFNONREF
+            :86:/CNTP/NL86INGB0002445588/INGBNL2A/Belastingdienst/Apeldoorn///
+            /REMI/USTD//8123 4567 8781 2345/
+            :61:2610031003D80,00NTRFNONREF
+            :86:/CNTP/NL86INGB0002445588/INGBNL2A/Belastingdienst/Apeldoorn///
+            /REMI/USTD//Kenteken XX-123-Y 0987654327854321/
+            :61:2610041004D10,00NTRFNONREF
+            :86:/CNTP/NL44RABO0123456789/RABONL2U/Jansen///
+            /REMI/USTD//Bestelling 1234 5678 9012 3456/
+            :62F:C261004EUR790,00
+            """;
+
+        var mutaties = Mt940Lezer.Lees(new StringReader(tekst)).Single().Mutaties;
+
+        Assert.Equal(("8123456787812345", "0987654327854321"), (mutaties[0].Betalingskenmerk, mutaties[1].Betalingskenmerk));
+        Assert.Null(mutaties[2].Betalingskenmerk);
+    }
+
+    [Fact]
     public void Onleesbare_bestanden_geven_een_duidelijke_fout()
     {
         Assert.Contains("geen MT940", Assert.Throws<BankbestandException>(() => Mt940Lezer.Lees(new StringReader("hallo"))).Message, StringComparison.Ordinal);
