@@ -38,6 +38,11 @@ jobs:
       - run: dotnet restore Boekerhouden.slnx
       - run: dotnet build Boekerhouden.slnx --no-restore
       - run: dotnet format Boekerhouden.slnx --verify-no-changes --no-restore
+      # De database logt elke verwachte fout uit de tests (bijv. een dubbele sleutel); dat overstemt aan het eind van het
+      # log de uitkomst van de tests. Alleen wat de server zelf raakt blijft over.
+      - run: psql -h localhost -U boekerhouden -d boekerhouden -c "ALTER SYSTEM SET log_min_messages = 'fatal'" -c "ALTER SYSTEM SET log_checkpoints = off" -c "SELECT pg_reload_conf()"
+        env:
+          PGPASSWORD: boekerhouden-dev
       - run: dotnet test Boekerhouden.slnx --no-build
       # Het administratiepakket nog eens op SQLite, zoals in de Windows-app.
       - run: dotnet test tests/Boekerhouden.Administratie.Tests --no-build
