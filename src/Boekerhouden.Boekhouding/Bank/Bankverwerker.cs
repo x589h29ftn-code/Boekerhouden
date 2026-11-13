@@ -68,6 +68,6 @@ public static class Bankverwerker
     public static Verwerkingsgegevens Gegevens(Bankmutatie mutatie, Relatie? relatie)
     {
         ArgumentNullException.ThrowIfNull(mutatie);
-        return new(Verwerkingssoort.Bankmutatie, relatie?.Code, mutatie.TegenNaam, mutatie.Bedrag, mutatie.Omschrijving, mutatie.TegenIban);
+        return new(Verwerkingssoort.Bankmutatie, relatie?.Code, mutatie.TegenNaam, mutatie.Bedrag, mutatie.Omschrijving, mutatie.TegenIban, Kenmerk: mutatie.Betalingskenmerk);
     }
 }

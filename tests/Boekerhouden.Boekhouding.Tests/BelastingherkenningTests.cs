@@ -70,6 +70,30 @@ public sealed class BelastingherkenningTests
         Assert.Equal('M', betaling?.Aanslag?.Letter);
     }
 
+    [Fact]
+    public void Motorrijtuigenbelasting_leert_per_voertuig()
+    {
+        // Twee betalingen voor dezelfde auto (ander volgnummer, ander controlecijfer) en één voor een andere auto.
+        static Regels.Verwerkingsgegevens Mrb(string kenmerk) => Bankverwerker.Gegevens(
+            new Bankmutatie(new DateOnly(2026, 4, 30), -120m, kenmerk, Belastingherkenning.BelastingdienstIban, "Belastingdienst", kenmerk), null);
+        var geheugen = new Regels.Leergeheugen(drempel: 3);
+
+        Assert.Equal("12345678781234", Belastingherkenning.Voertuig("6123456787812346"));
+        Assert.Equal(Regels.Leergeheugen.Sleutel(Mrb("6123456787812346")), Regels.Leergeheugen.Sleutel(Mrb("4123456787812347")));
+        Assert.NotEqual(Regels.Leergeheugen.Sleutel(Mrb("6123456787812346")), Regels.Leergeheugen.Sleutel(Mrb("1555555557812345")));
+        Assert.Null(Belastingherkenning.Voertuig("1123456781601270"));
+
+        foreach (var kenmerk in new[] { "6123456787812346", "4123456787812347", "6123456787812346" })
+        {
+            geheugen.Onthoud(Mrb(kenmerk), new Regels.Keuze("4519", null));
+        }
+
+        geheugen.Onthoud(Mrb("1555555557812345"), new Regels.Keuze("0609", null));
+
+        Assert.True(geheugen.Voorstel(Mrb("4123456787812347"))!.Automatisch);
+        Assert.Equal(("0609", false), (geheugen.Voorstel(Mrb("1555555557812345"))!.Keuze.Rekeningnummer, geheugen.Voorstel(Mrb("1555555557812345"))!.Automatisch));
+    }
+
     [Theory]
     [InlineData("1000000547165445", true)]
     [InlineData("1123456781601270", true)]

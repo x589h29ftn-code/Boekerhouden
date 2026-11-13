@@ -369,7 +369,11 @@ eigen btw-code voor de regel (`InrichtingDienst.WijzigRegel`, `Verwerkingsregel.
   13 november 2026 standaard aan (ook voor bestaande administraties). **Motorrijtuigenbelasting** (middelcode 78 of 87
   in het kenmerk, of "MRB"/"motorrijtuigenbelasting" in de omschrijving) gaat op een kostenrekening: de vaste rekening
   uit de instellingen (alleen een resultaatrekening) of een rekening met *motorrijtuigenbelasting*, *MRB* of
-  *wegenbelasting* in de naam; omschrijving *Motorrijtuigenbelasting 2026* (het jaar van de betaling). In MT940 wordt
+  *wegenbelasting* in de naam; omschrijving *Motorrijtuigenbelasting 2026* (het jaar van de betaling). MRB wordt
+  nooit meteen zelf geboekt (de ene auto is zakelijk, een privéauto die via de zaak wordt betaald niet): het blijft een
+  voorstel, en het leergeheugen onthoudt de keuze **per voertuig** (sleutel `B|mrb|…`: het kenmerk zonder
+  controlecijfer en volgnummer, `Belastingherkenning.Voertuig`); na het ingestelde aantal bevestigingen boekt het pakket
+  de betalingen voor dat voertuig zelf. In MT940 wordt
   een kenmerk van 16 cijfers met een kloppend controlecijfer ook uit de omschrijving gehaald (ook in groepjes van vier).
 - **Verwerkpaneel**: *Regel toevoegen* zet het ontbrekende bedrag erop, met een min als er te veel is verdeeld; met
   een verschil wordt niet geboekt (alleen hele posten mogen een verschil op de post laten openstaan). Met een mutatie

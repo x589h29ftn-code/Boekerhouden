@@ -1109,7 +1109,9 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         if (voorstel.Advies.Rekeningnummer is null
             && Belastingherkenning.Herken(voorstel.Mutatie, context.Schema, context.Vorm, context.Belasting?.Vast()) is { Rekening: { } rekening } belasting)
         {
-            var automatisch = context.Belasting?.Automatisch == true && belasting.Aanslag is not null;
+            // Motorrijtuigenbelasting nooit meteen zelf: de ene auto is zakelijk, de andere privé. Het leergeheugen
+            // onthoudt de keuze per voertuig en boekt zelf na het ingestelde aantal bevestigingen.
+            var automatisch = context.Belasting?.Automatisch == true && belasting.Aanslag is not null && belasting.Soort != Belastingsoort.Motorrijtuigenbelasting;
             voorstel = voorstel with { Advies = new Verwerkingsadvies(rekening.Nummer, null, Adviesbron.Herkend, automatisch, belasting.Reden, Omschrijving: belasting.Omschrijving) };
         }
         return context.BtwPlichtig ? voorstel : voorstel with { Advies = voorstel.Advies with { BtwCode = null } };

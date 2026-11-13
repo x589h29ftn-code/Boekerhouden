@@ -149,6 +149,13 @@ public static partial class Belastingherkenning
         return middel is { } m ? new Aanslagkenmerk(m) : null;
     }
 
+    /// <summary>
+    /// Het voertuig bij een kenmerk van motorrijtuigenbelasting: het kenmerk zonder het controlecijfer (vooraan) en het
+    /// volgnummer (achteraan), die per betaling verschillen. Leeg als het geen geldig MRB-kenmerk is.
+    /// </summary>
+    public static string? Voertuig(string? kenmerk) =>
+        kenmerk is { Length: 16 } k && Lees(k, new DateOnly(2000, 1, 1)) is { Letter: 'M' } ? k[1..15] : null;
+
     // De wegingen van rechts naar links over de 15 cijfers na het controlecijfer: machten van 2 modulo 11.
     private static readonly int[] Wegingen = [2, 4, 8, 5, 10, 9, 7, 3, 6, 1, 2, 4, 8, 5, 10];
 

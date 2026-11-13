@@ -581,7 +581,7 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
     }
 
     [Fact]
-    public async Task Motorrijtuigenbelasting_uit_een_kenmerk_in_de_omschrijving_wordt_standaard_zelf_geboekt()
+    public async Task Motorrijtuigenbelasting_uit_een_kenmerk_in_de_omschrijving_is_een_voorstel_en_wordt_per_voertuig_geleerd()
     {
         var wie = await app.Beheerder();
         var id = await app.Administratie();
@@ -597,9 +597,16 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
 
         await bank.Lees(wie, id, new MemoryStream(Encoding.Latin1.GetBytes(tekst)), "ing.mt940");
 
-        Assert.DoesNotContain(await bank.Lijst(wie, id), m => m.Bedrag == -199.65m);
+        // Niet meteen zelf geboekt (zakelijke of privéauto?): een voorstel op de vaste rekening met de omschrijving klaar.
+        var mrb = (await bank.Lijst(wie, id)).Single(m => m.Bedrag == -199.65m);
+        Assert.Equal("8123456787812345", mrb.Betalingskenmerk);
+        var advies = (await bank.Verwerking(wie, id, mrb.Id))!.Voorstel.Advies;
+        Assert.Equal(("4300", false, "Motorrijtuigenbelasting 2026"), (advies.Rekeningnummer, advies.Automatisch, advies.Omschrijving));
+
+        // Geboekt: het leergeheugen onthoudt de keuze voor dit voertuig (niet voor alle betalingen aan de Belastingdienst).
+        Assert.True((await bank.OpRekening(wie, id, mrb.Id, "4300", null, "Motorrijtuigenbelasting 2026")).IsGelukt);
         await using var db = await app.Dienst<Toegang>().Open(wie, id, Recht.Lezen);
-        Assert.Contains(await db.Boekingsregels.Where(r => r.Rekeningnummer == "4300").Select(r => r.Omschrijving).ToListAsync(), o => o == "Motorrijtuigenbelasting 2026");
+        Assert.Contains(await db.Leerkeuzes.Select(k => k.Sleutel).ToListAsync(), k => k == "B|mrb|12345678781234");
     }
 
     [Fact]
