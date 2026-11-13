@@ -154,7 +154,7 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     (`Uitsnede`), zachter contrast bij lichte inkt. Vier echte foto's van de gebruiker (alleen als kleine afbeelding,
     640×480) in `testdata/bonnen/echt/`: de uitsnede klopt; voor de tekstherkenning zijn ze te klein, de originelen
     (volle grootte) zijn nog nodig om de herkenning echt te toetsen. Daarna in 1500×2000 (`testdata/bonnen/groot/`): de scans
-    zijn goed leesbaar, maar Tesseract leest matrixletters (Poiesz, Primera) slecht; een extra leesronde met dikkere
+    zijn goed leesbaar, maar Tesseract leest matrixletters slecht; een extra leesronde met dikkere
     inkt (3×3-minimum) won niet op de bonnen zelf en is niet opgenomen. Een onleesbaar logo geeft geen straat of
     kolomkop meer als naam. Daarna een andere motor: **PaddleOCR** (PP-OCRv5 via RapidOcrNet en ONNX Runtime,
     `PaddleOcr`, README §3.20), met Tesseract als terugval; leest de vier echte bonnen goed (naam, datum, totaal,

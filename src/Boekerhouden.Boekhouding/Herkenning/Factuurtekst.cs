@@ -619,7 +619,7 @@ public static partial class Factuurtekst
         if (stukken.FirstOrDefault(t => t.Length <= 60 && Compact(t).StartsWith(kern, StringComparison.Ordinal) && Compact(t).Length <= kern.Length + 12
                                         && !t.Contains('@', StringComparison.Ordinal) && !t.Contains("www", StringComparison.OrdinalIgnoreCase)) is { } tekst)
         {
-            // Een woord dat de tekstherkenning in stukken las ("JUM BO" bij jumbo.com): weer één woord.
+            // Een woord dat de tekstherkenning in stukken las ("KRU ID" bij kruid.nl): weer één woord.
             var gelezen = tekst.Trim(' ', ',', '.', '-', '–', '|');
             var delen = gelezen.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             return delen.Length > 1 && Compact(gelezen) == kern && delen.Any(d => d.Length <= 2 && d.All(char.IsLetter)) ? string.Concat(delen) : gelezen;
