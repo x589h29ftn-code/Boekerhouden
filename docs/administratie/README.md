@@ -288,7 +288,8 @@ nog eens kiezen ook echt iets doet.
 8. **Bedragen controleren** (`Bedragcontrole`, naast de controle van de factuur zelf): de btw per regel bij het
    tarief (100,00 en 21% is 21,00; een cent per factuurregel mag door afronden), en de boeking samen tegen het
    totaal en de btw van de factuur (100,00 + 21,00 = 121,00). Bij een verschil toont het scherm de reden en heet
-   de knop *Toch boeken*; zelf verwerken doet het pakket dan nooit.
+   de knop *Toch boeken*; zelf verwerken doet het pakket dan nooit. Onder de regels staan de totalen zoals bij een
+   verkoopfactuur: totaal excl. btw, de btw per tarief met de grondslag ("Btw 21% over 20,65") en totaal incl. btw.
 
 ### 3.5 Verkoopfacturen
 
@@ -563,7 +564,7 @@ afschrijvingen als memoriaalboeking per periode, desinvesteren (ook voor een dee
 
 | Onderdeel | Hoe |
 |---|---|
-| Activakaart | Omschrijving, aanschafdatum en -waarde, afschrijven lineair of niet (grond), de eerste maand, de looptijd in maanden, restwaarde, de activarekening (balans, aanschafwaarde), de afschrijvingsrekening (balans, cumulatieve afschrijving) en de kostenrekening (W&V), de boeking van de aanschaf en een notitie. Een actief uit een vorige administratie: *Al eerder afgeschreven* met het bedrag, en de resterende looptijd. Doorlopend nummer per administratie (`ActivaDienst.Bewaar`, `Activum`) |
+| Activakaart | Omschrijving, aanschafdatum, aanschafwaarde en restwaarde onder elkaar, afschrijven lineair of niet (grond), de eerste maand, de termijn in jaren, in procent per jaar (20%, 10%, 3,33%) of in maanden (`Afschrijvingstermijn`; vast ligt altijd het aantal maanden, 3,33% = 360 maanden), de activarekening (balans, aanschafwaarde), de afschrijvingsrekening (balans, cumulatieve afschrijving) en de kostenrekening (W&V), de boeking van de aanschaf en een notitie. Een actief uit een vorige administratie: *Al eerder afgeschreven* met het bedrag, en de resterende looptijd. Doorlopend nummer per administratie (`ActivaDienst.Bewaar`, `Activum`) |
 | Uit een aanschaf | Elke debetregel op een activarekening (RGS `BMva…Vvp` of `BIva…Vvp`, of een rekening die al bij een actief hoort) die nog geen actief is, staat onder *Aanschaffingen op activarekeningen* (bijv. de inkoopfactuur van een laptop op 0200). *Opnemen* opent de kaart met omschrijving, datum, bedrag en boeking ingevuld, en de rekeningen erbij: zoals bij het vorige actief op die rekening, anders uit RGS (`BMvaBeiVvp` → `BMvaBeiCae` en `WAfsAmvBei`), met 60 maanden (`Kandidaten`) |
 | Afschrijvingsplan | Lineair per maand, tot op de cent verdeeld (de laatste maand sluit precies); per jaar in te klappen, met de boeking per maand. Na de eerste boeking liggen aanschaf, begin, methode en rekeningen vast; looptijd en restwaarde mogen nog: wat er nog af moet, gaat over de resterende maanden (schattingswijziging, alleen vooruit). Domein: `Activa/Afschrijvingsplan` |
 | Afschrijving wijzigen per datum | Op de activakaart *Afschrijving wijzigen*: vanaf een maand een ander percentage per jaar van de aanschafwaarde min de restwaarde (bijv. van 20% naar 10% per 1 januari), met vooraf het nieuwe bedrag per maand en de laatste maand. Alleen na de laatst geboekte maand; dezelfde maand nog eens vervangt, en verwijderen kan zolang er vanaf die maand niets is geboekt. Meerdere wijzigingen na elkaar mogen. Naast de looptijd staat het percentage (60 maanden = 20% per jaar). Kantoor (recht Boekhouden), in het wijzigingslog. Domein: `Herziening`; dienst: `ActivaDienst.Herzie`/`VerwijderHerziening` |

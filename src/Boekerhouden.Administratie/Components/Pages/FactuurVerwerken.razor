@@ -338,13 +338,23 @@
                             </table>
                             <div class="d-flex align-items-start gap-3">
                                 <button class="btn btn-sm btn-link nog-een-regel" @onclick="RegelToevoegen"><Icoon Naam="plus" /> Nog een regel</button>
-                                <div class="ms-auto text-end small">
-                                    <div>@(ZonderBtw ? "Totaal" : "Totaal incl. btw") <span class="bedrag fw-semibold ms-2">@(Totaal is { } t ? Weergave.Bedrag(t) : "-")</span></div>
-                                    @if (Verschil is { } verschil && verschil != 0)
-                                    {
-                                        <div class="status let-op" title="Totaal van de regels min het bedrag van de factuur">Verschil <span class="bedrag ms-2">@Weergave.Bedrag(verschil)</span></div>
-                                    }
-                                </div>
+                                <table class="ms-auto small verwerktotalen">
+                                    <tbody>
+                                        @if (!ZonderBtw && Totaal is not null)
+                                        {
+                                            <tr><td>Totaal excl. btw</td><td class="bedrag text-end">@Weergave.Bedrag(regels.Sum(r => Getal(r.Bedrag) ?? 0))</td></tr>
+                                            @foreach (var b in BtwPerTarief())
+                                            {
+                                                <tr class="text-secondary"><td>Btw @Btwpercentage.Tekst(b.Percentage) over @Weergave.Bedrag(b.Grondslag)</td><td class="bedrag text-end">@Weergave.Bedrag(b.Btw)</td></tr>
+                                            }
+                                        }
+                                        <tr class="totaal"><td>@(ZonderBtw ? "Totaal" : "Totaal incl. btw")</td><td class="bedrag text-end fw-semibold">@(Totaal is { } t ? Weergave.Bedrag(t) : "-")</td></tr>
+                                        @if (Verschil is { } verschil && verschil != 0)
+                                        {
+                                            <tr class="status let-op" title="Totaal van de regels min het bedrag van de factuur"><td>Verschil</td><td class="bedrag text-end">@Weergave.Bedrag(verschil)</td></tr>
+                                        }
+                                    </tbody>
+                                </table>
                             </div>
                             <div class="veld mt-3">
                                 <label for="verdelen">Periode verdelen</label>
@@ -1405,6 +1415,14 @@
         ?? (herkend?.TotaalInclusief is { } inclusief && BtwCodes.Zoek(Codes, btwCode) is { } code
             ? (code.BtwOpFactuur ? BtwBerekening.UitInclusief(inclusief, code.Percentage).Grondslag : inclusief)
             : null);
+
+    /// <summary>De btw op de factuur per tarief, met de grondslag (zoals onder de regels van een verkoopfactuur).</summary>
+    private IEnumerable<(decimal Percentage, decimal Grondslag, decimal Btw)> BtwPerTarief() => regels
+        .Select(r => (Code: BtwCodes.Zoek(Codes, r.BtwCode), Bedrag: Getal(r.Bedrag) ?? 0, Btw: BtwOpFactuur(r)))
+        .Where(r => r.Code is { BtwOpFactuur: true } && r.Btw != 0)
+        .GroupBy(r => r.Code!.Percentage)
+        .OrderByDescending(g => g.Key)
+        .Select(g => (g.Key, g.Sum(r => r.Bedrag), g.Sum(r => r.Btw)));
 
     private decimal BtwOpFactuur(Invoerregel regel)
     {

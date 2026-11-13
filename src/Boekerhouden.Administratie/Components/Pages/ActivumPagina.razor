@@ -64,10 +64,9 @@
                     <input id="omschrijving" class="form-control form-control-sm" style="max-width:32rem" maxlength="200" @bind="f.Omschrijving" />
                 </div>
                 <div class="formulier-rij">
-                    <label for="aanschafdatum">Aanschaf</label>
+                    <label for="aanschafdatum">Aanschafdatum</label>
                     <div class="d-flex gap-2 align-items-center flex-wrap">
                         <DatumVeld Id="aanschafdatum" @bind-Waarde="f.Aanschafdatum" Uit="Vast" />
-                        <input id="aanschafwaarde" class="form-control form-control-sm text-end" style="width:9rem" aria-label="Aanschafwaarde" @bind="f.Aanschafwaarde" disabled="@Vast" />
                         @if (detail?.Invoer.Bron is { } bron && bron.Split(' ', 2) is [var dagboek, var boekstuk])
                         {
                             <a class="small" href="/a/@Id/boeking/@dagboek/@boekstuk" title="De boeking van de aanschaf">@bron</a>
@@ -78,6 +77,23 @@
                         }
                     </div>
                 </div>
+                <div class="formulier-rij">
+                    <label for="aanschafwaarde">Aanschafwaarde</label>
+                    <input id="aanschafwaarde" class="form-control form-control-sm text-end" style="width:9rem" @bind="f.Aanschafwaarde" disabled="@Vast" />
+                </div>
+                @if (f.Methode == Afschrijvingsmethode.Lineair)
+                {
+                    <div class="formulier-rij">
+                        <label for="restwaarde">Restwaarde</label>
+                        <div class="d-flex gap-2 align-items-center">
+                            <input id="restwaarde" class="form-control form-control-sm text-end" style="width:9rem" placeholder="0,00" @bind="f.Restwaarde" disabled="@IsWeg" />
+                            @if (detail is { Desinvesteringen.Count: > 0 } d && d.Restwaarde != (f.Invoer()?.Restwaarde ?? 0m))
+                            {
+                                <span class="small text-secondary" title="Na de gedeeltelijke desinvestering">nu @Weergave.Bedrag(d.Restwaarde)</span>
+                            }
+                        </div>
+                    </div>
+                }
                 <div class="formulier-rij">
                     <label for="methode">Afschrijven</label>
                     <div class="d-flex gap-2 align-items-center flex-wrap">
@@ -90,8 +106,21 @@
                             <span class="small text-secondary">vanaf</span>
                             <DatumVeld Id="begin" @bind-Waarde="f.Begin" Uit="Vast" Label="Eerste maand" />
                             <span class="small text-secondary">in</span>
-                            <input id="looptijd" class="form-control form-control-sm text-end" style="width:5rem" aria-label="Looptijd in maanden" @bind="f.Looptijd" disabled="@IsWeg" />
-                            <span class="small text-secondary" title="@(f.Looptijd is > 0 and var l ? $"{l / 12m:0.#} jaar" : null)">maanden@(f.Looptijd is > 0 and var lt ? $" ({Procent(1200m / lt)} per jaar)" : null)</span>
+                            <input id="looptijd" class="form-control form-control-sm text-end" style="width:5rem" aria-label="Termijn" @bind="f.Termijn" disabled="@IsWeg" />
+                            <select class="form-select form-select-sm w-auto" aria-label="Eenheid van de termijn" @bind="f.Eenheid" disabled="@IsWeg">
+                                <option value="@Termijneenheid.Jaren">jaar</option>
+                                <option value="@Termijneenheid.ProcentPerJaar">% per jaar</option>
+                                <option value="@Termijneenheid.Maanden">maanden</option>
+                            </select>
+                            @if (f.Looptijd is > 0 and var lt)
+                            {
+                                <span class="small text-secondary">@(f.Eenheid switch
+                                {
+                                    Termijneenheid.Jaren => $"{Procent(1200m / lt)} per jaar",
+                                    Termijneenheid.ProcentPerJaar => $"{lt / 12m:0.##} jaar",
+                                    _ => $"{lt / 12m:0.##} jaar, {Procent(1200m / lt)} per jaar",
+                                })</span>
+                            }
                         }
                     </div>
                 </div>
@@ -109,19 +138,6 @@
                                         <button type="button" class="btn btn-sm btn-link p-0 ms-3 regelactie text-secondary" disabled="@bezig" @onclick="() => VerwijderHerziening(h.Maand)">Verwijderen</button>
                                     }
                                 </div>
-                            }
-                        </div>
-                    </div>
-                }
-                @if (f.Methode == Afschrijvingsmethode.Lineair)
-                {
-                    <div class="formulier-rij">
-                        <label for="restwaarde">Restwaarde</label>
-                        <div class="d-flex gap-2 align-items-center">
-                            <input id="restwaarde" class="form-control form-control-sm text-end" style="width:9rem" placeholder="0,00" @bind="f.Restwaarde" disabled="@IsWeg" />
-                            @if (detail is { Desinvesteringen.Count: > 0 } d && d.Restwaarde != (f.Invoer()?.Restwaarde ?? 0m))
-                            {
-                                <span class="small text-secondary" title="Na de gedeeltelijke desinvestering">nu @Weergave.Bedrag(d.Restwaarde)</span>
                             }
                         </div>
                     </div>
@@ -466,6 +482,15 @@
         public string? Restwaarde { get; set; }
         public DateOnly Begin { get; set; }
         public int? Looptijd { get; set; } = 60;
+        public Termijneenheid Eenheid { get; set; } = Termijneenheid.Jaren;
+        private string? termijnIngevuld;
+
+        /// <summary>De termijn in de gekozen eenheid; vast ligt het aantal maanden.</summary>
+        public string? Termijn
+        {
+            get => Looptijd is > 0 and var l ? Afschrijvingstermijn.Tekst(l, Eenheid) : termijnIngevuld;
+            set => (termijnIngevuld, Looptijd) = (value, Afschrijvingstermijn.NaarMaanden(value, Eenheid));
+        }
         public Afschrijvingsmethode Methode { get; set; }
         public string? Activarekening { get; set; }
         public string? Afschrijvingsrekening { get; set; }
@@ -485,6 +510,7 @@
             Restwaarde = i.Restwaarde == 0 ? null : Bedragen.Getal(i.Restwaarde),
             Begin = i.BeginAfschrijving,
             Looptijd = i.Looptijd,
+            Eenheid = Afschrijvingstermijn.Passend(i.Looptijd),
             Methode = i.Methode,
             Activarekening = i.Activarekening,
             Afschrijvingsrekening = i.Afschrijvingsrekening,
