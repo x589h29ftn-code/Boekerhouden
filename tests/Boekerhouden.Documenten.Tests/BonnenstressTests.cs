@@ -25,7 +25,9 @@ public sealed class BonnenstressTests
         }
 
         var nl = CultureInfo.GetCultureInfo("nl-NL");
-        var herkenning = Factuurherkenning.Standaard(EigenGegevens.Geen, ocr: new OcrLezer(OcrFactAttribute.Tesseract));
+        // De motor die de app ook kiest (PaddleOCR als de modellen er zijn); BOEKERHOUDEN_OCR=tesseract voor Tesseract.
+        IOcrMotor motor = Environment.GetEnvironmentVariable("BOEKERHOUDEN_OCR") == "tesseract" ? OcrFactAttribute.Tesseract : PaddleOcr.Zoek() ?? (IOcrMotor)OcrFactAttribute.Tesseract;
+        var herkenning = Factuurherkenning.Standaard(EigenGegevens.Geen, ocr: new OcrLezer(motor));
         var verslag = new StringBuilder();
         var goed = new Dictionary<string, int> { ["naam"] = 0, ["datum"] = 0, ["totaal"] = 0, ["btw"] = 0, ["nummer"] = 0 };
         var aantal = 0;

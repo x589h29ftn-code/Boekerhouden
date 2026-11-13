@@ -51,6 +51,68 @@ public sealed class FactuurtekstTests
     }
 
     [Fact]
+    public void Leesfouten_van_de_neurale_tekstherkenning_op_echte_bonnen()
+    {
+        // Zoals de tekstherkenning verzonnen bonnen leest met de fouten die op echte foto's voorkwamen: het logo in
+        // stukken ("KRU ID"), "BTW Totaal" onder het btw-overzicht, "Totaal afgerond" (contant afronden), een euroteken
+        // als C, "T otaal", het %-teken als ", ".n1" voor .nl en onzin uit een streepjescode boven de naam.
+        var supermarkt = Factuurtekst.Analyseer("""
+            KRU ID
+            supermarkten.
+            Marktweg 164
+            9201 GT Ergens
+            www.kruid.nl
+            OMSCHRIJVING BEDRAG IN €
+            WATER 4,68
+            Totaal 4,68
+            02/12/2024 08:03
+            Totaal : 4,68 EUR
+            BTW overzicht
+            BTW% Bedrag excl BTW bedrag
+            21,00% 3,87 0,81
+            BTW Totaal 3,87 0,81
+            """, Herkenningsbron.Ocr);
+        Assert.Equal(("KRUID", 4.68m, new DateOnly(2024, 12, 2)), (supermarkt.Naam, supermarkt.TotaalInclusief, supermarkt.Factuurdatum));
+
+        var kleding = Factuurtekst.Analyseer("""
+            Kinderwinkel Ergens
+            Dorpsstraat 38
+            8601 AX ERGENS
+            Datum 07-11-2026 12:08:04
+            Totaal € 19,99
+            21,00% BTW € 3,47
+            Incl.
+            Totaal afgerond € 20,00
+            PAY 03 € 19,99
+            """, Herkenningsbron.Ocr);
+        Assert.Equal((19.99m, 3.47m), (kleding.TotaalInclusief, kleding.TotaalBtw));
+
+        var matrix = Factuurtekst.Analyseer("""
+            SUFPEERMAARKTEN
+            Kerkstrjitte 5
+            9281 PX ERGENS
+            www.buurtwinkel-supermarkten.n1
+            T otaal C7,45
+            Contant C7,50
+            BTW groep BTW Incl.
+            BTW Hoog 21" 1, 29 7 , 45
+            """, Herkenningsbron.Ocr);
+        Assert.Equal(("Buurtwinkel Supermarkten", 7.45m), (matrix.Naam, matrix.TotaalInclusief));
+        Assert.Equal([(21m, 1.29m)], matrix.Btwregels.Select(b => (b.Percentage, b.Btw)));
+
+        var kopie = Factuurtekst.Analyseer("""
+            DLDI U IIV
+            905465960610
+            ***KOPIE***
+            Kantoorboekhandel Ergens
+            Marktweg 176
+            9201GT Ergens
+            Totaal 114,00
+            """, Herkenningsbron.Ocr);
+        Assert.Equal("Kantoorboekhandel Ergens", kopie.Naam);
+    }
+
+    [Fact]
     public void Een_bon_waarvan_het_logo_niet_te_lezen_is_heeft_niet_de_straat_als_naam()
     {
         // Het logo bovenaan is onleesbaar: de eerste regel is de straat, met de postcode eronder.

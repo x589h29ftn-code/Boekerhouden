@@ -33,7 +33,16 @@ public static class Fotoverbetering
     /// Een scheve foto rechtzetten. Niet bij een scan die al als pagina in een PDF staat: daar moeten de woorden op hun
     /// plek op de pagina blijven (voor aanwijzen en oplichten).
     /// </param>
-    public static byte[]? Verbeter(byte[] foto, bool rechtzetten)
+    public static byte[]? Verbeter(byte[] foto, bool rechtzetten) => Bewerk(foto, rechtzetten)?.Scan;
+
+    /// <summary>
+    /// De scan en daarnaast een zachte versie: rechtop, rechtgezet en uitgesneden zoals de scan (dus met de woorden op
+    /// dezelfde plek), maar alleen de belichting vlakgetrokken, zonder het harde contrast. Een tekstherkenner die op
+    /// foto's is getraind leest die beter; de scan blijft wat er bewaard wordt.
+    /// </summary>
+    public static (byte[] Scan, byte[] Zacht)? VerbeterMetZacht(byte[] foto, bool rechtzetten = true) => Bewerk(foto, rechtzetten);
+
+    private static (byte[] Scan, byte[] Zacht)? Bewerk(byte[] foto, bool rechtzetten)
     {
         ArgumentNullException.ThrowIfNull(foto);
         try
@@ -98,6 +107,7 @@ public static class Fotoverbetering
 
             // Contrast: wat donkerder is dan de inkt wordt zwart, papier wit. Vervaagde (thermische) of dunne inkt is
             // lichter dan gewone drukinkt; dan schuift de grens mee, zodat ook die letters zwart worden.
+            var zacht = Jpeg(uit, breedte, hoogte, 90);
             var zwart = Inktgrens(uit);
             // Bij lichte inkt (de grens hoog) blijft er een glijdende overgang naar het papier, anders vallen dunne streepjes
             // (een matrixprinter, een versleten printkop) weg.
@@ -108,17 +118,22 @@ public static class Fotoverbetering
             }
 
             WisVlakken(uit, breedte, hoogte);
-            using var resultaat = new SKBitmap(new SKImageInfo(breedte, hoogte, SKColorType.Gray8, SKAlphaType.Opaque));
-            System.Runtime.InteropServices.Marshal.Copy(uit, 0, resultaat.GetPixels(), uit.Length);
-            using var beeld = SKImage.FromBitmap(resultaat);
-            using var jpeg = beeld.Encode(SKEncodedImageFormat.Jpeg, 82);
-            return jpeg?.ToArray();
+            return Jpeg(uit, breedte, hoogte, 82) is { } scan && zacht is not null ? (scan, zacht) : null;
         }
         catch (Exception fout) when (fout is not OutOfMemoryException)
         {
             // Een beschadigde of onbekende afbeelding: de foto blijft zoals hij is.
             return null;
         }
+    }
+
+    private static byte[]? Jpeg(byte[] grijs, int breedte, int hoogte, int kwaliteit)
+    {
+        using var resultaat = new SKBitmap(new SKImageInfo(breedte, hoogte, SKColorType.Gray8, SKAlphaType.Opaque));
+        System.Runtime.InteropServices.Marshal.Copy(grijs, 0, resultaat.GetPixels(), grijs.Length);
+        using var beeld = SKImage.FromBitmap(resultaat);
+        using var jpeg = beeld.Encode(SKEncodedImageFormat.Jpeg, kwaliteit);
+        return jpeg?.ToArray();
     }
 
     /// <summary>

@@ -31,7 +31,7 @@ scripts/ui/herstart.sh && node scripts/ui/schermafbeeldingen.js /tmp/schermen vo
 ```
 
 Warnings zijn errors (`TreatWarningsAsErrors`). In cloudsessies installeert `.claude/hooks/session-start.sh`
-de .NET 10 SDK, Tesseract (OCR; zonder Tesseract slaan de OCR-tests over) en PostgreSQL, met rol en database `boekerhouden` (wachtwoord `boekerhouden-dev`).
+de .NET 10 SDK, Tesseract (OCR-terugval; zonder Tesseract slaan die OCR-tests over; de PaddleOCR-modellen komen uit het NuGet-pakket) en PostgreSQL, met rol en database `boekerhouden` (wachtwoord `boekerhouden-dev`).
 `Boekerhouden.Server.Tests` en `Boekerhouden.Administratie.Tests` maken per testklasse een eigen database aan en ruimen die op; een andere
 server kies je met `BOEKERHOUDEN_TEST_DB` (bijv. `Host=...;Username=...;Password=...`). De server past
 migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien alleen als
@@ -52,7 +52,7 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   betalingskenmerk, btw-controle en vermeldingen, factuurontwerp, UBL schrijven, terugkerende planning, inlezen) en
   `Auditfiles/` (XAF 3.2 schrijven, XAF 3.x/4.0 lezen en controleren).
 - `src/Boekerhouden.Documenten` – documenten van buiten lezen voor de herkenning: tekst uit PDF (PdfPig, als `Tekstwoord`en
-  met hun plek), UBL als los bestand of als bijlage, OCR van scans en foto's (`TesseractOcr` als eigen proces, `OcrLezer`), een foto eerst tot scan maken (`Fotoverbetering`, SkiaSharp: rechtop, grijs, contrast, rechtzetten), een stapel in losse PDF's splitsen (`PdfStapel`), een PDF-rekeningafschrift lezen (`PdfBankafschrift`, naar MT940 met `Mt940Schrijver`); de balans uit een jaarrekening (`PdfJaarrekening`); het loonjournaal uit een salarispakket (`PdfLoonjournaal`); begrensd (grootte, pagina's), XML altijd zonder DTD; vooraf een virusscan met ClamAV (clamd),
+  met hun plek), UBL als los bestand of als bijlage, OCR van scans en foto's (`PaddleOcr` = PaddleOCR-modellen via RapidOcrNet/ONNX Runtime in het eigen proces, de modellen in `models/v5` naast de app; anders `TesseractOcr` als eigen proces; `OcrLezer`), een foto eerst tot scan maken (`Fotoverbetering`, SkiaSharp: rechtop, grijs, contrast, rechtzetten), een stapel in losse PDF's splitsen (`PdfStapel`), een PDF-rekeningafschrift lezen (`PdfBankafschrift`, naar MT940 met `Mt940Schrijver`); de balans uit een jaarrekening (`PdfJaarrekening`); het loonjournaal uit een salarispakket (`PdfLoonjournaal`); begrensd (grootte, pagina's), XML altijd zonder DTD; vooraf een virusscan met ClamAV (clamd),
   *fail closed*. Beveiliging en besluiten B1–B5: `docs/administratie/beveiliging.md`.
 - `src/Boekerhouden.Administratie` – Blazor Server-app van het **administratiepakket** (eigen database
   `boekerhouden_administratie`): `Data/` (entiteiten, `AdministratieDbContext` met query filter per administratie,

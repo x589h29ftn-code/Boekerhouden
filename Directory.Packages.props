@@ -10,6 +10,7 @@
     <PackageVersion Include="SixLabors.Fonts" Version="1.0.0" />
     <!-- Tekst uit PDF's halen voor de factuurherkenning (Apache-2.0, zonder afhankelijkheden). -->
     <PackageVersion Include="PdfPig" Version="0.1.16" />
+    <PackageVersion Include="RapidOcrNet" Version="4.2.0" />
     <!-- Foto's van bonnetjes en facturen rechtzetten (EXIF), grijs maken en het contrast verhogen vóór de tekstherkenning
          (MIT). De Linux-variant zonder systeemafhankelijkheden (geen fontconfig nodig); Windows zit in het hoofdpakket. -->
     <PackageVersion Include="SkiaSharp" Version="4.155.0" />

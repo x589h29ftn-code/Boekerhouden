@@ -235,10 +235,11 @@ nog eens kiezen ook echt iets doet.
 2. **Herkennen** (`IFactuurHerkenner`, AD3), in volgorde van betrouwbaarheid:
    1. **UBL/e-factuur** (los of als bijlage in de PDF): exacte gegevens, geen OCR nodig;
    2. **PDF met tekstlaag**: tekst eruit, dan tekstanalyse;
-   3. **scan of foto**: Tesseract (Nederlands en Engels), dan dezelfde tekstanalyse. Een foto (JPEG, PNG) wordt
+   3. **scan of foto**: PaddleOCR (`PaddleOcr`, zie §3.20), anders Tesseract (Nederlands en Engels), dan dezelfde
+      tekstanalyse. Een foto (JPEG, PNG) wordt
       bewaard als PDF met de foto als pagina; van een gescande PDF gaat per pagina de grootste afbeelding door de OCR.
       De woorden met hun plek (`DocumentInhoud.Tekstlaag`) maken aanwijzen, oplichten en het zoektemplate mogelijk,
-      net als bij een PDF met tekst. Zonder Tesseract blijft een scan in Te verwerken met een melding.
+      net als bij een PDF met tekst. Zonder motor blijft een scan in Te verwerken met een melding.
    
    De **tekstanalyse** zoekt het factuurnummer, de factuur- en vervaldatum, IBAN, btw-nummer (met
    controle), KvK, het totaal, het btw-bedrag per tarief en het bedrag exclusief btw. Ze controleert ook of
@@ -529,7 +530,7 @@ SVG zonder script (`Maandgrafiek.razor`); de kleuren zijn gecontroleerd op kleur
   | Doel | Pakket | Licentie |
   |---|---|---|
   | Tekst uit PDF | PdfPig | Apache-2.0 |
-  | OCR | Tesseract (via `TesseractOCR` of de opdrachtregel) | Apache-2.0 |
+  | OCR | PaddleOCR-modellen (PP-OCRv5) via RapidOcrNet en ONNX Runtime; Tesseract als terugval | Apache-2.0, MIT (ONNX Runtime), BSL-1.0 (Clipper2) |
   | PDF van een verkoopfactuur | de bestaande `PdfDienst` (Chromium) | – |
 
 - **Bedragen**: `decimal`, exact in centen, en ook zo getoond (een administratie is exact; de jaarrekening in
@@ -714,6 +715,20 @@ Bij een bon met leesfouten helpt de analyse zichzelf: een btw-rij die met het ta
 grootste bedrag verkeerd is gelezen); staat de naam alleen in het logo, dan komt hij uit het webadres (ook "www. "
 met een spatie), aangevuld met wat er van het logo wel gelezen is ("Zoet Banketb" + domein → "Zoet Banketbakkerij").
 
+**Tekstherkenning (13 november 2026)**: de motor is **PaddleOCR** (de PP-OCRv5-modellen voor Latijns schrift,
+Apache-2.0, via het pakket RapidOcrNet en ONNX Runtime, in het eigen proces; `PaddleOcr`). Een neuraal netwerk zoekt
+eerst de regels en leest ze dan als geheel; het leest foto's van kassabonnen veel beter dan Tesseract, ook letters
+van een matrixprinter (losse stipjes), kreukels en een ordner eromheen. Het leest een **zachte versie** van de foto
+(rechtgezet en uitgesneden als de scan, alleen de belichting vlak, zonder hard contrast;
+`Fotoverbetering.VerbeterMetZacht`): de woorden staan zo op dezelfde plek als in de bewaarde scan. Woorden onder 60%
+zekerheid vallen weg (een streepjescode die als tekst is gelezen). Ongeveer 2–3 seconden per bon. Zonder de modellen
+(of als ONNX Runtime niet start) is Tesseract de terugval. Op vier echte foto's van bonnen (supermarkt met matrixprinter,
+kledingwinkel met kreukels, bonnen in een ordner) haalde Tesseract alleen bij één naam en datum; PaddleOCR leest bij
+alle vier naam, datum en totaal, en de btw waar die op de bon staat. De analyse kreeg er een paar leesfouten bij:
+"BTW Totaal" en "Totaal afgerond" zijn niet het totaal, een euroteken als C ("C7,45"), "T otaal", het %-teken als ",
+".n1" voor .nl, een logo in stukken ("KRU ID" bij het domein kruid.nl wordt één woord), de naam direct boven het adres
+(daarboven staat vaak onzin uit een logo of streepjescode) en een btw-regel met btw en totaal ("21% 1,29 7,45").
+
 **Stresstest**: `python3 scripts/bonnen/maak-bonnen.py <map>` maakt 25 verzonnen telefoonfoto's (bouwmarkt, supermarkt,
 bakkerij, tankstation, horeca, drogist, parkeren, een bon zonder btw; scheef tot 6 graden, wazig, schaduw, vervaagde
 inkt, ruis; 9%, 21% en gemengd) en `BOEKERHOUDEN_BONNENMAP=<map> dotnet test tests/Boekerhouden.Documenten.Tests
@@ -874,7 +889,7 @@ overzichten.
 | Formulier | Labels links, velden rechts: factuurnummer, leverancier, factuurdatum, vervaldatum en kenmerk, omschrijving en het *bedrag* van de factuur (inclusief btw; ook aan te wijzen op de factuur). Daaronder de regels (omschrijving, grootboekrekening, btw, bedrag) met *+ Nog een regel*, het totaal en het verschil met het bedrag. De reden van het voorstel, de signalen en waar het document vandaan komt staan achter de knop *Info* (met het aantal signalen) |
 | Creditnota | Schakelaar naast het bedrag. Een creditnota (herkend aan een negatief totaal, of zelf aangezet) staat in het formulier zonder minteken en wordt omgekeerd geboekt; *Verrekenen met* kiest een openstaande factuur van dezelfde leverancier en verlaagt beide posten (*Creditnota verrekend* in het log). Een creditnota leert niets. Eerder zonder boeking bewaarde documenten (privé of geen boeking) zijn terug te zetten naar Te verwerken |
 | Aanpassen | Een geboekt document (aanklikken onder *Verwerkt*, in het inkoopboek of via de boeking) toont de boeking (factuur, regels, boekstuk) met de factuur ernaast. *Aanpassen* zet het formulier vol met wat er geboekt is (`InkoopDienst.Geboekt`); er verandert niets tot *Opslaan* (*Annuleren* laat alles zoals het was). Opslaan geeft dezelfde boeking een nieuwe versie met hetzelfde boekstuk (zie *Boeking aanpassen*), en dezelfde openstaande post krijgt het nieuwe bedrag, de nieuwe datum en relatie. Een periodeverdeling gaat mee: de maandboekingen krijgen een nieuwe versie, en vallen er maanden af, dan vervallen die (een versie zonder regels). In het leergeheugen vervangt de nieuwe keuze die van toen, zodat de factuur één keer meetelt. Is de factuur al (deels) betaald of verrekend, dan eerst die betaling terugdraaien |
-| OCR | Scans en foto's (`TesseractOcr` als eigen proces, `OcrLezer`). Tesseract wordt gezocht via `Ocr:Tesseract`, het zoekpad en (Windows) `C:\Program Files\Tesseract-OCR`; `Ocr:Aan` = false zet het uit. Op Windows: Tesseract installeren met Nederlands (de installer van UB Mannheim, Apache-2.0). Inkoop en *factuur uploaden* bij de bank nemen ook JPEG en PNG aan |
+| OCR | Scans en foto's: `PaddleOcr` (de modellen in `models/v5` naast de app, komen mee uit het pakket RapidOcrNet) en anders `TesseractOcr` als eigen proces, via `OcrLezer`; `Ocr:Motor` = `tesseract` kiest Tesseract. Tesseract wordt gezocht via `Ocr:Tesseract`, het zoekpad en (Windows) `C:\Program Files\Tesseract-OCR`; `Ocr:Aan` = false zet het uit. Op Windows: Tesseract installeren met Nederlands (de installer van UB Mannheim, Apache-2.0). Inkoop en *factuur uploaden* bij de bank nemen ook JPEG en PNG aan |
 | Periode verdelen | Schakelaar onder de regels (niet automatisch). Aan: van en tot en met (herkend uit de factuur, bijv. "periode 01-09-2026 t/m 31-08-2027" of "1 september 2026 tot en met 31 augustus 2027", anders een jaar vanaf de maand van de factuurdatum) en de rekening ertussen (standaard vooruitbetaalde kosten, RGS `BVorOvaVan`). De factuur gaat met de kosten op die balansrekening; per maand die de periode raakt (op de eerste dag) boekt het pakket in het memoriaal een gelijk deel naar de kostenrekening, op de cent met het restje in de laatste maand (`Periodeverdeling`). De btw blijft bij de factuur. Bewaard bij het document (`Document.Verdeling`); de geboekte factuur toont de verdeling, heropenen zet hem terug in het formulier, en terugdraaien of verwijderen draait ook elke maandboeking terug. Leren en de historie gebruiken de kostenrekening |
 | Inkoopboek | `/a/{id}/inkoopboek` (menu Boekhouden, en *Alles in het inkoopboek* bij Verwerkt): elke geboekte inkoopfactuur en creditnota over een periode (standaard het jaar van de laatste factuur), met boekstuk, leverancier, factuurnummer, omschrijving, exclusief, btw, totaal en wat nog openstaat, onderaan de totalen; zoeken op leverancier, nummer, omschrijving of boekstuk. Een regel opent de factuur (met de boeking), of de boeking als er geen document is (`InkoopDienst.Inkoopboek`). Onder *Verwerkt* op het inkoopscherm staan alleen de laatste 100 documenten |
 | Verwijderen | *Verwijderen* op het verwerkscherm, met *Zeker weten? Ja, verwijderen* (`VerwijderKnop`, `InkoopDienst.Verwijder`): het document en zijn inhoud verdwijnen. Is het geboekt, dan wordt eerst de boeking teruggedraaid (zie hieronder): het journaal wijzigt nooit, dus de boeking en de tegenboeking blijven samen staan. Niet als de factuur al (deels) betaald of verrekend is. Een kopie in de documentmap blijft staan. In het log als *Document verwijderd* |

@@ -156,11 +156,21 @@ public static class Opstart
             services.AddSingleton<IVirusscanner, OntbrekendeVirusscanner>();
         }
 
-        // Tekstherkenning (OCR) voor scans en foto's: Tesseract als hij te starten is (pad in "Ocr:Tesseract", anders het
-        // zoekpad en de gebruikelijke installatiemappen). Zonder Tesseract blijven scans in Te verwerken met een melding.
-        if (configuratie.GetValue("Ocr:Aan", true) && TesseractOcr.Zoek(configuratie["Ocr:Tesseract"]) is { } tesseract)
+        // Tekstherkenning (OCR) voor scans en foto's: PaddleOCR (de modellen naast de app; leest foto's van bonnen veel
+        // beter), anders Tesseract als hij te starten is (pad in "Ocr:Tesseract", anders het zoekpad en de gebruikelijke
+        // installatiemappen). "Ocr:Motor" = "tesseract" kiest Tesseract. Zonder motor blijven scans in Te verwerken met
+        // een melding.
+        if (configuratie.GetValue("Ocr:Aan", true))
         {
-            services.AddSingleton<IOcrMotor>(tesseract);
+            var kiesTesseract = string.Equals(configuratie["Ocr:Motor"], "tesseract", StringComparison.OrdinalIgnoreCase);
+            if ((kiesTesseract ? null : PaddleOcr.Zoek()) is { } paddle)
+            {
+                services.AddSingleton<IOcrMotor>(paddle);
+            }
+            else if (TesseractOcr.Zoek(configuratie["Ocr:Tesseract"]) is { } tesseract)
+            {
+                services.AddSingleton<IOcrMotor>(tesseract);
+            }
         }
 
         return identiteit;

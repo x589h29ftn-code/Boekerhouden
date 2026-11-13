@@ -16,6 +16,12 @@ public sealed record OcrUitkomst(int Breedte, int Hoogte, IReadOnlyList<OcrWoord
 public interface IOcrMotor
 {
     Task<OcrUitkomst> LeesAsync(byte[] afbeelding, CancellationToken annulering = default);
+
+    /// <summary>
+    /// Leest liever de foto met alleen de belichting vlakgetrokken dan de scan met hard contrast (een herkenner die op
+    /// foto's is getraind); de woorden staan in beide op dezelfde plek.
+    /// </summary>
+    bool LeestZacht => false;
 }
 
 /// <summary>
@@ -239,7 +245,9 @@ public sealed class OcrLezer(IOcrMotor motor)
     /// contrast omhoog (een scan in twee kleuren, zoals van een kopieerapparaat, leest zo veel beter). De pagina wordt
     /// niet gedraaid, zodat de woorden op hun plek blijven.
     /// </summary>
-    private static byte[] Scan(byte[] afbeelding) => Fotoverbetering.Verbeter(afbeelding, rechtzetten: false) ?? afbeelding;
+    private byte[] Scan(byte[] afbeelding) => Fotoverbetering.VerbeterMetZacht(afbeelding, rechtzetten: false) is var (scan, zacht)
+        ? (motor.LeestZacht ? zacht : scan)
+        : afbeelding;
 
     public async Task<Ocrlaag?> LeesAsync(byte[] inhoud, CancellationToken annulering = default)
     {
@@ -248,12 +256,13 @@ public sealed class OcrLezer(IOcrMotor motor)
         {
             // Een foto wordt eerst een scan (rechtop, grijs, belichting vlak, contrast omhoog): dat leest beter en is
             // wat er bewaard wordt. Lukt dat niet, dan de foto zoals hij is.
-            if (Fotoverbetering.Verbeter(inhoud) is { } scan)
+            var teLezen = inhoud;
+            if (Fotoverbetering.VerbeterMetZacht(inhoud) is var (scan, zacht))
             {
-                (inhoud, soort) = (scan, "jpeg");
+                (inhoud, soort, teLezen) = (scan, "jpeg", motor.LeestZacht ? zacht : scan);
             }
 
-            var ocr = await motor.LeesAsync(inhoud, annulering).ConfigureAwait(false);
+            var ocr = await motor.LeesAsync(teLezen, annulering).ConfigureAwait(false);
             if (ocr.Breedte <= 0 || ocr.Hoogte <= 0)
             {
                 return null;

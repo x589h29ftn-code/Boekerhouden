@@ -6,8 +6,14 @@
 
   <ItemGroup>
     <PackageReference Include="PdfPig" />
+    <PackageReference Include="RapidOcrNet" GeneratePathProperty="true" />
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
+  </ItemGroup>
+
+  <!-- De modellen van PaddleOCR (Apache-2.0) uit het pakket naast de app, ook in de apps die dit project gebruiken. -->
+  <ItemGroup>
+    <None Include="$(PkgRapidOcrNet)/models/v5/*.*" Link="models/v5/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 
   <ItemGroup>

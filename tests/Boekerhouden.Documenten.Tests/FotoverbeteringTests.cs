@@ -45,6 +45,42 @@ public sealed class FotoverbeteringTests
         Assert.Contains("80,15", beter, StringComparison.Ordinal);
         Assert.Contains("13,91", beter, StringComparison.Ordinal);
     }
+    [PaddleFact]
+    public async Task De_neurale_tekstherkenning_leest_de_bon_ook_in_de_schaduw()
+    {
+        var motor = PaddleFactAttribute.Paddle;
+        var (_, zacht) = Fotoverbetering.VerbeterMetZacht(Bon())!.Value;
+
+        var tekst = string.Join(' ', (await motor.LeesAsync(zacht)).Woorden.Select(w => w.Tekst));
+
+        Assert.Contains("TOTAAL", tekst, StringComparison.Ordinal);
+        Assert.Contains("80,15", tekst, StringComparison.Ordinal);
+        Assert.Contains("13,91", tekst, StringComparison.Ordinal);
+    }
+
+    [PaddleFact]
+    public async Task Een_foto_door_de_lezer_bewaart_de_scan_met_de_woorden_van_de_zachte_versie()
+    {
+        var laag = await new OcrLezer(PaddleFactAttribute.Paddle).LeesAsync(Bon());
+
+        Assert.NotNull(laag);
+        Assert.Contains(laag.Woorden, w => w.Tekst == "TOTAAL");
+        Assert.NotNull(laag.Pdf);
+    }
+
+    [Fact]
+    public void De_zachte_versie_heeft_dezelfde_maat_als_de_scan()
+    {
+        var (scan, zacht) = Fotoverbetering.VerbeterMetZacht(Bon())!.Value;
+        using var a = SkiaSharp.SKBitmap.Decode(scan);
+        using var b = SkiaSharp.SKBitmap.Decode(zacht);
+
+        Assert.Equal((a.Width, a.Height), (b.Width, b.Height));
+
+        // Zacht: het papier licht maar de grijstinten blijven (geen hard zwart-wit).
+        Assert.True(Enumerable.Range(0, 200).Count(i => b.GetPixel(100 + i, 860).Red is > 60 and < 200) > Enumerable.Range(0, 200).Count(i => a.GetPixel(100 + i, 860).Red is > 60 and < 200));
+    }
+
     /// <summary>Een wit vel met regels "tekst" (donkere balkjes) van de gegeven kolommen, om de rij zo veel verschoven.</summary>
     private static void Regels(byte[] vlak, int breedte, int van, int tot, int verschuiving, int elke = 1)
     {

@@ -27,8 +27,13 @@ public static partial class Factuurtekst
         tekst = BtwLeesfout().Replace(tekst, m => char.IsLower(m.Value[^1]) ? "Btw" : "BTW");
         if (bron == Herkenningsbron.Ocr)
         {
-            // Een spatie die de tekstherkenning in een bedrag zet ("24, 39"): weg.
-            tekst = BedragMetSpatie().Replace(tekst, "$1,$2");
+            // Een spatie die de tekstherkenning in een bedrag zet ("24, 39", "7 , 45"): weg. Een euroteken dat als C of
+            // E is gelezen, vast aan het bedrag ("C7,45"), is een euroteken; een woord dat in tweeën is gelezen ("T otaal")
+            // weer één woord.
+            tekst = BedragMetSpatie().Replace(tekst, m => m.Groups[1].Success ? $"{m.Groups[1].Value},{m.Groups[2].Value}" : $"{m.Groups[3].Value},{m.Groups[4].Value}");
+            tekst = EuroAlsLetter().Replace(tekst, "€$1");
+            tekst = GesplitstTotaal().Replace(tekst, "$1$2");
+            tekst = DomeinNl().Replace(tekst, ".nl");
         }
 
         var regels = tekst.Replace("\r", string.Empty, StringComparison.Ordinal).Split('\n').Select(r => r.Trim()).Where(r => r.Length > 0).ToList();
@@ -459,6 +464,13 @@ public static partial class Factuurtekst
 
             var regelBtw = bedragen.Count >= 2 ? new Btwregel(percentage, bedragen[^2], bedragen[^1]) : new Btwregel(percentage, null, bedragen[0]);
 
+            // "BTW Hoog 21% 1,29 7,45": de btw en het totaal inclusief; de grondslag is het verschil.
+            if (bedragen.Count >= 2 && bedragen[^2] is var eerste and > 0 && bedragen[^1] > eerste
+                && Btw.BtwBerekening.Klopt(bedragen[^1] - eerste, eerste, percentage, 5) && !Btw.BtwBerekening.Klopt(eerste, bedragen[^1], percentage, 5))
+            {
+                regelBtw = new Btwregel(percentage, bedragen[^1] - eerste, eerste);
+            }
+
             // "21% over 20,65 = 4,34": als de twee bedragen niet kloppen, is de laatste toch de btw.
             if (regelBtw.Grondslag is { } g && !Btw.BtwBerekening.Klopt(g, regelBtw.Btw, percentage, 5))
             {
@@ -548,6 +560,17 @@ public static partial class Factuurtekst
         bool NaamBovenAdres(int i) => i == 0 && regels.Count > 1 && Postcode.Zoek(regels[0].ToUpperInvariant()).Count == 0
             && (Straat().IsMatch(regels[1]) || Postbus().IsMatch(regels[1])) && Postcode.Zoek(regels[1].ToUpperInvariant()).Count == 0;
 
+        // Op een bon staat de naam direct boven het adres; wat daarboven staat is vaak een logo of streepjescode die als
+        // onzin is gelezen.
+        string? BovenAdres()
+        {
+            var adres = regels.FindIndex(r => (Straat().IsMatch(r) || Postcode.Zoek(r.ToUpperInvariant()).Count > 0) && !NaamBovenAdres(regels.IndexOf(r)));
+            return adres is > 0 and < 15 && stukken.Where(x => x.Regel == adres - 1).Select(x => x.Tekst).LastOrDefault() is { } t && !IsAdres(t)
+                   && t.Count(char.IsLetter) >= 5 && t.Any(char.IsLower) && Datums(t).Count == 0 && Bedragen(t).Count == 0
+                ? t
+                : null;
+        }
+
         // Wat onder de kop van de regels staat (Omschrijving, Artikel) is een artikel, geen naam.
         int Kopregel() => regels.FindIndex(r => KopregelOmschrijving().IsMatch(r)) is var k and >= 0 ? k : int.MaxValue;
 
@@ -557,6 +580,7 @@ public static partial class Factuurtekst
         return stukken.Where(x => x.Regel < 15).Select(x => x.Tekst).FirstOrDefault(MetRechtsvorm)
                ?? stukken.Select(x => x.Tekst).FirstOrDefault(MetRechtsvorm)
                ?? NaamUitDomein(regels, stukken.Select(x => x.Tekst), eigenNamen)
+               ?? BovenAdres()
                ?? stukken.Where(x => x.Regel < Math.Min(15, Kopregel())).Select(x => x.Tekst).FirstOrDefault(t => t.Count(char.IsLetter) >= 3
                    && !Regex.IsMatch(t, "^(fa[ck]tuur|invoice|nota|creditnota|credit note)\\b", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1))
                    && !Regex.IsMatch(t, "^(omschrijving|artikel|aantal|bedrag|prijs|kassa|datum|kopie)\\b", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1))
@@ -595,7 +619,10 @@ public static partial class Factuurtekst
         if (stukken.FirstOrDefault(t => t.Length <= 60 && Compact(t).StartsWith(kern, StringComparison.Ordinal) && Compact(t).Length <= kern.Length + 12
                                         && !t.Contains('@', StringComparison.Ordinal) && !t.Contains("www", StringComparison.OrdinalIgnoreCase)) is { } tekst)
         {
-            return tekst.Trim(' ', ',', '.', '-', '–', '|');
+            // Een woord dat de tekstherkenning in stukken las ("JUM BO" bij jumbo.com): weer één woord.
+            var gelezen = tekst.Trim(' ', ',', '.', '-', '–', '|');
+            var delen = gelezen.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            return delen.Length > 1 && Compact(gelezen) == kern && delen.Any(d => d.Length <= 2 && d.All(char.IsLetter)) ? string.Concat(delen) : gelezen;
         }
 
         // Het logo is maar voor een deel gelezen ("Puur Posth" bij puurposthuma.nl): de gelezen tekst geeft de woorden en
@@ -727,17 +754,26 @@ public static partial class Factuurtekst
     [GeneratedRegex(@"(?:totaal\s*\(?\s*(?:excl\.?|exclusief|ex\.?)\s*(?:btw)?\)?|subtotaal|sub\s*total|total\s*\(?\s*excl\.?\s*vat\)?|netto\s*bedrag)", RegexOptions.IgnoreCase)]
     private static partial Regex ExclusiefLabel();
 
-    [GeneratedRegex(@"\b(?:totaal\s*\(?\s*(?:incl\.?|inclusief)\s*(?:btw)?\)?|te\s*betalen|totaalbedrag|fa[ck]tuurbedrag|total\s*\(?\s*(?:amount|due|incl\.?\s*vat)?\)?|totaal|pinnen|pinbetaling|pin\s+betaald|betaald\s+met\s+pin|pin(?=\s+(?:EUR|€)?\s*[0-9])|(?<![\p{L}-])bedrag(?=\s*:?\s*(?:EUR|€)?\s*[0-9]))(?!\s*\(?\s*(?:excl|exclusief|ex\b|btw\b|v[oó]{2}r))", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(?:totaal\s*\(?\s*(?:incl\.?|inclusief)\s*(?:btw)?\)?|te\s*betalen|totaalbedrag|fa[ck]tuurbedrag|total\s*\(?\s*(?:amount|due|incl\.?\s*vat)?\)?|totaal|pinnen|pinbetaling|pin\s+betaald|betaald\s+met\s+pin|pin(?=\s+(?:EUR|€)?\s*[0-9])|(?<![\p{L}-])bedrag(?=\s*:?\s*(?:EUR|€)?\s*[0-9]))(?!\s*\(?\s*(?:excl|exclusief|ex\b|btw\b|v[oó]{2}r|afgerond))(?<!(?:btw|vat)\s*totaal)", RegexOptions.IgnoreCase)]
     private static partial Regex InclusiefLabel();
 
-    [GeneratedRegex(@"(?:(?:btw|omzetbelasting|vat|b\.t\.w\.)\s*(?:hoog|laag)?\s*\(?\s*([0-9]{1,2}(?:[.,][0-9]+)?)\s*%\)?|([0-9]{1,2}(?:[.,][0-9]+)?)\s*%\s*(?:btw|vat|omzetbelasting)|(?<![\p{L}])btw\s+(?:hoog\s+|laag\s+)?(9|21)(?=\s+(?:€\s*)?[0-9]+[.,][0-9]{2}\s*$))", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"(?:(?:btw|omzetbelasting|vat|b\.t\.w\.)\s*(?:hoog|laag)?\s*\(?\s*([0-9]{1,2}(?:[.,][0-9]+)?)\s*[%""”]\)?|([0-9]{1,2}(?:[.,][0-9]+)?)\s*%\s*(?:btw|vat|omzetbelasting)|(?<![\p{L}])btw\s+(?:hoog\s+|laag\s+)?(9|21)(?=\s+(?:€\s*)?[0-9]+[.,][0-9]{2}\s*$))", RegexOptions.IgnoreCase)]
     private static partial Regex BtwRegel();
 
     [GeneratedRegex(@"^\s*(?:sub)?tota+l", RegexOptions.IgnoreCase)]
     private static partial Regex TotaalVooraan();
 
-    [GeneratedRegex(@"(?<![0-9.,])([0-9]{1,6}), ([0-9]{2})(?![0-9.,])")]
+    [GeneratedRegex(@"(?<![0-9.,])([0-9]{1,6}) ?, ([0-9]{2})(?![0-9.,])|(?<![0-9.,])([0-9]{1,6}) ,([0-9]{2})(?![0-9.,])")]
     private static partial Regex BedragMetSpatie();
+
+    [GeneratedRegex(@"(?<![\p{L}0-9])[CE]([0-9]{1,6}[.,][0-9]{2})(?![0-9])")]
+    private static partial Regex EuroAlsLetter();
+
+    [GeneratedRegex(@"\.n[1I](?![\p{L}0-9])")]
+    private static partial Regex DomeinNl();
+
+    [GeneratedRegex(@"(?<![\p{L}])([Tt]) (ota+l)\b")]
+    private static partial Regex GesplitstTotaal();
 
     [GeneratedRegex(@"(?<![\p{L}0-9])[Bb][I1l|][Ww](?![\p{L}0-9])")]
     private static partial Regex BtwLeesfout();

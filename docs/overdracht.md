@@ -156,7 +156,11 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     (volle grootte) zijn nog nodig om de herkenning echt te toetsen. Daarna in 1500×2000 (`testdata/bonnen/groot/`): de scans
     zijn goed leesbaar, maar Tesseract leest matrixletters (Poiesz, Primera) slecht; een extra leesronde met dikkere
     inkt (3×3-minimum) won niet op de bonnen zelf en is niet opgenomen. Een onleesbaar logo geeft geen straat of
-    kolomkop meer als naam.
+    kolomkop meer als naam. Daarna een andere motor: **PaddleOCR** (PP-OCRv5 via RapidOcrNet en ONNX Runtime,
+    `PaddleOcr`, README §3.20), met Tesseract als terugval; leest de vier echte bonnen goed (naam, datum, totaal,
+    btw). De bonnenstresstest gebruikt dezelfde motor als de app (`BOEKERHOUDEN_OCR=tesseract` voor Tesseract):
+    25 van 25 en 8 van 10 in een ordner. Let op: RapidOcrNet is gebouwd tegen SkiaSharp 3.x, wij draaien 4.155; dat
+    werkt (getest), maar controleer het bij een update van een van beide.
 
 22. **Pinbetaling bij een bon** (README §3.8): het afletteren herkent een afschrijving zonder tegenrekening als de
     betaling van een bon op bedrag, dag (uit de omschrijving of de boekdatum) en winkelnaam (`Afletteren/Pinbetaling`,
