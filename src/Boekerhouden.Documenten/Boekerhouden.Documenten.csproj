@@ -5,6 +5,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="ClosedXML" />
     <PackageReference Include="PdfPig" />
     <PackageReference Include="RapidOcrNet" GeneratePathProperty="true" />
     <PackageReference Include="SkiaSharp" />

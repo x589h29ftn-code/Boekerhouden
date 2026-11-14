@@ -309,3 +309,10 @@ scripts/ui/herstart.sh && node scripts/ui/schermafbeeldingen.js /tmp/schermen vo
     activastaat; journaal: een boeking aanklikken opent de boeking (pijltje voor de regels, rekening naar de
     grootboekkaart), niets gevonden → *Zoeken in alle boekjaren*; forfait btw privégebruik op hele euro's; een
     zelf aangemaakte rekening "btw privé" (zonder functie of RGS) telt in rubriek 1d en de aansluiting.
+
+28. **MRB per voertuig en staat vaste activa inlezen** (14 november): motorrijtuigenbelasting wordt niet meer meteen
+    zelf geboekt maar per voertuig geleerd (`Belastingherkenning.Voertuig`, sleutel `B|mrb|…`). Staat vaste activa
+    inlezen uit Excel of PDF met aansluiting op totalen en grootboek en overnemen als activa (README §3, tabel Activa:
+    *Staat vaste activa inlezen*). Getest op een echte staat van de gebruiker (`testdata/mva/`, niet in git): 15 activa,
+    sluit. De gebruiker levert meer varianten aan; nieuwe kopwoorden horen in `Activastaatlezer.Soort`.
+

@@ -1,0 +1,240 @@
+@page "/a/{Id:guid}/activa/staat"
+@using Boekerhouden.Boekhouding.Activa
+@inject ActivastaatDienst Staatdienst
+@inject ActivaDienst Activa
+@inject GrootboekDienst Grootboek
+@inject NavigationManager Navigatie
+@inject Meldingen Meldingen
+
+<AdministratieKader Id="Id" Titel="Staat vaste activa inlezen" Actief="/activa" BijOpenen="Open" Terug="@($"/a/{Id}/activa")">
+    <Kenmerken>
+        @if (voorstel is not null)
+        {
+            <span title="@voorstel.Bestandsnaam">staat per @Weergave.Datum(voorstel.Staat.Einddatum!.Value)</span>
+            <span class="scheiding">·</span>
+            <span>@voorstel.Staat.Regels.Count() activa</span>
+            <span class="scheiding">·</span>
+            <span>boekwaarde @Weergave.Bedrag(voorstel.Staat.Totaal.Boekwaarde)</span>
+            <span class="scheiding">·</span>
+            @if (voorstel.Staat.Sluit)
+            {
+                <span class="text-secondary">sluit op de totalen</span>
+            }
+            else
+            {
+                <span class="status let-op">sluit niet op de totalen</span>
+            }
+        }
+    </Kenmerken>
+    <Acties>
+        @if (geopend?.Kop.Mag(Recht.Boekhouden) == true && voorstel is not null)
+        {
+            <label class="btn btn-sm btn-outline-secondary @(bezig ? "disabled" : null)" for="staatbestand">Andere staat</label>
+        }
+    </Acties>
+    <ChildContent>
+        @if (!context.Mag(Recht.Boekhouden))
+        {
+            <div class="alert alert-warning">De staat inlezen is voor het kantoor.</div>
+        }
+        else
+        {
+            <InputFile id="staatbestand" class="d-none" accept=".xlsx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" OnChange="Lees" disabled="@bezig" />
+            <Foutmeldingen Fouten="fouten" />
+            @if (voorstel is null)
+            {
+                <LegeStaat Icoon="file-text" Tekst="Staat vaste activa van vorig jaar, uit Excel of PDF">
+                    <label class="btn btn-sm btn-primary @(bezig ? "disabled" : null)" for="staatbestand" aria-busy="@(bezig ? "true" : null)">Staat inlezen</label>
+                </LegeStaat>
+            }
+            else if (schema is not null)
+            {
+                @foreach (var s in voorstel.Staat.Signalen)
+                {
+                    <div class="status let-op d-block mb-1 staatsignaal" title="@(s.Rij is { } rij ? $"Rij {rij} van de staat" : null)">@s.Tekst</div>
+                }
+                @if (voorstel.Bestaand.Count > 0)
+                {
+                    <div class="status d-block mb-2" title="@string.Join(", ", voorstel.Bestaand)">@voorstel.Bestaand.Count al als vast actief aanwezig; die worden overgeslagen.</div>
+                }
+
+                @foreach (var g in voorstel.Staat.Groepen)
+                {
+                    var keuze = keuzes[g.Naam];
+                    <div class="card mb-3 staatgroep">
+                        <div class="card-body pb-2">
+                            <div class="d-flex align-items-center flex-wrap gap-3 mb-2">
+                                <span class="paneelnaam me-auto">@g.Naam</span>
+                                <span class="d-flex align-items-center gap-2 small">
+                                    <span class="text-secondary">Activa</span>
+                                    <span style="width:15rem"><RekeningKeuze Waarde="@keuze.Activarekening" WaardeChanged="w => KiesActivarekening(g.Naam, w)" Schema="schema" Kader="geopend" Label="@($"Activarekening {g.Naam}")" /></span>
+                                </span>
+                                <span class="d-flex align-items-center gap-2 small">
+                                    <span class="text-secondary">Afschrijving</span>
+                                    <span style="width:15rem"><RekeningKeuze Waarde="@keuze.Afschrijvingsrekening" WaardeChanged="w => Kies(g.Naam, keuze with { Afschrijvingsrekening = w })" Schema="schema" Kader="geopend" Label="@($"Afschrijvingsrekening {g.Naam}")" /></span>
+                                </span>
+                                <span class="d-flex align-items-center gap-2 small">
+                                    <span class="text-secondary">Kosten</span>
+                                    <span style="width:15rem"><RekeningKeuze Waarde="@keuze.Kostenrekening" WaardeChanged="w => Kies(g.Naam, keuze with { Kostenrekening = w })" Schema="schema" Kader="geopend" Label="@($"Kostenrekening {g.Naam}")" /></span>
+                                </span>
+                            </div>
+                        </div>
+                        <table class="table table-sm align-middle mb-0 overzichtstabel staatregels">
+                            <thead>
+                                <tr>
+                                    <th>Omschrijving</th>
+                                    <th style="width:9.5rem">Aanschafdatum</th>
+                                    <th class="text-end">Aanschaf</th>
+                                    <th class="text-end">Afgeschreven</th>
+                                    <th class="text-end">Boekwaarde</th>
+                                    <th class="text-end">Restwaarde</th>
+                                    <th class="text-end">%</th>
+                                    <th class="text-end" title="Vanaf @Weergave.Datum(voorstel.Begin)">Nog</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var r in g.Regels)
+                                {
+                                    var o = Staatovername.Van(r, voorstel.Begin);
+                                    var rij = r.Rij;
+                                    <tr class="@(voorstel.Bestaand.Contains(r.Omschrijving) ? "text-secondary" : null)" title="@(voorstel.Bestaand.Contains(r.Omschrijving) ? "Bestaat al; wordt overgeslagen" : $"Rij {r.Rij} van de staat")">
+                                        <td class="text-truncate">@r.Omschrijving</td>
+                                        <td>
+                                            @if (o is { DatumGeschat: true })
+                                            {
+                                                <span title="Niet op de staat; geschat uit wat al is afgeschreven"><DatumVeld Id="@($"datum-{rij}")" Waarde="@(datums.GetValueOrDefault(rij, o.Aanschafdatum))" WaardeChanged="d => datums[rij] = d" Label="Aanschafdatum" /></span>
+                                            }
+                                            else if (r.Datum is { } d)
+                                            {
+                                                @Weergave.Datum(d)
+                                            }
+                                        </td>
+                                        <td class="bedrag text-end">@Weergave.Bedrag(r.AanschafEind)</td>
+                                        <td class="bedrag text-end">@Weergave.Bedrag(r.AfschrijvingEind)</td>
+                                        <td class="bedrag text-end">@Weergave.Bedrag(r.Boekwaarde)</td>
+                                        <td class="bedrag text-end">@(r.Restwaarde == 0 ? null : Weergave.Bedrag(r.Restwaarde))</td>
+                                        <td class="text-end">@(r.Percentage is { } p ? p.ToString("0.##", Nl) : null)</td>
+                                        <td class="text-end text-secondary small">@(o is null ? "weg" : o.Methode == Afschrijvingsmethode.Geen ? "niet" : o.AfgeschrevenVoorBegin >= o.Aanschafwaarde - o.Restwaarde ? "klaar" : $"{o.Looptijd} mnd")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot>
+                                <tr class="fw-semibold">
+                                    <td>Totaal @g.Naam</td>
+                                    <td></td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(g.Som.AanschafEind)</td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(g.Som.AfschrijvingEind)</td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(g.Som.Boekwaarde)</td>
+                                    <td colspan="3"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                }
+
+                @if (aansluiting is { Count: > 0 })
+                {
+                    <div class="paneelkop mt-2">Aansluiting met het grootboek per @Weergave.Datum(voorstel.Begin)</div>
+                    <div class="card mb-3">
+                        <table class="table table-sm align-middle mb-0 overzichtstabel staataansluiting">
+                            <thead><tr><th>Rekening</th><th>Volgens</th><th class="text-end">Staat</th><th class="text-end">Grootboek</th><th class="text-end">Verschil</th></tr></thead>
+                            <tbody>
+                                @foreach (var a in aansluiting)
+                                {
+                                    <tr>
+                                        <td>@a.Rekening @a.Naam</td>
+                                        <td class="text-secondary">@a.Wat</td>
+                                        <td class="bedrag text-end">@Weergave.Bedrag(a.Staat)</td>
+                                        <td class="bedrag text-end">@Weergave.Bedrag(a.Grootboek)</td>
+                                        <td class="bedrag text-end @(a.Verschil == 0 ? "text-secondary" : "status let-op")">@Weergave.Bedrag(a.Verschil)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                <div class="d-flex align-items-center gap-2 mt-3 staat-overnemen">
+                    <a class="btn btn-link text-secondary ms-auto" href="/a/@Id/activa">Annuleren</a>
+                    <button class="btn btn-primary" disabled="@bezig" @onclick="NeemOver">Activa overnemen</button>
+                </div>
+            }
+        }
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private static readonly System.Globalization.CultureInfo Nl = System.Globalization.CultureInfo.GetCultureInfo("nl-NL");
+    private Geopend? geopend;
+    private Boekhouding.Grootboek.Rekeningschema? schema;
+    private Staatvoorstel? voorstel;
+    private Dictionary<string, Staatgroepkeuze> keuzes = [];
+    private readonly Dictionary<int, DateOnly> datums = [];
+    private IReadOnlyList<Staataansluiting>? aansluiting;
+    private IReadOnlyList<string>? fouten;
+    private bool bezig;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        schema = await Grootboek.Schema(g.Wie, Id);
+    }
+
+    private async Task Lees(InputFileChangeEventArgs e)
+    {
+        (bezig, fouten) = (true, null);
+        try
+        {
+            await using var stream = e.File.OpenReadStream(ActivastaatDienst.MaximumBytes);
+            var uitkomst = await Staatdienst.Lees(geopend!.Wie, Id, stream, e.File.Name);
+            fouten = uitkomst.IsGelukt ? null : uitkomst.Fouten;
+            if (uitkomst.Waarde is { } v)
+            {
+                voorstel = v;
+                keuzes = v.Groepen.ToDictionary(k => k.Groep);
+                datums.Clear();
+                await Sluit();
+            }
+        }
+        catch (IOException)
+        {
+            fouten = [$"{e.File.Name} is groter dan {ActivastaatDienst.MaximumBytes / 1024 / 1024} MB."];
+        }
+        finally
+        {
+            bezig = false;
+        }
+    }
+
+    /// <summary>Een andere activarekening: de afschrijvings- en kostenrekening die daarbij horen erbij.</summary>
+    private async Task KiesActivarekening(string groep, string? rekening)
+    {
+        var (afschrijving, kosten, _) = string.IsNullOrWhiteSpace(rekening) ? (null, null, 0) : await Activa.Rekeningvoorstel(geopend!.Wie, Id, rekening);
+        var huidig = keuzes[groep];
+        await Kies(groep, huidig with { Activarekening = rekening, Afschrijvingsrekening = afschrijving ?? huidig.Afschrijvingsrekening, Kostenrekening = kosten ?? huidig.Kostenrekening });
+    }
+
+    private async Task Kies(string groep, Staatgroepkeuze keuze)
+    {
+        keuzes[groep] = keuze;
+        await Sluit();
+    }
+
+    private async Task Sluit() => aansluiting = await Staatdienst.Aansluiting(geopend!.Wie, Id, voorstel!, [.. keuzes.Values]);
+
+    private async Task NeemOver()
+    {
+        bezig = true;
+        var uitkomst = await Staatdienst.NeemOver(geopend!.Wie, Id, voorstel!, [.. keuzes.Values], datums);
+        bezig = false;
+        fouten = uitkomst.IsGelukt ? null : uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            Meldingen.Toon($"{uitkomst.Waarde} activa overgenomen van de staat per {Weergave.Datum(voorstel!.Staat.Einddatum!.Value)}.");
+            Navigatie.NavigateTo($"/a/{Id}/activa");
+        }
+    }
+}

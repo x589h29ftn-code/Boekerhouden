@@ -134,6 +134,7 @@ public static class Opstart
         services.AddSingleton<PeriodeDienst>();
         services.AddSingleton<ActivaDienst>();
         services.AddSingleton<BeginbalansDienst>();
+        services.AddSingleton<ActivastaatDienst>();
         services.AddSingleton<ConceptDienst>();
         services.AddSingleton<BtwaangifteDienst>();
         services.AddSingleton<VpbDienst>();

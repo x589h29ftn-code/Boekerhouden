@@ -46,7 +46,16 @@
         else if (mag)
         {
             <button class="btn btn-outline-secondary" disabled="@bezig" @onclick="OpenAfschrijven">Afschrijven</button>
-            <a class="btn btn-outline-secondary" href="/a/@Id/activa/nieuw"><Icoon Naam="plus" /> Nieuw</a>
+            <span class="knopmenu activa-nieuw">
+                <button class="btn btn-outline-secondary" aria-expanded="@(nieuwOpen ? "true" : "false")" @onclick="() => nieuwOpen = !nieuwOpen"><Icoon Naam="plus" /> Nieuw <Icoon Naam="chevron-down" /></button>
+                @if (nieuwOpen)
+                {
+                    <span class="menu">
+                        <a href="/a/@Id/activa/nieuw">Nieuw actief</a>
+                        <a href="/a/@Id/activa/staat" title="De staat vaste activa van vorig jaar (Excel of PDF) overnemen">Staat inlezen…</a>
+                    </span>
+                }
+            </span>
         }
     </Acties>
     <ChildContent>
@@ -255,6 +264,7 @@
 </AdministratieKader>
 
 @code {
+    private bool nieuwOpen;
     private Geopend? geopend;
     private IReadOnlyList<Activaregel>? lijst;
     private IReadOnlyList<Activakandidaat>? kandidaten;

@@ -157,6 +157,7 @@ public static class AuditActies
     public const string PeriodeAfgesloten = "Periode afgesloten";
     public const string PeriodeHeropend = "Periode heropend";
     public const string ActivumToegevoegd = "Vast actief toegevoegd";
+    public const string ActivastaatIngelezen = "Staat vaste activa ingelezen";
     public const string ActivumGewijzigd = "Vast actief gewijzigd";
     public const string ActivumVerwijderd = "Vast actief verwijderd";
     public const string ActivumHerzien = "Afschrijving vast actief gewijzigd";
