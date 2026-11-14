@@ -68,4 +68,39 @@ public sealed class ExcelActivastaatTests
     [Fact]
     public void Geen_excelbestand_geeft_een_duidelijke_fout() =>
         Assert.Contains(".xlsx", Assert.Throws<DocumentException>(() => ExcelActivastaat.Lees(new MemoryStream("geen excel"u8.ToArray()))).Message, StringComparison.Ordinal);
+
+    [Fact]
+    public void Het_sjabloon_ingevuld_wordt_helemaal_gelezen()
+    {
+        var sjabloon = ExcelActivastaat.Sjabloon(2025, [("0200", "Inventaris", "activa"), ("0210", "Afschrijving inventaris", "afschrijving")]);
+        using var boek = new XLWorkbook(new MemoryStream(sjabloon));
+        Assert.Equal(["Vaste activa", "Uitleg", "Rekeningen"], boek.Worksheets.Select(w => w.Name));
+        Assert.Equal("0200", boek.Worksheet("Rekeningen").Cell(2, 1).GetString());
+        var blad = boek.Worksheet("Vaste activa");
+        object[] bus = ["Bestelbus", "Vervoermiddelen", new DateTime(2024, 7, 1), 24000, 2000, 20, 2200, 21800, "0300", "0310", "4810", "bestelauto", null!, "Grijs kenteken"];
+        object[] auto = ["Personenauto", "Vervoermiddelen", new DateTime(2023, 3, 1), 40000, 5000, 20, 15750, 24250, "0300", "0310", "4810", "ja", 45000, null!];
+        foreach (var (rij, waarden) in new[] { (2, bus), (3, auto) })
+        {
+            for (var c = 0; c < waarden.Length; c++)
+            {
+                if (waarden[c] is { } w)
+                {
+                    blad.Cell(rij, c + 1).Value = XLCellValue.FromObject(w, System.Globalization.CultureInfo.InvariantCulture);
+                }
+            }
+        }
+
+        using var ingevuld = new MemoryStream();
+        boek.SaveAs(ingevuld);
+        ingevuld.Position = 0;
+
+        var staat = ExcelActivastaat.Lees(ingevuld);
+
+        Assert.True(staat.Sluit, string.Join(" | ", staat.Signalen));
+        Assert.Equal(2025, staat.Jaar);
+        var (b, a) = (staat.Regels.First(), staat.Regels.Last());
+        Assert.Equal(("Vervoermiddelen", 24000m, 2000m, 20m, 2200m, 21800m), (b.Groep, b.AanschafEind, b.Restwaarde, b.Percentage!.Value, b.AfschrijvingEind, b.Boekwaarde));
+        Assert.Equal(("0300", "0310", "4810", Boekhouding.Activa.Privegebruik.NeeBestelauto, "Grijs kenteken"), (b.Activarekening, b.Afschrijvingsrekening, b.Kostenrekening, b.Privegebruik, b.Notitie));
+        Assert.Equal((Boekhouding.Activa.Privegebruik.JaForfait, (decimal?)45000m, new DateOnly(2023, 3, 1)), (a.Privegebruik, a.Cataloguswaarde, a.Datum!.Value));
+    }
 }

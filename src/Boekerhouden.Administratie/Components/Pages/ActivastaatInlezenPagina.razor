@@ -5,6 +5,7 @@
 @inject GrootboekDienst Grootboek
 @inject NavigationManager Navigatie
 @inject Meldingen Meldingen
+@inject IJSRuntime JS
 
 <AdministratieKader Id="Id" Titel="Staat vaste activa inlezen" Actief="/activa" BijOpenen="Open" Terug="@($"/a/{Id}/activa")">
     <Kenmerken>
@@ -27,6 +28,7 @@
         }
     </Kenmerken>
     <Acties>
+        <button class="btn btn-sm btn-outline-secondary sjabloon" disabled="@bezig" title="Een leeg Excel-sjabloon met alles per actief, om in te vullen en in te lezen" @onclick="Sjabloon">Sjabloon</button>
         @if (geopend?.Kop.Mag(Recht.Boekhouden) == true && voorstel is not null)
         {
             <label class="btn btn-sm btn-outline-secondary @(bezig ? "disabled" : null)" for="staatbestand">Andere staat</label>
@@ -224,6 +226,20 @@
     }
 
     private async Task Sluit() => aansluiting = await Staatdienst.Aansluiting(geopend!.Wie, Id, voorstel!, [.. keuzes.Values]);
+
+    private async Task Sjabloon()
+    {
+        bezig = true;
+        try
+        {
+            var (inhoud, jaar) = await Staatdienst.Sjabloon(geopend!.Wie, Id);
+            await JS.Bewaar(inhoud, $"Sjabloon staat vaste activa {jaar}.xlsx", Download.Excel);
+        }
+        finally
+        {
+            bezig = false;
+        }
+    }
 
     private async Task NeemOver()
     {

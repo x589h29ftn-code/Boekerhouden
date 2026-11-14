@@ -105,4 +105,42 @@ public sealed class ActivastaatTests(AdministratieFixture app) : IClassFixture<A
         await Assert.ThrowsAsync<GeenToegangException>(() => dienst.Lees(inzien, id, Staat(), "staat.xlsx"));
         await Assert.ThrowsAsync<GeenToegangException>(() => dienst.NeemOver(inzien, id, voorstel, voorstel.Groepen));
     }
+
+    [Fact]
+    public async Task Het_sjabloon_downloaden_invullen_en_overnemen_met_rekeningen_en_privegebruik_per_actief()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Sjabloon B.V.");
+        var dienst = app.Dienst<ActivastaatDienst>();
+        Assert.True((await app.Dienst<GrootboekDienst>().Boek(wie, id, new Boekhouding.Grootboek.Journaalpost("MEM", "2026-0001", new(2026, 1, 1), "Beginbalans 2026",
+            [new("0300", 40000m), new("0310", -15750m), new("0500", -24250m)]))).IsGelukt);
+
+        var (inhoud, jaar) = await dienst.Sjabloon(wie, id);
+        Assert.Equal(2025, jaar);
+        using var boek = new XLWorkbook(new MemoryStream(inhoud));
+        Assert.Contains(boek.Worksheet("Rekeningen").RowsUsed().Select(r => r.Cell(1).GetString()), n => n == "0300");
+        var blad = boek.Worksheet("Vaste activa");
+        (blad.Cell(2, 1).Value, blad.Cell(2, 2).Value, blad.Cell(2, 3).Value, blad.Cell(2, 4).Value, blad.Cell(2, 5).Value, blad.Cell(2, 6).Value, blad.Cell(2, 7).Value) =
+            ("Personenauto", "Auto's", new DateTime(2023, 3, 1), 40000, 5000, 20, 15750);
+        blad.Cell(2, 9).SetValue("0300");
+        blad.Cell(2, 10).SetValue("0310");
+        (blad.Cell(2, 12).Value, blad.Cell(2, 13).Value, blad.Cell(2, 14).Value) = ("ja", 45000, "Lease afgelost");
+        var ingevuld = new MemoryStream();
+        boek.SaveAs(ingevuld);
+        ingevuld.Position = 0;
+
+        var voorstel = (await dienst.Lees(wie, id, ingevuld, "sjabloon.xlsx")).Waarde!;
+
+        // De rekeningen uit het sjabloon; de kostenrekening (leeg) volgt uit RGS bij de activarekening.
+        var keuze = Assert.Single(voorstel.Groepen);
+        Assert.Equal(("Auto's", "0300", "0310"), (keuze.Groep, keuze.Activarekening, keuze.Afschrijvingsrekening));
+        Assert.NotNull(keuze.Kostenrekening);
+        Assert.All(await dienst.Aansluiting(wie, id, voorstel, voorstel.Groepen), a => Assert.Equal(0m, a.Verschil));
+        Assert.True((await dienst.NeemOver(wie, id, voorstel, voorstel.Groepen)).IsGelukt);
+
+        var auto = (await app.Dienst<ActivaDienst>().Lijst(wie, id)).Single();
+        var invoer = (await app.Dienst<ActivaDienst>().Open(wie, id, auto.Id))!.Invoer;
+        Assert.Equal((24250m, Privegebruik.JaForfait, (decimal?)45000m, 15750m), (auto.Boekwaarde, invoer.Privegebruik, invoer.Cataloguswaarde, invoer.AfgeschrevenVoorBegin));
+        Assert.StartsWith("Lease afgelost; Overgenomen van de staat sjabloon.xlsx", invoer.Notitie, StringComparison.Ordinal);
+    }
 }

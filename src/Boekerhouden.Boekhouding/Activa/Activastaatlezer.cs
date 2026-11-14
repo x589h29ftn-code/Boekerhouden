@@ -33,6 +33,13 @@ public enum Staatkolom
     Restwaarde,
     Percentage,
     Jaren,
+    Groep,
+    Activarekening,
+    Afschrijvingsrekening,
+    Kostenrekening,
+    Privegebruik,
+    Cataloguswaarde,
+    Notitie,
 }
 
 /// <summary>Een actief op de staat, met de bedragen zoals ze er staan (wat ontbreekt is aangevuld als het volgt uit de rest).</summary>
@@ -51,7 +58,13 @@ public sealed record Staatregel(
     decimal AfschrijvingEind,
     decimal Boekwaarde,
     decimal Restwaarde,
-    decimal? Percentage);
+    decimal? Percentage,
+    string? Activarekening = null,
+    string? Afschrijvingsrekening = null,
+    string? Kostenrekening = null,
+    Privegebruik Privegebruik = Privegebruik.Onbekend,
+    decimal? Cataloguswaarde = null,
+    string? Notitie = null);
 
 /// <summary>Een groep (bijv. inventaris, vervoermiddelen) met het subtotaal van de staat, als dat er stond.</summary>
 public sealed record Staatgroep(string Naam, IReadOnlyList<Staatregel> Regels, Staattotaal? Subtotaal)
@@ -119,7 +132,8 @@ public static partial class Activastaatlezer
         Staatcel Cel(IReadOnlyList<Staatcel> rij, Staatkolom kolom) =>
             kolommen.TryGetValue(kolom, out var i) && i < rij.Count ? rij[i] : Staatcel.Leeg;
         decimal? Getal(IReadOnlyList<Staatcel> rij, Staatkolom kolom) => Bedrag(Cel(rij, kolom));
-        var bedragkolommen = kolommen.Keys.Where(k => k is not (Staatkolom.Omschrijving or Staatkolom.Datum or Staatkolom.Percentage or Staatkolom.Jaren)).ToList();
+        var bedragkolommen = kolommen.Keys.Where(k => k is not (Staatkolom.Omschrijving or Staatkolom.Datum or Staatkolom.Percentage or Staatkolom.Jaren or Staatkolom.Groep
+            or Staatkolom.Activarekening or Staatkolom.Afschrijvingsrekening or Staatkolom.Kostenrekening or Staatkolom.Privegebruik or Staatkolom.Cataloguswaarde or Staatkolom.Notitie)).ToList();
 
         var groepen = new List<(string Naam, List<Staatregel> Regels, Staattotaal? Subtotaal)>();
         string? groep = null;
@@ -168,7 +182,8 @@ public static partial class Activastaatlezer
                 continue;
             }
 
-            var naam = groep ?? "Vaste activa";
+            // Een kolom Groep (zoals in het sjabloon) gaat voor de groepsregels.
+            var naam = Cel(rij, Staatkolom.Groep).Tekst?.Trim() is { Length: > 0 } eigenGroep ? eigenGroep : groep ?? "Vaste activa";
             if (groepen.Count == 0 || groepen[^1].Naam != naam || groepen[^1].Subtotaal is not null)
             {
                 groepen.Add((naam, [], null));
@@ -219,8 +234,11 @@ public static partial class Activastaatlezer
         var percentage = G(Staatkolom.Percentage) is { } p and > 0 ? (p <= 1m ? p * 100m : p)
             : G(Staatkolom.Jaren) is { } jaren and > 0 ? Math.Round(100m / jaren, 2) : (decimal?)null;
         var datum = cel(cellen, Staatkolom.Datum) is { } d ? d.Datum ?? Datumtekst(d.Tekst) : null;
+        string? T(Staatkolom k) => cel(cellen, k) is { } c && (c.Tekst?.Trim() is { Length: > 0 } t ? t : c.Getal is { } g ? g.ToString("0.##", CultureInfo.InvariantCulture) : null) is { } w ? w : null;
         return new Staatregel(rij, groep, tekst, datum, begin, investeringen, desinvesteringen, aanschafEind, afschrijvingBegin, afschrijvingJaar,
-            afschrijvingDesinvesteringen, afschrijvingEind, boekwaarde ?? aanschafEind - afschrijvingEind, G(Staatkolom.Restwaarde) ?? 0m, percentage);
+            afschrijvingDesinvesteringen, afschrijvingEind, boekwaarde ?? aanschafEind - afschrijvingEind, G(Staatkolom.Restwaarde) ?? 0m, percentage,
+            T(Staatkolom.Activarekening), T(Staatkolom.Afschrijvingsrekening), T(Staatkolom.Kostenrekening), Privegebruiktekst(T(Staatkolom.Privegebruik)),
+            G(Staatkolom.Cataloguswaarde) is > 0 and var catalogus ? catalogus : null, T(Staatkolom.Notitie));
     }
 
     private static IEnumerable<Staatsignaal> Controleer(Staatregel r)
@@ -323,19 +341,26 @@ public static partial class Activastaatlezer
     internal static Staatkolom? Soort(string eigen, string boven)
     {
         bool Heeft(string t, params string[] woorden) => woorden.Any(w => t.Contains(w, StringComparison.Ordinal));
-        var tekst = $"{eigen} {(Heeft(eigen, "aanschaf", "afschrij", "boekwaarde", "investering") ? string.Empty : boven)}".Trim();
+        var tekst = $"{eigen} {(Heeft(eigen, "aanschaf", "afschrij", "afgeschreven", "boekwaarde", "investering") ? string.Empty : boven)}".Trim();
         var begin = Heeft(eigen, Beginwoorden);
         var eind = Heeft(eigen, Eindwoorden) && !Heeft(eigen, "vorig");
         return tekst switch
         {
+            _ when Heeft(eigen, "rekening") && Heeft(eigen, "afschrij") => Staatkolom.Afschrijvingsrekening,
+            _ when Heeft(eigen, "rekening") && Heeft(eigen, "kosten") => Staatkolom.Kostenrekening,
+            _ when Heeft(eigen, "activarekening", "balansrekening", "grootboekrekening") => Staatkolom.Activarekening,
+            _ when Heeft(eigen, "groep", "categorie") => Staatkolom.Groep,
+            _ when Heeft(eigen, "privegebruik", "prive-gebruik", "prive gebruik") => Staatkolom.Privegebruik,
+            _ when Heeft(eigen, "catalogus") => Staatkolom.Cataloguswaarde,
+            _ when Heeft(eigen, "notitie", "opmerking", "toelichting") => Staatkolom.Notitie,
             _ when Heeft(eigen, "omschrijving", "activum", "activa", "object") && !Heeft(eigen, "aanschaf", "afschrij") => Staatkolom.Omschrijving,
             _ when Heeft(eigen, "datum", "aankoopdatum", "in gebruik") => Staatkolom.Datum,
             _ when Heeft(eigen, "restwaarde", "residuwaarde", "residu") => Staatkolom.Restwaarde,
-            _ when eigen is "%" or "perc." || Heeft(eigen, "percentage", "% afschr", "afschr. %") => Staatkolom.Percentage,
+            _ when eigen is "%" or "perc." || Heeft(eigen, "percentage", "%") => Staatkolom.Percentage,
             _ when Heeft(eigen, "levensduur", "looptijd", "jaren", "termijn") => Staatkolom.Jaren,
             _ when Heeft(tekst, "boekwaarde") => begin && !eind ? Staatkolom.BoekwaardeBegin : Staatkolom.BoekwaardeEind,
-            _ when Heeft(tekst, "afschrij") && Heeft(tekst, "desinv") => Staatkolom.AfschrijvingDesinvesteringen,
-            _ when Heeft(tekst, "afschrij") => eind ? Staatkolom.AfschrijvingEind : begin ? Staatkolom.AfschrijvingBegin : Staatkolom.AfschrijvingJaar,
+            _ when Heeft(tekst, "afschrij", "afgeschreven") && Heeft(tekst, "desinv") => Staatkolom.AfschrijvingDesinvesteringen,
+            _ when Heeft(tekst, "afschrij", "afgeschreven") => eind ? Staatkolom.AfschrijvingEind : begin ? Staatkolom.AfschrijvingBegin : Staatkolom.AfschrijvingJaar,
             _ when Heeft(tekst, "desinv", "verkopen", "buiten gebruik") => Staatkolom.Desinvesteringen,
             _ when Heeft(tekst, "investering") => Staatkolom.Investeringen,
             _ when Heeft(tekst, "aanschaf", "kostprijs", "verkrijgingsprijs") => begin && !eind ? Staatkolom.AanschafBegin : Staatkolom.AanschafEind,
@@ -370,6 +395,20 @@ public static partial class Activastaatlezer
             "dd-MM-yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
             ? d
             : null;
+
+    /// <summary>Privégebruik zoals in het sjabloon: ja (forfait), ja werkelijk, nee, bestelauto, rittenregistratie, verklaring.</summary>
+    private static Privegebruik Privegebruiktekst(string? tekst) => (tekst ?? string.Empty).Trim().ToLowerInvariant() switch
+    {
+        "" => Privegebruik.Onbekend,
+        var t when t.Contains("werkelijk", StringComparison.Ordinal) => Privegebruik.JaWerkelijk,
+        var t when t.Contains("zonder btw", StringComparison.Ordinal) => Privegebruik.JaForfaitZonderBtw,
+        var t when t.StartsWith("ja", StringComparison.Ordinal) || t.Contains("forfait", StringComparison.Ordinal) => Privegebruik.JaForfait,
+        var t when t.Contains("bestel", StringComparison.Ordinal) => Privegebruik.NeeBestelauto,
+        var t when t.Contains("ritten", StringComparison.Ordinal) => Privegebruik.NeeRittenregistratie,
+        var t when t.Contains("verklaring", StringComparison.Ordinal) => Privegebruik.NeeVerklaring,
+        var t when t.StartsWith("nee", StringComparison.Ordinal) => Privegebruik.NeeAnders,
+        _ => Privegebruik.Onbekend,
+    };
 
     /// <summary>Alleen een eenheid of teken in de omschrijvingskolom (een rij met € onder de kop): geen groep.</summary>
     private static bool Eenheid(string tekst) => tekst.Trim() is "€" or "%" or "EUR";

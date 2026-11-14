@@ -80,10 +80,25 @@ public sealed class ActivastaatDienst(Toegang toegang, ActivaDienst activa, Audi
 
         var (schema, _) = await GrootboekDienst.Inrichting(db);
         var bestaande = await db.Activa.AsNoTracking().ToListAsync(annulering);
-        var groepen = staat.Groepen.Select(g => g.Naam).Distinct().Select(g => Voorstel(g, schema, bestaande)).ToList();
+        var groepen = staat.Groepen.GroupBy(g => g.Naam).Select(g => Voorstel(g.Key, schema, bestaande, g.SelectMany(x => x.Regels).ToList())).ToList();
         var omschrijvingen = bestaande.Select(a => Namen.Normaliseer(a.Omschrijving)).ToHashSet(StringComparer.Ordinal);
         var dubbel = staat.Regels.Where(r => omschrijvingen.Contains(Namen.Normaliseer(r.Omschrijving))).Select(r => r.Omschrijving).ToHashSet(StringComparer.Ordinal);
         return Uitkomst<Staatvoorstel>.Met(new Staatvoorstel(naam, staat, eind.AddDays(1), groepen, dubbel));
+    }
+
+    /// <summary>
+    /// Het vaste sjabloon (Excel) voor een staat per 31 december van het jaar vóór het eerste boekjaar van de
+    /// administratie, met de balans- en kostenrekeningen die voor vaste activa in aanmerking komen.
+    /// </summary>
+    public async Task<(byte[] Inhoud, int Jaar)> Sjabloon(Uitvoerder wie, Guid administratie)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
+        var (schema, _) = await GrootboekDienst.Inrichting(db);
+        var eerste = await db.Boekingen.MinAsync(b => (DateOnly?)b.Datum);
+        var jaar = (eerste?.Year ?? DateTime.Today.Year) - 1;
+        static bool Vast(Rekening r) => r.RgsCode is { } rgs && (rgs.StartsWith("BMva", StringComparison.Ordinal) || rgs.StartsWith("BIva", StringComparison.Ordinal) || rgs.StartsWith("WAfs", StringComparison.Ordinal));
+        var rekeningen = schema.Alle.Where(Vast).Select(r => (r.Nummer, r.Naam, r.IsBalans ? (r.RgsCode!.EndsWith("Cae", StringComparison.Ordinal) ? "afschrijving" : "activa") : "kosten"));
+        return (Documenten.ExcelActivastaat.Sjabloon(jaar, rekeningen), jaar);
     }
 
     /// <summary>
@@ -97,23 +112,24 @@ public sealed class ActivastaatDienst(Toegang toegang, ActivaDienst activa, Audi
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
         var (schema, _) = await GrootboekDienst.Inrichting(db);
         var staat = new Dictionary<(string Rekening, string Wat), decimal>();
-        foreach (var g in voorstel.Staat.Groepen)
+        foreach (var r in voorstel.Staat.Regels)
         {
-            if (keuzes.FirstOrDefault(k => k.Groep == g.Naam) is not { Activarekening: { Length: > 0 } activarekening } keuze)
+            var (activarekening, afschrijving, _) = Rekeningen(r, keuzes, schema);
+            if (activarekening is null)
             {
                 continue;
             }
 
-            if (keuze.Afschrijvingsrekening == activarekening)
+            if (afschrijving == activarekening)
             {
-                staat[(activarekening, "boekwaarde")] = staat.GetValueOrDefault((activarekening, "boekwaarde")) + g.Som.Boekwaarde;
+                staat[(activarekening, "boekwaarde")] = staat.GetValueOrDefault((activarekening, "boekwaarde")) + r.Boekwaarde;
                 continue;
             }
 
-            staat[(activarekening, "aanschafwaarde")] = staat.GetValueOrDefault((activarekening, "aanschafwaarde")) + g.Som.AanschafEind;
-            if (keuze.Afschrijvingsrekening is { Length: > 0 } afschrijving)
+            staat[(activarekening, "aanschafwaarde")] = staat.GetValueOrDefault((activarekening, "aanschafwaarde")) + r.AanschafEind;
+            if (afschrijving is not null)
             {
-                staat[(afschrijving, "afschrijving")] = staat.GetValueOrDefault((afschrijving, "afschrijving")) - g.Som.AfschrijvingEind;
+                staat[(afschrijving, "afschrijving")] = staat.GetValueOrDefault((afschrijving, "afschrijving")) - r.AfschrijvingEind;
             }
         }
 
@@ -142,6 +158,12 @@ public sealed class ActivastaatDienst(Toegang toegang, ActivaDienst activa, Audi
 
         var invoer = new List<ActivumInvoer>();
         var fouten = new List<string>();
+        Rekeningschema schema;
+        await using (var db = await toegang.Open(wie, administratie, Recht.Boekhouden))
+        {
+            (schema, _) = await GrootboekDienst.Inrichting(db);
+        }
+
         foreach (var regel in voorstel.Staat.Regels.Where(r => !voorstel.Bestaand.Contains(r.Omschrijving)))
         {
             if (Staatovername.Van(regel, voorstel.Begin) is not { } o)
@@ -149,23 +171,20 @@ public sealed class ActivastaatDienst(Toegang toegang, ActivaDienst activa, Audi
                 continue;
             }
 
-            if (keuzes.FirstOrDefault(k => k.Groep == regel.Groep) is not { Activarekening: { Length: > 0 } a, Afschrijvingsrekening: { Length: > 0 } f, Kostenrekening: { Length: > 0 } k })
+            if (Rekeningen(regel, keuzes, schema) is not ({ } a, { } f, { } k))
             {
                 fouten.Add($"Kies bij {regel.Groep} de activarekening, de afschrijvingsrekening en de kostenrekening.");
                 continue;
             }
 
             var datum = datums?.GetValueOrDefault(regel.Rij) is { } gekozen && gekozen != default ? gekozen : o.Aanschafdatum;
+            var notitie = string.Join("; ", new[] { regel.Notitie, $"Overgenomen van de staat {voorstel.Bestandsnaam}", o.DatumGeschat && datum == o.Aanschafdatum ? "aanschafdatum geschat" : null }.Where(t => t is not null));
             invoer.Add(new ActivumInvoer(o.Omschrijving, datum, o.Aanschafwaarde, o.Restwaarde, o.BeginAfschrijving, o.Looptijd, o.Methode, a, f, k, o.AfgeschrevenVoorBegin,
-                Bron: null, Notitie: $"Overgenomen van de staat {voorstel.Bestandsnaam}" + (o.DatumGeschat && datum == o.Aanschafdatum ? "; aanschafdatum geschat" : null)));
+                Bron: null, Notitie: notitie, Privegebruik: regel.Privegebruik, Cataloguswaarde: regel.Cataloguswaarde));
         }
 
         // Eerst alles controleren: liever niets aanmaken dan de helft.
-        await using (var db = await toegang.Open(wie, administratie, Recht.Boekhouden))
-        {
-            var (schema, _) = await GrootboekDienst.Inrichting(db);
-            fouten.AddRange(invoer.SelectMany(i => i.NaarDomein().Controleer(schema).Select(f => $"{i.Omschrijving}: {f}")));
-        }
+        fouten.AddRange(invoer.SelectMany(i => i.NaarDomein().Controleer(schema).Select(f => $"{i.Omschrijving}: {f}")));
 
         if (fouten.Count > 0)
         {
@@ -190,8 +209,16 @@ public sealed class ActivastaatDienst(Toegang toegang, ActivaDienst activa, Audi
     /// De rekeningen voor een groep: een activarekening met (een deel van) de naam van de groep ("Inventaris",
     /// "Vervoermiddelen"), dan de afschrijvings- en kostenrekening die daarbij horen (zoals bij eerdere activa, anders RGS).
     /// </summary>
-    internal static Staatgroepkeuze Voorstel(string groep, Rekeningschema schema, IReadOnlyList<Data.Activum> bestaande)
+    internal static Staatgroepkeuze Voorstel(string groep, Rekeningschema schema, IReadOnlyList<Data.Activum> bestaande, IReadOnlyList<Staatregel>? regels = null)
     {
+        // Het sjabloon noemt de rekeningen per actief: die van de eerste regel als voorstel voor de groep.
+        if (regels?.FirstOrDefault(r => r.Activarekening is not null) is { } metRekening)
+        {
+            var (afschrijvingVoorstel, kostenVoorstel, _) = ActivaDienst.Rekeningen(schema, bestaande, Rekening(metRekening.Activarekening, schema) ?? "");
+            return new Staatgroepkeuze(groep, Rekening(metRekening.Activarekening, schema), Rekening(metRekening.Afschrijvingsrekening, schema) ?? afschrijvingVoorstel,
+                Rekening(metRekening.Kostenrekening, schema) ?? kostenVoorstel);
+        }
+
         var woorden = Namen.Normaliseer(groep).Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(w => w.Length >= 5).Select(w => w[..Math.Min(6, w.Length)]).ToList();
         bool Past(Rekening r) => woorden.Any(w => Namen.Normaliseer(r.Naam).Contains(w, StringComparison.Ordinal));
         bool IsAfschrijving(Rekening r) => Namen.Normaliseer(r.Naam) is var n && (n.Contains("afschr", StringComparison.Ordinal) || n.Contains("cumul", StringComparison.Ordinal));
@@ -207,6 +234,21 @@ public sealed class ActivastaatDienst(Toegang toegang, ActivaDienst activa, Audi
         afschrijving ??= schema.Alle.FirstOrDefault(r => r.IsBalans && IsAfschrijving(r) && Past(r))?.Nummer;
         return new Staatgroepkeuze(groep, activarekening.Nummer, afschrijving, kosten);
     }
+
+    /// <summary>De rekeningen voor een actief: uit de staat zelf (het sjabloon) als ze er staan, anders de keuze voor de groep.</summary>
+    private static (string? Activa, string? Afschrijving, string? Kosten) Rekeningen(Staatregel regel, IReadOnlyList<Staatgroepkeuze> keuzes, Rekeningschema schema)
+    {
+        var keuze = keuzes.FirstOrDefault(k => k.Groep == regel.Groep);
+        static string? Gevuld(string? tekst) => string.IsNullOrWhiteSpace(tekst) ? null : tekst.Trim();
+        return (Rekening(regel.Activarekening, schema) ?? Gevuld(keuze?.Activarekening),
+            Rekening(regel.Afschrijvingsrekening, schema) ?? Gevuld(keuze?.Afschrijvingsrekening),
+            Rekening(regel.Kostenrekening, schema) ?? Gevuld(keuze?.Kostenrekening));
+    }
+
+    /// <summary>Een rekeningnummer uit de staat zoals het in het schema staat (Excel maakt van 0200 soms 200).</summary>
+    private static string? Rekening(string? nummer, Rekeningschema schema) =>
+        string.IsNullOrWhiteSpace(nummer) ? null
+        : schema.Zoek(nummer.Trim())?.Nummer ?? schema.Zoek(nummer.Trim().PadLeft(4, '0'))?.Nummer ?? nummer.Trim();
 
     private static async Task<byte[]?> LeesBegrensd(Stream stream, CancellationToken annulering)
     {
