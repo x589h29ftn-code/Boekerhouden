@@ -704,13 +704,22 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
                 return Uitkomst<Guid>.Mislukt("Dit is al een creditfactuur.");
             }
 
+            // Niet twee keer crediteren (bijv. twee keer op de knop): de bestaande creditfactuur is er al.
+            if (await db.Verkoopdocumenten.AsNoTracking().Where(c => c.CreditVoorId == id).Select(c => new { c.Nummer }).FirstOrDefaultAsync() is { } eerder)
+            {
+                return Uitkomst<Guid>.Mislukt(eerder.Nummer is { } n
+                    ? $"Factuur {v.Nummer} is al gecrediteerd met creditfactuur {n}."
+                    : $"Er staat al een concept-creditfactuur bij factuur {v.Nummer}.");
+            }
+
             var origineel = Invoer(v);
             invoer = origineel with
             {
                 Datum = Vandaag,
                 Vervaldatum = Vandaag,
                 Omschrijving = Kort($"Creditfactuur bij factuur {v.Nummer}", 500),
-                Regels = [.. origineel.Regels.Select(r => r with { Aantal = -r.Aantal })],
+                // Een vast bedrag heeft geen aantal op het scherm: daar gaat het minteken in de prijs.
+                Regels = [.. origineel.Regels.Select(r => r.Vast ? r with { Prijs = -r.Prijs } : r with { Aantal = -r.Aantal })],
                 Verdeling = null,
             };
         }

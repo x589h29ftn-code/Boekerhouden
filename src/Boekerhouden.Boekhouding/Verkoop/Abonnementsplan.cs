@@ -55,6 +55,18 @@ public sealed partial record Abonnementsplan(DateOnly Begin, Herhaling Herhaling
     }
 
     /// <summary>De volgende factuurdatum, of leeg als het abonnement afgelopen is.</summary>
+    /// <summary>Het eerste volgnummer met een datum ná <paramref name="laatste"/> (bijv. de laatst gemaakte factuur).</summary>
+    public int VolgnummerNa(DateOnly laatste)
+    {
+        var n = 0;
+        while (Datum(n) <= laatste && n < 10_000)
+        {
+            n++;
+        }
+
+        return n;
+    }
+
     public DateOnly? Volgende(int volgende) => Einde is { } einde && Datum(volgende) > einde ? null : Datum(volgende);
 
     public IReadOnlyList<string> Controleer() =>

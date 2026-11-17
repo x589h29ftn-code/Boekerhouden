@@ -44,7 +44,8 @@ public sealed class Verkoopregelinvoer
         Omschrijving = r.Omschrijving,
         Aantal = r.Vast ? null : r.Aantal.ToString("0.####", Nl),
         Eenheid = r.Eenheid,
-        Prijs = r.Prijs.ToString("0.00##", Nl),
+        // Een vast bedrag heeft geen aantal op het scherm: een ander aantal dan 1 (bijv. -1 bij crediteren) zit dan in de prijs.
+        Prijs = (r.Vast ? r.Aantal * r.Prijs : r.Prijs).ToString("0.00##", Nl),
         Korting = r.Korting == 0 ? null : r.Korting.ToString("0.##", Nl),
         Rekening = r.Rekeningnummer,
         BtwCode = r.BtwCode,

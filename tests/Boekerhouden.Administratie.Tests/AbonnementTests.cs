@@ -59,6 +59,20 @@ public sealed class AbonnementTests(AdministratieFixture app) : IClassFixture<Ad
     }
 
     [Fact]
+    public async Task Een_later_begin_na_gemaakte_facturen_gaat_verder_na_de_laatste()
+    {
+        var (wie, id, klant) = await Administratie();
+        var abonnementen = app.Dienst<AbonnementDienst>();
+        var abonnement = (await abonnementen.Bewaar(wie, id, null, Huur(klant))).Waarde;
+        await abonnementen.Maak(wie, id, new(2026, 3, 15));
+
+        // Begin verschoven naar 1 februari: maart is al gefactureerd, dus april is de volgende (niet opnieuw maart).
+        Assert.True((await abonnementen.Bewaar(wie, id, abonnement, Huur(klant) with { Begin = new(2026, 2, 1) })).IsGelukt);
+
+        Assert.Equal(new DateOnly(2026, 4, 1), (await abonnementen.Lijst(wie, id)).Single(a => a.Id == abonnement).VolgendeDatum);
+    }
+
+    [Fact]
     public async Task Automatisch_wordt_elke_factuur_definitief_met_doorlopende_nummers()
     {
         var (wie, id, klant) = await Administratie();

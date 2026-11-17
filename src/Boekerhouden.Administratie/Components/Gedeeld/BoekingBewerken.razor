@@ -165,9 +165,16 @@
     {
         var datum = Post?.Datum ?? (Voorbeeld is { } v ? (VoorbeeldOpDatum ? v.Datum : Volgende(v.Datum)) : Datum);
         codes = (await Btw.Tabel()).Op(datum);
-        if (Post is null && Voorbeeld is not null)
+        if (Post is null && Voorbeeld is { } bron)
         {
-            invoer = new Invoer { Datum = datum, Omschrijving = Voorbeeld.Omschrijving, Regels = [.. Voorbeeld.Regels.Select(r => Regel(r, Voorbeeld.Omschrijving, vast: false))] };
+            // Een kopie in een andere maand: "Lonen oktober" wordt "Lonen november" (zoals bij kopiëren naar een maand).
+            string Tekst(string t) => Boekhouding.Grootboek.Journaalkopie.Omschrijving(t, bron.Datum, datum);
+            var voorbeeld = bron with
+            {
+                Omschrijving = Tekst(bron.Omschrijving),
+                Regels = [.. bron.Regels.Select(r => r with { Omschrijving = r.Omschrijving is { } o ? Tekst(o) : null })],
+            };
+            invoer = new Invoer { Datum = datum, Omschrijving = voorbeeld.Omschrijving, Regels = [.. voorbeeld.Regels.Select(r => Regel(r, voorbeeld.Omschrijving, vast: false))] };
             boekstuk = await Grootboek.VolgendBoekstuk(Kader.Wie, Kader.Kop.Id, Dagboek, datum.Year);
             herhalenTot = $"{datum.Year:0000}-12";
             return;

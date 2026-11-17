@@ -543,6 +543,8 @@
         // Van de ene factuur naar de andere (bijv. na kopiëren) blijft de pagina staan: opnieuw laden.
         if (geopend is not null && weergave?.Id != Factuur)
         {
+            // Een andere factuur: meldingen, aangewezen tekst en open menu's van de vorige blijven niet staan.
+            (fouten, bericht, overgenomen, perMaandOpen, menuOpen) = (null, BerichtTekst, null, false, false);
             await Laad();
         }
     }
@@ -706,7 +708,8 @@
                         return false;
                     }
 
-                    invoer.Regels[n].Prijs = Bedragen.Getal(Math.Abs(bedrag));
+                    // Met teken: op een creditfactuur blijft het bedrag negatief.
+                    invoer.Regels[n].Prijs = Bedragen.Getal(bedrag);
                     return true;
                 }
 

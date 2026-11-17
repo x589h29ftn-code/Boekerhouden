@@ -319,7 +319,11 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
         {
             var maand = new DateOnly(eerste.Datum.Year, eerste.Datum.Month, 1).AddMonths(i);
             var datum = new DateOnly(maand.Year, maand.Month, Math.Min(eerste.Datum.Day, DateTime.DaysInMonth(maand.Year, maand.Month)));
-            var post = i == 0 ? eerste : eerste with { Datum = datum, Boekstuk = await VolgendBoekstuk(wie, administratie, eerste.Dagboek, datum.Year) };
+            // Zoals bij kopiëren naar een maand: "Huur januari" wordt "Huur februari", #maand e.d. per maand ingevuld.
+            var post = Journaalkopie.NaarMaand(eerste, maand.Year, maand.Month) with
+            {
+                Boekstuk = i == 0 ? eerste.Boekstuk : await VolgendBoekstuk(wie, administratie, eerste.Dagboek, datum.Year),
+            };
             var uitkomst = await Boek(wie, administratie, post);
             if (!uitkomst.IsGelukt)
             {

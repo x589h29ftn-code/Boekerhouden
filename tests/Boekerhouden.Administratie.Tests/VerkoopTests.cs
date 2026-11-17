@@ -229,6 +229,24 @@ public sealed class VerkoopTests(AdministratieFixture app) : IClassFixture<Admin
     }
 
     [Fact]
+    public async Task Crediteren_van_een_vast_bedrag_wordt_negatief_en_kan_maar_een_keer()
+    {
+        var (wie, id) = await Administratie();
+        var klant = await Klant(wie, id, "Vast B.V.");
+        var verkoop = app.Dienst<VerkoopDienst>();
+        var (factuur, _) = await Factuur(wie, id, Invoer(klant, new(2026, 3, 1), new Verkoopregel("Huur maart", 1m, 500m, "8000", "V21", Vast: true)));
+
+        var credit = await verkoop.Crediteer(wie, id, factuur);
+        var concept = (await verkoop.Open(wie, id, credit.Waarde))!;
+        var opnieuw = await verkoop.Crediteer(wie, id, factuur);
+
+        Assert.Equal(-605m, concept.Totaal);
+        // Zoals het scherm de regel terugleest (geen aantal bij een vast bedrag): ook dan negatief.
+        Assert.Equal(-500m, Components.Gedeeld.Verkoopregelinvoer.Van(Assert.Single(concept.Factuur.Regels)).Domein()!.Bedrag);
+        Assert.Contains("concept-creditfactuur", Assert.Single(opnieuw.Fouten), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Een_jaarabonnement_wordt_over_de_maanden_verdeeld()
     {
         var (wie, id) = await Administratie();
