@@ -513,6 +513,45 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
     }
 
     [Fact]
+    public async Task Aanpassen_houdt_een_aangepaste_btw_bij_meer_regels_met_dezelfde_code()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var inkoop = app.Dienst<InkoopDienst>();
+        var document = (await inkoop.Lees(wie, id, new MemoryStream(Belnet("HB-1")), "hb1.xml", null)).DocumentId!.Value;
+        // Berekend 21,00 + 10,50; op de factuur samen een cent meer.
+        var invoer = Invoer(null, new NieuweRelatie("Belnet B.V.", null, null, null), "HB-1") with
+        {
+            Regels = [new Factuurregel("Abonnement", "4310", "I21", 100m, 21.01m), new Factuurregel("Extra", "4310", "I21", 50m, 10.50m)],
+        };
+        Assert.True((await inkoop.Boek(wie, id, document, invoer)).IsGelukt);
+
+        var geboekt = (await inkoop.Geboekt(wie, id, document))!;
+
+        Assert.Equal((null, 10.51m), (geboekt.Regels[0].Btw, geboekt.Regels[1].Btw));
+        Assert.Equal(181.51m, geboekt.Totaal);
+    }
+
+    [Fact]
+    public async Task Aanpassen_met_een_maandboeking_in_een_afgesloten_periode_meldt_dat_netjes()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var inkoop = app.Dienst<InkoopDienst>();
+        var document = (await inkoop.Lees(wie, id, new MemoryStream(Belnet("PA-1")), "pa1.xml", null)).DocumentId!.Value;
+        var invoer = Invoer(null, new NieuweRelatie("Belnet B.V.", null, null, null), "PA-1") with { Verdeling = new(new(2026, 2, 1), new(2026, 6, 30), "1410") };
+        Assert.True((await inkoop.Boek(wie, id, document, invoer)).IsGelukt);
+        Assert.True((await app.Dienst<PeriodeDienst>().SluitAf(wie, id, new(2026, 3, 31))).IsGelukt);
+
+        var aanpassen = await inkoop.Boek(wie, id, document, invoer with { Relatie = "BELNET", Nieuw = null, Verdeling = new(new(2026, 4, 1), new(2026, 6, 30), "1410") });
+        var terug = await inkoop.Terugdraaien(wie, id, document);
+
+        Assert.Contains("afgesloten", string.Join(' ', aanpassen.Fouten), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("afgesloten", string.Join(' ', terug.Fouten), StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(await app.Dienst<GrootboekDienst>().ControleerKeten(wie, id));
+    }
+
+    [Fact]
     public async Task Aanpassen_van_een_verdeelde_factuur_past_de_maandboekingen_aan()
     {
         var wie = await app.Beheerder();

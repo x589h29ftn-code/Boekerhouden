@@ -310,7 +310,7 @@
                                             @if (!ZonderBtw)
                                             {
                                                 <td>
-                                                    <select class="form-select form-select-sm" @bind="regel.BtwCode" aria-label="Btw-code">
+                                                    <select class="form-select form-select-sm" @bind="regel.BtwCode" @bind:after="() => regel.BtwHandmatig = false" aria-label="Btw-code">
                                                         @foreach (var c in Codes.Where(c => c.Richting == BtwRichting.Inkoop && (c.Actief || c.Code == regel.BtwCode)))
                                                         {
                                                             <option value="@c.Code" title="@c.Code · @c.Omschrijving">@c.Kort</option>
@@ -400,7 +400,7 @@
                                 <div class="status let-op mb-1">@s</div>
                             }
                             <div class="d-flex align-items-center gap-3 mt-3">
-                                <button class="btn btn-primary" @onclick="Boek" disabled="@bezig" title="Ctrl+Enter">@(aanpassen ? "Opslaan" : Signalen.Count > 0 || Verschil is not (null or 0) ? "Toch boeken" : "Boeken")</button>
+                                <button class="btn btn-primary" @onclick="Boek" disabled="@bezig" title="Ctrl+Enter">@((Signalen.Count > 0 || Verschil is not (null or 0) ? "Toch " : null) + (aanpassen ? "opslaan" : "boeken") is var k ? char.ToUpperInvariant(k[0]) + k[1..] : null)</button>
                                 @if (aanpassen)
                                 {
                                     <button class="btn btn-link text-secondary" @onclick="StopAanpassen" disabled="@bezig">Annuleren</button>
@@ -545,8 +545,11 @@
     /// <summary>Totaal van de regels min het totaal van de factuur; leeg als een van beide onbekend is.</summary>
     private decimal? Verschil => Totaal is { } t && Factuurtotaal is { } f ? t - f : null;
 
-    /// <summary>Het totaal op de factuur; bij een creditnota zonder minteken, zoals de bedragen in het formulier.</summary>
-    private decimal? Factuurtotaal => Getal(factuurbedrag) is { } f ? Math.Abs(f) : null;
+    /// <summary>
+    /// Het totaal op de factuur; bij een creditnota zonder minteken, zoals de bedragen in het formulier. Een factuur met
+    /// een negatief totaal (alleen creditregels) houdt zijn teken, anders verdubbelt het verschil.
+    /// </summary>
+    private decimal? Factuurtotaal => Getal(factuurbedrag) is { } f ? (soort == Documentsoort.Creditnota ? Math.Abs(f) : f) : null;
 
     private bool Toon(string sleutel) => weergave.Contains(sleutel);
 
@@ -635,12 +638,15 @@
         soort = herkend?.TotaalInclusief < 0 ? Documentsoort.Creditnota : Documentsoort.Factuur;
         (verrekenMet, verdelen) = (null, false);
         factuurbedrag = herkend?.TotaalInclusief is { } totaal ? Bedragen.Getal(Math.Abs(totaal)) : null;
-        if (soort == Documentsoort.Creditnota)
+        // Alleen als de regels nog negatief opgeteld zijn (zoals herkend); een voorstel kan ze al zonder minteken geven.
+        if (soort == Documentsoort.Creditnota && regels.Sum(r => Getal(r.Bedrag) ?? 0) < 0)
         {
             foreach (var r in regels)
             {
-                r.Bedrag = Getal(r.Bedrag) is { } b ? Bedragen.Getal(Math.Abs(b)) : r.Bedrag;
-                r.Btw = Getal(r.Btw) is { } regelbtw ? Bedragen.Getal(Math.Abs(regelbtw)) : r.Btw;
+                // Omkeren, niet het minteken weghalen: een regel die op de creditnota positief is (bijv. kosten die
+                // blijven staan), wordt in het formulier negatief.
+                r.Bedrag = Getal(r.Bedrag) is { } b ? Bedragen.Getal(-b) : r.Bedrag;
+                r.Btw = Getal(r.Btw) is { } regelbtw ? Bedragen.Getal(-regelbtw) : r.Btw;
             }
         }
 
@@ -1061,9 +1067,21 @@
     private void RegelToevoegen()
     {
         var regel = new Invoerregel { Rekening = regels[^1].Rekening, BtwCode = regels[^1].BtwCode };
-        if (Verschil is { } verschil && verschil < 0 && BtwCodes.Zoek(Codes, regel.BtwCode) is { } code)
+        if (Verschil is { } verschil && verschil != 0 && BtwCodes.Zoek(Codes, regel.BtwCode) is { } code)
         {
-            regel.Bedrag = Bedragen.Getal(code.BtwOpFactuur ? BtwBerekening.UitInclusief(-verschil, code.Percentage).Grondslag : -verschil);
+            // Wat er nog over is (of te veel is: dan een negatieve regel). Bij btw op de factuur gaat de btw uit het
+            // inclusieve bedrag mee, zodat het verschil precies nul wordt (zonder afrondingscent).
+            if (code.BtwOpFactuur)
+            {
+                var (grondslag, btw) = BtwBerekening.UitInclusief(-verschil, code.Percentage);
+                regel.Bedrag = Bedragen.Getal(grondslag);
+                regel.Btw = Bedragen.Getal(btw);
+                regel.BtwHandmatig = code.Bereken(grondslag) != btw;
+            }
+            else
+            {
+                regel.Bedrag = Bedragen.Getal(-verschil);
+            }
         }
 
         regels.Add(regel);
@@ -1074,9 +1092,11 @@
     {
         var nieuw = regel.Rekening != rekening;
         regel.Rekening = rekening ?? "";
-        if (nieuw && verwerking?.Schema.Zoek(rekening)?.BtwCode is { } code && BtwCodes.Zoek(Codes, code) is { Richting: BtwRichting.Inkoop })
+        if (nieuw && verwerking?.Schema.Zoek(rekening)?.BtwCode is { } code && BtwCodes.Zoek(Codes, code) is { Richting: BtwRichting.Inkoop }
+            && code != regel.BtwCode)
         {
-            regel.BtwCode = code;
+            // Een andere code: de aangepaste btw van de oude code geldt niet meer.
+            (regel.BtwCode, regel.BtwHandmatig) = (code, false);
         }
     }
 
@@ -1098,7 +1118,7 @@
         bezig = true;
         var inhoud = new Inkoopconcept(leverancier, nieuw.Naam, nieuw.Iban, nieuw.BtwNummer, nieuw.KvkNummer, factuurnummer, datum, vervaldatum, omschrijving, kenmerk,
             soort, factuurbedrag, verdelen, verdeelVan, verdeelTot, verdeelRekening,
-            [.. regels.Select(x => new Inkoopconceptregel(x.Rekening, x.BtwCode, x.Bedrag, x.Btw, x.BtwHandmatig, x.Omschrijving))]);
+            [.. regels.Select(x => new Inkoopconceptregel(x.Rekening, x.BtwCode, x.Bedrag, x.Btw, x.BtwHandmatig, x.Omschrijving))], verrekenMet);
         await Concepten.Bewaar(geopend!.Wie, Id, Conceptsoort.Inkoop, DocumentId, inhoud, $"{Variabelen.Leverancier} {factuurnummer}".Trim());
         concept = await Concepten.Lees<Inkoopconcept>(geopend.Wie, Id, Conceptsoort.Inkoop, DocumentId);
         bezig = false;
@@ -1110,6 +1130,7 @@
         (leverancier, factuurnummer, datum, vervaldatum, omschrijving, kenmerk) = (c.Leverancier, c.Factuurnummer, c.Datum, c.Vervaldatum, c.Omschrijving, c.Kenmerk);
         nieuw = new NieuweLeverancier { Naam = c.NieuwNaam, Iban = c.NieuwIban, BtwNummer = c.NieuwBtwNummer, KvkNummer = c.NieuwKvkNummer };
         (soort, factuurbedrag, verdelen, verdeelVan, verdeelTot, verdeelRekening) = (c.Soort, c.Factuurbedrag, c.Verdelen, c.VerdeelVan, c.VerdeelTot, c.VerdeelRekening);
+        verrekenMet = c.VerrekenMet;
         regels = [.. c.Regels.Select(x => new Invoerregel { Rekening = x.Rekening, BtwCode = x.BtwCode, Bedrag = x.Bedrag, Btw = x.Btw, BtwHandmatig = x.BtwHandmatig, Omschrijving = x.Omschrijving })];
         if (regels.Count == 0)
         {
@@ -1238,8 +1259,9 @@
 
             var nl = System.Globalization.CultureInfo.GetCultureInfo("nl-NL");
             var maanden = verdeling.Maanden;
-            var bedrag = regels.Sum(r => Getal(r.Bedrag) ?? 0);
-            return $"{maanden.Count} {(maanden.Count == 1 ? "maand" : "maanden")} ({maanden[0].ToString("MMM yyyy", nl)} t/m {maanden[^1].ToString("MMM yyyy", nl)}) · {Bedragen.Getal(Periodeverdeling.Verdeel(bedrag, maanden.Count)[0])} per maand";
+            // Zoals het geboekt wordt: elke regel apart verdeeld, per maand opgeteld.
+            var perMaand = regels.Sum(r => Getal(r.Bedrag) is { } b ? Periodeverdeling.Verdeel(b, maanden.Count)[0] : 0);
+            return $"{maanden.Count} {(maanden.Count == 1 ? "maand" : "maanden")} ({maanden[0].ToString("MMM yyyy", nl)} t/m {maanden[^1].ToString("MMM yyyy", nl)}) · {Bedragen.Getal(perMaand)} per maand";
         }
     }
 
@@ -1477,7 +1499,7 @@
         string Leverancier, string NieuwNaam, string? NieuwIban, string? NieuwBtwNummer, string? NieuwKvkNummer,
         string Factuurnummer, DateOnly Datum, DateOnly Vervaldatum, string Omschrijving, string? Kenmerk,
         Documentsoort Soort, string? Factuurbedrag, bool Verdelen, DateOnly VerdeelVan, DateOnly VerdeelTot, string VerdeelRekening,
-        IReadOnlyList<Inkoopconceptregel> Regels);
+        IReadOnlyList<Inkoopconceptregel> Regels, Guid? VerrekenMet = null);
 
     public sealed record Inkoopconceptregel(string Rekening, string BtwCode, string? Bedrag, string? Btw, bool BtwHandmatig, string? Omschrijving);
 

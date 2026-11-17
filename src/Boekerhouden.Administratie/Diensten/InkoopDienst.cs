@@ -443,13 +443,31 @@ public sealed class InkoopDienst(
         var btw = boeking.Regels.Where(r => functies[r] == Rekeningfunctie.Voorbelasting).ToList();
         // Zoals op het papier: een creditnota positief, een korting op een factuur negatief.
         var teken = post.Bedrag > 0 ? -1 : 1;
-        var regels = kosten.Select(r =>
+        // De btw per regel staat per btw-code in de boeking. Bij één regel met die code is dat de btw van de regel; bij
+        // meer regels de berekende btw, en wijkt het geboekte totaal daarvan af (aangepast), dan het verschil op de
+        // laatste regel met die code. Zo blijft een aangepaste btw bij het aanpassen bewaard.
+        var codes = (await BtwDienst.Lees(db)).Op(boeking.Datum);
+        var btwPerRegel = new Dictionary<Boekingsregel, decimal?>();
+        foreach (var groep in kosten.GroupBy(r => r.BtwCode))
         {
-            // De btw per regel staat per btw-code in de boeking; bij één regel met die code is dat de btw van de regel.
-            var eigen = kosten.Count(k => k.BtwCode == r.BtwCode) == 1 ? btw.FirstOrDefault(b => b.BtwCode == r.BtwCode)?.Bedrag : null;
-            return new Factuurregel(r.Omschrijving == boeking.Omschrijving ? string.Empty : r.Omschrijving ?? string.Empty, r.Rekeningnummer, r.BtwCode ?? "I0",
-                teken * r.Bedrag, eigen is { } b ? teken * b : null);
-        }).ToList();
+            var lijst = groep.ToList();
+            var geboekt = btw.Where(b => b.BtwCode == groep.Key).Sum(b => b.Bedrag);
+            if (lijst.Count == 1)
+            {
+                btwPerRegel[lijst[0]] = btw.Any(b => b.BtwCode == groep.Key) ? geboekt : null;
+                continue;
+            }
+
+            var berekend = lijst.ToDictionary(r => r, r => BtwCodes.Zoek(codes, r.BtwCode) is { BtwOpFactuur: true } c ? c.Bereken(r.Bedrag) : 0m);
+            var verschil = geboekt - berekend.Values.Sum();
+            foreach (var r in lijst)
+            {
+                btwPerRegel[r] = verschil != 0 && r == lijst[^1] ? berekend[r] + verschil : null;
+            }
+        }
+
+        var regels = kosten.Select(r => new Factuurregel(r.Omschrijving == boeking.Omschrijving ? string.Empty : r.Omschrijving ?? string.Empty, r.Rekeningnummer,
+            r.BtwCode ?? "I0", teken * r.Bedrag, btwPerRegel[r] is { } b ? teken * b : null)).ToList();
 
         // Met een periodeverdeling staan de kosten op de verdeelrekening; de kostenrekeningen per regel zijn bewaard.
         var verdeling = doc.Verdeling is { } json ? JsonSerializer.Deserialize<Verdelingsgegevens>(json, Json) : null;
@@ -497,6 +515,11 @@ public sealed class InkoopDienst(
         // Een periodeverdeling gaat mee terug: elke maandboeking krijgt een tegenboeking op dezelfde datum.
         if (d.Verdeling is { } json && JsonSerializer.Deserialize<Verdelingsgegevens>(json, Json) is { } verdeling)
         {
+            if (await MaandenAfgesloten(db, administratie, verdeling) is { } maandAfgesloten)
+            {
+                return Uitkomst.Mislukt(maandAfgesloten);
+            }
+
             foreach (var stuk in verdeling.Boekstukken)
             {
                 await db.SaveChangesAsync();
@@ -885,6 +908,29 @@ public sealed class InkoopDienst(
             : velden.ToDictionary(v => v.Key, _ => (IReadOnlyList<PdfPlek>)[]);
     }
 
+    /// <summary>
+    /// Een maandboeking van een eerdere periodeverdeling in een afgesloten periode: die kan niet meer wijzigen, dus de
+    /// factuur ook niet (anders een fout halverwege het boeken).
+    /// </summary>
+    private static async Task<string?> MaandenAfgesloten(AdministratieDbContext db, Guid administratie, Verdelingsgegevens? verdeling)
+    {
+        if (verdeling is null || verdeling.Boekstukken.Count == 0)
+        {
+            return null;
+        }
+
+        var datums = new List<DateOnly>();
+        foreach (var stuk in verdeling.Boekstukken)
+        {
+            if (await GrootboekDienst.GeldendeBoeking(db, stuk) is { Regels.Count: > 0 } maand)
+            {
+                datums.Add(maand.Datum);
+            }
+        }
+
+        return datums.Count == 0 ? null : await GrootboekDienst.Afgesloten(db, administratie, [.. datums]);
+    }
+
     /// <summary>Het memoriaal van het standaardschema; daar komt een periodeverdeling in (ook als er meer memorialen zijn).</summary>
     private static readonly string StandaardMemoriaal = StandaardRekeningschema.Dagboeken.First(d => d.Soort == Dagboeksoort.Memoriaal).Code;
 
@@ -966,6 +1012,11 @@ public sealed class InkoopDienst(
 
         var boekstuk = vorige?.Boekstuk ?? await GrootboekDienst.VolgendBoekstuk(db, dagboek.Code, factuur.Datum.Year);
         var oudeVerdeling = document.Verdeling is { } oudeJson ? JsonSerializer.Deserialize<Verdelingsgegevens>(oudeJson, Json) : null;
+        if (await MaandenAfgesloten(db, administratie, oudeVerdeling) is { } maandAfgesloten)
+        {
+            return Uitkomst.Mislukt(maandAfgesloten);
+        }
+
         Journaalpost post;
         OpenPost open;
         try

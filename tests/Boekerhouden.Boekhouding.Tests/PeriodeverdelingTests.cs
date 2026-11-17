@@ -21,6 +21,11 @@ public sealed class PeriodeverdelingTests
         Assert.Equal([33.33m, 33.33m, 33.34m], Periodeverdeling.Verdeel(100m, 3));
         Assert.Equal([-33.33m, -33.33m, -33.34m], Periodeverdeling.Verdeel(-100m, 3));
         Assert.Equal(1000m, Periodeverdeling.Verdeel(1000m, 12).Sum());
+        // Geen negatief laatste deel als de afgeronde delen samen te veel zijn.
+        var klein = Periodeverdeling.Verdeel(0.10m, 12);
+        Assert.Equal(0.10m, klein.Sum());
+        Assert.All(klein, d => Assert.True(d >= 0));
+        Assert.All(Periodeverdeling.Verdeel(-0.70m, 12), d => Assert.True(d <= 0));
     }
 
     [Fact]
