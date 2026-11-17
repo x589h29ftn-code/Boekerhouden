@@ -31,7 +31,7 @@ public static partial class Btwbetalingen
                 continue;
             }
 
-            var btw = rekeningen.Where(x => x.Regel.BtwCode is null && x.Rekening is not null && Btwaangifte.IsBtwrekening(x.Rekening)).ToList();
+            var btw = rekeningen.Where(x => x.Regel.BtwCode is null && x.Rekening is not null && (Btwaangifte.IsBtwrekening(x.Rekening) || Btwaangifte.IsPrivegebruikrekening(x.Rekening))).ToList();
             var bedrag = btw.Sum(x => x.Regel.Bedrag);
             if (btw.Count == 0 || bedrag == 0)
             {

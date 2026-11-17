@@ -49,7 +49,8 @@ public static class Staatovername
 
         var perMaand = afschrijfbaar * percentage / 100m / 12m;
         var over = afschrijfbaar - afgeschreven;
-        var looptijd = over <= 0 || perMaand <= 0 ? 1 : (int)Math.Clamp(Math.Ceiling(over / perMaand), 1m, Activum.MaximaleLooptijd);
+        // Eerst op een tiende afronden: een afgerond percentage als 33,33% geeft anders net een maand extra.
+        var looptijd = over <= 0 || perMaand <= 0 ? 1 : (int)Math.Clamp(Math.Ceiling(Math.Round(over / perMaand, 1)), 1m, Activum.MaximaleLooptijd);
 
         // Geen datum: zo lang terug als er al is afgeschreven (afgeschreven / per maand), anders een jaar terug.
         var geschat = perMaand > 0 && afgeschreven > 0

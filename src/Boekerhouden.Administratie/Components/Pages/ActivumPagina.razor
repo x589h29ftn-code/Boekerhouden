@@ -117,9 +117,9 @@
                             {
                                 <span class="small text-secondary">@(f.Eenheid switch
                                 {
-                                    Termijneenheid.Jaren => $"{Procent(1200m / lt)} per jaar",
+                                    Termijneenheid.Jaren => $"{Procent(Afschrijvingstermijn.Procent(lt, f.Deel))} per jaar",
                                     Termijneenheid.ProcentPerJaar => $"{lt / 12m:0.##} jaar",
-                                    _ => $"{lt / 12m:0.##} jaar, {Procent(1200m / lt)} per jaar",
+                                    _ => $"{lt / 12m:0.##} jaar, {Procent(Afschrijvingstermijn.Procent(lt, f.Deel))} per jaar",
                                 })</span>
                             }
                         }
@@ -471,7 +471,7 @@
             return null;
         }
 
-        var v = new Vervoermiddel(Guid.Empty, 0, invoer.Omschrijving, invoer.Aanschafdatum, invoer.BeginAfschrijving, detail?.BuitenGebruikOp, invoer.Privegebruik, invoer.Cataloguswaarde);
+        var v = new Vervoermiddel(Guid.Empty, 0, invoer.Omschrijving, invoer.Aanschafdatum, Privegebruikcontrole.InGebruik(invoer.Aanschafdatum, invoer.BeginAfschrijving), detail?.BuitenGebruikOp, invoer.Privegebruik, invoer.Cataloguswaarde);
         return Privegebruikcontrole.Verwacht(v, jaar) is { } bedrag ? (jaar, bedrag, Privegebruikcontrole.Forfaitreden(v.Privegebruik, v.InGebruik, jaar)) : null;
     }
 
@@ -489,9 +489,20 @@
         /// <summary>De termijn in de gekozen eenheid; vast ligt het aantal maanden.</summary>
         public string? Termijn
         {
-            get => Looptijd is > 0 and var l ? Afschrijvingstermijn.Tekst(l, Eenheid) : termijnIngevuld;
-            set => (termijnIngevuld, Looptijd) = (value, Afschrijvingstermijn.NaarMaanden(value, Eenheid));
+            get => Looptijd is > 0 and var l ? Afschrijvingstermijn.Tekst(l, Eenheid, Deel) : termijnIngevuld;
+            set => (termijnIngevuld, Looptijd) = (value, Afschrijvingstermijn.NaarMaanden(value, Eenheid, Deel));
         }
+
+        /// <summary>
+        /// Wat er bij een overgenomen actief nog af moet als deel van de hele afschrijving (1 bij een nieuw actief): de
+        /// termijn is dan de resterende, een percentage per jaar blijft van de hele afschrijving.
+        /// </summary>
+        public decimal Deel =>
+            Eerder && BedragParser.TryParse(Aanschafwaarde ?? "", out var a) && BedragParser.TryParse(VoorBegin ?? "", out var v)
+            && (string.IsNullOrWhiteSpace(Restwaarde) ? 0m : BedragParser.TryParse(Restwaarde, out var r) ? r : -1m) is >= 0 and var rest
+            && a - rest > 0 && v > 0 && v < a - rest
+                ? (a - rest - v) / (a - rest)
+                : 1m;
         public Afschrijvingsmethode Methode { get; set; }
         public string? Activarekening { get; set; }
         public string? Afschrijvingsrekening { get; set; }
@@ -596,7 +607,11 @@
     private void ZetHerzienVoorstel()
     {
         herzien.Vanaf = detail?.Plan.FirstOrDefault(m => !m.Geboekt)?.Maand ?? new DateOnly(DateTime.Today.Year + 1, 1, 1);
-        var huidig = detail?.Herzieningen is { Count: > 0 } h ? h[^1].PercentagePerJaar : detail is { Invoer.Looptijd: > 0 } d ? 1200m / d.Invoer.Looptijd : 0m;
+        var huidig = detail?.Herzieningen is { Count: > 0 } h ? h[^1].PercentagePerJaar : detail is { Invoer.Looptijd: > 0 } d
+            ? Afschrijvingstermijn.Procent(d.Invoer.Looptijd, d.Invoer.Aanschafwaarde - d.Invoer.Restwaarde is > 0 and var afschrijfbaar
+                ? (afschrijfbaar - d.Invoer.AfgeschrevenVoorBegin) / afschrijfbaar
+                : 1m)
+            : 0m;
         herzien.Percentage = huidig > 0 ? huidig.ToString("0.##", Nl) : null;
     }
 

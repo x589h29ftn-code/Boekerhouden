@@ -87,7 +87,8 @@ public static class ExcelActivastaat
         var waarde = cel.HasFormula && !cel.CachedValue.IsBlank ? cel.CachedValue : Uitgerekend(cel);
         return waarde.Type switch
         {
-            XLDataType.Number => new Staatcel(null, Math.Round((decimal)waarde.GetNumber(), 2, MidpointRounding.AwayFromZero)),
+            // Bedragen op centen; een getal onder de 1 is meestal een percentage als breuk (0,3333 = 33,33%): dat niet afkappen.
+            XLDataType.Number => new Staatcel(null, Math.Round((decimal)waarde.GetNumber(), Math.Abs(waarde.GetNumber()) < 1 ? 6 : 2, MidpointRounding.AwayFromZero)),
             XLDataType.DateTime => new Staatcel(null, Datum: DateOnly.FromDateTime(waarde.GetDateTime())),
             XLDataType.Text => new Staatcel(waarde.GetText()),
             _ => Staatcel.Leeg,

@@ -32,4 +32,13 @@ public sealed class AfschrijvingstermijnTests
         Assert.Equal(("30", "3,33"), (Afschrijvingstermijn.Tekst(360, Termijneenheid.Jaren), Afschrijvingstermijn.Tekst(360, Termijneenheid.ProcentPerJaar)));
         Assert.Equal((Termijneenheid.Jaren, Termijneenheid.Maanden), (Afschrijvingstermijn.Passend(48), Afschrijvingstermijn.Passend(30)));
     }
+
+    [Fact]
+    public void Bij_een_deels_afgeschreven_actief_is_het_percentage_van_de_hele_afschrijving()
+    {
+        // 20% per jaar, nog 60% af: 36 maanden; en terug weer 20%.
+        Assert.Equal(36, Afschrijvingstermijn.NaarMaanden("20", Termijneenheid.ProcentPerJaar, 0.6m));
+        Assert.Equal("20", Afschrijvingstermijn.Tekst(36, Termijneenheid.ProcentPerJaar, 0.6m));
+        Assert.Equal(60, Afschrijvingstermijn.NaarMaanden("5", Termijneenheid.Jaren, 0.6m));
+    }
 }

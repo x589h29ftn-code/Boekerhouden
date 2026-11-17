@@ -231,7 +231,9 @@ public static partial class Activastaatlezer
                                ?? (G(Staatkolom.AfschrijvingBegin) is not null || G(Staatkolom.AfschrijvingJaar) is not null
                                    ? afschrijvingBegin + afschrijvingJaar - afschrijvingDesinvesteringen
                                    : aanschafEind - (boekwaarde ?? aanschafEind));
-        var percentage = G(Staatkolom.Percentage) is { } p and > 0 ? (p <= 1m ? p * 100m : p)
+        // Een breuk (0,2 uit Excel) is 20%; staat er een procentteken bij ("0,5%"), dan is het al een percentage.
+        var procentteken = cel(cellen, Staatkolom.Percentage)?.Tekst?.Contains('%', StringComparison.Ordinal) == true;
+        var percentage = G(Staatkolom.Percentage) is { } p and > 0 ? Math.Round(p <= 1m && !procentteken ? p * 100m : p, 4)
             : G(Staatkolom.Jaren) is { } jaren and > 0 ? Math.Round(100m / jaren, 2) : (decimal?)null;
         var datum = cel(cellen, Staatkolom.Datum) is { } d ? d.Datum ?? Datumtekst(d.Tekst) : null;
         string? T(Staatkolom k) => cel(cellen, k) is { } c && (c.Tekst?.Trim() is { Length: > 0 } t ? t : c.Getal is { } g ? g.ToString("0.##", CultureInfo.InvariantCulture) : null) is { } w ? w : null;

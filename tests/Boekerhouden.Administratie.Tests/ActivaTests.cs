@@ -133,6 +133,23 @@ public sealed class ActivaTests(AdministratieFixture app) : IClassFixture<Admini
         new(datum, Desinvesteringssoort.Verkoop, deel, opbrengst, opbrengstrekening, resultaat, eerst);
 
     [Fact]
+    public async Task Een_gedeelde_afschrijvingsrekening_sluit_in_de_activastaat()
+    {
+        var (wie, id) = await Administratie();
+        var dienst = app.Dienst<ActivaDienst>();
+        var kandidaten = await dienst.Kandidaten(wie, id);
+        Assert.True((await dienst.Bewaar(wie, id, null, kandidaten.Single(k => k.Rekening == "0200").Voorstel)).IsGelukt);
+        var auto = await dienst.Bewaar(wie, id, null, kandidaten.Single(k => k.Rekening == "0300").Voorstel with { Afschrijvingsrekening = "0210" });
+        Assert.True(auto.IsGelukt, string.Join("; ", auto.Fouten));
+        Assert.True((await dienst.Afschrijven(wie, id, new DateOnly(2026, 5, 31), Afschrijvingsfrequentie.Maand)).IsGelukt);
+
+        var staat = await dienst.Activastaat(wie, id, 2026);
+
+        Assert.Equal(2, staat.Count(g => g.Afschrijvingsrekening == "0210"));
+        Assert.All(staat, g => Assert.True(g.Sluit, $"{g.Activarekening}: {g.GrootboekAfschrijving}/{g.Totaal.AfschrijvingEind}"));
+    }
+
+    [Fact]
     public async Task Verkopen_geeft_een_boekresultaat_en_de_activastaat_sluit_op_het_grootboek()
     {
         var (wie, id) = await Administratie();

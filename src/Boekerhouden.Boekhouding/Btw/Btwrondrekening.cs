@@ -148,13 +148,13 @@ public sealed class Btwrondrekening
         if (sleutel.Bron == Rondrekeningbron.Betaald)
         {
             return [.. Betalingen.Where(b => $"{b.Periode.Van:yyyy-MM-dd}" == sleutel.Rubriek)
-                .SelectMany(b => b.Post.Regels.Where(r => r.BtwCode is null && schema.Zoek(r.Rekeningnummer) is { } rekening && Btwaangifte.IsBtwrekening(rekening))
+                .SelectMany(b => b.Post.Regels.Where(r => r.BtwCode is null && schema.Zoek(r.Rekeningnummer) is { } rekening && (Btwaangifte.IsBtwrekening(rekening) || Btwaangifte.IsPrivegebruikrekening(rekening)))
                     .Select(r => new Rondrekeningbronregel(b.Post, r, r.Bedrag)))];
         }
 
         if (sleutel.Bron is Rondrekeningbron.OmzetGrootboek or Rondrekeningbron.Btwrekeningen)
         {
-            var rekeningen = schema.Alle.Where(r => sleutel.Bron == Rondrekeningbron.OmzetGrootboek ? IsOmzet(r) : Btwaangifte.IsBtwrekening(r))
+            var rekeningen = schema.Alle.Where(r => sleutel.Bron == Rondrekeningbron.OmzetGrootboek ? IsOmzet(r) : Btwaangifte.IsBtwrekening(r) || Btwaangifte.IsPrivegebruikrekening(r))
                 .Select(r => r.Nummer).ToHashSet(StringComparer.Ordinal);
             return [.. posten.Where(p => p.Datum >= van && p.Datum <= tot && p.Boekstuk != "begin")
                 .SelectMany(p => p.Regels.Where(r => rekeningen.Contains(r.Rekeningnummer)

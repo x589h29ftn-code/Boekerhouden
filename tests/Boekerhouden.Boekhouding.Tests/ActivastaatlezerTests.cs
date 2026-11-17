@@ -108,4 +108,22 @@ public sealed class ActivastaatlezerTests
         Assert.All(staat.Regels.Select(r => Staatovername.Van(r, begin)!), o => Assert.Empty(new Activum(o.Omschrijving, o.Aanschafdatum, o.Aanschafwaarde, o.Restwaarde, o.BeginAfschrijving,
             o.Methode == Afschrijvingsmethode.Geen ? 0 : o.Looptijd, o.Methode, "0200", "0210", "4800", o.AfgeschrevenVoorBegin).Controleer()));
     }
+
+    [Fact]
+    public void Een_afgerond_percentage_geeft_geen_extra_maand_en_een_procentteken_blijft_een_percentage()
+    {
+        var tabel = new Staattabel([
+            [new Staatcel("Omschrijving"), new Staatcel("Aanschafwaarde"), new Staatcel("Afgeschreven t/m 31-12-2025"), new Staatcel("Percentage")],
+            [new Staatcel("Laptop"), new Staatcel(null, 1200m), new Staatcel(null, 400m), new Staatcel("33,33%")],
+            [new Staatcel("Pand"), new Staatcel(null, 100000m), new Staatcel(null, 1000m), new Staatcel("0,5%")],
+            [new Staatcel("Machine"), new Staatcel(null, 6000m), new Staatcel(null, 1200m), new Staatcel(null, 0.2m)],
+        ]);
+
+        var staat = Activastaatlezer.Lees(tabel);
+        Staatregel R(string naam) => staat.Regels.Single(r => r.Omschrijving == naam);
+
+        Assert.Equal((33.33m, 0.5m, 20m), (R("Laptop").Percentage, R("Pand").Percentage, R("Machine").Percentage));
+        // 1200 × 33,33% = 33,33 per maand; nog 800 af: 24 maanden (niet 25).
+        Assert.Equal(24, Staatovername.Van(R("Laptop"), new DateOnly(2026, 1, 1))!.Looptijd);
+    }
 }
