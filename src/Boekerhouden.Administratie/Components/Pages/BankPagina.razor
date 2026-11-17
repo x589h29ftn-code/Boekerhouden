@@ -366,7 +366,7 @@
                                             var regel = regels[i];
                                             var n = i;
                                             var post = regel.Post is { } pid ? g.OpenPosten.FirstOrDefault(p => p.Id == pid) : null;
-                                            <tr class="regel-hover">
+                                            <tr class="regel-hover" @key="regel">
                                                 <td>
                                                     <PostKeuze Id="@($"regel-factuur-{n}")" Waarde="regel.Post" WaardeChanged="p => KiesPost(regel, p)" Verwerking="g" Kader="geopend"
                                                                Uitgesloten="@([.. regels.Where(r => r != regel && r.Post is not null).Select(r => r.Post!.Value)])" />
@@ -613,10 +613,13 @@
         var aantal = geselecteerd.Count;
         var uitkomst = await Bank.OpRekening(geopend!.Wie, Id, [.. geselecteerd], selectieRekening ?? "", string.IsNullOrEmpty(selectieBtw) ? null : selectieBtw);
         fouten = uitkomst.Fouten;
-        if (uitkomst.IsGelukt)
+        if (uitkomst.Waarde is { } bulk)
         {
-            Meldingen.Toon($"{uitkomst.Waarde} van {aantal} mutaties geboekt op {selectieRekening} {schema?.Zoek(selectieRekening!)?.Naam}{(string.IsNullOrEmpty(selectieBtw) ? null : $", {selectieBtw}")}.");
-            geselecteerd.Clear();
+            Meldingen.Toon($"{bulk.Geboekt} van {aantal} mutaties geboekt op {selectieRekening} {schema?.Zoek(selectieRekening!)?.Naam}{(string.IsNullOrEmpty(selectieBtw) ? null : $", {selectieBtw}")}.");
+
+            // Wat niet lukte, blijft gekozen, met de reden erbij.
+            geselecteerd.RemoveWhere(id => !bulk.Mislukt.Contains(id));
+            fouten = bulk.Redenen.Count > 0 ? bulk.Redenen : null;
             gekozen = null;
         }
 
@@ -895,7 +898,13 @@
         if (gekozen is not null && metConcept.Contains(m.Id)
             && await Concepten.Lees<List<Bankconceptregel>>(geopend.Wie, Id, Conceptsoort.Bank, m.Id) is { Inhoud: { Count: > 0 } bewaard })
         {
-            regels = [.. bewaard.Select(x => new Regelinvoer { Post = x.Post, Rekening = x.Rekening, BtwCode = x.BtwCode, Bedrag = x.Bedrag, Omschrijving = x.Omschrijving })];
+            // Een post die intussen (via een andere mutatie) betaald is, valt weg: die regel kan niet meer.
+            regels = [.. bewaard.Where(x => x.Post is not { } p || gekozen.OpenPosten.Any(o => o.Id == p))
+                .Select(x => new Regelinvoer { Post = x.Post, Rekening = x.Rekening, BtwCode = x.BtwCode, Bedrag = x.Bedrag, Omschrijving = x.Omschrijving })];
+            if (regels.Count == 0)
+            {
+                regels = [new Regelinvoer { Bedrag = Bedragen.Getal(Math.Abs(m.Bedrag)) }];
+            }
         }
     }
 
@@ -957,7 +966,9 @@
         if (post is { } id && gekozen?.OpenPosten.FirstOrDefault(p => p.Id == id) is { } open)
         {
             (regel.Rekening, regel.BtwCode) = (null, null);
-            regel.Bedrag = Bedragen.Getal(Math.Abs(open.Openstaand));
+            // In de richting van de mutatie: een creditnota (het andere teken) komt er met een min op, zodat hij het
+            // te betalen bedrag verlaagt in plaats van verhoogt.
+            regel.Bedrag = Bedragen.Getal(Teken * open.Openstaand);
         }
     }
 
@@ -1000,7 +1011,7 @@
         var ingevuld = regels.Where(r => r.Post is not null || !string.IsNullOrWhiteSpace(r.Rekening) || r.Waarde != 0).ToList();
         var posten = ingevuld.Where(r => r.Post is not null).ToList();
         var heel = posten.Count > 0 && posten.Count == ingevuld.Count
-                   && posten.All(r => gekozen!.OpenPosten.FirstOrDefault(p => p.Id == r.Post) is { } open && Math.Abs(open.Openstaand) == r.Waarde);
+                   && posten.All(r => gekozen!.OpenPosten.FirstOrDefault(p => p.Id == r.Post) is { } open && Teken * open.Openstaand == r.Waarde);
 
         // Met een verschil wordt er niet geboekt (alleen hele posten mogen een verschil laten openstaan op de post).
         if (!heel && Verschil != 0)
@@ -1156,14 +1167,16 @@
 
         if (uitkomst.IsGelukt)
         {
-            var lijst = mutatiesortering.Pas(mutaties ?? []).ToList();
+            // De volgende mutatie binnen het filter: wie op "Albert" filtert, krijgt de volgende van Albert.
+            var lijst = mutatiesortering.Pas((mutaties ?? []).Where(PastFilter)).ToList();
             var plek = gekozen is { } g ? lijst.FindIndex(m => m.Id == g.Mutatie.Id) : -1;
             verwerkt = gekozen?.Mutatie.Id;
             StateHasChanged();
             await Task.Delay(VerwerktDuur);
             (verwerkt, gekozen) = (null, null);
             await Laad();
-            var daarna = mutatiesortering.Pas(mutaties ?? []).Skip(Math.Max(plek, 0)).Concat(mutatiesortering.Pas(mutaties ?? []))
+            var zichtbaar = mutatiesortering.Pas((mutaties ?? []).Where(PastFilter)).ToList();
+            var daarna = zichtbaar.Skip(Math.Max(plek, 0)).Concat(zichtbaar)
                 .FirstOrDefault(m => m.Status == Banktransactiestatus.TeVerwerken);
             if (plek >= 0 && daarna is not null)
             {

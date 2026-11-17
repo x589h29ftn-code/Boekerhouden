@@ -86,7 +86,7 @@ public sealed class BankSelectieTests(AdministratieFixture app) : IClassFixture<
 
         var uitkomst = await bank.OpRekening(wie, id, betalingen, "4300", "I21");
 
-        Assert.Equal(2, uitkomst.Waarde);
+        Assert.Equal((2, 0), (uitkomst.Waarde!.Geboekt, uitkomst.Waarde.Mislukt.Count));
         Assert.Equal([1210m], (await bank.Lijst(wie, id)).Select(m => m.Bedrag));
         var kaart = await app.Dienst<GrootboekDienst>().Kaart(wie, id, "4300", new(2026, 1, 1), new(2026, 12, 31));
         Assert.Equal(2, kaart.Mutaties.Count);

@@ -101,6 +101,9 @@ public sealed record Pdfomzetting(byte[] Mt940, string Bestandsnaam, Bankafschri
 /// anders door de gebruiker. Elke boeking zet de journaalpost in de keten en werkt de openstaande posten bij, in één
 /// transactie.
 /// </summary>
+/// <summary>Meer mutaties tegelijk geboekt: hoeveel, welke niet en waarom.</summary>
+public sealed record Bulkboeking(int Geboekt, IReadOnlyList<Guid> Mislukt, IReadOnlyList<string> Redenen);
+
 public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, AuditDienst audit, TimeProvider tijd, IEnumerable<Documenten.IVirusscanner> virusscanners)
 {
     /// <summary>Groter is geen bankafschrift.</summary>
@@ -314,7 +317,8 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             return null;
         }
 
-        var tekst = kandidaat.Verschil > 0 ? "te weinig" : "te veel";
+        // Te weinig betaald: er blijft iets open in de richting van de post (bij inkoop is die negatief).
+        var tekst = Math.Sign(kandidaat.Verschil) == Math.Sign(kandidaat.Posten[0].Openstaand) ? "te weinig" : "te veel";
         var reden = $"{kandidaat.Reden}; {Domain.Bedragen.Euro(Math.Abs(kandidaat.Verschil))} {tekst} betaald, afgeboekt als betaalverschil";
         return (kandidaat, reden, new Verschilafboeking(r.Nummer, null, "Betaalverschil"));
     }
@@ -512,6 +516,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         }
 
         t.Status = Banktransactiestatus.Geboekt;
+        ConceptWeg(db, t.Id);
         t.BoekingId = boeking.Id;
         t.Melding = null;
         db.Banktransacties.Update(t);
@@ -550,18 +555,19 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
     /// <summary>
     /// Boekt meer mutaties in één keer op dezelfde rekening met dezelfde btw-code (bijv. alle pinbetalingen bij de
     /// supermarkt op kantinekosten); elke mutatie wordt een eigen boeking met zijn eigen omschrijving. Geeft het aantal
-    /// geboekte mutaties (een mutatie die intussen al geboekt is, slaat hij over); lukt er geen, dan de fouten.
+    /// geboekte mutaties met de mutaties die niet lukten en waarom; lukt er geen, dan de fouten.
     /// </summary>
-    public async Task<Uitkomst<int>> OpRekening(Uitvoerder wie, Guid administratie, IReadOnlyList<Guid> mutaties, string rekening, string? btwCode)
+    public async Task<Uitkomst<Bulkboeking>> OpRekening(Uitvoerder wie, Guid administratie, IReadOnlyList<Guid> mutaties, string rekening, string? btwCode)
     {
         ArgumentNullException.ThrowIfNull(mutaties);
         if (mutaties.Count == 0)
         {
-            return Uitkomst<int>.Mislukt("Kies een of meer mutaties.");
+            return Uitkomst<Bulkboeking>.Mislukt("Kies een of meer mutaties.");
         }
 
         var geboekt = 0;
         var fouten = new List<string>();
+        var mislukt = new List<Guid>();
         foreach (var mutatie in mutaties.Distinct())
         {
             var uitkomst = await OpRekening(wie, administratie, mutatie, rekening, btwCode, null);
@@ -572,10 +578,12 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             else
             {
                 fouten.AddRange(uitkomst.Fouten);
+                mislukt.Add(mutatie);
             }
         }
 
-        return geboekt == 0 ? Uitkomst<int>.Mislukt([.. fouten.Distinct()]) : Uitkomst<int>.Met(geboekt);
+        // Ook als een deel lukt: welke niet, en waarom (bijv. een afgesloten periode).
+        return geboekt == 0 ? Uitkomst<Bulkboeking>.Mislukt([.. fouten.Distinct()]) : Uitkomst<Bulkboeking>.Met(new Bulkboeking(geboekt, mislukt, [.. fouten.Distinct()]));
     }
 
     /// <summary>
@@ -734,6 +742,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         }
 
         t.Status = Banktransactiestatus.Geboekt;
+        ConceptWeg(db, t.Id);
         t.BoekingId = boeking.Id;
         t.Melding = reden;
         db.Banktransacties.Update(t);
@@ -795,6 +804,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
 
         var boeking = await grootboek.VoegToeAanKeten(db, administratie, post, wie);
         t.Status = Banktransactiestatus.Geboekt;
+        ConceptWeg(db, t.Id);
         t.BoekingId = boeking.Id;
         t.Melding = reden;
         db.Banktransacties.Update(t);
@@ -910,6 +920,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         foreach (var t in weg)
         {
             t.Status = Banktransactiestatus.Verwijderd;
+            ConceptWeg(db, t.Id);
             t.Melding = Kort($"Verwijderd door {wie.Naam} op {Weergave.Datum(DateOnly.FromDateTime(tijd.GetLocalNow().Date))}.", 1000);
         }
 
@@ -1125,6 +1136,10 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
 
     private static BankmutatieRegel Regel(Banktransactie t) =>
         new(t.Id, t.Dagboek, t.Datum, t.Bedrag, t.Omschrijving, t.TegenNaam, t.TegenIban, t.Status, t.Melding, t.Betalingskenmerk, t.EndToEndId, t.MogelijkDubbel);
+
+    /// <summary>Een tussentijds bewaard concept van een mutatie die nu geboekt of verwijderd is: weg (anders komt het terug).</summary>
+    private static void ConceptWeg(AdministratieDbContext db, Guid mutatie) =>
+        db.Concepten.RemoveRange(db.Concepten.Where(c => c.Soort == Conceptsoort.Bank && c.Sleutel == mutatie));
 
     private static string? Kort(string? tekst, int lengte) =>
         tekst is null ? null : tekst.Length > lengte ? tekst[..lengte] : tekst;

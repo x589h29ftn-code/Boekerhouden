@@ -69,11 +69,12 @@
 
     protected override void OnParametersSet()
     {
-        // Van buiten gekozen (bijv. via "Kiezen…"): het nummer tonen.
+        // Van buiten gewijzigd (via "Kiezen…", een andere mutatie, een weggehaalde regel): het nummer tonen, of niets.
+        // Typen gaat via Kies(null), dat getoond zelf bijwerkt; de getypte tekst blijft dan staan.
         if (Waarde != getoond)
         {
             getoond = Waarde;
-            tekst = Gekozen?.Factuurnummer ?? (Waarde is null ? tekst : null);
+            tekst = Gekozen?.Factuurnummer;
         }
     }
 

@@ -379,6 +379,32 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
         var proef = await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026);
         Assert.Equal((0.01m, 0m), (Saldo(proef, "9000"), Saldo(proef, "1600")));
         Assert.Empty(await app.Dienst<GrootboekDienst>().ControleerKeten(wie, id));
+
+        // 25,00 betaald op een inkoopfactuur van 24,99: een cent te veel (niet te weinig).
+        var melding = (await bank.Lijst(wie, id, ookGeboekt: true)).Single(m => m.Bedrag == -25m).Melding;
+        Assert.Contains("€ 0,01 te veel betaald", melding, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Een_bewaard_concept_verdwijnt_als_de_mutatie_geboekt_of_verwijderd_wordt()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Concept Bank B.V.");
+        var bank = app.Dienst<BankDienst>();
+        var concepten = app.Dienst<ConceptDienst>();
+        await bank.Lees(wie, id, Afschrift(), "ing.mt940");
+        var lijst = await bank.Lijst(wie, id);
+        var (eerste, tweede, derde) = (lijst[0].Id, lijst[1].Id, lijst[2].Id);
+        foreach (var m in new[] { eerste, tweede, derde })
+        {
+            await concepten.Bewaar(wie, id, Conceptsoort.Bank, m, new List<string>(), "Concept");
+        }
+
+        Assert.True((await bank.OpRekening(wie, id, eerste, "4300", null, null)).IsGelukt);
+        Assert.True((await bank.OpRekening(wie, id, [tweede], "4300", null)).IsGelukt);
+        Assert.True((await bank.Verwijder(wie, id, [derde])).IsGelukt);
+
+        Assert.Empty(await concepten.Met(wie, id, Conceptsoort.Bank));
     }
 
     [Fact]
