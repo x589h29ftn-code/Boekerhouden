@@ -156,7 +156,10 @@ public sealed class Fiscalepositie
 
         var fiscaal = commercieel + totaalBij - totaalAf;
         regels.Add(new(Fiscaleregelsoort.Subtotaal, "Fiscaal resultaat", Totaal: Vast(fiscaal)));
-        var verrekening = Cel("vpb.verliesverrekening", Math.Min(Math.Max(0m, verliesCel.Bedrag ?? 0m), Math.Max(0m, fiscaal)));
+        // Vanaf 2022: volledig verrekenen tot € 1 miljoen winst, daarboven tot de helft van de winst boven dat miljoen.
+        var winst = Math.Max(0m, fiscaal);
+        var maximaal = gegevens.Jaar >= 2022 && winst > 1_000_000m ? 1_000_000m + ((winst - 1_000_000m) / 2m) : winst;
+        var verrekening = Cel("vpb.verliesverrekening", Math.Min(Math.Max(0m, verliesCel.Bedrag ?? 0m), maximaal));
         Regel("Af: verrekening verliezen voorgaande jaren", totaal: verrekening);
         var belastbaar = fiscaal - (verrekening.Bedrag ?? 0m);
         regels.Add(new(Fiscaleregelsoort.Subtotaal, $"Belastbaar bedrag {gegevens.Jaar}", Totaal: Vast(belastbaar)));

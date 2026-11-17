@@ -46,13 +46,19 @@ public sealed class VpbDienst(Toegang toegang, GrootboekDienst grootboek, AuditD
             balans.Add(ingesteld);
         }
 
-        var betaald = regels.Where(r => balans.Contains(r.Rekeningnummer) && r.Bedrag > 0).Sum(r => r.Bedrag);
-        var investeringen = await db.Activa.AsNoTracking().Where(a => a.Aanschafdatum >= begin && a.Aanschafdatum <= new DateOnly(jaar, 12, 31))
+        // De schuld van vorig jaar (credit op 1 januari) wordt in dit jaar betaald: dat is geen voorlopige aanslag van dit jaar.
+        var beginschuld = Math.Max(0m, -posten.Where(p => p.Datum < begin).SelectMany(p => p.Regels).Where(r => balans.Contains(r.Rekeningnummer)).Sum(r => r.Bedrag));
+        var betaald = Math.Max(0m, regels.Where(r => balans.Contains(r.Rekeningnummer) && r.Bedrag > 0).Sum(r => r.Bedrag) - beginschuld);
+        // Een bedrijfsmiddel van minder dan € 450 telt niet mee voor de KIA.
+        var investeringen = await db.Activa.AsNoTracking().Where(a => a.Aanschafdatum >= begin && a.Aanschafdatum <= new DateOnly(jaar, 12, 31) && a.Aanschafwaarde >= KiaMinimumPerBedrijfsmiddel)
             .Select(a => a.Aanschafwaarde).ToListAsync();
         var aanpassingen = await Aanpassingen(db, jaar);
         var positie = Fiscalepositie.Bereken(new Fiscalegegevens(jaar, schema, saldi, betaald, investeringen.Sum()), aanpassingen);
         return new Vpbstand(positie, aanpassingen, eind);
     }
+
+    /// <summary>De ondergrens per bedrijfsmiddel voor de investeringsaftrek (KIA).</summary>
+    private const decimal KiaMinimumPerBedrijfsmiddel = 450m;
 
     /// <summary>
     /// Een bedrag of tarief in de fiscale positie met de hand aanpassen, of met <paramref name="bedrag"/> leeg terug naar

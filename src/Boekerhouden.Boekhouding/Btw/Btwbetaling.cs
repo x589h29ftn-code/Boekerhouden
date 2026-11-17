@@ -61,14 +61,16 @@ public static partial class Btwbetalingen
         {
             var nummer = int.Parse(k.Groups["k1"].Success ? k.Groups["k1"].Value : k.Groups["k2"].Success ? k.Groups["k2"].Value : k.Groups["k3"].Value, CultureInfo.InvariantCulture);
             var jaar = int.Parse(k.Groups["jaar"].Value, CultureInfo.InvariantCulture);
-            return Aangifteperiode.Waarin(new DateOnly(jaar, ((nummer - 1) * 3) + 1, 1), Aangiftefrequentie.Kwartaal);
+            // Een jaaraangever die het kwartaal noemt: het jaar waarin dat kwartaal valt.
+            return Aangifteperiode.Waarin(new DateOnly(jaar, ((nummer - 1) * 3) + 1, 1), frequentie == Aangiftefrequentie.Jaar ? frequentie : Aangiftefrequentie.Kwartaal);
         }
 
         if (Maand().Match(klein) is { Success: true } m)
         {
             var naam = m.Groups["maand"].Value == "mrt" ? "maart" : m.Groups["maand"].Value;
             var maand = Array.FindIndex(Maanden, n => n.StartsWith(naam, StringComparison.Ordinal)) + 1;
-            return Aangifteperiode.Waarin(new DateOnly(int.Parse(m.Groups["jaar"].Value, CultureInfo.InvariantCulture), maand, 1), Aangiftefrequentie.Maand);
+            // "Omzetbelasting september 2026" bij een kwartaalaangever: het kwartaal waarin die maand valt.
+            return Aangifteperiode.Waarin(new DateOnly(int.Parse(m.Groups["jaar"].Value, CultureInfo.InvariantCulture), maand, 1), frequentie);
         }
 
         if (frequentie == Aangiftefrequentie.Jaar && Jaartal().Match(klein) is { Success: true } j)

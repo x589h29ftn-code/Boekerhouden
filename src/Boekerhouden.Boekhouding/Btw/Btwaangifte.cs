@@ -21,7 +21,7 @@ public sealed record Btwbijdrage(Journaalpost Post, Journaalregel Regel, string 
 /// De aangifte omzetbelasting over een periode, berekend uit de boekingen met hun btw-code. Per regel bepaalt de rekening
 /// wat het bedrag is: op de rekening voor voorbelasting is het aftrekbare btw (5b), op de rekening voor af te dragen btw
 /// de verschuldigde btw (in de rubriek van de code), en op elke andere rekening de grondslag (in de rubriek van de code).
-/// Bedragen exact; afronden op hele euro's hoort bij het indienen.
+/// Bedragen exact; afronden op hele euro's hoort bij het indienen (<see cref="Afgerond"/>).
 /// </summary>
 public sealed record Btwaangifte(DateOnly Van, DateOnly Tot, IReadOnlyList<Aangifterubriek> Rubrieken, decimal Voorbelasting)
 {
@@ -33,6 +33,19 @@ public sealed record Btwaangifte(DateOnly Van, DateOnly Tot, IReadOnlyList<Aangi
 
     /// <summary>Te betalen (positief) of terug te vragen (negatief).</summary>
     public decimal TeBetalen => Verschuldigd - Voorbelasting;
+
+    /// <summary>
+    /// De aangifte zoals hij wordt ingediend: in hele euro's, afgerond in het voordeel van de ondernemer (omzet en
+    /// verschuldigde btw naar beneden, voorbelasting naar boven).
+    /// </summary>
+    public Btwaangifte Afgerond() => this with
+    {
+        Rubrieken = [.. Rubrieken.Select(r => r with { Grondslag = Math.Floor(r.Grondslag), Btw = Math.Floor(r.Btw) })],
+        Voorbelasting = Math.Ceiling(Voorbelasting),
+    };
+
+    /// <summary>Wat het afronden op hele euro's scheelt in te betalen (altijd 0 of positief).</summary>
+    public decimal Afronding => TeBetalen - Afgerond().TeBetalen;
 
     public Aangifterubriek Rubriek(string rubriek) => Rubrieken.FirstOrDefault(r => r.Rubriek == rubriek) ?? new(rubriek, 0m, 0m);
 

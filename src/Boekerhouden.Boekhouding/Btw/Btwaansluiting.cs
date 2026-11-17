@@ -37,6 +37,12 @@ public sealed record Btwaansluiting(DateOnly Van, DateOnly Tot, decimal Begin, d
 public sealed record VastgelegdeAangifte(DateOnly Van, DateOnly Tot, IReadOnlyList<Aangifterubriek> Rubrieken, decimal Voorbelasting, DateTimeOffset Op, string Door)
 {
     public decimal TeBetalen => Rubrieken.Sum(r => r.Btw) - Voorbelasting;
+
+    /// <summary>Te betalen in hele euro's (zoals ingediend; een oudere, exact vastgelegde aangifte wordt zo afgerond).</summary>
+    public decimal AfgerondTeBetalen => Rubrieken.Sum(r => Math.Floor(r.Btw)) - Math.Ceiling(Voorbelasting);
+
+    /// <summary>Wat er in deze vastlegging nog niet op hele euro's stond.</summary>
+    public decimal Afronding => TeBetalen - AfgerondTeBetalen;
 }
 
 /// <summary>
@@ -46,7 +52,11 @@ public sealed record VastgelegdeAangifte(DateOnly Van, DateOnly Tot, IReadOnlyLi
 /// </summary>
 public sealed record Btwperiode(Aangifteperiode Periode, Btwaangifte Berekend, VastgelegdeAangifte? Vastgelegd)
 {
-    public decimal? Verschil => Vastgelegd is { } v ? Berekend.TeBetalen - v.TeBetalen : null;
+    /// <summary>Volgens de boekingen nu min wat is aangegeven, allebei in hele euro's: een afrondingsverschil is geen suppletie.</summary>
+    public decimal? Verschil => Vastgelegd is { } v ? Berekend.Afgerond().TeBetalen - v.AfgerondTeBetalen : null;
+
+    /// <summary>Bij een aangegeven periode: wat het afronden op hele euro's scheelt ten opzichte van de exacte bedragen.</summary>
+    public decimal Afronding => Vastgelegd is { } v ? Berekend.Afronding - v.Afronding : 0m;
 }
 
 /// <summary>Het btw-overzicht van een jaar: de perioden en de rondrekening over het hele jaar.</summary>
@@ -65,8 +75,14 @@ public sealed record Btwjaar(int Jaar, Aangiftefrequentie Frequentie, IReadOnlyL
     /// <summary>Wat de perioden die nog niet zijn aangegeven te betalen (of terug) geven.</summary>
     public decimal NietAangegeven => Perioden.Where(p => p.Vastgelegd is null).Sum(p => p.Berekend.TeBetalen);
 
-    /// <summary>Het hele jaar min aangegeven, suppletie en nog niet aangegeven: nul, tenzij de frequentie in het jaar is gewijzigd.</summary>
-    public decimal Rest => Jaaraangifte.TeBetalen - Aangegeven - Suppletie - NietAangegeven;
+    /// <summary>Wat het afronden op hele euro's in de aangegeven perioden scheelt: niet te betalen, geen suppletie.</summary>
+    public decimal Afronding => Perioden.Sum(p => p.Afronding);
+
+    /// <summary>
+    /// Het hele jaar min aangegeven, afronding, suppletie en nog niet aangegeven: nul, tenzij de frequentie in het jaar
+    /// is gewijzigd.
+    /// </summary>
+    public decimal Rest => Jaaraangifte.TeBetalen - Aangegeven - Afronding - Suppletie - NietAangegeven;
 
     /// <summary>Perioden die nog niet zijn vastgelegd maar wel btw hebben.</summary>
     public IEnumerable<Btwperiode> Open => Perioden.Where(p => p.Vastgelegd is null && (p.Berekend.Verschuldigd != 0 || p.Berekend.Voorbelasting != 0));

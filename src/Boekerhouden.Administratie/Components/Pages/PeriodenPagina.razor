@@ -123,8 +123,7 @@
 
     private async Task KiesJaar(int j)
     {
-        jaar = j;
-        vraag = null;
+        (jaar, vraag, bericht, fouten) = (j, null, null, []);
         await Laad();
     }
 

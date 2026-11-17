@@ -95,6 +95,13 @@ public sealed class BtwDienst(IDbContextFactory<AdministratieDbContext> dbFactor
             return Uitkomst.Mislukt("Vul een omschrijving in.");
         }
 
+        // De soort bepaalt de rubriek: omzet hoog hoort in 1a met het hoge tarief, omzet laag in 1b met het lage.
+        if ((soort == Btwsoort.VerkoopHoog && tarief != Tarief.Hoog) || (soort == Btwsoort.VerkoopLaag && tarief != Tarief.Laag)
+            || (soort is Btwsoort.VerkoopNul or Btwsoort.VerkoopVrijgesteld or Btwsoort.InkoopNul or Btwsoort.GeenBtw && tarief is Tarief.Hoog or Tarief.Laag))
+        {
+            return Uitkomst.Mislukt($"Het tarief past niet bij {Btwsoorten.Van(soort).Naam.ToLowerInvariant()}.");
+        }
+
         await using var db = await dbFactory.CreateDbContextAsync();
         if (await db.Btwcodes.AnyAsync(c => c.Code == code))
         {

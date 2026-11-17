@@ -121,8 +121,10 @@ public sealed class Btwrondrekening
     {
         var betaald = Perioden.Where(p => BetaaldZonderVastleggen(p).Count > 0).ToList();
         var bedrag = BetaaldZonderVastleggen();
+        // Een betaalde periode is in hele euro's aangegeven: het afrondingsverschil is geen suppletie.
         var berekend = betaald.Sum(p => p.Berekend.TeBetalen);
-        return (Jaar.Aangegeven + bedrag, Jaar.NietAangegeven - berekend, Jaar.Suppletie + berekend - bedrag);
+        var afgerond = betaald.Sum(p => p.Berekend.Afgerond().TeBetalen);
+        return (Jaar.Aangegeven + bedrag, Jaar.NietAangegeven - berekend, Jaar.Suppletie + afgerond - bedrag);
     }
 
     /// <summary>Wat er voor een periode is betaald (of ontvangen), als die niet is vastgelegd: de aangifte is buiten het pakket gedaan.</summary>
@@ -264,6 +266,7 @@ public sealed class Btwrondrekening
         var vastgelegd = Jaar.Vastgelegd.ToList();
         var aangegeven = 0m;
         var nietAangegeven = 0m;
+        var afronding = 0m;
         foreach (var p in Perioden)
         {
             vastgelegd.Remove(p.Vastgelegd!);
@@ -277,6 +280,8 @@ public sealed class Btwrondrekening
             Regel(Rondrekeningsoort.Regel, null, tekst, cel, null);
             aangegeven += cel.Bedrag ?? 0m;
             nietAangegeven += open ? p.Berekend.TeBetalen : 0m;
+            // Aangegeven in hele euro's (in het voordeel van de ondernemer): dat verschil is geen suppletie.
+            afronding += open ? 0m : betaald.Count > 0 ? p.Berekend.Afronding : p.Afronding;
         }
 
         // Aangegeven in een andere frequentie (de frequentie is in het jaar gewijzigd).
@@ -292,7 +297,12 @@ public sealed class Btwrondrekening
             Regel(Rondrekeningsoort.Regel, null, "Nog niet aangegeven", null, Vast(nietAangegeven));
         }
 
-        var suppletie = teBetalen - aangegeven - nietAangegeven;
+        if (afronding != 0)
+        {
+            Regel(Rondrekeningsoort.Regel, null, "Afronding op hele euro's", null, Vast(afronding));
+        }
+
+        var suppletie = teBetalen - aangegeven - afronding - nietAangegeven;
         Regel(Rondrekeningsoort.Totaal, null, $"Suppletie omzetbelasting {Jaar.Jaar}: {suppletie switch { > 0 => "te betalen", < 0 => "terug te vragen", _ => "geen" }}",
             null, Vast(Math.Abs(suppletie)));
 
