@@ -26,6 +26,16 @@ public static class Journaalkopie
     }
 
     /// <summary>
+    /// Een kopie hoort niet bij dezelfde factuur: zonder factuurnummers, anders telt hij nog een keer als betaling (of
+    /// factuur) op de openstaande post van het origineel.
+    /// </summary>
+    public static Journaalpost ZonderFactuurnummers(Journaalpost post)
+    {
+        ArgumentNullException.ThrowIfNull(post);
+        return post with { Regels = [.. post.Regels.Select(r => r with { Factuurnummer = null })] };
+    }
+
+    /// <summary>
     /// De maand (voluit of afgekort) en het jaar van de oude datum vervangen door die van de nieuwe, en de variabelen
     /// <c>#maand</c>/<c>#periode</c> (oktober 2026), <c>#maandnr</c> (maart is 3), <c>#kwartaal</c> en <c>#jaar</c> invullen voor de nieuwe datum.
     /// </summary>

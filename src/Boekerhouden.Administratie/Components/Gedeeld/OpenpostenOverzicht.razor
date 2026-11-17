@@ -115,7 +115,8 @@
 
     private async Task Open(Geopend g)
     {
-        geopend = g;
+        // Een andere administratie (wisselaar): het filter op een relatie van de vorige hoort er niet bij.
+        (geopend, relatie) = (g, "");
         peildatum = DateOnly.TryParseExact(PeildatumTekst, "yyyy-MM-dd", out var d) ? d : DateOnly.FromDateTime(Tijd.GetLocalNow().Date);
         await Laad();
     }

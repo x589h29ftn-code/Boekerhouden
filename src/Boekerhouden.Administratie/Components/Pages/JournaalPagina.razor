@@ -140,7 +140,9 @@
     /// <summary>Standaard het laatste boekjaar: na jaren boeken staan er tienduizenden boekingen in het journaal.</summary>
     private async Task Open(Geopend g)
     {
-        geopend = g;
+        // Een andere administratie: ketencontrole, filters en opengeklapte boekingen van de vorige horen er niet bij.
+        (geopend, keten, zoek, dagboek) = (g, null, null, "");
+        open.Clear();
         schema = await Grootboek.Schema(g.Wie, Id);
         boekjaren = await Grootboek.Boekjaren(g.Wie, Id);
         (van, tot) = Weergave.Periode(VanTekst, TotTekst) ?? Boekhouding.Grootboek.Periode.Jaar(boekjaren[0]);

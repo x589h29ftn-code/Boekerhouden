@@ -18,7 +18,7 @@
         {
             <span class="fw-semibold text-nowrap">@Post.Dagboek @Post.Boekstuk</span>
         }
-        <DatumVeld @bind-Waarde="invoer.Datum" Uit="@VasteDatum" Label="Datum" title="@(VasteDatum ? "De datum hoort bij het bankafschrift of de openstaande posten" : null)" />
+        <DatumVeld @bind-Waarde="invoer.Datum" @bind-Waarde:after="DatumGewijzigd" Uit="@VasteDatum" Label="Datum" title="@(VasteDatum ? "De datum hoort bij het bankafschrift of de openstaande posten" : null)" />
         <input class="form-control form-control-sm flex-grow-1 w-auto" @bind="invoer.Omschrijving" placeholder="Omschrijving" aria-label="Omschrijving" />
     </div>
     <div class="card overzichtskaart">
@@ -112,6 +112,22 @@
 
     private Invoer invoer = new();
     private string boekstuk = "";
+
+    /// <summary>Het boekstuk dat het pakket voorstelde; zolang de gebruiker het niet zelf wijzigde, volgt het de datum.</summary>
+    private string? voorgesteld;
+
+    /// <summary>
+    /// Een nieuwe boeking in een ander jaar (bijv. in januari een correctie op 31 december): het boekstuk uit de reeks
+    /// van dat jaar, en de btw-tarieven van die datum.
+    /// </summary>
+    private async Task DatumGewijzigd()
+    {
+        codes = (await Btw.Tabel()).Op(invoer.Datum);
+        if (Post is null && boekstuk == voorgesteld && !boekstuk.StartsWith($"{invoer.Datum.Year}-", StringComparison.Ordinal))
+        {
+            boekstuk = voorgesteld = await Grootboek.VolgendBoekstuk(Kader.Wie, Kader.Kop.Id, Dagboek, invoer.Datum.Year);
+        }
+    }
     private IReadOnlyList<Boekhouding.Btw.BtwCode> codes = [];
     private IReadOnlyList<string>? fouten;
     private bool bezig;
@@ -172,10 +188,11 @@
             var voorbeeld = bron with
             {
                 Omschrijving = Tekst(bron.Omschrijving),
-                Regels = [.. bron.Regels.Select(r => r with { Omschrijving = r.Omschrijving is { } o ? Tekst(o) : null })],
+                // Een kopie hoort niet bij dezelfde factuur (anders telt hij nog eens op die openstaande post).
+                Regels = [.. bron.Regels.Select(r => r with { Omschrijving = r.Omschrijving is { } o ? Tekst(o) : null, Factuurnummer = null })],
             };
             invoer = new Invoer { Datum = datum, Omschrijving = voorbeeld.Omschrijving, Regels = [.. voorbeeld.Regels.Select(r => Regel(r, voorbeeld.Omschrijving, vast: false))] };
-            boekstuk = await Grootboek.VolgendBoekstuk(Kader.Wie, Kader.Kop.Id, Dagboek, datum.Year);
+            boekstuk = voorgesteld = await Grootboek.VolgendBoekstuk(Kader.Wie, Kader.Kop.Id, Dagboek, datum.Year);
             herhalenTot = $"{datum.Year:0000}-12";
             return;
         }
@@ -184,7 +201,7 @@
         {
             invoer = new Invoer { Datum = datum, Regels = [new(), new()] };
             herhalenTot = $"{datum.Year:0000}-12";
-            boekstuk = await Grootboek.VolgendBoekstuk(Kader.Wie, Kader.Kop.Id, Dagboek, datum.Year);
+            boekstuk = voorgesteld = await Grootboek.VolgendBoekstuk(Kader.Wie, Kader.Kop.Id, Dagboek, datum.Year);
             return;
         }
 

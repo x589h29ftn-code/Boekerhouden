@@ -101,6 +101,19 @@ public sealed class JournaalTests
     }
 
     [Fact]
+    public void Grootboekkaart_van_het_onverdeelde_resultaat_sluit_op_de_proefbalans()
+    {
+        var journaal = Testadministratie.Journaal();
+        journaal.Boek(Memoriaal("2025-0001", new(2025, 6, 1), ("1100", 800m), ("8000", -800m)));
+        journaal.Boek(Memoriaal("2026-0001", new(2026, 2, 1), ("4300", 100m), ("1100", -100m)));
+
+        var kaart = journaal.Kaart("0590", new(2026, 1, 1), new(2026, 12, 31));
+
+        Assert.Equal(-800m, kaart.Beginsaldo);
+        Assert.Equal(journaal.Proefbalans(new(2026, 1, 1), new(2026, 12, 31)).Regels.Single(r => r.Rekening.Nummer == "0590").Saldo, kaart.Eindsaldo);
+    }
+
+    [Fact]
     public void Grootboekkaart_toont_per_regel_de_btw_code_en_de_btw_uit_dezelfde_boeking()
     {
         var journaal = Testadministratie.Journaal();

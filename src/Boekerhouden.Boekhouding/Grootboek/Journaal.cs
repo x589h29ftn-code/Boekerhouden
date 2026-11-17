@@ -129,6 +129,14 @@ public sealed class Journaal
         var regels = Regels(rekeningnummer).ToList();
         var beginsaldo = regels.Where(x => x.Post.Datum < van && (rekening.IsBalans || x.Post.Datum >= Boekjaarbegin(van)))
             .Sum(x => x.Regel.Bedrag);
+        // Het onverdeelde resultaat begint (zoals in de proef- en kolommenbalans) met het resultaat van eerdere boekjaren.
+        if (rekening.Functie == Rekeningfunctie.OnverdeeldResultaat && Schema.MetFunctie(Rekeningfunctie.OnverdeeldResultaat).FirstOrDefault()?.Nummer == rekening.Nummer)
+        {
+            var jaarbegin = Boekjaarbegin(van);
+            beginsaldo += posten.Where(p => p.Datum < jaarbegin).SelectMany(p => p.Regels)
+                .Where(r => Schema.Zoek(r.Rekeningnummer) is { IsBalans: false }).Sum(r => r.Bedrag);
+        }
+
         var saldo = beginsaldo;
         var mutaties = new List<Kaartregel>();
         foreach (var (post, regel) in regels.Where(x => x.Post.Datum >= van && x.Post.Datum <= tot)

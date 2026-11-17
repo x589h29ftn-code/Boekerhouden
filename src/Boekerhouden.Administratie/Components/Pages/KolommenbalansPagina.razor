@@ -314,7 +314,7 @@
             }
             else
             {
-                Bereken(nieuw.Regels.Select(r => (r.Rekening, new[] { r.WinstEnVerliesDebet, r.WinstEnVerliesCredit, r.BalansDebet, r.BalansCredit })));
+                Bereken(nieuw.Regels.Select(r => (r.Rekening, new[] { r.WinstEnVerliesDebet, r.WinstEnVerliesCredit, r.BalansDebet, r.BalansCredit })), Kolomsoort.DebetCredit);
             }
 
             return;
@@ -325,7 +325,7 @@
             var nieuw = await Grootboek.Maandoverzicht(geopend!.Wie, Id, van, tot);
             await LaadActiva(nieuw.Regels.Select(r => (r.Rekening.Nummer, r.Eind)));
             (maanden, uitgebreid, perMaand, melding) = (nieuw, rgs, true, null);
-            Bereken(nieuw.Regels.Select(r => (r.Rekening, (decimal[])[r.Begin, .. r.PerMaand, r.Eind])));
+            Bereken(nieuw.Regels.Select(r => (r.Rekening, (decimal[])[r.Begin, .. r.PerMaand, r.Eind])), Kolomsoort.PerMaand);
         }
         catch (ArgumentException)
         {
@@ -464,7 +464,19 @@
 
     private string Letter => $"font-size: {weergave.Lettergrootte * 0.95m / 100:0.###}rem".Replace(',', '.');
 
-    private void Bereken(IEnumerable<(Rekening Rekening, decimal[] Kolommen)> regels)
+    private enum Kolomsoort
+    {
+        /// <summary>Losse kolommen (bijv. dit jaar en vorig jaar naast elkaar): elke kolom apart afronden.</summary>
+        Los,
+
+        /// <summary>W&amp;V debet en credit, balans debet en credit: per rekening één saldo.</summary>
+        DebetCredit,
+
+        /// <summary>Begin, de maanden en eind: het eind is begin plus de maanden.</summary>
+        PerMaand,
+    }
+
+    private void Bereken(IEnumerable<(Rekening Rekening, decimal[] Kolommen)> regels, Kolomsoort soort = Kolomsoort.Los)
     {
         var lijst = regels.ToList();
         waarden = lijst.ToDictionary(r => r.Rekening.Nummer, r => r.Kolommen.ToArray(), StringComparer.Ordinal);
@@ -473,12 +485,37 @@
             return;
         }
 
-        for (var k = 0; k < lijst[0].Kolommen.Length; k++)
+        if (soort == Kolomsoort.DebetCredit)
+        {
+            // Eén getekend saldo per rekening, samen afgerond (de som blijft nul): dan sluiten balans en W&V op hetzelfde
+            // resultaat, ook in hele euro's.
+            var saldi = Afronding.OpHeleEuros(lijst.Select(r => KeyValuePair.Create(r.Rekening.Nummer, r.Kolommen[0] - r.Kolommen[1] + r.Kolommen[2] - r.Kolommen[3])));
+            foreach (var (rekening, k) in lijst)
+            {
+                var saldo = saldi[rekening.Nummer];
+                var balans = k[2] != 0 || k[3] != 0 || (k[0] == 0 && k[1] == 0 && rekening.IsBalans);
+                waarden[rekening.Nummer] = balans ? [0m, 0m, Math.Max(saldo, 0m), Math.Max(-saldo, 0m)] : [Math.Max(saldo, 0m), Math.Max(-saldo, 0m), 0m, 0m];
+            }
+
+            return;
+        }
+
+        var kolommen = soort == Kolomsoort.PerMaand ? lijst[0].Kolommen.Length - 1 : lijst[0].Kolommen.Length;
+        for (var k = 0; k < kolommen; k++)
         {
             var kolom = k;
             foreach (var (nummer, bedrag) in Afronding.OpHeleEuros(lijst.Select(r => KeyValuePair.Create(r.Rekening.Nummer, r.Kolommen[kolom]))))
             {
                 waarden[nummer][kolom] = bedrag;
+            }
+        }
+
+        // Per maand: het eind per rekening is het afgeronde begin plus de afgeronde maanden.
+        if (soort == Kolomsoort.PerMaand)
+        {
+            foreach (var w in waarden.Values)
+            {
+                w[^1] = w[..^1].Sum();
             }
         }
     }

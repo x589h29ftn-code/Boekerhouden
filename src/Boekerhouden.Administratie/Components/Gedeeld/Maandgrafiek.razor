@@ -20,7 +20,10 @@
                 @{
                     var omzet = Weergave.HeleEuros(Maanden.Select(m => m.Omzet));
                     var kosten = Weergave.HeleEuros(Maanden.Select(Kosten));
-                    var resultaat = Weergave.HeleEuros(Maanden.Select(m => m.Resultaat));
+                    // Met alle kosten is het resultaat omzet min kosten: dan ook in hele euro's het verschil, zodat de regel optelt.
+                    var resultaat = AlleKosten && Maanden.All(m => m.Resultaat == m.Omzet - m.Kosten)
+                        ? omzet.Zip(kosten, (o, k) => o - k).ToList()
+                        : Weergave.HeleEuros(Maanden.Select(m => m.Resultaat));
                 }
                 @for (var i = 0; i < Maanden.Count; i++)
                 {
@@ -32,7 +35,7 @@
                     </tr>
                 }
             </tbody>
-            <tfoot><tr><td>Totaal</td><td class="text-end">@Weergave.BedragHeel(Maanden.Sum(m => m.Omzet))</td><td class="text-end">@Weergave.BedragHeel(Maanden.Sum(Kosten))</td><td class="text-end">@Weergave.BedragHeel(Maanden.Sum(m => m.Resultaat))</td></tr></tfoot>
+            <tfoot><tr><td>Totaal</td><td class="text-end">@Weergave.BedragHeel(Maanden.Sum(m => m.Omzet))</td><td class="text-end">@Weergave.BedragHeel(Maanden.Sum(Kosten))</td><td class="text-end">@Weergave.BedragHeel(AlleKosten && Maanden.All(m => m.Resultaat == m.Omzet - m.Kosten) ? Afronding.OpHeleEuro(Maanden.Sum(m => m.Omzet)) - Afronding.OpHeleEuro(Maanden.Sum(Kosten)) : Maanden.Sum(m => m.Resultaat))</td></tr></tfoot>
         </table>
     }
     else

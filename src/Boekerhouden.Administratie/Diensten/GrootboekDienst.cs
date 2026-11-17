@@ -300,7 +300,7 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
             return Uitkomst<string>.Mislukt("Kies een geldige maand.");
         }
 
-        var kopie = Journaalkopie.NaarMaand(bron, jaar, maand);
+        var kopie = Journaalkopie.ZonderFactuurnummers(Journaalkopie.NaarMaand(bron, jaar, maand));
         kopie = kopie with { Boekstuk = await VolgendBoekstuk(wie, administratie, dagboek, kopie.Datum.Year) };
         var uitkomst = await Boek(wie, administratie, kopie);
         return uitkomst.IsGelukt ? Uitkomst<string>.Met(kopie.Boekstuk) : Uitkomst<string>.Mislukt([.. uitkomst.Fouten]);
@@ -324,6 +324,7 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
             {
                 Boekstuk = i == 0 ? eerste.Boekstuk : await VolgendBoekstuk(wie, administratie, eerste.Dagboek, datum.Year),
             };
+            post = i == 0 ? post : Journaalkopie.ZonderFactuurnummers(post);
             var uitkomst = await Boek(wie, administratie, post);
             if (!uitkomst.IsGelukt)
             {
