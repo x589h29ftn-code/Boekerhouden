@@ -49,6 +49,14 @@ public sealed record Privegebruiksignaal(string Tekst, Guid? Activum = null);
 /// </summary>
 public static class Privegebruikcontrole
 {
+    /// <summary>
+    /// De ingebruikname voor de bijtelling: de eerste maand van afschrijven, maar nooit later dan de aanschaf. Bij een
+    /// actief uit een eerdere administratie begint het afschrijven hier pas, terwijl de auto al jaren in gebruik is
+    /// (dat telt voor de vijfjaarstermijn van het forfait).
+    /// </summary>
+    public static DateOnly InGebruik(DateOnly aanschafdatum, DateOnly beginAfschrijving) =>
+        beginAfschrijving < aanschafdatum ? beginAfschrijving : aanschafdatum;
+
     private static readonly System.Globalization.CultureInfo Nl = System.Globalization.CultureInfo.GetCultureInfo("nl-NL");
 
     private static string B(decimal bedrag) => bedrag.ToString("N2", Nl);
@@ -137,7 +145,7 @@ public static class Privegebruikcontrole
             return null;
         }
 
-        return Math.Round(waarde * Forfaitpercentage(v.Privegebruik, v.InGebruik, jaar) / 100m * Maanden(v, jaar) / 12m, 2);
+        return Math.Round(waarde * Forfaitpercentage(v.Privegebruik, v.InGebruik, jaar) / 100m * Maanden(v, jaar) / 12m, 0, MidpointRounding.AwayFromZero);
     }
 
     /// <summary>

@@ -204,7 +204,7 @@
 
     private async Task KiesJaar(int j)
     {
-        jaar = j;
+        (jaar, fouten) = (j, null);
         await Laad();
     }
 

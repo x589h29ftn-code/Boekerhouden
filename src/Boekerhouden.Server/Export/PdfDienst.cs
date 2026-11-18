@@ -25,6 +25,9 @@ public sealed partial class PdfDienst(IOptions<PdfOpties> opties, ILogger<PdfDie
 {
     public string? Browser => opties.Value.Browser is { Length: > 0 } pad ? pad : ZoekBrowser();
 
+    /// <summary>Hoogstens zoveel browsers tegelijk; een drukke machine met veel tegelijk laat de browser soms hangen.</summary>
+    private static readonly SemaphoreSlim Tegelijk = new(Math.Clamp(Environment.ProcessorCount, 2, 8));
+
     public async Task<Uitkomst<byte[]>> Maak(string html, CancellationToken stoppen = default)
     {
         ArgumentNullException.ThrowIfNull(html);
@@ -33,6 +36,29 @@ public sealed partial class PdfDienst(IOptions<PdfOpties> opties, ILogger<PdfDie
             return Uitkomst<byte[]>.Mislukt("Er is geen browser gevonden om een PDF te maken. Installeer Microsoft Edge of Chromium, of stel Pdf:Browser in.");
         }
 
+        await Tegelijk.WaitAsync(stoppen);
+        try
+        {
+            // Een browser die blijft hangen zonder PDF (dat gebeurt af en toe op een drukke machine) krijgt één
+            // nieuwe kans, met een vers profiel.
+            var uitkomst = await Probeer(browser, html, stoppen);
+            if (uitkomst is null)
+            {
+                PdfOpnieuw(log, browser);
+                uitkomst = await Probeer(browser, html, stoppen);
+            }
+
+            return uitkomst ?? Uitkomst<byte[]>.Mislukt("Het maken van de PDF duurde te lang.");
+        }
+        finally
+        {
+            Tegelijk.Release();
+        }
+    }
+
+    /// <summary>Eén poging; leeg als de browser binnen de tijdslimiet geen PDF maakte.</summary>
+    private async Task<Uitkomst<byte[]>?> Probeer(string browser, string html, CancellationToken stoppen)
+    {
         var map = Directory.CreateTempSubdirectory("boekerhouden-pdf-");
         try
         {
@@ -96,7 +122,7 @@ public sealed partial class PdfDienst(IOptions<PdfOpties> opties, ILogger<PdfDie
                 if (Compleet(uitvoer) <= 0)
                 {
                     proces.Kill(entireProcessTree: true);
-                    return Uitkomst<byte[]>.Mislukt("Het maken van de PDF duurde te lang.");
+                    return null;
                 }
             }
 
@@ -124,6 +150,9 @@ public sealed partial class PdfDienst(IOptions<PdfOpties> opties, ILogger<PdfDie
             }
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "{Browser} maakte binnen de tijdslimiet geen PDF; nog een keer")]
+    private static partial void PdfOpnieuw(ILogger log, string browser);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "PDF niet gemaakt door {Browser} (afsluitcode {Code}): {Fouten}")]
     private static partial void PdfMislukt(ILogger log, string browser, int code, string fouten);

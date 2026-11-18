@@ -119,6 +119,32 @@ public sealed class Mt940Tests
     }
 
     [Fact]
+    public void Een_betalingskenmerk_in_de_omschrijving_wordt_het_kenmerk_ook_in_groepjes_van_vier()
+    {
+        const string tekst = """
+            :20:R1
+            :25:NL20INGB0001234567
+            :28C:00001/001
+            :60F:C261001EUR1000,00
+            :61:2610021002D120,00NTRFNONREF
+            :86:/CNTP/NL86INGB0002445588/INGBNL2A/Belastingdienst/Apeldoorn///
+            /REMI/USTD//8123 4567 8781 2345/
+            :61:2610031003D80,00NTRFNONREF
+            :86:/CNTP/NL86INGB0002445588/INGBNL2A/Belastingdienst/Apeldoorn///
+            /REMI/USTD//Kenteken XX-123-Y 0987654327854321/
+            :61:2610041004D10,00NTRFNONREF
+            :86:/CNTP/NL44RABO0123456789/RABONL2U/Jansen///
+            /REMI/USTD//Bestelling 1234 5678 9012 3456/
+            :62F:C261004EUR790,00
+            """;
+
+        var mutaties = Mt940Lezer.Lees(new StringReader(tekst)).Single().Mutaties;
+
+        Assert.Equal(("8123456787812345", "0987654327854321"), (mutaties[0].Betalingskenmerk, mutaties[1].Betalingskenmerk));
+        Assert.Null(mutaties[2].Betalingskenmerk);
+    }
+
+    [Fact]
     public void Onleesbare_bestanden_geven_een_duidelijke_fout()
     {
         Assert.Contains("geen MT940", Assert.Throws<BankbestandException>(() => Mt940Lezer.Lees(new StringReader("hallo"))).Message, StringComparison.Ordinal);
@@ -145,6 +171,26 @@ public sealed class Mt940Tests
 
 public sealed class Camt053Tests
 {
+    [Fact]
+    public void De_versie_van_2019_met_partij_onder_Pty_status_als_code_en_datums_met_tijdzone()
+    {
+        var afschrift = Assert.Single(Mt940Tests.Lees("camt053-2019-2026-05.xml"));
+
+        Assert.Equal(("NL20INGB0001234567", "5", "EUR"), (afschrift.Iban, afschrift.Nummer, afschrift.Valuta));
+        Assert.Equal((new DateOnly(2026, 5, 1), 6720.65m, new DateOnly(2026, 5, 31), 7355.15m), (afschrift.Begindatum, afschrift.Beginsaldo, afschrift.Einddatum, afschrift.Eindsaldo));
+
+        // De reservering (PDNG) telt niet mee; de verzamelboeking is gesplitst; het saldo sluit.
+        Assert.Equal(3, afschrift.Mutaties.Count);
+        Assert.Equal(afschrift.Eindsaldo, afschrift.Beginsaldo + afschrift.Mutaties.Sum(m => m.Bedrag));
+        var ontvangst = afschrift.Mutaties[0];
+        Assert.Equal((new DateOnly(2026, 5, 4), 1210.00m, "Lunchroom De Hoek", "NL91ABNA0417164300", "Factuur 20260012", (string?)null),
+            (ontvangst.Datum, ontvangst.Bedrag, ontvangst.TegenNaam, ontvangst.TegenIban, ontvangst.Omschrijving, ontvangst.EndToEndId));
+        Assert.Equal((new DateOnly(2026, 5, 12), -500.00m, "Meelhandel Korenaar B.V.", "RF18539007547034"),
+            (afschrift.Mutaties[1].Datum, afschrift.Mutaties[1].Bedrag, afschrift.Mutaties[1].TegenNaam, afschrift.Mutaties[1].Betalingskenmerk));
+        Assert.Equal((-75.50m, "Belnet B.V.", "Telefoon mei", "BN-2026-0511"),
+            (afschrift.Mutaties[2].Bedrag, afschrift.Mutaties[2].TegenNaam, afschrift.Mutaties[2].Omschrijving, afschrift.Mutaties[2].EndToEndId));
+    }
+
     [Fact]
     public void Afschrift_met_saldi_tegenpartijen_kenmerk_en_verzamelboeking()
     {

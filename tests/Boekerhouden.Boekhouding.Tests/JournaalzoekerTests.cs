@@ -41,4 +41,17 @@ public sealed class JournaalzoekerTests
         Assert.False(Journaalzoeker.Past(Post, "telefoon"));
         Assert.True(Journaalzoeker.Past(Post, "4310"));
     }
+
+    [Theory]
+    [InlineData("4000")]
+    [InlineData("4.000")]
+    [InlineData("4.000,00")]
+    [InlineData("€ 4.000")]
+    [InlineData("3305,79")]
+    public void Een_bedrag_vinden_met_of_zonder_punt(string zoek)
+    {
+        var post = new Journaalpost("MEM", "2026-0007", new(2026, 4, 1), "Lening", [new("4300", 3305.79m), new("1500", 694.21m), new("1100", -4000m)]);
+
+        Assert.True(Journaalzoeker.Past(post, zoek, Schema));
+    }
 }

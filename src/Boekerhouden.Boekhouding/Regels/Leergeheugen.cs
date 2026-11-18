@@ -84,13 +84,22 @@ public sealed class Leergeheugen
     public bool Adrescontrole { get; }
 
     /// <summary>
-    /// De sleutel waaronder een keuze wordt onthouden: de relatie, anders de tegenrekening, anders de naam, en bij een
-    /// bankmutatie zonder tegenpartij de woorden van de omschrijving. Leeg als er niets is om op te herkennen.
+    /// De sleutel waaronder een keuze wordt onthouden: bij motorrijtuigenbelasting het voertuig, anders de relatie, anders
+    /// de tegenrekening, anders de naam, en bij een bankmutatie zonder tegenpartij de woorden van de omschrijving. Leeg
+    /// als er niets is om op te herkennen.
     /// </summary>
     public static string? Sleutel(Verwerkingsgegevens gegevens)
     {
         ArgumentNullException.ThrowIfNull(gegevens);
         var soort = gegevens.Soort == Verwerkingssoort.Inkoopfactuur ? "F" : "B";
+
+        // Motorrijtuigenbelasting: per voertuig (het kenmerk zonder controlecijfer en volgnummer blijft gelijk), zodat
+        // de zakelijke auto en een privéauto die via de zaak wordt betaald elk hun eigen keuze leren.
+        if (Bank.Belastingherkenning.Voertuig(gegevens.Kenmerk) is { } voertuig)
+        {
+            return $"{soort}|mrb|{voertuig}";
+        }
+
         if (!string.IsNullOrWhiteSpace(gegevens.Relatie))
         {
             return $"{soort}|relatie|{gegevens.Relatie}";

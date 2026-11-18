@@ -102,7 +102,7 @@ public sealed class AbonnementDienst(Toegang toegang, VerkoopDienst verkoop, Aud
         }
 
         return new Abonnementinvoer($"{f.Factuur.Klant.Naam} {f.Factuur.Omschrijving}".Trim(), f.Invoer.Relatie, Herhaling.Maand, f.Factuur.Datum.AddMonths(1), null,
-            f.Invoer.Omschrijving, [.. f.Factuur.Regels.Where(r => r.Aantal > 0)], Referentie: f.Invoer.Referentie, Tekst: f.Invoer.Tekst, LayoutId: f.Invoer.LayoutId);
+            f.Invoer.Omschrijving, [.. f.Factuur.Regels], Referentie: f.Invoer.Referentie, Tekst: f.Invoer.Tekst, LayoutId: f.Invoer.LayoutId);
     }
 
     public async Task<Uitkomst<Guid>> Bewaar(Uitvoerder wie, Guid administratie, Guid? id, Abonnementinvoer invoer)
@@ -162,6 +162,14 @@ public sealed class AbonnementDienst(Toegang toegang, VerkoopDienst verkoop, Aud
 
         abonnement.Naam = Kort(invoer.Naam.Trim(), 200);
         abonnement.Relatie = invoer.Relatie;
+        // Begin of herhaling gewijzigd terwijl er al facturen gemaakt zijn: verder ná de laatst gemaakte factuur, niet
+        // opnieuw tellen vanaf het nieuwe begin (dat zou perioden overslaan of dubbel factureren).
+        if (abonnement.Volgende > 0 && (abonnement.Begin != invoer.Begin || abonnement.Herhaling != invoer.Herhaling))
+        {
+            var laatste = Plan(abonnement).Datum(abonnement.Volgende - 1);
+            abonnement.Volgende = new Abonnementsplan(invoer.Begin, invoer.Herhaling, invoer.Einde).VolgnummerNa(laatste);
+        }
+
         (abonnement.Herhaling, abonnement.Begin, abonnement.Einde) = (invoer.Herhaling, invoer.Begin, invoer.Einde);
         abonnement.Omschrijving = Kort(invoer.Omschrijving?.Trim() ?? "", 500);
         abonnement.Regels = JsonSerializer.Serialize(invoer.Regels, Json);

@@ -43,6 +43,19 @@ public sealed class VpbTests(AdministratieFixture app) : IClassFixture<Administr
     }
 
     [Fact]
+    public async Task De_betaling_van_de_schuld_van_vorig_jaar_is_geen_voorlopige_aanslag()
+    {
+        var (wie, id) = await Bv("Vpb Vorig Jaar B.V.");
+        var grootboek = app.Dienst<GrootboekDienst>();
+        Assert.True((await grootboek.Boek(wie, id, new Journaalpost("MEM", "2025-0001", new(2025, 12, 31), "Vpb 2025", [new("1550", -12_603m), new("1300", 12_603m)]))).IsGelukt);
+        Assert.True((await grootboek.Boek(wie, id, Memoriaal("2026-0004", new("1550", 12_603m), new("1300", -12_603m)))).IsGelukt);
+
+        var p = (await app.Dienst<VpbDienst>().Positie(wie, id, 2026))!.Positie;
+
+        Assert.Equal(5_000m, p.Regels.First(r => r.Omschrijving == "Betaalde voorlopige aanslagen").Totaal!.Bedrag);
+    }
+
+    [Fact]
     public async Task Met_de_hand_aanpassen_en_fiscale_indeling_wijzigen_alleen_het_kantoor()
     {
         var (wie, id) = await Bv("Vpb Aanpassen B.V.");

@@ -235,10 +235,11 @@ nog eens kiezen ook echt iets doet.
 2. **Herkennen** (`IFactuurHerkenner`, AD3), in volgorde van betrouwbaarheid:
    1. **UBL/e-factuur** (los of als bijlage in de PDF): exacte gegevens, geen OCR nodig;
    2. **PDF met tekstlaag**: tekst eruit, dan tekstanalyse;
-   3. **scan of foto**: Tesseract (Nederlands en Engels), dan dezelfde tekstanalyse. Een foto (JPEG, PNG) wordt
+   3. **scan of foto**: PaddleOCR (`PaddleOcr`, zie §3.20), anders Tesseract (Nederlands en Engels), dan dezelfde
+      tekstanalyse. Een foto (JPEG, PNG) wordt
       bewaard als PDF met de foto als pagina; van een gescande PDF gaat per pagina de grootste afbeelding door de OCR.
       De woorden met hun plek (`DocumentInhoud.Tekstlaag`) maken aanwijzen, oplichten en het zoektemplate mogelijk,
-      net als bij een PDF met tekst. Zonder Tesseract blijft een scan in Te verwerken met een melding.
+      net als bij een PDF met tekst. Zonder motor blijft een scan in Te verwerken met een melding.
    
    De **tekstanalyse** zoekt het factuurnummer, de factuur- en vervaldatum, IBAN, btw-nummer (met
    controle), KvK, het totaal, het btw-bedrag per tarief en het bedrag exclusief btw. Ze controleert ook of
@@ -288,7 +289,8 @@ nog eens kiezen ook echt iets doet.
 8. **Bedragen controleren** (`Bedragcontrole`, naast de controle van de factuur zelf): de btw per regel bij het
    tarief (100,00 en 21% is 21,00; een cent per factuurregel mag door afronden), en de boeking samen tegen het
    totaal en de btw van de factuur (100,00 + 21,00 = 121,00). Bij een verschil toont het scherm de reden en heet
-   de knop *Toch boeken*; zelf verwerken doet het pakket dan nooit.
+   de knop *Toch boeken*; zelf verwerken doet het pakket dan nooit. Onder de regels staan de totalen zoals bij een
+   verkoopfactuur: totaal excl. btw, de btw per tarief met de grondslag ("Btw 21% over 20,65") en totaal incl. btw.
 
 ### 3.5 Verkoopfacturen
 
@@ -336,6 +338,10 @@ eigen btw-code voor de regel (`InrichtingDienst.WijzigRegel`, `Verwerkingsregel.
     daaronder.
   - **CAMT.053** (XML, ISO 20022): per mutatie het bedrag, debet/credit, de datum, de tegenpartij met IBAN,
     de omschrijving (`Ustrd`), het gestructureerde betalingskenmerk en de end-to-end-id.
+    Beide versies: de oude `camt.053.001.02` en die van 2019 (`camt.053.001.08`, waar de banken naar overgaan): de
+    tegenpartij onder `Pty`, de status als code (`Sts/Cd`), datums met een tijdzone (de dag zoals de bank hem schrijft,
+    zonder omrekenen). Een reservering (`PDNG`) of informatieve regel telt niet mee; een verzamelboeking wordt in zijn
+    transacties gesplitst, ook met bij- en afschrijvingen door elkaar.
   - **Controle**: beginsaldo + mutaties = eindsaldo, en het beginsaldo sluit aan op het vorige afschrift. Een
     mutatie die al eerder is ingelezen, wordt niet nog eens geboekt.
 - **Belastingdienst herkennen** (`Bank/Belastingherkenning`): een betaling aan of teruggaaf van de Belastingdienst
@@ -359,7 +365,20 @@ eigen btw-code voor de regel (`InrichtingDienst.WijzigRegel`, `Verwerkingsregel.
   **Automatisch boeken bij een geldig betalingskenmerk**: dan boekt het pakket de betaling zelf bij het inlezen en
   bij *Opnieuw herkennen*, maar alleen als het kenmerk een kloppend controlecijfer heeft (zonder kenmerk, of met een
   typefout, blijft het een voorstel). Een regel of geleerde keuze gaat altijd voor; maak dus geen regel op het IBAN
-  van de Belastingdienst, want die zou alle belastingen op één rekening boeken.
+  van de Belastingdienst, want die zou alle belastingen op één rekening boeken. Automatisch boeken staat sinds
+  13 november 2026 standaard aan (ook voor bestaande administraties). **Motorrijtuigenbelasting** (middelcode 78 of 87
+  in het kenmerk, of "MRB"/"motorrijtuigenbelasting" in de omschrijving) gaat op een kostenrekening: de vaste rekening
+  uit de instellingen (alleen een resultaatrekening) of een rekening met *motorrijtuigenbelasting*, *MRB* of
+  *wegenbelasting* in de naam; omschrijving *Motorrijtuigenbelasting 2026* (het jaar van de betaling). MRB wordt
+  nooit meteen zelf geboekt (de ene auto is zakelijk, een privéauto die via de zaak wordt betaald niet): het blijft een
+  voorstel, en het leergeheugen onthoudt de keuze **per voertuig** (sleutel `B|mrb|…`: het kenmerk zonder
+  controlecijfer en volgnummer, `Belastingherkenning.Voertuig`); na het ingestelde aantal bevestigingen boekt het pakket
+  de betalingen voor dat voertuig zelf. In MT940 wordt
+  een kenmerk van 16 cijfers met een kloppend controlecijfer ook uit de omschrijving gehaald (ook in groepjes van vier).
+- **Verwerkpaneel**: *Regel toevoegen* zet het ontbrekende bedrag erop, met een min als er te veel is verdeeld; met
+  een verschil wordt niet geboekt (alleen hele posten mogen een verschil op de post laten openstaan). Met een mutatie
+  open is de lijst zo breed als de tabel (breder gesleepte kolommen) en krijgt het paneel de rest, minstens 34rem.
+  De velden van autoherkenning en de bedragen hebben geen formulier-aanvulling van de browser.
 - **Handmatig inboeken** van een mutatie: op een openstaande post, op een grootboekrekening (met btw-code) of
   gesplitst over meerdere regels.
 - **Afletteren** (§3.8): wat zeker is, wordt automatisch geboekt. Wat waarschijnlijk is, staat klaar als
@@ -415,6 +434,25 @@ debiteuren, een betaling bij crediteuren. Elke kandidaat krijgt een **zekerheid*
   bank sluit.
 - Getest met twee praktijksets (oktober 2026, verzonnen): `BankpraktijkTests` (deelbetaling in twee delen, dubbele
   betaling en terugbetaling; kenmerk, factuur min creditnota, sombetaling, betalingskorting en een ander IBAN).
+
+**Pinbetaling van een bon** (`Afletteren/Pinbetaling`): een afschrijving zonder tegenrekening heeft geen factuurnummer
+en geen IBAN. Dan tellen het bedrag (exact), de dag en de naam van de winkel:
+
+- de **dag** van de betaling staat meestal in de omschrijving ("11.11.26/10.19", "11-11-2026 10:19"); dan moet de bon
+  van die dag zijn (of de dag ervoor). Staat hij er niet in, dan mag de boekdatum hoogstens 4 dagen na de bon liggen;
+- de **naam** van de winkel moet in de omschrijving of de naam van de tegenpartij staan. De bank schrijft hem anders dan
+  de bon: hoofdletters, een betaaldienst ervoor ("CCV*", "SumUp *"), plaats of filiaalnummer erachter, afgekapt
+  ("Banketb Roomha", "Lunchroom De Kad"), aan elkaar ("BRANDSTOFNOORD") of ingekort ("Gamar 0412" voor Bouwhal Gamar).
+  Woorden als *bakkerij*, *supermarkt* en *B.V.* tellen niet mee; een kort woord als "Spar" alleen als los woord;
+- klopt dat bij precies één openstaande bon, dan is het **zeker** en wordt hij vanzelf afgeletterd. Twee bonnen van
+  dezelfde winkel met hetzelfde bedrag: alleen zeker als de omschrijving de dag noemt en één bon van die dag is;
+- zonder herkende naam (de bank noemt de exploitant, niet de naam op de bon) een **voorstel** "Bedrag en datum", de
+  dichtste dag bovenaan. Een andere dag, een ander bedrag of een IBAN dat niet van de winkel is: nooit vanzelf.
+
+Test met 50 willekeurige bonnen (`PinbetalingTests.Vijftig_willekeurige_bonnen_tegen_het_bankafschrift`, vast zaadje):
+16 winkels, met opzet dubbele bedragen, 46 pinregels in de vorm van vier banken en 30 afleiders (pinbetalingen zonder
+bon). Uitkomst: alle 42 bonnen waarvan de winkelnaam op het afschrift staat vanzelf goed, de 4 zonder naam als voorstel
+bovenaan, geen enkele verkeerd en geen afleider vanzelf.
 
 ### 3.9 Rechten en gebruikers
 
@@ -505,7 +543,7 @@ SVG zonder script (`Maandgrafiek.razor`); de kleuren zijn gecontroleerd op kleur
   | Doel | Pakket | Licentie |
   |---|---|---|
   | Tekst uit PDF | PdfPig | Apache-2.0 |
-  | OCR | Tesseract (via `TesseractOCR` of de opdrachtregel) | Apache-2.0 |
+  | OCR | PaddleOCR-modellen (PP-OCRv5) via RapidOcrNet en ONNX Runtime; Tesseract als terugval | Apache-2.0, MIT (ONNX Runtime), BSL-1.0 (Clipper2) |
   | PDF van een verkoopfactuur | de bestaande `PdfDienst` (Chromium) | – |
 
 - **Bedragen**: `decimal`, exact in centen, en ook zo getoond (een administratie is exact; de jaarrekening in
@@ -540,7 +578,8 @@ afschrijvingen als memoriaalboeking per periode, desinvesteren (ook voor een dee
 
 | Onderdeel | Hoe |
 |---|---|
-| Activakaart | Omschrijving, aanschafdatum en -waarde, afschrijven lineair of niet (grond), de eerste maand, de looptijd in maanden, restwaarde, de activarekening (balans, aanschafwaarde), de afschrijvingsrekening (balans, cumulatieve afschrijving) en de kostenrekening (W&V), de boeking van de aanschaf en een notitie. Een actief uit een vorige administratie: *Al eerder afgeschreven* met het bedrag, en de resterende looptijd. Doorlopend nummer per administratie (`ActivaDienst.Bewaar`, `Activum`) |
+| Activakaart | Omschrijving, aanschafdatum, aanschafwaarde en restwaarde onder elkaar, afschrijven lineair of niet (grond), de eerste maand, de termijn in jaren, in procent per jaar (20%, 10%, 3,33%) of in maanden (`Afschrijvingstermijn`; vast ligt altijd het aantal maanden, 3,33% = 360 maanden), de activarekening (balans, aanschafwaarde), de afschrijvingsrekening (balans, cumulatieve afschrijving) en de kostenrekening (W&V), de boeking van de aanschaf en een notitie. Een actief uit een vorige administratie: *Al eerder afgeschreven* met het bedrag, en de resterende looptijd. Doorlopend nummer per administratie (`ActivaDienst.Bewaar`, `Activum`) |
+| Staat vaste activa inlezen | *Nieuw → Staat inlezen…* (`/activa/staat`, recht Boekhouden): de mva-staat van vorig jaar uit **Excel** (.xlsx, `Documenten/ExcelActivastaat`: elk blad, bij formules de bewaarde waarde) of **PDF** met tekstlaag (`Documenten/PdfActivastaat`: woorden per regel, bedragkolommen uit de rechterkant van de bedragen, de kop over meerdere regels bij de dichtstbijzijnde kolom; kolommen zonder bedragen uit de kop). De lezer (`Activa/Activastaatlezer`) is niet aan één sjabloon gebonden: de kopregel wordt gezocht op woorden (omschrijving, datum, aanschaffingen tot/t/m, investeringen, desinvesteringen, afschrijvingen tot/jaar/desinvesteringen/t/m, boekwaarde, rest-/residuwaarde, percentage of jaren; ook "t/m vorig jaar"), een tekst zonder bedragen is een groep (inventaris, vervoermiddelen; lege sjabloonregels als "Gebouwen 3" niet), een regel zonder omschrijving of met *Totaal* een subtotaal of het eindtotaal. **Aansluiting**: per regel (aanschaf begin + investeringen − desinvesteringen = eind, afschrijving idem, aanschaf − afschrijving = boekwaarde), per groep tegen het subtotaal, alles tegen het eindtotaal (speling onder een euro), en tegen het **grootboek** per de dag na de staat (saldo plus de beginbalans) per activa- en afschrijvingsrekening. Per groep worden de rekeningen voorgesteld (een activarekening met de naam van de groep, dan de afschrijvings- en kostenrekening zoals bij eerdere activa of uit RGS) en zijn ze te wijzigen. **Overnemen** (`Staatovername`): aanschafwaarde en restwaarde van het eind van de staat, *al eerder afgeschreven* = de afschrijving t/m de staat, de resterende looptijd tegen het percentage, begin op 1 januari; zonder percentage en zonder afschrijving (kunst) niet afschrijven; zonder aanschafdatum een schatting (zo lang terug als er al is afgeschreven), in te vullen per regel. Alles wordt eerst gecontroleerd; wat al als actief bestaat (dezelfde omschrijving) wordt overgeslagen. Gelogd (`ActivastaatDienst`). **Vast sjabloon** (knop *Sjabloon*, `ExcelActivastaat.Sjabloon`): één regel per actief met omschrijving, groep, aanschafdatum, aanschafwaarde, restwaarde, afschrijving % per jaar, afgeschreven t/m 31-12, boekwaarde (controle), activa-, afschrijvings- en kostenrekening, privégebruik (keuzelijst: ja, ja werkelijk, nee, bestelauto, rittenregistratie, verklaring), cataloguswaarde en notitie; het jaar is het jaar vóór de eerste boeking van de administratie; met een blad *Uitleg* en een blad *Rekeningen* (de activa-, afschrijvings- en kostenrekeningen van de administratie, nummers als tekst). Rekeningen per actief gaan voor de keuze per groep; privégebruik, cataloguswaarde en notitie komen mee in het actief |
 | Uit een aanschaf | Elke debetregel op een activarekening (RGS `BMva…Vvp` of `BIva…Vvp`, of een rekening die al bij een actief hoort) die nog geen actief is, staat onder *Aanschaffingen op activarekeningen* (bijv. de inkoopfactuur van een laptop op 0200). *Opnemen* opent de kaart met omschrijving, datum, bedrag en boeking ingevuld, en de rekeningen erbij: zoals bij het vorige actief op die rekening, anders uit RGS (`BMvaBeiVvp` → `BMvaBeiCae` en `WAfsAmvBei`), met 60 maanden (`Kandidaten`) |
 | Afschrijvingsplan | Lineair per maand, tot op de cent verdeeld (de laatste maand sluit precies); per jaar in te klappen, met de boeking per maand. Na de eerste boeking liggen aanschaf, begin, methode en rekeningen vast; looptijd en restwaarde mogen nog: wat er nog af moet, gaat over de resterende maanden (schattingswijziging, alleen vooruit). Domein: `Activa/Afschrijvingsplan` |
 | Afschrijving wijzigen per datum | Op de activakaart *Afschrijving wijzigen*: vanaf een maand een ander percentage per jaar van de aanschafwaarde min de restwaarde (bijv. van 20% naar 10% per 1 januari), met vooraf het nieuwe bedrag per maand en de laatste maand. Alleen na de laatst geboekte maand; dezelfde maand nog eens vervangt, en verwijderen kan zolang er vanaf die maand niets is geboekt. Meerdere wijzigingen na elkaar mogen. Naast de looptijd staat het percentage (60 maanden = 20% per jaar). Kantoor (recht Boekhouden), in het wijzigingslog. Domein: `Herziening`; dienst: `ActivaDienst.Herzie`/`VerwijderHerziening` |
@@ -578,7 +617,7 @@ gebouwen) en een overzicht voor de investeringsaftrek.
 | A11 ✅ | **Scans**: Tesseract voor scans en foto's (`TesseractOcr`, `OcrLezer`); in de Windows-app als Tesseract op de pc staat | Ook papieren bonnen |
 | A12 | **Saldibalans naar het samenstelpakket** | Jaarrekening zonder export |
 | gepland | **Regels splitsen per leverancier** (wens gebruiker, oktober 2026): de factuurregels uitlezen en per leverancier een vaste verdeling over rekeningen leren (energie: levering en netbeheer; telefoon: abonnement en toestel; groothandel: 9% en 21%), en die de volgende keer voorstellen | Ook gesplitste facturen vanzelf |
-| gepland | **Verzamel-PDF splitsen** (wens gebruiker, oktober 2026): een PDF met meerdere facturen (één per pagina of meer) bij het inlezen opdelen in losse documenten, per factuurnummer of leverancier, met een controle-overzicht voor het splitsen | Een stapel facturen in één keer uploaden |
+| ✅ | **Stapel splitsen** (§3.19; wens gebruiker, oktober 2026): een PDF met meerdere facturen (één per pagina of meer) bij het inlezen opdelen in losse documenten, per factuurnummer of leverancier, met een controle-overzicht voor het splitsen | Een stapel facturen in één keer uploaden |
 | gepland | **Bijtelling auto eenmanszaak/vof** (wens gebruiker, november 2026, §3.2b): bijtelling per auto met privégebruik (percentage voor 60 maanden, elektrisch, youngtimer), maximaal de werkelijke autokosten, journaalpost privé aan autokosten bijtelling | Bijtelling zonder spreadsheet |
 | gepland | **Vreemde valuta** (batch 2, scenario 8): factuur in USD e.d. op de koers van de factuurdatum, betaling op de werkelijke koers, het verschil naar koersverschillen; bankkosten apart | Buitenlandse leveranciers zonder handwerk |
 | gepland | **Ontbrekende factuur** (batch 2, scenario 16 en 18): een betaling zonder factuur (huur, pinbon) markeren als *factuur ontbreekt*, tijdelijk op een tussenrekening, en de vaste last later automatisch | Vaste lasten en bonnetjes netjes opvolgen |
@@ -659,6 +698,99 @@ het formulier, een maand later, om aan te passen (bijv. andere bedragen) voor he
   (maand; standaard die van *periode tot en met*, bij vier-wekenperioden december) en een omschrijving; *Naar boeking*
   zet de boeking in het formulier op de laatste dag van die maand, met de namen uit het salarispakket als omschrijving
   per regel. Daar kan nog een regel bij of af, en *Boeken* kan alleen in balans.
+
+### 3.20 Foto's van bonnetjes
+
+Een foto (JPEG of PNG) van een bonnetje of factuur gaat gewoon via *Inkoop* → *Facturen inlezen*; er is geen aparte
+module. Vóór de tekstherkenning wordt de foto een **scan** (`Documenten/Fotoverbetering`, SkiaSharp):
+
+- rechtop gezet volgens de camera (EXIF) en verkleind tot hoogstens 2600 pixels;
+- in grijstinten, met de belichting per plek vlakgetrokken (schaduw en vergeeld papier worden wit) en het contrast
+  verhoogd (inkt wordt zwart);
+- grote donkere vormen (de ringen van een ordner, een vinger, de rand van de tafel) worden wit, vóór het contrast;
+- rechtgezet als de foto scheef is genomen (tot tien graden), zodat de regels weer horizontaal lopen;
+- een **smalle bon tussen andere dingen** (in een ordner, op een factuur die erachter uitsteekt) wordt uitgesneden:
+  de strook met de meeste tekst is de bon; een kolom ernaast hoort erbij als de regels op dezelfde hoogte staan
+  (de bedragen) of als er alleen een korte vouw tussen ligt; een lange rand (de rand van een ander vel, de rug van de
+  ordner) of tekst op eigen regels hoort er niet bij. Een foto die al helemaal bon of pagina is, blijft heel;
+- bij lichte of dunne inkt (thermisch papier, een matrixprinter) blijft er een glijdende overgang naar het papier,
+  zodat dunne streepjes niet wegvallen.
+
+Die scan gaat door de tekstherkenning en wordt als PDF van één pagina bewaard (kleiner en beter leesbaar dan de
+foto); de controle op dubbel inlezen gaat op de foto zelf. Een bon heeft geen factuurnummer: dan wordt het
+**bonnummer** ("Bon 0048213", "Bonnr", "Ticket") genomen, en anders het transactienummer van de pinbetaling. Het
+totaal en het btw-blokje (per tarief: exclusief, btw, inclusief) worden gelezen als bij een factuur. De bon wordt als
+inkoopfactuur geboekt; de pinbetaling op het bankafschrift lettert hem af.
+
+Ook een **gescande bon in een PDF** (bijv. zwart-wit van een kopieerapparaat) gaat vóór het lezen door dezelfde
+verbetering, maar zonder draaien, zodat de woorden op hun plek op de pagina blijven; de PDF zelf blijft zoals hij is.
+Bij een bon met leesfouten helpt de analyse zichzelf: een btw-rij die met het tarief begint telt ook zonder kop
+("9,0% € 23,80 € 2,15"); kloppen exclusief + btw = totaal bij één tarief, dan volgt het tarief daaruit (ook als het
+grootste bedrag verkeerd is gelezen); staat de naam alleen in het logo, dan komt hij uit het webadres (ook "www. "
+met een spatie), aangevuld met wat er van het logo wel gelezen is ("Zoet Banketb" + domein → "Zoet Banketbakkerij").
+
+**Tekstherkenning (13 november 2026)**: de motor is **PaddleOCR** (de PP-OCRv5-modellen voor Latijns schrift,
+Apache-2.0, via het pakket RapidOcrNet en ONNX Runtime, in het eigen proces; `PaddleOcr`). Een neuraal netwerk zoekt
+eerst de regels en leest ze dan als geheel; het leest foto's van kassabonnen veel beter dan Tesseract, ook letters
+van een matrixprinter (losse stipjes), kreukels en een ordner eromheen. Het leest een **zachte versie** van de foto
+(rechtgezet en uitgesneden als de scan, alleen de belichting vlak, zonder hard contrast;
+`Fotoverbetering.VerbeterMetZacht`): de woorden staan zo op dezelfde plek als in de bewaarde scan. Woorden onder 60%
+zekerheid vallen weg (een streepjescode die als tekst is gelezen). Ongeveer 2–3 seconden per bon. Zonder de modellen
+(of als ONNX Runtime niet start) is Tesseract de terugval. Op vier echte foto's van bonnen (supermarkt met matrixprinter,
+kledingwinkel met kreukels, bonnen in een ordner) haalde Tesseract alleen bij één naam en datum; PaddleOCR leest bij
+alle vier naam, datum en totaal, en de btw waar die op de bon staat. De analyse kreeg er een paar leesfouten bij:
+"BTW Totaal" en "Totaal afgerond" zijn niet het totaal, een euroteken als C ("C7,45"), "T otaal", het %-teken als ",
+".n1" voor .nl, een logo in stukken ("KRU ID" bij het domein kruid.nl wordt één woord), de naam direct boven het adres
+(daarboven staat vaak onzin uit een logo of streepjescode) en een btw-regel met btw en totaal ("21% 1,29 7,45").
+
+**Stresstest**: `python3 scripts/bonnen/maak-bonnen.py <map>` maakt 25 verzonnen telefoonfoto's (bouwmarkt, supermarkt,
+bakkerij, tankstation, horeca, drogist, parkeren, een bon zonder btw; scheef tot 6 graden, wazig, schaduw, vervaagde
+inkt, ruis; 9%, 21% en gemengd) en `BOEKERHOUDEN_BONNENMAP=<map> dotnet test tests/Boekerhouden.Documenten.Tests
+--filter Bonnenstress` haalt ze door de hele keten en schrijft `verslag.txt` (per bon en per veld). Stand 11 november
+2026: 24 van de 25 helemaal goed (naam, datum, totaal, btw per tarief, bonnummer); de bon met heel dunne, vervaagde
+letters leest de tekstherkenning niet. Stand 13 november 2026: 25 van 25. `python3 scripts/bonnen/maak-ordnerbonnen.py
+<map>` maakt 10 bonnen zoals ze in een ordner worden gefotografeerd (lichte thermische inkt, een factuur erachter, de
+ringen erover, de rug ernaast); daarvan 7 helemaal goed, de andere missen de datum onder een ring of het bonnummer.
+Een afgekapt label ("Bonnumm") telt ook. Wat de test opleverde:
+
+- de tekstherkenning leest in **twee standen** (automatische indeling en één kolom) en neemt die met de meeste
+  bedragen: bij de automatische indeling viel op een bon vaak de hele rechterkolom weg (`TesseractOcr.Kwaliteit`);
+- het contrast schuift mee met **vervaagde inkt**; "BIW" wordt BTW; een spatie in een bedrag ("24, 39") gaat weg;
+- btw-rijen met leesfouten: het tarief weggevallen, de grondslag verkeerd, alleen het btw-bedrag leesbaar, "BTW 9"
+  zonder procentteken; het totaal ook achter *Pinnen*, *Pin betaald*, *Bedrag*;
+- het nummer ook achter *Rekening* (horeca) en *Ticket*; een naam die op een adres lijkt maar boven het adres staat;
+  een flard ("nnen") is geen naam.
+
+Nog niet: HEIC-foto's van een iPhone (eerst als JPEG delen), bijsnijden op het papier, meerdere foto's van één lange
+bon samenvoegen, en een eigen soort *bon* die direct tegen de pinbetaling of kas boekt.
+
+### 3.19 Stapel splitsen (bulk inlezen)
+
+Eén PDF met alle inkoop- of verkoopfacturen (bijv. een gescande map van een jaar) aanleveren en in losse facturen
+knippen. Knop *Stapel splitsen* bij *Inkoop* en bij *Verkoop*; hoogstens 500 pagina's en 300 MB per stapel.
+
+- **Voorstel** (`Herkenning/Stapelsplitser`): per overgang tussen twee pagina's tellen aanwijzingen op: paginanummering
+  ("pagina 2 van 3"), een ander of hetzelfde factuurnummer, een andere afzender (alleen inkoop), een factuurkop
+  bovenaan, een totaal op de vorige pagina, "vervolg" of "transport", een pagina zonder bedragen (voorwaarden). Hoog =
+  knip, laag = geen knip, ertussen een keuze met *twijfel* (warme kleur; *n twijfel* in de kop springt naar de
+  volgende). Een (bijna) lege pagina wordt weggelaten. Zonder tekst: elke pagina een eigen factuur, met twijfel.
+- **Scherm** (`/a/{id}/stapel/{stapel}`, `Stapelvlak`, `wwwroot/stapel.js`): alle pagina's als miniatuur, facturen om
+  en om getint, vóór elke pagina een knipplek (klik = knip zetten of weghalen), per pagina *Weglaten*. Een klik op een
+  pagina toont hem groot ernaast zonder weg te gaan: pijltjes bladeren, **K** knipt vóór de pagina, **W** laat hem
+  weg, Esc sluit; draaien alleen om te kijken. Elke wijziging wordt meteen bewaard; een open stapel staat bij
+  inkoop of verkoop als *Stapel verder splitsen*.
+- **Scans**: pagina's zonder tekst gaan op de achtergrond een voor een door de tekstherkenning (voortgang in de kop);
+  daarna komt het voorstel opnieuw, maar knippen die de gebruiker al zette blijven staan. De gelezen tekst gaat mee
+  naar de losse facturen, dus er wordt niet twee keer gelezen.
+- **Splitsen** (`StapelDienst.Verwerk`, `PdfStapel.Splits`): elke factuur wordt een eigen PDF (pagina's ongewijzigd
+  overgenomen) met de naam `<stapel> p. 14-16.pdf` en gaat door de gewone weg: `InkoopDienst.Lees` of
+  `VerkoopimportDienst.Lees` (virusscan, herkenning, dubbel, automatisch boeken). Lukt een deel niet (bijv. de
+  virusscanner valt weg), dan blijft de stapel open en gaat *Splitsen* de volgende keer verder met de rest. Een
+  factuur mag hoogstens 50 pagina's hebben. De stapel zelf blijft bewaard (tabellen `Stapels`, `StapelInhouden`);
+  dezelfde stapel nog een keer aanleveren wordt geweigerd. In het wijzigingslog: ingelezen, gesplitst (aantallen),
+  weggegooid. Recht: invoeren; inzien mag kijken.
+- Nog niet: pagina's blijvend draaien, pagina's verplaatsen (voor- en achterkanten die apart zijn gescand) en een
+  voortgangsbalk tijdens het uploaden van een grote stapel.
 
 ### 3.15 Beginbalans uit de jaarrekening
 
@@ -771,7 +903,7 @@ overzichten.
 | Formulier | Labels links, velden rechts: factuurnummer, leverancier, factuurdatum, vervaldatum en kenmerk, omschrijving en het *bedrag* van de factuur (inclusief btw; ook aan te wijzen op de factuur). Daaronder de regels (omschrijving, grootboekrekening, btw, bedrag) met *+ Nog een regel*, het totaal en het verschil met het bedrag. De reden van het voorstel, de signalen en waar het document vandaan komt staan achter de knop *Info* (met het aantal signalen) |
 | Creditnota | Schakelaar naast het bedrag. Een creditnota (herkend aan een negatief totaal, of zelf aangezet) staat in het formulier zonder minteken en wordt omgekeerd geboekt; *Verrekenen met* kiest een openstaande factuur van dezelfde leverancier en verlaagt beide posten (*Creditnota verrekend* in het log). Een creditnota leert niets. Eerder zonder boeking bewaarde documenten (privé of geen boeking) zijn terug te zetten naar Te verwerken |
 | Aanpassen | Een geboekt document (aanklikken onder *Verwerkt*, in het inkoopboek of via de boeking) toont de boeking (factuur, regels, boekstuk) met de factuur ernaast. *Aanpassen* zet het formulier vol met wat er geboekt is (`InkoopDienst.Geboekt`); er verandert niets tot *Opslaan* (*Annuleren* laat alles zoals het was). Opslaan geeft dezelfde boeking een nieuwe versie met hetzelfde boekstuk (zie *Boeking aanpassen*), en dezelfde openstaande post krijgt het nieuwe bedrag, de nieuwe datum en relatie. Een periodeverdeling gaat mee: de maandboekingen krijgen een nieuwe versie, en vallen er maanden af, dan vervallen die (een versie zonder regels). In het leergeheugen vervangt de nieuwe keuze die van toen, zodat de factuur één keer meetelt. Is de factuur al (deels) betaald of verrekend, dan eerst die betaling terugdraaien |
-| OCR | Scans en foto's (`TesseractOcr` als eigen proces, `OcrLezer`). Tesseract wordt gezocht via `Ocr:Tesseract`, het zoekpad en (Windows) `C:\Program Files\Tesseract-OCR`; `Ocr:Aan` = false zet het uit. Op Windows: Tesseract installeren met Nederlands (de installer van UB Mannheim, Apache-2.0). Inkoop en *factuur uploaden* bij de bank nemen ook JPEG en PNG aan |
+| OCR | Scans en foto's: `PaddleOcr` (de modellen in `models/v5` naast de app, komen mee uit het pakket RapidOcrNet) en anders `TesseractOcr` als eigen proces, via `OcrLezer`; `Ocr:Motor` = `tesseract` kiest Tesseract. Tesseract wordt gezocht via `Ocr:Tesseract`, het zoekpad en (Windows) `C:\Program Files\Tesseract-OCR`; `Ocr:Aan` = false zet het uit. Op Windows: Tesseract installeren met Nederlands (de installer van UB Mannheim, Apache-2.0). Inkoop en *factuur uploaden* bij de bank nemen ook JPEG en PNG aan |
 | Periode verdelen | Schakelaar onder de regels (niet automatisch). Aan: van en tot en met (herkend uit de factuur, bijv. "periode 01-09-2026 t/m 31-08-2027" of "1 september 2026 tot en met 31 augustus 2027", anders een jaar vanaf de maand van de factuurdatum) en de rekening ertussen (standaard vooruitbetaalde kosten, RGS `BVorOvaVan`). De factuur gaat met de kosten op die balansrekening; per maand die de periode raakt (op de eerste dag) boekt het pakket in het memoriaal een gelijk deel naar de kostenrekening, op de cent met het restje in de laatste maand (`Periodeverdeling`). De btw blijft bij de factuur. Bewaard bij het document (`Document.Verdeling`); de geboekte factuur toont de verdeling, heropenen zet hem terug in het formulier, en terugdraaien of verwijderen draait ook elke maandboeking terug. Leren en de historie gebruiken de kostenrekening |
 | Inkoopboek | `/a/{id}/inkoopboek` (menu Boekhouden, en *Alles in het inkoopboek* bij Verwerkt): elke geboekte inkoopfactuur en creditnota over een periode (standaard het jaar van de laatste factuur), met boekstuk, leverancier, factuurnummer, omschrijving, exclusief, btw, totaal en wat nog openstaat, onderaan de totalen; zoeken op leverancier, nummer, omschrijving of boekstuk. Een regel opent de factuur (met de boeking), of de boeking als er geen document is (`InkoopDienst.Inkoopboek`). Onder *Verwerkt* op het inkoopscherm staan alleen de laatste 100 documenten |
 | Verwijderen | *Verwijderen* op het verwerkscherm, met *Zeker weten? Ja, verwijderen* (`VerwijderKnop`, `InkoopDienst.Verwijder`): het document en zijn inhoud verdwijnen. Is het geboekt, dan wordt eerst de boeking teruggedraaid (zie hieronder): het journaal wijzigt nooit, dus de boeking en de tegenboeking blijven samen staan. Niet als de factuur al (deels) betaald of verrekend is. Een kopie in de documentmap blijft staan. In het log als *Document verwijderd* |
@@ -827,6 +959,8 @@ overzichten.
 | Terugkerende facturen | Boekhouden → *Terugkerende facturen* (`/a/{id}/verkoop/terugkerend`, `AbonnementDienst`), of *Herhalen…* op een factuur: naam, klant, elke maand, kwartaal, halfjaar of jaar vanaf een eerste factuurdatum, eventueel tot en met een datum (`Abonnementsplan`; datums tellen vanaf het begin, dus de 31e blijft het eind van de maand). Omschrijving en regels met variabelen: `#periode` (oktober 2026, 4e kwartaal 2026, 2e halfjaar 2026, 2026, of van t/m als de periode niet samenvalt), `#maand`, `#kwartaal`, `#jaar`, `#van`, `#tot`. *Facturen maken* maakt alles tot en met vandaag: als concept, of meteen definitief (vinkje), eventueel met de omzet verdeeld over de periode van de factuur (bijv. een jaarabonnement in januari, per maand naar de omzet). Het volgnummer gaat in dezelfde transactie omhoog (administratie vergrendeld), dus twee keer klikken maakt geen dubbele facturen; kan een factuur niet definitief, dan blijft hij concept met de reden. Op de verkooppagina staat hoeveel er klaar staan. Verwijderen laat de gemaakte facturen staan; *actief* uit stopt hem |
 | Verkoopboek en facturen maken | Twee plekken in het menu. **Verkoop** (`/a/{id}/verkoop`) is het verkoopboek van facturen die de klant zelf (elders) heeft gemaakt: *Facturen inlezen* (of slepen), de lijst met *te verwerken* en geboekte facturen, en per factuur het verwerkscherm *Verkoopfactuur verwerken*: links klant, datum, vervaldatum, omschrijving, factuurnummer en de regels (omschrijving, bedrag, omzetrekening, btw), rechts het **origineel** (PDF in de viewer, een scan als afbeelding; `Verkooporigineel`), niet de eigen lay-out. *Boeken* boekt met het nummer van de factuur en zet hem op de debiteuren. De afnemer wordt op de factuur gezocht zonder de eigen naam, het btw-nummer, de IBAN's en het KvK-nummer (`VerkoopimportDienst.ZonderEigenKvk`); een onbekende klant staat bij het veld (*op de factuur: …*) en gaat met *Nieuwe klant…* ingevuld naar de relaties. **Facturen maken** (`/a/{id}/facturen`) is de lijst van de facturen die hier gemaakt worden (concepten, eigen lay-out, per maand, terugkerend). Beide lijsten zijn dezelfde pagina (`VerkoopPagina`), gescheiden op *ingelezen* |
 | Inlezen uit een ander pakket | *Inlezen* op de verkooppagina (of slepen op de pagina): PDF, e-factuur (UBL) of scan (`VerkoopimportDienst`). Eerst de virusscan, dan dezelfde herkenning als bij inkoop; bij een verkoopfactuur is de eigen onderneming de afzender, dus de andere partij is de klant (bij een e-factuur de afnemer: `Afnemer` in `HerkendeFactuur`). De klant wordt gezocht op btw-nummer, KvK en naam (`Verkoopimport.Klant`); de regels per tarief (bij een e-factuur de regels zelf) op de omzetrekening en btw-code van de klant (`Verkoopimport.Regels`; verlegd wordt VEU bij een klant uit een ander EU-land, anders VVL). Klant herkend, nummer en datum gevonden, bedragen sluitend en niet dubbel: dan boekt het pakket hem meteen, met het nummer van het andere pakket (boekstuk uit de reeks van het verkoopboek, `2026-0001`) en het betalingskenmerk van de factuur. Anders staat hij als *ingelezen* concept bij Verkoop met de reden; klant kiezen (of *Nieuwe klant…*, al ingevuld met de naam en het btw-nummer van de factuur) en *Boeken*. Het origineel blijft bewaard (`Verkoopbestand`, *Origineel*). Hetzelfde bestand nog eens of een nummer dat er al is, wordt niet dubbel geboekt. De nummers tellen mee in de eigen reeks: wie halverwege het jaar overstapt (laatste oude factuur 20260041), gaat verder met 20260042 |
+| Verwerkscherm als bij inkoop | *Verkoopfactuur verwerken* heeft dezelfde opzet en velden als *Factuur verwerken* bij inkoop: links een kaart met onder elkaar factuurnummer, klant (met *Nieuwe klant…* in de lijst: dan naam en btw-nummer, de klant wordt bij *Boeken* of *Bewaren* aangemaakt; een onbekende klant op de factuur staat zo al klaar), factuurdatum, vervaldatum, betalingskenmerk, omschrijving met variabelen en de regels (omschrijving, grootboekrekening, btw, bedrag exclusief btw; geen aantal of prijs: `Verkoopregels` met `Verwerken`), daaronder het totaal exclusief, de btw per tarief en het totaal inclusief, *Periode verdelen*, en *Boeken*, *Bewaren*, *Verwijderen*. Rechts het origineel achter de versleepbare scheiding (`Verkooporigineel` met `Paneel`) |
+| Aanwijzen en variabelen bij een ingelezen factuur | Op het verwerkscherm werkt het origineel zoals bij inkoop: zet de cursor in een veld (factuurnummer, klant of de naam en het btw-nummer van een nieuwe klant, factuurdatum, vervaldatum, betalingskenmerk, omschrijving, omschrijving of bedrag van een regel) en sleep een kader om de tekst op de factuur; de tekst komt in dat veld (`Verkooporigineel` met `wijsAan` in `factuurviewer.js`; de woorden met hun plek uit `VerkoopimportDienst.Beeld`: uit de PDF, bij een scan of foto van de tekstherkenning, een foto wordt daarbij een PDF van één pagina). Een datum of bedrag wordt uit de tekst gelezen; een aangewezen klantnaam wordt bij de klanten gezocht en anders ingevuld bij *Nieuwe klant…*. Boven het formulier staat wat er is overgenomen. De **omschrijving** kent dezelfde variabelen als inkoop (keuzelijst `#` naast het veld, het voorbeeld eronder): `#klant`, `#factuurnummer`, `#datum`, `#vervaldatum`, `#maand` (maart), `#maandnr` (3), `#kwartaal`, `#jaar`, `#kenmerk`; ze worden gevuld bij het boeken (`VerkoopDienst.MaakDefinitief`). Het kantoor kan een **standaardomschrijving voor ingelezen verkoopfacturen** vastleggen (Beheer, Instellingen; bijv. `Verkoop #klant #maandnr-#jaar` wordt *Verkoop Hotel De Klant B.V. 3-2026*); zonder standaard blijft de omschrijving van de factuur. Is de klant bij het inlezen nog niet bekend, dan blijven de variabelen staan tot de klant gekozen is. `#maandnr` werkt ook in de omschrijving van inkoopfacturen, terugkerende facturen en gekopieerde memoriaalposten |
 | Rechten | Lezen: lijst, factuur, verkoopboek en debiteuren, PDF en e-factuur; Invoeren (ondernemer en kantoor): concepten, definitief, crediteren en kopiëren, de lay-out, terugkerende facturen en inlezen. In het log: concept gemaakt, gewijzigd, verwijderd, *Verkoopfactuur definitief* en de wijzigingen van een lay-out |
 
 #### Windows-app voor de tests

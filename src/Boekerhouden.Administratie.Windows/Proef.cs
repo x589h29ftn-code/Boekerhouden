@@ -25,6 +25,7 @@ internal static class Proef
         "grootboek?rekening=4300", "journaal", "inkoopboek", "verkoopboek", "crediteuren", "debiteuren", "aansluitingen", "bank",
         "bank/openstaand", "inkoop", "verkoop", "verkoop/nieuw", "verkoop/terugkerend", "memoriaal", "relaties", "regels",
         "rekeningschema", "instellingen", "factuurlayout", "activa", "activa?weergave=staat", "activa/nieuw", "perioden",
+        "btw", "btw/rondrekening", "vpb", "beginbalans", "facturen",
     ];
 
     public static async Task<Proefuitkomst> Voorbereiden(IServiceProvider diensten)
@@ -34,7 +35,7 @@ internal static class Proef
         return await Proefgegevens.Vul(diensten, wie, new Proefomvang(), DateTime.Today.Year);
     }
 
-    public static async Task Voer(HoofdVenster venster, WebView2 webview, string map, Proefuitkomst? gegevens)
+    public static async Task Voer(Proefvenster venster, WebView2 webview, string map, Proefuitkomst? gegevens)
     {
         var verslag = new StringBuilder();
         var fouten = new List<string>();

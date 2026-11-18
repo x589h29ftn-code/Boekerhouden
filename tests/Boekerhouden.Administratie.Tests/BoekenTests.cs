@@ -338,6 +338,9 @@ public sealed class BoekenTests(AdministratieFixture app) : IClassFixture<Admini
         Assert.Equal([new(2026, 1, 31), new(2026, 2, 28), new(2026, 3, 31), new(2026, 4, 30)], posten.Select(p => p.Datum));
         Assert.Equal(4, posten.Select(p => p.Boekstuk).Distinct().Count());
         Assert.Equal(4000m, (await grootboek.Kaart(wie, id, "4300", new(2026, 1, 1), new(2026, 12, 31))).Eindsaldo);
+        var huur = Post("2026-0050", new(2026, 7, 1), ("4300", 10m), ("1100", -10m)) with { Omschrijving = "Huur juli" };
+        Assert.True((await grootboek.BoekPerMaand(wie, id, huur, 2)).IsGelukt);
+        Assert.Equal(["Huur juli", "Huur augustus"], (await grootboek.Posten(wie, id, "MEM")).Select(p => p.Post).Where(p => p.Datum.Month >= 7).OrderBy(p => p.Datum).Select(p => p.Omschrijving));
         var dubbel = await grootboek.BoekPerMaand(wie, id, Post(posten[0].Boekstuk, new(2026, 5, 1), ("4300", 1m), ("1100", -1m)), 2);
         Assert.False(dubbel.IsGelukt);
         var ondernemer = await app.Gebruiker("Olga Herhaal");

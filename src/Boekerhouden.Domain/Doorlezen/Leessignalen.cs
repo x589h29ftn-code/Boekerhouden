@@ -57,7 +57,8 @@ public static class Leessignalen
 
         signalen.AddRange(g.Waarschuwingen.Distinct().Select(w => new Leessignaal("rapport:" + Kort(w), w, "Uit de opbouw van het rapport.")));
 
-        var vermogen = b.Totaal("BEiv").Huidig;
+        // Het eigen vermogen zoals in het rapport: in een saldibalans staat het resultaat van het jaar er nog niet in.
+        var vermogen = b.Totaal("BEiv").Huidig - b.ResultaatHuidig;
         if (vermogen > 0)
         {
             var continuiteit = g.Grondslagen?.Any(x => x.Sleutel == "continuiteit" && x.Opgenomen) == true;

@@ -121,7 +121,8 @@ public sealed class BtwaangifteDienst(Toegang toegang, GrootboekDienst grootboek
 
         var codes = (await BtwDienst.Lees(db)).Op(tot);
         var (posten, schema) = await grootboek.JournaalMetSchema(wie, administratie, van, tot);
-        var aangifte = Btwaangifte.Bereken(posten, schema, codes, van, tot);
+        // Zoals hij wordt ingediend: in hele euro's.
+        var aangifte = Btwaangifte.Bereken(posten, schema, codes, van, tot).Afgerond();
         db.IngediendeAangiften.Add(new IngediendeAangifte
         {
             AdministratieId = administratie,

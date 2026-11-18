@@ -230,3 +230,12 @@ html.ruim .zijmenu-link {
     box-shadow: inset 2px 0 0 var(--bh-accent);
     font-weight: 600;
 }
+
+/* Stapel splitsen: de tegels en het paneel donker; de pagina's zelf blijven wit (papier). */
+[data-bs-theme="dark"] :is(.stapelblad, .stapelpaneel) {
+    background: #1c2129;
+}
+
+[data-bs-theme="dark"] .stapelblad.even {
+    background: var(--bh-accent-zacht);
+}

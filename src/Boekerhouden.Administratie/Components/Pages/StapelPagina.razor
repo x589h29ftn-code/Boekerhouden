@@ -1,0 +1,39 @@
+@page "/a/{Id:guid}/stapel/{Stapel:guid}"
+@inject StapelDienst Stapels
+
+<AdministratieKader Id="Id" Titel="Stapel splitsen" Actief="@(weergave?.Kop.Soort == Boekhouding.Facturen.Factuursoort.Verkoop ? "/verkoop" : "/inkoop")"
+                    Terug="@($"/a/{Id}/{(weergave?.Kop.Soort == Boekhouding.Facturen.Factuursoort.Verkoop ? "verkoop" : "inkoop")}")" BijOpenen="Open">
+    <ChildContent>
+        @if (!geladen)
+        {
+            <Laadschets />
+        }
+        else if (weergave is null)
+        {
+            <div class="alert alert-warning">Deze stapel bestaat niet (meer).</div>
+        }
+        else
+        {
+            <Stapelvlak Wie="geopend!.Wie" Administratie="Id" Begin="weergave" MagInvoeren="context.Mag(Recht.Invoeren)" />
+        }
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private Stapelweergave? weergave;
+    private bool geladen;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [Parameter]
+    public Guid Stapel { get; set; }
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        weergave = await Stapels.Open(g.Wie, Id, Stapel);
+        geladen = true;
+    }
+}

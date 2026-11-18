@@ -33,6 +33,7 @@
             {
                 <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="Opnieuw door de facturen in Te verwerken, met wat het pakket nu weet (relaties, regels, wat er geleerd is)" @onclick="VerwerkOpnieuw">Opnieuw herkennen</button>
             }
+            <Stapelinvoer Wie="geopend.Wie" Administratie="Id" Soort="Boekhouding.Facturen.Factuursoort.Inkoop" />
             <label class="btn btn-sm btn-primary @(bezig ? "disabled" : null)" for="bestanden" aria-busy="@(bezig ? "true" : null)" title="PDF, e-factuur (UBL) of foto; slepen op de pagina kan ook">Facturen inlezen</label>
         }
     </Acties>

@@ -34,6 +34,19 @@ public sealed class OcrTests
     }
 
     [Fact]
+    public void Van_twee_leesstanden_wint_die_met_de_meeste_bedragen()
+    {
+        static OcrWoord W(string tekst, double zekerheid = 90) => new(tekst, 0, 0, 10, 10, zekerheid);
+        var zonderKolom = new OcrUitkomst(100, 100, [W("Kipfilet"), W("500g"), W("Tomaten"), W("tros"), W("TOTAAL"), W("Bedankt"), W("tot"), W("ziens")]);
+        var metKolom = new OcrUitkomst(100, 100, [W("Kipfilet"), W("6,49"), W("Tomaten"), W("2,15"), W("TOTAAL"), W("1.021,44")]);
+
+        Assert.True(TesseractOcr.Kwaliteit(metKolom) > TesseractOcr.Kwaliteit(zonderKolom));
+
+        // Een bedrag waar de tekstherkenning niet zeker van is, telt niet.
+        Assert.True(TesseractOcr.Kwaliteit(new OcrUitkomst(100, 100, [W("6,49", 10)])) < TesseractOcr.Kwaliteit(new OcrUitkomst(100, 100, [W("TOTAAL")])));
+    }
+
+    [Fact]
     public void Pixels_worden_pdf_punten_op_de_plek_van_de_afbeelding()
     {
         var ocr = new OcrUitkomst(1000, 2000, [new OcrWoord("Totaal", 100, 200, 300, 50, 90), new OcrWoord("ruis", 0, 0, 1, 1, -1)]);

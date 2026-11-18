@@ -32,6 +32,7 @@ public static class Opstart
         services.AddScoped<Doorverwijzer>();
         services.AddScoped<AuthenticationStateProvider, HervaliderendeAuthenticatieStatus>();
 
+        var kantoorserver = Lokaal.Kantoorserver.Configureer(builder);
         var identiteit = ConfigureerKern(services, builder.Configuration, builder.Environment.IsDevelopment(), lokaal: false);
         identiteit.AddSignInManager();
 
@@ -56,7 +57,8 @@ public static class Opstart
             o.Cookie.HttpOnly = true;
             o.Cookie.SameSite = SameSiteMode.Strict;
             o.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
-            o.LoginPath = "/inloggen";
+            // Kantoorserver: er is geen inlogpagina; een onbekende bezoeker ziet dat hij een gekoppelde werkplek nodig heeft.
+            o.LoginPath = kantoorserver ? Lokaal.Kantoorserver.GeenWerkplek : "/inloggen";
             o.LogoutPath = "/account/uitloggen";
             o.AccessDeniedPath = "/geen-toegang";
             o.ExpireTimeSpan = TimeSpan.FromHours(10);
@@ -77,7 +79,8 @@ public static class Opstart
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuratie);
-        services.AddSingleton(new Werkomgeving(lokaal));
+        var kantoorserver = !lokaal && Lokaal.Kantoorserver.Aan(configuratie);
+        services.AddSingleton(new Werkomgeving(lokaal, kantoorserver));
 
         var verbinding = configuratie.GetConnectionString(Verbindingsnaam)
                          ?? throw new InvalidOperationException($"Verbindingsgegevens '{Verbindingsnaam}' ontbreken in appsettings.json.");
@@ -108,6 +111,7 @@ public static class Opstart
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<AuditDienst>();
         services.AddSingleton<GebruikerDienst>();
+        services.AddSingleton<ApparaatDienst>();
         services.AddSingleton<Toegang>();
         services.AddSingleton<AdministratieDienst>();
         services.AddSingleton<GrootboekDienst>();
@@ -117,6 +121,7 @@ public static class Opstart
         services.AddSingleton<FactuuropmaakDienst>();
         services.AddSingleton<AbonnementDienst>();
         services.AddSingleton<VerkoopimportDienst>();
+        services.AddSingleton<StapelDienst>();
         services.AddSingleton<BankDienst>();
         services.AddSingleton<AuditfileDienst>();
         services.AddSingleton<DashboardDienst>();
@@ -129,6 +134,7 @@ public static class Opstart
         services.AddSingleton<PeriodeDienst>();
         services.AddSingleton<ActivaDienst>();
         services.AddSingleton<BeginbalansDienst>();
+        services.AddSingleton<ActivastaatDienst>();
         services.AddSingleton<ConceptDienst>();
         services.AddSingleton<BtwaangifteDienst>();
         services.AddSingleton<VpbDienst>();
@@ -140,21 +146,32 @@ public static class Opstart
         services.AddSingleton<Export.PdfDienst>();
 
         // Virusscan vóór het openen van elk document (besluit B3). Zonder instelling: op de server fail closed; in
-        // ontwikkeling (zonder ClamAV) en in de Windows-app (eigen bestanden van de gebruiker, op één pc) zonder scan.
+        // ontwikkeling (zonder ClamAV) en in de Windows-app (eigen bestanden van de gebruiker, op één pc of gedeeld
+        // met de collega's op kantoor) zonder scan.
         if (configuratie["Virusscan:Adres"] is { Length: > 0 } adres)
         {
             services.AddSingleton<IVirusscanner>(ClamAvScanner.Van(adres));
         }
-        else if (!ontwikkeling && !lokaal)
+        else if (!ontwikkeling && !lokaal && !kantoorserver)
         {
             services.AddSingleton<IVirusscanner, OntbrekendeVirusscanner>();
         }
 
-        // Tekstherkenning (OCR) voor scans en foto's: Tesseract als hij te starten is (pad in "Ocr:Tesseract", anders het
-        // zoekpad en de gebruikelijke installatiemappen). Zonder Tesseract blijven scans in Te verwerken met een melding.
-        if (configuratie.GetValue("Ocr:Aan", true) && TesseractOcr.Zoek(configuratie["Ocr:Tesseract"]) is { } tesseract)
+        // Tekstherkenning (OCR) voor scans en foto's: PaddleOCR (de modellen naast de app; leest foto's van bonnen veel
+        // beter), anders Tesseract als hij te starten is (pad in "Ocr:Tesseract", anders het zoekpad en de gebruikelijke
+        // installatiemappen). "Ocr:Motor" = "tesseract" kiest Tesseract. Zonder motor blijven scans in Te verwerken met
+        // een melding.
+        if (configuratie.GetValue("Ocr:Aan", true))
         {
-            services.AddSingleton<IOcrMotor>(tesseract);
+            var kiesTesseract = string.Equals(configuratie["Ocr:Motor"], "tesseract", StringComparison.OrdinalIgnoreCase);
+            if ((kiesTesseract ? null : PaddleOcr.Zoek()) is { } paddle)
+            {
+                services.AddSingleton<IOcrMotor>(paddle);
+            }
+            else if (TesseractOcr.Zoek(configuratie["Ocr:Tesseract"]) is { } tesseract)
+            {
+                services.AddSingleton<IOcrMotor>(tesseract);
+            }
         }
 
         return identiteit;
@@ -199,14 +216,29 @@ public static class Opstart
 
         app.UseMiddleware<Beveiligingsheaders>();
         app.UseStatusCodePagesWithReExecute("/niet-gevonden", createScopeForStatusCodePages: true);
+        var kantoorserver = app.Services.GetRequiredService<Werkomgeving>().Kantoorserver;
         app.UseAuthentication();
         app.UseAuthorization();
-        app.UseMiddleware<WachtwoordWijzigenVerplicht>();
-        app.UseMiddleware<TweestapVerplicht>();
+        if (kantoorserver)
+        {
+            // Geen wachtwoorden: de pagina's om in te loggen, een wachtwoord te kiezen of tweestap in te stellen bestaan niet.
+            app.Use(Lokaal.Kantoorserver.ZonderWachtwoordpaginas);
+        }
+        else
+        {
+            app.UseMiddleware<WachtwoordWijzigenVerplicht>();
+            app.UseMiddleware<TweestapVerplicht>();
+        }
+
         app.UseAntiforgery();
 
         app.MapStaticAssets().AllowAnonymous();
         app.MapRazorComponents<App>().AddInteractiveServerRenderMode(o => o.ContentSecurityFrameAncestorsPolicy = null);
+
+        if (kantoorserver)
+        {
+            Lokaal.Kantoorserver.MapWerkplekken(app);
+        }
 
         app.MapPost("/account/uitloggen", async (SignInManager<Gebruiker> signIn, AuditDienst audit, HttpContext context) =>
         {
@@ -243,6 +275,28 @@ public static class Opstart
             return pdf
                 ? Results.File(b.Inhoud, "application/pdf", enableRangeProcessing: true)
                 : Results.File(b.Inhoud, "application/octet-stream", b.Bestandsnaam);
+        });
+
+        // De PDF van een stapel (voor de miniaturen bij het splitsen): alleen voor leden, als PDF in een sandbox.
+        app.MapGet("/a/{administratie:guid}/stapels/{stapel:guid}", async (Guid administratie, Guid stapel, HttpContext context, StapelDienst stapels) =>
+        {
+            byte[]? inhoud;
+            try
+            {
+                inhoud = await stapels.Inhoud(context.User.AlsUitvoerder(), administratie, stapel);
+            }
+            catch (GeenToegangException)
+            {
+                inhoud = null;
+            }
+
+            if (inhoud is null)
+            {
+                return Results.NotFound("Deze stapel bestaat niet of je hebt er geen toegang toe.");
+            }
+
+            context.Response.Headers.ContentSecurityPolicy = "sandbox; default-src 'none'; object-src 'self'; style-src 'unsafe-inline'";
+            return Results.File(inhoud, "application/pdf", enableRangeProcessing: true);
         });
 
         // Passkeys: de opties voor de browser (navigator.credentials.create/get). De uitdaging staat in een cookie;

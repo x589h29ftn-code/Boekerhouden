@@ -10,6 +10,7 @@ public enum Belastingsoort
     Loonheffingen,
     Vennootschapsbelasting,
     Inkomstenbelasting,
+    Motorrijtuigenbelasting,
 }
 
 /// <summary>Een betaling aan (of van) de Belastingdienst: welke belasting, en de rekening die erbij hoort (of leeg).</summary>
@@ -35,6 +36,7 @@ public sealed record Belastingbetaling(Belastingsoort Soort, Rekening? Rekening,
             Belastingsoort.Omzetbelasting => "omzetbelasting",
             Belastingsoort.Loonheffingen => "loonheffingen",
             Belastingsoort.Vennootschapsbelasting => "vennootschapsbelasting",
+            Belastingsoort.Motorrijtuigenbelasting => "motorrijtuigenbelasting",
             _ => Aanslag?.Letter == 'W' ? "bijdrage Zvw" : "inkomstenbelasting",
         };
         var delen = new[] { Aanslag?.Naheffing == true ? $"naheffingsaanslag {soort}" : soort, Aanslag?.Tijdvak, Aanslag?.Jaar?.ToString(System.Globalization.CultureInfo.InvariantCulture) }
@@ -57,6 +59,7 @@ public sealed record Aanslagkenmerk(char Letter, string? Aanslagnummer = null, i
 /// vennootschapsbelasting, H inkomstenbelasting), anders de woorden in de omschrijving. De rekening komt uit het schema:
 /// een rekening "afgedragen …" als die er is, anders de rekening met de RGS-groep of de naam van die belasting.
 /// Inkomstenbelasting is privé: bij een eenmanszaak de privé-opnamen, bij een BV de rekening-courant met de directeur.
+/// Motorrijtuigenbelasting (middel 78 of 87 in het kenmerk) gaat op een kostenrekening met die naam.
 /// </summary>
 public static partial class Belastingherkenning
 {
@@ -80,6 +83,12 @@ public static partial class Belastingherkenning
         if (((aanslag is null ? null : Soort(aanslag.Letter)) ?? Soort(tekst)) is not { } soort)
         {
             return null;
+        }
+
+        // Motorrijtuigenbelasting: het kenmerk zegt geen jaar; het jaar van de betaling.
+        if (soort == Belastingsoort.Motorrijtuigenbelasting && aanslag is { Jaar: null })
+        {
+            aanslag = aanslag with { Jaar = mutatie.Datum.Year };
         }
 
         var rekening = vast?.TryGetValue(soort, out var nummer) == true && schema.Zoek(nummer) is { } gekozen ? gekozen : Rekening(soort, schema, vorm);
@@ -140,6 +149,13 @@ public static partial class Belastingherkenning
         return middel is { } m ? new Aanslagkenmerk(m) : null;
     }
 
+    /// <summary>
+    /// Het voertuig bij een kenmerk van motorrijtuigenbelasting: het kenmerk zonder het controlecijfer (vooraan) en het
+    /// volgnummer (achteraan), die per betaling verschillen. Leeg als het geen geldig MRB-kenmerk is.
+    /// </summary>
+    public static string? Voertuig(string? kenmerk) =>
+        kenmerk is { Length: 16 } k && Lees(k, new DateOnly(2000, 1, 1)) is { Letter: 'M' } ? k[1..15] : null;
+
     // De wegingen van rechts naar links over de 15 cijfers na het controlecijfer: machten van 2 modulo 11.
     private static readonly int[] Wegingen = [2, 4, 8, 5, 10, 9, 7, 3, 6, 1, 2, 4, 8, 5, 10];
 
@@ -191,6 +207,7 @@ public static partial class Belastingherkenning
         'L' or 'A' => Belastingsoort.Loonheffingen,
         'V' => Belastingsoort.Vennootschapsbelasting,
         'H' or 'N' or 'P' or 'W' => Belastingsoort.Inkomstenbelasting,
+        'M' => Belastingsoort.Motorrijtuigenbelasting,
         _ => null,
     };
 
@@ -207,6 +224,7 @@ public static partial class Belastingherkenning
             _ when Woord(tekst, "loonheffing(en)?|loonbelasting|lh") => Belastingsoort.Loonheffingen,
             _ when Woord(tekst, "vennootschapsbelasting|vpb") => Belastingsoort.Vennootschapsbelasting,
             _ when Woord(tekst, "inkomstenbelasting|ib|zvw|premie zvw") => Belastingsoort.Inkomstenbelasting,
+            _ when Woord(tekst, "motorrijtuigenbelasting|mrb|wegenbelasting") => Belastingsoort.Motorrijtuigenbelasting,
             _ => null,
         };
     }
@@ -218,6 +236,13 @@ public static partial class Belastingherkenning
     {
         var balans = schema.Alle.Where(r => r.IsBalans).ToList();
         Rekening? Naam(params string[] woorden) => balans.FirstOrDefault(r => woorden.All(w => Namen.Normaliseer(r.Naam).Contains(w, StringComparison.Ordinal)));
+        if (soort == Belastingsoort.Motorrijtuigenbelasting)
+        {
+            // Een kostenrekening (autokosten): op de naam, want een RGS-code verzinnen we niet.
+            return schema.Alle.Where(r => !r.IsBalans).FirstOrDefault(r => Namen.Normaliseer(r.Naam) is var n
+                && (n.Contains("motorrijtuig", StringComparison.Ordinal) || n.Contains("wegenbelasting", StringComparison.Ordinal) || Regex.IsMatch(n, @"\bmrb\b", RegexOptions.None, TimeSpan.FromSeconds(1))));
+        }
+
         Rekening? Rgs(string code) => balans.FirstOrDefault(r => r.RgsCode?.StartsWith(code, StringComparison.Ordinal) == true);
         return soort switch
         {

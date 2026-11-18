@@ -181,8 +181,8 @@
     {
         var zichtbaar = mutatiesortering.Pas(mutaties.Where(PastFilter)).ToList();
         var teKiezen = zichtbaar.Where(m => m.Status == Banktransactiestatus.TeVerwerken).ToList();
-        <div class="row g-3 bankwerk">
-            <div class="@(gekozen is null ? "col-12" : "col-lg-5")">
+        <div class="row g-3 bankwerk @(gekozen is null ? null : "met-paneel")">
+            <div class="@(gekozen is null ? "col-12" : "col-lg-5 banklijst")" data-groeit="@(gekozen is null ? null : "544")">
                 @if (gekozen is null)
                 {
                     <Foutmeldingen Fouten="fouten" />
@@ -271,7 +271,7 @@
                     </div>
                 }
             </div>
-            <div class="@(gekozen is null ? "d-none" : "col-lg-7")">
+            <div class="@(gekozen is null ? "d-none" : "col-lg-7 bankpaneel")">
                 @if (gekozen is { } g)
                 {
                     <div class="card card-body verwerkpaneel">
@@ -366,7 +366,7 @@
                                             var regel = regels[i];
                                             var n = i;
                                             var post = regel.Post is { } pid ? g.OpenPosten.FirstOrDefault(p => p.Id == pid) : null;
-                                            <tr class="regel-hover">
+                                            <tr class="regel-hover" @key="regel">
                                                 <td>
                                                     <PostKeuze Id="@($"regel-factuur-{n}")" Waarde="regel.Post" WaardeChanged="p => KiesPost(regel, p)" Verwerking="g" Kader="geopend"
                                                                Uitgesloten="@([.. regels.Where(r => r != regel && r.Post is not null).Select(r => r.Post!.Value)])" />
@@ -393,8 +393,8 @@
                                                         </select>
                                                     </td>
                                                 }
-                                                <td><input id="@($"regel-bedrag-{n}")" class="form-control form-control-sm text-end" @bind="regel.Bedrag" aria-label="Bedrag" /></td>
-                                                <td><input id="@($"regel-omschrijving-{n}")" class="form-control form-control-sm" @bind="regel.Omschrijving" aria-label="Omschrijving" placeholder="@(post is not null ? $"Betaling {post.Factuurnummer}" : Standaardomschrijving(g.Mutatie))" /></td>
+                                                <td><input id="@($"regel-bedrag-{n}")" autocomplete="off" class="form-control form-control-sm text-end" @bind="regel.Bedrag" aria-label="Bedrag" /></td>
+                                                <td><input id="@($"regel-omschrijving-{n}")" autocomplete="off" class="form-control form-control-sm" @bind="regel.Omschrijving" aria-label="Omschrijving" placeholder="@(post is not null ? $"Betaling {post.Factuurnummer}" : Standaardomschrijving(g.Mutatie))" /></td>
                                                 <td>
                                                     @if (regels.Count > 1)
                                                     {
@@ -444,15 +444,15 @@
                                         <div class="row g-2 align-items-end">
                                             <div class="col-md-4">
                                                 <label class="form-label small mb-0" for="auto-tekst">Tekst bevat</label>
-                                                <input id="auto-tekst" class="form-control form-control-sm" @bind="autoTekst" />
+                                                <input id="auto-tekst" autocomplete="off" class="form-control form-control-sm" @bind="autoTekst" />
                                             </div>
                                             <div class="col-md-2">
                                                 <label class="form-label small mb-0" for="auto-van">Bedrag van</label>
-                                                <input id="auto-van" class="form-control form-control-sm text-end" @bind="autoVan" />
+                                                <input id="auto-van" autocomplete="off" class="form-control form-control-sm text-end" @bind="autoVan" />
                                             </div>
                                             <div class="col-md-2">
                                                 <label class="form-label small mb-0" for="auto-tot">tot</label>
-                                                <input id="auto-tot" class="form-control form-control-sm text-end" @bind="autoTot" />
+                                                <input id="auto-tot" autocomplete="off" class="form-control form-control-sm text-end" @bind="autoTot" />
                                             </div>
                                             <div class="col-md-4 @(NietBtwPlichtig ? "d-none" : null)">
                                                 <label class="form-label small mb-0" for="auto-btw">Btw</label>
@@ -613,10 +613,13 @@
         var aantal = geselecteerd.Count;
         var uitkomst = await Bank.OpRekening(geopend!.Wie, Id, [.. geselecteerd], selectieRekening ?? "", string.IsNullOrEmpty(selectieBtw) ? null : selectieBtw);
         fouten = uitkomst.Fouten;
-        if (uitkomst.IsGelukt)
+        if (uitkomst.Waarde is { } bulk)
         {
-            Meldingen.Toon($"{uitkomst.Waarde} van {aantal} mutaties geboekt op {selectieRekening} {schema?.Zoek(selectieRekening!)?.Naam}{(string.IsNullOrEmpty(selectieBtw) ? null : $", {selectieBtw}")}.");
-            geselecteerd.Clear();
+            Meldingen.Toon($"{bulk.Geboekt} van {aantal} mutaties geboekt op {selectieRekening} {schema?.Zoek(selectieRekening!)?.Naam}{(string.IsNullOrEmpty(selectieBtw) ? null : $", {selectieBtw}")}.");
+
+            // Wat niet lukte, blijft gekozen, met de reden erbij.
+            geselecteerd.RemoveWhere(id => !bulk.Mislukt.Contains(id));
+            fouten = bulk.Redenen.Count > 0 ? bulk.Redenen : null;
             gekozen = null;
         }
 
@@ -895,7 +898,13 @@
         if (gekozen is not null && metConcept.Contains(m.Id)
             && await Concepten.Lees<List<Bankconceptregel>>(geopend.Wie, Id, Conceptsoort.Bank, m.Id) is { Inhoud: { Count: > 0 } bewaard })
         {
-            regels = [.. bewaard.Select(x => new Regelinvoer { Post = x.Post, Rekening = x.Rekening, BtwCode = x.BtwCode, Bedrag = x.Bedrag, Omschrijving = x.Omschrijving })];
+            // Een post die intussen (via een andere mutatie) betaald is, valt weg: die regel kan niet meer.
+            regels = [.. bewaard.Where(x => x.Post is not { } p || gekozen.OpenPosten.Any(o => o.Id == p))
+                .Select(x => new Regelinvoer { Post = x.Post, Rekening = x.Rekening, BtwCode = x.BtwCode, Bedrag = x.Bedrag, Omschrijving = x.Omschrijving })];
+            if (regels.Count == 0)
+            {
+                regels = [new Regelinvoer { Bedrag = Bedragen.Getal(Math.Abs(m.Bedrag)) }];
+            }
         }
     }
 
@@ -957,7 +966,9 @@
         if (post is { } id && gekozen?.OpenPosten.FirstOrDefault(p => p.Id == id) is { } open)
         {
             (regel.Rekening, regel.BtwCode) = (null, null);
-            regel.Bedrag = Bedragen.Getal(Math.Abs(open.Openstaand));
+            // In de richting van de mutatie: een creditnota (het andere teken) komt er met een min op, zodat hij het
+            // te betalen bedrag verlaagt in plaats van verhoogt.
+            regel.Bedrag = Bedragen.Getal(Teken * open.Openstaand);
         }
     }
 
@@ -983,8 +994,13 @@
         }
     }
 
+    /// <summary>
+    /// Een regel erbij met wat er nog ontbreekt. De bedragen op de regels staan in de richting van de mutatie (bij een
+    /// afschrijving zonder min): is er te veel verdeeld (5.000 op een afschrijving van 4.557,62), dan krijgt de nieuwe
+    /// regel het verschil met een min (-442,38), zodat het verschil nul wordt.
+    /// </summary>
     private void RegelErbij() =>
-        regels.Add(new Regelinvoer { Bedrag = Verschil == 0 ? null : Bedragen.Getal(Math.Abs(Verschil)) });
+        regels.Add(new Regelinvoer { Bedrag = Verschil == 0 ? null : Bedragen.Getal(Teken * Verschil) });
 
     /// <summary>
     /// Boeken zoals het paneel staat: alleen hele posten (een verschil blijft op de post openstaan, te veel wordt te
@@ -992,11 +1008,19 @@
     /// </summary>
     private async Task Boeken()
     {
-        bezig = true;
         var ingevuld = regels.Where(r => r.Post is not null || !string.IsNullOrWhiteSpace(r.Rekening) || r.Waarde != 0).ToList();
         var posten = ingevuld.Where(r => r.Post is not null).ToList();
         var heel = posten.Count > 0 && posten.Count == ingevuld.Count
-                   && posten.All(r => gekozen!.OpenPosten.FirstOrDefault(p => p.Id == r.Post) is { } open && Math.Abs(open.Openstaand) == r.Waarde);
+                   && posten.All(r => gekozen!.OpenPosten.FirstOrDefault(p => p.Id == r.Post) is { } open && Teken * open.Openstaand == r.Waarde);
+
+        // Met een verschil wordt er niet geboekt (alleen hele posten mogen een verschil laten openstaan op de post).
+        if (!heel && Verschil != 0)
+        {
+            fouten = [$"Er is nog een verschil van {Bedragen.Getal(Verschil)}: de regels moeten precies op het bedrag van de mutatie sluiten."];
+            return;
+        }
+
+        bezig = true;
         var uitkomst = heel
             ? await Bank.Afletteren(geopend!.Wie, Id, gekozen!.Mutatie.Id, [.. posten.Select(r => r.Post!.Value)])
             : await Bank.Verdeel(geopend!.Wie, Id, gekozen!.Mutatie.Id, [],
@@ -1143,14 +1167,16 @@
 
         if (uitkomst.IsGelukt)
         {
-            var lijst = mutatiesortering.Pas(mutaties ?? []).ToList();
+            // De volgende mutatie binnen het filter: wie op "Albert" filtert, krijgt de volgende van Albert.
+            var lijst = mutatiesortering.Pas((mutaties ?? []).Where(PastFilter)).ToList();
             var plek = gekozen is { } g ? lijst.FindIndex(m => m.Id == g.Mutatie.Id) : -1;
             verwerkt = gekozen?.Mutatie.Id;
             StateHasChanged();
             await Task.Delay(VerwerktDuur);
             (verwerkt, gekozen) = (null, null);
             await Laad();
-            var daarna = mutatiesortering.Pas(mutaties ?? []).Skip(Math.Max(plek, 0)).Concat(mutatiesortering.Pas(mutaties ?? []))
+            var zichtbaar = mutatiesortering.Pas((mutaties ?? []).Where(PastFilter)).ToList();
+            var daarna = zichtbaar.Skip(Math.Max(plek, 0)).Concat(zichtbaar)
                 .FirstOrDefault(m => m.Status == Banktransactiestatus.TeVerwerken);
             if (plek >= 0 && daarna is not null)
             {

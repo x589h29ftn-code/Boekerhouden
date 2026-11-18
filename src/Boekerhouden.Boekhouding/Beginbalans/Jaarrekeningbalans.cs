@@ -159,8 +159,9 @@ public static partial class Jaarrekeninglezer
             {
                 bedragen.Add(bedrag);
             }
-            else if (deel == "€" && bedragen.Count == 0)
+            else if (deel == "€")
             {
+                // Ook tussen de bedragen ("Kas € 1.234 € 987").
                 continue;
             }
             else if (bedragen.Count > 0)
@@ -235,6 +236,8 @@ public static class Balansrekeningkeuze
         ("algemene reserve", "BEivOvr"),
         ("ondernemingsvermogen", "BEivKap"),
         ("kas", "BLimKas"),
+        ("schulden aan banken", "BSchSak"),
+        ("kredietinstellingen", "BSchSak"),
         ("liquide middelen", "BLimBan"),
         ("bank", "BLimBan"),
         ("debiteuren", "BVorDeb"),
@@ -277,6 +280,12 @@ public static class Balansrekeningkeuze
             foreach (var (trefwoord, rgs) in Trefwoorden)
             {
                 if (!Bevat(tekst, trefwoord))
+                {
+                    continue;
+                }
+
+                // Een banklening of hypotheek is geen bankrekening.
+                if (rgs == "BLimBan" && (Bevat(tekst, "schuld") || Bevat(tekst, "lening") || Bevat(tekst, "hypothe") || Bevat(tekst, "krediet")))
                 {
                     continue;
                 }

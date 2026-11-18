@@ -163,7 +163,7 @@ Documenten van buiten zijn de grootste technische aanvalsroute.
 | **Grenzen**: een PDF hoogstens 20 MB en 50 pagina's, en bijlagen in een PDF hoogstens 5 MB. Een bestand wordt begrensd ingelezen, dus nooit eerst helemaal in het geheugen | ✅ |
 | Een onleesbare of beveiligde PDF geeft een nette melding (`DocumentException`) en laat de app nooit vallen | ✅ |
 | **Type op inhoud, niet op extensie**: PDF aan `%PDF-`, XML aan de root, en afbeeldingen (JPEG, PNG) aan hun *magic bytes*. Al het andere wordt geweigerd | ✅ |
-| **OCR (Tesseract) als eigen proces**: alleen na de virusscan; de afbeelding gaat via stdin, zonder shell en zonder bestandsnamen van de gebruiker; tijdslimiet 90 seconden, daarna wordt het proces gestopt. Een foto wordt bewaard als PDF met de foto als pagina (de foto zelf ongewijzigd erin), zodat de viewer alleen PDF toont | ✅ |
+| **OCR met PaddleOCR in het eigen proces** (ONNX Runtime, alleen de meegeleverde modellen, geen download; een kapotte afbeelding wordt een nette melding) en **Tesseract als eigen proces**: alleen na de virusscan; de afbeelding gaat via stdin, zonder shell en zonder bestandsnamen van de gebruiker; tijdslimiet 90 seconden, daarna wordt het proces gestopt. Een foto wordt bewaard als PDF met de foto als pagina (de foto zelf ongewijzigd erin), zodat de viewer alleen PDF toont | ✅ |
 | **Herkennen in een apart proces** met een tijd- en geheugenlimiet (bijv. 30 seconden en 512 MB), zodat een kwaadaardige PDF de app niet kan raken. Online in een aparte container zonder netwerk | F2 |
 | Uploads buiten de webmap (in de database, met de SHA-256 als sleutel). Downloaden met `X-Content-Type-Options: nosniff` en een CSP-sandbox; alleen een PDF wordt getoond, al het andere is `Content-Disposition: attachment`. Nooit HTML of SVG van een gebruiker in de app tonen | ✅ |
 | **Virusscan** (B3) met ClamAV (open source) op de server, **vóórdat** het pakket een bestand opent. Een besmet bestand gaat in quarantaine en wordt niet verwerkt. Is de scanner niet bereikbaar, dan wacht het bestand tot een geslaagde scan (*fail closed*). Elke upload in de app gaat eerst langs de scanner; zonder ingestelde scanner weigert de app buiten Development elke upload | ✅ koppeling en upload, F1 installatie op de server-pc |
@@ -171,7 +171,8 @@ Documenten van buiten zijn de grootste technische aanvalsroute.
 
 ### 4.6 Herkenning, AI en bankkoppeling
 
-- **Herkenning gebeurt lokaal** (UBL, PdfPig en Tesseract): er gaat geen factuur naar buiten.
+- **Herkenning gebeurt lokaal** (UBL, PdfPig, PaddleOCR via ONNX Runtime in het eigen proces, Tesseract): er gaat
+  geen factuur naar buiten.
 - **Een AI-model als extra motor** (besluit AD3) kan alleen met:
   - een verwerkersovereenkomst;
   - verwerking in de EU;
@@ -233,6 +234,15 @@ De Windows-app staat op één pc, zonder beheerder: een update moet vanzelf veil
 | Tweede map | Elke kopie ook naar een tweede map (netwerkschijf, externe schijf, cloudmap); lukt dat niet, dan staat het bij de kopie en gaat het werk gewoon door |
 | Terugzetten | Onder Beheer, Reservekopieën: de kopie wordt eerst gecontroleerd (controlegetal en integriteit) en klaargezet; bij de volgende start (dan is de database niet open) eerst een kopie van de huidige gegevens (*vóór terugzetten*, dus ook terugzetten is ongedaan te maken), dan de kopie terug. Een kopie die niet meer klopt, wordt niet teruggezet |
 | Vertrouwelijk | Een kopie bevat alle administraties en documenten; hij staat in de gegevensmap van de gebruiker en hoort net zo beschermd te zijn als de pc (BitLocker). Versleutelen van de kopieën zelf is een vervolgstap |
+
+**Schijfruimte** (november 2026, na de stresstest `KopieEnUpdateStressTests`): elke kopie is het volledige bestand,
+met de documenten; comprimeren helpt daar weinig (PDF's en scans zijn al gecomprimeerd). Vóór elke kopie controleert
+`Reservekopieen.MaakRuimte` de vrije ruimte (de database plus een marge; vóór een update het dubbele, voor het
+bijwerken zelf). Is het krap, dan gaan de oudste vanzelf gemaakte kopieën weg; wat altijd blijft: elke handmatige
+kopie, de nieuwste van vóór een update, de nieuwste van vóór een terugzetting en de twee nieuwste dagelijkse. Past
+het dan nog niet (`OnvoldoendeSchijfruimteException`): geen kopie, een update begint niet (de gegevens blijven op
+de oude versie) en een terugzetting gaat niet door. Loopt de schijf vol tijdens het kopiëren, dan blijft er geen
+halve kopie staan.
 
 Getest in `UpdateEnReservekopieTests` op echte SQLite-bestanden: bijwerken vanaf elk van de laatste zeven
 databaseversies met gegevens (boekingen, bank, inkoop met documenten, een actief met afschrijvingen), een database van
@@ -360,6 +370,38 @@ het moment waarop een klant of accountant erom vraagt.
     uploads worden niet door het pakket gescand (eigen bestanden op de eigen pc; de virusscanner van Windows doet
     dat al), en een document opent alleen als PDF of XML. Bedoeld
     voor tests op één pc, niet voor een kantoor met meerdere gebruikers (daarvoor de server, §4.11).
+16. **Windows-app als kantoorserver** (november 2026, besluit van de gebruiker: gegevens op één pc op kantoor,
+    aanmelden met het Windows-account zonder wachtwoord). Eén pc deelt zijn gegevens (*Beheer, Delen*): de Windows-app
+    start dan dezelfde webapp in zijn eigen proces (`Kantoorserver.Start`) op het SQLite-bestand, en luistert op het
+    kantoornetwerk (poort 5095). De andere pc's draaien de Windows-app als *werkplek*: alleen een venster op die server.
+    - **Geen wachtwoorden, wel een sleutel per werkplek.** Een werkplek is één Windows-gebruiker op één pc. De app
+      maakt daar een sleutelpaar (ECDSA P-256); de geheime sleutel staat in de gegevensmap van die gebruiker,
+      versleuteld met zijn Windows-account (DPAPI). De werkplek meldt zich met de publieke sleutel
+      (`/werkplek/meld`); de beheerder koppelt hem aan een gebruiker (`ApparaatDienst.Koppel`). Inloggen is een
+      eenmalige uitdaging (één minuut geldig) ondertekenen (`/werkplek/binnen`); daarna geldt het gewone sessiecookie.
+      Een andere pc of een ander Windows-account kan zich dus niet als deze gebruiker voordoen; de naam van het
+      Windows-account die de werkplek opgeeft is alleen ter herkenning. **Wie achter een ontgrendelde, gekoppelde pc
+      zit, werkt onder die naam**: dat is de bewuste keuze; vergrendelen bij weglopen is de maatregel.
+    - **Versleuteld, met een vastgelegd certificaat.** De server maakt één keer een eigen certificaat (in de
+      gegevensmap, naast de gegevens). Het is door niemand ondertekend: de werkplek legt de vingerafdruk vast bij de
+      eerste verbinding en neemt daarna alleen dat certificaat aan (ook het venster zelf). De **controlecode** die bij
+      het koppelen op beide schermen staat, hangt af van de sleutel van de werkplek én het certificaat dat de werkplek
+      zag: zit er bij die eerste verbinding iemand tussen, dan verschillen de codes. De beheerder vergelijkt ze.
+    - **Geen inlogpagina.** Op de kantoorserver bestaan de pagina's voor wachtwoord, tweestap en passkeys niet; een
+      gewone browser ziet alleen "deze pc is niet gekoppeld". Melden en inloggen zijn begrensd per adres (60 per
+      minuut) en er kunnen hoogstens 25 werkplekken tegelijk wachten; een aanmelding waar niets mee gebeurt, verdwijnt
+      na 14 dagen. Tweestap voor de beheerder (B1) geldt hier niet: de beheerder is de gebruiker van de kantoor-pc en
+      komt alleen daar binnen, met de sleutel van die pc.
+    - **Toegang.** Ongewijzigd: per administratie een lidmaatschap met een rol (`Toegang`); de beheerder zet dat per
+      gebruiker (*Gebruikers en toegang*). Een gebruiker uitzetten of een werkplek ontkoppelen werkt direct voor
+      nieuwe aanmeldingen; lopende sessies vervallen bij de eerstvolgende controle van het beveiligingsstempel.
+    - **Wat blijft zoals in de Windows-app alleen**: geen virusscan door het pakket (bestanden van de eigen
+      medewerkers; de virusscanner van Windows), updates en reservekopieën op de kantoor-pc (vóór de server start),
+      documentmap, tekstherkenning en PDF op de kantoor-pc. De kantoor-pc moet aan staan met de app open.
+    - **Niet hiervoor bedoeld**: toegang van buiten kantoor (thuis, klanten). Zet de poort niet open naar internet;
+      daarvoor is de gehoste server met wachtwoord en tweestap (§4.11).
+    Getest: `WerkplekTests` (melden, koppelen, inloggen, en wat niet mag) en `KantoorserverProcesTests` (de echte
+    server als proces, met het vastgelegde certificaat); de CI start de Windows-app ook als kantoorserver.
 
 Bekende beperking: de databaserol van de app is eigenaar van de tabellen en kan de triggers dus uitschakelen. De
 hash-keten maakt zo'n wijziging zichtbaar; aparte databaserollen (app zonder eigenaarschap) volgen vóór F2.

@@ -89,6 +89,16 @@ public sealed class FiscalepositieTests
     }
 
     [Fact]
+    public void Verliesverrekening_boven_een_miljoen_tot_de_helft()
+    {
+        var p = Fiscalepositie.Bereken(Gegevens(2026, ("8000", -3_000_000m)), new Dictionary<string, decimal> { ["vpb.verlies"] = 5_000_000m, ["vpb.af.kia"] = 0m });
+
+        // Winst 3 mln: 1 mln + de helft van 2 mln = 2 mln verrekenen, belastbaar 1 mln.
+        Assert.Equal(2_000_000m, Regel(p, "Af: verrekening verliezen").Totaal!.Bedrag);
+        Assert.Equal(1_000_000m, p.Belastbaar);
+    }
+
+    [Fact]
     public void Tarieven_per_jaar_drempel_en_kia()
     {
         Assert.Equal((15m, 395_000m), (Vpbtarieven.Voor(2022).TariefLaag, Vpbtarieven.Voor(2022).Schijfgrens));

@@ -24,7 +24,8 @@ public sealed record Verkoopinvoer(
     string? Tekst = null,
     Periodeverdeling? Verdeling = null,
     Guid? LayoutId = null,
-    string? Factuurnummer = null);
+    string? Factuurnummer = null,
+    string? Betalingskenmerk = null);
 
 /// <summary>Een verkoopfactuur in de lijst.</summary>
 /// <param name="Openstaand">Wat de klant nog moet betalen (alleen bij een definitieve factuur).</param>
@@ -100,6 +101,7 @@ public sealed record Klantkeuze(string Code, string Naam, Partij Gegevens, int? 
 /// <summary>Alles wat het factuurscherm nodig heeft: rekeningen, btw, klanten en de standaarden.</summary>
 /// <param name="Omzetrekening">De standaard omzetrekening (de eerste W&amp;V-rekening met RGS-omzet).</param>
 /// <param name="Verdeelrekening">De voorgestelde rekening voor een periodeverdeling (vooruitontvangen omzet).</param>
+/// <param name="OmschrijvingIngelezen">De standaardomschrijving van een ingelezen verkoopfactuur (kantoor), met variabelen.</param>
 public sealed record Verkoopcontext(
     Rekeningschema Schema,
     Btwtabel Btwtabel,
@@ -107,7 +109,8 @@ public sealed record Verkoopcontext(
     Partij Afzender,
     int Betalingstermijn,
     string? Omzetrekening,
-    string? Verdeelrekening);
+    string? Verdeelrekening,
+    string? OmschrijvingIngelezen = null);
 
 /// <summary>
 /// Verkoopfacturen maken: een concept invullen en bewaren, dan definitief maken. Definitief krijgt de factuur het
@@ -141,7 +144,7 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
             ?? schema.Alle.FirstOrDefault(r => r.IsBalans && r.RgsCode?.StartsWith("BSchOpa", StringComparison.Ordinal) == true)?.Nummer;
         return new Verkoopcontext(schema, await BtwDienst.Lees(db),
             [.. relaties.Select(r => new Klantkeuze(r.Code, r.Naam, r.AlsKlant(), r.Betalingstermijn, r.Omzetrekening, r.Verkoopbtwcode))],
-            a.Afzender(), a.Afwijkend().Op(kantoor).Betalingstermijn, omzet, verdeel);
+            a.Afzender(), a.Afwijkend().Op(kantoor).Betalingstermijn, omzet, verdeel, kantoor.OmschrijvingVerkoop);
     }
 
     /// <summary>De concepten en de definitieve facturen in de periode (op factuurdatum), nieuwste eerst.</summary>
@@ -298,6 +301,7 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
         if (document.Ingelezen)
         {
             document.ExternNummer = Leeg(invoer.Factuurnummer, 30);
+            document.Betalingskenmerk = Leeg(invoer.Betalingskenmerk, 50);
         }
 
         document.Verdeling = invoer.Verdeling is { } v ? JsonSerializer.Serialize(new Verdelingsgegevens(v.Van, v.Tot, v.Rekening, [], []), Json) : null;
@@ -455,7 +459,10 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
         {
             Nummer = nummer,
             Betalingskenmerk = kenmerk,
-            Omschrijving = string.IsNullOrWhiteSpace(factuur.Omschrijving) ? $"Factuur {nummer} {relatie.Naam}" : factuur.Omschrijving,
+            Omschrijving = string.IsNullOrWhiteSpace(factuur.Omschrijving) ? $"Factuur {nummer} {relatie.Naam}"
+                // Een ingelezen factuur kan variabelen in de omschrijving hebben (#klant, #maandnr): hier worden ze gevuld.
+                : document.Ingelezen ? Kort(Omschrijvingssjabloon.Vul(factuur.Omschrijving, new(nummer, null, relatie.Naam, document.Datum, document.Vervaldatum, kenmerk)), 500)
+                : factuur.Omschrijving,
         };
         Journaalpost post;
         OpenPost open;
@@ -697,13 +704,22 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
                 return Uitkomst<Guid>.Mislukt("Dit is al een creditfactuur.");
             }
 
+            // Niet twee keer crediteren (bijv. twee keer op de knop): de bestaande creditfactuur is er al.
+            if (await db.Verkoopdocumenten.AsNoTracking().Where(c => c.CreditVoorId == id).Select(c => new { c.Nummer }).FirstOrDefaultAsync() is { } eerder)
+            {
+                return Uitkomst<Guid>.Mislukt(eerder.Nummer is { } n
+                    ? $"Factuur {v.Nummer} is al gecrediteerd met creditfactuur {n}."
+                    : $"Er staat al een concept-creditfactuur bij factuur {v.Nummer}.");
+            }
+
             var origineel = Invoer(v);
             invoer = origineel with
             {
                 Datum = Vandaag,
                 Vervaldatum = Vandaag,
                 Omschrijving = Kort($"Creditfactuur bij factuur {v.Nummer}", 500),
-                Regels = [.. origineel.Regels.Select(r => r with { Aantal = -r.Aantal })],
+                // Een vast bedrag heeft geen aantal op het scherm: daar gaat het minteken in de prijs.
+                Regels = [.. origineel.Regels.Select(r => r.Vast ? r with { Prijs = -r.Prijs } : r with { Aantal = -r.Aantal })],
                 Verdeling = null,
             };
         }
@@ -752,7 +768,8 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
 
     private static Verkoopinvoer Invoer(Verkoopdocument v) =>
         new(v.Relatie, v.Datum, v.Vervaldatum, v.Omschrijving, [.. v.Regels.OrderBy(r => r.Volgorde).Select(r => r.NaarDomein())], v.Referentie, v.Tekst,
-            Verdeling(v) is { } g ? new Periodeverdeling(g.Van, g.Tot, g.Rekening) : null, v.LayoutId, v.Ingelezen ? v.Nummer ?? v.ExternNummer : null);
+            Verdeling(v) is { } g ? new Periodeverdeling(g.Van, g.Tot, g.Rekening) : null, v.LayoutId, v.Ingelezen ? v.Nummer ?? v.ExternNummer : null,
+            v.Ingelezen ? v.Betalingskenmerk : null);
 
     private static Verdelingsgegevens? Verdeling(Verkoopdocument v) =>
         v.Verdeling is { } json ? JsonSerializer.Deserialize<Verdelingsgegevens>(json, Json) : null;

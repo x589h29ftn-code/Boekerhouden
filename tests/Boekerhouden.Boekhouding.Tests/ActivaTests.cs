@@ -47,6 +47,24 @@ public sealed class ActivaTests
     }
 
     [Fact]
+    public void Ingekort_tot_de_geboekte_maanden_zet_het_restant_in_de_maand_erna()
+    {
+        var geboekt = new Dictionary<DateOnly, decimal> { [new(2026, 3, 1)] = 100m, [new(2026, 4, 1)] = 100m };
+
+        var plan = Afschrijvingsplan.Maak(Laptop(looptijd: 2), geboekt);
+
+        Assert.Equal([(new DateOnly(2026, 5, 1), 800m, false)], plan.Skip(2).Select(m => (m.Maand, m.Bedrag, m.Geboekt)));
+        Assert.Equal(0m, plan[^1].Boekwaarde);
+    }
+
+    [Fact]
+    public void De_ingebruikname_van_een_overgenomen_auto_is_de_aanschaf()
+    {
+        Assert.Equal(new DateOnly(2020, 5, 10), Privegebruikcontrole.InGebruik(new(2020, 5, 10), new(2026, 1, 1)));
+        Assert.Equal(new DateOnly(2026, 3, 1), Privegebruikcontrole.InGebruik(new(2026, 3, 14), new(2026, 3, 1)));
+    }
+
+    [Fact]
     public void Niet_afschrijven_geeft_een_leeg_plan()
     {
         var grond = Laptop() with { Omschrijving = "Grond", Methode = Afschrijvingsmethode.Geen, Looptijd = 0 };

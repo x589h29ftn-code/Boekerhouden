@@ -72,4 +72,31 @@ public sealed class PdfDienstTests
             Directory.Delete(map, recursive: true);
         }
     }
+    [Fact]
+    public async Task Een_browser_die_de_eerste_keer_blijft_hangen_krijgt_een_tweede_kans()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var map = Directory.CreateTempSubdirectory("pdftest-").FullName;
+        try
+        {
+            // De eerste keer hangt hij zonder iets te schrijven, de tweede keer maakt hij de PDF.
+            var teller = Path.Combine(map, "keer");
+            var browser = Browser(map, $$"""
+                if [ ! -f "{{teller}}" ]; then touch "{{teller}}"; sleep 120; fi
+                printf '%%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%%%EOF\n' > "$uit"
+                """);
+
+            var uitkomst = await Dienst(browser, 2).Maak("<p>proef</p>");
+
+            Assert.True(uitkomst.IsGelukt, string.Join("; ", uitkomst.Fouten));
+        }
+        finally
+        {
+            Directory.Delete(map, recursive: true);
+        }
+    }
 }

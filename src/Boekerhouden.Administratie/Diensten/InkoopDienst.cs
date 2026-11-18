@@ -159,7 +159,8 @@ public sealed class InkoopDienst(
     /// </summary>
     /// <param name="banktransactie">De bankmutatie waarbij de gebruiker de factuur uploadt: na het boeken worden ze gekoppeld.</param>
     public async Task<Inleesuitkomst> Lees(
-        Uitvoerder wie, Guid administratie, Stream inhoud, string bestandsnaam, string? inhoudstype, Guid? banktransactie = null, CancellationToken annulering = default)
+        Uitvoerder wie, Guid administratie, Stream inhoud, string bestandsnaam, string? inhoudstype, Guid? banktransactie = null,
+        IReadOnlyList<Tekstwoord>? bekendeTekst = null, CancellationToken annulering = default)
     {
         ArgumentNullException.ThrowIfNull(wie);
         ArgumentNullException.ThrowIfNull(inhoud);
@@ -216,7 +217,7 @@ public sealed class InkoopDienst(
         var gegevens = await db.Administraties.AsNoTracking().SingleAsync(a => a.Id == administratie, annulering);
         var eigen = new EigenGegevens(gegevens.Ibans, gegevens.BtwNummer is null ? [] : [gegevens.BtwNummer], [gegevens.Naam]);
         var ocr = ocrMotoren.FirstOrDefault() is { } motor ? new OcrLezer(motor) : null;
-        var herkenning = await Factuurherkenning.Standaard(eigen, ocr: ocr).HerkenAsync(new MemoryStream(bytes), naam, inhoudstype, annulering);
+        var herkenning = await Factuurherkenning.Standaard(eigen, ocr: ocr).HerkenAsync(new MemoryStream(bytes), naam, inhoudstype, bekendeTekst, annulering);
 
         // Een foto wordt bewaard als PDF (de foto als pagina), zodat de viewer en het aanwijzen werken.
         string? tekstlaag = null;
@@ -442,13 +443,31 @@ public sealed class InkoopDienst(
         var btw = boeking.Regels.Where(r => functies[r] == Rekeningfunctie.Voorbelasting).ToList();
         // Zoals op het papier: een creditnota positief, een korting op een factuur negatief.
         var teken = post.Bedrag > 0 ? -1 : 1;
-        var regels = kosten.Select(r =>
+        // De btw per regel staat per btw-code in de boeking. Bij één regel met die code is dat de btw van de regel; bij
+        // meer regels de berekende btw, en wijkt het geboekte totaal daarvan af (aangepast), dan het verschil op de
+        // laatste regel met die code. Zo blijft een aangepaste btw bij het aanpassen bewaard.
+        var codes = (await BtwDienst.Lees(db)).Op(boeking.Datum);
+        var btwPerRegel = new Dictionary<Boekingsregel, decimal?>();
+        foreach (var groep in kosten.GroupBy(r => r.BtwCode))
         {
-            // De btw per regel staat per btw-code in de boeking; bij één regel met die code is dat de btw van de regel.
-            var eigen = kosten.Count(k => k.BtwCode == r.BtwCode) == 1 ? btw.FirstOrDefault(b => b.BtwCode == r.BtwCode)?.Bedrag : null;
-            return new Factuurregel(r.Omschrijving == boeking.Omschrijving ? string.Empty : r.Omschrijving ?? string.Empty, r.Rekeningnummer, r.BtwCode ?? "I0",
-                teken * r.Bedrag, eigen is { } b ? teken * b : null);
-        }).ToList();
+            var lijst = groep.ToList();
+            var geboekt = btw.Where(b => b.BtwCode == groep.Key).Sum(b => b.Bedrag);
+            if (lijst.Count == 1)
+            {
+                btwPerRegel[lijst[0]] = btw.Any(b => b.BtwCode == groep.Key) ? geboekt : null;
+                continue;
+            }
+
+            var berekend = lijst.ToDictionary(r => r, r => BtwCodes.Zoek(codes, r.BtwCode) is { BtwOpFactuur: true } c ? c.Bereken(r.Bedrag) : 0m);
+            var verschil = geboekt - berekend.Values.Sum();
+            foreach (var r in lijst)
+            {
+                btwPerRegel[r] = verschil != 0 && r == lijst[^1] ? berekend[r] + verschil : null;
+            }
+        }
+
+        var regels = kosten.Select(r => new Factuurregel(r.Omschrijving == boeking.Omschrijving ? string.Empty : r.Omschrijving ?? string.Empty, r.Rekeningnummer,
+            r.BtwCode ?? "I0", teken * r.Bedrag, btwPerRegel[r] is { } b ? teken * b : null)).ToList();
 
         // Met een periodeverdeling staan de kosten op de verdeelrekening; de kostenrekeningen per regel zijn bewaard.
         var verdeling = doc.Verdeling is { } json ? JsonSerializer.Deserialize<Verdelingsgegevens>(json, Json) : null;
@@ -496,6 +515,11 @@ public sealed class InkoopDienst(
         // Een periodeverdeling gaat mee terug: elke maandboeking krijgt een tegenboeking op dezelfde datum.
         if (d.Verdeling is { } json && JsonSerializer.Deserialize<Verdelingsgegevens>(json, Json) is { } verdeling)
         {
+            if (await MaandenAfgesloten(db, administratie, verdeling) is { } maandAfgesloten)
+            {
+                return Uitkomst.Mislukt(maandAfgesloten);
+            }
+
             foreach (var stuk in verdeling.Boekstukken)
             {
                 await db.SaveChangesAsync();
@@ -588,6 +612,20 @@ public sealed class InkoopDienst(
 
     /// <summary>Boekt een document zoals de gebruiker het heeft ingevuld (of bevestigd), en onthoudt de keuze.</summary>
     public async Task<Uitkomst> Boek(Uitvoerder wie, Guid administratie, Guid document, Factuurinvoer invoer)
+    {
+        try
+        {
+            return await BoekFactuur(wie, administratie, document, invoer);
+        }
+        catch (DbUpdateException fout) when (Databasefout.IsDubbel(fout))
+        {
+            // Twee gebruikers legden op hetzelfde moment hetzelfde vast (bijv. dezelfde nieuwe leverancier): niets is
+            // geboekt; opnieuw proberen ziet wat de ander deed.
+            return Uitkomst.Mislukt("Een collega legde op hetzelfde moment hetzelfde vast (bijv. dezelfde nieuwe leverancier). Er is niets geboekt; probeer het opnieuw.");
+        }
+    }
+
+    private async Task<Uitkomst> BoekFactuur(Uitvoerder wie, Guid administratie, Guid document, Factuurinvoer invoer)
     {
         ArgumentNullException.ThrowIfNull(invoer);
         await using var db = await toegang.Open(wie, administratie, Recht.Invoeren);
@@ -870,6 +908,29 @@ public sealed class InkoopDienst(
             : velden.ToDictionary(v => v.Key, _ => (IReadOnlyList<PdfPlek>)[]);
     }
 
+    /// <summary>
+    /// Een maandboeking van een eerdere periodeverdeling in een afgesloten periode: die kan niet meer wijzigen, dus de
+    /// factuur ook niet (anders een fout halverwege het boeken).
+    /// </summary>
+    private static async Task<string?> MaandenAfgesloten(AdministratieDbContext db, Guid administratie, Verdelingsgegevens? verdeling)
+    {
+        if (verdeling is null || verdeling.Boekstukken.Count == 0)
+        {
+            return null;
+        }
+
+        var datums = new List<DateOnly>();
+        foreach (var stuk in verdeling.Boekstukken)
+        {
+            if (await GrootboekDienst.GeldendeBoeking(db, stuk) is { Regels.Count: > 0 } maand)
+            {
+                datums.Add(maand.Datum);
+            }
+        }
+
+        return datums.Count == 0 ? null : await GrootboekDienst.Afgesloten(db, administratie, [.. datums]);
+    }
+
     /// <summary>Het memoriaal van het standaardschema; daar komt een periodeverdeling in (ook als er meer memorialen zijn).</summary>
     private static readonly string StandaardMemoriaal = StandaardRekeningschema.Dagboeken.First(d => d.Soort == Dagboeksoort.Memoriaal).Code;
 
@@ -951,6 +1012,11 @@ public sealed class InkoopDienst(
 
         var boekstuk = vorige?.Boekstuk ?? await GrootboekDienst.VolgendBoekstuk(db, dagboek.Code, factuur.Datum.Year);
         var oudeVerdeling = document.Verdeling is { } oudeJson ? JsonSerializer.Deserialize<Verdelingsgegevens>(oudeJson, Json) : null;
+        if (await MaandenAfgesloten(db, administratie, oudeVerdeling) is { } maandAfgesloten)
+        {
+            return Uitkomst.Mislukt(maandAfgesloten);
+        }
+
         Journaalpost post;
         OpenPost open;
         try

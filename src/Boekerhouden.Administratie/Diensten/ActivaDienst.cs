@@ -138,7 +138,7 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
             var (aanschaf, afgeschreven, rest) = a.BuitenGebruikOp is null ? Stand(a, g, d) : (a.Aanschafwaarde, a.AfgeschrevenVoorBegin + g.Values.Sum(), 0m);
             var open = a.BuitenGebruikOp is null ? plan.Where(m => !m.Geboekt).ToList() : [];
             return new Activaregel(a.Id, a.Nummer, a.Omschrijving, a.Aanschafdatum, aanschaf, afgeschreven, rest, open.FirstOrDefault()?.Bedrag ?? 0m,
-                a.Activarekening, a.BuitenGebruikOp, open.Count(m => m.Maand <= vorigeMaand), d.Count > 0);
+                a.Activarekening, a.BuitenGebruikOp, open.Count(m => m.Maand <= vorigeMaand && m.Bedrag != 0), d.Count > 0);
         })];
     }
 
@@ -167,7 +167,7 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
         return new Activumdetail(a.Id, a.Nummer, Invoer(a), plan, rijen.ToDictionary(r => r.Maand, r => r.Boekstuk), a.BuitenGebruikOp,
             [.. desinvesteringen.Select(x => new Desinvesteringsregel(x.Id, x.Datum, x.Soort, x.Deel, x.Aanschaf, x.Afschrijving, x.Opbrengst, x.Boekstuk, x.Tegenboeking, x.Id == laatste))],
             rijen.Count > 0 || desinvesteringen.Count > 0, a.AangemaaktOp, a.AangemaaktDoor, aanschaf, afgeschreven, rest,
-            a.BuitenGebruikOp is null ? plan.Count(m => !m.Geboekt && m.Maand <= VorigeMaand) : 0, a.HerzieningLijst());
+            a.BuitenGebruikOp is null ? plan.Count(m => !m.Geboekt && m.Maand <= VorigeMaand && m.Bedrag != 0) : 0, a.HerzieningLijst());
     }
 
     /// <summary>
@@ -339,7 +339,7 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
     internal static async Task<IReadOnlyList<Vervoermiddel>> Vervoermiddelen(AdministratieDbContext db, Rekeningschema schema) =>
         [.. (await db.Activa.AsNoTracking().OrderBy(a => a.Nummer).ToListAsync())
             .Where(a => Privegebruikcontrole.IsVervoermiddel(schema.Zoek(a.Activarekening), a.Omschrijving))
-            .Select(a => new Vervoermiddel(a.Id, a.Nummer, a.Omschrijving, a.Aanschafdatum, a.BeginAfschrijving, a.BuitenGebruikOp, a.Privegebruik, a.Cataloguswaarde))];
+            .Select(a => new Vervoermiddel(a.Id, a.Nummer, a.Omschrijving, a.Aanschafdatum, Privegebruikcontrole.InGebruik(a.Aanschafdatum, a.BeginAfschrijving), a.BuitenGebruikOp, a.Privegebruik, a.Cataloguswaarde))];
 
     /// <summary>Verwijdert een actief; alleen als er nog niets voor geboekt is.</summary>
     public async Task<Uitkomst> Verwijder(Uitvoerder wie, Guid administratie, Guid id)
@@ -732,6 +732,29 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
                 await Saldo(db, aanschaf, eind), -await Saldo(db, afschrijving, eind)));
         }
 
+        // Een rekening die bij meer groepen hoort (bijv. één afschrijvingsrekening voor twee activarekeningen): het saldo
+        // in het grootboek is van alle groepen samen. Elke groep krijgt dan zijn eigen deel, de laatste het restant, zodat
+        // een verschil maar één keer zichtbaar is.
+        foreach (var gedeeld in groepen.GroupBy(g => g.Afschrijvingsrekening).Where(g => g.Count() > 1))
+        {
+            var lijst = gedeeld.ToList();
+            var rest = lijst[0].GrootboekAfschrijving - lijst.Take(lijst.Count - 1).Sum(g => g.Totaal.AfschrijvingEind);
+            for (var i = 0; i < lijst.Count; i++)
+            {
+                groepen[groepen.IndexOf(lijst[i])] = lijst[i] with { GrootboekAfschrijving = i < lijst.Count - 1 ? lijst[i].Totaal.AfschrijvingEind : rest };
+            }
+        }
+
+        foreach (var gedeeld in groepen.GroupBy(g => g.Activarekening).Where(g => g.Count() > 1))
+        {
+            var lijst = gedeeld.ToList();
+            var rest = lijst[0].GrootboekAanschaf - lijst.Take(lijst.Count - 1).Sum(g => g.Totaal.AanschafEind);
+            for (var i = 0; i < lijst.Count; i++)
+            {
+                groepen[groepen.IndexOf(lijst[i])] = lijst[i] with { GrootboekAanschaf = i < lijst.Count - 1 ? lijst[i].Totaal.AanschafEind : rest };
+            }
+        }
+
         return groepen;
     }
 
@@ -847,7 +870,11 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
     {
         if (activa.Where(a => a.Activarekening == activarekening).OrderByDescending(a => a.Nummer).FirstOrDefault() is { } eerder)
         {
-            return (eerder.Afschrijvingsrekening, eerder.Kostenrekening, eerder.Looptijd > 0 ? eerder.Looptijd : 60);
+            // De looptijd van een nieuw gekocht actief; een overgenomen actief (al deels afgeschreven) heeft alleen nog
+            // zijn resterende looptijd en zegt daar niets over.
+            var looptijd = activa.Where(a => a.Activarekening == activarekening && a.AfgeschrevenVoorBegin == 0 && a.Looptijd > 0)
+                .OrderByDescending(a => a.Nummer).Select(a => a.Looptijd).FirstOrDefault();
+            return (eerder.Afschrijvingsrekening, eerder.Kostenrekening, looptijd > 0 ? looptijd : 60);
         }
 
         if (schema.Zoek(activarekening)?.RgsCode is not { Length: > 7 } rgs || !rgs.EndsWith("Vvp", StringComparison.Ordinal))

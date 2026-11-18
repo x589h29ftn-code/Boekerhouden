@@ -47,7 +47,7 @@
                             {
                                 var n = i;
                                 var p = st.Jaar.Perioden[n];
-                                <tr class="klikbaar @(n == keuze ? "table-active" : null)" @onclick="() => keuze = n">
+                                <tr class="klikbaar @(n == keuze ? "table-active" : null)" @onclick="() => (keuze, fouten) = (n, null)">
                                     <td>@p.Periode.Naam</td>
                                     <td class="bedrag text-end">@Weergave.Bedrag(p.Berekend.TeBetalen)</td>
                                     <td>
@@ -95,6 +95,10 @@
                             <tr><td>Heel jaar volgens de boekingen</td><td class="bedrag text-end" style="width:8rem">@Weergave.Bedrag(st.Jaar.Jaaraangifte.TeBetalen)</td></tr>
                             <tr><td title="@(betaaldTotaal != 0 ? $"Waarvan betaald zonder vastleggen {Weergave.Bedrag(betaaldTotaal)}" : null)">Aangegeven</td><td class="bedrag text-end">@Weergave.Bedrag(aangegeven)</td></tr>
                             <tr><td>Nog niet aangegeven</td><td class="bedrag text-end">@Weergave.Bedrag(nietAangegeven)</td></tr>
+                            @if (st.Jaar.Afronding != 0)
+                            {
+                                <tr><td title="Aangegeven in hele euro's, in het voordeel van de ondernemer">Afronding</td><td class="bedrag text-end">@Weergave.Bedrag(st.Jaar.Afronding)</td></tr>
+                            }
                             @if (st.Jaar.Rest != 0)
                             {
                                 <tr><td title="Na een wijziging van de frequentie in het jaar vallen aangegeven en berekende perioden niet samen">Overig</td><td class="bedrag text-end">@Weergave.Bedrag(st.Jaar.Rest)</td></tr>
@@ -111,7 +115,7 @@
                 </div>
                 @if (gekozen is { } g)
                 {
-                    var a = g.Berekend;
+                    var a = g.Berekend.Afgerond();
                     var aansluiting = st.Aansluitingen[keuze];
                     <div class="btw-detail">
                         <div class="d-flex align-items-baseline gap-2 mb-2">
@@ -294,7 +298,7 @@
 
     private async Task KiesJaar(int j)
     {
-        jaar = j;
+        (jaar, fouten) = (j, null);
         await Laad(kiesHuidig: true);
     }
 
@@ -341,7 +345,7 @@
     private Exporttabel Tabel()
     {
         var g = gekozen!;
-        var a = g.Berekend;
+        var a = g.Berekend.Afgerond();
         var regels = new List<Exportregel>();
         foreach (var (kop, rubrieken) in Indeling)
         {

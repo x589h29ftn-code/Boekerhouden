@@ -68,7 +68,12 @@ public sealed class Factuurherkenning(IEnumerable<IFactuurHerkenner> motoren, IV
     public static Factuurherkenning Standaard(EigenGegevens eigen, IVirusscanner? virusscanner = null, OcrLezer? ocr = null) =>
         new([new UblHerkenner(), new PdfFactuurHerkenner(eigen)], virusscanner, ocr, eigen);
 
-    public async Task<Herkenningsresultaat> HerkenAsync(Stream inhoud, string bestandsnaam, string? inhoudstype = null, CancellationToken annulering = default)
+    public Task<Herkenningsresultaat> HerkenAsync(Stream inhoud, string bestandsnaam, string? inhoudstype = null, CancellationToken annulering = default) =>
+        HerkenAsync(inhoud, bestandsnaam, inhoudstype, null, annulering);
+
+    /// <param name="bekendeTekst">De woorden van een scan als die al gelezen zijn (bijv. bij het splitsen van een stapel): dan geen tweede keer OCR.</param>
+    public async Task<Herkenningsresultaat> HerkenAsync(
+        Stream inhoud, string bestandsnaam, string? inhoudstype, IReadOnlyList<Tekstwoord>? bekendeTekst, CancellationToken annulering = default)
     {
         ArgumentNullException.ThrowIfNull(inhoud);
         using var kopie = new MemoryStream();
@@ -107,6 +112,13 @@ public sealed class Factuurherkenning(IEnumerable<IFactuurHerkenner> motoren, IV
             {
                 return new(null, fout.Message);
             }
+        }
+
+        if (bekendeTekst is { Count: > 0 })
+        {
+            var gelezen = string.Join('\n', PdfTekst.Regels(bekendeTekst));
+            var bekend = eigen ?? EigenGegevens.Geen;
+            return new(Factuurtekst.Analyseer(gelezen, Herkenningsbron.Ocr, bekend.Ibans, bekend.BtwNummers, bekend.Namen), null, Ocr: new Ocrlaag(bekendeTekst, null));
         }
 
         if (ocr is null)

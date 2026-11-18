@@ -392,6 +392,10 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("RekeningMotorrijtuigenbelasting")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("RekeningOmzetbelasting")
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
@@ -513,6 +517,57 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.HasIndex("AdministratieId", "Boekstuk");
 
                     b.ToTable("Afschrijvingen", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Apparaat", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("AangevraagdOp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Computer")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("GebruikerId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("GekoppeldDoor")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("GekoppeldOp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("LaatstGezien")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("Sleutel")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("Vingerafdruk")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("WindowsNaam")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GebruikerId");
+
+                    b.HasIndex("Vingerafdruk")
+                        .IsUnique();
+
+                    b.ToTable("Apparaten", (string)null);
                 });
 
             modelBuilder.Entity("Boekerhouden.Administratie.Data.AuditRegel", b =>
@@ -1644,6 +1699,10 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("StandaardomschrijvingVerkoop")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Verschilrekening")
                         .HasColumnType("TEXT");
 
@@ -1807,6 +1866,93 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.HasIndex("AdministratieId", "Relatie", "Factuurnummer");
 
                     b.ToTable("OpenstaandePosten", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Stapel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Aangepast")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Bestandsnaam")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("Facturen")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("Grootte")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Indeling")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("IngelezenDoor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("IngelezenOp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Paginas")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT")
+                        .IsFixedLength();
+
+                    b.Property<string>("Soort")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("TeLezen")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("VerwerktOp")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdministratieId", "Soort", "Status");
+
+                    b.ToTable("Stapels", (string)null);
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.StapelInhoud", b =>
+                {
+                    b.Property<Guid>("StapelId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("AdministratieId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Inhoud")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("Tekstlaag")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("StapelId");
+
+                    b.ToTable("StapelInhouden", (string)null);
                 });
 
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Verkoopbestand", b =>
@@ -2295,6 +2441,14 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Apparaat", b =>
+                {
+                    b.HasOne("Boekerhouden.Administratie.Data.Gebruiker", null)
+                        .WithMany()
+                        .HasForeignKey("GebruikerId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
             modelBuilder.Entity("Boekerhouden.Administratie.Data.Automatiseringsregel", b =>
                 {
                     b.HasOne("Boekerhouden.Administratie.Data.Administratie", null)
@@ -2414,6 +2568,24 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.HasOne("Boekerhouden.Administratie.Data.Boeking", null)
                         .WithMany()
                         .HasForeignKey("BoekingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.Stapel", b =>
+                {
+                    b.HasOne("Boekerhouden.Administratie.Data.Administratie", null)
+                        .WithMany()
+                        .HasForeignKey("AdministratieId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Boekerhouden.Administratie.Data.StapelInhoud", b =>
+                {
+                    b.HasOne("Boekerhouden.Administratie.Data.Stapel", null)
+                        .WithOne()
+                        .HasForeignKey("Boekerhouden.Administratie.Data.StapelInhoud", "StapelId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

@@ -166,6 +166,47 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
     }
 
     [Fact]
+    public async Task Een_pinbetaling_wordt_op_bedrag_datum_en_winkelnaam_vanzelf_afgeletterd_op_de_bon()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var inkoop = app.Dienst<InkoopDienst>();
+
+        // Een bon van de bouwmarkt van 14 maart (€ 24,99), geboekt op een leverancier zonder IBAN.
+        var gelezen = await inkoop.Lees(wie, id, new MemoryStream(InkoopTests.Belnet("0048213", "2026-03-14")), "bon.xml", null);
+        Assert.True((await inkoop.Boek(wie, id, gelezen.DocumentId!.Value, new Factuurinvoer(null, new NieuweRelatie("Bouwmarkt De Hamer", null, null, null), "0048213",
+            new(2026, 3, 14), new(2026, 3, 14), "Schroeven", [new Boekhouding.Facturen.Factuurregel("Schroeven", "4310", "I21", 20.65m, 4.34m)]))).IsGelukt);
+
+        // Het afschrift: de pinbetaling twee dagen later geboekt, met de dag en de winkel in de omschrijving; en later
+        // in de maand nog een keer hetzelfde bedrag bij dezelfde winkel, zonder bon.
+        const string Mt940 = """
+            :20:P260331000000001
+            :25:NL20INGB0001234567EUR
+            :28C:00000
+            :60F:C260301EUR000000005000,00
+            :61:2603160316D000000000024,99NBEANONREF
+            :86:BEA, Betaalpas BOUWMARKT DE HAMER,PAS012
+            NR:4SF001, 14.03.26/16.42 AMERSFOORT
+            :61:2603300330D000000000024,99NBEANONREF
+            :86:BEA, Betaalpas BOUWMARKT DE HAMER,PAS012
+            NR:4SF001, 30.03.26/09.15 AMERSFOORT
+            :62F:C260331EUR000000004950,02
+            -
+            """;
+
+        var bank = await app.Dienst<BankDienst>().Lees(wie, id, new MemoryStream(Encoding.Latin1.GetBytes(Mt940)), "pin.mt940");
+
+        Assert.True(bank.IsGelukt, string.Join("; ", bank.Fouten));
+        Assert.Equal((2, 1), (bank.Waarde!.Nieuw, bank.Waarde.Automatisch));
+        await using var db = await app.Dienst<Toegang>().Open(wie, id, Recht.Lezen);
+        Assert.Equal(0m, (await db.OpenstaandePosten.SingleAsync()).Openstaand);
+        var mutaties = await db.Banktransacties.OrderBy(t => t.Datum).ToListAsync();
+        Assert.Equal([Banktransactiestatus.Geboekt, Banktransactiestatus.TeVerwerken], mutaties.Select(t => t.Status));
+        Assert.StartsWith("Afgeletterd", mutaties[0].Melding, StringComparison.Ordinal);
+        Assert.Contains("pinbetaling", mutaties[0].Melding, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Factuurnummer_en_bedrag_gelijk_wordt_automatisch_afgeletterd()
     {
         var wie = await app.Beheerder();
@@ -385,6 +426,32 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
         var proef = await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026);
         Assert.Equal((0.01m, 0m), (Saldo(proef, "9000"), Saldo(proef, "1600")));
         Assert.Empty(await app.Dienst<GrootboekDienst>().ControleerKeten(wie, id));
+
+        // 25,00 betaald op een inkoopfactuur van 24,99: een cent te veel (niet te weinig).
+        var melding = (await bank.Lijst(wie, id, ookGeboekt: true)).Single(m => m.Bedrag == -25m).Melding;
+        Assert.Contains("€ 0,01 te veel betaald", melding, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Een_bewaard_concept_verdwijnt_als_de_mutatie_geboekt_of_verwijderd_wordt()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Concept Bank B.V.");
+        var bank = app.Dienst<BankDienst>();
+        var concepten = app.Dienst<ConceptDienst>();
+        await bank.Lees(wie, id, Afschrift(), "ing.mt940");
+        var lijst = await bank.Lijst(wie, id);
+        var (eerste, tweede, derde) = (lijst[0].Id, lijst[1].Id, lijst[2].Id);
+        foreach (var m in new[] { eerste, tweede, derde })
+        {
+            await concepten.Bewaar(wie, id, Conceptsoort.Bank, m, new List<string>(), "Concept");
+        }
+
+        Assert.True((await bank.OpRekening(wie, id, eerste, "4300", null, null)).IsGelukt);
+        Assert.True((await bank.OpRekening(wie, id, [tweede], "4300", null)).IsGelukt);
+        Assert.True((await bank.Verwijder(wie, id, [derde])).IsGelukt);
+
+        Assert.Empty(await concepten.Met(wie, id, Conceptsoort.Bank));
     }
 
     [Fact]
@@ -454,7 +521,9 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
 
         Assert.Contains("sluiten niet", (await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("4300", "I21", 150m)])).Fouten[0], StringComparison.Ordinal);
         Assert.Contains("openstaande post", (await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("1600", null, 199.65m)])).Fouten[0], StringComparison.Ordinal);
-        var verdeeld = await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("4300", "I21", 150m, "Papier"), new Bankregelinvoer("4330", null, 49.65m, "Contributie")]);
+        // Te veel op een regel en het verschil met een min op een volgende regel (zoals "Regel toevoegen" voorstelt).
+        Assert.Contains("sluiten niet", (await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("4300", "I21", 150m), new Bankregelinvoer("4330", null, 60m), new Bankregelinvoer("4330", null, 10.35m)])).Fouten[0], StringComparison.Ordinal);
+        var verdeeld = await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("4300", "I21", 150m, "Papier"), new Bankregelinvoer("4330", null, 60m, "Contributie"), new Bankregelinvoer("4330", null, -10.35m, "Korting contributie")]);
         Assert.True(verdeeld.IsGelukt, string.Join("; ", verdeeld.Fouten));
 
         var post = (await bank.OpenPosten(wie, id)).Single();
@@ -582,6 +651,35 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
             await using var db = await app.Dienst<Toegang>().Open(wie, id, Recht.Lezen);
             Assert.Contains(await db.Boekingsregels.Where(r => r.Rekeningnummer == "1500").Select(r => r.Omschrijving).ToListAsync(), o => o == "Omzetbelasting 3e kwartaal 2026");
         }
+    }
+
+    [Fact]
+    public async Task Motorrijtuigenbelasting_uit_een_kenmerk_in_de_omschrijving_is_een_voorstel_en_wordt_per_voertuig_geleerd()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var inrichting = app.Dienst<InrichtingDienst>();
+        var huidig = await inrichting.Instellingen(wie, id);
+        Assert.True(huidig.Belasting!.Automatisch);
+        Assert.Contains("kostenrekening", (await inrichting.WijzigInstellingen(wie, id, huidig with { Belasting = huidig.Belasting! with { Motorrijtuigenbelasting = "1500" } })).Fouten[0], StringComparison.Ordinal);
+        Assert.True((await inrichting.WijzigInstellingen(wie, id, huidig with { Belasting = huidig.Belasting! with { Motorrijtuigenbelasting = "4300" } })).IsGelukt);
+        var bank = app.Dienst<BankDienst>();
+        var tekst = new StreamReader(Afschrift()).ReadToEnd()
+            .Replace("CNTP/NL36INGB0007654321/INGBNL2A/Kantoor", "CNTP/NL86INGB0002445588/INGBNL2A/Belasting", StringComparison.Ordinal)
+            .Replace("handel Jansen/ZWOLLE////REMI/USTD//Betaling inkoop/", "dienst/APELDOORN////REMI/USTD//8123 4567 8781 2345/", StringComparison.Ordinal);
+
+        await bank.Lees(wie, id, new MemoryStream(Encoding.Latin1.GetBytes(tekst)), "ing.mt940");
+
+        // Niet meteen zelf geboekt (zakelijke of privéauto?): een voorstel op de vaste rekening met de omschrijving klaar.
+        var mrb = (await bank.Lijst(wie, id)).Single(m => m.Bedrag == -199.65m);
+        Assert.Equal("8123456787812345", mrb.Betalingskenmerk);
+        var advies = (await bank.Verwerking(wie, id, mrb.Id))!.Voorstel.Advies;
+        Assert.Equal(("4300", false, "Motorrijtuigenbelasting 2026"), (advies.Rekeningnummer, advies.Automatisch, advies.Omschrijving));
+
+        // Geboekt: het leergeheugen onthoudt de keuze voor dit voertuig (niet voor alle betalingen aan de Belastingdienst).
+        Assert.True((await bank.OpRekening(wie, id, mrb.Id, "4300", null, "Motorrijtuigenbelasting 2026")).IsGelukt);
+        await using var db = await app.Dienst<Toegang>().Open(wie, id, Recht.Lezen);
+        Assert.Contains(await db.Leerkeuzes.Select(k => k.Sleutel).ToListAsync(), k => k == "B|mrb|12345678781234");
     }
 
     [Fact]

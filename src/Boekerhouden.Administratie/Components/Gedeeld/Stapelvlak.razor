@@ -1,0 +1,407 @@
+@* Een stapel splitsen: alle pagina's als miniatuur op volgorde, met vóór elke pagina een knipplek. Een knip begint
+   een nieuwe factuur; het voorstel van het pakket is de beginstand. Een klik op een pagina toont hem groot ernaast
+   (pijltjes bladeren, K knipt vóór de pagina, W laat hem weg, Esc sluit). Elke wijziging wordt meteen bewaard. Na
+   Splitsen staan de facturen los bij inkoop of verkoop. Een eigen component, zodat het script zichzelf koppelt. *@
+@implements IAsyncDisposable
+@using Boekerhouden.Boekhouding.Facturen
+@inject StapelDienst Stapels
+@inject Meldingen Meldingen
+@inject NavigationManager Navigatie
+@inject IJSRuntime JS
+@inject IServiceProvider Diensten
+
+<div class="stapelkop">
+    <span class="stapelnaam" title="Ingelezen @Weergave.DatumTijd(Begin.Kop.IngelezenOp) door @Begin.Kop.IngelezenDoor">@Begin.Kop.Bestandsnaam</span>
+    <span class="scheiding">·</span>
+    <span>@paginas.Count pagina's</span>
+    <span class="scheiding">·</span>
+    <span><strong>@groepen.Count</strong> @(groepen.Count == 1 ? "factuur" : "facturen")</span>
+    @if (paginas.Count(p => p.Weg) is > 0 and var weg)
+    {
+        <span class="scheiding">·</span>
+        <span>@weg weggelaten</span>
+    }
+    @if (Twijfels.Count > 0 && !Klaar)
+    {
+        <span class="scheiding">·</span>
+        <button type="button" class="btn btn-link btn-sm p-0 let-op" title="Naar de volgende plek waar het pakket niet zeker is" @onclick="VolgendeTwijfel">@Twijfels.Count twijfel</button>
+    }
+    @if (lezen is { } l)
+    {
+        <span class="scheiding">·</span>
+        <span>tekst lezen: @l.Gedaan van @l.Totaal</span>
+    }
+    else if (splitsen is { } s)
+    {
+        <span class="scheiding">·</span>
+        <span>inlezen: @s.Gedaan van @s.Totaal</span>
+    }
+    <span class="ms-auto d-flex align-items-center gap-2">
+        @if (Klaar)
+        {
+            <span class="status">gesplitst in @Begin.Kop.Facturen facturen</span>
+        }
+        else if (MagInvoeren)
+        {
+            <button type="button" class="btn btn-link btn-sm text-secondary" disabled="@bezig" @onclick="Verwijder">Stapel weggooien</button>
+            <button type="button" class="btn btn-primary" disabled="@(bezig || groepen.Count == 0)" @onclick="Splits">Splitsen in @groepen.Count @(groepen.Count == 1 ? "factuur" : "facturen")</button>
+        }
+    </span>
+</div>
+<Foutmeldingen Fouten="fouten" />
+
+<div class="stapel @(gekozen > 0 ? "met-paneel" : null)">
+    <div @ref="vlak" class="stapelbladen">
+        @foreach (var p in paginas)
+        {
+            var groep = Groep(p.Nummer);
+            <div class="stapelblad @(p.Begin ? "begin" : null) @(p.Weg ? "weg" : null) @(p.Nummer == gekozen ? "gekozen" : null) @(groep % 2 == 0 ? "even" : "oneven")"
+                 data-blad="@p.Nummer" @key="p.Nummer">
+                @if (p.Nummer > 1)
+                {
+                    <button type="button" class="knipplek @(p.Begin ? "knip" : null) @(p.Twijfel ? "twijfel" : null)" disabled="@(!KanWijzigen || p.Klaar)"
+                            title="@Knipuitleg(p)" aria-label="@(p.Begin ? $"Knip vóór pagina {p.Nummer} weghalen" : $"Knip vóór pagina {p.Nummer}")" aria-pressed="@p.Begin"
+                            @onclick="() => WisselKnip(p.Nummer)"></button>
+                }
+                <div class="bladkop" title="@(p.Begin && !p.Weg ? Groepstitel(p) : null)">
+                    @if (EersteVanGroep(p.Nummer))
+                    {
+                        <span class="groepnummer">@groep</span>
+                        <span class="groepnaam">@(p.Naam ?? p.Factuurnummer)</span>
+                    }
+                </div>
+                <button type="button" class="bladbeeld" title="Groot bekijken" @onclick="() => Kies(p.Nummer)">
+                    <canvas data-pagina="@p.Nummer"></canvas>
+                </button>
+                <div class="bladvoet">
+                    <span>@p.Nummer</span>
+                    @if (p.Klaar)
+                    {
+                        <span class="status">ingelezen</span>
+                    }
+                    else if (KanWijzigen)
+                    {
+                        <button type="button" class="btn btn-link btn-sm p-0 bladactie" @onclick="() => WisselWeg(p.Nummer)">@(p.Weg ? "Terugzetten" : "Weglaten")</button>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+    <aside @ref="paneel" class="stapelpaneel" hidden="@(gekozen == 0)">
+        @if (gekozen > 0 && paginas[gekozen - 1] is var k)
+        {
+            <div class="paneelkop">
+                <span class="paneelnaam">Pagina @k.Nummer</span>
+                <span class="text-secondary small">@(k.Weg ? "weggelaten" : $"factuur {Groep(k.Nummer)}{(k.Factuurnummer is null ? null : $" · {k.Factuurnummer}")}")</span>
+                <span class="ms-auto d-flex align-items-center gap-1">
+                    @if (KanWijzigen && !k.Klaar)
+                    {
+                        @if (k.Nummer > 1)
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="Sneltoets K" @onclick="() => WisselKnip(k.Nummer)">@(k.Begin ? "Knip weghalen" : "Knip hiervoor")</button>
+                        }
+                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Sneltoets W" @onclick="() => WisselWeg(k.Nummer)">@(k.Weg ? "Terugzetten" : "Weglaten")</button>
+                    }
+                    <button type="button" class="btn btn-sm btn-light" title="Een kwartslag draaien (alleen om te kijken)" aria-label="Draaien" @onclick="Draai"><Icoon Naam="refresh-cw" /></button>
+                    <button type="button" class="btn btn-sm btn-light" title="Vorige pagina (pijl links)" aria-label="Vorige" disabled="@(k.Nummer == 1)" @onclick="() => Kies(k.Nummer - 1)"><Icoon Naam="chevron-left" /></button>
+                    <button type="button" class="btn btn-sm btn-light" title="Volgende pagina (pijl rechts)" aria-label="Volgende" disabled="@(k.Nummer == paginas.Count)" @onclick="() => Kies(k.Nummer + 1)"><Icoon Naam="chevron-right" /></button>
+                    <button type="button" class="btn btn-sm btn-light" title="Sluiten (Esc)" aria-label="Sluiten" @onclick="() => Kies(0)"><Icoon Naam="x" /></button>
+                </span>
+            </div>
+            @if (k.Reden is not null)
+            {
+                <div class="small text-secondary mb-1">@k.Reden</div>
+            }
+        }
+        <div class="paneelbeeld"><canvas></canvas></div>
+    </aside>
+</div>
+
+@code {
+    private ElementReference vlak;
+    private ElementReference paneel;
+    private IJSObjectReference? module;
+    private IJSObjectReference? koppeling;
+    private DotNetObjectReference<Stapelvlak>? zelf;
+    private List<Stapelpaginastand> paginas = [];
+    private IReadOnlyList<IReadOnlyList<int>> groepen = [];
+    private Dictionary<int, int> groepVan = [];
+    private int gekozen;
+    private bool bezig;
+    private bool gesplitst;
+    private (int Gedaan, int Totaal)? lezen;
+    private (int Gedaan, int Totaal)? splitsen;
+    private IReadOnlyList<string>? fouten;
+    private readonly CancellationTokenSource stop = new();
+
+    [Parameter, EditorRequired]
+    public Uitvoerder Wie { get; set; } = default!;
+
+    [Parameter]
+    public Guid Administratie { get; set; }
+
+    /// <summary>De stapel zoals hij bij het openen was.</summary>
+    [Parameter, EditorRequired]
+    public Stapelweergave Begin { get; set; } = default!;
+
+    [Parameter]
+    public bool MagInvoeren { get; set; }
+
+    private bool Klaar => gesplitst || Begin.Kop.Status == Stapelstatus.Verwerkt;
+
+    private bool KanWijzigen => MagInvoeren && !Klaar && !bezig;
+
+    private List<Stapelpaginastand> Twijfels => [.. paginas.Where(p => p.Twijfel && !p.Weg && !p.Klaar)];
+
+    private string Terug => $"/a/{Administratie}/{(Begin.Kop.Soort == Factuursoort.Verkoop ? "verkoop" : "inkoop")}";
+
+    protected override void OnInitialized() => Zet(Begin.Paginas);
+
+    private void Zet(IEnumerable<Stapelpaginastand> nieuw)
+    {
+        paginas = [.. nieuw];
+        groepen = Boekhouding.Herkenning.Stapelsplitser.Groepen(paginas.Count, paginas.Where(p => p.Begin).Select(p => p.Nummer).ToHashSet(), paginas.Where(p => p.Weg).Select(p => p.Nummer).ToHashSet());
+        groepVan = groepen.SelectMany((g, i) => g.Select(p => (p, i))).ToDictionary(x => x.p, x => x.i + 1);
+    }
+
+    /// <summary>Het volgnummer van de factuur waar een pagina in zit; een weggelaten pagina telt bij de factuur ervoor.</summary>
+    private int Groep(int pagina)
+    {
+        for (var p = pagina; p >= 1; p--)
+        {
+            if (groepVan.TryGetValue(p, out var groep))
+            {
+                return groep;
+            }
+        }
+
+        return 1;
+    }
+
+    private bool EersteVanGroep(int pagina) => groepVan.TryGetValue(pagina, out var g) && groepen[g - 1][0] == pagina;
+
+    private string Groepstitel(Stapelpaginastand p) =>
+        groepVan.TryGetValue(p.Nummer, out var g) ? $"Factuur {g}: {groepen[g - 1].Count} {(groepen[g - 1].Count == 1 ? "pagina" : "pagina's")}{(p.Factuurnummer is null ? null : $", {p.Factuurnummer}")}" : "";
+
+    private static string Knipuitleg(Stapelpaginastand p) =>
+        $"{(p.Begin ? "Hier begint een factuur; klik om de knip weg te halen" : "Klik om hier te knippen")}{(p.Reden is null ? null : $" ({(p.Twijfel ? "twijfel: " : null)}{p.Reden})")}";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            if (koppeling is not null)
+            {
+                await koppeling.InvokeVoidAsync("ververs");
+            }
+
+            return;
+        }
+
+        object bron = $"/a/{Administratie}/stapels/{Begin.Kop.Id}";
+        if (Diensten.GetService<IDocumentvenster>() is not null)
+        {
+            if (await Stapels.Inhoud(Wie, Administratie, Begin.Kop.Id) is not { } inhoud)
+            {
+                return;
+            }
+
+            bron = new DotNetStreamReference(new MemoryStream(inhoud));
+        }
+
+        zelf = DotNetObjectReference.Create(this);
+        module = await JS.InvokeAsync<IJSObjectReference>("import", "./stapel.js");
+        koppeling = await module.InvokeAsync<IJSObjectReference>("koppel", vlak, paneel, bron, zelf);
+
+        // Een scan: de tekst lezen op de achtergrond; de gebruiker kan intussen al knippen.
+        if (MagInvoeren && !Klaar && Begin.Kop.TeLezen > 0 && Begin.Tekstherkenning)
+        {
+            _ = LeesScans();
+        }
+    }
+
+    private async Task LeesScans()
+    {
+        lezen = (0, Begin.Kop.TeLezen);
+        StateHasChanged();
+        var voortgang = new Progress<(int Gedaan, int Totaal)>(v =>
+        {
+            lezen = v;
+            _ = InvokeAsync(StateHasChanged);
+        });
+        try
+        {
+            var uitkomst = await Task.Run(() => Stapels.LeesScans(Wie, Administratie, Begin.Kop.Id, voortgang, stop.Token));
+            if (uitkomst.IsGelukt && await Stapels.Open(Wie, Administratie, Begin.Kop.Id) is { } nieuw && !bezig)
+            {
+                Zet(nieuw.Paginas);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // De pagina is verlaten; de volgende keer gaat het lezen verder waar het was.
+        }
+
+        lezen = null;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task Kies(int pagina)
+    {
+        gekozen = Math.Clamp(pagina, 0, paginas.Count);
+        StateHasChanged();
+        if (koppeling is not null)
+        {
+            // Eerst tekenen (het paneel moet zichtbaar zijn), dan de pagina erin.
+            await Task.Yield();
+            await koppeling.InvokeVoidAsync("toon", gekozen);
+        }
+    }
+
+    private async Task Draai()
+    {
+        if (koppeling is not null)
+        {
+            await koppeling.InvokeVoidAsync("draaiKwart");
+        }
+    }
+
+    /// <summary>Een toets uit het script: bladeren, knippen, weglaten of het grote beeld sluiten.</summary>
+    [JSInvokable]
+    public async Task Toets(string actie)
+    {
+        switch (actie)
+        {
+            case "volgende":
+                await Kies(Math.Min(gekozen + 1, paginas.Count));
+                break;
+            case "vorige":
+                await Kies(Math.Max(gekozen - 1, 1));
+                break;
+            case "knip" when gekozen > 1:
+                await WisselKnip(gekozen);
+                break;
+            case "weg" when gekozen > 0:
+                await WisselWeg(gekozen);
+                break;
+            case "sluit":
+                await Kies(0);
+                break;
+        }
+
+        StateHasChanged();
+    }
+
+    private Task WisselKnip(int pagina) => Wijzig(pagina, p => p with { Begin = !p.Begin, Twijfel = false });
+
+    private Task WisselWeg(int pagina) => Wijzig(pagina, p => p with { Weg = !p.Weg });
+
+    private async Task Wijzig(int pagina, Func<Stapelpaginastand, Stapelpaginastand> wijziging)
+    {
+        if (!KanWijzigen || paginas[pagina - 1].Klaar)
+        {
+            return;
+        }
+
+        var nieuw = paginas.ToList();
+        nieuw[pagina - 1] = wijziging(nieuw[pagina - 1]);
+        Zet(nieuw);
+        fouten = (await Bewaar()).Fouten;
+    }
+
+    private Task<Uitkomst> Bewaar() =>
+        Stapels.Bewaar(Wie, Administratie, Begin.Kop.Id, [.. paginas.Where(p => p.Begin).Select(p => p.Nummer)], [.. paginas.Where(p => p.Weg).Select(p => p.Nummer)]);
+
+    private async Task VolgendeTwijfel()
+    {
+        var twijfels = Twijfels;
+        if (twijfels.Count > 0)
+        {
+            await Kies((twijfels.FirstOrDefault(p => p.Nummer > gekozen) ?? twijfels[0]).Nummer);
+        }
+    }
+
+    private async Task Splits()
+    {
+        (bezig, fouten) = (true, null);
+        var bewaard = await Bewaar();
+        if (!bewaard.IsGelukt)
+        {
+            (bezig, fouten) = (false, bewaard.Fouten);
+            return;
+        }
+
+        splitsen = (0, groepen.Count);
+        var voortgang = new Progress<(int Gedaan, int Totaal)>(v =>
+        {
+            splitsen = v;
+            _ = InvokeAsync(StateHasChanged);
+        });
+        var uitkomst = await Task.Run(() => Stapels.Verwerk(Wie, Administratie, Begin.Kop.Id, voortgang));
+        (bezig, splitsen) = (false, null);
+        if (uitkomst.Waarde is not { } verslag)
+        {
+            fouten = uitkomst.Fouten;
+            return;
+        }
+
+        if (verslag.Mislukt > 0)
+        {
+            // De stapel blijft open: laten zien wat er al is ingelezen en wat niet lukte.
+            fouten = [$"{verslag.Mislukt} van de {verslag.Facturen} facturen zijn niet ingelezen; de rest staat klaar. Kies nog een keer Splitsen voor de rest.", .. verslag.Meldingen.Distinct().Take(5)];
+            if (await Stapels.Open(Wie, Administratie, Begin.Kop.Id) is { } nieuw)
+            {
+                Zet(nieuw.Paginas);
+            }
+
+            return;
+        }
+
+        gesplitst = true;
+        Meldingen.Toon(Samenvatting(verslag));
+        Navigatie.NavigateTo(Terug);
+    }
+
+    internal static string Samenvatting(Stapelverslag v) =>
+        $"{v.Facturen} {(v.Facturen == 1 ? "factuur" : "facturen")} uit de stapel ingelezen"
+        + (v.Geboekt > 0 ? $", {v.Geboekt} automatisch geboekt" : null)
+        + (v.Dubbel > 0 ? $", {v.Dubbel} stond{(v.Dubbel == 1 ? null : "en")} er al" : null) + ".";
+
+    private async Task Verwijder()
+    {
+        bezig = true;
+        var uitkomst = await Stapels.Verwijder(Wie, Administratie, Begin.Kop.Id);
+        bezig = false;
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            Meldingen.Toon($"De stapel {Begin.Kop.Bestandsnaam} is weggegooid.");
+            Navigatie.NavigateTo(Terug);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await stop.CancelAsync();
+        stop.Dispose();
+        try
+        {
+            if (koppeling is not null)
+            {
+                await koppeling.InvokeVoidAsync("sluit");
+                await koppeling.DisposeAsync();
+            }
+
+            if (module is not null)
+            {
+                await module.DisposeAsync();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // Het circuit is al weg.
+        }
+
+        zelf?.Dispose();
+    }
+}

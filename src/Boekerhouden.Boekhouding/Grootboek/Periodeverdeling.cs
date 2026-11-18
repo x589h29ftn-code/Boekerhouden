@@ -43,7 +43,16 @@ public sealed record Periodeverdeling(DateOnly Van, DateOnly Tot, string Rekenin
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(delen, 1);
         var deel = Math.Round(bedrag / delen, 2, MidpointRounding.AwayFromZero);
-        return [.. Enumerable.Repeat(deel, delen - 1), bedrag - deel * (delen - 1)];
+        var rest = bedrag - deel * (delen - 1);
+        if (rest == 0 || Math.Sign(rest) == Math.Sign(bedrag))
+        {
+            return [.. Enumerable.Repeat(deel, delen - 1), rest];
+        }
+
+        // Naar boven afgeronde delen zouden het laatste deel negatief maken (bijv. € 0,10 over 12 maanden): dan elk
+        // deel als verschil van de afgeronde tussenstanden, zodat alle delen hetzelfde teken houden.
+        decimal Tot(int i) => Math.Round(bedrag * i / delen, 2, MidpointRounding.AwayFromZero);
+        return [.. Enumerable.Range(0, delen).Select(i => Tot(i + 1) - Tot(i))];
     }
 
     /// <summary>

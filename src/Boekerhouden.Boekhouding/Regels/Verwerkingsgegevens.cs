@@ -14,6 +14,7 @@ public enum Verwerkingssoort
 /// <param name="Bedrag">Het totaal inclusief btw; bij een bankmutatie met teken (betaling negatief).</param>
 /// <param name="Btwpercentage">Het btw-tarief zoals herkend op de factuur, of leeg (onbekend of meerdere tarieven).</param>
 /// <param name="Postcodes">De postcodes op de factuur (genormaliseerd), om een ander adres op te merken.</param>
+/// <param name="Kenmerk">Het betalingskenmerk van een bankmutatie, als er een is.</param>
 public sealed record Verwerkingsgegevens(
     Verwerkingssoort Soort,
     string? Relatie,
@@ -22,4 +23,5 @@ public sealed record Verwerkingsgegevens(
     string? Omschrijving = null,
     string? TegenIban = null,
     decimal? Btwpercentage = null,
-    IReadOnlyList<string>? Postcodes = null);
+    IReadOnlyList<string>? Postcodes = null,
+    string? Kenmerk = null);

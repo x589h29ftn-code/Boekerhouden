@@ -133,6 +133,23 @@ public sealed class ActivaTests(AdministratieFixture app) : IClassFixture<Admini
         new(datum, Desinvesteringssoort.Verkoop, deel, opbrengst, opbrengstrekening, resultaat, eerst);
 
     [Fact]
+    public async Task Een_gedeelde_afschrijvingsrekening_sluit_in_de_activastaat()
+    {
+        var (wie, id) = await Administratie();
+        var dienst = app.Dienst<ActivaDienst>();
+        var kandidaten = await dienst.Kandidaten(wie, id);
+        Assert.True((await dienst.Bewaar(wie, id, null, kandidaten.Single(k => k.Rekening == "0200").Voorstel)).IsGelukt);
+        var auto = await dienst.Bewaar(wie, id, null, kandidaten.Single(k => k.Rekening == "0300").Voorstel with { Afschrijvingsrekening = "0210" });
+        Assert.True(auto.IsGelukt, string.Join("; ", auto.Fouten));
+        Assert.True((await dienst.Afschrijven(wie, id, new DateOnly(2026, 5, 31), Afschrijvingsfrequentie.Maand)).IsGelukt);
+
+        var staat = await dienst.Activastaat(wie, id, 2026);
+
+        Assert.Equal(2, staat.Count(g => g.Afschrijvingsrekening == "0210"));
+        Assert.All(staat, g => Assert.True(g.Sluit, $"{g.Activarekening}: {g.GrootboekAfschrijving}/{g.Totaal.AfschrijvingEind}"));
+    }
+
+    [Fact]
     public async Task Verkopen_geeft_een_boekresultaat_en_de_activastaat_sluit_op_het_grootboek()
     {
         var (wie, id) = await Administratie();
@@ -486,7 +503,7 @@ public sealed class ActivaTests(AdministratieFixture app) : IClassFixture<Admini
         Assert.True((await dienst.Bewaar(wie, id, auto, detail.Invoer with { Privegebruik = Privegebruik.JaForfait, Cataloguswaarde = 30_000m })).IsGelukt);
         Assert.Equal((Privegebruik.JaForfait, 30_000m), ((await dienst.Open(wie, id, auto))!.Invoer.Privegebruik, (await dienst.Open(wie, id, auto))!.Invoer.Cataloguswaarde));
         var signaal = Assert.Single((await btw.Jaar(wie, id, 2026)).Signalen);
-        Assert.Contains("geen btw privégebruik geboekt in 2026 (forfait 2,7%: 607,50)", signaal.Tekst, StringComparison.Ordinal);
+        Assert.Contains("geen btw privégebruik geboekt in 2026 (forfait 2,7%: 608,00)", signaal.Tekst, StringComparison.Ordinal);
         Assert.Equal(auto, signaal.Activum);
 
         // In de activastaat: alleen de auto is een vervoermiddel; nee (bestelauto) geeft geen opmerking meer.

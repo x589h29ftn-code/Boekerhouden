@@ -61,10 +61,22 @@ public static class Verkoopimport
             return [new Verkoopregel(omschrijving, 1m, exclusief, omzetrekening, Code(factuur.EnigTarief ?? (factuur.TotaalInclusief == exclusief ? 0m : 21m)))];
         }
 
+        var code = Code(factuur.EnigTarief ?? 21m);
+        var percentage = BtwCodes.Zoek(codes, code) is { BtwOpFactuur: true } c ? c.Percentage : 0m;
         return factuur.TotaalInclusief is { } inclusief
-            ? [new Verkoopregel(omschrijving, 1m, BtwBerekening.UitInclusief(inclusief, 21m).Grondslag, omzetrekening, "V21")]
+            ? [new Verkoopregel(omschrijving, 1m, percentage == 0 ? inclusief : BtwBerekening.UitInclusief(inclusief, percentage).Grondslag, omzetrekening, code)]
             : [];
     }
+
+    /// <summary>
+    /// Geen btw-regels, geen tarief en geen e-factuur met regels, terwijl er wel btw in het totaal kan zitten: dan is
+    /// het tarief een aanname en mag de factuur niet vanzelf geboekt worden.
+    /// </summary>
+    private static bool TariefAangenomen(HerkendeFactuur factuur) =>
+        !factuur.Verlegd && factuur.EnigTarief is null && factuur.Btwregels.Count == 0
+        && !(factuur.Bron == Herkenningsbron.EFactuur && factuur.Regels is { Count: > 0 })
+        // Staan exclusief en inclusief er allebei, dan controleert het totaal het tarief al.
+        && !(factuur.TotaalExclusief is not null && factuur.TotaalInclusief is not null);
 
     /// <summary>Wat er ontbreekt of niet klopt om de factuur vanzelf te boeken; leeg = boeken.</summary>
     public static IReadOnlyList<string> Belemmeringen(HerkendeFactuur factuur, Verkoopfactuur verkoop, IReadOnlyList<BtwCode> codes, bool klantHerkend)
@@ -84,6 +96,11 @@ public static class Verkoopimport
         }
 
         redenen.AddRange(factuur.Controleer().Select(f => f.TrimEnd('.').ToLowerInvariant()));
+        if (TariefAangenomen(factuur))
+        {
+            redenen.Add("het btw-tarief staat niet op de factuur (21% aangenomen)");
+        }
+
         if (verkoop.Regels.Count == 0)
         {
             redenen.Add("geen bedragen gevonden");

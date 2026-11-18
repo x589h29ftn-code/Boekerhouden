@@ -511,6 +511,13 @@ public sealed class RapportDienstTests(ServerFixture server) : IClassFixture<Ser
         Assert.Contains(schulden.Regels, r => r.Omschrijving == "Omzetbelasting" && r.Detail == 0m && r.DetailVorig == 48_060m);
         Assert.Equal(Tabel(rapport, "Activa").Regels[^1].Totaal, Tabel(rapport, "Passiva").Regels[^1].Totaal);
 
+        // "Rekeningen tonen" volgt per jaar de plek in het rapport: dit jaar bij de vorderingen (positief), vorig jaar bij de schulden.
+        var overzicht = (await rubriceren.Overzicht(dossierId))!;
+        var bijVorderingen = RekeningenInRapport.Van(overzicht, new Bron(Onderwerp.Post, "BVor", null, ""))!.Rekeningen.Single(x => x.Id == rekeningen["1600"]);
+        var bijSchulden = RekeningenInRapport.Van(overzicht, new Bron(Onderwerp.Post, "BSch", null, ""))!.Rekeningen.Single(x => x.Id == rekeningen["1600"]);
+        Assert.True(bijVorderingen is { Saldo: > 0, SaldoVorig: null }, $"{bijVorderingen}");
+        Assert.True(bijSchulden is { Saldo: null, SaldoVorig: > 0 }, $"{bijSchulden}");
+
         Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.EigenPostGesaldeerd),
             a => a.Onderwerp!.StartsWith(klantnummer, StringComparison.Ordinal) && a.Details!.StartsWith("'Omzetbelasting': salderen", StringComparison.Ordinal));
         Assert.True((await rubriceren.ZetSaldering(klantId, btw, null, Tester)).IsGelukt);

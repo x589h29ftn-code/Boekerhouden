@@ -33,8 +33,10 @@
             }
         </select>
         <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
-        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De grootboekkaart als Excel" @onclick="Excel">Excel</button>
-        <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De grootboekkaart als PDF (A4 liggend)" @onclick="Pdf">PDF</button>
+        <div class="btn-group btn-group-sm text-nowrap" role="group" aria-label="Downloaden">
+            <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De grootboekkaart als Excel" @onclick="Excel">Excel</button>
+            <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De grootboekkaart als PDF (A4 liggend)" @onclick="Pdf">PDF</button>
+        </div>
     </Acties>
     <ChildContent>
         @if (Alle && kaarten is not null)
@@ -331,6 +333,28 @@
         rekeningen = [.. schema.Alle];
         (van, tot) = Weergave.Periode(VanTekst, TotTekst) ?? Boekhouding.Grootboek.Periode.Jaar(Jaar is { } j && jaren.Contains(j) ? j : jaren[0]);
         Rekening = Rekening == AlleWaarde || rekeningen.Any(r => r.Nummer == Rekening) ? Rekening : rekeningen.FirstOrDefault(r => r.Functie == Rekeningfunctie.Bank)?.Nummer ?? rekeningen.FirstOrDefault()?.Nummer;
+        await Laad();
+    }
+
+    /// <summary>
+    /// Alleen de query verandert (bijv. "Alleen deze kaart" vanuit alle rekeningen, of het zoekvenster naar een andere
+    /// rekening): de pagina blijft staan, dus opnieuw laden als de rekening of periode niet is wat er staat.
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        if (geopend is null || rekeningen.Count == 0)
+        {
+            return;
+        }
+
+        var periode = Weergave.Periode(VanTekst, TotTekst);
+        var getoond = Alle ? kaarten is not null : kaart?.Rekening.Nummer == Rekening;
+        if (getoond && (periode is null || periode == (van, tot)))
+        {
+            return;
+        }
+
+        (van, tot) = periode ?? (van, tot);
         await Laad();
     }
 

@@ -168,7 +168,16 @@ public sealed class ImportDienst(IDbContextFactory<BoekerhoudenDbContext> dbFact
                 .SetProperty(d => d.GewijzigdOp, nu)
                 .SetProperty(d => d.GewijzigdDoor, wie.Naam));
 
-        await db.SaveChangesAsync();
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            // Twee keer tegelijk dezelfde saldibalans (bijv. een dubbele klik of een collega): de eerste wint.
+            return Uitkomst<Guid>.Mislukt("De saldibalans van dit boekjaar wordt tegelijk door iemand anders geïmporteerd. Laad de pagina opnieuw.");
+        }
+
         await transactie.CommitAsync();
 
         await audit.Log(wie, AuditActies.SaldibalansGeimporteerd, $"{KlantDienst.Onderwerp(klant)} – boekjaar {boekjaar}",

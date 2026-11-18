@@ -189,6 +189,7 @@ public sealed class WerkprogrammaDienstTests(ServerFixture server) : IClassFixtu
         await Werkprogramma.Verplaats(standaard.Id, -1, Tester);
         var na = (await Overzicht(dossierId)).Onderdelen.Single(x => x.Titel == "Kennis van de cliënt").Stappen.Select(x => x.Titel).ToList();
         Assert.Equal(voor.IndexOf("Bijzonderheden in het boekjaar") - 1, na.IndexOf("Bijzonderheden in het boekjaar"));
+        Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.StapVerplaatst), a => a.Details!.Contains("Bijzonderheden in het boekjaar omhoog", StringComparison.Ordinal));
         Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.StapVerwijderd), a => a.Details!.Contains("Geen bijzonderheden", StringComparison.Ordinal));
     }
 

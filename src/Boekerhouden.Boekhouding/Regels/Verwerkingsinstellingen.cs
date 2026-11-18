@@ -22,6 +22,10 @@ namespace Boekerhouden.Boekhouding.Regels;
 /// <see cref="Facturen.Omschrijvingssjabloon"/>), bijv. "#leverancier #factuurnummer #maand"; leeg = uit. Een
 /// verwerkingsregel met een eigen omschrijving gaat voor. Alleen op kantoorniveau.
 /// </param>
+/// <param name="OmschrijvingVerkoop">
+/// De standaardomschrijving van een ingelezen verkoopfactuur (uit een ander pakket), met dezelfde variabelen, bijv.
+/// "Verkoop #klant #maandnr-#jaar"; leeg = de omschrijving van de factuur. Alleen op kantoorniveau.
+/// </param>
 public sealed record Verwerkingsinstellingen(
     int Drempel = 2,
     decimal Bandbreedte = Leergeheugen.StandaardBandbreedte,
@@ -31,7 +35,8 @@ public sealed record Verwerkingsinstellingen(
     string? Documentmap = null,
     decimal? Betaalverschil = null,
     string? Verschilrekening = null,
-    string? Omschrijving = null)
+    string? Omschrijving = null,
+    string? OmschrijvingVerkoop = null)
 {
     public static Verwerkingsinstellingen Standaard { get; } = new();
 
@@ -79,6 +84,17 @@ public sealed record Verwerkingsinstellingen(
         {
             fouten.Add($"De standaardomschrijving kent #{onbekend} niet.");
         }
+
+        if (OmschrijvingVerkoop is { Length: > 200 })
+        {
+            fouten.Add("De standaardomschrijving voor verkoop is langer dan 200 tekens.");
+        }
+
+        foreach (var onbekend in Facturen.Omschrijvingssjabloon.Onbekend(OmschrijvingVerkoop))
+        {
+            fouten.Add($"De standaardomschrijving voor verkoop kent #{onbekend} niet.");
+        }
+
         return fouten;
     }
 }

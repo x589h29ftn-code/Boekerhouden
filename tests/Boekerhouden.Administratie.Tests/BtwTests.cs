@@ -59,6 +59,7 @@ public sealed class BtwTests(AdministratieFixture app) : IClassFixture<Administr
         Assert.False((await btw.VerwijderTarief(wie, (await btw.Tarieven()).Single(t => t.Tarief == Tarief.Nul).Id)).IsGelukt);
         Assert.False((await btw.VoegCodeToe(wie, "I21", "Dubbel", Btwsoort.InkoopVoorbelasting, Tarief.Hoog)).IsGelukt);
         Assert.False((await btw.VoegCodeToe(wie, "x y", "Fout", Btwsoort.InkoopVoorbelasting, Tarief.Hoog)).IsGelukt);
+        Assert.Contains("past niet", Assert.Single((await btw.VoegCodeToe(wie, "VH9", "Hoog met laag tarief", Btwsoort.VerkoopHoog, Tarief.Laag)).Fouten), StringComparison.Ordinal);
 
         Assert.True((await btw.VoegCodeToe(wie, "ieu9", "Inkoop binnen de EU laag", Btwsoort.InkoopBinnenEu, Tarief.Laag)).IsGelukt);
         Assert.True((await btw.WijzigCode(wie, "IEU9", "Inkoop EU laag tarief", actief: false)).IsGelukt);

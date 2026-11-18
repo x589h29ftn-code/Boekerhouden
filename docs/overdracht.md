@@ -132,6 +132,65 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     niet met `==` zonder die lijst gelijk te zetten (zie `ActivaDienst.Bewaar`). Foutmeldingen van Opslaan op de
     activakaart staan nu bij de knop (ze stonden bovenaan, buiten beeld). `HerzieningTests`, `ActivaTests`.
 
+19. **Stapel splitsen** (README §3.19): één PDF met veel inkoop- of verkoopfacturen aanleveren, voorstel waar te
+    knippen (`Stapelsplitser`), miniaturen met knipplekken en een pagina groot ernaast (`Stapelvlak`, `stapel.js`),
+    scans op de achtergrond door de tekstherkenning, na Splitsen elke factuur via de gewone weg van inlezen
+    (`StapelDienst`). `PdfStapelTests`, `StapelTests`; browsercontrole met `node scripts/ui/stapel.js <map>` (maakt de
+    stapel met `scripts/ui/maak-stapel.py`, vereist reportlab). Let op: `scripts/ui/schermafbeeldingen.js` loopt op
+    10 november vast op een oudere stap (memoriaal, link *Herhalen*) en moet nog worden bijgewerkt. De overdracht mist
+    nog de btw-module, vennootschapsbelasting, loonjournaal, privégebruik auto en het verkoopboek voor ingelezen
+    facturen (wel in README §3.2–§3.18).
+
+20. **Bonnetjes, CAMT.053 van 2019, instellingen** (11 november): een foto wordt vóór de tekstherkenning een scan
+    (`Fotoverbetering`: rechtop, grijs, belichting vlak, contrast, vlakken weg, rechtzetten; SkiaSharp, MIT) en een bon
+    krijgt zijn bonnummer als factuurnummer (README §3.20); CAMT.053 `001.08` naast `001.02` (README §3.7); na Opslaan
+    van de instellingen van een administratie terug naar het hoofdscherm met de melding linksonder.
+    `FotoverbeteringTests`, `tests/Fictief/administratie/maak-bon.py` maakt de verzonnen telefoonfoto.
+
+21. **Bonnen-stresstest** (README §3.20): 25 verzonnen bonnen (`scripts/bonnen/maak-bonnen.py`) door de hele keten
+    (`BonnenstressTests`, draait alleen met `BOEKERHOUDEN_BONNENMAP`); 24 van 25 goed. Tesseract leest sindsdien in twee
+    standen (psm 3 en 4) en kiest de beste. Een echte bon van de gebruiker staat in `testdata/bonnen/` (niet in git).
+    13 november: bonnen in een ordner (`maak-ordnerbonnen.py`, 7 van 10): ringen weg (`WisDik`), de bon uitsnijden
+    (`Uitsnede`), zachter contrast bij lichte inkt. Vier echte foto's van de gebruiker (alleen als kleine afbeelding,
+    640×480) in `testdata/bonnen/echt/`: de uitsnede klopt; voor de tekstherkenning zijn ze te klein, de originelen
+    (volle grootte) zijn nog nodig om de herkenning echt te toetsen. Daarna in 1500×2000 (`testdata/bonnen/groot/`): de scans
+    zijn goed leesbaar, maar Tesseract leest matrixletters slecht; een extra leesronde met dikkere
+    inkt (3×3-minimum) won niet op de bonnen zelf en is niet opgenomen. Een onleesbaar logo geeft geen straat of
+    kolomkop meer als naam. Daarna een andere motor: **PaddleOCR** (PP-OCRv5 via RapidOcrNet en ONNX Runtime,
+    `PaddleOcr`, README §3.20), met Tesseract als terugval; leest de vier echte bonnen goed (naam, datum, totaal,
+    btw). De bonnenstresstest gebruikt dezelfde motor als de app (`BOEKERHOUDEN_OCR=tesseract` voor Tesseract):
+    25 van 25 en 8 van 10 in een ordner. Let op: RapidOcrNet is gebouwd tegen SkiaSharp 3.x, wij draaien 4.155; dat
+    werkt (getest), maar controleer het bij een update van een van beide.
+
+22. **Pinbetaling bij een bon** (README §3.8): het afletteren herkent een afschrijving zonder tegenrekening als de
+    betaling van een bon op bedrag, dag (uit de omschrijving of de boekdatum) en winkelnaam (`Afletteren/Pinbetaling`,
+    stap 3b in `Afletteraar`); zeker bij precies één bon. `PinbetalingTests` met 50 willekeurige bonnen.
+
+23. **Verkoopfactuur verwerken als inkoop** (12 november): gebied aanwijzen op het origineel, variabelen in de
+    omschrijving (`#klant`, `#maandnr`), een standaardomschrijving voor ingelezen verkoopfacturen (kantoor), en het
+    scherm in de opzet van het verwerkscherm van inkoop (`Verkoopregels` met `Verwerken`, `Verkooporigineel`).
+
+24. **Omvangtest** (`OmvangStressTests`, `BOEKERHOUDEN_OMVANG=300`): 300 administraties × 5 jaar × 500 facturen en
+    500 bankmutaties (1,5 miljoen boekingen, 4,2 GB in PostgreSQL): alle schermen onder 150 ms. Niet gemeten:
+    SQLite, meerdere gebruikers tegelijk, echte PDF-groottes (documenten staan in de database).
+
+25. **Samenwerken vanuit de Windows-app** (beveiliging.md, punt 16 in §5; LEESMIJ van de app): de app kent drie
+    werkwijzen (`Lokaal/Werkwijze`): alleen, kantoorserver (de app start de webapp in zijn eigen proces op het
+    SQLite-bestand, `Kantoorserver.Start`) en werkplek (`Kantoorvenster`: een WebView2-venster op de server).
+    Inloggen zonder wachtwoord met een sleutel per Windows-gebruiker per pc (`ApparaatDienst`, `Werkpleksleutel`,
+    `Werkplekopslag` met DPAPI); de beheerder koppelt werkplekken en zet de toegang per administratie onder
+    *Beheer, Gebruikers en toegang*; wisselen van werkwijze onder *Beheer, Delen* (`Werkwijzebeheer`).
+    Het Windows-deel is alleen in de CI te draaien (`--proef map --kantoorserver`); een tweede pc koppelen is
+    niet automatisch getest: dat moet de gebruiker op twee pc's proberen.
+
+26. **Stresstests samenwerken, reservekopie en update** (12-13 november): `GelijktijdigStressTests`
+    (`BOEKERHOUDEN_GELIJKTIJDIG=5`; vijf gebruikers tegelijk, op PostgreSQL en SQLite: geen fouten; twee gebruikers
+    met hetzelfde boekstuk of dezelfde nieuwe leverancier krijgen een gewone melding, `Databasefout.IsDubbel`) en
+    `KopieEnUpdateStressTests` (`BOEKERHOUDEN_KOPIESTRESS=600`; kopieën terwijl er gewerkt wordt, update, mislukte
+    update, onderbroken situaties). Daaruit: de ruimtecontrole vóór een kopie of update (`Reservekopieen.MaakRuimte`).
+    Open: inkoop inlezen wordt traag (1 s per factuur) als vijf gebruikers dat tegelijk in dezelfde administratie
+    doen; en één CI-run was rood op een niet-gevonden wankele test (run 197).
+
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).
 
@@ -150,7 +209,9 @@ Afgesproken of voorgesteld maar nog niet gebouwd, ongeveer in volgorde van wens:
 | Verkoop: vervolg | Versturen vanuit het pakket (SMTP of Peppol) in plaats van een .eml; terugkerende facturen vanzelf maken (zonder klik); herinneringen; ouderdomsanalyse debiteuren |
 | Btw-aangifte (A10) | Aangifte per rubriek en afdracht (perioden afsluiten is er: na de aangifte de periode afsluiten) |
 | Saldibalans naar het samenstelpakket (A12) | Jaarrekening zonder export |
-| Gepland (README §5) | Regels splitsen per leverancier, verzamel-PDF splitsen, vreemde valuta, ontbrekende factuur |
+| Gepland (README §5) | Regels splitsen per leverancier, vreemde valuta, ontbrekende factuur |
+| Stapel splitsen: vervolg | Pagina's blijvend draaien en verplaatsen (om en om gescande voor- en achterkanten), voortgang bij het uploaden; afstellen op een echte gescande stapel van de gebruiker |
+| Bonnetjes: vervolg | HEIC, bijsnijden op het papier, meerdere foto's van één bon, eigen soort bon die direct tegen de pinbetaling of kas boekt; afstellen op echte foto's van de gebruiker |
 | Dashboard: vervolg | Voorgesteld, nog niet gevraagd: afwijking marge in procentpunten; in de kwartaalweergave ook vorig jaar per kwartaal; btw-frequentie (maand/kwartaal) als instelling van de administratie in plaats van per widget |
 | Auditfile: vervolg | De btw-code per boekingsregel zit niet in de XAF-export; XAF 4.0 is alleen met een zelfgemaakt voorbeeld getest |
 | Vaste activa: vervolg | Degressief en fiscaal naast commercieel, overzicht investeringsaftrek (KIA) |
@@ -239,3 +300,19 @@ scripts/ui/herstart.sh && node scripts/ui/schermafbeeldingen.js /tmp/schermen vo
   (15 oktober 2026); diensten die "vandaag" gebruiken horen `TimeProvider` te injecteren.
 - **Selectors in `schermafbeeldingen.js`**: de liquiditeitsgrafiek gebruikt ook de class `maandgrafiek`; kies in het
   script een widget via `[data-widget="..."]`.
+
+27. **Wensen van 13 november** (bank, belastingen, navigatie, journaal, btw privégebruik): regel toevoegen met het
+    juiste teken en niet boeken met een verschil; motorrijtuigenbelasting en het kenmerk uit de MT940-omschrijving,
+    automatisch boeken van belastingen standaard aan (migratie `BelastingMrbEnAutomatisch`); bankpaneel overlapt niet
+    meer met een breder gesleepte lijst (`data-groeit` in `kolommen.js`); geen browser-aanvulling in bedragvelden;
+    terugpijl bij inkoop verwerken; een regel aanklikken bij Inrichting → Regels; na een nieuw actief terug naar de
+    activastaat; journaal: een boeking aanklikken opent de boeking (pijltje voor de regels, rekening naar de
+    grootboekkaart), niets gevonden → *Zoeken in alle boekjaren*; forfait btw privégebruik op hele euro's; een
+    zelf aangemaakte rekening "btw privé" (zonder functie of RGS) telt in rubriek 1d en de aansluiting.
+
+28. **MRB per voertuig en staat vaste activa inlezen** (14 november): motorrijtuigenbelasting wordt niet meer meteen
+    zelf geboekt maar per voertuig geleerd (`Belastingherkenning.Voertuig`, sleutel `B|mrb|…`). Staat vaste activa
+    inlezen uit Excel of PDF met aansluiting op totalen en grootboek en overnemen als activa (README §3, tabel Activa:
+    *Staat vaste activa inlezen*). Getest op een echte staat van de gebruiker (`testdata/mva/`, niet in git): 15 activa,
+    sluit. De gebruiker levert meer varianten aan; nieuwe kopwoorden horen in `Activastaatlezer.Soort`.
+

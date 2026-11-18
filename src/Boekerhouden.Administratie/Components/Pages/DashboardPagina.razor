@@ -292,7 +292,7 @@
             <tbody>
                 <tr><td>Omzet</td><td class="text-end">@Weergave.BedragHeel(k.Dit.Omzet)</td><td class="text-end zacht">@Weergave.BedragHeel(k.Vorig.Omzet)</td></tr>
                 <tr><td>Kosten</td><td class="text-end">@Weergave.BedragHeel(k.Dit.Kosten)</td><td class="text-end zacht">@Weergave.BedragHeel(k.Vorig.Kosten)</td></tr>
-                <tr class="totaal"><td>Resultaat</td><td class="text-end">@Weergave.BedragHeel(k.Dit.Resultaat)</td><td class="text-end zacht">@Weergave.BedragHeel(k.Vorig.Resultaat)</td></tr>
+                <tr class="totaal"><td>Resultaat</td><td class="text-end">@Weergave.BedragHeel(Resultaat(k.Dit))</td><td class="text-end zacht">@Weergave.BedragHeel(Resultaat(k.Vorig))</td></tr>
             </tbody>
         </table>,
         Widget.Verkoop when dashboard!.Verkoop is { } verkoop => @<table class="widgettabel">
@@ -416,4 +416,8 @@
             <a class="widgetregel let-op d-block" href="@adres">@open.AantalVervallen vervallen, samen @Weergave.BedragHeel(open.Vervallen)</a>
         }
     </div>;
+
+    /// <summary>Het resultaat zoals het onder omzet en kosten in hele euro's optelt (anders 100 − 51 = 50).</summary>
+    private static decimal Resultaat(Periodecijfers p) =>
+        p.Resultaat == p.Omzet - p.Kosten ? Afronding.OpHeleEuro(p.Omzet) - Afronding.OpHeleEuro(p.Kosten) : p.Resultaat;
 }

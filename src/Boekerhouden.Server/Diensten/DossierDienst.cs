@@ -81,7 +81,15 @@ public sealed class DossierDienst(IDbContextFactory<BoekerhoudenDbContext> dbFac
             GewijzigdDoor = wie.Naam,
         };
         db.Dossiers.Add(dossier);
-        await db.SaveChangesAsync();
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            return Uitkomst<Guid>.Mislukt("Dit dossier is tegelijk door iemand anders aangemaakt. Laad de pagina opnieuw.");
+        }
+
         await audit.Log(wie, AuditActies.DossierAangemaakt, $"{KlantDienst.Onderwerp(klant)} – {dossier.Naam}",
             dossier.Grondslag is { } gekozen ? Weergave.Tekst(gekozen) : null);
         return Uitkomst<Guid>.Met(dossier.Id);

@@ -140,6 +140,17 @@ public sealed class KlantEnDossierTests(ServerFixture server) : IClassFixture<Se
         Assert.Equal([2025, 2025, 2024], (await Dossiers.VoorKlant(klantId)).Select(d => d.Boekjaar));
     }
 
+    [Fact]
+    public async Task Tegelijk_hetzelfde_dossier_aanmaken_geeft_een_melding_en_geen_fout()
+    {
+        var klantId = (await Klanten.Maak(new KlantInvoer(TestGegevens.Klantnummer(), "Klant Tegelijk", Rechtsvorm.BV, null, null), Tester)).Waarde;
+
+        var uitkomsten = await Task.WhenAll(Enumerable.Range(0, 4).Select(_ => Dossiers.Maak(klantId, 2025, SoortOpdracht.SamenstellenJaarrekening, Tester)));
+
+        Assert.Single(uitkomsten, u => u.IsGelukt);
+        Assert.Single(await Dossiers.VoorKlant(klantId));
+    }
+
     [Theory]
     [InlineData(1999)]
     [InlineData(2101)]

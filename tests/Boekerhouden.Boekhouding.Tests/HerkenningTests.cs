@@ -6,6 +6,221 @@ namespace Boekerhouden.Boekhouding.Tests;
 
 public sealed class FactuurtekstTests
 {
+    [Fact]
+    public void Een_gescande_bon_met_leesfouten_laag_tarief_en_de_naam_alleen_in_het_logo()
+    {
+        // Zoals de tekstherkenning een gescande bon van een banketbakker teruggeeft: het logo maar half gelezen, "BIW"
+        // voor BTW, het grote totaal verkeerd (18,99 voor 18,95) en een spatie in het webadres.
+        const string Bon = """
+            Zoet Banketb
+            Marktplein 5
+            1234 AB Ergens
+            0123 456789
+            1    Appeltaart punt    €    3,25
+            2    Slagroom gebakje    €    6,50
+            2X€ 3,25
+            Totaal    € 18,99
+            Pin betaald    € 18.95
+            BIW    Over
+            9,0% €    17,39 €    1,56
+            Totaal €    17,39 €    1,56
+            Kopie Kaarthouder
+            Terminal: 4SF001 Merchant: 221619
+            Totaal: 18,95 EUR
+            AKKOORD
+            Datum    Woensdag 11-11-2026
+            Bonnummer    40852548
+            Bedankt en graag tot ziens!
+            www. zoetbanketbakkerij.nl
+            """;
+
+        var bon = Factuurtekst.Analyseer(Bon, Herkenningsbron.Ocr);
+
+        Assert.Equal(("Zoet Banketbakkerij", "40852548", new DateOnly(2026, 11, 11)), (bon.Naam, bon.Factuurnummer, bon.Factuurdatum));
+        Assert.Equal((17.39m, 1.56m, 18.95m, 9m), (bon.TotaalExclusief, bon.TotaalBtw, bon.TotaalInclusief, bon.EnigTarief));
+
+        // Zonder de btw-rij (onleesbaar) volgt het tarief uit de bedragen: 17,39 + 1,56 = 18,95 klopt alleen bij 9%.
+        var zonderRij = Factuurtekst.Analyseer(Bon.Replace("9,0% €    17,39 €    1,56", "90% € 1739 € 1,", StringComparison.Ordinal), Herkenningsbron.Ocr);
+        Assert.Equal((17.39m, 1.56m, 9m), (zonderRij.TotaalExclusief, zonderRij.TotaalBtw, zonderRij.EnigTarief));
+
+        // Het label half gelezen (de bon in een ordner, de rand van de ring erover).
+        Assert.Equal("40852548", Factuurtekst.Analyseer(Bon.Replace("Bonnummer    ", "Bonnumm ", StringComparison.Ordinal), Herkenningsbron.Ocr).Factuurnummer);
+
+        // Zonder iets van het logo de naam uit het webadres.
+        Assert.Equal("Zoetbanketbakkerij", Factuurtekst.Analyseer(Bon.Replace("Zoet Banketb\n", "", StringComparison.Ordinal), Herkenningsbron.Ocr).Naam);
+    }
+
+    [Fact]
+    public void Leesfouten_van_de_neurale_tekstherkenning_op_echte_bonnen()
+    {
+        // Zoals de tekstherkenning verzonnen bonnen leest met de fouten die op echte foto's voorkwamen: het logo in
+        // stukken ("KRU ID"), "BTW Totaal" onder het btw-overzicht, "Totaal afgerond" (contant afronden), een euroteken
+        // als C, "T otaal", het %-teken als ", ".n1" voor .nl en onzin uit een streepjescode boven de naam.
+        var supermarkt = Factuurtekst.Analyseer("""
+            KRU ID
+            supermarkten.
+            Marktweg 164
+            9201 GT Ergens
+            www.kruid.nl
+            OMSCHRIJVING BEDRAG IN €
+            WATER 4,68
+            Totaal 4,68
+            02/12/2024 08:03
+            Totaal : 4,68 EUR
+            BTW overzicht
+            BTW% Bedrag excl BTW bedrag
+            21,00% 3,87 0,81
+            BTW Totaal 3,87 0,81
+            """, Herkenningsbron.Ocr);
+        Assert.Equal(("KRUID", 4.68m, new DateOnly(2024, 12, 2)), (supermarkt.Naam, supermarkt.TotaalInclusief, supermarkt.Factuurdatum));
+
+        var kleding = Factuurtekst.Analyseer("""
+            Kinderwinkel Ergens
+            Dorpsstraat 38
+            8601 AX ERGENS
+            Datum 07-11-2026 12:08:04
+            Totaal € 19,99
+            21,00% BTW € 3,47
+            Incl.
+            Totaal afgerond € 20,00
+            PAY 03 € 19,99
+            """, Herkenningsbron.Ocr);
+        Assert.Equal((19.99m, 3.47m), (kleding.TotaalInclusief, kleding.TotaalBtw));
+
+        var matrix = Factuurtekst.Analyseer("""
+            SUFPEERMAARKTEN
+            Kerkstrjitte 5
+            9281 PX ERGENS
+            www.buurtwinkel-supermarkten.n1
+            T otaal C7,45
+            Contant C7,50
+            BTW groep BTW Incl.
+            BTW Hoog 21" 1, 29 7 , 45
+            """, Herkenningsbron.Ocr);
+        Assert.Equal(("Buurtwinkel Supermarkten", 7.45m), (matrix.Naam, matrix.TotaalInclusief));
+        Assert.Equal([(21m, 1.29m)], matrix.Btwregels.Select(b => (b.Percentage, b.Btw)));
+
+        var kopie = Factuurtekst.Analyseer("""
+            DLDI U IIV
+            905465960610
+            ***KOPIE***
+            Kantoorboekhandel Ergens
+            Marktweg 176
+            9201GT Ergens
+            Totaal 114,00
+            """, Herkenningsbron.Ocr);
+        Assert.Equal("Kantoorboekhandel Ergens", kopie.Naam);
+    }
+
+    [Fact]
+    public void Een_bon_waarvan_het_logo_niet_te_lezen_is_heeft_niet_de_straat_als_naam()
+    {
+        // Het logo bovenaan is onleesbaar: de eerste regel is de straat, met de postcode eronder.
+        var bon = Factuurtekst.Analyseer("""
+            Marktweg 164
+            9201 GT Ergens
+            0512583010
+            OMSCHRIJVING    BEDRAG IN €
+            WATER    4,68
+            Totaal    4,68
+            """, Herkenningsbron.Ocr);
+        Assert.True(bon.Naam is null, bon.Naam);
+        Assert.Equal(4.68m, bon.TotaalInclusief);
+    }
+
+    [Fact]
+    public void Leesfouten_op_bonnen_uit_de_stresstest()
+    {
+        // Tankbon: "BIW" voor BTW en een spatie in een bedrag.
+        var tank = Factuurtekst.Analyseer("""
+            Brandstof Noord
+            Rijksweg 163
+            4608 EF Franeker
+            Bonnr: 4614-905    04-11-2026 22:46
+            35,33 L x € 2,107/L    74,44
+            Broodje gezond    4,75
+            Koffie groot    2,95
+            Totaal incl. BTW EUR    82,14
+            BTW 9% over 7,06    0, 64
+            BIW 21% over 61,52    12,92
+            Betaald met PIN    82,14
+            """, Herkenningsbron.Ocr);
+        Assert.Equal(("Brandstof Noord", "4614-905", 82.14m), (tank.Naam, tank.Factuurnummer, tank.TotaalInclusief));
+        Assert.Equal([(21m, 12.92m), (9m, 0.64m)], tank.Btwregels.Select(b => (b.Percentage, b.Btw)));
+
+        // Horeca: het tarief van een rij is weggevallen, het nummer staat achter "Rekening".
+        var horeca = Factuurtekst.Analyseer("""
+            Eetcafe Het Anker
+            Havenkade 7, Stavoren
+            Rekening 53834    22/07/2026
+            1x Cappuccino    3,40
+            1x Rode wijn glas    5,25
+            Te betalen    € 24,45
+            Btw    Grondslag    Btw-bedrag
+            %    12,80    1,15
+            21%    8,68    1,82
+            Pin    24,45
+            """, Herkenningsbron.Ocr);
+        Assert.Equal(("53834", 24.45m), (horeca.Factuurnummer, horeca.TotaalInclusief));
+        Assert.Equal([(21m, 1.82m), (9m, 1.15m)], horeca.Btwregels.Select(b => (b.Percentage, b.Btw)));
+
+        // Bouwmarkt: de grondslag verkeerd gelezen (717,39), btw en totaal op de rij kloppen wel.
+        var bouw = Factuurtekst.Analyseer("""
+            BOUWHAL GAMAR
+            Industrieweg 8
+            Kassa 01    Bon 458132
+            TOTAAL    93,64
+            BTW%    Excl    BTW    Incl
+            21%    717,39    16,25    93,64
+            Transactie 26233182
+            """, Herkenningsbron.Ocr);
+        Assert.Equal(("458132", 77.39m, 16.25m, 93.64m), (bouw.Factuurnummer, bouw.TotaalExclusief, bouw.TotaalBtw, bouw.TotaalInclusief));
+
+        // Supermarkt: van de 21%-rij is alleen het btw-bedrag leesbaar; drogist: het procentteken ontbreekt.
+        var super = Factuurtekst.Analyseer("TOTAAL    24,59\nPINNEN    24,59\nBTW    OVER    EUR\n9%    21,10    1,90\n21%    2,3)    0,28\nTOTAAL    22,41    2,18", Herkenningsbron.Ocr);
+        Assert.Equal((24.59m, 2.18m), (super.TotaalInclusief, super.TotaalBtw));
+        var drogist = Factuurtekst.Analyseer("Totaal    18,75\nPinbetaling    18,75\nBTW 9    0,39\nBTW 21    2,42\nTotaal exclusief BTW    15,94", Herkenningsbron.Ocr);
+        Assert.Equal((18.75m, 15.94m, 2.81m), (drogist.TotaalInclusief, drogist.TotaalExclusief, drogist.TotaalBtw));
+
+        // Parkeren: "Bedrag" als totaal; kiosk: de naam lijkt op een adres maar staat boven het adres; een flard is geen naam.
+        var parkeren = Factuurtekst.Analyseer("Parkeergarage Centrum\nGroningen\nTicket 438916\nBedrag    EUR 3,50\nIncl. 21% BTW    EUR 0,61", Herkenningsbron.Ocr);
+        Assert.Equal(("438916", 3.50m, 0.61m), (parkeren.Factuurnummer, parkeren.TotaalInclusief, parkeren.TotaalBtw));
+        Assert.Equal("Kiosk Perron 1", Factuurtekst.Analyseer("Kiosk Perron 1\nStationsplein 4, Zwolle\nPostzegels NL 10st    12,10\nTotaal    12,10", Herkenningsbron.Ocr).Naam);
+        Assert.Equal("Banketbakker Roomhart", Factuurtekst.Analyseer("nnen\nBanketbakker Roomhart\nMarktplein 16\n5238 HK Joure\nTotaal    € 18,00", Herkenningsbron.Ocr).Naam);
+    }
+
+    [Fact]
+    public void Een_kassabon_met_totaal_btw_blok_en_bonnummer()
+    {
+        const string Bon = """
+            BOUWMARKT DE HAMER
+            Industrieweg 14
+            3811 AB Amersfoort
+            BTW NL805512342B01
+            Datum 14-03-2026    Tijd 16:42
+            Kassa 03    Bon 0048213
+            Houtschroeven 4x40 200st    8,95
+            Muurverf wit 10L    39,95
+            TOTAAL    80,15
+            PIN    80,15
+            BTW%    Excl    BTW    Incl
+            21%    66,24    13,91    80,15
+            Terminal 7K21B4 Periode 3074
+            Transactie 02213564
+            Kaart xxxxxxxxxxxx4411
+            """;
+
+        var bon = Factuurtekst.Analyseer(Bon);
+
+        Assert.Equal(("BOUWMARKT DE HAMER", "NL805512342B01", "0048213", new DateOnly(2026, 3, 14)), (bon.Naam, bon.BtwNummer, bon.Factuurnummer, bon.Factuurdatum));
+        Assert.Equal((66.24m, 13.91m, 80.15m, 21m), (bon.TotaalExclusief, bon.TotaalBtw, bon.TotaalInclusief, bon.EnigTarief));
+
+        // Zonder bonnummer het transactienummer van de pinbetaling; een factuurnummer gaat altijd voor.
+        Assert.Equal("02213564", Factuurtekst.Analyseer(Bon.Replace("    Bon 0048213", "", StringComparison.Ordinal)).Factuurnummer);
+        Assert.Equal("F-77", Factuurtekst.Analyseer("Factuurnummer: F-77\n" + Bon).Factuurnummer);
+        Assert.Null(Factuurtekst.Analyseer("Bedankt voor uw bestelling\nBon appetit\nTotaal 12,00").Factuurnummer);
+    }
+
     private const string EigenBtw = "NL123456782B01";
 
     [Fact]

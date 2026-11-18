@@ -58,6 +58,13 @@ public static class AuditActies
     public const string WachtwoordGewijzigd = "Wachtwoord gewijzigd";
     public const string EersteBeheerderAangemaakt = "Eerste beheerder aangemaakt";
     public const string GebruikerAangemaakt = "Gebruiker aangemaakt";
+    public const string GebruikerGewijzigd = "Gebruiker gewijzigd";
+    public const string WerkwijzeGewijzigd = "Werkwijze gewijzigd";
+    public const string WerkplekAangemeld = "Werkplek aangemeld";
+    public const string WerkplekGekoppeld = "Werkplek gekoppeld";
+    public const string WerkplekVerwijderd = "Werkplek verwijderd";
+    public const string IngelogdMetWerkplek = "Ingelogd met werkplek";
+    public const string LidmaatschapIngetrokken = "Lidmaatschap ingetrokken";
     public const string AdministratieAangemaakt = "Administratie aangemaakt";
     public const string AdministratieGearchiveerd = "Administratie gearchiveerd";
     public const string AdministratieHersteld = "Administratie uit het archief gehaald";
@@ -72,6 +79,9 @@ public static class AuditActies
     public const string Geboekt = "Geboekt";
     public const string AutomatischGeboekt = "Automatisch geboekt";
     public const string DocumentIngelezen = "Document ingelezen";
+    public const string StapelIngelezen = "Stapel ingelezen";
+    public const string StapelGesplitst = "Stapel gesplitst";
+    public const string StapelVerwijderd = "Stapel verwijderd";
     public const string RelatieToegevoegd = "Relatie toegevoegd";
     public const string RelatieGewijzigd = "Relatie gewijzigd";
     public const string IbanGewijzigd = "IBAN gewijzigd";
@@ -147,6 +157,7 @@ public static class AuditActies
     public const string PeriodeAfgesloten = "Periode afgesloten";
     public const string PeriodeHeropend = "Periode heropend";
     public const string ActivumToegevoegd = "Vast actief toegevoegd";
+    public const string ActivastaatIngelezen = "Staat vaste activa ingelezen";
     public const string ActivumGewijzigd = "Vast actief gewijzigd";
     public const string ActivumVerwijderd = "Vast actief verwijderd";
     public const string ActivumHerzien = "Afschrijving vast actief gewijzigd";

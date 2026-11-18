@@ -16,6 +16,12 @@ public sealed record OcrUitkomst(int Breedte, int Hoogte, IReadOnlyList<OcrWoord
 public interface IOcrMotor
 {
     Task<OcrUitkomst> LeesAsync(byte[] afbeelding, CancellationToken annulering = default);
+
+    /// <summary>
+    /// Leest liever de foto met alleen de belichting vlakgetrokken dan de scan met hard contrast (een herkenner die op
+    /// foto's is getraind); de woorden staan in beide op dezelfde plek.
+    /// </summary>
+    bool LeestZacht => false;
 }
 
 /// <summary>
@@ -23,7 +29,7 @@ public interface IOcrMotor
 /// terug. Zonder shell, met een tijdslimiet, en het proces wordt bij overschrijding gestopt. Talen: Nederlands en
 /// Engels, voor zover geïnstalleerd.
 /// </summary>
-public sealed class TesseractOcr : IOcrMotor
+public sealed partial class TesseractOcr : IOcrMotor
 {
     public static readonly TimeSpan Tijdslimiet = TimeSpan.FromSeconds(90);
 
@@ -84,10 +90,32 @@ public sealed class TesseractOcr : IOcrMotor
         return null;
     }
 
+    /// <summary>
+    /// Leest de afbeelding in twee standen tegelijk en neemt de beste. De automatische indeling (psm 3) is goed voor een
+    /// factuur met kolommen en blokken, maar slaat op een kassabon vaak de rechterkolom met bedragen over; als één
+    /// kolom (psm 4) komen die wel mee. De beste is de stand met de meeste bedragen (bij gelijke stand de meeste woorden).
+    /// </summary>
     public async Task<OcrUitkomst> LeesAsync(byte[] afbeelding, CancellationToken annulering = default)
     {
         ArgumentNullException.ThrowIfNull(afbeelding);
-        List<string> argumenten = ["stdin", "stdout", "--psm", "3"];
+        var standen = await Task.WhenAll(Lees(afbeelding, 3, annulering), Lees(afbeelding, 4, annulering)).ConfigureAwait(false);
+        return standen.MaxBy(Kwaliteit)!;
+    }
+
+    /// <summary>Hoe bruikbaar een leesresultaat is: vooral het aantal bedragen, daarna het aantal woorden dat zeker is.</summary>
+    internal static int Kwaliteit(OcrUitkomst ocr)
+    {
+        ArgumentNullException.ThrowIfNull(ocr);
+        var zeker = ocr.Woorden.Where(w => w.Zekerheid >= 40).ToList();
+        return (zeker.Count(w => Bedrag().IsMatch(w.Tekst)) * 1000) + zeker.Count;
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"^-?[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}$|^-?[0-9]+[.,][0-9]{2}$")]
+    private static partial System.Text.RegularExpressions.Regex Bedrag();
+
+    private async Task<OcrUitkomst> Lees(byte[] afbeelding, int stand, CancellationToken annulering)
+    {
+        List<string> argumenten = ["stdin", "stdout", "--psm", stand.ToString(CultureInfo.InvariantCulture)];
         if (talen is not null)
         {
             argumenten.InsertRange(2, ["-l", talen]);
@@ -192,7 +220,8 @@ public sealed class TesseractOcr : IOcrMotor
 public sealed record Ocrlaag(IReadOnlyList<Tekstwoord> Woorden, byte[]? Pdf);
 
 /// <summary>
-/// Scans en foto's lezen met OCR. Een foto wordt een PDF van één pagina (A4-breed, de foto erin); van een gescande PDF
+/// Scans en foto's lezen met OCR. Een foto wordt eerst verbeterd (<see cref="Fotoverbetering"/>) en dan een PDF van
+/// één pagina (A4-breed, de foto erin); van een gescande PDF
 /// gaat per pagina de grootste afbeelding door de OCR. De woorden komen in PDF-punten op de plek van de afbeelding, zodat
 /// regels, aanwijzen en oplichten werken als bij een PDF met tekst.
 /// </summary>
@@ -207,12 +236,33 @@ public sealed class OcrLezer(IOcrMotor motor)
         : inhoud.StartsWith((ReadOnlySpan<byte>)[0x89, (byte)'P', (byte)'N', (byte)'G']) ? "png"
         : null;
 
+    /// <summary>De woorden van één afbeelding uit een PDF (zie <see cref="Afbeeldingen(byte[], long, int)"/>), in PDF-punten.</summary>
+    public async Task<IReadOnlyList<Tekstwoord>> LeesPaginaAsync(int pagina, byte[] afbeelding, PdfPlek plek, CancellationToken annulering = default) =>
+        [.. NaarPunten(pagina, await motor.LeesAsync(Scan(afbeelding), annulering).ConfigureAwait(false), plek)];
+
+    /// <summary>
+    /// Een gescande pagina klaar voor de tekstherkenning: grijs met vloeiende randen op een werkbare maat en met het
+    /// contrast omhoog (een scan in twee kleuren, zoals van een kopieerapparaat, leest zo veel beter). De pagina wordt
+    /// niet gedraaid, zodat de woorden op hun plek blijven.
+    /// </summary>
+    private byte[] Scan(byte[] afbeelding) => Fotoverbetering.VerbeterMetZacht(afbeelding, rechtzetten: false) is var (scan, zacht)
+        ? (motor.LeestZacht ? zacht : scan)
+        : afbeelding;
+
     public async Task<Ocrlaag?> LeesAsync(byte[] inhoud, CancellationToken annulering = default)
     {
         ArgumentNullException.ThrowIfNull(inhoud);
         if (Afbeeldingssoort(inhoud) is { } soort)
         {
-            var ocr = await motor.LeesAsync(inhoud, annulering).ConfigureAwait(false);
+            // Een foto wordt eerst een scan (rechtop, grijs, belichting vlak, contrast omhoog): dat leest beter en is
+            // wat er bewaard wordt. Lukt dat niet, dan de foto zoals hij is.
+            var teLezen = inhoud;
+            if (Fotoverbetering.VerbeterMetZacht(inhoud) is var (scan, zacht))
+            {
+                (inhoud, soort, teLezen) = (scan, "jpeg", motor.LeestZacht ? zacht : scan);
+            }
+
+            var ocr = await motor.LeesAsync(teLezen, annulering).ConfigureAwait(false);
             if (ocr.Breedte <= 0 || ocr.Hoogte <= 0)
             {
                 return null;
@@ -225,7 +275,7 @@ public sealed class OcrLezer(IOcrMotor motor)
         var woorden = new List<Tekstwoord>();
         foreach (var (pagina, afbeelding, plek) in Afbeeldingen(inhoud))
         {
-            woorden.AddRange(NaarPunten(pagina, await motor.LeesAsync(afbeelding, annulering).ConfigureAwait(false), plek));
+            woorden.AddRange(NaarPunten(pagina, await motor.LeesAsync(Scan(afbeelding), annulering).ConfigureAwait(false), plek));
         }
 
         return woorden.Count == 0 ? null : new Ocrlaag(woorden, null);
@@ -271,10 +321,13 @@ public sealed class OcrLezer(IOcrMotor motor)
     /// Per pagina van een PDF zonder tekst de grootste afbeelding (de scan) met zijn plek: JPEG zoals hij erin staat,
     /// andere soorten als PNG. Een afbeelding die niet te lezen is, slaat de OCR over.
     /// </summary>
-    public static IReadOnlyList<(int Pagina, byte[] Afbeelding, PdfPlek Plek)> Afbeeldingen(byte[] pdf)
+    public static IReadOnlyList<(int Pagina, byte[] Afbeelding, PdfPlek Plek)> Afbeeldingen(byte[] pdf) => Afbeeldingen(pdf, PdfTekst.MaximumBytes, PdfTekst.MaximumPaginas);
+
+    /// <summary>Als <see cref="Afbeeldingen(byte[])"/>, met eigen grenzen (een stapel mag groter zijn dan een factuur).</summary>
+    public static IReadOnlyList<(int Pagina, byte[] Afbeelding, PdfPlek Plek)> Afbeeldingen(byte[] pdf, long maximumBytes, int maximumPaginas)
     {
         ArgumentNullException.ThrowIfNull(pdf);
-        if (pdf.Length > PdfTekst.MaximumBytes || pdf.AsSpan(0, Math.Min(pdf.Length, 1024)).IndexOf("%PDF-"u8) < 0)
+        if (pdf.Length > maximumBytes || pdf.AsSpan(0, Math.Min(pdf.Length, 1024)).IndexOf("%PDF-"u8) < 0)
         {
             return [];
         }
@@ -283,7 +336,7 @@ public sealed class OcrLezer(IOcrMotor motor)
         try
         {
             using var document = PdfDocument.Open(pdf, new ParsingOptions { UseLenientParsing = true, SkipMissingFonts = true });
-            foreach (var pagina in document.GetPages().Take(PdfTekst.MaximumPaginas))
+            foreach (var pagina in document.GetPages().Take(maximumPaginas))
             {
                 if (pagina.GetImages().MaxBy(i => i.BoundingBox.Width * i.BoundingBox.Height) is not { } beeld)
                 {

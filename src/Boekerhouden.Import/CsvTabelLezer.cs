@@ -46,9 +46,31 @@ internal static class CsvTabelLezer
         }
     }
 
-    /// <summary>Kiest het scheidingsteken dat het vaakst voorkomt in de kopregel (met "Grootboeknummer").</summary>
+    /// <summary>
+    /// Kiest het scheidingsteken van de kopregel: de regel die met dat teken een kolom voor het nummer én een kolom
+    /// voor het bedrag geeft (ook "Rekening" en "Saldo"); anders het teken dat het vaakst in de regel met
+    /// "Grootboeknummer" staat.
+    /// </summary>
     internal static char BepaalScheidingsteken(string tekst)
     {
+        static bool Is(string cel, IReadOnlyList<string> synoniemen)
+        {
+            var schoon = new string(cel.Where(c => !char.IsWhiteSpace(c) && c is not ('.' or ':' or '"')).ToArray());
+            return synoniemen.Any(s => string.Equals(s, schoon, StringComparison.OrdinalIgnoreCase));
+        }
+
+        foreach (var regel in tekst.Split('\n').Take(50))
+        {
+            foreach (var teken in Scheidingstekens)
+            {
+                var cellen = regel.Split(teken);
+                if (cellen.Length >= 2 && cellen.Any(c => Is(c, ImportSjabloon.SynoniemenGrootboeknummer)) && cellen.Any(c => Is(c, ImportSjabloon.SynoniemenBedrag)))
+                {
+                    return teken;
+                }
+            }
+        }
+
         var kopregel = tekst
             .Split('\n')
             .FirstOrDefault(r => r.Contains(ImportSjabloon.KolomGrootboeknummer, StringComparison.OrdinalIgnoreCase));

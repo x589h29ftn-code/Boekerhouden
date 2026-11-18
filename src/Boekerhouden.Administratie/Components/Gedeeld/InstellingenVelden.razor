@@ -74,6 +74,15 @@
                 <div class="small text-secondary mt-1" title="Voorbeeld">@Omschrijvingssjabloon.Vul(Invoer.Omschrijving!, Voorbeeld)</div>
             }
         </div>
+        <div class="col-12">
+            <label class="form-label" for="standaardomschrijving-verkoop">Standaardomschrijving ingelezen verkoopfactuur</label>
+            <input id="standaardomschrijving-verkoop" class="form-control" @bind="Invoer.OmschrijvingVerkoop" @bind:event="oninput" maxlength="200" placeholder="uit (bijv. Verkoop #klant #maandnr-#jaar)"
+                   title="@string.Join(", ", Omschrijvingssjabloon.Variabelen.Select(v => $"{v.Naam} = {v.Betekenis}"))" />
+            @if (Omschrijvingssjabloon.IsSjabloon(Invoer.OmschrijvingVerkoop))
+            {
+                <div class="small text-secondary mt-1" title="Voorbeeld">@Omschrijvingssjabloon.Vul(Invoer.OmschrijvingVerkoop!, Voorbeeld)</div>
+            }
+        </div>
     }
 </div>
 

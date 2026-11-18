@@ -203,6 +203,13 @@ public static class Afschrijvingsplan
         var eindRest = activum.Restwaarde - stappen.Sum(d => d.Restwaarde);
         var eindCumulatief = activum.AfgeschrevenVoorBegin + geboekt.Values.Sum() - stappen.Sum(d => d.Afschrijving);
         var rest = eindAanschaf - eindRest - eindCumulatief;
+        // Ingekort tot (of vóór) de laatst geboekte maand terwijl er nog iets af moet: het restant in de maand erna, in
+        // plaats van onverdeeld te blijven staan.
+        if (open.Count == 0 && rest != 0 && activum.Herzieningen.Count == 0 && maanden.Count > 0)
+        {
+            open = [maanden[^1].AddMonths(1)];
+        }
+
         var verdeeld = rest == 0 ? [] : Verdeel(rest, open.Count);
         var gepland = new SortedDictionary<DateOnly, decimal>();
         for (var i = 0; i < verdeeld.Count; i++)

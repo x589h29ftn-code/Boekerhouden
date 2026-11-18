@@ -28,4 +28,23 @@ public sealed class MemoriaalKopieTests(AdministratieFixture app) : IClassFixtur
         await app.Dienst<AdministratieDienst>().ZetLid(id, ondernemer.Id!.Value, Lidmaatschapsrol.Ondernemer, wie);
         await Assert.ThrowsAsync<GeenToegangException>(() => grootboek.KopieerNaarMaand(ondernemer, id, "MEM", "2026-0001", 2026, 12));
     }
+
+    [Fact]
+    public async Task Een_kopie_hoort_niet_bij_dezelfde_factuur()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var grootboek = app.Dienst<GrootboekDienst>();
+        Assert.True((await grootboek.Boek(wie, id, new Journaalpost("MEM", "2026-0001", new(2026, 10, 31), "Verrekening oktober",
+            [new("1300", -100m, Relatie: "KLANT", Factuurnummer: "F12"), new("4300", 100m)]))).IsGelukt);
+
+        var kopie = await grootboek.KopieerNaarMaand(wie, id, "MEM", "2026-0001", 2026, 11);
+        var herhaald = await grootboek.BoekPerMaand(wie, id, new Journaalpost("MEM", "2026-0010", new(2026, 1, 31), "Verrekening",
+            [new("1300", -10m, Relatie: "KLANT", Factuurnummer: "F13"), new("4300", 10m)]), 2);
+
+        Assert.True(kopie.IsGelukt && herhaald.IsGelukt);
+        var posten = (await grootboek.Posten(wie, id, "MEM")).Select(p => p.Post).ToList();
+        Assert.Null(posten.Single(p => p.Boekstuk == kopie.Waarde).Regels.Single(r => r.Rekeningnummer == "1300").Factuurnummer);
+        Assert.Equal(["F13", null], posten.Where(p => p.Omschrijving == "Verrekening").OrderBy(p => p.Datum).Select(p => p.Regels.Single(r => r.Rekeningnummer == "1300").Factuurnummer));
+    }
 }

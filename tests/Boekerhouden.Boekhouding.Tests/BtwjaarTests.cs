@@ -179,6 +179,8 @@ public sealed class BtwjaarTests
     [InlineData("Omzetbelasting september 2026", Aangiftefrequentie.Maand, "2026-09-01", "2026-09-30")]
     [InlineData("btw mrt 2026", Aangiftefrequentie.Maand, "2026-03-01", "2026-03-31")]
     [InlineData("Omzetbelasting 2026", Aangiftefrequentie.Jaar, "2026-01-01", "2026-12-31")]
+    [InlineData("Omzetbelasting september 2026", Aangiftefrequentie.Kwartaal, "2026-07-01", "2026-09-30")]
+    [InlineData("btw 2e kwartaal 2026", Aangiftefrequentie.Jaar, "2026-01-01", "2026-12-31")]
     public void Periode_uit_de_omschrijving(string tekst, Aangiftefrequentie frequentie, string van, string tot)
     {
         var periode = Btwbetalingen.Periode(tekst, frequentie)!;
@@ -220,5 +222,22 @@ public sealed class BtwjaarTests
         Assert.True(Btwaangifte.IsBtwrekening(ovpa.Zoek("1820")!));
         Assert.True(Btwaangifte.IsBtwrekening(ovpa.Zoek("1807")!));
         Assert.False(Btwaangifte.IsBtwrekening(ovpa.Zoek("1780")!));
+    }
+
+    [Fact]
+    public void De_aangifte_in_hele_euros_is_afgerond_in_het_voordeel_en_dat_is_geen_suppletie()
+    {
+        var exact = new Btwaangifte(new(2026, 1, 1), new(2026, 3, 31), [new("1a", 5878.85m, 1234.56m), new("1b", 100.99m, 9.09m)], 100.10m);
+
+        var afgerond = exact.Afgerond();
+
+        Assert.Equal((5878m, 1234m, 100m, 9m, 101m), (afgerond.Rubriek("1a").Grondslag, afgerond.Rubriek("1a").Btw, afgerond.Rubriek("1b").Grondslag, afgerond.Rubriek("1b").Btw, afgerond.Voorbelasting));
+        Assert.Equal(1142m, afgerond.TeBetalen);
+        Assert.Equal(1.55m, exact.Afronding);
+
+        // Vastgelegd zoals ingediend (hele euro's): volgens de boekingen nu hetzelfde, dus geen verschil.
+        var periode = new Btwperiode(new(new(2026, 1, 1), new(2026, 3, 31), Aangiftefrequentie.Kwartaal), exact,
+            new VastgelegdeAangifte(exact.Van, exact.Tot, afgerond.Rubrieken, afgerond.Voorbelasting, DateTimeOffset.UnixEpoch, "Test"));
+        Assert.Equal((0m, 1.55m), (periode.Verschil, periode.Afronding));
     }
 }

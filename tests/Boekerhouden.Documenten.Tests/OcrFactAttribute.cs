@@ -20,3 +20,19 @@ internal sealed class OcrFactAttribute : FactAttribute
 
     public static TesseractOcr Tesseract => Motor.Value ?? throw new InvalidOperationException("Tesseract is niet geïnstalleerd.");
 }
+
+/// <summary>Test die alleen draait als de modellen van PaddleOCR naast de tests staan (ze komen mee uit het pakket).</summary>
+internal sealed class PaddleFactAttribute : FactAttribute
+{
+    private static readonly Lazy<PaddleOcr?> Motor = new(() => PaddleOcr.Zoek());
+
+    public PaddleFactAttribute()
+    {
+        if (Motor.Value is null)
+        {
+            Skip = "De modellen van PaddleOCR (models/v5) ontbreken of ONNX Runtime start niet op dit platform.";
+        }
+    }
+
+    public static PaddleOcr Paddle => Motor.Value ?? throw new InvalidOperationException("PaddleOCR is er niet.");
+}

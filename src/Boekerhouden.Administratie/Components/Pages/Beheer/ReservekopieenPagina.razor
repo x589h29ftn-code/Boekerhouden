@@ -21,6 +21,11 @@ else
             <span class="scheiding">·</span>
         }
         <span>@lijst.Count @(lijst.Count == 1 ? "kopie" : "kopieën"), @Grootte(lijst.Sum(k => k.Grootte))</span>
+        @if (kopieen.Vrij is var vrij && vrij != long.MaxValue)
+        {
+            <span class="scheiding">·</span>
+            <span class="@(vrij < kopieen.NodigVoorKopie * 3 ? "status let-op" : null)" title="Vrije ruimte op de schijf met de gegevens; een nieuwe kopie heeft ongeveer @Reservekopieen.Grootte(kopieen.NodigVoorKopie) nodig. Wordt het krap, dan ruimt het pakket de oudste vanzelf gemaakte kopieën op.">vrij @Reservekopieen.Grootte(vrij)</span>
+        }
         @if (kopieen.TweedeMap is { } tweede)
         {
             <span class="scheiding">·</span>

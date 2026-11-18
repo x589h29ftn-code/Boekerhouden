@@ -210,6 +210,11 @@ public static partial class Mt940Lezer
         velden.TryGetValue("NAME", out var naam);
         velden.TryGetValue("REMI", out var omschrijving);
         velden.TryGetValue("KENMERK", out var kenmerk);
+
+        // Geen apart kenmerk, maar wel een betalingskenmerk van 16 cijfers met een geldig controlecijfer in de tekst
+        // (ook in groepjes van vier, "0807 0944 3786 9006"): dat is het kenmerk.
+        kenmerk ??= KenmerkInTekst().Matches(info).Select(m => m.Value.Replace(" ", string.Empty, StringComparison.Ordinal).Replace(".", string.Empty, StringComparison.Ordinal))
+            .FirstOrDefault(Belastingherkenning.ControlecijferKlopt);
         velden.TryGetValue("EREF", out var eref);
         if (eref is "NOTPROVIDED" or "")
         {
@@ -389,4 +394,7 @@ public static partial class Mt940Lezer
 
         public string? Informatie { get; set; }
     }
+
+    [GeneratedRegex(@"(?<![0-9])(?:[0-9]{4}[ .]?){3}[0-9]{4}(?![0-9])")]
+    private static partial Regex KenmerkInTekst();
 }

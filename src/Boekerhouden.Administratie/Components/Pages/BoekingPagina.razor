@@ -150,6 +150,7 @@
     private IReadOnlyList<Boekhouding.Grootboek.Dagboek> dagboeken = [];
     private bool aanpassen;
     private bool toonEerder;
+    private (string?, string?) geladenStuk;
     private string? bericht;
 
     [Parameter]
@@ -174,14 +175,17 @@
     protected override async Task OnParametersSetAsync()
     {
         // Naar een andere boeking (bijv. via een link): dezelfde pagina, andere parameters.
-        if (geopend is not null && detail is not null && (detail.Boeking.Post.Dagboek, detail.Boeking.Post.Boekstuk) != (Dagboek, Boekstuk))
+        // Ook na een boeking die niet bestond (detail leeg): vergelijken met wat er het laatst is geladen.
+        if (geopend is not null && geladenStuk != (Dagboek, Boekstuk))
         {
+            (toonEerder, bericht) = (false, null);
             await Laad();
         }
     }
 
     private async Task Laad()
     {
+        geladenStuk = (Dagboek, Boekstuk);
         detail = await Grootboek.Boeking(geopend!.Wie, Id, Dagboek, Boekstuk);
         schema = await Grootboek.Schema(geopend.Wie, Id);
         dagboeken = await Grootboek.Dagboeken(geopend.Wie, Id);

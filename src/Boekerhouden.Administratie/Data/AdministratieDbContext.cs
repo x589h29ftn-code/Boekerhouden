@@ -62,6 +62,10 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
 
     public DbSet<Document> Documenten => Set<Document>();
 
+    public DbSet<Stapel> Stapels => Set<Stapel>();
+
+    public DbSet<StapelInhoud> StapelInhouden => Set<StapelInhoud>();
+
     public DbSet<DocumentInhoud> DocumentInhouden => Set<DocumentInhoud>();
 
     public DbSet<OpenstaandePost> OpenstaandePosten => Set<OpenstaandePost>();
@@ -71,6 +75,8 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
     public DbSet<Automatiseringsregel> Regels => Set<Automatiseringsregel>();
 
     public DbSet<Kantoorinstellingen> Kantoorinstellingen => Set<Kantoorinstellingen>();
+
+    public DbSet<Apparaat> Apparaten => Set<Apparaat>();
 
     public DbSet<VerwijderdeAdministratie> VerwijderdeAdministraties => Set<VerwijderdeAdministratie>();
 
@@ -136,6 +142,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(a => a.RekeningLoonheffingen).HasMaxLength(20);
             e.Property(a => a.RekeningVennootschapsbelasting).HasMaxLength(20);
             e.Property(a => a.RekeningInkomstenbelasting).HasMaxLength(20);
+            e.Property(a => a.RekeningMotorrijtuigenbelasting).HasMaxLength(20);
             e.Property(a => a.Btwfrequentie).HasConversion<string>().HasMaxLength(20).HasDefaultValue(Boekhouding.Btw.Aangiftefrequentie.Kwartaal);
             e.Property(a => a.AangemaaktDoor).HasMaxLength(200);
             e.Property(a => a.LimietAutomatisch).HasPrecision(18, 2);
@@ -159,6 +166,17 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(v => v.VerwijderdDoor).HasMaxLength(200);
         });
 
+        builder.Entity<Apparaat>(e =>
+        {
+            e.ToTable("Apparaten");
+            e.Property(a => a.Vingerafdruk).HasMaxLength(64);
+            e.Property(a => a.WindowsNaam).HasMaxLength(100);
+            e.Property(a => a.Computer).HasMaxLength(100);
+            e.Property(a => a.GekoppeldDoor).HasMaxLength(200);
+            e.HasIndex(a => a.Vingerafdruk).IsUnique();
+            e.HasOne<Gebruiker>().WithMany().HasForeignKey(a => a.GebruikerId).OnDelete(DeleteBehavior.Cascade);
+        });
+
         builder.Entity<Kantoorinstellingen>(e =>
         {
             e.ToTable("Kantoorinstellingen");
@@ -166,6 +184,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(k => k.LimietAutomatisch).HasPrecision(18, 2);
             e.Property(k => k.Bandbreedte).HasPrecision(6, 2);
             e.Property(k => k.Standaardomschrijving).HasMaxLength(200);
+            e.Property(k => k.StandaardomschrijvingVerkoop).HasMaxLength(200);
             e.Property(k => k.OverzichtLetter).HasDefaultValue(100);
             e.Property(k => k.Documentmap).HasMaxLength(400);
         });
@@ -346,6 +365,28 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
         builder.Entity<Boekingsregel>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Handelsrelatie>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Document>().HasQueryFilter(e => e.AdministratieId == Geopend);
+
+        builder.Entity<Stapel>(e =>
+        {
+            e.ToTable("Stapels");
+            e.HasIndex(s => new { s.AdministratieId, s.Soort, s.Status });
+            e.Property(s => s.Soort).HasConversion<string>().HasMaxLength(20);
+            e.Property(s => s.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(s => s.Bestandsnaam).HasMaxLength(260);
+            e.Property(s => s.Sha256).HasMaxLength(64).IsFixedLength();
+            e.Property(s => s.IngelezenDoor).HasMaxLength(200);
+            e.HasOne<Administratie>().WithMany().HasForeignKey(s => s.AdministratieId);
+        });
+
+        builder.Entity<StapelInhoud>(e =>
+        {
+            e.ToTable("StapelInhouden");
+            e.HasKey(i => i.StapelId);
+            e.HasOne<Stapel>().WithOne().HasForeignKey<StapelInhoud>(i => i.StapelId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<Stapel>().HasQueryFilter(e => e.AdministratieId == Geopend);
+        builder.Entity<StapelInhoud>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<DocumentInhoud>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<OpenstaandePost>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Zoekplek>(e =>

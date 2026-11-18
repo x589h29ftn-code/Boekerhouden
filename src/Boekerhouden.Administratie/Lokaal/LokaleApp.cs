@@ -43,6 +43,7 @@ public static class LokaleApp
         services.AddCascadingAuthenticationState();
         services.AddSingleton<LokaleSessie>();
         services.AddSingleton(sp => new Reservekopieen(gegevensmap, sp.GetRequiredService<TimeProvider>()));
+        services.AddSingleton(sp => new Werkwijzebeheer(gegevensmap, sp.GetService<Diensten.IHerstart>()));
         services.AddScoped<AuthenticationStateProvider>(sp => new LokaleAuthenticatie(sp.GetRequiredService<LokaleSessie>().Gebruiker));
     }
 

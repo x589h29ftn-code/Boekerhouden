@@ -15,6 +15,37 @@ public sealed class Gebruiker : IdentityUser<Guid>
     public bool MoetWachtwoordWijzigen { get; set; }
 }
 
+/// <summary>
+/// Een werkplek die bij de kantoorserver hoort: de sleutel van één Windows-gebruiker op één pc. De beheerder koppelt
+/// het apparaat aan een gebruiker; daarna logt die werkplek zonder wachtwoord in met zijn sleutel (beveiliging §4.10).
+/// </summary>
+public sealed class Apparaat
+{
+    public Guid Id { get; set; }
+
+    /// <summary>De publieke sleutel (ECDSA P-256, SubjectPublicKeyInfo).</summary>
+    public byte[] Sleutel { get; set; } = [];
+
+    /// <summary>SHA-256 van de sleutel (hex), om het apparaat terug te vinden.</summary>
+    public string Vingerafdruk { get; set; } = string.Empty;
+
+    /// <summary>De naam van het Windows-account, zoals de werkplek hem opgaf (alleen ter herkenning).</summary>
+    public string WindowsNaam { get; set; } = string.Empty;
+
+    public string Computer { get; set; } = string.Empty;
+
+    public DateTimeOffset AangevraagdOp { get; set; }
+
+    /// <summary>De gebruiker waaraan het apparaat gekoppeld is; leeg = wacht op de beheerder.</summary>
+    public Guid? GebruikerId { get; set; }
+
+    public DateTimeOffset? GekoppeldOp { get; set; }
+
+    public string? GekoppeldDoor { get; set; }
+
+    public DateTimeOffset? LaatstGezien { get; set; }
+}
+
 /// <summary>De rollen in het pakket zelf; de rechten in een administratie staan in <see cref="Lidmaatschap"/>.</summary>
 public static class Rollen
 {
@@ -70,13 +101,17 @@ public sealed class Administratie
 
     public string? RekeningInkomstenbelasting { get; set; }
 
-    public bool BelastingAutomatisch { get; set; }
+    /// <summary>Kostenrekening voor de motorrijtuigenbelasting (een resultaatrekening).</summary>
+    public string? RekeningMotorrijtuigenbelasting { get; set; }
+
+    /// <summary>Een betaling aan de Belastingdienst met een geldig betalingskenmerk zelf boeken; standaard aan.</summary>
+    public bool BelastingAutomatisch { get; set; } = true;
 
     /// <summary>Hoe vaak de administratie btw-aangifte doet (maand, kwartaal of jaar).</summary>
     public Boekhouding.Btw.Aangiftefrequentie Btwfrequentie { get; set; } = Boekhouding.Btw.Aangiftefrequentie.Kwartaal;
 
     public Diensten.Belastinginstellingen Belasting() =>
-        new(RekeningOmzetbelasting, RekeningLoonheffingen, RekeningVennootschapsbelasting, RekeningInkomstenbelasting, BelastingAutomatisch);
+        new(RekeningOmzetbelasting, RekeningLoonheffingen, RekeningVennootschapsbelasting, RekeningInkomstenbelasting, BelastingAutomatisch, RekeningMotorrijtuigenbelasting);
 
     /// <summary>De eigen bankrekening(en); staan ook op facturen, maar zijn niet van de leverancier.</summary>
     public List<string> Ibans { get; set; } = [];
@@ -603,8 +638,12 @@ public sealed class Kantoorinstellingen
     /// <summary>De standaardomschrijving van een inkoopfactuur, met variabelen; leeg = uit.</summary>
     public string? Standaardomschrijving { get; set; }
 
+    /// <summary>De standaardomschrijving van een ingelezen verkoopfactuur, met variabelen; leeg = uit.</summary>
+    public string? StandaardomschrijvingVerkoop { get; set; }
+
     public Boekhouding.Regels.Verwerkingsinstellingen NaarDomein() =>
-        new(DrempelAutomatisch, Bandbreedte, LimietAutomatisch, Betalingstermijn, Adrescontrole, Documentmap, Betaalverschil, Verschilrekening, Standaardomschrijving);
+        new(DrempelAutomatisch, Bandbreedte, LimietAutomatisch, Betalingstermijn, Adrescontrole, Documentmap, Betaalverschil, Verschilrekening, Standaardomschrijving,
+            StandaardomschrijvingVerkoop);
 }
 
 /// <summary>Een aangewezen plek op de factuur van een leverancier (zoektemplate), per veld de laatste.</summary>
@@ -1190,4 +1229,67 @@ public sealed class Loonrekeningkoppeling : IVanAdministratie
 
     /// <summary>De rekening in deze administratie.</summary>
     public string Rekeningnummer { get; set; } = string.Empty;
+}
+
+public enum Stapelstatus
+{
+    /// <summary>Ingelezen; de gebruiker zet de knippen.</summary>
+    Open,
+
+    /// <summary>Gesplitst: de facturen staan los bij inkoop of verkoop.</summary>
+    Verwerkt,
+}
+
+/// <summary>
+/// Een stapel: één PDF met veel facturen (bijv. een gescande jaaradministratie) die de gebruiker in losse facturen
+/// knipt. De PDF zelf staat apart (<see cref="StapelInhoud"/>).
+/// </summary>
+public sealed class Stapel : IVanAdministratie
+{
+    public Guid Id { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    /// <summary>Inkoop of verkoop: waar de facturen na het splitsen heen gaan.</summary>
+    public Boekhouding.Facturen.Factuursoort Soort { get; set; }
+
+    public string Bestandsnaam { get; set; } = string.Empty;
+
+    public long Grootte { get; set; }
+
+    public string Sha256 { get; set; } = string.Empty;
+
+    public int Paginas { get; set; }
+
+    /// <summary>Per pagina het voorstel en de keuze van de gebruiker (JSON, zie <c>StapelDienst</c>).</summary>
+    public string Indeling { get; set; } = "[]";
+
+    /// <summary>De gebruiker heeft de knippen zelf gewijzigd: een nieuw voorstel (na de tekstherkenning) schrijft ze niet over.</summary>
+    public bool Aangepast { get; set; }
+
+    /// <summary>Pagina's zonder tekst die nog door de tekstherkenning moeten.</summary>
+    public int TeLezen { get; set; }
+
+    public Stapelstatus Status { get; set; }
+
+    public DateTimeOffset IngelezenOp { get; set; }
+
+    public string IngelezenDoor { get; set; } = string.Empty;
+
+    public DateTimeOffset? VerwerktOp { get; set; }
+
+    /// <summary>In hoeveel facturen de stapel is gesplitst.</summary>
+    public int? Facturen { get; set; }
+}
+
+public sealed class StapelInhoud : IVanAdministratie
+{
+    public Guid StapelId { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    public byte[] Inhoud { get; set; } = [];
+
+    /// <summary>De woorden die de tekstherkenning vond, per pagina (JSON); leeg bij een PDF met tekst.</summary>
+    public string? Tekstlaag { get; set; }
 }

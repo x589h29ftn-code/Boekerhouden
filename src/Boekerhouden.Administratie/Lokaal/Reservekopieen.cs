@@ -21,6 +21,12 @@ public enum Reservekopiesoort
     VoorTerugzetten,
 }
 
+/// <summary>
+/// Er is te weinig vrije schijfruimte voor een reservekopie (ook na het opruimen van oude kopieën), of de schijf liep
+/// vol tijdens het maken. Er is niets veranderd en er staat geen halve kopie.
+/// </summary>
+public sealed class OnvoldoendeSchijfruimteException(string melding, Exception? oorzaak = null) : IOException(melding, oorzaak);
+
 /// <summary>Een reservekopie: het bestand en wat er bij het maken over is vastgelegd.</summary>
 /// <param name="Bestand">De bestandsnaam in de map met reservekopieën.</param>
 /// <param name="Migratie">De laatste databaseversie (migratie) in de kopie.</param>
@@ -57,6 +63,75 @@ public sealed class Reservekopieen(string gegevensmap, TimeProvider tijd)
 
     private sealed record Instellingen(string? TweedeMap);
 
+    /// <summary>De vrije ruimte (in bytes) op de schijf van een map; te vervangen in tests.</summary>
+    internal Func<string, long> VrijeRuimte { get; set; } = map =>
+    {
+        try
+        {
+            return new DriveInfo(Path.GetFullPath(map)).AvailableFreeSpace;
+        }
+        catch (Exception fout) when (fout is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            // Niet te bepalen (bijv. een netwerkpad): dan geen controle vooraf; een volle schijf blijkt bij het schrijven.
+            return long.MaxValue;
+        }
+    };
+
+    /// <summary>Hoe groot de database nu is (met wat nog in het logbestand ernaast staat).</summary>
+    public long Databasegrootte =>
+        new[] { Database, Database + "-wal" }.Where(File.Exists).Sum(p => new FileInfo(p).Length);
+
+    /// <summary>De ruimte die een nieuwe reservekopie nodig heeft: de database plus een marge.</summary>
+    public long NodigVoorKopie => Databasegrootte + (Databasegrootte / 10) + (16L * 1024 * 1024);
+
+    /// <summary>De vrije ruimte op de schijf met de reservekopieën (en de gegevens).</summary>
+    public long Vrij => VrijeRuimte(Gegevensmap);
+
+    /// <summary>
+    /// Zorgt dat er <paramref name="nodig"/> bytes vrij zijn door zo nodig oude, vanzelf gemaakte kopieën weg te gooien,
+    /// de oudste eerst. Wat altijd blijft: elke handmatige kopie, de nieuwste kopie van vóór een update, de nieuwste
+    /// van vóór een terugzetting en de twee nieuwste dagelijkse. Geeft hoeveel er zijn opgeruimd.
+    /// </summary>
+    /// <exception cref="OnvoldoendeSchijfruimteException">Ook daarna is er te weinig ruimte.</exception>
+    public int MaakRuimte(long nodig, string waarvoor)
+    {
+        var opgeruimd = 0;
+        if (Vrij >= nodig)
+        {
+            return 0;
+        }
+
+        var lijst = Lijst();
+        var misbaar = lijst.Where(k => k.Soort == Reservekopiesoort.Dagelijks).Skip(2)
+            .Concat(lijst.Where(k => k.Soort == Reservekopiesoort.VoorUpdate).Skip(1))
+            .Concat(lijst.Where(k => k.Soort == Reservekopiesoort.VoorTerugzetten).Skip(1))
+            .OrderBy(k => k.Gemaakt)
+            .ToList();
+        foreach (var kopie in misbaar)
+        {
+            if (Vrij >= nodig)
+            {
+                break;
+            }
+
+            Verwijder(kopie);
+            opgeruimd++;
+        }
+
+        if (Vrij < nodig)
+        {
+            throw new OnvoldoendeSchijfruimteException(
+                $"Er is te weinig vrije schijfruimte voor {waarvoor}: nodig {Grootte(nodig)}, vrij {Grootte(Vrij)}. Maak ruimte vrij op de schijf (of gooi oude handmatige reservekopieën weg) en probeer het opnieuw.");
+        }
+
+        return opgeruimd;
+    }
+
+    /// <summary>Een aantal bytes leesbaar, bijv. 1,2 GB.</summary>
+    public static string Grootte(long bytes) => bytes >= 1024L * 1024 * 1024
+        ? $"{(bytes / 1024.0 / 1024 / 1024).ToString("0.0", CultureInfo.GetCultureInfo("nl-NL"))} GB"
+        : $"{Math.Max(1, bytes / 1024 / 1024).ToString(CultureInfo.GetCultureInfo("nl-NL"))} MB";
+
     private Instellingen LeesInstellingen()
     {
         var pad = Path.Combine(Gegevensmap, Instellingenbestand);
@@ -83,6 +158,14 @@ public sealed class Reservekopieen(string gegevensmap, TimeProvider tijd)
         }
 
         Directory.CreateDirectory(Map);
+
+        // Eerst ruimte: past de kopie niet, dan gaan oude vanzelf gemaakte kopieën weg; past hij dan nog niet, dan niets doen.
+        var opgeruimd = MaakRuimte(NodigVoorKopie, "een reservekopie");
+        if (opgeruimd > 0)
+        {
+            opmerking = $"{opmerking} {opgeruimd} oude {(opgeruimd == 1 ? "kopie" : "kopieën")} opgeruimd om ruimte te maken.".Trim();
+        }
+
         var moment = tijd.GetLocalNow();
         var naam = $"administratie-{moment:yyyyMMdd-HHmmss}-{Soortnaam(soort)}.db";
         for (var i = 2; File.Exists(Path.Combine(Map, naam)); i++)
@@ -91,9 +174,10 @@ public sealed class Reservekopieen(string gegevensmap, TimeProvider tijd)
         }
 
         var doel = Path.Combine(Map, naam);
-        using (var bron = new SqliteConnection($"Data Source={Database};Mode=ReadOnly;Pooling=False"))
-        using (var kopie = new SqliteConnection($"Data Source={doel};Pooling=False"))
+        try
         {
+            using var bron = new SqliteConnection($"Data Source={Database};Mode=ReadOnly;Pooling=False");
+            using var kopie = new SqliteConnection($"Data Source={doel};Pooling=False");
             bron.Open();
             kopie.Open();
             bron.BackupDatabase(kopie);
@@ -103,6 +187,15 @@ public sealed class Reservekopieen(string gegevensmap, TimeProvider tijd)
             using var opdracht = kopie.CreateCommand();
             opdracht.CommandText = "PRAGMA journal_mode = DELETE";
             opdracht.ExecuteNonQuery();
+        }
+        catch (Exception fout) when (fout is IOException || fout is SqliteException { SqliteErrorCode: 13 or 10 })
+        {
+            // De schijf liep vol (of gaf een schrijffout) tijdens het kopiëren: geen halve kopie laten staan.
+            SqliteConnection.ClearAllPools();
+            File.Delete(doel);
+            VerwijderBijbestanden(doel);
+            throw new OnvoldoendeSchijfruimteException(
+                $"De reservekopie is niet gelukt: de schijf is vol of niet te beschrijven ({fout.Message}). Er is geen kopie gemaakt; maak ruimte vrij en probeer het opnieuw.", fout);
         }
 
         VerwijderBijbestanden(doel);
@@ -267,7 +360,15 @@ public sealed class Reservekopieen(string gegevensmap, TimeProvider tijd)
 
         if (File.Exists(Database))
         {
-            Maak(Reservekopiesoort.VoorTerugzetten, $"vóór het terugzetten van {kopie.Bestand}");
+            try
+            {
+                Maak(Reservekopiesoort.VoorTerugzetten, $"vóór het terugzetten van {kopie.Bestand}");
+            }
+            catch (OnvoldoendeSchijfruimteException ruimte)
+            {
+                // Zonder kopie van de huidige gegevens zetten we niets terug.
+                return $"Niet teruggezet: {ruimte.Message}";
+            }
         }
 
         ZetBestandTerug(Path.Combine(Map, kopie.Bestand));

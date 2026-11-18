@@ -43,17 +43,17 @@ public static class RekeningenInRapport
             return null;
         }
 
-        var code = sleutel.StartsWith(PostBalans.EigenVoorvoegsel, StringComparison.Ordinal)
-            ? r.EigenPosten.FirstOrDefault(e => PostBalans.EigenSleutel(e.Id) == sleutel)?.OuderCode
-            : sleutel;
-        var teken = code is not null && r.Schema.Zoek(code)?.Kant == Saldokant.Credit ? -1 : 1;
+        // Het teken volgt de post waar het in het rapport staat; een gesaldeerde eigen post kan per jaar onder een andere
+        // post staan (bijv. btw dit jaar te vorderen, vorig jaar te betalen).
+        int Teken(bool vorig) => Ouder(r, sleutel, vorig) is { } code && r.Schema.Zoek(code)?.Kant == Saldokant.Credit ? -1 : 1;
+        var (teken, tekenVorig) = (Teken(false), Teken(true));
         var rekeningen = r.Rekeningen
             .Where(x => x.HeeftSaldo)
-            .Select(x => (Rekening: x, Hier: Onder(r, r.Balans.Plaatsing.GetValueOrDefault(x.Id), sleutel), HierVorig: Onder(r, r.Balans.PlaatsingVorig.GetValueOrDefault(x.Id), sleutel)))
+            .Select(x => (Rekening: x, Hier: Onder(r, r.Balans.Plaatsing.GetValueOrDefault(x.Id), sleutel, false), HierVorig: Onder(r, r.Balans.PlaatsingVorig.GetValueOrDefault(x.Id), sleutel, true)))
             .Where(x => x.Hier || x.HierVorig)
             .OrderBy(x => x.Rekening.Nummer, StringComparer.Ordinal)
             .Select(x => new RekeningInPost(x.Rekening.Id, x.Rekening.Nummer, x.Rekening.Omschrijving,
-                x.Hier ? teken * (x.Rekening.Saldo ?? 0) : null, x.HierVorig ? teken * (x.Rekening.SaldoVorig ?? 0) : null,
+                x.Hier ? teken * (x.Rekening.Saldo ?? 0) : null, x.HierVorig ? tekenVorig * (x.Rekening.SaldoVorig ?? 0) : null,
                 x.Rekening.Koppeling is { } k ? $"{k.Code} {r.Naam(k.Sleutel)}" : "niet gekoppeld"))
             .ToList();
         return new PostRekeningen(sleutel, r.Naam(sleutel), rekeningen);
@@ -98,7 +98,13 @@ public static class RekeningenInRapport
     }
 
     /// <summary>Of een plaatsing (RGS-code of eigen post) gelijk is aan de post of eronder valt.</summary>
-    private static bool Onder(RubriceerOverzicht r, string? plaatsing, string post)
+    /// <summary>De RGS-post van een plaatsing: bij een eigen post de post waar hij in dat jaar onder staat (na saldering).</summary>
+    private static string? Ouder(RubriceerOverzicht r, string plaatsing, bool vorig) =>
+        plaatsing.StartsWith(PostBalans.EigenVoorvoegsel, StringComparison.Ordinal)
+            ? r.EigenPosten.FirstOrDefault(e => PostBalans.EigenSleutel(e.Id) == plaatsing) is { } eigen ? r.Balans!.EigenOuder(eigen, vorig) : null
+            : plaatsing;
+
+    private static bool Onder(RubriceerOverzicht r, string? plaatsing, string post, bool vorig)
     {
         if (plaatsing is null)
         {
@@ -110,9 +116,7 @@ public static class RekeningenInRapport
             return true;
         }
 
-        var code = plaatsing.StartsWith(PostBalans.EigenVoorvoegsel, StringComparison.Ordinal)
-            ? r.EigenPosten.FirstOrDefault(e => PostBalans.EigenSleutel(e.Id) == plaatsing)?.OuderCode
-            : plaatsing;
+        var code = Ouder(r, plaatsing, vorig);
         var schema = r.Schema!;
         for (var c = code is null ? null : schema.Zoek(code); c is not null; c = c.Ouder is { } o ? schema.Zoek(o) : null)
         {

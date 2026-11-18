@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Components.WebView.WindowsForms;
 namespace Boekerhouden.Administratie.Windows;
 
 /// <summary>Het venster van de app: de schermen van het administratiepakket in een BlazorWebView.</summary>
-internal sealed class HoofdVenster : Form
+internal sealed class HoofdVenster : Proefvenster
 {
     private const string Naam = "Sifer";
 
@@ -13,8 +13,7 @@ internal sealed class HoofdVenster : Form
     {
         Text = Naam;
         Icon = Merk.Icoon ?? Icon;
-        Size = new Size(1440, 960);
-        StartPosition = FormStartPosition.CenterScreen;
+        ZetMaat(proefmap is not null);
         var webview = new BlazorWebView { Dock = DockStyle.Fill, HostPage = Path.Combine("wwwroot", "index.html"), Services = diensten };
         webview.RootComponents.Add<Routes>("#app");
         webview.RootComponents.Add<HeadOutlet>("head::after");
@@ -29,8 +28,4 @@ internal sealed class HoofdVenster : Form
         };
         Controls.Add(webview);
     }
-
-    /// <summary>De afsluitcode: 0, of 1 als de proef mislukte.</summary>
-    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
-    public int Uitslag { get; set; }
 }

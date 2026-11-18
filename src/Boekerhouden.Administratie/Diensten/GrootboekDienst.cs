@@ -251,11 +251,21 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
             return Uitkomst<long>.Mislukt([.. fouten]);
         }
 
-        await using var transactie = await db.Database.BeginTransactionAsync();
-        var boeking = await VoegToeAanKeten(db, administratie, post, wie);
-        await WerkOpenstaandePostenBij(db, post, schema);
-        await db.SaveChangesAsync();
-        await transactie.CommitAsync();
+        Boeking boeking;
+        try
+        {
+            await using var transactie = await db.Database.BeginTransactionAsync();
+            boeking = await VoegToeAanKeten(db, administratie, post, wie);
+            await WerkOpenstaandePostenBij(db, post, schema);
+            await db.SaveChangesAsync();
+            await transactie.CommitAsync();
+        }
+        catch (DbUpdateException fout) when (Databasefout.IsDubbel(fout))
+        {
+            // Een collega boekte op hetzelfde moment met hetzelfde boekstuknummer: dezelfde melding als bij de controle vooraf.
+            return Uitkomst<long>.Mislukt($"Boekstuk {post.Boekstuk} bestaat al in dagboek {post.Dagboek}.");
+        }
+
         await audit.Log(wie, AuditActies.Geboekt, $"{post.Dagboek} {boeking.Boekstuk}", $"{boeking.Omschrijving}; {post.TotaalDebet:0.00}", administratie);
         return Uitkomst<long>.Met(boeking.Volgnummer);
     }
@@ -290,7 +300,7 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
             return Uitkomst<string>.Mislukt("Kies een geldige maand.");
         }
 
-        var kopie = Journaalkopie.NaarMaand(bron, jaar, maand);
+        var kopie = Journaalkopie.ZonderFactuurnummers(Journaalkopie.NaarMaand(bron, jaar, maand));
         kopie = kopie with { Boekstuk = await VolgendBoekstuk(wie, administratie, dagboek, kopie.Datum.Year) };
         var uitkomst = await Boek(wie, administratie, kopie);
         return uitkomst.IsGelukt ? Uitkomst<string>.Met(kopie.Boekstuk) : Uitkomst<string>.Mislukt([.. uitkomst.Fouten]);
@@ -309,7 +319,12 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
         {
             var maand = new DateOnly(eerste.Datum.Year, eerste.Datum.Month, 1).AddMonths(i);
             var datum = new DateOnly(maand.Year, maand.Month, Math.Min(eerste.Datum.Day, DateTime.DaysInMonth(maand.Year, maand.Month)));
-            var post = i == 0 ? eerste : eerste with { Datum = datum, Boekstuk = await VolgendBoekstuk(wie, administratie, eerste.Dagboek, datum.Year) };
+            // Zoals bij kopiëren naar een maand: "Huur januari" wordt "Huur februari", #maand e.d. per maand ingevuld.
+            var post = Journaalkopie.NaarMaand(eerste, maand.Year, maand.Month) with
+            {
+                Boekstuk = i == 0 ? eerste.Boekstuk : await VolgendBoekstuk(wie, administratie, eerste.Dagboek, datum.Year),
+            };
+            post = i == 0 ? post : Journaalkopie.ZonderFactuurnummers(post);
             var uitkomst = await Boek(wie, administratie, post);
             if (!uitkomst.IsGelukt)
             {

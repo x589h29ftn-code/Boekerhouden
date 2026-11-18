@@ -496,6 +496,7 @@ public sealed class WerkprogrammaDienst(IDbContextFactory<BoekerhoudenDbContext>
         }
 
         await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.StapVerplaatst, Onderwerp(gevonden.Dossier), $"{gevonden.Onderdeel.Titel} – {gevonden.Stap.Titel} {(richting < 0 ? "omhoog" : "omlaag")}");
         return Uitkomst.Gelukt;
     }
 
