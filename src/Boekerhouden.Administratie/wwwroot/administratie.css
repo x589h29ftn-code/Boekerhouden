@@ -1891,3 +1891,8 @@ table[data-sleepbaar="journaal"] :is(th, td):not(:last-child) { padding-right: 1
 /* Een actie op een regel die pas bij aanwijzen (of met de toets) verschijnt, bijv. een gebruiker uitzetten. */
 .rij-actie { opacity: 0; transition: opacity var(--bh-snel) ease; }
 tr:hover .rij-actie, .rij-actie:focus-visible { opacity: 1; }
+
+/* Bank: een tab per bankrekening (en alle rekeningen samen), met het aantal te verwerken. */
+.bankrekeningen .tabteller { margin-left: .35rem; color: var(--bh-zacht); font-size: .8125rem; }
+.bankrekeningen .nav-link { background: none; }
+.bankaansluiting .let-op a { color: inherit; }

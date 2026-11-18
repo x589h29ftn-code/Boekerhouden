@@ -33,7 +33,21 @@ public sealed record Bankregelinvoer(string Rekening, string? BtwCode, decimal B
 public sealed record Verschilafboeking(string Rekening, string? BtwCode, string? Omschrijving = null);
 
 /// <summary>De stand van één bankrekening: het laatste afschrift en wat er nog te verwerken is.</summary>
-public sealed record Bankstand(string Dagboek, string Naam, string Iban, DateOnly? Tot, decimal? Saldo, int TeVerwerken);
+/// <param name="Iban">Leeg zolang er nog geen afschrift is en er bij het toevoegen geen IBAN is opgegeven.</param>
+/// <param name="Rekening">De grootboekrekening van de bank.</param>
+/// <param name="Van">De begindatum van het eerste afschrift (van het jaar van het laatste afschrift).</param>
+/// <param name="Beginsaldo">Het beginsaldo op dat eerste afschrift.</param>
+/// <param name="BeginGrootboek">Het saldo van de bank in het grootboek vóór die datum (de beginstand): hoort gelijk te zijn aan het beginsaldo.</param>
+/// <param name="Grootboek">Het saldo van de bank in het grootboek tot en met de datum van het laatste afschrift.</param>
+public sealed record Bankstand(string Dagboek, string Naam, string? Iban, DateOnly? Tot, decimal? Saldo, int TeVerwerken,
+    string? Rekening = null, DateOnly? Van = null, decimal? Beginsaldo = null, decimal? BeginGrootboek = null, decimal? Grootboek = null)
+{
+    /// <summary>Beginstand in het grootboek min het beginsaldo van het eerste afschrift.</summary>
+    public decimal? Beginverschil => Beginsaldo is { } b && BeginGrootboek is { } g ? g - b : null;
+
+    /// <summary>Het grootboek min het eindsaldo van het laatste afschrift.</summary>
+    public decimal? Verschil => Saldo is { } s && Grootboek is { } g ? g - s : null;
+}
 
 /// <summary>Een bankmutatie in de lijst.</summary>
 public sealed record BankmutatieRegel(
@@ -646,24 +660,126 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
 
     /// <summary>Het saldo van de vraagposten (wat bij afletteren niet op een factuur paste), met het rekeningnummer.</summary>
     /// <summary>
-    /// Per bankdagboek met een IBAN: de datum en het eindsaldo van het laatste ingelezen afschrift en hoeveel mutaties
-    /// er nog te verwerken zijn (voor de kop van het bankscherm).
+    /// Per bankdagboek: de datum en het eindsaldo van het laatste ingelezen afschrift, hoeveel mutaties er nog te
+    /// verwerken zijn, en de aansluiting met het grootboek: de beginstand (het grootboek vóór het eerste afschrift van
+    /// het jaar tegen het beginsaldo daarvan) en het grootboek tot en met het laatste afschrift tegen het eindsaldo.
     /// </summary>
     public async Task<IReadOnlyList<Bankstand>> Stand(Uitvoerder wie, Guid administratie)
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
-        var dagboeken = await db.Dagboeken.AsNoTracking().Where(d => d.Soort == Dagboeksoort.Bank && d.Iban != null).OrderBy(d => d.Code).ToListAsync();
+        var dagboeken = await db.Dagboeken.AsNoTracking().Where(d => d.Soort == Dagboeksoort.Bank).OrderBy(d => d.Code).ToListAsync();
         var afschriften = await db.Afschriften.AsNoTracking().Where(a => a.Einddatum != null).ToListAsync();
         var open = (await db.Banktransacties.AsNoTracking().Where(t => t.Status == Banktransactiestatus.TeVerwerken).Select(t => t.Dagboek).ToListAsync())
             .CountBy(d => d).ToDictionary(x => x.Key, x => x.Value, StringComparer.Ordinal);
-        return
-        [
-            .. dagboeken.Select(d =>
+        var rekeningen = dagboeken.Select(d => d.Rekeningnummer).OfType<string>().ToList();
+        // Optellen in het geheugen: SQLite telt geen decimals op.
+        var regels = await (from r in db.GeldendeRegels
+                            join b in db.Geldend on r.BoekingId equals b.Id
+                            where rekeningen.Contains(r.Rekeningnummer)
+                            select new { r.Rekeningnummer, b.Datum, r.Bedrag }).ToListAsync();
+        var lijst = new List<Bankstand>();
+        foreach (var d in dagboeken)
+        {
+            var eigen = afschriften.Where(a => a.Dagboek == d.Code).OrderBy(a => a.Einddatum).ThenBy(a => a.IngelezenOp).ToList();
+            var laatste = eigen.LastOrDefault();
+            var eerste = laatste is null ? null : eigen.Where(a => a.Begindatum is { } b && b.Year == laatste.Einddatum!.Value.Year).OrderBy(a => a.Begindatum).FirstOrDefault();
+            decimal? Saldo(Func<DateOnly, bool> wanneer) =>
+                d.Rekeningnummer is { } rekening ? regels.Where(r => r.Rekeningnummer == rekening && wanneer(r.Datum)).Sum(r => r.Bedrag) : null;
+            lijst.Add(new Bankstand(d.Code, d.Naam, d.Iban, laatste?.Einddatum, laatste?.Eindsaldo, open.GetValueOrDefault(d.Code), d.Rekeningnummer,
+                eerste?.Begindatum, eerste?.Beginsaldo,
+                eerste?.Begindatum is { } van ? Saldo(x => x < van) : null,
+                laatste?.Einddatum is { } tot ? Saldo(x => x <= tot) : null));
+        }
+
+        return lijst;
+    }
+
+    /// <summary>
+    /// Een bankrekening erbij: een bankdagboek met de grootboekrekening en (als die al bekend is) het IBAN, dat dan bij
+    /// de eigen rekeningen van de administratie komt. Afschriften van dat IBAN komen voortaan in dit dagboek; zonder
+    /// IBAN krijgt het dagboek het IBAN van het eerste afschrift dat bij geen ander dagboek hoort. Alleen het kantoor.
+    /// </summary>
+    public async Task<Uitkomst<string>> VoegBankToe(Uitvoerder wie, Guid administratie, string code, string naam, string? iban, string rekening)
+    {
+        ArgumentNullException.ThrowIfNull(code);
+        ArgumentNullException.ThrowIfNull(naam);
+        ArgumentNullException.ThrowIfNull(rekening);
+        await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
+        code = code.Trim().ToUpperInvariant();
+        naam = naam.Trim();
+        rekening = rekening.Trim();
+        var genormaliseerd = string.IsNullOrWhiteSpace(iban) ? null : Iban.Normaliseer(iban);
+        var fouten = new List<string>();
+        if (!System.Text.RegularExpressions.Regex.IsMatch(code, "^[A-Z0-9]{2,10}$"))
+        {
+            fouten.Add("Een dagboekcode is 2 tot 10 letters of cijfers, bijv. BNK2.");
+        }
+
+        if (naam.Length == 0)
+        {
+            fouten.Add("Geef de bankrekening een naam, bijv. Spaarrekening.");
+        }
+
+        if (genormaliseerd is not null && !Iban.IsGeldig(genormaliseerd))
+        {
+            fouten.Add($"{iban} is geen geldig IBAN.");
+        }
+
+        var (schema, _) = await GrootboekDienst.Inrichting(db);
+        if (schema.Zoek(rekening) is not { } r)
+        {
+            fouten.Add($"Rekening {rekening} staat niet in het rekeningschema.");
+        }
+        else if (r.Soort != Rekeningsoort.Balans)
+        {
+            fouten.Add($"Rekening {rekening} is geen balansrekening.");
+        }
+
+        var dagboeken = await db.Dagboeken.ToListAsync();
+        if (dagboeken.Any(d => d.Code == code))
+        {
+            fouten.Add($"Dagboek {code} bestaat al.");
+        }
+
+        if (dagboeken.FirstOrDefault(d => d.Rekeningnummer == rekening) is { } ander)
+        {
+            fouten.Add($"Rekening {rekening} hoort al bij dagboek {ander.Code} {ander.Naam}.");
+        }
+
+        if (genormaliseerd is not null && dagboeken.FirstOrDefault(d => d.Iban == genormaliseerd) is { } metIban)
+        {
+            fouten.Add($"{Iban.Toon(genormaliseerd)} hoort al bij dagboek {metIban.Code} {metIban.Naam}.");
+        }
+
+        if (fouten.Count > 0)
+        {
+            return Uitkomst<string>.Mislukt([.. fouten]);
+        }
+
+        db.Dagboeken.Add(new Dagboekdefinitie
+        {
+            Id = Guid.NewGuid(),
+            AdministratieId = administratie,
+            Code = code,
+            Naam = naam,
+            Soort = Dagboeksoort.Bank,
+            Rekeningnummer = rekening,
+            Iban = genormaliseerd,
+        });
+        // Bij de eigen rekeningen alleen als die lijst er al is: een lege lijst laat het eerste afschrift van de andere
+        // bankdagboeken (nog zonder IBAN) toe, een lijst met alleen deze rekening zou dat weigeren.
+        if (genormaliseerd is not null)
+        {
+            var adm = await db.Administraties.SingleAsync(a => a.Id == administratie);
+            if (adm.Ibans.Count > 0 && !adm.Ibans.Select(Iban.Normaliseer).Contains(genormaliseerd))
             {
-                var laatste = afschriften.Where(a => a.Dagboek == d.Code).OrderBy(a => a.Einddatum).ThenBy(a => a.IngelezenOp).LastOrDefault();
-                return new Bankstand(d.Code, d.Naam, d.Iban!, laatste?.Einddatum, laatste?.Eindsaldo, open.GetValueOrDefault(d.Code));
-            }),
-        ];
+                adm.Ibans = [.. adm.Ibans, genormaliseerd];
+            }
+        }
+
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.DagboekToegevoegd, $"{code} {naam}", $"bank, rekening {rekening}{(genormaliseerd is null ? null : $", {Iban.Toon(genormaliseerd)}")}", administratie);
+        return Uitkomst<string>.Met(code);
     }
 
     public async Task<(string? Rekening, decimal Saldo)> Vraagposten(Uitvoerder wie, Guid administratie)
@@ -888,9 +1004,11 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         }
 
         vrij.Iban = iban;
-        if (!eigen.Contains(iban))
+        // De eigen rekeningen: dit IBAN en die van de andere bankdagboeken (bijv. een spaarrekening die al is toegevoegd).
+        var erbij = bank.Select(d => d.Iban).OfType<string>().Append(iban).Where(i => !eigen.Contains(i)).Distinct().ToList();
+        if (erbij.Count > 0)
         {
-            adm.Ibans = [.. adm.Ibans, iban];
+            adm.Ibans = [.. adm.Ibans, .. erbij];
         }
 
         await db.SaveChangesAsync();

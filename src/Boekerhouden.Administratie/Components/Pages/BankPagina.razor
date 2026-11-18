@@ -12,12 +12,24 @@
 @inject IServiceProvider Diensten
 @inject Meldingen Meldingen
 @inject ConceptDienst Concepten
+@inject NavigationManager Navigatie
 
 <AdministratieKader Id="Id" Titel="Bank" Actief="/bank" BijOpenen="Open">
     <Kenmerken>
-        @foreach (var b in stand)
+        @if (stand.Count > 1 && Gekozenstand is null)
         {
-            <span>@b.Naam @Iban.Toon(b.Iban)</span>
+            <span>@stand.Count rekeningen</span>
+            @if (stand.Any(b => b.Saldo is not null))
+            {
+                <span class="scheiding">·</span>
+                <span title="De eindsaldi van de laatste afschriften samen">saldo <strong>@Weergave.Bedrag(stand.Sum(b => b.Saldo ?? 0m))</strong></span>
+            }
+            <span class="scheiding">·</span>
+            <span>@(stand.Sum(b => b.TeVerwerken) is var totaal && totaal == 0 ? "alles verwerkt" : $"{totaal} te verwerken")</span>
+        }
+        @foreach (var b in stand.Where(b => b == Gekozenstand))
+        {
+            <span title="@b.Dagboek">@b.Naam @(b.Iban is { } iban ? Iban.Toon(iban) : null)</span>
             <span class="scheiding">·</span>
             @if (b.Tot is { } tot)
             {
@@ -31,7 +43,6 @@
             }
             <span class="scheiding">·</span>
             <span>@(b.TeVerwerken == 0 ? "alles verwerkt" : $"{b.TeVerwerken} te verwerken")</span>
-            <br />
         }
     </Kenmerken>
     <Acties>
@@ -75,6 +86,81 @@
                 {
                     <div class="small mt-1 status let-op">@string.Join(" ", uitkomst.Fouten)</div>
                 }
+            }
+        </div>
+    }
+
+    <ul class="nav nav-tabs bankrekeningen mb-2">
+        @if (stand.Count > 1)
+        {
+            <li class="nav-item">
+                <button class="nav-link @(Bankkeuze is null ? "active" : null)" @onclick="() => KiesBank(null)">Alle rekeningen<span class="tabteller">@Teller(stand.Sum(b => b.TeVerwerken))</span></button>
+            </li>
+        }
+        @foreach (var b in stand)
+        {
+            <li class="nav-item">
+                <button class="nav-link @(Bankkeuze == b.Dagboek || stand.Count == 1 ? "active" : null)" title="@b.Dagboek @(b.Iban is { } i ? Iban.Toon(i) : "nog geen IBAN") · rekening @b.Rekening" @onclick="() => KiesBank(b.Dagboek)">@b.Naam<span class="tabteller">@Teller(b.TeVerwerken)</span></button>
+            </li>
+        }
+        @if (magRegels)
+        {
+            <li class="nav-item">
+                <button class="nav-link text-secondary" title="Nog een bankrekening, met een eigen dagboek en grootboekrekening" @onclick="() => nieuweBank = new()"><Icoon Naam="plus" /> Bankrekening</button>
+            </li>
+        }
+    </ul>
+    @if (nieuweBank is not null && schema is not null)
+    {
+        <div class="card card-body mb-3 nieuwe-bank">
+            <Foutmeldingen Fouten="bankfouten" />
+            <div class="d-flex align-items-end gap-2 flex-wrap">
+                <div>
+                    <label class="form-label small" for="bankcode">Dagboek</label>
+                    <input id="bankcode" class="form-control form-control-sm veld-boekstuk" @bind="nieuweBank.Code" placeholder="BNK2" />
+                </div>
+                <div>
+                    <label class="form-label small" for="banknaam">Naam</label>
+                    <input id="banknaam" class="form-control form-control-sm" @bind="nieuweBank.Naam" placeholder="Spaarrekening" />
+                </div>
+                <div>
+                    <label class="form-label small" for="bankiban">IBAN</label>
+                    <input id="bankiban" class="form-control form-control-sm" style="width:16rem" @bind="nieuweBank.Iban" placeholder="NL00BANK0123456789" />
+                </div>
+                <div style="width:18rem">
+                    <label class="form-label small" for="bankrekening">Grootboekrekening</label>
+                    <RekeningKeuze Id="bankrekening" @bind-Waarde="nieuweBank.Rekening" Schema="schema" Kader="geopend" Label="Grootboekrekening" />
+                </div>
+                <button class="btn btn-sm btn-primary" disabled="@bezig" @onclick="VoegBankToe">Toevoegen</button>
+                <button class="btn btn-sm btn-link text-secondary" @onclick="() => (nieuweBank, bankfouten) = (null, null)">Annuleren</button>
+            </div>
+        </div>
+    }
+    @if (Gekozenstand is { } gs)
+    {
+        <div class="small text-secondary mb-2 bankaansluiting">
+            <a class="rekeningnummer" href="/a/@Id/grootboek?rekening=@gs.Rekening" title="Naar de grootboekkaart">@gs.Rekening</a>
+            @if (gs.Van is { } van)
+            {
+                <span class="scheiding">·</span>
+                <span title="Het saldo in het grootboek vóór het eerste afschrift van het jaar, tegen het beginsaldo op dat afschrift">beginstand @Weergave.Datum(van): @Weergave.Bedrag(gs.BeginGrootboek ?? 0m)@if (gs.Beginverschil is { } bv && bv != 0)
+                    {
+                        <span class="let-op"> (afschrift @Weergave.Bedrag(gs.Beginsaldo ?? 0m), verschil @Weergave.Bedrag(bv) · <a href="/a/@Id/beginbalans">beginbalans</a>)</span>
+                    }</span>
+                <span class="scheiding">·</span>
+                <span title="Het saldo in het grootboek tot en met het laatste afschrift, tegen het eindsaldo op dat afschrift">grootboek t/m @Weergave.Datum(gs.Tot!.Value): @Weergave.Bedrag(gs.Grootboek ?? 0m)@if (gs.Verschil is { } eindverschil && eindverschil != 0)
+                    {
+                        <span class="let-op"> (afschrift @Weergave.Bedrag(gs.Saldo ?? 0m), verschil @Weergave.Bedrag(eindverschil) · <a href="/a/@Id/aansluitingen">aansluitingen</a>)</span>
+                    }
+                    else
+                    {
+                        <span> sluit aan</span>
+                    }</span>
+            }
+            else
+            {
+                <span class="scheiding">·</span>
+                <span>nog geen afschrift</span>
             }
         </div>
     }
@@ -168,7 +254,7 @@
             </div>
         }
     }
-    else if (mutaties is { Count: 0 })
+    else if (mutaties is not null && !mutaties.Any(m => Bankkeuze is null || stand.Count <= 1 || m.Dagboek == Bankkeuze))
     {
         <LegeStaat Icoon="circle-check" Tekst="Alle mutaties zijn verwerkt">
             @if (context.Mag(Recht.Invoeren))
@@ -199,6 +285,10 @@
                                     </th>
                                 }
                                 <SorteerKop Sortering="mutatiesortering" Naam="Datum" Breedte="112" Gewijzigd="StateHasChanged" />
+                                @if (AlleBanken)
+                                {
+                                    <SorteerKop Sortering="mutatiesortering" Naam="Rekening" Breedte="140" Gewijzigd="StateHasChanged" />
+                                }
                                 <SorteerKop Sortering="mutatiesortering" Naam="Tegenpartij" Tekst="Tegenpartij en omschrijving" Klasse="rekt" Gewijzigd="StateHasChanged" />
                                 <SorteerKop Sortering="mutatiesortering" Naam="Bedrag" Klasse="text-end" Breedte="128" Gewijzigd="StateHasChanged" />
                             </tr>
@@ -208,6 +298,10 @@
                                     <th></th>
                                 }
                                 <th><input class="form-control form-control-sm" placeholder="Filter" aria-label="Filter op datum" @bind="filterDatum" @bind:event="oninput" /></th>
+                                @if (AlleBanken)
+                                {
+                                    <th></th>
+                                }
                                 <th><input class="form-control form-control-sm" placeholder="Filter op naam of omschrijving" aria-label="Filter op naam of omschrijving" @bind="filterTekst" @bind:event="oninput" /></th>
                                 <th><input class="form-control form-control-sm text-end" placeholder="Filter" aria-label="Filter op bedrag" title="Een bedrag (ook een deel, bijv. 199) of van-tot (bijv. 10-50); zonder minteken telt af en bij" @bind="filterBedrag" @bind:event="oninput" /></th>
                             </tr>
@@ -228,6 +322,10 @@
                                         </td>
                                     }
                                     <td class="text-nowrap datum">@Weergave.Datum(m.Datum)</td>
+                                    @if (AlleBanken)
+                                    {
+                                        <td class="text-truncate text-secondary small" title="@m.Dagboek">@stand.FirstOrDefault(b => b.Dagboek == m.Dagboek)?.Naam</td>
+                                    }
                                     <td class="omschrijving" title="@string.Join(Environment.NewLine, new[] { m.TegenNaam, m.TegenIban is { } iban ? Iban.Toon(iban) : null, m.Omschrijving, m.Melding }.Where(t => !string.IsNullOrWhiteSpace(t)))"
                                         @ondblclick="() => KiesPosten(m)" @ondblclick:stopPropagation>
                                         <span class="regeltekst">
@@ -550,6 +648,11 @@
     /// </summary>
     private bool PastFilter(BankmutatieRegel m)
     {
+        if (Bankkeuze is { } bank && stand.Count > 1 && m.Dagboek != bank)
+        {
+            return false;
+        }
+
         if (filterDatum.Length > 0 && !Weergave.Datum(m.Datum).Contains(filterDatum.Trim(), StringComparison.Ordinal))
         {
             return false;
@@ -681,6 +784,7 @@
 
     private readonly Sortering<BankmutatieRegel> mutatiesortering = new(
         new("Datum", m => m.Datum, EerstOplopend: false),
+        new("Rekening", m => m.Dagboek),
         new("Tegenpartij", m => (m.TegenNaam ?? m.Omschrijving).ToUpperInvariant()),
         new("Bedrag", m => m.Bedrag, EerstOplopend: false));
 
@@ -783,6 +887,54 @@
 
     [Parameter]
     public Guid Id { get; set; }
+
+    /// <summary>De gekozen bankrekening (dagboekcode); leeg = alle rekeningen.</summary>
+    [SupplyParameterFromQuery(Name = "bank")]
+    public string? Bankkeuze { get; set; }
+
+    /// <summary>De stand van de gekozen bank, of van de enige bank.</summary>
+    private Bankstand? Gekozenstand => stand.Count == 1 ? stand[0] : stand.FirstOrDefault(b => b.Dagboek == Bankkeuze);
+
+    private NieuweBank? nieuweBank;
+    private IReadOnlyList<string>? bankfouten;
+
+    /// <summary>De lijst van alle rekeningen samen (meer dan één bank, geen gekozen): met een kolom voor de rekening.</summary>
+    private bool AlleBanken => stand.Count > 1 && Gekozenstand is null;
+
+    private static string? Teller(int aantal) => aantal > 0 ? $" {aantal}" : null;
+
+    private void KiesBank(string? code)
+    {
+        (gekozen, Bankkeuze) = (null, code);
+        geselecteerd.Clear();
+        Navigatie.NavigateTo(code is null ? $"/a/{Id}/bank" : $"/a/{Id}/bank?bank={Uri.EscapeDataString(code)}", replace: true);
+    }
+
+    private async Task VoegBankToe()
+    {
+        bezig = true;
+        var uitkomst = await Bank.VoegBankToe(geopend!.Wie, Id, nieuweBank!.Code, nieuweBank.Naam, nieuweBank.Iban, nieuweBank.Rekening ?? "");
+        bezig = false;
+        bankfouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            (nieuweBank, bankfouten) = (null, null);
+            await Laad();
+            KiesBank(uitkomst.Waarde);
+            Meldingen.Toon($"Bankrekening {uitkomst.Waarde} toegevoegd.");
+        }
+    }
+
+    private sealed class NieuweBank
+    {
+        public string Code { get; set; } = "";
+
+        public string Naam { get; set; } = "";
+
+        public string? Iban { get; set; }
+
+        public string? Rekening { get; set; }
+    }
 
     private async Task Open(Geopend g)
     {

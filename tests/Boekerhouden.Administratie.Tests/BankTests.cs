@@ -120,6 +120,67 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
     }
 
     [Fact]
+    public async Task Meerdere_bankrekeningen_elk_met_een_eigen_dagboek_stand_en_beginstand()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var bank = app.Dienst<BankDienst>();
+        const string Spaar = "NL91ABNA0417164300";
+
+        // Een tweede rekening: dagboek, grootboekrekening en IBAN; het IBAN komt bij de eigen rekeningen.
+        var toegevoegd = await bank.VoegBankToe(wie, id, "spa", "Spaarrekening", "nl91 abna 0417 1643 00", "1110");
+        Assert.True(toegevoegd.IsGelukt, string.Join("; ", toegevoegd.Fouten));
+        Assert.Equal("SPA", toegevoegd.Waarde);
+        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.DagboekToegevoegd && r.Onderwerp == "SPA Spaarrekening");
+
+        // Fouten: bestaande code, rekening of IBAN al in gebruik, geen balansrekening, ongeldig IBAN.
+        Assert.Contains("bestaat al", string.Join(" ", (await bank.VoegBankToe(wie, id, "SPA", "Nog een", null, "1000")).Fouten), StringComparison.Ordinal);
+        Assert.Contains("hoort al bij dagboek SPA", string.Join(" ", (await bank.VoegBankToe(wie, id, "SPA2", "Nog een", null, "1110")).Fouten), StringComparison.Ordinal);
+        Assert.Contains("hoort al bij dagboek SPA", string.Join(" ", (await bank.VoegBankToe(wie, id, "SPA3", "Nog een", Spaar, "1000")).Fouten), StringComparison.Ordinal);
+        Assert.Contains("geen balansrekening", string.Join(" ", (await bank.VoegBankToe(wie, id, "SPA4", "Nog een", null, "4300")).Fouten), StringComparison.Ordinal);
+        Assert.Contains("geen geldig IBAN", string.Join(" ", (await bank.VoegBankToe(wie, id, "SPA5", "Nog een", "NL00XXXX1", "1000")).Fouten), StringComparison.Ordinal);
+
+        // Afschriften van beide rekeningen in één keer: elk in zijn eigen dagboek.
+        Assert.True((await bank.Lees(wie, id, Afschrift(), "ing.mt940")).IsGelukt);
+        var spaar = Dagafschriften((10, 100m, 100m, null), (16, 100m, 35.63m, 64.37m));
+        var xml = Encoding.UTF8.GetString(spaar.ToArray()).Replace(EigenIban, Spaar, StringComparison.Ordinal);
+        var gelezen = await bank.Lees(wie, id, new MemoryStream(Encoding.UTF8.GetBytes(xml)), "spaar.xml");
+        Assert.True(gelezen.IsGelukt, string.Join("; ", gelezen.Fouten));
+
+        // Beide rekeningen staan nu bij de eigen rekeningen.
+        await using (var db = await app.Dienst<Toegang>().Open(wie, id, Recht.Lezen))
+        {
+            Assert.Equal([EigenIban, Spaar], (await db.Administraties.SingleAsync(a => a.Id == id)).Ibans.Order());
+        }
+
+        var lijst = await bank.Lijst(wie, id);
+        Assert.Equal(3, lijst.Count(m => m.Dagboek == "BNK"));
+        Assert.Equal(-64.37m, Assert.Single(lijst, m => m.Dagboek == "SPA").Bedrag);
+
+        var stand = (await bank.Stand(wie, id)).ToDictionary(b => b.Dagboek);
+        Assert.Equal(["BNK", "SPA"], stand.Keys.Order());
+        Assert.Equal((Spaar, "1110", 1, new DateOnly(2026, 11, 16), 35.63m), (stand["SPA"].Iban, stand["SPA"].Rekening, stand["SPA"].TeVerwerken, stand["SPA"].Tot, stand["SPA"].Saldo));
+        // Nog geen beginbalans en niets geboekt: de beginstand (0) wijkt 100 af van het afschrift, het eind 35,63.
+        Assert.Equal((new DateOnly(2026, 11, 10), 100m, 0m, -100m), (stand["SPA"].Van, stand["SPA"].Beginsaldo, stand["SPA"].BeginGrootboek, stand["SPA"].Beginverschil));
+        Assert.Equal((0m, -35.63m), (stand["SPA"].Grootboek, stand["SPA"].Verschil));
+
+        // Met de beginstand in het grootboek sluit het begin aan.
+        Assert.True((await app.Dienst<GrootboekDienst>().Boek(wie, id, new Boekhouding.Grootboek.Journaalpost("MEM", "2026-0001", new(2026, 1, 1), "Beginstand spaarrekening",
+            [new("1110", 100m), new("0500", -100m)]))).IsGelukt);
+        stand = (await bank.Stand(wie, id)).ToDictionary(b => b.Dagboek);
+        Assert.Equal((100m, 0m, 64.37m), (stand["SPA"].BeginGrootboek, stand["SPA"].Beginverschil, stand["SPA"].Verschil));
+        Assert.Equal(3, stand["BNK"].TeVerwerken);
+
+        // Alleen het kantoor voegt een bankrekening toe.
+        var ondernemer = await app.Gebruiker("Olga Ondernemer");
+        await app.Dienst<AdministratieDienst>().ZetLid(id, ondernemer.Id!.Value, Lidmaatschapsrol.Ondernemer, wie);
+        await Assert.ThrowsAsync<GeenToegangException>(() => bank.VoegBankToe(ondernemer, id, "BNK9", "Privé", null, "1000"));
+        Assert.Equal(2, (await bank.Stand(ondernemer, id)).Count);
+        var buiten = await app.Gebruiker("Bas Buiten");
+        await Assert.ThrowsAsync<GeenToegangException>(() => bank.Stand(buiten, id));
+    }
+
+    [Fact]
     public async Task Een_afschrift_dat_niet_sluit_wordt_geweigerd_en_er_wordt_niets_ingelezen()
     {
         var wie = await app.Beheerder();
