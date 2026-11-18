@@ -144,7 +144,7 @@ public sealed class Journaal
         {
             saldo += regel.Bedrag;
             mutaties.Add(new Kaartregel(post.Datum, post.Dagboek, post.Boekstuk, regel.Omschrijving ?? post.Omschrijving, regel.Bedrag, saldo, regel.Relatie, regel.Factuurnummer,
-                regel.BtwCode, BtwBij(post, regel), post.Regels.ToList().FindIndex(r => ReferenceEquals(r, regel))));
+                regel.BtwCode, BtwBij(Schema, post, regel), post.Regels.ToList().FindIndex(r => ReferenceEquals(r, regel))));
         }
 
         return new Grootboekkaart(rekening, van, tot, beginsaldo, mutaties);
@@ -302,18 +302,21 @@ public sealed class Journaal
     /// af te dragen btw, zodat bij verlegde btw de aftrek telt), verdeeld over de regels met die code naar hun bedrag; de
     /// laatste krijgt het afrondingsverschil.
     /// </summary>
-    private decimal? BtwBij(Journaalpost post, Journaalregel regel)
+    public static decimal? BtwBij(Rekeningschema schema, Journaalpost post, Journaalregel regel)
     {
-        if (string.IsNullOrWhiteSpace(regel.BtwCode) || IsBtwRekening(Schema.Zoek(regel.Rekeningnummer)))
+        ArgumentNullException.ThrowIfNull(schema);
+        ArgumentNullException.ThrowIfNull(post);
+        ArgumentNullException.ThrowIfNull(regel);
+        if (string.IsNullOrWhiteSpace(regel.BtwCode) || IsBtwRekening(schema.Zoek(regel.Rekeningnummer)))
         {
             return null;
         }
 
         var code = regel.BtwCode;
-        var btwregels = post.Regels.Where(r => r.BtwCode == code && IsBtwRekening(Schema.Zoek(r.Rekeningnummer))).ToList();
-        var voorbelasting = btwregels.Where(r => Schema.Zoek(r.Rekeningnummer)!.Functie == Rekeningfunctie.Voorbelasting).ToList();
+        var btwregels = post.Regels.Where(r => r.BtwCode == code && IsBtwRekening(schema.Zoek(r.Rekeningnummer))).ToList();
+        var voorbelasting = btwregels.Where(r => schema.Zoek(r.Rekeningnummer)!.Functie == Rekeningfunctie.Voorbelasting).ToList();
         var btw = (voorbelasting.Count > 0 ? voorbelasting : btwregels).Sum(r => r.Bedrag);
-        var grondslagen = post.Regels.Where(r => r.BtwCode == code && !IsBtwRekening(Schema.Zoek(r.Rekeningnummer))).ToList();
+        var grondslagen = post.Regels.Where(r => r.BtwCode == code && !IsBtwRekening(schema.Zoek(r.Rekeningnummer))).ToList();
         if (btwregels.Count == 0 || grondslagen.Count == 0)
         {
             return btwregels.Count == 0 ? 0m : null;

@@ -29,6 +29,20 @@ public sealed class ToegangTests(AdministratieFixture app) : IClassFixture<Admin
     }
 
     [Fact]
+    public async Task Alleen_de_beheerder_beheert_lidmaatschappen()
+    {
+        var id = await app.Administratie();
+        var gewoon = await app.Gebruiker("Gijs Gewoon");
+        var dienst = app.Dienst<AdministratieDienst>();
+        await dienst.ZetLid(id, gewoon.Id!.Value, Lidmaatschapsrol.Ondernemer, await app.Beheerder());
+
+        // Ook als lid van de administratie: zichzelf de rol Kantoor geven of anderen eruit zetten kan niet.
+        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.ZetLid(id, gewoon.Id.Value, Lidmaatschapsrol.Kantoor, gewoon));
+        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.VerwijderLid(id, gewoon.Id.Value, gewoon));
+        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.AlleMetLeden(gewoon));
+    }
+
+    [Fact]
     public async Task Geen_lid_ziet_de_administratie_niet_en_kan_er_niets_mee()
     {
         var id = await app.Administratie();

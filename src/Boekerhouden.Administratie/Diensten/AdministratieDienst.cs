@@ -128,9 +128,20 @@ public sealed class AdministratieDienst(IDbContextFactory<AdministratieDbContext
         return Uitkomst<Guid>.Met(id);
     }
 
-    /// <summary>Alle administraties met hun leden, voor de beheerder: alleen namen, geen cijfers.</summary>
-    public async Task<IReadOnlyList<AdministratieMetLeden>> AlleMetLeden()
+    /// <summary>Lidmaatschappen zijn van de beheerder; niet alleen het scherm, ook de dienst controleert dat.</summary>
+    private async Task AlleenBeheerder(Uitvoerder wie)
     {
+        ArgumentNullException.ThrowIfNull(wie);
+        if (!await kantoor.IsBeheerder(wie))
+        {
+            throw new GeenToegangException();
+        }
+    }
+
+    /// <summary>Alle administraties met hun leden, voor de beheerder: alleen namen, geen cijfers.</summary>
+    public async Task<IReadOnlyList<AdministratieMetLeden>> AlleMetLeden(Uitvoerder wie)
+    {
+        await AlleenBeheerder(wie);
         await using var db = await dbFactory.CreateDbContextAsync();
         var administraties = await db.Administraties.AsNoTracking().OrderBy(a => a.Naam).ToListAsync();
         var leden = await (from l in db.Lidmaatschappen
@@ -143,7 +154,7 @@ public sealed class AdministratieDienst(IDbContextFactory<AdministratieDbContext
     /// <summary>Maakt een gebruiker lid van een administratie (of wijzigt zijn rol); alleen voor de beheerder.</summary>
     public async Task<Uitkomst> ZetLid(Guid administratie, Guid gebruiker, Lidmaatschapsrol rol, Uitvoerder wie)
     {
-        ArgumentNullException.ThrowIfNull(wie);
+        await AlleenBeheerder(wie);
         await using var db = await dbFactory.CreateDbContextAsync();
         if (!await db.Administraties.AnyAsync(a => a.Id == administratie) || await db.Users.FindAsync(gebruiker) is not { } lid)
         {
@@ -168,7 +179,7 @@ public sealed class AdministratieDienst(IDbContextFactory<AdministratieDbContext
     /// <summary>Neemt een gebruiker de toegang tot een administratie af; alleen voor de beheerder.</summary>
     public async Task<Uitkomst> VerwijderLid(Guid administratie, Guid gebruiker, Uitvoerder wie)
     {
-        ArgumentNullException.ThrowIfNull(wie);
+        await AlleenBeheerder(wie);
         await using var db = await dbFactory.CreateDbContextAsync();
         if (await db.Lidmaatschappen.FindAsync(administratie, gebruiker) is { } bestaand)
         {

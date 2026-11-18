@@ -178,6 +178,17 @@ public static class AuditfileSchrijver
                         Veld(x, "amntTp", r.Bedrag < 0 ? "C" : "D");
                         Leeg(x, "custSupID", r.Relatie);
                         Leeg(x, "invRef", r.Factuurnummer);
+                        if (r.BtwCode is { Length: > 0 } btwCode)
+                        {
+                            // De btw-code met het btw-bedrag van de regel (XAF 3.2: vatID, vatAmnt, vatAmntTp).
+                            var btw = r.BtwBedrag ?? 0m;
+                            x.WriteStartElement("vat", Namespace);
+                            Veld(x, "vatID", btwCode);
+                            Veld(x, "vatAmnt", Bedrag(Math.Abs(btw)));
+                            Veld(x, "vatAmntTp", btw < 0 ? "C" : "D");
+                            x.WriteEndElement();
+                        }
+
                         x.WriteEndElement();
                     }
 

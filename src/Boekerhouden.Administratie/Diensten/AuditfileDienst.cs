@@ -47,7 +47,10 @@ public sealed class AuditfileDienst(IDbContextFactory<AdministratieDbContext> db
         var beginbalans = schema.Alle.Where(r => r.IsBalans && eerder.GetValueOrDefault(r.Nummer) != 0)
             .Select(r => new AuditfileRegel(r.Nummer, eerder[r.Nummer])).ToList();
         var resultaatEerder = schema.Alle.Where(r => !r.IsBalans).Sum(r => eerder.GetValueOrDefault(r.Nummer));
-        if (resultaatEerder != 0 && schema.Alle.FirstOrDefault(r => r.Functie == Rekeningfunctie.OnverdeeldResultaat) is { } onverdeeld)
+        // Zonder rekening voor het onverdeelde resultaat: de eerste rekening van het eigen vermogen, anders sluit de
+        // openingsbalans niet.
+        if (resultaatEerder != 0 && (schema.Alle.FirstOrDefault(r => r.Functie == Rekeningfunctie.OnverdeeldResultaat)
+            ?? schema.Alle.FirstOrDefault(r => r.IsBalans && r.RgsCode?.StartsWith("BEiv", StringComparison.Ordinal) == true)) is { } onverdeeld)
         {
             var bestaand = beginbalans.FindIndex(r => r.Rekening == onverdeeld.Nummer);
             var regel = new AuditfileRegel(onverdeeld.Nummer, (bestaand >= 0 ? beginbalans[bestaand].Bedrag : 0m) + resultaatEerder);
@@ -78,12 +81,21 @@ public sealed class AuditfileDienst(IDbContextFactory<AdministratieDbContext> db
             beginbalans.Count > 0 ? begin : null,
             beginbalans,
             [.. dagboeken.Select(d => new AuditfileDagboek(d.Code, d.Naam, d.Soort, d.Rekeningnummer,
-                [.. boekingen.Where(b => b.Dagboek == d.Code && b.Regels.Count > 0).Select(b => new AuditfileBoeking(b.Boekstuk, b.Omschrijving, b.Datum, b.Datum.Month,
-                    [.. b.Regels.OrderBy(r => r.Regelnummer).Select(r => new AuditfileRegel(r.Rekeningnummer, r.Bedrag, r.Omschrijving, r.Relatie, r.Factuurnummer, r.BtwCode))]))]))
+                [.. boekingen.Where(b => b.Dagboek == d.Code && b.Regels.Count > 0).Select(b => new AuditfileBoeking(b.Boekstuk, b.Omschrijving, b.Datum, b.Datum.Month, Regels(b, schema)))]))
               .Where(d => d.Boekingen.Count > 0)]);
         var naam = $"Auditfile {Bestandsveilig(adm.Naam)} {boekjaar}.xaf";
         await audit.Log(wie, AuditActies.AuditfileGemaakt, naam, $"{auditfile.AantalBoekingen} boekingen", administratie);
         return new Auditfilebestand(AuditfileSchrijver.Schrijf(auditfile), naam, auditfile.AantalBoekingen);
+    }
+
+    /// <summary>De regels van een boeking voor de auditfile, met bij een btw-code het btw-bedrag van de regel.</summary>
+    private static IReadOnlyList<AuditfileRegel> Regels(Boeking boeking, Rekeningschema schema)
+    {
+        var post = boeking.NaarDomein();
+        return [.. post.Regels.Select(r => new AuditfileRegel(r.Rekeningnummer, r.Bedrag, r.Omschrijving, r.Relatie, r.Factuurnummer, r.BtwCode,
+            r.BtwCode is null ? null
+            : schema.Zoek(r.Rekeningnummer)?.Functie is Rekeningfunctie.Voorbelasting or Rekeningfunctie.AfTeDragenBtw ? r.Bedrag
+            : Journaal.BtwBij(schema, post, r) ?? 0m))];
     }
 
     /// <summary>
@@ -123,9 +135,29 @@ public sealed class AuditfileDienst(IDbContextFactory<AdministratieDbContext> db
         db.Geopend = id;
         var btwcodes = (await BtwDienst.Lees(db)).Codes.Select(c => c.Code).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var rekeningen = a.Rekeningen.Select(r => new Rekening(Kort(r.Nummer, 20), Kort(r.Naam, 200), r.Soort, r.RgsCode is { Length: <= 30 } rgs ? rgs : null, Functie(r, a))).ToList();
+        // Een lege naam wordt het nummer; debiteuren en crediteuren hoogstens één rekening (de eerste), anders kan het
+        // pakket niet boeken.
+        var rekeningen = a.Rekeningen.Select(r => new Rekening(Kort(r.Nummer, 20), Kort(string.IsNullOrWhiteSpace(r.Naam) ? r.Nummer : r.Naam, 200), r.Soort,
+            r.RgsCode is { Length: <= 30 } rgs ? rgs : null, Functie(r, a))).ToList();
+        foreach (var functie in new[] { Rekeningfunctie.Debiteuren, Rekeningfunctie.Crediteuren })
+        {
+            foreach (var dubbel in rekeningen.Where(r => r.Functie == functie).Skip(1).ToList())
+            {
+                rekeningen[rekeningen.IndexOf(dubbel)] = dubbel with { Functie = Rekeningfunctie.Geen };
+            }
+        }
+
         ZetOnverdeeldResultaat(rekeningen, vorm);
-        var schema = new Rekeningschema(rekeningen);
+        Rekeningschema schema;
+        try
+        {
+            schema = new Rekeningschema(rekeningen);
+        }
+        catch (ArgumentException fout)
+        {
+            // Bijv. twee rekeningen met hetzelfde nummer, of een RGS-code die niet bij de soort past.
+            return Uitkomst<Auditfileinlezing>.Mislukt($"{Path.GetFileName(bestandsnaam)}: het rekeningschema is niet over te nemen: {fout.Message.Split(" (Parameter", 2)[0]}");
+        }
 
         // Dagboeken: de codes uit de auditfile (hoogstens 10 tekens, uniek), en een eigen memoriaal voor de beginbalans.
         var codes = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -341,8 +373,9 @@ public sealed class AuditfileDienst(IDbContextFactory<AdministratieDbContext> db
         {
             { } c when c.StartsWith("BLimBan", StringComparison.Ordinal) => Rekeningfunctie.Bank,
             { } c when c.StartsWith("BLimKas", StringComparison.Ordinal) => Rekeningfunctie.Kas,
-            { } c when c.StartsWith("BVorDeb", StringComparison.Ordinal) => Rekeningfunctie.Debiteuren,
-            { } c when c.StartsWith("BSchCre", StringComparison.Ordinal) => Rekeningfunctie.Crediteuren,
+            // Handelsdebiteuren en -crediteuren; niet bijv. de voorziening voor oninbaarheid (BVorDebVdd).
+            { } c when c.StartsWith("BVorDebHad", StringComparison.Ordinal) => Rekeningfunctie.Debiteuren,
+            { } c when c.StartsWith("BSchCreHac", StringComparison.Ordinal) => Rekeningfunctie.Crediteuren,
             { } c when c.StartsWith("BVorVbkTvo", StringComparison.Ordinal) => Rekeningfunctie.Voorbelasting,
             { } c when c.StartsWith("BSchBepBtw", StringComparison.Ordinal) => Rekeningfunctie.AfTeDragenBtw,
             _ => Rekeningfunctie.Geen,
@@ -359,6 +392,8 @@ public sealed class AuditfileDienst(IDbContextFactory<AdministratieDbContext> db
 
         var voorvoegsel = vorm == Ondernemingsvorm.Eenmanszaak ? "BEivKap" : "BEivOvr";
         var i = rekeningen.FindIndex(r => r.Functie == Rekeningfunctie.Geen && r.RgsCode?.StartsWith(voorvoegsel, StringComparison.Ordinal) == true);
+        // Anders een andere rekening van het eigen vermogen: het resultaat van eerdere jaren moet ergens heen.
+        i = i >= 0 ? i : rekeningen.FindIndex(r => r.Functie == Rekeningfunctie.Geen && r.RgsCode?.StartsWith("BEiv", StringComparison.Ordinal) == true);
         if (i >= 0)
         {
             rekeningen[i] = rekeningen[i] with { Functie = Rekeningfunctie.OnverdeeldResultaat };

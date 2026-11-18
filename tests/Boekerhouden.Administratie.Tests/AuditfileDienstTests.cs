@@ -97,6 +97,11 @@ public sealed class AuditfileDienstTests(AdministratieFixture app) : IClassFixtu
         Assert.All(aansluitingen.Where(a => a.Soort is Aansluitingsoort.Crediteuren or Aansluitingsoort.Debiteuren), a => Assert.True(a.Sluit, $"{a.Onderwerp}: {a.Verschil}"));
         Assert.True(await app.Dienst<GrootboekDienst>().ControleerKeten(wie, nieuw.Administratie) is { Count: 0 });
 
+        // De btw-codes gaan mee (met het btw-bedrag per regel): de btw-aangifte is na inlezen gelijk.
+        Assert.Contains("<vatID>I21</vatID>", Encoding.UTF8.GetString(bestand.Inhoud), StringComparison.Ordinal);
+        var btw = app.Dienst<BtwaangifteDienst>();
+        Assert.Equal((await btw.Jaar(wie, id, 2026)).Jaar.Jaaraangifte.Rubrieken, (await btw.Jaar(wie, nieuw.Administratie, 2026)).Jaar.Jaaraangifte.Rubrieken);
+
         var log = await app.Dienst<AuditDienst>().Recent();
         Assert.Contains(log, r => r.Actie == AuditActies.AuditfileGemaakt);
         Assert.Contains(log, r => r.Actie == AuditActies.AuditfileIngelezen && r.Onderwerp == "Auditfile Bron B.V.");
@@ -129,6 +134,13 @@ public sealed class AuditfileDienstTests(AdministratieFixture app) : IClassFixtu
         Assert.Contains(uitkomst.Fouten, f => f.Contains("Rekening 9999 staat niet in het rekeningschema", StringComparison.Ordinal));
         Assert.Contains(uitkomst.Fouten, f => f.Contains("niet in evenwicht", StringComparison.Ordinal));
         Assert.StartsWith("kapot.xaf: Geen geldige XML", geenXml.Fouten[0], StringComparison.Ordinal);
+
+        // Een rekening die twee keer voorkomt: een melding, geen fout in de app.
+        var dubbel = await dienst.LeesIn(wie, new MemoryStream(Encoding.UTF8.GetBytes(Fout
+            .Replace("<accTp>B</accTp></ledgerAccount>", "<accTp>B</accTp></ledgerAccount><ledgerAccount><accID>1100</accID><accDesc>Kas</accDesc><accTp>B</accTp></ledgerAccount><ledgerAccount><accID>9999</accID><accDesc/><accTp>B</accTp></ledgerAccount>", StringComparison.Ordinal)
+            .Replace("<amnt>90.00</amnt>", "<amnt>100.00</amnt>", StringComparison.Ordinal))), "dubbel.xaf", Ondernemingsvorm.BV);
+        Assert.False(dubbel.IsGelukt);
+        Assert.StartsWith("dubbel.xaf:", Assert.Single(dubbel.Fouten), StringComparison.Ordinal);
         Assert.Equal(voor, (await app.Dienst<AdministratieDienst>().Lijst(wie)).Count);
     }
 

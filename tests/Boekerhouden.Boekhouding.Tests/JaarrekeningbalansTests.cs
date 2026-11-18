@@ -67,5 +67,16 @@ public sealed class JaarrekeningbalansTests
         Assert.Equal("1800", Kies("Overige schulden", "Kortlopende schulden"));
         Assert.Equal("1800", Kies("Aflossingsverplichtingen", "Kortlopende schulden"));
         Assert.Null(Kies("Andere deelnemingen", "Financiële vaste activa", Balanszijde.Activa));
+        // Een banklening is geen bankrekening.
+        Assert.NotEqual("1100", Kies("Schulden aan banken", "Langlopende schulden"));
+        Assert.NotEqual("1100", Kies("Hypothecaire lening bank", "Langlopende schulden"));
+    }
+
+    [Fact]
+    public void Een_euroteken_tussen_de_bedragen()
+    {
+        var balans = Jaarrekeninglezer.Lees([.. Regels.Select(r => r.Replace("Liquide middelen    (100)    2.000", "Liquide middelen    € (100)    € 2.000", StringComparison.Ordinal))])!;
+
+        Assert.Contains(balans.Posten, p => (p.Naam, p.Bedrag) == ("Liquide middelen", -100m));
     }
 }

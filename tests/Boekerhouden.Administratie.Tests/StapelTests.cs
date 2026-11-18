@@ -259,6 +259,12 @@ public sealed class StapelTests(StapelFixture app) : IClassFixture<StapelFixture
         Assert.Equal(Stapelstatus.Open, (await dienst.Open(wie, id, stapel))!.Kop.Status);
         Assert.Equal(2, (await app.Dienst<InkoopDienst>().Lijst(wie, id)).Count);
 
+        // De knip na de al ingelezen facturen weghalen kan niet: anders komt de ingelezen factuur dubbel binnen.
+        var stand = (await dienst.Open(wie, id, stapel))!.Paginas;
+        var naKlaar = stand.First(p => !p.Klaar && stand.Any(k => k.Klaar && k.Nummer == p.Nummer - 1)).Nummer;
+        Assert.True((await dienst.Bewaar(wie, id, stapel, [.. stand.Where(p => p.Begin && p.Nummer != naKlaar).Select(p => p.Nummer)], [.. stand.Where(p => p.Weg).Select(p => p.Nummer)])).IsGelukt);
+        Assert.True((await dienst.Open(wie, id, stapel))!.Paginas.Single(p => p.Nummer == naKlaar).Begin);
+
         var tweede = (await dienst.Verwerk(wie, id, stapel)).Waarde!;
 
         Assert.Equal((0, 0), (tweede.Mislukt, tweede.Dubbel));

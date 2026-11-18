@@ -18,7 +18,8 @@ public sealed record AuditfileRekening(string Nummer, string Naam, Rekeningsoort
 public sealed record AuditfileBtwcode(string Code, string Omschrijving, string? AfdragenRekening, string? VorderenRekening);
 
 /// <summary>Een regel van een boeking of van de beginbalans; debet positief, credit negatief.</summary>
-public sealed record AuditfileRegel(string Rekening, decimal Bedrag, string? Omschrijving = null, string? Relatie = null, string? Factuurnummer = null, string? BtwCode = null);
+/// <param name="BtwBedrag">Bij een regel met een btw-code: het btw-bedrag dat erbij hoort (bij een btw-regel het bedrag zelf).</param>
+public sealed record AuditfileRegel(string Rekening, decimal Bedrag, string? Omschrijving = null, string? Relatie = null, string? Factuurnummer = null, string? BtwCode = null, decimal? BtwBedrag = null);
 
 /// <summary>Een boeking (transaction) in een dagboek.</summary>
 public sealed record AuditfileBoeking(string Boekstuk, string? Omschrijving, DateOnly Datum, int Periode, IReadOnlyList<AuditfileRegel> Regels);

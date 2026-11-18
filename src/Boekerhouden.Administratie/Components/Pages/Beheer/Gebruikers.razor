@@ -216,7 +216,7 @@
     private async Task Laad()
     {
         gebruikers = await GebruikerDienst.Lijst();
-        administraties = await AdministratieDienst.AlleMetLeden();
+        administraties = await AdministratieDienst.AlleMetLeden(await Wie());
         werkplekken = Omgeving.Kantoorserver ? await Apparaten.Lijst() : [];
     }
 

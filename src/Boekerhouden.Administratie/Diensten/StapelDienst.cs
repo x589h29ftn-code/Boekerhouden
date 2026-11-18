@@ -170,7 +170,10 @@ public sealed class StapelDienst(
         }
 
         var paginas = Paginas(stapel);
-        var nieuw = paginas.Select(p => p.Klaar ? p : p with { Begin = begin.Contains(p.Nummer), Weg = weggelaten.Contains(p.Nummer) }).ToList();
+        // Na een al ingelezen pagina begint altijd een nieuwe factuur: anders komt de ingelezen factuur bij het
+        // doorzetten met de volgende pagina's nog een keer binnen.
+        var klaar = paginas.Where(p => p.Klaar).Select(p => p.Nummer).ToHashSet();
+        var nieuw = paginas.Select(p => p.Klaar ? p : p with { Begin = begin.Contains(p.Nummer) || klaar.Contains(p.Nummer - 1), Weg = weggelaten.Contains(p.Nummer) }).ToList();
         if (!nieuw.SequenceEqual(paginas))
         {
             stapel.Indeling = JsonSerializer.Serialize(nieuw, Json);
