@@ -5,7 +5,8 @@ using Boekerhouden.Boekhouding.Grootboek;
 namespace Boekerhouden.Boekhouding.Bank;
 
 /// <summary>Een verschil bij afletteren dat niet open blijft staan maar op een rekening gaat (bijv. betalingskorting).</summary>
-public sealed record Afboeking(string Rekeningnummer, BtwCode? Btw, string? Omschrijving = null);
+/// <param name="Btwbedrag">Het btw-bedrag met de hand (zonder teken), in plaats van het bedrag dat uit het percentage volgt.</param>
+public sealed record Afboeking(string Rekeningnummer, BtwCode? Btw, string? Omschrijving = null, decimal? Btwbedrag = null);
 
 /// <summary>Zet een bankmutatie om in een journaalpost in het bankdagboek.</summary>
 public static class Bankboeker
@@ -118,6 +119,13 @@ public static class Bankboeker
         if (afboeking.Btw is { BtwOpFactuur: true } btw)
         {
             var (grondslag, btwBedrag) = BtwBerekening.UitInclusief(bedrag, btw.Percentage);
+            if (afboeking.Btwbedrag is { } hand)
+            {
+                // Met de hand: hetzelfde teken als de regel, de grondslag is de rest.
+                btwBedrag = Math.Sign(bedrag) * Math.Abs(hand);
+                grondslag = bedrag - btwBedrag;
+            }
+
             var functie = btw.Richting == BtwRichting.Inkoop ? Rekeningfunctie.Voorbelasting : Rekeningfunctie.AfTeDragenBtw;
             yield return new Journaalregel(afboeking.Rekeningnummer, grondslag, tekst, btw.Code, relatie);
             yield return new Journaalregel(schema.Enige(functie).Nummer, btwBedrag, $"Btw {tekst.ToLowerInvariant()}", btw.Code, relatie);

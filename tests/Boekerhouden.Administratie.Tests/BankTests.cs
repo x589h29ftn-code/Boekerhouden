@@ -171,11 +171,23 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
         Assert.Equal((100m, 0m, 64.37m), (stand["SPA"].BeginGrootboek, stand["SPA"].Beginverschil, stand["SPA"].Verschil));
         Assert.Equal(3, stand["BNK"].TeVerwerken);
 
-        // Alleen het kantoor voegt een bankrekening toe.
+        // Aanpassen: de naam altijd; het IBAN niet meer na ingelezen mutaties, de rekening niet na een boeking.
+        Assert.True((await bank.WijzigBank(wie, id, "SPA", "Spaarrekening ABN", Spaar, "1110")).IsGelukt);
+        Assert.Equal("Spaarrekening ABN", (await bank.Stand(wie, id)).Single(b => b.Dagboek == "SPA").Naam);
+        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.DagboekGewijzigd && r.Details == "naam Spaarrekening → Spaarrekening ABN");
+        Assert.Contains("al mutaties", string.Join(" ", (await bank.WijzigBank(wie, id, "SPA", "Spaarrekening ABN", null, "1110")).Fouten), StringComparison.Ordinal);
+        Assert.True((await bank.VoegBankToe(wie, id, "DEP", "Deposito", null, "1400")).IsGelukt);
+        Assert.True((await bank.WijzigBank(wie, id, "DEP", "Deposito", "NL02ABNA0123456789", "0700")).IsGelukt);
+        Assert.Equal(("NL02ABNA0123456789", "0700"), (await bank.Stand(wie, id)).Single(b => b.Dagboek == "DEP") is var dep ? (dep.Iban, dep.Rekening) : default);
+        Assert.Contains("hoort al bij dagboek BNK", string.Join(" ", (await bank.WijzigBank(wie, id, "DEP", "Deposito", null, "1100")).Fouten), StringComparison.Ordinal);
+        Assert.Contains("bestaat niet", string.Join(" ", (await bank.WijzigBank(wie, id, "MEM", "Memo", null, "1000")).Fouten), StringComparison.Ordinal);
+
+        // Alleen het kantoor voegt een bankrekening toe of past hem aan.
         var ondernemer = await app.Gebruiker("Olga Ondernemer");
         await app.Dienst<AdministratieDienst>().ZetLid(id, ondernemer.Id!.Value, Lidmaatschapsrol.Ondernemer, wie);
         await Assert.ThrowsAsync<GeenToegangException>(() => bank.VoegBankToe(ondernemer, id, "BNK9", "Privé", null, "1000"));
-        Assert.Equal(2, (await bank.Stand(ondernemer, id)).Count);
+        await Assert.ThrowsAsync<GeenToegangException>(() => bank.WijzigBank(ondernemer, id, "SPA", "Anders", Spaar, "1110"));
+        Assert.Equal(3, (await bank.Stand(ondernemer, id)).Count);
         var buiten = await app.Gebruiker("Bas Buiten");
         await Assert.ThrowsAsync<GeenToegangException>(() => bank.Stand(buiten, id));
     }
@@ -584,7 +596,11 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
         Assert.Contains("openstaande post", (await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("1600", null, 199.65m)])).Fouten[0], StringComparison.Ordinal);
         // Te veel op een regel en het verschil met een min op een volgende regel (zoals "Regel toevoegen" voorstelt).
         Assert.Contains("sluiten niet", (await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("4300", "I21", 150m), new Bankregelinvoer("4330", null, 60m), new Bankregelinvoer("4330", null, 10.35m)])).Fouten[0], StringComparison.Ordinal);
-        var verdeeld = await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("4300", "I21", 150m, "Papier"), new Bankregelinvoer("4330", null, 60m, "Contributie"), new Bankregelinvoer("4330", null, -10.35m, "Korting contributie")]);
+        // Het btw-bedrag met de hand: alleen bij een code met btw, en niet hoger dan de regel.
+        Assert.Contains("hoort bij een btw-code", (await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("4300", null, 199.65m, Btw: 10m)])).Fouten[0], StringComparison.Ordinal);
+        Assert.Contains("hoger dan de regel", (await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("4300", "I21", 199.65m, Btw: 200m)])).Fouten[0], StringComparison.Ordinal);
+        // Op de bon stond 26,00 btw in plaats van de 26,03 die uit 21% volgt.
+        var verdeeld = await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("4300", "I21", 150m, "Papier", Btw: 26m), new Bankregelinvoer("4330", null, 60m, "Contributie"), new Bankregelinvoer("4330", null, -10.35m, "Korting contributie")]);
         Assert.True(verdeeld.IsGelukt, string.Join("; ", verdeeld.Fouten));
 
         var post = (await bank.OpenPosten(wie, id)).Single();
@@ -594,7 +610,8 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
         Assert.Empty(await bank.OpenPosten(wie, id));
         Assert.DoesNotContain(await bank.Lijst(wie, id), m => m.Id == jansen.Id || m.Id == belnet.Id);
         var proef = await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026);
-        Assert.Equal((123.97m, 49.65m, 5.01m, 0m), (Saldo(proef, "4300"), Saldo(proef, "4330"), Saldo(proef, "9000"), Saldo(proef, "1600")));
+        Assert.Equal((124m, 49.65m, 5.01m, 0m), (Saldo(proef, "4300"), Saldo(proef, "4330"), Saldo(proef, "9000"), Saldo(proef, "1600")));
+        Assert.Equal(4.34m + 26m, Saldo(proef, "1500"));
         Assert.Empty(await app.Dienst<GrootboekDienst>().ControleerKeten(wie, id));
         var buiten = await app.Gebruiker("Buiten Verdelen");
         await Assert.ThrowsAsync<GeenToegangException>(() => bank.Verdeel(buiten, id, jansen.Id, [], []));

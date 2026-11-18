@@ -27,7 +27,8 @@ public sealed record Herverwerking(int Bekeken, int Geboekt);
 /// Een deel van een bankmutatie: op een grootboekrekening, of met <paramref name="Post"/> op een openstaande post (dan
 /// telt de rekening niet). Het bedrag inclusief btw, zoals op het afschrift (zonder teken).
 /// </summary>
-public sealed record Bankregelinvoer(string Rekening, string? BtwCode, decimal Bedrag, string? Omschrijving = null, Guid? Post = null);
+/// <param name="Btw">Het btw-bedrag met de hand (zonder teken); leeg = volgens het percentage van de btw-code.</param>
+public sealed record Bankregelinvoer(string Rekening, string? BtwCode, decimal Bedrag, string? Omschrijving = null, Guid? Post = null, decimal? Btw = null);
 
 /// <summary>Het verschil bij afletteren op een rekening boeken in plaats van open te laten staan (bijv. betalingskorting).</summary>
 public sealed record Verschilafboeking(string Rekening, string? BtwCode, string? Omschrijving = null);
@@ -483,7 +484,15 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
                 continue;
             }
 
-            verdeling.Add((Math.Sign(t.Bedrag) * r.Bedrag, new Afboeking(rekening.Nummer, btw, string.IsNullOrWhiteSpace(r.Omschrijving) ? null : Kort(r.Omschrijving.Trim(), 200))));
+            if (r.Btw is { } hand && (btw is not { BtwOpFactuur: true } || Math.Abs(hand) > Math.Abs(r.Bedrag)))
+            {
+                fouten.Add(btw is not { BtwOpFactuur: true }
+                    ? $"Een btw-bedrag hoort bij een btw-code met btw (regel {rekening.Nummer})."
+                    : $"Het btw-bedrag {Domain.Bedragen.Getal(Math.Abs(hand))} is hoger dan de regel ({Domain.Bedragen.Getal(Math.Abs(r.Bedrag))}).");
+                continue;
+            }
+
+            verdeling.Add((Math.Sign(t.Bedrag) * r.Bedrag, new Afboeking(rekening.Nummer, btw, string.IsNullOrWhiteSpace(r.Omschrijving) ? null : Kort(r.Omschrijving.Trim(), 200), r.Btw)));
         }
 
         // Posten: de hele post, of per regel een bedrag op een post (een deel, of meer dan openstaat).
@@ -692,6 +701,97 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         }
 
         return lijst;
+    }
+
+    /// <summary>
+    /// Een bankdagboek aanpassen: de naam altijd; het IBAN zolang er nog geen mutaties van zijn ingelezen, en de
+    /// grootboekrekening zolang er nog niets in het dagboek is geboekt (anders klopt de bank in het grootboek niet meer).
+    /// Alleen het kantoor; gelogd met wat er veranderde.
+    /// </summary>
+    public async Task<Uitkomst> WijzigBank(Uitvoerder wie, Guid administratie, string code, string naam, string? iban, string rekening)
+    {
+        ArgumentNullException.ThrowIfNull(code);
+        ArgumentNullException.ThrowIfNull(naam);
+        ArgumentNullException.ThrowIfNull(rekening);
+        await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
+        var dagboeken = await db.Dagboeken.ToListAsync();
+        if (dagboeken.FirstOrDefault(d => d.Code == code && d.Soort == Dagboeksoort.Bank) is not { } d)
+        {
+            return Uitkomst.Mislukt($"Bankdagboek {code} bestaat niet.");
+        }
+
+        naam = naam.Trim();
+        rekening = rekening.Trim();
+        var nieuwIban = string.IsNullOrWhiteSpace(iban) ? null : Iban.Normaliseer(iban);
+        var fouten = new List<string>();
+        if (naam.Length == 0)
+        {
+            fouten.Add("Geef de bankrekening een naam.");
+        }
+
+        if (nieuwIban != d.Iban)
+        {
+            if (nieuwIban is not null && !Iban.IsGeldig(nieuwIban))
+            {
+                fouten.Add($"{iban} is geen geldig IBAN.");
+            }
+            else if (nieuwIban is not null && dagboeken.FirstOrDefault(x => x.Iban == nieuwIban && x.Id != d.Id) is { } ander)
+            {
+                fouten.Add($"{Iban.Toon(nieuwIban)} hoort al bij dagboek {ander.Code} {ander.Naam}.");
+            }
+            else if (await db.Banktransacties.AnyAsync(t => t.Dagboek == code))
+            {
+                fouten.Add("Het IBAN is niet meer te wijzigen: er zijn al mutaties van deze rekening ingelezen.");
+            }
+        }
+
+        if (rekening != d.Rekeningnummer)
+        {
+            var (schema, _) = await GrootboekDienst.Inrichting(db);
+            if (schema.Zoek(rekening) is not { } r)
+            {
+                fouten.Add($"Rekening {rekening} staat niet in het rekeningschema.");
+            }
+            else if (r.Soort != Rekeningsoort.Balans)
+            {
+                fouten.Add($"Rekening {rekening} is geen balansrekening.");
+            }
+            else if (dagboeken.FirstOrDefault(x => x.Rekeningnummer == rekening && x.Id != d.Id) is { } ander)
+            {
+                fouten.Add($"Rekening {rekening} hoort al bij dagboek {ander.Code} {ander.Naam}.");
+            }
+            else if (await db.Boekingen.AnyAsync(b => b.Dagboek == code))
+            {
+                fouten.Add("De grootboekrekening is niet meer te wijzigen: er is al in dit dagboek geboekt.");
+            }
+        }
+
+        if (fouten.Count > 0)
+        {
+            return Uitkomst.Mislukt([.. fouten]);
+        }
+
+        var wijzigingen = new[]
+        {
+            d.Naam != naam ? $"naam {d.Naam} → {naam}" : null,
+            d.Iban != nieuwIban ? $"IBAN {(d.Iban is null ? "geen" : Iban.Toon(d.Iban))} → {(nieuwIban is null ? "geen" : Iban.Toon(nieuwIban))}" : null,
+            d.Rekeningnummer != rekening ? $"rekening {d.Rekeningnummer} → {rekening}" : null,
+        }.OfType<string>().ToList();
+        if (wijzigingen.Count == 0)
+        {
+            return Uitkomst.Gelukt;
+        }
+
+        (d.Naam, d.Iban, d.Rekeningnummer) = (naam, nieuwIban, rekening);
+        var adm = await db.Administraties.SingleAsync(a => a.Id == administratie);
+        if (nieuwIban is not null && adm.Ibans.Count > 0 && !adm.Ibans.Select(Iban.Normaliseer).Contains(nieuwIban))
+        {
+            adm.Ibans = [.. adm.Ibans, nieuwIban];
+        }
+
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.DagboekGewijzigd, $"{d.Code} {d.Naam}", string.Join("; ", wijzigingen), administratie);
+        return Uitkomst.Gelukt;
     }
 
     /// <summary>

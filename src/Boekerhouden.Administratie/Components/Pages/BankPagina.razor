@@ -117,7 +117,7 @@
             <div class="d-flex align-items-end gap-2 flex-wrap">
                 <div>
                     <label class="form-label small" for="bankcode">Dagboek</label>
-                    <input id="bankcode" class="form-control form-control-sm veld-boekstuk" @bind="nieuweBank.Code" placeholder="BNK2" />
+                    <input id="bankcode" class="form-control form-control-sm veld-boekstuk" @bind="nieuweBank.Code" placeholder="BNK2" disabled="@nieuweBank.Bestaand" />
                 </div>
                 <div>
                     <label class="form-label small" for="banknaam">Naam</label>
@@ -131,7 +131,7 @@
                     <label class="form-label small" for="bankrekening">Grootboekrekening</label>
                     <RekeningKeuze Id="bankrekening" @bind-Waarde="nieuweBank.Rekening" Schema="schema" Kader="geopend" Label="Grootboekrekening" />
                 </div>
-                <button class="btn btn-sm btn-primary" disabled="@bezig" @onclick="VoegBankToe">Toevoegen</button>
+                <button class="btn btn-sm btn-primary" disabled="@bezig" @onclick="VoegBankToe">@(nieuweBank.Bestaand ? "Opslaan" : "Toevoegen")</button>
                 <button class="btn btn-sm btn-link text-secondary" @onclick="() => (nieuweBank, bankfouten) = (null, null)">Annuleren</button>
             </div>
         </div>
@@ -139,6 +139,10 @@
     @if (Gekozenstand is { } gs)
     {
         <div class="small text-secondary mb-2 bankaansluiting">
+            @if (magRegels)
+            {
+                <button class="btn btn-sm btn-link text-secondary p-0 me-2 bank-wijzigen" title="Naam, IBAN en grootboekrekening van @gs.Naam aanpassen" aria-label="Bankrekening aanpassen" @onclick="() => BewerkBank(gs)"><Icoon Naam="settings" /></button>
+            }
             <a class="rekeningnummer" href="/a/@Id/grootboek?rekening=@gs.Rekening" title="Naar de grootboekkaart">@gs.Rekening</a>
             @if (gs.Van is { } van)
             {
@@ -453,10 +457,13 @@
                                 <div class="paneelkop mb-0" title="@g.Voorstel.Advies.Reden">Regels</div>
                                 <table class="table table-sm align-middle mb-0 bankregels">
                                     <thead>
-                                        <tr><th>Factuurnummer</th><th>Rekening</th>@if (!ZonderBtw)
+                                        <tr><th class="k-factuur" title="Factuurnummer: een openstaande post">Factuur</th><th class="k-rekening">Rekening</th>@if (!ZonderBtw)
                                             {
-                                                <th>Btw</th>
-                                            }<th class="text-end">Bedrag</th><th>Omschrijving</th><th></th></tr>
+                                                <th class="k-btw">Btw</th>
+                                            }<th class="text-end k-bedrag">Bedrag</th>@if (!ZonderBtw)
+                                            {
+                                                <th class="text-end k-btwbedrag" title="Het btw-bedrag in het bedrag: volgens de code, of met de hand">Btw</th>
+                                            }<th>Omschrijving</th><th class="k-weg"></th></tr>
                                     </thead>
                                     <tbody>
                                         @for (var i = 0; i < regels.Count; i++)
@@ -492,6 +499,18 @@
                                                     </td>
                                                 }
                                                 <td><input id="@($"regel-bedrag-{n}")" autocomplete="off" class="form-control form-control-sm text-end" @bind="regel.Bedrag" aria-label="Bedrag" /></td>
+                                                @if (!ZonderBtw)
+                                                {
+                                                    var berekend = Btwvolgenscode(g, regel);
+                                                    <td>
+                                                        @if (post is null && berekend is not null)
+                                                        {
+                                                            <input id="@($"regel-btwbedrag-{n}")" autocomplete="off" class="form-control form-control-sm text-end @(string.IsNullOrWhiteSpace(regel.Btwbedrag) ? null : "aangepast")"
+                                                                   @bind="regel.Btwbedrag" aria-label="Btw-bedrag" placeholder="@Bedragen.Getal(berekend.Value)"
+                                                                   title="@(string.IsNullOrWhiteSpace(regel.Btwbedrag) ? "Volgens de btw-code; typ een bedrag om het aan te passen" : $"Met de hand; volgens de btw-code {Bedragen.Getal(berekend.Value)}")" />
+                                                        }
+                                                    </td>
+                                                }
                                                 <td><input id="@($"regel-omschrijving-{n}")" autocomplete="off" class="form-control form-control-sm" @bind="regel.Omschrijving" aria-label="Omschrijving" placeholder="@(post is not null ? $"Betaling {post.Factuurnummer}" : Standaardomschrijving(g.Mutatie))" /></td>
                                                 <td>
                                                     @if (regels.Count > 1)
@@ -865,8 +884,19 @@
 
         public string? Omschrijving { get; set; }
 
+        /// <summary>Het btw-bedrag met de hand; leeg = volgens de btw-code.</summary>
+        public string? Btwbedrag { get; set; }
+
         public decimal Waarde => BedragParser.TryParse(Bedrag ?? "", out var b) ? b : 0m;
+
+        public decimal? Btwwaarde => BedragParser.TryParse(Btwbedrag ?? "", out var b) ? Math.Abs(b) : null;
     }
+
+    /// <summary>Het btw-bedrag in het bedrag van de regel volgens de btw-code (zonder teken), of leeg zonder btw.</summary>
+    private static decimal? Btwvolgenscode(Bankverwerking g, Regelinvoer regel) =>
+        Boekhouding.Btw.BtwCodes.Zoek(g.BtwCodes, regel.BtwCode) is { BtwOpFactuur: true } code
+            ? Math.Abs(Boekhouding.Btw.BtwBerekening.UitInclusief(regel.Waarde, code.Percentage).Btw)
+            : null;
     private IReadOnlyList<string>? fouten;
     private Inleesuitkomst? factuurUitkomst;
     private Herverwerking? opnieuw;
@@ -910,8 +940,27 @@
         Navigatie.NavigateTo(code is null ? $"/a/{Id}/bank" : $"/a/{Id}/bank?bank={Uri.EscapeDataString(code)}", replace: true);
     }
 
+    private void BewerkBank(Bankstand b) =>
+        (nieuweBank, bankfouten) = (new NieuweBank { Code = b.Dagboek, Naam = b.Naam, Iban = b.Iban is { } i ? Iban.Toon(i) : null, Rekening = b.Rekening, Bestaand = true }, null);
+
     private async Task VoegBankToe()
     {
+        if (nieuweBank!.Bestaand)
+        {
+            bezig = true;
+            var gewijzigd = await Bank.WijzigBank(geopend!.Wie, Id, nieuweBank.Code, nieuweBank.Naam, nieuweBank.Iban, nieuweBank.Rekening ?? "");
+            bezig = false;
+            bankfouten = gewijzigd.Fouten;
+            if (gewijzigd.IsGelukt)
+            {
+                (nieuweBank, bankfouten) = (null, null);
+                await Laad();
+                Meldingen.Toon("Bankrekening opgeslagen.");
+            }
+
+            return;
+        }
+
         bezig = true;
         var uitkomst = await Bank.VoegBankToe(geopend!.Wie, Id, nieuweBank!.Code, nieuweBank.Naam, nieuweBank.Iban, nieuweBank.Rekening ?? "");
         bezig = false;
@@ -934,6 +983,9 @@
         public string? Iban { get; set; }
 
         public string? Rekening { get; set; }
+
+        /// <summary>Een bestaand dagboek aanpassen (de code blijft).</summary>
+        public bool Bestaand { get; set; }
     }
 
     private async Task Open(Geopend g)
@@ -1052,7 +1104,7 @@
         {
             // Een post die intussen (via een andere mutatie) betaald is, valt weg: die regel kan niet meer.
             regels = [.. bewaard.Where(x => x.Post is not { } p || gekozen.OpenPosten.Any(o => o.Id == p))
-                .Select(x => new Regelinvoer { Post = x.Post, Rekening = x.Rekening, BtwCode = x.BtwCode, Bedrag = x.Bedrag, Omschrijving = x.Omschrijving })];
+                .Select(x => new Regelinvoer { Post = x.Post, Rekening = x.Rekening, BtwCode = x.BtwCode, Bedrag = x.Bedrag, Omschrijving = x.Omschrijving, Btwbedrag = x.Btwbedrag })];
             if (regels.Count == 0)
             {
                 regels = [new Regelinvoer { Bedrag = Bedragen.Getal(Math.Abs(m.Bedrag)) }];
@@ -1063,7 +1115,7 @@
     private IReadOnlySet<Guid> metConcept = new HashSet<Guid>();
 
     /// <summary>Een regel van een tussentijds bewaarde bankmutatie.</summary>
-    public sealed record Bankconceptregel(Guid? Post, string? Rekening, string? BtwCode, string? Bedrag, string? Omschrijving);
+    public sealed record Bankconceptregel(Guid? Post, string? Rekening, string? BtwCode, string? Bedrag, string? Omschrijving, string? Btwbedrag = null);
 
     /// <summary>Tussentijds bewaren: de regels van deze mutatie, om later verder te gaan.</summary>
     private async Task BewaarConcept()
@@ -1075,7 +1127,7 @@
 
         bezig = true;
         await Concepten.Bewaar(geopend!.Wie, Id, Conceptsoort.Bank, g.Mutatie.Id,
-            regels.Select(x => new Bankconceptregel(x.Post, x.Rekening, x.BtwCode, x.Bedrag, x.Omschrijving)).ToList(),
+            regels.Select(x => new Bankconceptregel(x.Post, x.Rekening, x.BtwCode, x.Bedrag, x.Omschrijving, x.Btwbedrag)).ToList(),
             $"{g.Mutatie.TegenNaam ?? g.Mutatie.Omschrijving} {Weergave.Datum(g.Mutatie.Datum)}".Trim());
         metConcept = await Concepten.Met(geopend.Wie, Id, Conceptsoort.Bank);
         bezig = false;
@@ -1177,7 +1229,8 @@
             ? await Bank.Afletteren(geopend!.Wie, Id, gekozen!.Mutatie.Id, [.. posten.Select(r => r.Post!.Value)])
             : await Bank.Verdeel(geopend!.Wie, Id, gekozen!.Mutatie.Id, [],
                 [.. ingevuld.Select(r => new Bankregelinvoer(r.Rekening ?? "", r.BtwCode, r.Waarde,
-                    string.IsNullOrWhiteSpace(r.Omschrijving) ? (r.Post is null ? Standaardomschrijving(gekozen.Mutatie) : null) : r.Omschrijving, r.Post))]);
+                    string.IsNullOrWhiteSpace(r.Omschrijving) ? (r.Post is null ? Standaardomschrijving(gekozen.Mutatie) : null) : r.Omschrijving, r.Post,
+                    r.Post is null && !string.IsNullOrEmpty(r.BtwCode) ? r.Btwwaarde : null))]);
         bezig = false;
         await Na(uitkomst);
     }
