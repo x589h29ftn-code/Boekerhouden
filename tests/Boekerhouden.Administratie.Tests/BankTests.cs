@@ -193,6 +193,56 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
     }
 
     [Fact]
+    public async Task Een_langer_camt_zonder_nieuwe_mutaties_werkt_de_stand_bij()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var bank = app.Dienst<BankDienst>();
+        Assert.True((await bank.Lees(wie, id, Dagafschriften((10, 100m, 100m, null), (11, 100m, 90m, 10m)), "1.xml")).IsGelukt);
+
+        // Dezelfde dagen en nog vier dagen zonder mutaties: niets nieuws, maar het afschrift loopt nu tot de 15e.
+        var langer = Dagafschriften((10, 100m, 100m, null), (11, 100m, 90m, 10m), (12, 90m, 90m, null), (13, 90m, 90m, null), (14, 90m, 90m, null), (15, 90m, 90m, null));
+        var uitkomst = await bank.Lees(wie, id, langer, "2.xml");
+
+        Assert.Equal((0, 1), (uitkomst.Waarde!.Nieuw, uitkomst.Waarde.Dubbel));
+        Assert.Equal(new DateOnly(2026, 11, 15), Assert.Single(await bank.Stand(wie, id)).Tot);
+    }
+
+    [Fact]
+    public async Task Bankrekeningen_krijgen_de_functie_bank_en_de_eigen_rekening_is_geen_tegenrekening()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var bank = app.Dienst<BankDienst>();
+        var grootboek = app.Dienst<GrootboekDienst>();
+
+        Assert.True((await bank.VoegBankToe(wie, id, "SPA", "Spaarrekening", null, "1110")).IsGelukt);
+        Assert.Equal(Boekhouding.Grootboek.Rekeningfunctie.Bank, (await grootboek.Schema(wie, id)).Zoek("1110")!.Functie);
+        Assert.Contains("al de rekening", string.Join(" ", (await bank.VoegBankToe(wie, id, "BTW", "Fout", null, "1500")).Fouten), StringComparison.Ordinal);
+
+        // Twee bankdagboeken zonder IBAN: het pakket kiest niet zelf waar een nieuw IBAN heen gaat, en koppelt niets.
+        var twijfel = await bank.Lees(wie, id, Afschrift(), "ing.mt940");
+        Assert.False(twijfel.IsGelukt);
+        Assert.Contains("BNK, SPA", twijfel.Fouten[0], StringComparison.Ordinal);
+        Assert.All(await bank.Stand(wie, id), b => Assert.Null(b.Iban));
+
+        // Het IBAN bij het juiste dagboek gezet: dan gaat het goed, en de bank zelf is geen tegenrekening.
+        Assert.True((await bank.WijzigBank(wie, id, "BNK", "Bank", EigenIban, "1100")).IsGelukt);
+        Assert.True((await bank.Lees(wie, id, Afschrift(), "ing.mt940")).IsGelukt);
+        var jansen = (await bank.Lijst(wie, id)).Single(m => m.Bedrag == -199.65m);
+        Assert.Contains("rekening van deze bank zelf", string.Join(" ", (await bank.OpRekening(wie, id, [jansen.Id], "1100", null)).Fouten), StringComparison.Ordinal);
+        Assert.Contains("rekening van deze bank zelf", (await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("1100", null, 199.65m)])).Fouten[0], StringComparison.Ordinal);
+
+        // Een overboeking naar de eigen spaarrekening mag wel.
+        Assert.True((await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("1110", null, 199.65m, "Naar spaarrekening")])).IsGelukt);
+
+        // De beginstand van een MT940-afschrift (begin 01-03) sluit aan op de beginbalans.
+        Assert.True((await grootboek.Boek(wie, id, new Boekhouding.Grootboek.Journaalpost("MEM", "2026-0001", new(2026, 1, 1), "Beginbalans", [new("1100", 5000m), new("0500", -5000m)]))).IsGelukt);
+        var stand = (await bank.Stand(wie, id)).Single(b => b.Dagboek == "BNK");
+        Assert.Equal((5000m, 5000m, 0m), (stand.Beginsaldo, stand.BeginGrootboek, stand.Beginverschil));
+    }
+
+    [Fact]
     public async Task Een_afschrift_dat_niet_sluit_wordt_geweigerd_en_er_wordt_niets_ingelezen()
     {
         var wie = await app.Beheerder();
@@ -618,6 +668,30 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
     }
 
     [Fact]
+    public async Task Twee_keer_tegelijk_boeken_geeft_een_boeking()
+    {
+        if (AdministratieFixture.IsSqlite)
+        {
+            return; // SQLite: één schrijver tegelijk (de Windows-app), geen gelijktijdige transacties.
+        }
+
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Dubbelklik B.V.");
+        var bank = app.Dienst<BankDienst>();
+        await bank.Lees(wie, id, Afschrift(), "ing.mt940");
+        var jansen = (await bank.Lijst(wie, id)).Single(m => m.Bedrag == -199.65m);
+
+        // Twee keer op Boeken voordat de eerste klaar is (dubbelklik, of twee schermen tegelijk).
+        var uitkomsten = await Task.WhenAll(
+            bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("4300", "I21", 199.65m, "Papier")]),
+            bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("4300", "I21", 199.65m, "Papier")]));
+
+        Assert.Equal(1, uitkomsten.Count(u => u.IsGelukt));
+        Assert.Single(await app.Dienst<GrootboekDienst>().Posten(wie, id, "BNK"));
+        Assert.Equal(-199.65m, Saldo(await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026), "1100"));
+    }
+
+    [Fact]
     public async Task Een_regel_op_een_openstaande_post_met_een_deel_van_het_bedrag()
     {
         var wie = await app.Beheerder();
@@ -701,6 +775,34 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
         Assert.Equal("1010", (await app.Dienst<GrootboekDienst>().Dagboeken(wie, id)).Single(d => d.Soort == Boekhouding.Grootboek.Dagboeksoort.Bank).Rekeningnummer);
         Assert.Equal("I21", (await app.Dienst<GrootboekDienst>().Schema(wie, id)).Zoek("4100")!.BtwCode);
         Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.AdministratieAangemaakt && r.Details == "BV; rekeningschema Standaard schema OVPA");
+    }
+
+    [Fact]
+    public async Task Wat_bij_de_btw_geleerd_is_boekt_de_loonheffing_niet_op_de_btw_rekening()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Belasting Leren B.V.", schema: Boekhouding.Grootboek.Schemakeuze.Ovpa);
+        var bank = app.Dienst<BankDienst>();
+        // Twee betalingen aan de Belastingdienst (hetzelfde IBAN): eerst omzetbelasting, dan loonheffingen.
+        var tekst = new StreamReader(Afschrift()).ReadToEnd()
+            .Replace("CNTP/NL63TRIO0212345678/TRIONL2U/Belnet B.V./UTRECHT////REMI/USTD", "CNTP/NL86INGB0002445588/INGBNL2A/Belastingdienst/APELDOORN////REMI/USTD", StringComparison.Ordinal)
+            .Replace("//Factuur BN-2026-0311 maand maart/", "//8123.45.678.B.01/", StringComparison.Ordinal)
+            .Replace("CNTP/NL36INGB0007654321/INGBNL2A/Kantoor", "CNTP/NL86INGB0002445588/INGBNL2A/Belasting", StringComparison.Ordinal)
+            .Replace("handel Jansen/ZWOLLE////REMI/USTD//Betaling inkoop/", "dienst/APELDOORN////REMI/USTD//8123.45.678.L.01/", StringComparison.Ordinal);
+        await bank.Lees(wie, id, new MemoryStream(Encoding.Latin1.GetBytes(tekst)), "ing.mt940");
+        var lijst = await bank.Lijst(wie, id);
+        var btw = lijst.Single(m => m.Bedrag == -25m);
+        var loon = lijst.Single(m => m.Bedrag == -199.65m);
+
+        // De btw-betaling op 1820 boeken: het leergeheugen onthoudt die keuze bij het IBAN van de Belastingdienst.
+        Assert.Equal("1820", (await bank.Verwerking(wie, id, btw.Id))!.Voorstel.Advies.Rekeningnummer);
+        Assert.True((await bank.OpRekening(wie, id, [btw.Id], "1820", null)).IsGelukt);
+
+        // De loonheffing krijgt toch de rekening van de loonheffingen, niet de geleerde btw-rekening.
+        var advies = (await bank.Verwerking(wie, id, loon.Id))!.Voorstel.Advies;
+        Assert.NotEqual("1820", advies.Rekeningnummer);
+        Assert.Equal(Boekhouding.Regels.Adviesbron.Herkend, advies.Bron);
+        Assert.StartsWith("Belastingdienst: loonheffingen", advies.Reden, StringComparison.Ordinal);
     }
 
     [Theory]

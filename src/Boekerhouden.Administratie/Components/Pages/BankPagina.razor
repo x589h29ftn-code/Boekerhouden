@@ -94,7 +94,7 @@
         @if (stand.Count > 1)
         {
             <li class="nav-item">
-                <button class="nav-link @(Bankkeuze is null ? "active" : null)" @onclick="() => KiesBank(null)">Alle rekeningen<span class="tabteller">@Teller(stand.Sum(b => b.TeVerwerken))</span></button>
+                <button class="nav-link @(GeldigeBank is null ? "active" : null)" @onclick="() => KiesBank(null)">Alle rekeningen<span class="tabteller">@Teller(stand.Sum(b => b.TeVerwerken))</span></button>
             </li>
         }
         @foreach (var b in stand)
@@ -182,7 +182,7 @@
                 <span class="small text-secondary ms-3">@InkoopPagina.Samenvatting(o)</span>
             }
             <div class="ms-auto d-flex align-items-center gap-3">
-                @if (mag && (mutaties?.Count(m => m.MogelijkDubbel && m.Status == Banktransactiestatus.TeVerwerken) ?? 0) is > 0 and var dubbel)
+                @if (mag && (mutaties?.Count(m => m.MogelijkDubbel && m.Status == Banktransactiestatus.TeVerwerken && PastFilter(m)) ?? 0) is > 0 and var dubbel)
                 {
                     <button class="btn btn-sm btn-link p-0 let-op dubbelbericht" title="Alle mogelijk dubbele mutaties aanvinken" @onclick="KiesDubbel">@dubbel mogelijk dubbel</button>
                 }
@@ -258,7 +258,7 @@
             </div>
         }
     }
-    else if (mutaties is not null && !mutaties.Any(m => Bankkeuze is null || stand.Count <= 1 || m.Dagboek == Bankkeuze))
+    else if (mutaties is not null && !mutaties.Any(m => GeldigeBank is null || stand.Count <= 1 || m.Dagboek == GeldigeBank))
     {
         <LegeStaat Icoon="circle-check" Tekst="Alle mutaties zijn verwerkt">
             @if (context.Mag(Recht.Invoeren))
@@ -353,9 +353,9 @@
                         </tbody>
                     </table>
                 </div>
-                @if (mag && geselecteerd.Count > 0)
+                @if (mag && Zichtbaargekozen.Count > 0)
                 {
-                    var selectie = mutaties.Where(m => geselecteerd.Contains(m.Id)).ToList();
+                    var selectie = mutaties.Where(m => Zichtbaargekozen.Contains(m.Id)).ToList();
                     <div class="actiebalk" role="region" aria-label="Gekozen mutaties">
                         <span class="small fw-semibold text-nowrap">@selectie.Count gekozen</span>
                         <span class="small bedrag text-nowrap"><Euro Waarde="selectie.Sum(m => m.Bedrag)" /></span>
@@ -667,7 +667,7 @@
     /// </summary>
     private bool PastFilter(BankmutatieRegel m)
     {
-        if (Bankkeuze is { } bank && stand.Count > 1 && m.Dagboek != bank)
+        if (GeldigeBank is { } bank && stand.Count > 1 && m.Dagboek != bank)
         {
             return false;
         }
@@ -731,9 +731,15 @@
 
     private async Task BoekSelectie()
     {
+        if (bezig)
+        {
+            return;
+        }
+
         bezig = true;
-        var aantal = geselecteerd.Count;
-        var uitkomst = await Bank.OpRekening(geopend!.Wie, Id, [.. geselecteerd], selectieRekening ?? "", string.IsNullOrEmpty(selectieBtw) ? null : selectieBtw);
+        var kiezen = Zichtbaargekozen;
+        var aantal = kiezen.Count;
+        var uitkomst = await Bank.OpRekening(geopend!.Wie, Id, [.. kiezen], selectieRekening ?? "", string.IsNullOrEmpty(selectieBtw) ? null : selectieBtw);
         fouten = uitkomst.Fouten;
         if (uitkomst.Waarde is { } bulk)
         {
@@ -757,18 +763,30 @@
 
     private void KiesDubbel()
     {
-        foreach (var m in (mutaties ?? []).Where(m => m.MogelijkDubbel && m.Status == Banktransactiestatus.TeVerwerken))
+        foreach (var m in (mutaties ?? []).Where(m => m.MogelijkDubbel && m.Status == Banktransactiestatus.TeVerwerken && PastFilter(m)))
         {
             geselecteerd.Add(m.Id);
         }
     }
 
-    private Task VerwijderSelectie() => Verwijder([.. geselecteerd]);
+    private Task VerwijderSelectie() => Verwijder([.. Zichtbaargekozen]);
+
+    /// <summary>
+    /// De gekozen mutaties die nu in de lijst staan (tab en filters): alleen daarop werken Boeken en Verwijderen, zodat
+    /// een vinkje bij een mutatie die door een ander filter uit beeld is, niet ongezien meegaat.
+    /// </summary>
+    private IReadOnlyList<Guid> Zichtbaargekozen =>
+        [.. (mutaties ?? []).Where(m => geselecteerd.Contains(m.Id) && m.Status == Banktransactiestatus.TeVerwerken && PastFilter(m)).Select(m => m.Id)];
 
     private Task VerwijderGekozen() => gekozen is { } g ? Verwijder([g.Mutatie.Id]) : Task.CompletedTask;
 
     private async Task Verwijder(IReadOnlyList<Guid> weg)
     {
+        if (bezig)
+        {
+            return;
+        }
+
         bezig = true;
         var uitkomst = await Bank.Verwijder(geopend!.Wie, Id, weg);
         fouten = uitkomst.Fouten;
@@ -878,9 +896,39 @@
 
         public string? Rekening { get; set; }
 
-        public string? BtwCode { get; set; }
+        /// <summary>De btw-code; een andere code maakt een btw-bedrag met de hand leeg (dat hoorde bij de oude code).</summary>
+        public string? BtwCode
+        {
+            get => btwCode;
+            set
+            {
+                if (value != btwCode)
+                {
+                    Btwbedrag = null;
+                }
 
-        public string? Bedrag { get; set; }
+                btwCode = value;
+            }
+        }
+
+        private string? btwCode;
+
+        /// <summary>Het bedrag; een ander bedrag maakt een btw-bedrag met de hand leeg (dat hoorde bij het oude bedrag).</summary>
+        public string? Bedrag
+        {
+            get => bedrag;
+            set
+            {
+                if (value != bedrag && bedrag is not null)
+                {
+                    Btwbedrag = null;
+                }
+
+                bedrag = value;
+            }
+        }
+
+        private string? bedrag;
 
         public string? Omschrijving { get; set; }
 
@@ -924,6 +972,9 @@
 
     /// <summary>De stand van de gekozen bank, of van de enige bank.</summary>
     private Bankstand? Gekozenstand => stand.Count == 1 ? stand[0] : stand.FirstOrDefault(b => b.Dagboek == Bankkeuze);
+
+    /// <summary>De gekozen bank als die bestaat (een oude of met de hand getypte <c>?bank=</c> toont gewoon alle rekeningen).</summary>
+    private string? GeldigeBank => stand.Any(b => b.Dagboek == Bankkeuze) ? Bankkeuze : null;
 
     private NieuweBank? nieuweBank;
     private IReadOnlyList<string>? bankfouten;
@@ -1017,6 +1068,11 @@
 
     private async Task VerwerkOpnieuw()
     {
+        if (bezig)
+        {
+            return;
+        }
+
         bezig = true;
         gekozen = null;
         opnieuw = await Bank.VerwerkOpnieuw(geopend!.Wie, Id);
@@ -1070,12 +1126,21 @@
         fouten = null;
         if (m.Status != Banktransactiestatus.TeVerwerken || gekozen?.Mutatie.Id == m.Id)
         {
+            klikken++;
             gekozen = null;
             return;
         }
 
         factuurUitkomst = null;
-        gekozen = await Bank.Verwerking(geopend!.Wie, Id, m.Id);
+        var klik = ++klikken;
+        var verwerking = await Bank.Verwerking(geopend!.Wie, Id, m.Id);
+        if (klik != klikken)
+        {
+            // Intussen is er een andere mutatie aangeklikt: die gaat voor.
+            return;
+        }
+
+        gekozen = verwerking;
         venster = null;
         // Kan de mutatie de betaling van een factuur zijn, dan geen rekening vooraf: anders staat de kost er twee keer in.
         var advies = gekozen?.Voorstel.Afletteren.Kandidaten.Count == 0 ? gekozen.Voorstel.Advies : null;
@@ -1100,7 +1165,8 @@
 
         // Tussentijds bewaard: de regels zoals ze waren.
         if (gekozen is not null && metConcept.Contains(m.Id)
-            && await Concepten.Lees<List<Bankconceptregel>>(geopend.Wie, Id, Conceptsoort.Bank, m.Id) is { Inhoud: { Count: > 0 } bewaard })
+            && await Concepten.Lees<List<Bankconceptregel>>(geopend.Wie, Id, Conceptsoort.Bank, m.Id) is { Inhoud: { Count: > 0 } bewaard }
+            && klik == klikken && gekozen?.Mutatie.Id == m.Id)
         {
             // Een post die intussen (via een andere mutatie) betaald is, valt weg: die regel kan niet meer.
             regels = [.. bewaard.Where(x => x.Post is not { } p || gekozen.OpenPosten.Any(o => o.Id == p))
@@ -1113,6 +1179,9 @@
     }
 
     private IReadOnlySet<Guid> metConcept = new HashSet<Guid>();
+
+    /// <summary>Telt de klikken op een mutatie: alleen het antwoord op de laatste klik mag het paneel vullen.</summary>
+    private int klikken;
 
     /// <summary>Een regel van een tussentijds bewaarde bankmutatie.</summary>
     public sealed record Bankconceptregel(Guid? Post, string? Rekening, string? BtwCode, string? Bedrag, string? Omschrijving, string? Btwbedrag = null);
@@ -1224,14 +1293,18 @@
             return;
         }
 
+        if (bezig)
+        {
+            return;
+        }
+
         bezig = true;
         var uitkomst = heel
             ? await Bank.Afletteren(geopend!.Wie, Id, gekozen!.Mutatie.Id, [.. posten.Select(r => r.Post!.Value)])
             : await Bank.Verdeel(geopend!.Wie, Id, gekozen!.Mutatie.Id, [],
                 [.. ingevuld.Select(r => new Bankregelinvoer(r.Rekening ?? "", r.BtwCode, r.Waarde,
                     string.IsNullOrWhiteSpace(r.Omschrijving) ? (r.Post is null ? Standaardomschrijving(gekozen.Mutatie) : null) : r.Omschrijving, r.Post,
-                    r.Post is null && !string.IsNullOrEmpty(r.BtwCode) ? r.Btwwaarde : null))]);
-        bezig = false;
+                    r.Post is null && Btwvolgenscode(gekozen, r) is not null ? r.Btwwaarde : null))]);
         await Na(uitkomst);
     }
 
@@ -1333,6 +1406,12 @@
             return;
         }
 
+        if (bezig)
+        {
+            return;
+        }
+
+        bezig = true;
         var uitkomst = await Bank.Afletteren(geopend!.Wie, Id, gekozen!.Mutatie.Id, keuze.Posten, keuze.Verschil);
         if (uitkomst.IsGelukt)
         {
@@ -1342,8 +1421,16 @@
         await Na(uitkomst);
     }
 
-    private async Task Afletteren(List<Guid> posten) =>
+    private async Task Afletteren(List<Guid> posten)
+    {
+        if (bezig)
+        {
+            return;
+        }
+
+        bezig = true;
         await Na(await Bank.Afletteren(geopend!.Wie, Id, gekozen!.Mutatie.Id, posten));
+    }
 
 
     /// <summary>De openstaande posten in een eigen venster: in de Windows-app een tweede venster, in de webapp een pop-up.</summary>
@@ -1362,7 +1449,24 @@
     /// Na het verwerken: de regel licht op en schuift weg (verwerkt), dan staat de volgende mutatie in Te verwerken
     /// klaar in het paneel, zodat je door kunt zonder te klikken.
     /// </summary>
+    /// <remarks>
+    /// <c>bezig</c> blijft aan tot de volgende mutatie klaarstaat (en gaat altijd weer uit): een tweede klik in die
+    /// tijd boekt niet nog eens en opent niets anders.
+    /// </remarks>
     private async Task Na(Uitkomst uitkomst)
+    {
+        bezig = true;
+        try
+        {
+            await NaVerwerken(uitkomst);
+        }
+        finally
+        {
+            bezig = false;
+        }
+    }
+
+    private async Task NaVerwerken(Uitkomst uitkomst)
     {
         fouten = uitkomst.Fouten;
         if (uitkomst.IsGelukt && gekozen is { } klaar && metConcept.Contains(klaar.Mutatie.Id))

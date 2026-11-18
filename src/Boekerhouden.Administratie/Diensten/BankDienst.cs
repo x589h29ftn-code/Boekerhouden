@@ -176,16 +176,31 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         }
 
         // Eerst bij elke rekening het dagboek, zodat een onbekende rekening niets half inleest.
+        // Een nieuw IBAN wordt pas aan zijn dagboek gekoppeld (en opgeslagen) als alle rekeningen in het bestand kloppen.
         var bankdagboeken = new Dictionary<string, Dagboekdefinitie>(StringComparer.Ordinal);
+        var gekoppeld = new List<(Dagboekdefinitie Dagboek, string Iban)>();
         foreach (var iban in afschriften.Select(a => Iban.Normaliseer(a.Iban)).Distinct())
         {
-            var (dagboek, fout) = await Bankdagboek(db, administratie, iban, wie);
+            var (dagboek, fout, nieuwGekoppeld) = await Bankdagboek(db, administratie, iban);
             if (dagboek is null)
             {
                 return Uitkomst<Bankinlezing>.Mislukt($"{naam}: {fout}");
             }
 
             bankdagboeken[iban] = dagboek;
+            if (nieuwGekoppeld)
+            {
+                gekoppeld.Add((dagboek, iban));
+            }
+        }
+
+        if (gekoppeld.Count > 0)
+        {
+            await db.SaveChangesAsync(annulering);
+            foreach (var (dagboek, iban) in gekoppeld)
+            {
+                await audit.Log(wie, AuditActies.BankdagboekGekoppeld, $"{dagboek.Code} {dagboek.Naam}", Iban.Toon(iban), administratie);
+            }
         }
 
         var meldingen = new List<string>();
@@ -213,8 +228,8 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             }
 
             // Zonder nieuwe mutaties alleen het afschrift zelf onthouden (de stand van de rekening), als dat er nog niet is.
-            if (regels.Count == 0 && (afschrift.Mutaties.Count > 0
-                || await db.Afschriften.AnyAsync(a => a.Iban == iban && a.Einddatum == afschrift.Einddatum && a.Eindsaldo == afschrift.Eindsaldo, annulering)))
+            // Geen nieuwe mutaties: alleen bewaren als het afschrift verder loopt dan wat er al is (de stand van de rekening).
+            if (regels.Count == 0 && await db.Afschriften.AnyAsync(a => a.Iban == iban && a.Einddatum >= afschrift.Einddatum, annulering))
             {
                 continue;
             }
@@ -471,7 +486,13 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
                 continue;
             }
 
-            if (rekening.Functie is Rekeningfunctie.Bank or Rekeningfunctie.Debiteuren or Rekeningfunctie.Crediteuren)
+            if (rekening.Nummer == dagboek.Rekeningnummer)
+            {
+                fouten.Add($"{rekening.Nummer} is de rekening van deze bank zelf: kies de tegenrekening.");
+                continue;
+            }
+
+            if (rekening.Functie is Rekeningfunctie.Debiteuren or Rekeningfunctie.Crediteuren)
             {
                 fouten.Add($"Op {rekening.Nummer} boek je niet met een regel: kies daarvoor de openstaande post.");
                 continue;
@@ -531,6 +552,22 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
 
         await using var transactie = await db.Database.BeginTransactionAsync();
         await db.Vergrendel(administratie);
+        if (!await NogTeVerwerken(db, t.Id))
+        {
+            return Uitkomst.Mislukt("Deze mutatie is intussen al geboekt.");
+        }
+
+        // De posten opnieuw lezen: een andere boeking kan ze intussen (deels) betaald hebben.
+        foreach (var o in open)
+        {
+            var was = o.Openstaand;
+            await db.Entry(o).ReloadAsync();
+            if (o.Openstaand != was)
+            {
+                return Uitkomst.Mislukt($"Factuur {o.Factuurnummer} is intussen (deels) betaald; open de mutatie opnieuw.");
+            }
+        }
+
         var boekstuk = await GrootboekDienst.VolgendBoekstuk(db, dagboek.Code, t.Datum.Year);
         var (post, bijgewerkt) = Bankboeker.Verdeeld(t.NaarDomein(), [.. postbedragen.Select(p => (p.Post.NaarDomein(), p.Bedrag))], verdeling, dagboek, boekstuk, schema);
         if (Journaalcontrole.Controleer(post, schema, dagboeken) is { Count: > 0 } controle)
@@ -691,12 +728,25 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         {
             var eigen = afschriften.Where(a => a.Dagboek == d.Code).OrderBy(a => a.Einddatum).ThenBy(a => a.IngelezenOp).ToList();
             var laatste = eigen.LastOrDefault();
-            var eerste = laatste is null ? null : eigen.Where(a => a.Begindatum is { } b && b.Year == laatste.Einddatum!.Value.Year).OrderBy(a => a.Begindatum).FirstOrDefault();
+            // Het eerste afschrift van het jaar van het laatste (op de einddatum: bij MT940 is de begindatum vaak de
+            // laatste dag van het jaar ervoor).
+            var eerste = laatste is null ? null : eigen.Where(a => a.Einddatum!.Value.Year == laatste.Einddatum!.Value.Year).OrderBy(a => a.Begindatum ?? a.Einddatum).FirstOrDefault();
             decimal? Saldo(Func<DateOnly, bool> wanneer) =>
                 d.Rekeningnummer is { } rekening ? regels.Where(r => r.Rekeningnummer == rekening && wanneer(r.Datum)).Sum(r => r.Bedrag) : null;
+
+            // De beginstand: het grootboek vóór de eerste mutatie van dat afschrift. De begindatum betekent niet bij elke
+            // bank hetzelfde (MT940 :60F: en CAMT PRCD = het slot van de dag ervoor, CAMT OPBD = het begin van de dag);
+            // tot de dag na de begindatum en niet voorbij de eerste mutatie klopt het voor beide.
+            DateOnly? grens = null;
+            if (eerste?.Begindatum is { } van)
+            {
+                var eersteMutatie = await db.Banktransacties.AsNoTracking().Where(t => t.AfschriftId == eerste.Id).Select(t => (DateOnly?)t.Datum).OrderBy(x => x).FirstOrDefaultAsync();
+                grens = eersteMutatie is { } m && m <= van ? m : van.AddDays(1);
+            }
+
             lijst.Add(new Bankstand(d.Code, d.Naam, d.Iban, laatste?.Einddatum, laatste?.Eindsaldo, open.GetValueOrDefault(d.Code), d.Rekeningnummer,
                 eerste?.Begindatum, eerste?.Beginsaldo,
-                eerste?.Begindatum is { } van ? Saldo(x => x < van) : null,
+                grens is { } g ? Saldo(x => x < g) : null,
                 laatste?.Einddatum is { } tot ? Saldo(x => x <= tot) : null));
         }
 
@@ -739,7 +789,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             {
                 fouten.Add($"{Iban.Toon(nieuwIban)} hoort al bij dagboek {ander.Code} {ander.Naam}.");
             }
-            else if (await db.Banktransacties.AnyAsync(t => t.Dagboek == code))
+            else if (await db.Banktransacties.AnyAsync(t => t.Dagboek == code && t.Status != Banktransactiestatus.Verwijderd))
             {
                 fouten.Add("Het IBAN is niet meer te wijzigen: er zijn al mutaties van deze rekening ingelezen.");
             }
@@ -755,6 +805,10 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             else if (r.Soort != Rekeningsoort.Balans)
             {
                 fouten.Add($"Rekening {rekening} is geen balansrekening.");
+            }
+            else if (r.Functie is not (Rekeningfunctie.Geen or Rekeningfunctie.Bank))
+            {
+                fouten.Add($"Rekening {rekening} is al de rekening {Weergave.Tekst(r.Functie)}; kies een eigen rekening voor de bank.");
             }
             else if (dagboeken.FirstOrDefault(x => x.Rekeningnummer == rekening && x.Id != d.Id) is { } ander)
             {
@@ -782,6 +836,11 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             return Uitkomst.Gelukt;
         }
 
+        if (d.Rekeningnummer != rekening)
+        {
+            await MaakBankrekening(db, rekening);
+        }
+
         (d.Naam, d.Iban, d.Rekeningnummer) = (naam, nieuwIban, rekening);
         var adm = await db.Administraties.SingleAsync(a => a.Id == administratie);
         if (nieuwIban is not null && adm.Ibans.Count > 0 && !adm.Ibans.Select(Iban.Normaliseer).Contains(nieuwIban))
@@ -792,6 +851,18 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         await db.SaveChangesAsync();
         await audit.Log(wie, AuditActies.DagboekGewijzigd, $"{d.Code} {d.Naam}", string.Join("; ", wijzigingen), administratie);
         return Uitkomst.Gelukt;
+    }
+
+    /// <summary>
+    /// De grootboekrekening van een bankdagboek krijgt de functie Bank: dan behandelt het pakket hem overal als bank
+    /// (de bankregel van een boeking blijft vast, een btw-betaling vanaf deze rekening telt als betaling).
+    /// </summary>
+    private static async Task MaakBankrekening(AdministratieDbContext db, string rekening)
+    {
+        if (await db.Rekeningen.FirstOrDefaultAsync(r => r.Nummer == rekening) is { Functie: Rekeningfunctie.Geen } r)
+        {
+            r.Functie = Rekeningfunctie.Bank;
+        }
     }
 
     /// <summary>
@@ -834,6 +905,10 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         {
             fouten.Add($"Rekening {rekening} is geen balansrekening.");
         }
+        else if (r.Functie is not (Rekeningfunctie.Geen or Rekeningfunctie.Bank))
+        {
+            fouten.Add($"Rekening {rekening} is al de rekening {Weergave.Tekst(r.Functie)}; kies een eigen rekening voor de bank.");
+        }
 
         var dagboeken = await db.Dagboeken.ToListAsync();
         if (dagboeken.Any(d => d.Code == code))
@@ -856,6 +931,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             return Uitkomst<string>.Mislukt([.. fouten]);
         }
 
+        await MaakBankrekening(db, rekening);
         db.Dagboeken.Add(new Dagboekdefinitie
         {
             Id = Guid.NewGuid(),
@@ -928,6 +1004,11 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
 
         await using var transactie = await db.Database.BeginTransactionAsync();
         await db.Vergrendel(administratie);
+        if (!await NogTeVerwerken(db, t.Id))
+        {
+            return Uitkomst.Mislukt("Deze mutatie is intussen al geboekt.");
+        }
+
         var ids = postIds.Distinct().ToList();
         var posten = await db.OpenstaandePosten.Where(p => ids.Contains(p.Id)).ToListAsync();
         // Een post die al betaald is, mag alleen als enige en in dezelfde richting als de factuur: een dubbele betaling
@@ -1005,8 +1086,18 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             return Uitkomst.Mislukt("Een betaling van een factuur letter je af op de openstaande post, niet op debiteuren of crediteuren.");
         }
 
+        if (gekozen.Nummer == dagboek.Rekeningnummer)
+        {
+            return Uitkomst.Mislukt($"{gekozen.Nummer} is de rekening van deze bank zelf: kies de tegenrekening.");
+        }
+
         await using var transactie = await db.Database.BeginTransactionAsync();
         await db.Vergrendel(administratie);
+        if (!await NogTeVerwerken(db, t.Id))
+        {
+            return Uitkomst.Mislukt("Deze mutatie is intussen al geboekt.");
+        }
+
         var boekstuk = await GrootboekDienst.VolgendBoekstuk(db, dagboek.Code, t.Datum.Year);
         var mutatie = t.NaarDomein();
         Journaalpost post;
@@ -1083,25 +1174,37 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
     /// het, mits het IBAN bij de eigen rekeningen van de administratie staat (of die nog leeg zijn): zo komt een
     /// afschrift van een andere klant nooit in deze administratie.
     /// </summary>
-    private async Task<(Dagboekdefinitie? Dagboek, string? Fout)> Bankdagboek(AdministratieDbContext db, Guid administratie, string iban, Uitvoerder wie)
+    /// <remarks>
+    /// Slaat niets op (de aanroeper doet dat als alle rekeningen in het bestand kloppen). Zijn er meer bankdagboeken
+    /// zonder IBAN, dan kiest het pakket niet zelf: het IBAN hoort dan bij het dagboek gezet te worden (tandwiel).
+    /// </remarks>
+    private static async Task<(Dagboekdefinitie? Dagboek, string? Fout, bool Gekoppeld)> Bankdagboek(AdministratieDbContext db, Guid administratie, string iban)
     {
         var bank = await db.Dagboeken.Where(d => d.Soort == Dagboeksoort.Bank).OrderBy(d => d.Code).ToListAsync();
         if (bank.FirstOrDefault(d => d.Iban == iban) is { } bekend)
         {
-            return (bekend, null);
+            return (bekend, null, false);
         }
 
         var adm = await db.Administraties.SingleAsync(a => a.Id == administratie);
         var eigen = adm.Ibans.Select(Iban.Normaliseer).ToList();
         if (eigen.Count > 0 && !eigen.Contains(iban))
         {
-            return (null, $"rekening {Iban.Toon(iban)} hoort niet bij deze administratie (eigen rekeningen: {string.Join(", ", eigen.Select(Iban.Toon))}). Voeg hem toe bij Instellingen als hij wel van de klant is.");
+            return (null, $"rekening {Iban.Toon(iban)} hoort niet bij deze administratie (eigen rekeningen: {string.Join(", ", eigen.Select(Iban.Toon))}). Voeg hem toe bij Instellingen als hij wel van de klant is.", false);
         }
 
-        if (bank.FirstOrDefault(d => d.Iban is null && d.Rekeningnummer is not null) is not { } vrij)
+        var vrije = bank.Where(d => d.Iban is null && d.Rekeningnummer is not null).ToList();
+        if (vrije.Count == 0)
         {
-            return (null, $"er is geen bankdagboek voor rekening {Iban.Toon(iban)}.");
+            return (null, $"er is geen bankdagboek voor rekening {Iban.Toon(iban)}. Voeg bij de bank een bankrekening toe met dit IBAN.", false);
         }
+
+        if (vrije.Count > 1)
+        {
+            return (null, $"rekening {Iban.Toon(iban)} hoort nog bij geen bankdagboek, en er zijn er meer zonder IBAN ({string.Join(", ", vrije.Select(d => d.Code))}). Zet het IBAN bij het juiste dagboek (bij de bank, het tandwiel).", false);
+        }
+
+        var vrij = vrije[0];
 
         vrij.Iban = iban;
         // De eigen rekeningen: dit IBAN en die van de andere bankdagboeken (bijv. een spaarrekening die al is toegevoegd).
@@ -1111,9 +1214,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             adm.Ibans = [.. adm.Ibans, .. erbij];
         }
 
-        await db.SaveChangesAsync();
-        await audit.Log(wie, AuditActies.BankdagboekGekoppeld, $"{vrij.Code} {vrij.Naam}", Iban.Toon(iban), administratie);
-        return (vrij, null);
+        return (vrij, null, true);
     }
 
     /// <summary>Sluit het beginsaldo aan op het eindsaldo van het vorige afschrift van deze rekening? Anders een melding.</summary>
@@ -1341,8 +1442,12 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         // Geen regel en niets geleerd: een betaling aan de Belastingdienst herkennen (btw, loonheffingen, vpb, ib), met
         // de vaste rekening per belasting als die is ingesteld. Zelf boeken alleen als dat aan staat én het
         // betalingskenmerk een geldig controlecijfer heeft (dan staat de soort vast); anders een voorstel.
-        if (voorstel.Advies.Rekeningnummer is null
-            && Belastingherkenning.Herken(voorstel.Mutatie, context.Schema, context.Vorm, context.Belasting?.Vast()) is { Rekening: { } rekening } belasting)
+        // Ook als er iets geleerd is: de Belastingdienst heeft één IBAN voor alle belastingen, dus wat bij de btw geleerd
+        // is, zou anders ook de loonheffing en de vennootschapsbelasting op de btw-rekening boeken. Een eigen regel gaat
+        // wel voor, en bij motorrijtuigenbelasting het geleerde (per voertuig).
+        if (Belastingherkenning.Herken(voorstel.Mutatie, context.Schema, context.Vorm, context.Belasting?.Vast()) is { Rekening: { } rekening } belasting
+            && (voorstel.Advies.Rekeningnummer is null
+                || (voorstel.Advies.Bron is Adviesbron.Geleerd or Adviesbron.Relatie && belasting.Soort != Belastingsoort.Motorrijtuigenbelasting)))
         {
             // Motorrijtuigenbelasting nooit meteen zelf: de ene auto is zakelijk, de andere privé. Het leergeheugen
             // onthoudt de keuze per voertuig en boekt zelf na het ingestelde aantal bevestigingen.
@@ -1354,6 +1459,14 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
 
     private static async Task<IReadOnlyList<Relatie>> Relaties(AdministratieDbContext db) =>
         [.. (await db.Relaties.AsNoTracking().OrderBy(r => r.Naam).ToListAsync()).Select(r => r.NaarDomein())];
+
+    /// <summary>
+    /// Na het vergrendelen van de administratie opnieuw in de database kijken of de mutatie nog te verwerken is: twee
+    /// keer snel op Boeken (of tegelijk vanaf twee schermen) leest eerst allebei "te verwerken" en wacht dan op het slot;
+    /// de tweede mag daarna niet nog een keer boeken.
+    /// </summary>
+    private static Task<bool> NogTeVerwerken(AdministratieDbContext db, Guid mutatie) =>
+        db.Banktransacties.AsNoTracking().AnyAsync(t => t.Id == mutatie && t.Status == Banktransactiestatus.TeVerwerken);
 
     private static async Task<Banktransactie?> TeVerwerken(AdministratieDbContext db, Guid mutatie) =>
         await db.Banktransacties.FirstOrDefaultAsync(t => t.Id == mutatie && t.Status == Banktransactiestatus.TeVerwerken);
