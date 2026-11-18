@@ -71,9 +71,7 @@ public static partial class Belastingherkenning
     {
         ArgumentNullException.ThrowIfNull(mutatie);
         ArgumentNullException.ThrowIfNull(schema);
-        var vanBelastingdienst = string.Equals(mutatie.TegenIban, BelastingdienstIban, StringComparison.OrdinalIgnoreCase)
-                                 || mutatie.TegenNaam?.Contains("belastingdienst", StringComparison.OrdinalIgnoreCase) == true;
-        if (!vanBelastingdienst)
+        if (!VanBelastingdienst(mutatie))
         {
             return null;
         }
@@ -93,6 +91,14 @@ public static partial class Belastingherkenning
 
         var rekening = vast?.TryGetValue(soort, out var nummer) == true && schema.Zoek(nummer) is { } gekozen ? gekozen : Rekening(soort, schema, vorm);
         return new Belastingbetaling(soort, rekening, aanslag);
+    }
+
+    /// <summary>Een betaling aan of van de Belastingdienst: op het IBAN of de naam van de tegenpartij.</summary>
+    public static bool VanBelastingdienst(Bankmutatie mutatie)
+    {
+        ArgumentNullException.ThrowIfNull(mutatie);
+        return string.Equals(mutatie.TegenIban, BelastingdienstIban, StringComparison.OrdinalIgnoreCase)
+               || mutatie.TegenNaam?.Contains("belastingdienst", StringComparison.OrdinalIgnoreCase) == true;
     }
 
     /// <summary>

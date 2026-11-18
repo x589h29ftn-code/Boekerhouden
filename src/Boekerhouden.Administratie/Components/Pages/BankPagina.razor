@@ -806,17 +806,38 @@
 
     private async Task GeenDubbel()
     {
-        if (gekozen is not { } g)
+        if (gekozen is not { } g || bezig)
         {
             return;
         }
 
         bezig = true;
-        var uitkomst = await Bank.GeenDubbel(geopend!.Wie, Id, g.Mutatie.Id);
+        var klik = klikken;
+        Uitkomst uitkomst;
+        try
+        {
+            uitkomst = await Bank.GeenDubbel(geopend!.Wie, Id, g.Mutatie.Id);
+            await Laad();
+        }
+        finally
+        {
+            bezig = false;
+        }
+
+        if (klik != klikken)
+        {
+            // Intussen een andere mutatie aangeklikt: die blijft staan.
+            return;
+        }
+
         fouten = uitkomst.Fouten;
-        bezig = false;
-        await Laad();
-        gekozen = (mutaties ?? []).FirstOrDefault(m => m.Id == g.Mutatie.Id) is { Status: Banktransactiestatus.TeVerwerken } ? await Bank.Verwerking(geopend.Wie, Id, g.Mutatie.Id) : null;
+        if (uitkomst.IsGelukt && (mutaties ?? []).FirstOrDefault(m => m.Id == g.Mutatie.Id) is { Status: Banktransactiestatus.TeVerwerken } m)
+        {
+            // Opnieuw openen: het paneel (regels, voorstel) hoort nu bij een gewone mutatie.
+            gekozen = null;
+            await Kies(m);
+            fouten = uitkomst.Fouten;
+        }
     }
 
     private readonly Sortering<BankmutatieRegel> mutatiesortering = new(
@@ -982,6 +1003,8 @@
     /// <summary>De lijst van alle rekeningen samen (meer dan één bank, geen gekozen): met een kolom voor de rekening.</summary>
     private bool AlleBanken => stand.Count > 1 && Gekozenstand is null;
 
+    private static string? Leeg(string? tekst) => string.IsNullOrWhiteSpace(tekst) ? null : tekst.Trim();
+
     private static string? Teller(int aantal) => aantal > 0 ? $" {aantal}" : null;
 
     private void KiesBank(string? code)
@@ -992,7 +1015,7 @@
     }
 
     private void BewerkBank(Bankstand b) =>
-        (nieuweBank, bankfouten) = (new NieuweBank { Code = b.Dagboek, Naam = b.Naam, Iban = b.Iban is { } i ? Iban.Toon(i) : null, Rekening = b.Rekening, Bestaand = true }, null);
+        (nieuweBank, bankfouten) = (new NieuweBank { Code = b.Dagboek, Naam = b.Naam, Iban = b.Iban is { } i ? Iban.Toon(i) : null, Rekening = b.Rekening ?? "", Bestaand = true }, null);
 
     private async Task VoegBankToe()
     {
@@ -1044,6 +1067,13 @@
         geopend = g;
         mag = g.Kop.Mag(Recht.Invoeren);
         magRegels = g.Kop.Mag(Recht.Boekhouden);
+        // Een andere administratie: niets van de vorige blijft staan.
+        klikken++;
+        (schema, gekozen, venster, omzetting, omzetfout, opnieuw, nieuweBank, bankfouten, factuurUitkomst, fouten) =
+            (null, null, null, null, null, null, null, null, null, null);
+        uitkomsten = [];
+        regels = [];
+        geselecteerd.Clear();
         await Laad();
     }
 
@@ -1052,7 +1082,7 @@
         mutaties = await Bank.Lijst(geopend!.Wie, Id, ookGeboekt);
         metConcept = await Concepten.Met(geopend.Wie, Id, Conceptsoort.Bank);
         stand = await Bank.Stand(geopend.Wie, Id);
-        schema ??= await Grootboek.Schema(geopend.Wie, Id);
+        schema = await Grootboek.Schema(geopend.Wie, Id);
         if (btwcodes.Count == 0)
         {
             btwcodes = (await Btwtabel.Tabel()).Op(DateOnly.FromDateTime(DateTime.Today));
@@ -1090,26 +1120,46 @@
     /// <summary>Een factuur bij deze mutatie: inlezen zoals bij inkoop; na het boeken wordt hij op de mutatie afgeletterd.</summary>
     private async Task UploadFactuur(InputFileChangeEventArgs e)
     {
+        if (gekozen is not { } g || bezig)
+        {
+            return;
+        }
+
         bezig = true;
+        Inleesuitkomst uitkomst;
         try
         {
             await using var stream = e.File.OpenReadStream(Boekerhouden.Documenten.PdfTekst.MaximumBytes);
-            factuurUitkomst = await Inkoop.Lees(geopend!.Wie, Id, stream, e.File.Name, e.File.ContentType, gekozen!.Mutatie.Id);
+            uitkomst = await Inkoop.Lees(geopend!.Wie, Id, stream, e.File.Name, e.File.ContentType, g.Mutatie.Id);
         }
         catch (IOException)
         {
-            factuurUitkomst = new Inleesuitkomst(null, null, $"{e.File.Name} is te groot.");
+            uitkomst = new Inleesuitkomst(null, null, $"{e.File.Name} is te groot.");
+        }
+        finally
+        {
+            bezig = false;
         }
 
-        bezig = false;
-        if (factuurUitkomst.Dubbel)
+        if (uitkomst.Dubbel)
         {
-            Meldingen.Toon(factuurUitkomst.Melding);
+            Meldingen.Toon(uitkomst.Melding);
         }
 
-        if (factuurUitkomst.IsGeboekt)
+        // Intussen een andere mutatie aangeklikt: de uitkomst hoort niet in dat paneel.
+        var nogDeze = gekozen?.Mutatie.Id == g.Mutatie.Id;
+        if (nogDeze)
         {
-            gekozen = null;
+            factuurUitkomst = uitkomst;
+        }
+
+        if (uitkomst.IsGeboekt)
+        {
+            if (nogDeze)
+            {
+                gekozen = null;
+            }
+
             await Laad();
         }
     }
@@ -1299,13 +1349,14 @@
         }
 
         bezig = true;
+        var mutatie = gekozen!.Mutatie.Id;
         var uitkomst = heel
             ? await Bank.Afletteren(geopend!.Wie, Id, gekozen!.Mutatie.Id, [.. posten.Select(r => r.Post!.Value)])
             : await Bank.Verdeel(geopend!.Wie, Id, gekozen!.Mutatie.Id, [],
                 [.. ingevuld.Select(r => new Bankregelinvoer(r.Rekening ?? "", r.BtwCode, r.Waarde,
                     string.IsNullOrWhiteSpace(r.Omschrijving) ? (r.Post is null ? Standaardomschrijving(gekozen.Mutatie) : null) : r.Omschrijving, r.Post,
                     r.Post is null && Btwvolgenscode(gekozen, r) is not null ? r.Btwwaarde : null))]);
-        await Na(uitkomst);
+        await Na(uitkomst, mutatie);
     }
 
     /// <summary>
@@ -1350,8 +1401,12 @@
                 Relatie = bestaand.Regel.Relatie,
                 Omschrijving = bestaand.Regel.Omschrijving,
                 Richting = bestaand.Regel.Richting,
-                NaamBevat = tekst is { Length: > 0 } && bestaand.Regel.NaamBevat is not null ? tekst : regel.NaamBevat,
-                OmschrijvingBevat = tekst is { Length: > 0 } && bestaand.Regel.OmschrijvingBevat is not null && bestaand.Regel.NaamBevat is null ? tekst : regel.OmschrijvingBevat,
+                // Het veld waar de regel al op zocht (naam of omschrijving) houdt de tekst; had hij geen van beide, dan
+                // zoals bij een nieuwe regel.
+                NaamBevat = bestaand.Regel.NaamBevat is not null ? Leeg(tekst)
+                    : bestaand.Regel.OmschrijvingBevat is not null ? null : regel.NaamBevat,
+                OmschrijvingBevat = bestaand.Regel.NaamBevat is not null ? null
+                    : bestaand.Regel.OmschrijvingBevat is not null ? Leeg(tekst) : regel.OmschrijvingBevat,
             };
         }
 
@@ -1412,13 +1467,14 @@
         }
 
         bezig = true;
-        var uitkomst = await Bank.Afletteren(geopend!.Wie, Id, gekozen!.Mutatie.Id, keuze.Posten, keuze.Verschil);
+        var mutatie = gekozen!.Mutatie.Id;
+        var uitkomst = await Bank.Afletteren(geopend!.Wie, Id, mutatie, keuze.Posten, keuze.Verschil);
         if (uitkomst.IsGelukt)
         {
             venster = null;
         }
 
-        await Na(uitkomst);
+        await Na(uitkomst, mutatie);
     }
 
     private async Task Afletteren(List<Guid> posten)
@@ -1429,7 +1485,8 @@
         }
 
         bezig = true;
-        await Na(await Bank.Afletteren(geopend!.Wie, Id, gekozen!.Mutatie.Id, posten));
+        var mutatie = gekozen!.Mutatie.Id;
+        await Na(await Bank.Afletteren(geopend!.Wie, Id, mutatie, posten), mutatie);
     }
 
 
@@ -1453,12 +1510,12 @@
     /// <c>bezig</c> blijft aan tot de volgende mutatie klaarstaat (en gaat altijd weer uit): een tweede klik in die
     /// tijd boekt niet nog eens en opent niets anders.
     /// </remarks>
-    private async Task Na(Uitkomst uitkomst)
+    private async Task Na(Uitkomst uitkomst, Guid mutatie)
     {
         bezig = true;
         try
         {
-            await NaVerwerken(uitkomst);
+            await NaVerwerken(uitkomst, mutatie);
         }
         finally
         {
@@ -1466,28 +1523,33 @@
         }
     }
 
-    private async Task NaVerwerken(Uitkomst uitkomst)
+    private async Task NaVerwerken(Uitkomst uitkomst, Guid mutatie)
     {
-        fouten = uitkomst.Fouten;
-        if (uitkomst.IsGelukt && gekozen is { } klaar && metConcept.Contains(klaar.Mutatie.Id))
-        {
-            await Concepten.Verwijder(geopend!.Wie, Id, Conceptsoort.Bank, klaar.Mutatie.Id);
-        }
-
+        // Het concept van de mutatie ruimt de dienst bij het boeken zelf op. Is er intussen een andere mutatie
+        // aangeklikt, dan blijft die staan: alleen de lijst wordt bijgewerkt.
+        var klik = klikken;
+        fouten = gekozen?.Mutatie.Id == mutatie ? uitkomst.Fouten : null;
         if (uitkomst.IsGelukt)
         {
             // De volgende mutatie binnen het filter: wie op "Albert" filtert, krijgt de volgende van Albert.
             var lijst = mutatiesortering.Pas((mutaties ?? []).Where(PastFilter)).ToList();
-            var plek = gekozen is { } g ? lijst.FindIndex(m => m.Id == g.Mutatie.Id) : -1;
-            verwerkt = gekozen?.Mutatie.Id;
+            var plek = lijst.FindIndex(m => m.Id == mutatie);
+            verwerkt = mutatie;
             StateHasChanged();
             await Task.Delay(VerwerktDuur);
-            (verwerkt, gekozen) = (null, null);
+            verwerkt = null;
+            if (klik != klikken)
+            {
+                await Laad();
+                return;
+            }
+
+            gekozen = null;
             await Laad();
             var zichtbaar = mutatiesortering.Pas((mutaties ?? []).Where(PastFilter)).ToList();
             var daarna = zichtbaar.Skip(Math.Max(plek, 0)).Concat(zichtbaar)
                 .FirstOrDefault(m => m.Status == Banktransactiestatus.TeVerwerken);
-            if (plek >= 0 && daarna is not null)
+            if (plek >= 0 && daarna is not null && klik == klikken)
             {
                 await Kies(daarna);
             }

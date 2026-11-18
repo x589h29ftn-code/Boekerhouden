@@ -54,6 +54,22 @@ public sealed class BankOverlapTests(AdministratieFixture app) : IClassFixture<A
     }
 
     [Fact]
+    public async Task Een_overlappend_afschrift_geeft_geen_melding_dat_er_een_afschrift_mist()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var bank = app.Dienst<BankDienst>();
+        Assert.True((await bank.Lees(wie, id, Afschrift(new(2026, 3, 1), new(2026, 3, 8)), "maart-1.mt940")).IsGelukt);
+        Assert.True((await bank.Lees(wie, id, Afschrift(new(2026, 3, 9), new(2026, 3, 12)), "maart-2.mt940")).IsGelukt);
+
+        // Begint midden in het tweede: het eindsaldo van het eerste (op 8 maart) is geen vergelijking.
+        var derde = (await bank.Lees(wie, id, Afschrift(new(2026, 3, 11), new(2026, 3, 20)), "maart-3.mt940")).Waarde!;
+
+        Assert.Equal(2, derde.Nieuw);
+        Assert.DoesNotContain(derde.Meldingen, m => m.Contains("sluit niet aan", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Een_ander_formaat_geeft_mogelijk_dubbel_niet_automatisch_en_kiezen_en_verwijderen()
     {
         var wie = await app.Beheerder();

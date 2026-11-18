@@ -313,6 +313,12 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         // Een mogelijk dubbele mutatie nooit vanzelf boeken: anders staat dezelfde betaling twee keer in de boeken.
         foreach (var transactie in transacties.Where(t => !t.MogelijkDubbel).OrderBy(t => t.Datum).ThenBy(t => t.Volgorde))
         {
+            // De lijst is vooraf geladen: is de mutatie intussen (op een ander scherm) geboekt, dan overslaan.
+            if (!await NogTeVerwerken(db, transactie.Id))
+            {
+                continue;
+            }
+
             var voorstel = Voorstel(transactie, context);
             var uitkomst = KleinVerschil(voorstel, context) is { } klein
                 ? await BoekAfletteren(db, administratie, transactie, [klein.Kandidaat.Posten[0].Id], wie, klein.Reden, klein.Afboeking)
@@ -330,9 +336,11 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             }
             else
             {
-                transactie.Melding = Kort(uitkomst is null ? voorstel.Reden : string.Join(" ", uitkomst.Fouten), 1000);
-                db.Banktransacties.Update(transactie);
-                await db.SaveChangesAsync(annulering);
+                // Alleen de melding, en alleen zolang de mutatie nog te verwerken is: de geladen mutatie kan verouderd
+                // zijn (intussen geboekt), en die status mag niet terugkomen.
+                var melding = Kort(uitkomst is null ? voorstel.Reden : string.Join(" ", uitkomst.Fouten), 1000);
+                await db.Banktransacties.Where(t => t.Id == transactie.Id && t.Status == Banktransactiestatus.TeVerwerken)
+                    .ExecuteUpdateAsync(x => x.SetProperty(t => t.Melding, melding), annulering);
             }
         }
 
@@ -735,13 +743,14 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
                 d.Rekeningnummer is { } rekening ? regels.Where(r => r.Rekeningnummer == rekening && wanneer(r.Datum)).Sum(r => r.Bedrag) : null;
 
             // De beginstand: het grootboek vóór de eerste mutatie van dat afschrift. De begindatum betekent niet bij elke
-            // bank hetzelfde (MT940 :60F: en CAMT PRCD = het slot van de dag ervoor, CAMT OPBD = het begin van de dag);
-            // tot de dag na de begindatum en niet voorbij de eerste mutatie klopt het voor beide.
+            // bank hetzelfde (MT940 :60F: en CAMT PRCD = het slot van de dag ervoor, CAMT OPBD = het begin van de dag),
+            // en de beginbalans staat op 1 januari: tot de eerste mutatie (een bankboeking ervóór hoort niet bij dit
+            // afschrift); zonder mutaties tot na de einddatum (het saldo is dan niet veranderd).
             DateOnly? grens = null;
-            if (eerste?.Begindatum is { } van)
+            if (eerste?.Begindatum is not null)
             {
                 var eersteMutatie = await db.Banktransacties.AsNoTracking().Where(t => t.AfschriftId == eerste.Id).Select(t => (DateOnly?)t.Datum).OrderBy(x => x).FirstOrDefaultAsync();
-                grens = eersteMutatie is { } m && m <= van ? m : van.AddDays(1);
+                grens = eersteMutatie ?? eerste.Einddatum!.Value.AddDays(1);
             }
 
             lijst.Add(new Bankstand(d.Code, d.Naam, d.Iban, laatste?.Einddatum, laatste?.Eindsaldo, open.GetValueOrDefault(d.Code), d.Rekeningnummer,
@@ -771,7 +780,8 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         }
 
         naam = naam.Trim();
-        rekening = rekening.Trim();
+        // Geen rekening opgegeven: de rekening blijft zoals hij is.
+        rekening = rekening.Trim() is { Length: > 0 } opgegeven ? opgegeven : d.Rekeningnummer ?? "";
         var nieuwIban = string.IsNullOrWhiteSpace(iban) ? null : Iban.Normaliseer(iban);
         var fouten = new List<string>();
         if (naam.Length == 0)
@@ -795,7 +805,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             }
         }
 
-        if (rekening != d.Rekeningnummer)
+        if (rekening != (d.Rekeningnummer ?? ""))
         {
             var (schema, _) = await GrootboekDienst.Inrichting(db);
             if (schema.Zoek(rekening) is not { } r)
@@ -829,19 +839,19 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         {
             d.Naam != naam ? $"naam {d.Naam} → {naam}" : null,
             d.Iban != nieuwIban ? $"IBAN {(d.Iban is null ? "geen" : Iban.Toon(d.Iban))} → {(nieuwIban is null ? "geen" : Iban.Toon(nieuwIban))}" : null,
-            d.Rekeningnummer != rekening ? $"rekening {d.Rekeningnummer} → {rekening}" : null,
+            (d.Rekeningnummer ?? "") != rekening ? $"rekening {d.Rekeningnummer} → {rekening}" : null,
         }.OfType<string>().ToList();
         if (wijzigingen.Count == 0)
         {
             return Uitkomst.Gelukt;
         }
 
-        if (d.Rekeningnummer != rekening)
+        if ((d.Rekeningnummer ?? "") != rekening)
         {
             await MaakBankrekening(db, rekening);
         }
 
-        (d.Naam, d.Iban, d.Rekeningnummer) = (naam, nieuwIban, rekening);
+        (d.Naam, d.Iban, d.Rekeningnummer) = (naam, nieuwIban, rekening.Length > 0 ? rekening : d.Rekeningnummer);
         var adm = await db.Administraties.SingleAsync(a => a.Id == administratie);
         if (nieuwIban is not null && adm.Ibans.Count > 0 && !adm.Ibans.Select(Iban.Normaliseer).Contains(nieuwIban))
         {
@@ -1228,6 +1238,9 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         ArgumentNullException.ThrowIfNull(wie);
         ArgumentNullException.ThrowIfNull(mutaties);
         await using var db = await toegang.Open(wie, administratie, Recht.Invoeren);
+        // Eerst het slot, dan lezen: een mutatie die net (op een ander scherm) geboekt wordt, gaat niet op Verwijderd.
+        await using var transactie = await db.Database.BeginTransactionAsync();
+        await db.Vergrendel(administratie);
         var gekozen = await db.Banktransacties.Where(t => mutaties.Contains(t.Id)).ToListAsync();
         if (gekozen.Count == 0)
         {
@@ -1250,6 +1263,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         }
 
         await db.SaveChangesAsync();
+        await transactie.CommitAsync();
         if (weg.Count > 0)
         {
             await audit.Log(wie, AuditActies.BankmutatiesVerwijderd, $"{weg.Count} {(weg.Count == 1 ? "mutatie" : "mutaties")}",
@@ -1388,6 +1402,13 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             return null;
         }
 
+        // Valt het begin midden in een afschrift dat er al is (een bestand dat overlapt), dan is er niets te vergelijken:
+        // het vorige afschrift eindigt dan vóór dat andere, niet vlak voor dit begin.
+        if (await db.Afschriften.AsNoTracking().AnyAsync(a => a.Iban == iban && a.Einddatum > begin && (a.Begindatum ?? a.Einddatum) < begin))
+        {
+            return null;
+        }
+
         var vorige = await db.Afschriften.AsNoTracking().Where(a => a.Iban == iban && a.Einddatum != null && a.Einddatum <= begin)
             .OrderByDescending(a => a.Einddatum).ThenByDescending(a => a.IngelezenOp).FirstOrDefaultAsync();
         return vorige is null || vorige.Eindsaldo == afschrift.Beginsaldo
@@ -1445,7 +1466,8 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         // Ook als er iets geleerd is: de Belastingdienst heeft één IBAN voor alle belastingen, dus wat bij de btw geleerd
         // is, zou anders ook de loonheffing en de vennootschapsbelasting op de btw-rekening boeken. Een eigen regel gaat
         // wel voor, en bij motorrijtuigenbelasting het geleerde (per voertuig).
-        if (Belastingherkenning.Herken(voorstel.Mutatie, context.Schema, context.Vorm, context.Belasting?.Vast()) is { Rekening: { } rekening } belasting
+        var herkend = Belastingherkenning.Herken(voorstel.Mutatie, context.Schema, context.Vorm, context.Belasting?.Vast());
+        if (herkend is { Rekening: { } rekening } belasting
             && (voorstel.Advies.Rekeningnummer is null
                 || (voorstel.Advies.Bron is Adviesbron.Geleerd or Adviesbron.Relatie && belasting.Soort != Belastingsoort.Motorrijtuigenbelasting)))
         {
@@ -1454,6 +1476,15 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             var automatisch = context.Belasting?.Automatisch == true && belasting.Aanslag is not null && belasting.Soort != Belastingsoort.Motorrijtuigenbelasting;
             voorstel = voorstel with { Advies = new Verwerkingsadvies(rekening.Nummer, null, Adviesbron.Herkend, automatisch, belasting.Reden, Omschrijving: belasting.Omschrijving) };
         }
+        else if (voorstel.Advies is { Bron: Adviesbron.Geleerd or Adviesbron.Relatie, Automatisch: true }
+                 && herkend?.Soort != Belastingsoort.Motorrijtuigenbelasting
+                 && Belastingherkenning.VanBelastingdienst(voorstel.Mutatie))
+        {
+            // Van de Belastingdienst, maar welke belasting (of welke rekening) is niet te zeggen: wat geleerd is, kan bij
+            // een andere belasting horen. Alleen als voorstel, niet zelf boeken.
+            voorstel = voorstel with { Advies = voorstel.Advies with { Automatisch = false } };
+        }
+
         return context.BtwPlichtig ? voorstel : voorstel with { Advies = voorstel.Advies with { BtwCode = null } };
     }
 

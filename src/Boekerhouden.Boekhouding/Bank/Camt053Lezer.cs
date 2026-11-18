@@ -68,11 +68,9 @@ public static class Camt053Lezer
 
     private static IEnumerable<Bankmutatie> Mutaties(XElement ntry)
     {
+        // CdtDbtInd is de richting op de rekening, ook bij een storno (RvslInd): een gestorneerde incasso staat er als
+        // CRDT en komt er dus bij. Het teken niet nog eens omdraaien.
         var bedrag = Bedrag(ntry);
-        if (Tekst(Kind(ntry, "RvslInd")) is "true")
-        {
-            bedrag = -bedrag;
-        }
 
         var datum = Datum(Kind(ntry, "BookgDt")) ?? Datum(Kind(ntry, "ValDt"))
                     ?? throw new BankbestandException("Een boeking heeft geen datum (BookgDt).");

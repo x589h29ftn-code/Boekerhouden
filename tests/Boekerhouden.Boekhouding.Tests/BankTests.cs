@@ -266,6 +266,19 @@ public sealed class Camt053Tests
     }
 
     [Fact]
+    public void Een_gestorneerde_incasso_komt_erbij_zoals_CdtDbtInd_zegt()
+    {
+        var storno = Incasso("2026-11-17", 64.37m).Replace("<CdtDbtInd>DBIT</CdtDbtInd>", "<CdtDbtInd>CRDT</CdtDbtInd>", StringComparison.Ordinal)
+            .Replace("<Sts>", "<RvslInd>true</RvslInd><Sts>", StringComparison.Ordinal);
+        var xml = Dagafschriften(("2026-11-16", 791.11m, 726.74m, Incasso("2026-11-16", 64.37m)), ("2026-11-17", 726.74m, 791.11m, storno));
+
+        var dagen = Camt053Lezer.Lees(new MemoryStream(Encoding.UTF8.GetBytes(xml)));
+
+        Assert.Equal(64.37m, dagen[1].Mutaties.Single().Bedrag);
+        Assert.All(dagen, d => Assert.True(d.SluitAan));
+    }
+
+    [Fact]
     public void Samenvoegen_alleen_wat_aansluit_en_per_rekening()
     {
         Bankafschrift Dag(string iban, int dag, decimal begin, decimal eind, params Bankmutatie[] mutaties) =>

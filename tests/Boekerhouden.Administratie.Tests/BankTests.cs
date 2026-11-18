@@ -180,6 +180,9 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
         Assert.True((await bank.WijzigBank(wie, id, "DEP", "Deposito", "NL02ABNA0123456789", "0700")).IsGelukt);
         Assert.Equal(("NL02ABNA0123456789", "0700"), (await bank.Stand(wie, id)).Single(b => b.Dagboek == "DEP") is var dep ? (dep.Iban, dep.Rekening) : default);
         Assert.Contains("hoort al bij dagboek BNK", string.Join(" ", (await bank.WijzigBank(wie, id, "DEP", "Deposito", null, "1100")).Fouten), StringComparison.Ordinal);
+        // Geen rekening meegegeven: de rekening blijft staan.
+        Assert.True((await bank.WijzigBank(wie, id, "DEP", "Deposito ING", "NL02ABNA0123456789", "")).IsGelukt);
+        Assert.Equal(("Deposito ING", "0700"), (await bank.Stand(wie, id)).Single(b => b.Dagboek == "DEP") is var dep2 ? (dep2.Naam, dep2.Rekening) : default);
         Assert.Contains("bestaat niet", string.Join(" ", (await bank.WijzigBank(wie, id, "MEM", "Memo", null, "1000")).Fouten), StringComparison.Ordinal);
 
         // Alleen het kantoor voegt een bankrekening toe of past hem aan.
@@ -803,6 +806,52 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
         Assert.NotEqual("1820", advies.Rekeningnummer);
         Assert.Equal(Boekhouding.Regels.Adviesbron.Herkend, advies.Bron);
         Assert.StartsWith("Belastingdienst: loonheffingen", advies.Reden, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Wat_bij_de_Belastingdienst_geleerd_is_boekt_een_onbekende_belasting_niet_zelf()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Belasting Onbekend B.V.", schema: Boekhouding.Grootboek.Schemakeuze.Ovpa);
+        var bank = app.Dienst<BankDienst>();
+        string NaarBelastingdienst(bool april) => new StreamReader(Afschrift(april: april)).ReadToEnd()
+            .Replace("CNTP/NL63TRIO0212345678/TRIONL2U/Belnet B.V./UTRECHT////REMI/USTD", "CNTP/NL86INGB0002445588/INGBNL2A/Belastingdienst/APELDOORN////REMI/USTD", StringComparison.Ordinal)
+            .Replace("//Factuur BN-2026-0311 maand maart/", "//8123.45.678.B.01/", StringComparison.Ordinal)
+            .Replace("CNTP/NL36INGB0007654321/INGBNL2A/Kantoor", "CNTP/NL86INGB0002445588/INGBNL2A/Belasting", StringComparison.Ordinal)
+            .Replace("handel Jansen/ZWOLLE", "dienst/APELDOORN", StringComparison.Ordinal);
+        // In april hetzelfde bedrag als de btw, maar zonder kenmerk: de soort is niet te zien.
+        var april = NaarBelastingdienst(april: true).Replace("D000000000199,65", "D000000000025,00", StringComparison.Ordinal)
+            .Replace(":62F:C260430EUR000000006985,35", ":62F:C260430EUR000000007160,00", StringComparison.Ordinal);
+
+        // Twee keer de btw op 1820: het leergeheugen boekt die keuze bij het IBAN van de Belastingdienst voortaan zelf.
+        await bank.Lees(wie, id, new MemoryStream(Encoding.Latin1.GetBytes(NaarBelastingdienst(april: false))), "maart.mt940");
+        await bank.Lees(wie, id, new MemoryStream(Encoding.Latin1.GetBytes(april)), "april.mt940");
+        foreach (var btw in (await bank.Lijst(wie, id)).Where(m => m.Omschrijving.Contains("B.01", StringComparison.Ordinal)))
+        {
+            Assert.True((await bank.OpRekening(wie, id, [btw.Id], "1820", null)).IsGelukt);
+        }
+
+        // Een betaling zonder kenmerk of woord waaraan de belasting te zien is: het geleerde alleen als voorstel.
+        var onbekend = (await bank.Lijst(wie, id)).Single(m => m.Bedrag == -25m);
+        var advies = (await bank.Verwerking(wie, id, onbekend.Id))!.Voorstel;
+        Assert.Equal(("1820", Boekhouding.Regels.Adviesbron.Geleerd, Boekhouding.Bank.Bankactie.Geen), (advies.Advies.Rekeningnummer, advies.Advies.Bron, advies.Automatisch));
+        Assert.Equal(0, (await bank.VerwerkOpnieuw(wie, id)).Geboekt);
+    }
+
+    [Fact]
+    public async Task De_beginstand_van_een_afschrift_vanaf_31_december_telt_de_beginbalans_mee()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var bank = app.Dienst<BankDienst>();
+        var tekst = new StreamReader(Afschrift()).ReadToEnd().Replace(":60F:C260301EUR", ":60F:C251231EUR", StringComparison.Ordinal);
+        Assert.True((await bank.Lees(wie, id, new MemoryStream(Encoding.Latin1.GetBytes(tekst)), "ing.mt940")).IsGelukt);
+        Assert.True((await app.Dienst<GrootboekDienst>().Boek(wie, id, new Boekhouding.Grootboek.Journaalpost("MEM", "2026-0001", new(2026, 1, 1), "Beginbalans",
+            [new("1100", 5000m), new("0500", -5000m)]))).IsGelukt);
+
+        var stand = (await bank.Stand(wie, id)).Single(b => b.Dagboek == "BNK");
+
+        Assert.Equal((new DateOnly(2025, 12, 31), 5000m, 5000m, 0m), (stand.Van, stand.Beginsaldo, stand.BeginGrootboek, stand.Beginverschil));
     }
 
     [Theory]
