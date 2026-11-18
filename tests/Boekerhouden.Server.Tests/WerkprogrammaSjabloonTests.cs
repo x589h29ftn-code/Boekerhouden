@@ -80,6 +80,7 @@ public sealed class WerkprogrammaSjabloonTests(ServerFixture server) : IClassFix
 
         var onderdeel = (await Sjablonen.Haal(bv.Id))!.Onderdelen.Single(o => o.HoofdpostCode == "BVas");
         Assert.Equal(["Huurcontracten", "Taxatie"], onderdeel.Stappen.Select(s => s.Titel));
+        Assert.Contains(await server.Dienst<AuditDienst>().Recent(AuditActies.SjabloonGewijzigd), a => a.Details!.Contains("'Taxatie' omlaag", StringComparison.Ordinal));
         Assert.Equal(OnderdeelSoort.Post, onderdeel.Soort);
 
         var planning = (await Sjablonen.Haal(bv.Id))!.Onderdelen.Single(o => o.Soort == OnderdeelSoort.MaterielePosten);

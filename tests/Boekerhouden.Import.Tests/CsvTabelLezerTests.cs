@@ -10,6 +10,8 @@ public class CsvTabelLezerTests
     [InlineData("Grootboeknummer\tOmschrijving\tBedrag", '\t')]
     [InlineData("Grootboeknummer,Omschrijving,Bedrag", ',')]
     [InlineData("Boekjaar;2025\nGrootboeknummer,Omschrijving,Bedrag", ',')]
+    [InlineData("Rekeningnummer\tNaam\tEindsaldo\n1100\tBank\t1.234,56", '\t')]
+    [InlineData("Boekjaar;2025\nRekening,Omschr,Saldo", ',')]
     public void Herkent_het_scheidingsteken_aan_de_kopregel(string tekst, char verwacht)
     {
         Assert.Equal(verwacht, CsvTabelLezer.BepaalScheidingsteken(tekst));

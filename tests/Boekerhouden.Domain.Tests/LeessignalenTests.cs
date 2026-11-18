@@ -83,7 +83,8 @@ public sealed class LeessignalenTests
     [Fact]
     public void Negatief_eigen_vermogen_zonder_alinea_over_de_continuiteit()
     {
-        static void Negatief(Dictionary<string, (decimal, decimal)> s) => s["BEivGok"] = (12_000m, -28_000m);
+        // Het resultaat van het jaar (winst 33.200) telt mee: 45.200 debet min de winst is −12.000.
+        static void Negatief(Dictionary<string, (decimal, decimal)> s) => s["BEivGok"] = (45_200m, -28_000m);
 
         var s = Assert.Single(Signalen(Negatief), x => x.Sleutel == "negatief-vermogen");
         Assert.Equal("Negatief eigen vermogen", s.Titel);
@@ -92,6 +93,17 @@ public sealed class LeessignalenTests
         GrondslagBlok continuiteit = new("continuiteit", "Continuïteit", "…", Opgenomen: true, EigenTekst: false);
         Assert.DoesNotContain("negatief-vermogen", Sleutels(Signalen(Negatief, grondslagen: [continuiteit])));
         Assert.Equal("Negatief ondernemingsvermogen", Signalen(Negatief, RapportSoort.AangifteBijlage).Single(x => x.Sleutel == "negatief-vermogen").Titel);
+    }
+
+    [Fact]
+    public void Een_verlies_dat_het_vermogen_negatief_maakt_geeft_het_signaal_en_een_winst_die_het_aanvult_niet()
+    {
+        // Kapitaal 18.000 credit, verlies van 30.000: eigen vermogen −12.000.
+        static void Verlies(Dictionary<string, (decimal, decimal)> s) => (s["BEivGok"], s["WKprInh"]) = ((-18_000m, -28_000m), (133_200m, 57_000m));
+        Assert.Contains("negatief-vermogen", Sleutels(Signalen(Verlies)));
+
+        // 10.000 debet op het eigen vermogen bij een winst van 33.200: positief, geen signaal.
+        Assert.DoesNotContain("negatief-vermogen", Sleutels(Signalen(s => s["BEivGok"] = (10_000m, -28_000m))));
     }
 
     [Fact]

@@ -89,6 +89,7 @@ public static class AuditActies
     public const string StapToegevoegd = "Stap toegevoegd";
     public const string StapVerwijderd = "Stap verwijderd";
     public const string StapHersteld = "Stap hersteld";
+    public const string StapVerplaatst = "Stap verplaatst";
     public const string NotitieGewijzigd = "Notitie gewijzigd";
     public const string SjabloonGewijzigd = "Werkprogrammasjabloon gewijzigd";
     public const string ReviewpuntGeplaatst = "Reviewpunt geplaatst";

@@ -150,7 +150,11 @@ public sealed class WerkprogrammaSjabloonDienst(IDbContextFactory<BoekerhoudenDb
             stappen[k].Volgorde = k;
         }
 
+        var onderdeel = await db.SjabloonOnderdelen.SingleAsync(o => o.Id == stap.OnderdeelId);
+        var sjabloon = await db.WerkprogrammaSjablonen.SingleAsync(w => w.Id == onderdeel.SjabloonId);
+        Gewijzigd(sjabloon, wie);
         await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.SjabloonGewijzigd, sjabloon.Naam, $"{onderdeel.Titel}: stap '{stap.Titel}' {(richting < 0 ? "omhoog" : "omlaag")}");
         return Uitkomst.Gelukt;
     }
 

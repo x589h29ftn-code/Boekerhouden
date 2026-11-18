@@ -46,6 +46,12 @@ public sealed class ReviewDienst(IDbContextFactory<BoekerhoudenDbContext> dbFact
             }
         }
 
+        // Een opmerking op een gereviewd onderdeel laat de paraaf vervallen: dat mag alleen wie de review ook mag terugzetten.
+        if (onderdeel.GereviewdDoor is not null && await ParaafVast(db, wie, onderdeel) is { } waarom)
+        {
+            return Uitkomst<Guid>.Mislukt(waarom);
+        }
+
         var punt = new Reviewpunt
         {
             ToegewezenAanId = toegewezenAanId,
@@ -104,10 +110,15 @@ public sealed class ReviewDienst(IDbContextFactory<BoekerhoudenDbContext> dbFact
             return Uitkomst.Mislukt("Dit reviewpunt bestaat niet (meer).");
         }
 
+        var onderdeel = await db.DossierOnderdelen.SingleAsync(o => o.Id == punt.OnderdeelId);
+        if (onderdeel.GereviewdDoor is not null && await ParaafVast(db, wie, onderdeel) is { } waarom)
+        {
+            return Uitkomst.Mislukt(waarom);
+        }
+
         punt.Opgelost = false;
         punt.OpgelostDoor = null;
         punt.OpgelostOp = null;
-        var onderdeel = await db.DossierOnderdelen.SingleAsync(o => o.Id == punt.OnderdeelId);
         onderdeel.GereviewdDoor = null;
         onderdeel.GereviewdOp = null;
         await db.SaveChangesAsync();
@@ -229,6 +240,12 @@ public sealed class ReviewDienst(IDbContextFactory<BoekerhoudenDbContext> dbFact
         await audit.Log(wie, AuditActies.ReviewTeruggezet, WerkprogrammaDienst.Onderwerp(dossier), onderdeel.Titel);
         return Uitkomst.Gelukt;
     }
+
+    /// <summary>Waarom deze gebruiker de review van het onderdeel niet mag laten vervallen; leeg als het mag.</summary>
+    private static async Task<string?> ParaafVast(BoekerhoudenDbContext db, Uitvoerder wie, DossierOnderdeel onderdeel) =>
+        !await MagReviewen(db, wie) ? "Dit onderdeel is gereviewd; alleen een reviewer of accountant kan de review laten vervallen."
+        : onderdeel.Soort == OnderdeelSoort.Doorlezen && !await IsAccountant(db, wie) ? AlleenAccountant
+        : null;
 
     public const string AlleenAccountant = "Alleen een accountant kan het doorlezen paraferen of de paraaf terugzetten.";
 

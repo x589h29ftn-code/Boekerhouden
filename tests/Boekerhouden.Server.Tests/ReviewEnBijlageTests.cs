@@ -73,6 +73,10 @@ public sealed class ReviewEnBijlageTests(ServerFixture server) : IClassFixture<S
         Assert.Equal(WerkprogrammaDienst.Gereviewd, Assert.Single((await Werkprogramma.BewaarAntwoord(kennis.Stappen[0].Id, "later", Medewerker)).Fouten));
         Assert.False((await Werkprogramma.VoegStapToe(kennis.Id, "Extra", null, Medewerker)).IsGelukt);
 
+        // Een medewerker kan de review niet via een nieuw punt laten vervallen.
+        Assert.False((await Review.PlaatsPunt(kennis.Id, null, "Zo zet ik de review terug.", Medewerker)).IsGelukt);
+        Assert.NotNull((await Kennis(dossierId)).GereviewdDoor);
+
         await Review.PlaatsPunt(kennis.Id, null, "Toch nog even naar de stelselkeuze kijken.", reviewer);
         Assert.Null((await Kennis(dossierId)).GereviewdDoor);
         Assert.True((await Werkprogramma.BewaarAntwoord(kennis.Stappen[2].Id, "Titel 9 Boek 2 BW, ongewijzigd.", Medewerker)).IsGelukt);
