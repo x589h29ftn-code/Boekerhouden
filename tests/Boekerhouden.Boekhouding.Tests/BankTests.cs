@@ -172,6 +172,74 @@ public sealed class Camt053Tests
         Assert.Equal("Kosten betaalrekening april", afschrift.Mutaties[3].Omschrijving);
     }
 
+    /// <summary>
+    /// Een CAMT.053-bestand zoals een bank het per week levert: een afschrift per dag (camt.053.001.08), met het
+    /// slotsaldo van de vorige dag (PRCD), het openingssaldo (OPBD) en het slotsaldo (CLBD), ook op dagen zonder mutaties.
+    /// </summary>
+    private static string B(decimal bedrag) => bedrag.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+
+    internal static string Dagafschriften(params (string Datum, decimal Begin, decimal Eind, string? Ntry)[] dagen) =>
+        $$"""
+        <?xml version="1.0" encoding="UTF-8"?><Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.08"><BkToCstmrStmt><GrpHdr><MsgId>1</MsgId></GrpHdr>
+        {{string.Concat(dagen.Select((d, i) => $$"""
+        <Stmt><Id>S{{i}}</Id><ElctrncSeqNb>{{100 + i}}</ElctrncSeqNb><Acct><Id><IBAN>NL20INGB0001234567</IBAN></Id><Ccy>EUR</Ccy></Acct>
+        <Bal><Tp><CdOrPrtry><Cd>PRCD</Cd></CdOrPrtry></Tp><Amt Ccy="EUR">{{B(d.Begin)}}</Amt><CdtDbtInd>CRDT</CdtDbtInd><Dt><Dt>{{DateOnly.Parse(d.Datum, System.Globalization.CultureInfo.InvariantCulture).AddDays(-1):yyyy-MM-dd}}</Dt></Dt></Bal>
+        <Bal><Tp><CdOrPrtry><Cd>OPBD</Cd></CdOrPrtry></Tp><Amt Ccy="EUR">{{B(d.Begin)}}</Amt><CdtDbtInd>CRDT</CdtDbtInd><Dt><Dt>{{d.Datum}}</Dt></Dt></Bal>
+        <Bal><Tp><CdOrPrtry><Cd>CLBD</Cd></CdOrPrtry></Tp><Amt Ccy="EUR">{{B(d.Eind)}}</Amt><CdtDbtInd>CRDT</CdtDbtInd><Dt><Dt>{{d.Datum}}</Dt></Dt></Bal>
+        <Bal><Tp><CdOrPrtry><Cd>FWAV</Cd></CdOrPrtry></Tp><Amt Ccy="EUR">{{B(d.Eind)}}</Amt><CdtDbtInd>CRDT</CdtDbtInd><Dt><Dt>{{d.Datum}}</Dt></Dt></Bal>
+        {{d.Ntry}}</Stmt>
+        """))}}
+        </BkToCstmrStmt></Document>
+        """;
+
+    internal static string Incasso(string datum, decimal bedrag) => $"""
+        <Ntry><Amt Ccy="EUR">{B(bedrag)}</Amt><CdtDbtInd>DBIT</CdtDbtInd><Sts><Cd>BOOK</Cd></Sts><BookgDt><Dt>{datum}</Dt></BookgDt><ValDt><Dt>{datum}</Dt></ValDt>
+        <NtryDtls><TxDtls><Refs><EndToEndId>INC-{datum}</EndToEndId><MndtId>M1</MndtId></Refs><Amt Ccy="EUR">{B(bedrag)}</Amt><CdtDbtInd>DBIT</CdtDbtInd>
+        <RltdPties><Cdtr><Pty><Nm>Kabel en Internet B.V.</Nm></Pty></Cdtr><CdtrAcct><Id><IBAN>NL63TRIO0212345678</IBAN></Id></CdtrAcct></RltdPties>
+        <RmtInf><Ustrd>Klantnummer 123 november</Ustrd></RmtInf></TxDtls></NtryDtls></Ntry>
+        """;
+
+    [Fact]
+    public void Een_afschrift_per_dag_ook_zonder_mutaties_wordt_een_afschrift_over_de_hele_week()
+    {
+        var xml = Dagafschriften(("2026-11-10", 791.11m, 791.11m, null), ("2026-11-11", 791.11m, 791.11m, null),
+            ("2026-11-16", 791.11m, 726.74m, Incasso("2026-11-16", 64.37m)), ("2026-11-17", 726.74m, 726.74m, null));
+
+        var dagen = Camt053Lezer.Lees(new MemoryStream(Encoding.UTF8.GetBytes(xml)));
+
+        // Per dag: het openingssaldo van die dag (OPBD), niet de datum van de vorige dag (PRCD).
+        Assert.Equal(4, dagen.Count);
+        Assert.All(dagen, d => Assert.Equal(d.Begindatum, d.Einddatum));
+        Assert.Equal((-64.37m, "Kabel en Internet B.V.", "NL63TRIO0212345678"), (dagen[2].Mutaties[0].Bedrag, dagen[2].Mutaties[0].TegenNaam, dagen[2].Mutaties[0].TegenIban));
+
+        var week = Assert.Single(Bankafschrift.Samenvoegen(dagen));
+        Assert.Equal((new DateOnly(2026, 11, 10), 791.11m, new DateOnly(2026, 11, 17), 726.74m), (week.Begindatum, week.Beginsaldo, week.Einddatum, week.Eindsaldo));
+        Assert.Equal("100-103", week.Nummer);
+        Assert.Single(week.Mutaties);
+        Assert.True(week.SluitAan);
+    }
+
+    [Fact]
+    public void Samenvoegen_alleen_wat_aansluit_en_per_rekening()
+    {
+        Bankafschrift Dag(string iban, int dag, decimal begin, decimal eind, params Bankmutatie[] mutaties) =>
+            new(iban, $"{dag}", "EUR", new(2026, 11, dag), begin, new(2026, 11, dag), eind, mutaties);
+
+        var los = Bankafschrift.Samenvoegen(
+        [
+            Dag("NL20INGB0001234567", 10, 100m, 100m),
+            Dag("NL20INGB0001234567", 11, 100m, 90m, new Bankmutatie(new(2026, 11, 11), -10m, "a")),
+            // Een gat: het beginsaldo sluit niet aan op het vorige eindsaldo, dus een eigen afschrift.
+            Dag("NL20INGB0001234567", 14, 80m, 80m),
+            Dag("NL91ABNA0417164300", 11, 5m, 5m),
+        ]);
+
+        Assert.Equal(3, los.Count);
+        Assert.Equal((new DateOnly(2026, 11, 10), new DateOnly(2026, 11, 11), 1), (los[0].Begindatum, los[0].Einddatum, los[0].Mutaties.Count));
+        Assert.Equal(80m, los[1].Beginsaldo);
+        Assert.Equal("NL91ABNA0417164300", los[2].Iban);
+    }
+
     [Fact]
     public void Geen_afschrift_of_geen_xml_geeft_een_fout()
     {

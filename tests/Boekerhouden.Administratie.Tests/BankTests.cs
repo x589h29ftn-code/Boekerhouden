@@ -72,6 +72,53 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
         Assert.Equal(1, await db.Afschriften.CountAsync());
     }
 
+    /// <summary>Een verzonnen CAMT.053 met een afschrift per dag (zoals een bank het per week levert), op dagen zonder mutaties ook.</summary>
+    private static MemoryStream Dagafschriften(params (int Dag, decimal Begin, decimal Eind, decimal? Incasso)[] dagen)
+    {
+        static string B(decimal bedrag) => bedrag.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+        var stmts = string.Concat(dagen.Select(d => $"""
+            <Stmt><Id>S{d.Dag}</Id><ElctrncSeqNb>{d.Dag}</ElctrncSeqNb><Acct><Id><IBAN>{EigenIban}</IBAN></Id><Ccy>EUR</Ccy></Acct>
+            <Bal><Tp><CdOrPrtry><Cd>PRCD</Cd></CdOrPrtry></Tp><Amt Ccy="EUR">{B(d.Begin)}</Amt><CdtDbtInd>CRDT</CdtDbtInd><Dt><Dt>2026-11-{d.Dag - 1:00}</Dt></Dt></Bal>
+            <Bal><Tp><CdOrPrtry><Cd>OPBD</Cd></CdOrPrtry></Tp><Amt Ccy="EUR">{B(d.Begin)}</Amt><CdtDbtInd>CRDT</CdtDbtInd><Dt><Dt>2026-11-{d.Dag:00}</Dt></Dt></Bal>
+            <Bal><Tp><CdOrPrtry><Cd>CLBD</Cd></CdOrPrtry></Tp><Amt Ccy="EUR">{B(d.Eind)}</Amt><CdtDbtInd>CRDT</CdtDbtInd><Dt><Dt>2026-11-{d.Dag:00}</Dt></Dt></Bal>
+            {(d.Incasso is { } bedrag ? $"""
+                <Ntry><Amt Ccy="EUR">{B(bedrag)}</Amt><CdtDbtInd>DBIT</CdtDbtInd><BookgDt><Dt>2026-11-{d.Dag:00}</Dt></BookgDt><NtryDtls><TxDtls>
+                <Refs><EndToEndId>INC-{d.Dag}</EndToEndId></Refs><RltdPties><Cdtr><Pty><Nm>Kabel en Internet B.V.</Nm></Pty></Cdtr>
+                <CdtrAcct><Id><IBAN>NL63TRIO0212345678</IBAN></Id></CdtrAcct></RltdPties><RmtInf><Ustrd>Klantnummer 123</Ustrd></RmtInf></TxDtls></NtryDtls></Ntry>
+                """ : null)}
+            </Stmt>
+            """));
+        return new MemoryStream(Encoding.UTF8.GetBytes($"""<?xml version="1.0" encoding="UTF-8"?><Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.08"><BkToCstmrStmt>{stmts}</BkToCstmrStmt></Document>"""));
+    }
+
+    [Fact]
+    public async Task Een_camt_met_een_afschrift_per_dag_wordt_een_afschrift_over_de_hele_week()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var bank = app.Dienst<BankDienst>();
+        (int, decimal, decimal, decimal?)[] week = [(10, 791.11m, 791.11m, null), (11, 791.11m, 791.11m, null), (16, 791.11m, 726.74m, 64.37m), (17, 726.74m, 726.74m, null)];
+
+        var eerste = await bank.Lees(wie, id, Dagafschriften(week), "camt.xml");
+        Assert.True(eerste.IsGelukt, string.Join("; ", eerste.Fouten));
+        Assert.Equal((4, 1), (eerste.Waarde!.Afschriften, eerste.Waarde.Nieuw));
+        Assert.Equal(-64.37m, Assert.Single(await bank.Lijst(wie, id)).Bedrag);
+
+        // Nog een keer: niets nieuws, en geen tweede afschrift.
+        Assert.Equal((0, 1), ((await bank.Lees(wie, id, Dagafschriften(week), "camt-2.xml")).Waarde!.Nieuw, (await bank.Lees(wie, id, Dagafschriften(week), "camt-3.xml")).Waarde!.Dubbel));
+
+        // De week erna zonder mutaties: alleen de stand van de rekening, één keer.
+        Assert.True((await bank.Lees(wie, id, Dagafschriften((18, 726.74m, 726.74m, null), (19, 726.74m, 726.74m, null)), "leeg.xml")).IsGelukt);
+        Assert.True((await bank.Lees(wie, id, Dagafschriften((18, 726.74m, 726.74m, null), (19, 726.74m, 726.74m, null)), "leeg-2.xml")).IsGelukt);
+
+        await using var db = await app.Dienst<Toegang>().Open(wie, id, Recht.Lezen);
+        var afschriften = await db.Afschriften.AsNoTracking().OrderBy(a => a.Einddatum).ToListAsync();
+        Assert.Equal(2, afschriften.Count);
+        Assert.Equal((new DateOnly(2026, 11, 10), 791.11m, new DateOnly(2026, 11, 17), 726.74m, "10-17"),
+            (afschriften[0].Begindatum, afschriften[0].Beginsaldo, afschriften[0].Einddatum, afschriften[0].Eindsaldo, afschriften[0].Nummer));
+        Assert.Equal((new DateOnly(2026, 11, 18), new DateOnly(2026, 11, 19), null), (afschriften[1].Begindatum, afschriften[1].Einddatum, afschriften[1].Melding));
+    }
+
     [Fact]
     public async Task Een_afschrift_dat_niet_sluit_wordt_geweigerd_en_er_wordt_niets_ingelezen()
     {

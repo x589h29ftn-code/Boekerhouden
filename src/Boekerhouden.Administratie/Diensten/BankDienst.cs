@@ -147,6 +147,10 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             return Uitkomst<Bankinlezing>.Mislukt($"{naam} bevat geen bankafschrift.");
         }
 
+        // Een afschrift per dag (CAMT) wordt één afschrift over de hele periode, ook de dagen zonder mutaties.
+        var gelezen = afschriften.Count;
+        afschriften = Bankafschrift.Samenvoegen(afschriften);
+
         if (afschriften.FirstOrDefault(a => !a.SluitAan) is { } fout2)
         {
             return Uitkomst<Bankinlezing>.Mislukt(
@@ -190,7 +194,9 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
                 meldingen.Add(overlap);
             }
 
-            if (regels.Count == 0)
+            // Zonder nieuwe mutaties alleen het afschrift zelf onthouden (de stand van de rekening), als dat er nog niet is.
+            if (regels.Count == 0 && (afschrift.Mutaties.Count > 0
+                || await db.Afschriften.AnyAsync(a => a.Iban == iban && a.Einddatum == afschrift.Einddatum && a.Eindsaldo == afschrift.Eindsaldo, annulering)))
             {
                 continue;
             }
@@ -249,7 +255,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         }
 
         var automatisch = await VerwerkAutomatisch(db, administratie, nieuw, wie, annulering);
-        return Uitkomst<Bankinlezing>.Met(new Bankinlezing(afschriften.Count, nieuw.Count, dubbel, automatisch, meldingen, mogelijkDubbel));
+        return Uitkomst<Bankinlezing>.Met(new Bankinlezing(gelezen, nieuw.Count, dubbel, automatisch, meldingen, mogelijkDubbel));
     }
 
     /// <summary>

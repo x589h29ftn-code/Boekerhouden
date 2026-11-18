@@ -42,7 +42,8 @@ public static class Camt053Lezer
                    ?? Tekst(Kind(Kind(Kind(rekening, "Id"), "Othr"), "Id"))
                    ?? throw new BankbestandException("Een afschrift heeft geen rekening (Acct/Id).");
         var saldi = Kinderen(stmt, "Bal").Select(b => (Code: Tekst(Kind(Kind(Kind(b, "Tp"), "CdOrPrtry"), "Cd")), Bedrag: Bedrag(b), Datum: Datum(Kind(b, "Dt")))).ToList();
-        var begin = saldi.FirstOrDefault(s => s.Code is "OPBD" or "PRCD");
+        // Het openingssaldo van de dag zelf (OPBD); anders het slotsaldo van de vorige dag (PRCD), met die datum.
+        var begin = saldi.FirstOrDefault(s => s.Code is "OPBD") is { Code: not null } open ? open : saldi.FirstOrDefault(s => s.Code is "PRCD");
         var eind = saldi.FirstOrDefault(s => s.Code is "CLBD");
         if (begin.Code is null || eind.Code is null)
         {

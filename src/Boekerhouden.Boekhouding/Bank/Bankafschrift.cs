@@ -41,6 +41,47 @@ public sealed record Bankafschrift(
     public decimal Verschil => Beginsaldo + Mutaties.Sum(m => m.Bedrag) - Eindsaldo;
 
     public bool SluitAan => Verschil == 0;
+
+    /// <summary>
+    /// Afschriften van dezelfde rekening die op elkaar aansluiten (het eindsaldo van het ene is het beginsaldo van het
+    /// volgende), samengevoegd tot één afschrift over de hele periode. Een bank levert in één CAMT-bestand vaak een
+    /// afschrift per dag, ook voor dagen zonder mutaties; samen zijn ze één afschrift van de eerste tot de laatste dag.
+    /// Wat niet aansluit, blijft een eigen afschrift (zodat de aansluitingscontrole het ziet).
+    /// </summary>
+    public static IReadOnlyList<Bankafschrift> Samenvoegen(IEnumerable<Bankafschrift> afschriften)
+    {
+        ArgumentNullException.ThrowIfNull(afschriften);
+        var uit = new List<Bankafschrift>();
+        foreach (var groep in afschriften.GroupBy(a => (Relaties.Iban.Normaliseer(a.Iban), a.Valuta)))
+        {
+            Bankafschrift? huidig = null;
+            foreach (var a in groep.OrderBy(a => a.Einddatum ?? DateOnly.MaxValue))
+            {
+                if (huidig is not null && huidig.Eindsaldo == a.Beginsaldo && huidig.Einddatum is { } eind && a.Begindatum is { } begin && begin >= eind.AddDays(-1))
+                {
+                    var nummer = huidig.Nummer == a.Nummer || a.Nummer is null ? huidig.Nummer : $"{EersteNummer(huidig.Nummer)}-{a.Nummer}";
+                    huidig = huidig with { Nummer = nummer, Einddatum = a.Einddatum, Eindsaldo = a.Eindsaldo, Mutaties = [.. huidig.Mutaties, .. a.Mutaties] };
+                    continue;
+                }
+
+                if (huidig is not null)
+                {
+                    uit.Add(huidig);
+                }
+
+                huidig = a;
+            }
+
+            if (huidig is not null)
+            {
+                uit.Add(huidig);
+            }
+        }
+
+        return uit;
+    }
+
+    private static string? EersteNummer(string? nummer) => nummer?.Split('-')[0];
 }
 
 /// <summary>Een fout in een bankbestand, met het regelnummer als dat bekend is.</summary>
