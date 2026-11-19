@@ -1122,7 +1122,11 @@ public sealed class InkoopDienst(
 
         if (!credit && Leergeheugen.Sleutel(gegevens) is { } sleutel)
         {
-            var bevestiging = Leergeheugen.Bij(gegevens, new Keuze(factuur.Regels[0].Rekeningnummer, factuur.Regels[0].BtwCode), sjabloon);
+            // De rekening van de grootste regel; de btw-code alleen als de hele factuur één code heeft. Bij twee tarieven
+            // (9% en 21%) volgt de code uit de factuur, en zou de code van één regel de telling steeds opnieuw laten beginnen.
+            var hoofd = factuur.Regels.OrderByDescending(r => Math.Abs(r.Bedrag)).First();
+            var eenCode = factuur.Regels.Select(r => r.BtwCode).Distinct(StringComparer.Ordinal).Count() == 1;
+            var bevestiging = Leergeheugen.Bij(gegevens, new Keuze(hoofd.Rekeningnummer, eenCode ? hoofd.BtwCode : null), sjabloon);
             db.Leerkeuzes.Add(new Leerkeuze
             {
                 AdministratieId = administratie,

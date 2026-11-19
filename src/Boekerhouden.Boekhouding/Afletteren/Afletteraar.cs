@@ -71,7 +71,8 @@ public sealed record Afletteradvies(Bankmutatie Mutatie, IReadOnlyList<Afletterk
 /// 1043"). Een deelbetaling met het factuurnummer of betalingskenmerk én het IBAN van de leverancier is ook zeker: het
 /// restant blijft openstaan; noemt de mutatie een korting, dan is het een voorstel (het verschil afboeken). Een betaling
 /// naar een ander IBAN dan de leverancier bij ons bekend heeft, is nooit zeker. Een betaling met het nummer of kenmerk van een factuur die al betaald is, wordt nooit
-/// automatisch geboekt: die staat als mogelijke dubbele betaling bij de mutatie.
+/// automatisch geboekt: die staat als mogelijke dubbele betaling bij de mutatie. Een storno (een betaling of incasso die
+/// terugkomt) van een betaalde factuur is een voorstel om de factuur weer open te zetten.
 /// </summary>
 public static partial class Afletteraar
 {
@@ -158,6 +159,15 @@ public static partial class Afletteraar
                      && ((kenmerk.Length > 0 && Cijfers(p.Betalingskenmerk) == kenmerk) || Factuurnummers.KomtVoor(p.Factuurnummer, tekst))))
         {
             Voegtoe([post], Zekerheid.Voorstel, "Factuur is al betaald: dubbele betaling?");
+        }
+
+        // 2c. Een storno: een incasso of betaling die terugkomt, met het nummer van een factuur die daarmee betaald was
+        // (of van de relatie bij het IBAN en het woord storno). Afletteren zet de factuur weer open. Alleen een voorstel.
+        foreach (var post in alle.Where(p => Past(p) && p.Bedrag == -mutatie.Bedrag && Math.Sign(p.Openstaand) != Math.Sign(p.Bedrag)
+                     && (Factuurnummers.KomtVoor(p.Factuurnummer, tekst) || (kenmerk.Length > 0 && Cijfers(p.Betalingskenmerk) == kenmerk)
+                         || (viaIban.Contains(p.Relatie) && StornoPatroon().IsMatch(tekst)))))
+        {
+            Voegtoe([post], Zekerheid.Voorstel, "Storno: de betaling komt terug, de factuur staat weer open");
         }
 
         // 3. IBAN en bedrag; noemt de mutatie een ander nummer in dezelfde reeks ("9100234603" bij post 9100234601), dan
@@ -263,4 +273,7 @@ public static partial class Afletteraar
 
     [GeneratedRegex(@"korting|discount|skonto", RegexOptions.IgnoreCase)]
     private static partial Regex KortingPatroon();
+
+    [GeneratedRegex(@"storno|terugboeking|teruggeboekt|reversal", RegexOptions.IgnoreCase)]
+    private static partial Regex StornoPatroon();
 }

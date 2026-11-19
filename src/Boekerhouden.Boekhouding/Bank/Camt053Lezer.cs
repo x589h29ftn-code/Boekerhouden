@@ -71,6 +71,7 @@ public static class Camt053Lezer
         // CdtDbtInd is de richting op de rekening, ook bij een storno (RvslInd): een gestorneerde incasso staat er als
         // CRDT en komt er dus bij. Het teken niet nog eens omdraaien.
         var bedrag = Bedrag(ntry);
+        var storno = Tekst(Kind(ntry, "RvslInd")) is "true";
 
         var datum = Datum(Kind(ntry, "BookgDt")) ?? Datum(Kind(ntry, "ValDt"))
                     ?? throw new BankbestandException("Een boeking heeft geen datum (BookgDt).");
@@ -82,7 +83,7 @@ public static class Camt053Lezer
         if (transacties.Count > 1 && bedragen.All(b => b is not null) && bedragen.Sum(b => Math.Abs(b!.Value)) == Math.Abs(bedrag))
         {
             var teken = Math.Sign(bedrag);
-            return transacties.Select((t, i) => Mutatie(datum, teken * Math.Abs(bedragen[i]!.Value), t, algemeen));
+            return transacties.Select((t, i) => Mutatie(datum, teken * Math.Abs(bedragen[i]!.Value), t, algemeen, storno));
         }
 
         // Een verzamelboeking met bij- en afschrijvingen door elkaar (2019: elke transactie heeft een eigen richting).
@@ -90,16 +91,18 @@ public static class Camt053Lezer
         if (transacties.Count > 1 && metRichting.All(t => t.Bedrag is not null && t.Richting is not null)
             && metRichting.Sum(t => t.Richting == "DBIT" ? -Math.Abs(t.Bedrag!.Value) : Math.Abs(t.Bedrag!.Value)) == bedrag)
         {
-            return transacties.Select((t, i) => Mutatie(datum, metRichting[i].Richting == "DBIT" ? -Math.Abs(metRichting[i].Bedrag!.Value) : Math.Abs(metRichting[i].Bedrag!.Value), t, algemeen));
+            return transacties.Select((t, i) => Mutatie(datum, metRichting[i].Richting == "DBIT" ? -Math.Abs(metRichting[i].Bedrag!.Value) : Math.Abs(metRichting[i].Bedrag!.Value), t, algemeen, storno));
         }
 
-        return [Mutatie(datum, bedrag, transacties.FirstOrDefault(), algemeen)];
+        return [Mutatie(datum, bedrag, transacties.FirstOrDefault(), algemeen, storno)];
     }
 
-    private static Bankmutatie Mutatie(DateOnly datum, decimal bedrag, XElement? tx, string? algemeen)
+    private static Bankmutatie Mutatie(DateOnly datum, decimal bedrag, XElement? tx, string? algemeen, bool storno)
     {
-        // Bij een ontvangst is de tegenpartij de betaler (Dbtr), bij een betaling de ontvanger (Cdtr).
-        var partij = bedrag >= 0 ? "Dbtr" : "Cdtr";
+        // Bij een ontvangst is de tegenpartij de betaler (Dbtr), bij een betaling de ontvanger (Cdtr). Een storno draait
+        // dat om: bij een teruggeboekte incasso komt het geld terug, maar de tegenpartij is nog steeds de incassant (Cdtr);
+        // de Dbtr zijn wijzelf.
+        var partij = (bedrag >= 0) != storno ? "Dbtr" : "Cdtr";
         var partijen = Kind(tx, "RltdPties");
         var naam = Naam(Kind(partijen, partij)) ?? Naam(Kind(partijen, "Ultmt" + partij));
         var iban = Tekst(Kind(Kind(Kind(partijen, partij + "Acct"), "Id"), "IBAN"))

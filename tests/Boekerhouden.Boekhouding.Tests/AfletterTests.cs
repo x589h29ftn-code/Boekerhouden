@@ -331,6 +331,24 @@ public sealed class AfletteraarTests
         Assert.Null(advies.Automatisch);
     }
 
+    [Fact]
+    public void Een_storno_van_een_betaalde_factuur_is_een_voorstel_om_hem_weer_open_te_zetten()
+    {
+        var betaald = Crediteur("BELNET", "BN-2026-0311", 25m) with { Openstaand = 0m };
+        var storno = Betaling(25m, "Storno incasso factuur BN-2026-0311", IbanBelnet);
+
+        var advies = Afletteraar.Zoek(storno, [betaald, Crediteur("BELNET", "BN-2026-0411", 25m)], Relaties);
+
+        var kandidaat = Assert.Single(advies.Kandidaten);
+        Assert.Equal((betaald, Zekerheid.Voorstel), (Assert.Single(kandidaat.Posten), kandidaat.Zekerheid));
+        Assert.StartsWith("Storno", kandidaat.Reden, StringComparison.Ordinal);
+        Assert.Null(advies.Automatisch);
+
+        // Van een ander IBAN, of een post die nog openstaat: geen storno.
+        Assert.Empty(Afletteraar.Zoek(Betaling(25m, "Storno BN-2026-0311", IbanJansen), [betaald], Relaties).Kandidaten);
+        Assert.DoesNotContain(Afletteraar.Zoek(storno, [Crediteur("BELNET", "BN-2026-0311", 25m)], Relaties).Kandidaten, k => k.Reden.StartsWith("Storno", StringComparison.Ordinal));
+    }
+
     internal static OpenPost Crediteur(string relatie, string nummer, decimal bedrag, DateOnly? datum = null) =>
         new(Guid.NewGuid(), Factuursoort.Inkoop, relatie, nummer, datum ?? Datum, (datum ?? Datum).AddDays(30), -bedrag, -bedrag);
 

@@ -854,6 +854,67 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
         Assert.Equal((new DateOnly(2025, 12, 31), 5000m, 5000m, 0m), (stand.Van, stand.Beginsaldo, stand.BeginGrootboek, stand.Beginverschil));
     }
 
+    [Fact]
+    public async Task De_beginbalans_op_de_dag_van_de_eerste_mutatie_telt_mee_in_de_beginstand()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var bank = app.Dienst<BankDienst>();
+        // Het afschrift begint op 1 januari, en de eerste mutatie (Belnet) is ook op 1 januari.
+        var tekst = new StreamReader(Afschrift()).ReadToEnd().Replace(":60F:C260301EUR", ":60F:C251231EUR", StringComparison.Ordinal)
+            .Replace(":61:2603020302D", ":61:2601010101D", StringComparison.Ordinal);
+        Assert.True((await bank.Lees(wie, id, new MemoryStream(Encoding.Latin1.GetBytes(tekst)), "ing.mt940")).IsGelukt);
+        Assert.True((await app.Dienst<GrootboekDienst>().Boek(wie, id, new Boekhouding.Grootboek.Journaalpost("MEM", "2026-0001", new(2026, 1, 1), "Beginbalans",
+            [new("1100", 5000m), new("0500", -5000m)]))).IsGelukt);
+        var belnet = (await bank.Lijst(wie, id)).Single(m => m.Bedrag == -25m);
+        Assert.Equal(new DateOnly(2026, 1, 1), belnet.Datum);
+        Assert.True((await bank.OpRekening(wie, id, [belnet.Id], "4310", null)).IsGelukt);
+
+        var stand = (await bank.Stand(wie, id)).Single(b => b.Dagboek == "BNK");
+
+        // De beginbalans telt mee, de bankboeking van die dag niet.
+        Assert.Equal((5000m, 5000m, 0m), (stand.Beginsaldo, stand.BeginGrootboek, stand.Beginverschil));
+    }
+
+    [Fact]
+    public async Task Een_gestorneerde_incasso_zet_de_factuur_weer_open_en_de_tweede_incasso_betaalt_hem()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var bank = app.Dienst<BankDienst>();
+        await BoekBelnet(wie, id);
+        static string Ntry(int dag, string richting, bool storno, string tekst) => $"""
+            <Ntry><Amt Ccy="EUR">24.99</Amt><CdtDbtInd>{richting}</CdtDbtInd>{(storno ? "<RvslInd>true</RvslInd>" : "")}<Sts><Cd>BOOK</Cd></Sts><BookgDt><Dt>2026-11-{dag:00}</Dt></BookgDt><NtryDtls><TxDtls>
+            <Refs><EndToEndId>INC-{dag}</EndToEndId><MndtId>M1</MndtId></Refs><RltdPties><Dbtr><Nm>Eigen Bedrijf</Nm></Dbtr><DbtrAcct><Id><IBAN>{EigenIban}</IBAN></Id></DbtrAcct>
+            <Cdtr><Pty><Nm>Belnet B.V.</Nm></Pty></Cdtr><CdtrAcct><Id><IBAN>NL63TRIO0212345678</IBAN></Id></CdtrAcct></RltdPties><RmtInf><Ustrd>{tekst}</Ustrd></RmtInf></TxDtls></NtryDtls></Ntry>
+            """;
+        var xml = $"""
+            <?xml version="1.0" encoding="UTF-8"?><Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.08"><BkToCstmrStmt><Stmt><Id>S1</Id><ElctrncSeqNb>1</ElctrncSeqNb>
+            <Acct><Id><IBAN>{EigenIban}</IBAN></Id><Ccy>EUR</Ccy></Acct>
+            <Bal><Tp><CdOrPrtry><Cd>OPBD</Cd></CdOrPrtry></Tp><Amt Ccy="EUR">100.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><Dt><Dt>2026-11-16</Dt></Dt></Bal>
+            <Bal><Tp><CdOrPrtry><Cd>CLBD</Cd></CdOrPrtry></Tp><Amt Ccy="EUR">75.01</Amt><CdtDbtInd>CRDT</CdtDbtInd><Dt><Dt>2026-11-20</Dt></Dt></Bal>
+            {Ntry(16, "DBIT", false, "Incasso klantnummer 123")}{Ntry(17, "CRDT", true, "Storno incasso klantnummer 123")}{Ntry(20, "DBIT", false, "Incasso klantnummer 123 tweede poging")}
+            </Stmt></BkToCstmrStmt></Document>
+            """;
+
+        var gelezen = await bank.Lees(wie, id, new MemoryStream(Encoding.UTF8.GetBytes(xml)), "camt.xml");
+
+        // De eerste incasso is vanzelf afgeletterd; de storno komt van Belnet (niet van de eigen rekening) en is een voorstel.
+        Assert.Equal(1, gelezen.Waarde!.Automatisch);
+        var storno = (await bank.Lijst(wie, id)).Single(m => m.Bedrag > 0);
+        Assert.Equal(("Belnet B.V.", "NL63TRIO0212345678"), (storno.TegenNaam, storno.TegenIban));
+        var kandidaat = Assert.Single((await bank.Verwerking(wie, id, storno.Id))!.Voorstel.Afletteren.Kandidaten);
+        Assert.StartsWith("Storno", kandidaat.Reden, StringComparison.Ordinal);
+
+        // Afletteren zet de factuur weer open; daarna betaalt de tweede incasso hem.
+        Assert.True((await bank.Afletteren(wie, id, storno.Id, [kandidaat.Posten[0].Id])).IsGelukt);
+        Assert.Equal(-24.99m, Assert.Single(await bank.OpenPosten(wie, id)).Openstaand);
+        Assert.Equal(1, (await bank.VerwerkOpnieuw(wie, id)).Geboekt);
+        Assert.Empty(await bank.Lijst(wie, id));
+        Assert.Empty(await bank.OpenPosten(wie, id));
+        Assert.Equal(0m, (await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026)).Regels.FirstOrDefault(r => r.Rekening.Nummer == "1600")?.Saldo ?? 0m);
+    }
+
     [Theory]
     [InlineData("1123456781601270", 1)]
     [InlineData("2123456781601270", 0)]

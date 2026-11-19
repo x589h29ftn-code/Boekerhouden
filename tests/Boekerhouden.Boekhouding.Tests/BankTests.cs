@@ -268,14 +268,20 @@ public sealed class Camt053Tests
     [Fact]
     public void Een_gestorneerde_incasso_komt_erbij_zoals_CdtDbtInd_zegt()
     {
+        // Zoals de bank hem doorgeeft: de incassant als Cdtr, wijzelf als Dbtr.
         var storno = Incasso("2026-11-17", 64.37m).Replace("<CdtDbtInd>DBIT</CdtDbtInd>", "<CdtDbtInd>CRDT</CdtDbtInd>", StringComparison.Ordinal)
-            .Replace("<Sts>", "<RvslInd>true</RvslInd><Sts>", StringComparison.Ordinal);
+            .Replace("<Sts>", "<RvslInd>true</RvslInd><Sts>", StringComparison.Ordinal)
+            .Replace("<RltdPties>", "<RltdPties><Dbtr><Nm>Eigen Bedrijf B.V.</Nm></Dbtr><DbtrAcct><Id><IBAN>NL20INGB0001234567</IBAN></Id></DbtrAcct>", StringComparison.Ordinal);
         var xml = Dagafschriften(("2026-11-16", 791.11m, 726.74m, Incasso("2026-11-16", 64.37m)), ("2026-11-17", 726.74m, 791.11m, storno));
 
         var dagen = Camt053Lezer.Lees(new MemoryStream(Encoding.UTF8.GetBytes(xml)));
 
-        Assert.Equal(64.37m, dagen[1].Mutaties.Single().Bedrag);
+        var terug = dagen[1].Mutaties.Single();
+        Assert.Equal(64.37m, terug.Bedrag);
         Assert.All(dagen, d => Assert.True(d.SluitAan));
+
+        // De tegenpartij van de storno is de incassant, niet de eigen rekening.
+        Assert.Equal(("Kabel en Internet B.V.", "NL63TRIO0212345678"), (terug.TegenNaam, terug.TegenIban));
     }
 
     [Fact]

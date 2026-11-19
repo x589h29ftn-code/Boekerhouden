@@ -985,6 +985,27 @@ webapp in een eigen venster, zonder webserver, zonder databaseserver en zonder i
 Nog niet gebouwd: terugkerende facturen vanzelf (zonder klik) maken, versturen per e-mail vanuit het pakket (nu een .eml), Peppol, verkoopfacturen inlezen, facturen per e-mail of uit een map, Peppol, OCR, btw-aangifte en periodes, het RGS-werkboek in de
 administratie (nu de RGS-code als tekst bij een nieuwe rekening), en de hulppagina.
 
+### 3.21 Praktijktest: een kwartaal inkoop, verkoop en bank
+
+Een verzonnen fietsenhandel (Fietsenhandel De Spaak B.V.) over het eerste kwartaal van 2026, met de bank tot en met
+april: `tests/Boekerhouden.Administratie.Tests/Praktijk/`. `Praktijkset` maakt alles uit één bron: 100 inkoopfacturen van
+15 leveranciers (UBL en PDF; 21%, 9% en 21% op één factuur, vrijgesteld, verlegd, een dienst uit de EU, creditnota's),
+100 verkoopfacturen uit een kassapakket aan 20 klanten (ook binnen de EU, uitvoer naar Zwitserland, creditnota's), de
+beginbalans en drie loonjournaalposten, een betaalrekening (CAMT.053 per maand; april twee keer, overlappend) en een
+spaarrekening (MT940). De bank zit vol lastige gevallen: verzamelbetalingen, incasso's met een storno en een tweede
+poging, sombetalingen met en zonder nummers, deelbetalingen, dubbel betaald en terugbetaald (bij een klant en bij een
+leverancier), betaald min creditnota, twee cent te weinig, betalingskorting, een ander IBAN, de Belastingdienst (btw en
+loonheffingen met kenmerk), nettolonen, pin, bankkosten, rente, overboekingen tussen de eigen rekeningen via
+kruisposten en een onbekende ontvangst. Daarbij rekent de set uit wat er aan het eind moet gelden: de openstaande
+posten, de saldi en de btw-aangifte van het kwartaal rubriek voor rubriek.
+
+| Onderdeel | Hoe |
+|---|---|
+| Automatische test | `PraktijkTests.Een_kwartaal_inkoop_verkoop_en_bank` doet wat een gebruiker doet: inrichten, de inkoop per bestand inlezen (wat blijft staan met de hand boeken), de verkoop inlezen (een nieuwe klant aanmaken), de bank per afschrift inlezen en wat blijft staan meteen verwerken. Daarna: niets meer te verwerken, bank gelijk aan het afschrift (ook de beginstand), debiteuren, crediteuren, vraagposten, kruisposten, loonheffing en nettolonen, de btw-aangifte per rubriek, de aansluitingen, de keten, en de auditfile die als nieuwe administratie dezelfde saldi geeft. Verschillen worden verzameld en samen gemeld. Draait ook op SQLite. |
+| Handmatige procedure | `BOEKERHOUDEN_TESTSET=<map> dotnet test tests/Boekerhouden.Administratie.Tests --filter Schrijf_de_testset` schrijft de bestanden (`inkoop`, `verkoop`, `bank`) en `Testprocedure.html`: de stappen met afvinkvakjes, per stap wat het pakket hoort te doen, de mutaties die met de hand moeten en de eindcontrole met de verwachte bedragen. |
+| Uitkomst (november 2026) | Inkoop 67 van 100 vanzelf, verkoop 80 van 100 (de rest: de eerste en tweede factuur per leverancier, een hoger bedrag dan gewend, creditnota's en de eerste factuur van een nieuwe klant), bank 23 van de ruim 210 mutaties met de hand (in maart nog 3), elk met het juiste voorstel. |
+| Gevonden en opgelost | Een storno van een incasso had de eigen rekening als tegenpartij en was niet af te letteren (nu: de incassant, en een voorstel om de factuur weer open te zetten); een ingelezen verkoopfactuur aan een klant buiten de EU werd 0% (rubriek 1e) in plaats van uitvoer (3a); de beginbalans op de dag van de eerste bankmutatie telde niet mee in de beginstand; het leergeheugen begon bij een factuur met twee btw-tarieven steeds opnieuw te tellen (nu de rekening van de grootste regel, de btw-code alleen bij één code). |
+
 ## 6. Open vragen
 
 1. **Btw-tarieven en -rubrieken** zijn opgenomen zoals in 2026 (21%, 9%, 0%). Controleer de rubrieken van het

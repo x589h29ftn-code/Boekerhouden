@@ -20,6 +20,19 @@ public sealed class VerkoopimportTests
         Assert.Contains(Verkoopimport.Belemmeringen(factuur, verkoop, Codes, klantHerkend: true), r => r.Contains("btw-tarief", StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData("CH", "VEX")]
+    [InlineData("US", "VEX")]
+    [InlineData("NL", "V0")]
+    [InlineData("DE", "V0")]
+    [InlineData(null, "V0")]
+    public void Zonder_btw_aan_een_klant_buiten_de_EU_is_uitvoer(string? land, string code)
+    {
+        var factuur = new HerkendeFactuur(Herkenningsbron.EFactuur, Factuurnummer: "VF26-0025", Regels: [new HerkendeRegel("E-bike", 7_500m, 0m)]);
+
+        Assert.Equal(code, Assert.Single(Verkoopimport.Regels(factuur, Codes, "8010", land)).BtwCode);
+    }
+
     [Fact]
     public void Exclusief_en_inclusief_samen_zijn_geen_aanname()
     {

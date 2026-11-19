@@ -730,7 +730,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         var regels = await (from r in db.GeldendeRegels
                             join b in db.Geldend on r.BoekingId equals b.Id
                             where rekeningen.Contains(r.Rekeningnummer)
-                            select new { r.Rekeningnummer, b.Datum, r.Bedrag }).ToListAsync();
+                            select new { r.Rekeningnummer, b.Datum, b.Dagboek, r.Bedrag }).ToListAsync();
         var lijst = new List<Bankstand>();
         foreach (var d in dagboeken)
         {
@@ -739,8 +739,8 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             // Het eerste afschrift van het jaar van het laatste (op de einddatum: bij MT940 is de begindatum vaak de
             // laatste dag van het jaar ervoor).
             var eerste = laatste is null ? null : eigen.Where(a => a.Einddatum!.Value.Year == laatste.Einddatum!.Value.Year).OrderBy(a => a.Begindatum ?? a.Einddatum).FirstOrDefault();
-            decimal? Saldo(Func<DateOnly, bool> wanneer) =>
-                d.Rekeningnummer is { } rekening ? regels.Where(r => r.Rekeningnummer == rekening && wanneer(r.Datum)).Sum(r => r.Bedrag) : null;
+            decimal? Saldo(Func<DateOnly, string, bool> wanneer) =>
+                d.Rekeningnummer is { } rekening ? regels.Where(r => r.Rekeningnummer == rekening && wanneer(r.Datum, r.Dagboek)).Sum(r => r.Bedrag) : null;
 
             // De beginstand: het grootboek vóór de eerste mutatie van dat afschrift. De begindatum betekent niet bij elke
             // bank hetzelfde (MT940 :60F: en CAMT PRCD = het slot van de dag ervoor, CAMT OPBD = het begin van de dag),
@@ -755,8 +755,9 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
 
             lijst.Add(new Bankstand(d.Code, d.Naam, d.Iban, laatste?.Einddatum, laatste?.Eindsaldo, open.GetValueOrDefault(d.Code), d.Rekeningnummer,
                 eerste?.Begindatum, eerste?.Beginsaldo,
-                grens is { } g ? Saldo(x => x < g) : null,
-                laatste?.Einddatum is { } tot ? Saldo(x => x <= tot) : null));
+                // Op de dag van de eerste mutatie telt wat niet uit de bank komt wel mee (de beginbalans op 1 januari).
+                grens is { } g ? Saldo((x, dagboek) => x < g || (x == g && dagboek != d.Code)) : null,
+                laatste?.Einddatum is { } tot ? Saldo((x, _) => x <= tot) : null));
         }
 
         return lijst;
@@ -1026,7 +1027,10 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         // Posten met een ander teken (een creditnota) alleen als ze samen precies het bedrag zijn, of met een afboeking.
         bool Open(OpenstaandePost p) => p.Openstaand != 0 && Math.Sign(p.Openstaand) == Math.Sign(t.Bedrag);
         var samen = posten.Count > 1 && posten.All(p => p.Openstaand != 0) && (posten.Sum(p => p.Openstaand) == t.Bedrag || afboeking is not null);
-        if (posten.Count != ids.Count || !(posten.All(Open) || samen || (posten is [var enige] && Math.Sign(enige.Bedrag) == Math.Sign(t.Bedrag))))
+        // Een storno of terugbetaling van een betaling: de factuur staat daarna (weer) open, maar nooit meer dan het factuurbedrag.
+        bool Terug(OpenstaandePost p) => Math.Sign(p.Bedrag) == -Math.Sign(t.Bedrag) && p.Openstaand - t.Bedrag is var na
+            && Math.Abs(na) <= Math.Abs(p.Bedrag) && Math.Sign(na) != -Math.Sign(p.Bedrag);
+        if (posten.Count != ids.Count || !(posten.All(Open) || samen || (posten is [var enige] && (Math.Sign(enige.Bedrag) == Math.Sign(t.Bedrag) || Terug(enige)))))
         {
             return Uitkomst.Mislukt("Een van de openstaande posten is intussen betaald of past niet bij deze mutatie.");
         }

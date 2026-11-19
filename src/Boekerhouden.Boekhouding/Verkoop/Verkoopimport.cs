@@ -30,15 +30,20 @@ public static class Verkoopimport
 
     /// <summary>
     /// De regels: bij een e-factuur de regels van de factuur, anders één regel per btw-tarief (de grondslag), of één regel
-    /// met het bedrag exclusief btw. Verlegd wordt <c>VEU</c> bij een klant uit een ander EU-land, anders <c>VVL</c>.
+    /// met het bedrag exclusief btw. Verlegd wordt <c>VEU</c> bij een klant uit een ander EU-land, anders <c>VVL</c>; zonder
+    /// btw bij een klant buiten de EU uitvoer (<c>VEX</c>).
     /// </summary>
     public static IReadOnlyList<Verkoopregel> Regels(HerkendeFactuur factuur, IReadOnlyList<BtwCode> codes, string omzetrekening, string? klantland = null)
     {
         ArgumentNullException.ThrowIfNull(factuur);
         ArgumentNullException.ThrowIfNull(codes);
         var buitenland = klantland is { Length: 2 } land && !land.Equals("NL", StringComparison.OrdinalIgnoreCase) && BtwNummer.IsEuLand(land);
+        // Een klant buiten de EU zonder btw op de factuur: uitvoer (rubriek 3a), geen gewone 0% (1e).
+        var buitenEu = klantland is { Length: 2 } ander && !BtwNummer.IsEuLand(ander);
+        var uitvoer = codes.FirstOrDefault(c => c.Soort == Btwsoort.VerkoopBuitenEu)?.Code ?? "VEX";
         string Code(decimal? percentage) => factuur.Verlegd
             ? (buitenland ? "VEU" : "VVL")
+            : buitenEu && (percentage ?? 0m) == 0m ? uitvoer
             : BtwCodes.Bij(codes, BtwRichting.Verkoop, percentage ?? 21m)?.Code ?? "V21";
         var omschrijving = factuur.Omschrijving is { Length: > 0 } o ? o : $"Factuur {factuur.Factuurnummer}".Trim();
 

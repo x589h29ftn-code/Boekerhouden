@@ -754,9 +754,40 @@ public sealed class InkoopTests(AdministratieFixture app) : IClassFixture<Admini
         Assert.Equal("BELNET2", InkoopDienst.NieuweCode("Belnet Zakelijk", [new("BELNET", "Belnet B.V.", [])]));
         Assert.Equal("REL", InkoopDienst.NieuweCode("B.V.", []));
     }
+
+    [Fact]
+    public async Task Een_factuur_met_twee_tarieven_leert_door_ook_als_de_regels_anders_staan()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Twee Tarieven B.V.");
+        var inkoop = app.Dienst<InkoopDienst>();
+        var koffie = new Boekhouding.Verkoop.Partij("Koffie en Co B.V.", new Boekhouding.Verkoop.Adres("Laan 1", "3811 AA", "Amersfoort"), "NL800000006B01", Ibans: ["NL91ABNA0417164300"]);
+        var klant = new Boekhouding.Verkoop.Partij("Bakkerij Voorbeeld", new Boekhouding.Verkoop.Adres("Dorpsstraat 1", "1234 AB", "Ergens"));
+        byte[] Factuur(string nummer, DateOnly datum, decimal bonen) => Encoding.UTF8.GetBytes(Boekhouding.Verkoop.UblFactuurSchrijver.Schrijf(
+            new Boekhouding.Verkoop.Verkoopfactuur("X", klant, nummer, datum, datum.AddDays(14), "Koffie",
+                [new("Koffiebonen", 1, bonen, "4900", "V9"), new("Huur koffiemachine", 1, 39.50m, "4900", "V21")]), koffie, Boekhouding.Btw.BtwCodes.Standaard));
+        async Task<Inleesuitkomst> Lees(string nummer, DateOnly datum, decimal bonen) =>
+            await inkoop.Lees(wie, id, new MemoryStream(Factuur(nummer, datum, bonen)), nummer + ".xml", null);
+
+        // Twee keer met de hand, de regels in een andere volgorde (eerst 21%, dan eerst 9%).
+        var eerste = await Lees("KC1", new(2026, 1, 8), 100m);
+        Assert.True((await inkoop.Boek(wie, id, eerste.DocumentId!.Value, new Factuurinvoer(null, new NieuweRelatie("Koffie en Co B.V.", "NL91ABNA0417164300", null, null), "KC1",
+            new(2026, 1, 8), new(2026, 1, 22), "Koffie", [new Factuurregel("Machine", "4900", "I21", 39.50m, 8.30m), new Factuurregel("Bonen", "4900", "I9", 100m, 9m)]))).IsGelukt);
+        var tweede = await Lees("KC2", new(2026, 1, 15), 110m);
+        Assert.False(tweede.IsGeboekt);
+        var code = (await app.Dienst<InrichtingDienst>().Relaties(wie, id)).Single(r => r.Naam == "Koffie en Co B.V.").Code;
+        Assert.True((await inkoop.Boek(wie, id, tweede.DocumentId!.Value, new Factuurinvoer(code, null, "KC2", new(2026, 1, 15), new(2026, 1, 29), "Koffie",
+            [new Factuurregel("Bonen", "4900", "I9", 110m, 9.90m), new Factuurregel("Machine", "4900", "I21", 39.50m, 8.30m)]))).IsGelukt);
+
+        // De derde gaat vanzelf: twee keer dezelfde keuze (4900, btw per tarief).
+        var derde = await Lees("KC3", new(2026, 1, 22), 105m);
+
+        Assert.True(derde.IsGeboekt, derde.Melding);
+        var geboekt = (await inkoop.Geboekt(wie, id, derde.DocumentId!.Value))!;
+        Assert.Equal([("I9", 105m), ("I21", 39.50m)], geboekt.Regels.Select(r => (r.BtwCode, r.Bedrag)).OrderBy(r => r.BtwCode, StringComparer.Ordinal).Reverse());
+    }
 }
 
-/// <summary>Met een (nagebootste) virusscanner: besmet gaat in quarantaine, zonder scan wordt niets ingelezen.</summary>
 public sealed class VirusscanFixture : AdministratieFixture
 {
     public NepScanner Scanner { get; } = new();

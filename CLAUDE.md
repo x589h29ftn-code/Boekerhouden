@@ -27,6 +27,7 @@ dotnet ef migrations add <Naam> --project src/Boekerhouden.Data --output-dir Mig
 dotnet ef migrations add <Naam> --project src/Boekerhouden.Administratie --context AdministratieDbContext --output-dir Data/Migraties   # idem, administratiepakket
 dotnet ef migrations add <Naam> --project src/Boekerhouden.Administratie --context SqliteAdministratieDbContext --output-dir Data/MigratiesSqlite   # en voor SQLite (Windows-app)
 BOEKERHOUDEN_TEST_SQLITE=1 dotnet test tests/Boekerhouden.Administratie.Tests   # administratiepakket op SQLite
+BOEKERHOUDEN_TESTSET=/tmp/testset dotnet test tests/Boekerhouden.Administratie.Tests --filter Schrijf_de_testset   # praktijkset + stappenlijst voor handmatig testen
 scripts/ui/herstart.sh && node scripts/ui/schermafbeeldingen.js /tmp/schermen voor   # browsercontrole en schermafbeeldingen
 ```
 
