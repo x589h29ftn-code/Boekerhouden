@@ -142,6 +142,7 @@ public static class Opstart
         services.AddSingleton<ZoekDienst>();
         services.AddSingleton<KantooroverzichtDienst>();
         services.AddScoped<Meldingen>();
+        services.AddScoped<Bestandoverdracht>();
         services.Configure<Export.PdfOpties>(configuratie.GetSection("Pdf"));
         services.AddSingleton<Export.PdfDienst>();
 

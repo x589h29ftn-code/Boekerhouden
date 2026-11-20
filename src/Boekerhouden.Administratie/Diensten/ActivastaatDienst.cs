@@ -30,6 +30,9 @@ public sealed class ActivastaatDienst(Toegang toegang, ActivaDienst activa, Audi
 {
     public const int MaximumBytes = 20 * 1024 * 1024;
 
+    /// <summary>Wat er als staat in te lezen is (voor het bestandsveld): Excel of PDF.</summary>
+    public const string Bestandssoorten = ".xlsx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
     public async Task<Uitkomst<Staatvoorstel>> Lees(Uitvoerder wie, Guid administratie, Stream inhoud, string bestandsnaam, CancellationToken annulering = default)
     {
         ArgumentNullException.ThrowIfNull(inhoud);

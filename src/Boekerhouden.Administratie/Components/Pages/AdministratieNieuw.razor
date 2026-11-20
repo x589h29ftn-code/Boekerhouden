@@ -53,7 +53,7 @@
     <div class="d-flex align-items-center gap-3">
         <label class="btn btn-outline-secondary @(bezig ? "disabled" : null)" for="auditfile" aria-busy="@(bezig ? "true" : null)"
                title="Een XML Auditfile Financieel (XAF 3.1 of 3.2): naam, rekeningschema, relaties, dagboeken, beginbalans en boekingen worden overgenomen, met de rechtsvorm hierboven">Auditfile inlezen</label>
-        <InputFile id="auditfile" class="d-none" accept=".xaf,.xml,application/xml,text/xml" OnChange="LeesAuditfile" disabled="@bezig" />
+        <Sleepvlak Id="auditfile" Pagina="true" Tekst="Auditfile inlezen" Accept=".xaf,.xml,application/xml,text/xml" Meerdere="false" OnChange="LeesAuditfile" Bezig="bezig" />
         @if (bezig)
         {
             <span class="small text-secondary">Bezig met inlezen…</span>

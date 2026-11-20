@@ -205,5 +205,5 @@
 
     /// <summary>Inzoomen: de factuur (met de boeking), of de boeking als er geen document bij hoort.</summary>
     private void Open(Factuurboekregel r) =>
-        Navigatie.NavigateTo(r.Document is { } document ? $"/a/{Id}/{(Inkoop ? "inkoop" : "verkoop")}/{document}" : $"/a/{Id}/boeking/{r.Dagboek}/{r.Boekstuk}");
+        Navigatie.NavigateTo(Navigatie.MetTerug(r.Document is { } document ? $"/a/{Id}/{(Inkoop ? "inkoop" : "verkoop")}/{document}" : $"/a/{Id}/boeking/{Uri.EscapeDataString(r.Dagboek)}/{Uri.EscapeDataString(r.Boekstuk)}"));
 }

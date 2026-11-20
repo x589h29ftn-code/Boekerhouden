@@ -19,7 +19,7 @@
         }
         else
         {
-            <InputFile id="jaarrekening" class="d-none" accept=".pdf,application/pdf" OnChange="Lees" disabled="@bezig" />
+            <Sleepvlak Id="jaarrekening" Pagina="true" Tekst="Jaarrekening inlezen" Accept=".pdf,application/pdf" Meerdere="false" OnChange="Lees" Bezig="bezig" />
             <Foutmeldingen Fouten="fouten" />
             @if (voorstel is null)
             {

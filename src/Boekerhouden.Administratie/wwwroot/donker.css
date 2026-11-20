@@ -65,6 +65,16 @@
     background: #181d24;
 }
 
+[data-bs-theme="dark"] .zijbalk {
+    box-shadow: 0 3rem 0 0 #181d24, 1px 3rem 0 0 var(--bh-lijn);
+}
+
+@media (max-width: 900px) {
+    [data-bs-theme="dark"] .zijbalk {
+        box-shadow: none;
+    }
+}
+
 [data-bs-theme="dark"] .opslaanbalk {
     background: rgba(29, 34, 42, .92);
 }

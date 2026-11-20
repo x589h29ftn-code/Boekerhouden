@@ -22,7 +22,7 @@
             @if (w.Boeking is { } b)
             {
                 <span class="scheiding">·</span>
-                <a class="text-reset" href="/a/@Id/boeking/@b.Dagboek/@b.Boekstuk" title="Naar de boeking">@b.Dagboek @b.Boekstuk</a>
+                <a class="text-reset" href="@Navigatie.MetTerug($"/a/{Id}/boeking/{b.Dagboek}/{b.Boekstuk}")" title="Naar de boeking">@b.Dagboek @b.Boekstuk</a>
             }
             <span class="scheiding">·</span>
             <span>@(w.Openstaand is 0 ? "betaald" : $"open {Weergave.Bedrag(w.Openstaand ?? 0m)}")</span>
@@ -154,7 +154,7 @@
                                 </tbody>
                                 <tfoot>
                                     <tr class="generaal">
-                                        <td colspan="3"><a class="text-reset" href="/a/@Id/boeking/@geboekt.Dagboek/@geboekt.Boekstuk" title="Naar de boeking">@geboekt.Dagboek @geboekt.Boekstuk</a></td>
+                                        <td colspan="3"><a class="text-reset" href="@Navigatie.MetTerug($"/a/{Id}/boeking/{geboekt.Dagboek}/{geboekt.Boekstuk}")" title="Naar de boeking">@geboekt.Dagboek @geboekt.Boekstuk</a></td>
                                         <td class="bedrag text-end">@Weergave.Bedrag(geboekt.Regels.Where(r => r.Bedrag > 0).Sum(r => r.Bedrag))</td>
                                         <td class="bedrag text-end">@Weergave.Bedrag(-geboekt.Regels.Where(r => r.Bedrag < 0).Sum(r => r.Bedrag))</td>
                                     </tr>

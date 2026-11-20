@@ -41,7 +41,7 @@
                                     <td class="text-secondary">
                                         @if (bv.Boekstuk is { } stuk && stuk.Split(' ', 2) is [var dagboek, var boekstuk])
                                         {
-                                            <a href="/a/@Id/boeking/@dagboek/@boekstuk" title="Naar de boeking">@stuk</a>
+                                            <a href="@Navigatie.MetTerug($"/a/{Id}/boeking/{dagboek}/{boekstuk}")" title="Naar de boeking">@stuk</a>
                                         }
                                     </td>
                                     <td class="bedrag text-end">@(bv.Soort == Bankverschilsoort.ZonderMutatie ? Weergave.Bedrag(bv.Grootboek) : bv.Grootboek == 0 ? null : Weergave.Bedrag(bv.Grootboek))</td>

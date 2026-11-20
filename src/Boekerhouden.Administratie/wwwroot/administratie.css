@@ -15,11 +15,15 @@
     z-index: 20;
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 1.75rem);
+    /* Tot de statusbalk zolang de kopbalk (3rem) in beeld is: anders is elke pagina een stukje te hoog en schuift hij
+       altijd. Na het scrollen is de kopbalk weg; de schaduw (zelfde kleur, met de rand) vult dan het stuk eronder,
+       zonder dat de pagina daardoor langer wordt. */
+    height: calc(100vh - 1.75rem - 3rem);
     margin: -1.5rem 0 -2rem -1.5rem;
     padding: 1.75rem .6rem .75rem;
     border-right: 1px solid var(--bh-lijn);
     background: #f0f0ed;
+    box-shadow: 0 3rem 0 0 #f0f0ed, 1px 3rem 0 0 var(--bh-lijn);
     font-size: .9rem;
 }
 
@@ -335,6 +339,7 @@ html.zijbalk-smal .zijbalk {
     .zijbalk {
         position: static;
         height: auto;
+        box-shadow: none;
         margin: -1.5rem -1.5rem 1rem;
         border-right: 0;
         border-bottom: 1px solid var(--bh-lijn);

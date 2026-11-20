@@ -7,7 +7,7 @@
     <Acties>
         @if (detail?.Document is { } document)
         {
-            <a class="btn btn-sm btn-outline-primary" href="/a/@Id/inkoop/@document" title="@detail.Documentnaam">Factuur</a>
+            <a class="btn btn-sm btn-outline-primary" href="@Navigatie.MetTerug($"/a/{Id}/inkoop/{document}")" title="@detail.Documentnaam">Factuur</a>
             @if (geopend?.Kop.Mag(Recht.Invoeren) == true && detail.Herstelt is null)
             {
                 <a class="btn btn-sm btn-outline-secondary" href="/a/@Id/inkoop/@document?aanpassen=true" title="De boeking aanpassen via de factuur">Aanpassen</a>

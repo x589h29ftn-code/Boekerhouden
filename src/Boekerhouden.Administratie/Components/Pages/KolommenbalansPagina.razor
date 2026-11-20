@@ -454,7 +454,7 @@
 
     /// <summary>Inzoomen: de grootboekkaart van de rekening over de periode (daar is de periode weer te wijzigen).</summary>
     private void NaarKaart(string rekening, DateOnly kaartVan, DateOnly kaartTot) =>
-        Navigatie.NavigateTo($"/a/{Id}/grootboek?rekening={Uri.EscapeDataString(rekening)}&{Weergave.Periodequery(kaartVan, kaartTot)}");
+        Navigatie.NavigateTo(Navigatie.MetTerug($"/a/{Id}/grootboek?rekening={Uri.EscapeDataString(rekening)}&{Weergave.Periodequery(kaartVan, kaartTot)}"));
 
     private void NaarMaand(string rekening, int maand)
     {

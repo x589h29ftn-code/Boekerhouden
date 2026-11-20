@@ -5,6 +5,7 @@
 @inject GrootboekDienst Grootboek
 @inject OverzichtDienst Overzicht
 @inject IJSRuntime JS
+@inject NavigationManager Navigatie
 
 <AdministratieKader Id="Id" Titel="Btw-rondrekening" Actief="/btw" BijOpenen="Open">
     <Kenmerken>
@@ -264,7 +265,7 @@
                     {
                         <tr>
                             <td>@Weergave.Datum(x.Post.Datum)</td>
-                            <td><a href="/a/@Id/boeking/@x.Post.Dagboek/@x.Post.Boekstuk" title="Naar de boeking">@x.Post.Dagboek @x.Post.Boekstuk</a></td>
+                            <td><a href="@Navigatie.MetTerug($"/a/{Id}/boeking/{x.Post.Dagboek}/{x.Post.Boekstuk}")" title="Naar de boeking">@x.Post.Dagboek @x.Post.Boekstuk</a></td>
                             <td class="text-truncate" style="max-width:24rem" title="@(x.Regel.Omschrijving ?? x.Post.Omschrijving)">@(x.Regel.Omschrijving ?? x.Post.Omschrijving)</td>
                             <td title="@x.Regel.BtwCode"><span class="rekeningnummer">@x.Regel.Rekeningnummer</span> @Rekeningnaam(x.Regel.Rekeningnummer)</td>
                             <td class="bedrag text-end">@Weergave.Bedrag(x.Bedrag)</td>

@@ -5,6 +5,7 @@
 @inject NavigationManager Navigatie
 @inject OverzichtDienst Overzicht
 @inject IJSRuntime JS
+@inject Bestandoverdracht Overdracht
 
 <AdministratieKader Id="Id" Titel="Vaste activa" Actief="/activa" BijOpenen="Open">
     <Kenmerken>
@@ -59,6 +60,10 @@
         }
     </Acties>
     <ChildContent>
+        @if (mag)
+        {
+            <Sleepvlak Id="activabestand" Pagina="true" Tekst="Staat vaste activa inlezen" Accept="@ActivastaatDienst.Bestandssoorten" Meerdere="false" OnChange="SleepStaat" Bezig="bezig" />
+        }
         <Foutmeldingen Fouten="fouten" />
         @if (bericht is not null)
         {
@@ -300,6 +305,26 @@
             <td class="bedrag text-end text-secondary">@Weergave.Bedrag(r.AanschafEind)</td>
             <td class="bedrag text-end text-secondary">@Weergave.Bedrag(r.AfschrijvingEind)</td>
         </text>;
+
+    /// <summary>Een staat losgelaten op het overzicht: naar de pagina om de staat over te nemen, die hem inleest.</summary>
+    private async Task SleepStaat(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            using var kopie = new MemoryStream();
+            await using (var stream = e.File.OpenReadStream(ActivastaatDienst.MaximumBytes))
+            {
+                await stream.CopyToAsync(kopie);
+            }
+
+            Overdracht.Geef(ActivastaatInlezenPagina.Doel(Id), e.File.Name, kopie.ToArray());
+            Navigatie.NavigateTo($"/a/{Id}/activa/staat");
+        }
+        catch (IOException)
+        {
+            fouten = [$"{e.File.Name} is groter dan {ActivastaatDienst.MaximumBytes / 1024 / 1024} MB."];
+        }
+    }
 
     private async Task Open(Geopend g)
     {

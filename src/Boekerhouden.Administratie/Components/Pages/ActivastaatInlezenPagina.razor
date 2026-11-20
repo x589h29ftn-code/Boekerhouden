@@ -6,6 +6,7 @@
 @inject NavigationManager Navigatie
 @inject Meldingen Meldingen
 @inject IJSRuntime JS
+@inject Bestandoverdracht Overdracht
 
 <AdministratieKader Id="Id" Titel="Staat vaste activa inlezen" Actief="/activa" BijOpenen="Open" Terug="@($"/a/{Id}/activa")">
     <Kenmerken>
@@ -41,7 +42,7 @@
         }
         else
         {
-            <InputFile id="staatbestand" class="d-none" accept=".xlsx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" OnChange="Lees" disabled="@bezig" />
+            <Sleepvlak Id="staatbestand" Pagina="true" Tekst="Staat inlezen" Accept="@ActivastaatDienst.Bestandssoorten" Meerdere="false" OnChange="Lees" Bezig="bezig" />
             <Foutmeldingen Fouten="fouten" />
             @if (voorstel is null)
             {
@@ -183,15 +184,26 @@
     {
         geopend = g;
         schema = await Grootboek.Schema(g.Wie, Id);
+
+        // Losgelaten op het overzicht vaste activa: hier inlezen.
+        if (g.Kop.Mag(Recht.Boekhouden) && Overdracht.Neem(Doel(Id)) is { } bestand)
+        {
+            await LeesBestand(() => new MemoryStream(bestand.Inhoud), bestand.Naam);
+        }
     }
 
-    private async Task Lees(InputFileChangeEventArgs e)
+    /// <summary>Waaronder een op het overzicht vaste activa losgelaten staat wordt doorgegeven.</summary>
+    internal static string Doel(Guid administratie) => $"activastaat:{administratie}";
+
+    private Task Lees(InputFileChangeEventArgs e) => LeesBestand(() => e.File.OpenReadStream(ActivastaatDienst.MaximumBytes), e.File.Name);
+
+    private async Task LeesBestand(Func<Stream> open, string naam)
     {
         (bezig, fouten) = (true, null);
         try
         {
-            await using var stream = e.File.OpenReadStream(ActivastaatDienst.MaximumBytes);
-            var uitkomst = await Staatdienst.Lees(geopend!.Wie, Id, stream, e.File.Name);
+            await using var stream = open();
+            var uitkomst = await Staatdienst.Lees(geopend!.Wie, Id, stream, naam);
             fouten = uitkomst.IsGelukt ? null : uitkomst.Fouten;
             if (uitkomst.Waarde is { } v)
             {
@@ -203,7 +215,7 @@
         }
         catch (IOException)
         {
-            fouten = [$"{e.File.Name} is groter dan {ActivastaatDienst.MaximumBytes / 1024 / 1024} MB."];
+            fouten = [$"{naam} is groter dan {ActivastaatDienst.MaximumBytes / 1024 / 1024} MB."];
         }
         finally
         {

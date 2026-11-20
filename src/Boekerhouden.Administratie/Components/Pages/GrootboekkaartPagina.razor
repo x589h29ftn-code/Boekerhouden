@@ -5,7 +5,7 @@
 @inject OverzichtDienst Overzicht
 @using Boekerhouden.Boekhouding.Grootboek
 
-<AdministratieKader Id="Id" Titel="Grootboekkaart" Actief="/grootboek" BijOpenen="Open" KopVast="true">
+<AdministratieKader Id="Id" Titel="Grootboekkaart" Actief="/grootboek" BijOpenen="Open" KopVast="true" Terug="@Terug">
     <Kenmerken>
         @if (Alle && kaarten is not null)
         {
@@ -325,6 +325,10 @@
     [SupplyParameterFromQuery(Name = "tot")]
     public string? TotTekst { get; set; }
 
+    /// <summary>Waar de gebruiker vandaan kwam (bijv. de kolommenbalans): de pijl linksboven.</summary>
+    [SupplyParameterFromQuery(Name = "terug")]
+    public string? Terug { get; set; }
+
     private async Task Open(Geopend g)
     {
         geopend = g;
@@ -389,7 +393,7 @@
     }
 
     private void Adres() =>
-        Navigatie.NavigateTo($"/a/{Id}/grootboek?rekening={Uri.EscapeDataString(Rekening ?? "")}&{Weergave.Periodequery(van, tot)}", replace: true);
+        Navigatie.NavigateTo($"/a/{Id}/grootboek?rekening={Uri.EscapeDataString(Rekening ?? "")}&{Weergave.Periodequery(van, tot)}{(Terug is { } t ? "&terug=" + Uri.EscapeDataString(t) : null)}", replace: true);
 
     private async Task KiesRekening(ChangeEventArgs e)
     {
@@ -407,5 +411,5 @@
 
     /// <summary>Inzoomen op de boeking (en van daar naar de factuur).</summary>
     private void NaarBoeking(string dagboek, string boekstuk) =>
-        Navigatie.NavigateTo($"/a/{Id}/boeking/{Uri.EscapeDataString(dagboek)}/{Uri.EscapeDataString(boekstuk)}");
+        Navigatie.NavigateTo(Navigatie.MetTerug($"/a/{Id}/boeking/{Uri.EscapeDataString(dagboek)}/{Uri.EscapeDataString(boekstuk)}"));
 }
