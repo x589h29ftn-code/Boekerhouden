@@ -82,10 +82,10 @@ public sealed class WebTests(AdministratieFixture app) : IClassFixture<Administr
 
         Assert.Contains("1.234,56", kaart, StringComparison.Ordinal);
 
-        // Het menu in groepen, met de kolommenbalans onder Rapportages.
+        // Het menu in groepen, met de kolommenbalans onder Overzichten.
         var koba = await beheerder.GetStringAsync(new Uri($"/a/{id}/kolommenbalans", UriKind.Relative));
-        Assert.Contains("Boekhouden", koba, StringComparison.Ordinal);
-        Assert.Contains("Rapportages", koba, StringComparison.Ordinal);
+        Assert.Contains("Verwerken", koba, StringComparison.Ordinal);
+        Assert.Contains("Overzichten", koba, StringComparison.Ordinal);
         Assert.Contains("Inrichting", koba, StringComparison.Ordinal);
         Assert.Contains("Debet balans", koba, StringComparison.Ordinal);
         Assert.Contains("Totaal generaal", koba, StringComparison.Ordinal);

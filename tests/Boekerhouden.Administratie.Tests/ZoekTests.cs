@@ -62,7 +62,11 @@ public sealed class ZoekTests(AdministratieFixture app) : IClassFixture<Administ
 
         var pagina = Assert.Single(await Zoek(wie, "kolommen", id), r => r.Soort == Zoeksoort.Pagina);
         Assert.Equal($"/a/{id}/kolommenbalans", pagina.Url);
-        Assert.Equal(3, (await Zoek(wie, "dagboeken", id)).Count(r => r.Soort == Zoeksoort.Pagina && r.Detail == "Dagboeken"));
+        Assert.Equal(4, (await Zoek(wie, "verwerken", id)).Count(r => r.Soort == Zoeksoort.Pagina && r.Detail == "Verwerken"));
+
+        // Ook de tabbladen (Inkoop · Geboekt) en de pagina's zonder eigen regel in het menu (proefbalans).
+        Assert.Contains(await Zoek(wie, "geboekt", id), r => r.Soort == Zoeksoort.Pagina && r.Url == $"/a/{id}/inkoopboek" && r.Titel == "Inkoop · Geboekt");
+        Assert.Contains(await Zoek(wie, "proefbalans", id), r => r.Soort == Zoeksoort.Pagina && r.Url == $"/a/{id}/proefbalans");
 
         // De volgorde van de groepen: pagina's eerst, administraties laatst.
         var alles = await Zoek(wie, "laptop", id);
