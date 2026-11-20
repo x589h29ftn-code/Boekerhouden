@@ -37,6 +37,25 @@ public sealed class BeginbalansTests(AdministratieFixture app) : IClassFixture<A
     }
 
     [Fact]
+    public async Task Handmatig_ingevoerd_met_alle_balansrekeningen_boekt_alleen_wat_is_ingevuld()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var grootboek = app.Dienst<GrootboekDienst>();
+        var schema = await grootboek.Schema(wie, id);
+        // Zoals het scherm: elke balansrekening een regel, de meeste leeg.
+        var ingevuld = new Dictionary<string, decimal> { ["1100"] = 1250m, ["1300"] = 750m, ["0500"] = -2000m };
+        var regels = schema.Alle.Where(r => r.IsBalans).Select(r => new Beginbalansinvoer(r.Nummer, ingevuld.GetValueOrDefault(r.Nummer))).ToList();
+
+        var uitkomst = await app.Dienst<BeginbalansDienst>().Boek(wie, id, new(2026, 1, 1), regels);
+
+        Assert.True(uitkomst.IsGelukt, string.Join("; ", uitkomst.Fouten));
+        var post = Assert.Single(await grootboek.Posten(wie, id, "MEM")).Post;
+        Assert.Equal(["0500", "1100", "1300"], post.Regels.Select(r => r.Rekeningnummer));
+        Assert.Equal(new DateOnly(2026, 1, 1), post.Datum);
+    }
+
+    [Fact]
     public async Task Een_beginbalans_die_niet_sluit_of_op_een_resultaatrekening_wordt_geweigerd()
     {
         var wie = await app.Beheerder();

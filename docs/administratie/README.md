@@ -816,6 +816,9 @@ PDF (met tekst; eerst de virusscan, hoogstens 20 MB):
   01-01-2025*, per rekening één regel, alleen balansrekeningen (`BeginbalansDienst`, wijzigingslog *Beginbalans
   geboekt* met het bestand). Getest met een verzonnen jaarrekening (`FictieveJaarrekening`); een echte draait mee met
   `BOEKERHOUDEN_JAARREKENING` (staat niet in git).
+- **Handmatig invoeren**: zonder jaarrekening (bijv. een nieuwe onderneming of een balans op papier) zet *Handmatig
+  invoeren* elke balansrekening klaar met lege debet en credit, boekdatum 1 januari van het eerste boekjaar. Alleen
+  wat is ingevuld wordt geboekt; daarna net als hierboven (in balans, alleen balansrekeningen, één memoriaalboeking).
 
 ### Stand na A1–A7
 

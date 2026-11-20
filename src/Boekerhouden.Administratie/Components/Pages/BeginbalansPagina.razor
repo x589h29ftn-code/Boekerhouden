@@ -7,9 +7,9 @@
 
 <AdministratieKader Id="Id" Titel="Beginbalans" Actief="/beginbalans" BijOpenen="Open">
     <Acties>
-        @if (geopend?.Kop.Mag(Recht.Boekhouden) == true && voorstel is not null)
+        @if (geopend?.Kop.Mag(Recht.Boekhouden) == true && (voorstel is not null || handmatig))
         {
-            <label class="btn btn-sm btn-outline-secondary @(bezig ? "disabled" : null)" for="jaarrekening">Andere jaarrekening</label>
+            <label class="btn btn-sm btn-outline-secondary @(bezig ? "disabled" : null)" for="jaarrekening">@(voorstel is null ? "Jaarrekening inlezen" : "Andere jaarrekening")</label>
         }
     </Acties>
     <ChildContent>
@@ -21,35 +21,45 @@
         {
             <Sleepvlak Id="jaarrekening" Pagina="true" Tekst="Jaarrekening inlezen" Accept=".pdf,application/pdf" Meerdere="false" OnChange="Lees" Bezig="bezig" />
             <Foutmeldingen Fouten="fouten" />
-            @if (voorstel is null)
+            @if (voorstel is null && !handmatig)
             {
                 <LegeStaat Icoon="file-text" Tekst="Beginbalans uit de jaarrekening van vorig jaar">
                     <label class="btn btn-sm btn-primary @(bezig ? "disabled" : null)" for="jaarrekening" aria-busy="@(bezig ? "true" : null)">Jaarrekening inlezen</label>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" disabled="@(bezig || schema is null)" @onclick="Handmatig">Handmatig invoeren</button>
                 </LegeStaat>
             }
             else if (schema is not null)
             {
                 <div class="d-flex align-items-center flex-wrap gap-3 mb-2 beginbalans-kop">
-                    <span class="text-secondary small" title="@voorstel.Bestandsnaam">Balans per @Weergave.Datum(voorstel.Balansdatum)</span>
+                    @if (voorstel is not null)
+                    {
+                        <span class="text-secondary small" title="@voorstel.Bestandsnaam">Balans per @Weergave.Datum(voorstel.Balansdatum)</span>
+                    }
                     <span class="d-flex align-items-center gap-2 small">
                         <label for="boekdatum" class="text-secondary">Boekdatum</label>
                         <span style="width:9.5rem"><DatumVeld Id="boekdatum" @bind-Waarde="boekdatum" Label="Boekdatum" /></span>
                     </span>
                 </div>
-                @foreach (var signaal in voorstel.Signalen)
+                @foreach (var signaal in voorstel?.Signalen ?? [])
                 {
                     <div class="status let-op d-block small mb-1">@signaal</div>
                 }
                 <div class="card overzichtskaart mt-2">
                     <table class="table table-sm align-middle mb-0 overzichtstabel regeltabel beginbalans">
                         <thead>
-                            <tr><th>Post</th><th style="width:34%">Rekening</th><th class="text-end" style="width:9rem">Debet</th><th class="text-end" style="width:9rem">Credit</th><th style="width:1.75rem"></th></tr>
+                            <tr>@if (voorstel is not null)
+                                {
+                                    <th>Post</th>
+                                }<th style="@(voorstel is null ? null : "width:34%")">Rekening</th><th class="text-end" style="width:9rem">Debet</th><th class="text-end" style="width:9rem">Credit</th><th style="width:1.75rem"></th></tr>
                         </thead>
                         <tbody>
                             @foreach (var regel in regels)
                             {
                                 <tr>
-                                    <td title="@regel.Rubriek">@regel.Naam</td>
+                                    @if (voorstel is not null)
+                                    {
+                                        <td title="@regel.Rubriek">@regel.Naam</td>
+                                    }
                                     <td><RekeningKeuze @bind-Waarde="regel.Rekening" Schema="schema" Kader="geopend" /></td>
                                     <td><input class="form-control form-control-sm text-end" @bind="regel.Debet" @bind:event="oninput" aria-label="Debet" /></td>
                                     <td><input class="form-control form-control-sm text-end" @bind="regel.Credit" @bind:event="oninput" aria-label="Credit" /></td>
@@ -59,7 +69,7 @@
                         </tbody>
                         <tfoot>
                             <tr class="generaal">
-                                <td colspan="2"><button type="button" class="btn btn-sm btn-link nog-een-regel p-0" @onclick="RegelErbij"><Icoon Naam="plus" /> Nog een regel</button></td>
+                                <td colspan="@(voorstel is null ? 1 : 2)"><button type="button" class="btn btn-sm btn-link nog-een-regel p-0" @onclick="RegelErbij"><Icoon Naam="plus" /> Nog een regel</button></td>
                                 <td class="bedrag text-end">@Weergave.Bedrag(TotaalDebet)</td>
                                 <td class="bedrag text-end">@Weergave.Bedrag(TotaalCredit)</td>
                                 <td></td>
@@ -89,6 +99,9 @@
     private Beginbalansvoorstel? voorstel;
     private List<Invoer> regels = [];
     private DateOnly boekdatum;
+
+    /// <summary>Zonder jaarrekening: de bedragen zelf invullen, met alle balansrekeningen klaar.</summary>
+    private bool handmatig;
     private IReadOnlyList<string>? fouten;
     private bool bezig;
 
@@ -120,7 +133,7 @@
             fouten = uitkomst.IsGelukt ? null : uitkomst.Fouten;
             if (uitkomst.Waarde is { } v)
             {
-                voorstel = v;
+                (voorstel, handmatig) = (v, false);
                 boekdatum = v.Boekdatum;
                 regels = [.. v.Regels.Select(Invoer.Van)];
             }
@@ -137,11 +150,24 @@
 
     private void RegelErbij() => regels.Add(new Invoer { Naam = "" });
 
+    /// <summary>
+    /// De beginbalans zelf invullen: elke balansrekening een regel (wat leeg blijft, telt niet mee), boekdatum 1 januari
+    /// van het eerste boekjaar.
+    /// </summary>
+    private async Task Handmatig()
+    {
+        var jaren = await Grootboek.Boekjaren(geopend!.Wie, Id);
+        (handmatig, voorstel, fouten) = (true, null, null);
+        boekdatum = new DateOnly(jaren.Count > 0 ? jaren.Min() : DateTime.Today.Year, 1, 1);
+        regels = [.. schema!.Alle.Where(r => r.IsBalans).OrderBy(r => r.Nummer, Rekeningnummers.Volgorde).Select(r => new Invoer { Naam = r.Naam, Rekening = r.Nummer })];
+    }
+
     private async Task Boek()
     {
         (bezig, fouten) = (true, null);
         var uitkomst = await Beginbalans.Boek(geopend!.Wie, Id, boekdatum,
-            [.. regels.Select(r => new Beginbalansinvoer(r.Rekening?.Trim() ?? "", r.Bedrag, string.IsNullOrWhiteSpace(r.Naam) ? null : r.Naam))], voorstel?.Bestandsnaam);
+            [.. regels.Select(r => new Beginbalansinvoer(r.Rekening?.Trim() ?? "", r.Bedrag, voorstel is null || string.IsNullOrWhiteSpace(r.Naam) ? null : r.Naam))],
+            voorstel?.Bestandsnaam);
         bezig = false;
         if (!uitkomst.IsGelukt)
         {
@@ -150,7 +176,7 @@
         }
 
         Meldingen.Toon($"Beginbalans per {Weergave.Datum(boekdatum)} geboekt");
-        (voorstel, regels) = (null, []);
+        (voorstel, regels, handmatig) = (null, [], false);
     }
 
     private sealed class Invoer
