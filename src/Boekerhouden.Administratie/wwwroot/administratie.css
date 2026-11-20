@@ -1916,3 +1916,30 @@ tr:hover .rij-actie, .rij-actie:focus-visible { opacity: 1; }
 .bankrekeningen .tabteller { margin-left: .35rem; color: var(--bh-zacht); font-size: .8125rem; }
 .bankrekeningen .nav-link { background: none; }
 .bankaansluiting .let-op a { color: inherit; }
+
+/* Tabbladen onder de titel (AdministratieKader): pagina's die onder één regel in het menu staan, bijv. Inkoop: te
+   verwerken en geboekt. Rustig: grijze tekst, de actieve donker met een lijn in de accentkleur; geen lijn over de hele
+   breedte, want de lijst of lege staat eronder heeft er zelf al een. */
+.paginatabs {
+    gap: 1.5rem;
+    margin: -.5rem 0 .75rem;
+    font-size: .925rem;
+}
+
+    .paginatabs .nav-link {
+        margin-bottom: -1px;
+        padding: .45rem 0;
+        color: var(--bh-zacht);
+        border-bottom: 2px solid transparent;
+        transition: color var(--bh-snel) ease, border-color var(--bh-snel) ease;
+    }
+
+        .paginatabs .nav-link:hover {
+            color: var(--bh-tekst);
+        }
+
+        .paginatabs .nav-link.active {
+            color: var(--bh-tekst);
+            font-weight: 600;
+            border-bottom-color: var(--bh-accent);
+        }

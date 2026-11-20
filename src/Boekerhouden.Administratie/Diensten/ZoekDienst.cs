@@ -52,8 +52,8 @@ public sealed class ZoekDienst(Toegang toegang, AdministratieDienst administrati
     }
 
     private static IEnumerable<Zoekresultaat> Paginas(AdministratieKop kop, string zoek) =>
-        Administratiemenu.Groepen
-            .SelectMany(g => g.Items.Where(i => i.Zichtbaar(kop)).Select(i => (Groep: g.Naam, Item: i)))
+        Administratiemenu.AllePaginas()
+            .Where(x => x.Item.Zichtbaar(kop))
             .Where(x => x.Item.Naam.Contains(zoek, StringComparison.OrdinalIgnoreCase) || $"{x.Groep} {x.Item.Naam}".Contains(zoek, StringComparison.OrdinalIgnoreCase))
             .Select(x => new Zoekresultaat(Zoeksoort.Pagina, x.Item.Naam, x.Groep, $"/a/{kop.Id}{x.Item.Pad}"))
             .Take(PerSoort);

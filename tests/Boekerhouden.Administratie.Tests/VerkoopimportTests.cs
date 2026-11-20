@@ -171,10 +171,34 @@ public sealed class VerkoopimportTests(AdministratieFixture app) : IClassFixture
     }
 
     [Fact]
-    public void Het_menu_heeft_het_verkoopboek_en_een_eigen_plek_om_facturen_te_maken()
+    public void Het_menu_heeft_verkoop_en_een_eigen_plek_om_facturen_te_maken()
     {
-        var boekhouden = Administratiemenu.Groepen[0].Items.Select(i => (i.Pad, i.Naam)).ToList();
-        Assert.Contains(("/verkoop", "Verkoop"), boekhouden);
-        Assert.Contains(("/facturen", "Facturen maken"), boekhouden);
+        var verwerken = Administratiemenu.Groepen[0].Items.Select(i => (i.Pad, i.Naam)).ToList();
+        Assert.Contains(("/verkoop", "Verkoop"), verwerken);
+        Assert.Contains(Administratiemenu.Groepen, g => g.Items.Any(i => (i.Pad, i.Naam) == ("/facturen", "Facturen maken")));
+    }
+
+    [Fact]
+    public void Elke_soort_staat_een_keer_in_het_menu_met_de_rest_als_tabblad()
+    {
+        var paden = Administratiemenu.Groepen.SelectMany(g => g.Items).Select(i => i.Pad).ToList();
+        Assert.Equal(paden.Count, paden.Distinct().Count());
+        Assert.Equal(paden.Count, Administratiemenu.Groepen.SelectMany(g => g.Items).Select(i => i.Naam).Distinct().Count());
+        Assert.DoesNotContain("/inkoopboek", paden);
+        Assert.DoesNotContain("/proefbalans", paden);
+
+        // Een tabblad laat de regel van zijn groep oplichten; de eerste tab is die regel zelf.
+        Assert.Equal("/inkoop", Administratiemenu.MenuPad("/inkoopboek"));
+        Assert.Equal("/facturen", Administratiemenu.MenuPad("/verkoop/terugkerend"));
+        Assert.Equal("/debiteuren", Administratiemenu.MenuPad("/crediteuren"));
+        Assert.Equal("/instellingen", Administratiemenu.MenuPad("/beginbalans"));
+        Assert.Equal("/journaal", Administratiemenu.MenuPad("/journaal"));
+        Assert.All(Administratiemenu.Tabgroepen, g => Assert.Contains(g.Tabs[0].Pad, paden));
+
+        // Zoeken vindt ook de tabbladen en de pagina's zonder eigen regel, elk pad één keer.
+        var alle = Administratiemenu.AllePaginas().ToList();
+        Assert.Contains(alle, p => p.Item.Pad == "/proefbalans");
+        Assert.Contains(alle, p => p.Item.Pad == "/inkoopboek" && p.Item.Naam == "Inkoop · Geboekt");
+        Assert.Equal(alle.Count, alle.Select(p => p.Item.Pad).Distinct().Count());
     }
 }

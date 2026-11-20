@@ -16,7 +16,7 @@ else if (kop is null)
 }
 else
 {
-    <PageTitle>@Titel - @kop.Naam</PageTitle>
+    <PageTitle>@Kopnaam - @kop.Naam</PageTitle>
     <div class="administratie">
         <aside class="zijbalk" aria-label="Administratie">
             <button type="button" class="zijbalk-wissel" data-zijbalk title="Menu smaller of breder" aria-label="Menu smaller of breder"><Icoon Naam="chevron-left" /></button>
@@ -61,7 +61,7 @@ else
                     <div class="zijmenu-groep">@groep.Naam</div>
                     @foreach (var item in zichtbaar)
                     {
-                        <a class="zijmenu-link @(item.Pad == Actief ? "actief" : null)" href="@($"/a/{kop.Id}{item.Pad}")" aria-current="@(item.Pad == Actief ? "page" : null)">@item.Naam</a>
+                        <a class="zijmenu-link @(item.Pad == MenuPad ? "actief" : null)" href="@($"/a/{kop.Id}{item.Pad}")" aria-current="@(item.Pad == MenuPad ? "page" : null)">@item.Naam</a>
                     }
                 }
             </nav>
@@ -73,7 +73,7 @@ else
                     <a class="terug" href="@terug" title="Terug" aria-label="Terug"><Icoon Naam="arrow-left" /></a>
                 }
                 <div class="me-auto paginakop">
-                    <h1 class="h3 mb-0">@Titel@if (kop.Gearchiveerd is not null)
+                    <h1 class="h3 mb-0">@Kopnaam@if (kop.Gearchiveerd is not null)
                         {
                             <span class="status ms-2 fs-6" title="Uit het archief halen kan bij Administraties">gearchiveerd, alleen inzien</span>
                         }</h1>
@@ -84,6 +84,15 @@ else
                 </div>
                 @Acties
             </div>
+            @if (Tabs is { } tabgroep)
+            {
+                <nav class="nav nav-underline paginatabs" aria-label="@tabgroep.Naam">
+                    @foreach (var tab in tabgroep.Tabs.Where(t => t.Zichtbaar(kop)))
+                    {
+                        <a class="nav-link @(tab.Pad == Actief ? "active" : null)" href="@($"/a/{kop.Id}{tab.Pad}")" aria-current="@(tab.Pad == Actief ? "page" : null)">@tab.Naam</a>
+                    }
+                </nav>
+            }
             @ChildContent(kop)
         </div>
     </div>
@@ -140,6 +149,20 @@ else
     /// <summary>Waar de pijl linksboven naartoe gaat (bijv. terug naar de lijst waaruit je kwam); alleen binnen deze administratie.</summary>
     [Parameter]
     public string? Terug { get; set; }
+
+    /// <summary>De regel in het menu die oplicht: bij een tabblad (bijv. Inkoop, geboekt) de regel van de groep.</summary>
+    private string MenuPad => Administratiemenu.MenuPad(Actief);
+
+    /// <summary>
+    /// De tabbladen bovenaan, als deze pagina er zelf een is (het adres is het pad van de tab): niet op een pagina die
+    /// alleen bij de groep hoort, zoals een factuur of het splitsen van een stapel.
+    /// </summary>
+    private Tabgroep? Tabs => Administratiemenu.GroepVan(Actief) is { } groep && TerugAdres is null
+        && string.Equals(Navigatie.ToBaseRelativePath(Navigatie.Uri).Split('?', '#')[0].TrimEnd('/'), $"a/{Id}{Actief}", StringComparison.OrdinalIgnoreCase)
+        ? groep : null;
+
+    /// <summary>De titel: bij tabbladen de naam van de groep (Inkoop, Facturen maken), anders die van de pagina.</summary>
+    private string Kopnaam => Tabs?.Naam ?? Titel;
 
     private string? TerugAdres => Terug is { } t && t.StartsWith($"/a/{Id}/", StringComparison.OrdinalIgnoreCase) && !t.Contains("//", StringComparison.Ordinal) ? t : null;
 
