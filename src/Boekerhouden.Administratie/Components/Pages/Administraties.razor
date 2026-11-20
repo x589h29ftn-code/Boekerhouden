@@ -71,8 +71,8 @@ else
             <thead>
                 <tr>
                     <th>Naam</th><th>Rechtsvorm</th><th>Jouw rol</th>
-                    <th class="text-end werk">Inkoop</th><th class="text-end werk">Bank</th><th class="werk">Bank t/m</th><th class="text-end werk">Verkoop</th>
-                    <th class="text-end werk">Vervallen debiteuren</th><th class="werk">Afgesloten t/m</th><th class="rekt"></th>
+                    <th class="text-end werk">Inkoop</th><th class="text-end werk">Bank</th><th class="werk na-getal">Bank t/m</th><th class="text-end werk">Verkoop</th>
+                    <th class="text-end werk">Vervallen debiteuren</th><th class="werk na-getal">Afgesloten t/m</th><th class="rekt"></th>
                 </tr>
             </thead>
             <tbody>
@@ -91,7 +91,7 @@ else
                             {
                                 <a href="/a/@a.Id/bank" title="oudste mutatie @(ws.OudsteBank is { } o ? Weergave.Datum(o) : null)">@ws.Bank</a>
                             }</td>
-                        <td class="text-nowrap">@if (ws?.AfschriftTot is { } bankTot)
+                        <td class="text-nowrap na-getal">@if (ws?.AfschriftTot is { } bankTot)
                             {
                                 <span class="@(bankTot < vandaag.AddDays(-45) ? "let-op" : null)" title="@(bankTot < vandaag.AddDays(-45) ? "Langer dan 45 dagen geen afschrift" : null)">@Weergave.Datum(bankTot)</span>
                             }</td>
@@ -103,7 +103,7 @@ else
                             {
                                 <a href="/a/@a.Id/debiteuren" title="@ws.Vervallen @(ws.Vervallen == 1 ? "factuur" : "facturen") over de vervaldatum">@Weergave.BedragHeel(Math.Abs(ws.VervallenBedrag))</a>
                             }</td>
-                        <td class="text-nowrap">@if (ws?.AfgeslotenTot is { } af)
+                        <td class="text-nowrap na-getal">@if (ws?.AfgeslotenTot is { } af)
                             {
                                 <a class="text-reset" href="/a/@a.Id/perioden">@af.ToString("MMM yyyy", Nl)</a>
                             }</td>

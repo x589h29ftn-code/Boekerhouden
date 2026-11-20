@@ -95,7 +95,8 @@ else
         </tbody>
         <tfoot>
             <tr>
-                <td colspan="7"><button class="btn btn-sm btn-link nog-een-regel p-0" @onclick="RegelErbij"><Icoon Naam="plus" /> Nog een regel</button><span class="text-secondary small ms-3">Totaal exclusief btw</span></td>
+                <td colspan="5"><button class="btn btn-sm btn-link nog-een-regel p-0" @onclick="RegelErbij"><Icoon Naam="plus" /> Nog een regel</button></td>
+                <td colspan="2" class="totaallabel text-secondary small">Totaal exclusief btw</td>
                 <td class="bedrag text-end">@Weergave.Bedrag(Factuur.TotaalExclusief)</td>
                 <td></td>
             </tr>
@@ -104,7 +105,7 @@ else
                 <tr><td colspan="7" class="text-end text-secondary small">Btw @Btwpercentage.Tekst(b.Code.Percentage) over @Weergave.Bedrag(b.Grondslag)</td><td class="bedrag text-end">@Weergave.Bedrag(b.Btw)</td><td></td></tr>
             }
             <tr class="generaal">
-                <td colspan="7" class="text-end">Totaal</td>
+                <td colspan="7" class="totaallabel">Totaal</td>
                 <td class="bedrag text-end">@Weergave.Bedrag(Factuur.TotaalExclusief + Btw.Sum(b => b.Btw))</td>
                 <td></td>
             </tr>

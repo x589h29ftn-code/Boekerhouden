@@ -284,7 +284,8 @@ function totp(sleutel) {
       ['crediteuren', `/a/${id}/crediteuren`], ['debiteuren', `/a/${id}/debiteuren`], ['relaties', `/a/${id}/relaties`], ['regels', `/a/${id}/regels`],
       ['rekeningschema', `/a/${id}/rekeningschema`], ['instellingen', `/a/${id}/instellingen`], ['factuurlayout', `/a/${id}/factuurlayout`],
       ['beheer-gebruikers', '/beheer/gebruikers'], ['beheer-instellingen', '/beheer/instellingen'], ['beheer-btw', '/beheer/btw'], ['beheer-wijzigingslog', '/beheer/wijzigingslog'],
-      ['account-beveiliging', '/account/beveiliging']];
+      ['account-beveiliging', '/account/beveiliging'], ['facturen', `/a/${id}/facturen`], ['btw', `/a/${id}/btw`], ['vpb', `/a/${id}/vpb`],
+      ['activa', `/a/${id}/activa`], ['perioden', `/a/${id}/perioden`], ['beginbalans', `/a/${id}/beginbalans`]];
     for (const [naam, pad] of paginas) {
       await page.goto(basis + pad); await page.waitForTimeout(1800);
       await page.screenshot({ path: `${uit}/alle-${naam}.png` });

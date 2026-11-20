@@ -1339,8 +1339,10 @@ body.kolom-slepen { cursor: col-resize; user-select: none; }
 .verkoopformulier .formulier-rij > label { color: var(--bs-secondary-color); font-size: .875rem; }
 .verkoopformulier #omschrijving { max-width: 40rem; }
 .verkoopregels tfoot td { border-bottom: 0; }
+.verkoopregels > tfoot td.totaallabel { text-align: right; }
+.verkoopregels > tfoot tr.generaal td { border-top: 0; }
 .verkooplijst .status { margin-left: .25rem; }
-.verkooplijst td.vervallen { color: var(--bs-body-color); font-weight: 600; }
+.verkooplijst td.vervallen, td.vervallen { color: var(--bs-body-color); font-weight: 600; }
 
 /* Een definitieve verkoopfactuur: de gegevens rechts naast de klant. */
 .factuur-samenvatting { max-width: 60rem; }
@@ -1383,8 +1385,9 @@ body.kolom-slepen { cursor: col-resize; user-select: none; }
 }
 
 /* Een factuur invullen heeft de breedte nodig voor de regels (omschrijving, aantal, prijs, rekening, btw): op het
-   gewone venster van de Windows-app (1440 breed) staat het voorbeeld daarom onder het formulier, pas daarboven ernaast. */
-@media (max-width: 1560px) {
+   gewone venster van de Windows-app (1440 breed) en op een laptop (1600) staat het voorbeeld daarom onder het formulier,
+   pas op een breed scherm ernaast. */
+@media (max-width: 1760px) {
     .verkoop-maken:not(.verkoop-definitief, .verkoop-verwerken) { grid-template-columns: 1fr; }
     .verkoop-maken:not(.verkoop-definitief, .verkoop-verwerken) > .verkoop-voorbeeld { position: static; justify-self: start; }
 }
@@ -1509,6 +1512,7 @@ a.kerngetal:hover { color: var(--bh-accent); }
 .widgettabel td + td, .widgettabel th + th { padding-left: var(--r2); white-space: nowrap; }
 .widgettabel tr.totaal td { border-top-color: var(--bh-lijn-sterk); }
 .margetabel td.procent { padding-left: var(--r1); font-size: .8125rem; }
+.margetabel .procent { width: 3.75rem; min-width: 3.75rem; }
 .widgettabel a { color: inherit; }
 .widgettabel a:hover { color: var(--bh-accent); }
 
@@ -1586,6 +1590,11 @@ a.kerngetal:hover { color: var(--bh-accent); }
 
 .administratielijst th.werk {
     width: 8.5rem;
+}
+
+/* Een datumkolom direct na een getal (rechts uitgelijnd): wat ruimte ertussen, anders lopen de koppen in elkaar over. */
+.administratielijst .na-getal {
+    padding-left: 1.5rem;
 }
 
 .administratielijst td a:not(.text-reset) {
@@ -1839,6 +1848,8 @@ table[data-sleepbaar="journaal"] :is(th, td):not(:last-child) { padding-right: 1
 
 /* De totalen onder de regels van een ingelezen verkoopfactuur: exclusief, btw per tarief, inclusief. */
 .verwerktotalen td { padding: .1rem 0 .1rem 1.5rem; white-space: nowrap; }
+/* De totalen staan recht onder de bedragkolom: links van de kolom met het kruisje (regel verwijderen). */
+.verwerktotalen { margin-right: 2.25rem; }
 .verwerktotalen tr.totaal td { border-top: 1px solid var(--bh-lijn-sterk); padding-top: .25rem; }
 
 /* Naast het origineel is het formulier smal: de vaste kolommen krimpen, zodat de omschrijving van de regel leesbaar blijft. */

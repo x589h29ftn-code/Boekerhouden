@@ -8,41 +8,6 @@
 
 <AdministratieKader Id="Id" Titel="Regels" Actief="/regels" BijOpenen="Open">
     <Foutmeldingen Fouten="fouten" />
-    @if (regels is { Count: 0 })
-    {
-        <LegeStaat Klasse="mb-3" Icoon="sliders-horizontal" Tekst="Nog geen regels" />
-    }
-    else if (regels is not null)
-    {
-        <div class="card mb-3">
-            <table class="table table-sm align-middle mb-0" data-sleepbaar="regels">
-                <thead>
-                    <tr><th>Regel</th><th>Als</th><th>Dan</th><th data-breedte="230"></th></tr>
-                </thead>
-                <tbody>
-                    @foreach (var r in regels)
-                    {
-                        <tr class="regel-met-acties @(bewerkId == r.Id ? "table-active" : null) @(context.Mag(Recht.Boekhouden) ? "klikbaar" : null)" @onclick="() => KlikRegel(r, context.Mag(Recht.Boekhouden))">
-                            <td>@r.Regel.Naam</td>
-                            <td class="small text-secondary">@Voorwaarden(r.Regel)</td>
-                            <td class="small" title="@r.Regel.Omschrijving">@r.Regel.Rekeningnummer @r.Regel.BtwCode @(r.Regel.Automatisch ? "· automatisch" : null)</td>
-                            <td class="text-end text-nowrap">
-                                @if (context.Mag(Recht.Boekhouden))
-                                {
-                                    <span class="acties" @onclick:stopPropagation="true">
-                                        <button type="button" class="btn btn-sm btn-link p-0" title="Eerder toepassen" aria-label="Eerder toepassen" @onclick="() => Verplaats(r.Id, true)"><Icoon Naam="arrow-up" /></button>
-                                        <button type="button" class="btn btn-sm btn-link p-0 ms-1" title="Later toepassen" aria-label="Later toepassen" @onclick="() => Verplaats(r.Id, false)"><Icoon Naam="arrow-down" /></button>
-                                        <button type="button" class="btn btn-sm btn-link p-0 ms-2 regel-bewerken" @onclick="() => Bewerk(r)">Bewerken</button>
-                                        <button type="button" class="btn btn-sm btn-link text-secondary p-0 ms-2 regel-verwijderen" @onclick="() => Verwijder(r.Id)">Verwijderen</button>
-                                    </span>
-                                }
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    }
     @if (context.Mag(Recht.Boekhouden))
     {
         <Uitklapformulier @ref="formulier" Tekst="Nieuwe regel">
@@ -100,6 +65,41 @@
                 </div>
             </div>
         </Uitklapformulier>
+    }
+    @if (regels is { Count: 0 })
+    {
+        <LegeStaat Klasse="mb-3" Icoon="sliders-horizontal" Tekst="Nog geen regels" />
+    }
+    else if (regels is not null)
+    {
+        <div class="card mb-3">
+            <table class="table table-sm align-middle mb-0" data-sleepbaar="regels">
+                <thead>
+                    <tr><th>Regel</th><th>Als</th><th>Dan</th><th data-breedte="230"></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in regels)
+                    {
+                        <tr class="regel-met-acties @(bewerkId == r.Id ? "table-active" : null) @(context.Mag(Recht.Boekhouden) ? "klikbaar" : null)" @onclick="() => KlikRegel(r, context.Mag(Recht.Boekhouden))">
+                            <td>@r.Regel.Naam</td>
+                            <td class="small text-secondary">@Voorwaarden(r.Regel)</td>
+                            <td class="small" title="@r.Regel.Omschrijving">@r.Regel.Rekeningnummer @r.Regel.BtwCode @(r.Regel.Automatisch ? "· automatisch" : null)</td>
+                            <td class="text-end text-nowrap">
+                                @if (context.Mag(Recht.Boekhouden))
+                                {
+                                    <span class="acties" @onclick:stopPropagation="true">
+                                        <button type="button" class="btn btn-sm btn-link p-0" title="Eerder toepassen" aria-label="Eerder toepassen" @onclick="() => Verplaats(r.Id, true)"><Icoon Naam="arrow-up" /></button>
+                                        <button type="button" class="btn btn-sm btn-link p-0 ms-1" title="Later toepassen" aria-label="Later toepassen" @onclick="() => Verplaats(r.Id, false)"><Icoon Naam="arrow-down" /></button>
+                                        <button type="button" class="btn btn-sm btn-link p-0 ms-2 regel-bewerken" @onclick="() => Bewerk(r)">Bewerken</button>
+                                        <button type="button" class="btn btn-sm btn-link text-secondary p-0 ms-2 regel-verwijderen" @onclick="() => Verwijder(r.Id)">Verwijderen</button>
+                                    </span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     }
 </AdministratieKader>
 

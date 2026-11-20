@@ -388,9 +388,9 @@
                 {
                     var van = new DateOnly(marge.Van.Year, (k * 3) + 1, 1);
                     var tot = k == marge.Totaal.Kwartalen.Count - 1 ? marge.Tot : van.AddMonths(3).AddDays(-1);
-                    <th class="text-end" colspan="2"><a href="@Kolommenbalans(van, tot)">@($"{k + 1}e kwartaal")</a></th>
+                    <th class="text-end"><a href="@Kolommenbalans(van, tot)">@($"{k + 1}e kwartaal")</a></th><th class="procent"></th>
                 }
-                <th class="text-end" colspan="2"><a href="@Kolommenbalans(marge.Van, marge.Tot)">@marge.Van.Year</a></th>
+                <th class="text-end"><a href="@Kolommenbalans(marge.Van, marge.Tot)">@marge.Van.Year</a></th><th class="procent"></th>
             </tr>
         </thead>
         <tbody>

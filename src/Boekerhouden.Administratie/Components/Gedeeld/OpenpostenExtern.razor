@@ -47,7 +47,7 @@
                             <td class="text-truncate" title="@(p.Soort == Factuursoort.Inkoop ? "Crediteur" : "Debiteur") · @p.Relatie">@p.Naam</td>
                             <td>@p.Factuurnummer</td>
                             <td class="text-nowrap">@Weergave.Datum(p.Datum)</td>
-                            <td class="text-nowrap @(dagen > 0 ? "status" : "text-secondary")" title="@(dagen > 0 ? $"{dagen} dagen vervallen" : null)">@Weergave.Datum(p.Vervaldatum)</td>
+                            <td class="text-nowrap @(dagen > 0 ? "vervallen" : "text-secondary")" title="@(dagen > 0 ? $"{dagen} dagen vervallen" : null)">@Weergave.Datum(p.Vervaldatum)</td>
                             <td class="bedrag text-end"><Euro Waarde="p.Bedrag" /></td>
                             <td class="bedrag text-end"><Euro Waarde="p.Openstaand" /></td>
                         </tr>
