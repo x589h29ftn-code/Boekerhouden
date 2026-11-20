@@ -1,0 +1,494 @@
+/* Vormgeving (november 2026): een modernere, overzichtelijke laag over administratie.css en uitstraling.css. Geladen
+   na uitstraling.css en vóór donker.css. Alles wat de nieuwe uitstraling maakt, staat hier bij elkaar: zonder dit
+   bestand (en de iconen en aantallen in AdministratieKader) is het pakket weer zoals ervoor.
+
+   - De zijbalk: een icoon per regel, het actieve item zacht blauw, grijze aantallen voor wat te verwerken is, en
+     Inrichting inklapbaar.
+   - De inhoud op een wit vlak met ronde hoeken; de titel iets steviger; een broodkruimel op detailschermen.
+   - Rustige, vloeiende overgangen: knoppen, menu's, tabbladen, kaarten. Alles valt weg bij "minder beweging". */
+
+:root {
+    --bh-oppervlak: #fff;
+    --bh-vlak: #f2f2ef;
+    --bh-zijbalk: #fafaf8;
+    --bh-aanwijs: rgba(23, 34, 56, .055);
+    --bh-teller: #e9e7e1;
+    --bh-teller-tekst: #4a5058;
+    --bh-schaduw: 0 1px 2px rgba(20, 30, 50, .05), 0 1px 1px rgba(20, 30, 50, .02);
+    --bh-schaduw-hoog: 0 10px 28px rgba(20, 30, 50, .13), 0 2px 6px rgba(20, 30, 50, .06);
+    --bh-rond: 10px;
+    --bh-rond-klein: 6px;
+}
+
+body {
+    background: var(--bh-vlak);
+}
+
+/* ---------- Zijbalk ---------- */
+
+.zijbalk {
+    background: var(--bh-zijbalk);
+    box-shadow: 0 3rem 0 0 var(--bh-zijbalk), 1px 3rem 0 0 var(--bh-lijn);
+}
+
+.zijmenu-link {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    min-width: 0;
+    padding: .34rem .6rem;
+    border-radius: var(--bh-rond-klein);
+    transition: background-color var(--bh-snel) ease, color var(--bh-snel) ease;
+}
+
+    .zijmenu-link > .icoon {
+        flex: none;
+        width: 1.1rem;
+        height: 1.1rem;
+        color: #858b93;
+        transition: color var(--bh-snel) ease, transform var(--bh-gewoon) var(--bh-curve);
+    }
+
+    .zijmenu-link:hover, .zijmenu-link:focus-visible {
+        background: var(--bh-aanwijs);
+    }
+
+        .zijmenu-link:hover > .icoon {
+            color: var(--bh-tekst);
+            transform: scale(1.06);
+        }
+
+    .zijmenu-link.actief {
+        background: var(--bh-accent-zacht);
+        box-shadow: none;
+        color: var(--bh-accent);
+        font-weight: 600;
+    }
+
+        .zijmenu-link.actief > .icoon {
+            color: var(--bh-accent);
+        }
+
+.zijmenu-naam {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Wat er te verwerken is: een klein grijs getal rechts (geen kleur: het is informatie, geen alarm). */
+.zijmenu-aantal {
+    margin-left: auto;
+    padding: .05rem .45rem;
+    border-radius: 999px;
+    background: var(--bh-teller);
+    color: var(--bh-teller-tekst);
+    font-size: .72rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.4;
+    animation: bh-vervagen var(--bh-gewoon) ease both;
+}
+
+.zijmenu-link.actief .zijmenu-aantal {
+    background: var(--bh-oppervlak);
+    color: var(--bh-accent);
+}
+
+.zijmenu-groep {
+    margin-top: 1rem;
+}
+
+/* Een inklapbare groep (Inrichting): de kop is een knop met een pijltje dat meedraait. */
+.zijmenu-groep.inklapbaar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: calc(100% - 1.1rem);
+    padding: .15rem 0;
+    border: 0;
+    border-radius: var(--bh-rond-klein);
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    transition: color var(--bh-snel) ease;
+}
+
+    .zijmenu-groep.inklapbaar:hover {
+        color: var(--bh-tekst);
+    }
+
+    .zijmenu-groep.inklapbaar .icoon {
+        width: .8rem;
+        height: .8rem;
+        transition: transform var(--bh-gewoon) var(--bh-curve);
+    }
+
+    .zijmenu-groep.inklapbaar.open .icoon {
+        transform: rotate(90deg);
+    }
+
+/* Open en dicht schuiven: de hoogte gaat vloeiend via de rij van een grid (0fr ↔ 1fr). */
+.zijmenu-items {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows 240ms var(--bh-curve), opacity 200ms ease;
+}
+
+    .zijmenu-items.dicht {
+        grid-template-rows: 0fr;
+        opacity: 0;
+    }
+
+.zijmenu-binnen {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.wisselaar-knop {
+    border-radius: var(--bh-rond-klein);
+    box-shadow: var(--bh-schaduw);
+}
+
+/* ---------- De inhoud op een wit vlak ---------- */
+
+.administratie-inhoud {
+    margin: -.5rem 0 -.75rem;
+    padding: 1.25rem 1.6rem 1.6rem;
+    border: 1px solid var(--bh-lijn);
+    border-radius: var(--bh-rond);
+    background: var(--bh-oppervlak);
+    box-shadow: var(--bh-schaduw);
+    min-height: calc(100vh - 6.75rem);
+}
+
+    /* Wat bij het scrollen blijft staan, krijgt de kleur van het vlak. */
+    .administratie-inhoud.kop-vast > .d-flex:first-child,
+    .administratie-inhoud.kop-vast > .onderkop {
+        background: var(--bh-oppervlak);
+    }
+
+.paginakop h1 {
+    font-weight: 600;
+    letter-spacing: -.012em;
+}
+
+/* De schermen die het hele venster vullen (factuur met viewer, werkvoorraad, bank): wat lager, voor de rand van het
+   vlak, zodat er niets gaat schuiven. */
+.factuurviewer {
+    height: calc(100vh - 14rem);
+}
+
+.werkvoorraad {
+    max-height: calc(100vh - 10rem);
+}
+
+.verkoop-origineel .factuurviewer {
+    height: calc(100vh - 11rem);
+}
+
+.bankwerk .verwerkpaneel {
+    max-height: calc(100vh - 4rem);
+}
+
+/* Kaarten op het witte vlak: een dunne rand, ronde hoeken, een zweem van schaduw. */
+.administratie-inhoud .card, .administratie-inhoud .widget {
+    border-radius: 8px;
+}
+
+.widget {
+    background: #fcfcfb;
+    transition: border-color var(--bh-gewoon) ease, box-shadow var(--bh-gewoon) ease;
+}
+
+    .widget:hover {
+        border-color: var(--bh-lijn-sterk);
+        box-shadow: var(--bh-schaduw);
+    }
+
+/* De brutomarge per kwartaal heeft veel kolommen: wat dichter op elkaar, en schuiven in plaats van uit het vak lopen. */
+.widget:has(.margetabel) {
+    overflow-x: auto;
+}
+
+.margetabel :is(td, th) + :is(td, th) {
+    padding-left: .6rem;
+}
+
+.margetabel .procent {
+    width: 3.1rem;
+    min-width: 3.1rem;
+}
+
+/* ---------- Broodkruimel ---------- */
+
+.kruimel {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .3rem;
+    margin-bottom: .15rem;
+    color: var(--bh-zacht);
+    font-size: .82rem;
+}
+
+    .kruimel a {
+        color: var(--bh-zacht);
+        text-decoration: none;
+        transition: color var(--bh-snel) ease;
+    }
+
+        .kruimel a:hover {
+            color: var(--bh-accent);
+        }
+
+    .kruimel .icoon {
+        width: .7rem;
+        height: .7rem;
+        opacity: .7;
+    }
+
+/* ---------- Tabbladen: de lijn onder het actieve tabblad schuift er vloeiend onder ---------- */
+
+.paginatabs .nav-link {
+    position: relative;
+    border-bottom: 0;
+}
+
+    .paginatabs .nav-link::after {
+        content: "";
+        position: absolute;
+        right: 0;
+        bottom: -1px;
+        left: 0;
+        height: 2px;
+        border-radius: 2px;
+        background: var(--bh-accent);
+        transform: scaleX(0);
+        transition: transform var(--bh-gewoon) var(--bh-curve);
+    }
+
+    .paginatabs .nav-link.active::after {
+        transform: scaleX(1);
+    }
+
+    .paginatabs .nav-link:hover:not(.active)::after {
+        background: var(--bh-lijn-sterk);
+        transform: scaleX(1);
+    }
+
+/* ---------- Knoppen en menu's ---------- */
+
+.btn {
+    border-radius: var(--bh-rond-klein);
+    transition: background-color var(--bh-snel) ease, border-color var(--bh-snel) ease, color var(--bh-snel) ease, box-shadow var(--bh-snel) ease, transform 80ms ease;
+}
+
+    .btn:active:not(:disabled) {
+        transform: translateY(1px);
+    }
+
+.btn-primary {
+    box-shadow: 0 1px 2px rgba(23, 34, 56, .18);
+}
+
+    .btn-primary:hover {
+        box-shadow: 0 3px 8px rgba(36, 66, 110, .22);
+    }
+
+:is(.form-control, .form-select) {
+    border-radius: var(--bh-rond-klein);
+    transition: border-color var(--bh-snel) ease, box-shadow var(--bh-snel) ease;
+}
+
+/* Het menu van een knop (Nieuw, Facturen inlezen): zweeft boven de pagina en komt zacht binnen. */
+.knopmenu .menu, .dropdown-menu, .wisselaar-paneel, .gebruikersmenu .menu {
+    border-radius: 8px;
+    box-shadow: var(--bh-schaduw-hoog);
+}
+
+.knopmenu .menu {
+    transform-origin: top right;
+    animation: bh-menu 160ms var(--bh-curve) both;
+}
+
+@keyframes bh-menu {
+    from {
+        opacity: 0;
+        transform: translateY(-4px) scale(.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+/* Een hoofdknop met een menu ernaast (Facturen inlezen ▾): twee knoppen die één geheel vormen. */
+.splitsknop {
+    display: inline-flex;
+}
+
+    .splitsknop > .btn:first-child {
+        display: inline-flex;
+        align-items: center;
+        gap: .45rem;
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+
+    .splitsknop > .btn + .btn {
+        padding-right: .5rem;
+        padding-left: .5rem;
+        border-left: 1px solid rgba(255, 255, 255, .28);
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+    }
+
+/* Menuregel met een tweede regel uitleg in het klein (bijv. "één PDF met veel facturen"). */
+.knopmenu > .menu > .menuregel {
+    padding: .45rem .9rem;
+    white-space: normal;
+    transition: background-color var(--bh-snel) ease;
+}
+
+.inleesknop > .menu {
+    min-width: 18rem;
+}
+
+.knopmenu .menu .menuregel small {
+    display: block;
+    color: var(--bh-zacht);
+    font-size: .78rem;
+}
+
+/* ---------- Tabellen ---------- */
+
+:is(.table, .overzichtstabel) > tbody > tr {
+    transition: background-color var(--bh-snel) ease;
+}
+
+/* ---------- Te doen (dashboard) ---------- */
+
+.tedoen-kop {
+    margin: .1rem 0 .55rem;
+    color: var(--bh-zacht);
+    font-size: .75rem;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+.tedoen {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    gap: .75rem;
+    margin-bottom: 1.5rem;
+}
+
+    .tedoen > a {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        column-gap: .8rem;
+        row-gap: .1rem;
+        padding: .85rem 1rem;
+        border: 1px solid var(--bh-lijn);
+        border-radius: 8px;
+        background: var(--bh-oppervlak);
+        color: inherit;
+        text-decoration: none;
+        transition: border-color var(--bh-gewoon) ease, box-shadow var(--bh-gewoon) ease, transform var(--bh-gewoon) var(--bh-curve);
+        animation: bh-binnen 260ms var(--bh-curve) backwards;
+    }
+
+        .tedoen > a:nth-child(2) { animation-delay: 40ms; }
+        .tedoen > a:nth-child(3) { animation-delay: 80ms; }
+        .tedoen > a:nth-child(4) { animation-delay: 120ms; }
+        .tedoen > a:nth-child(n + 5) { animation-delay: 160ms; }
+
+        .tedoen > a:hover {
+            border-color: var(--bh-accent);
+            box-shadow: 0 4px 14px rgba(36, 66, 110, .1);
+            transform: translateY(-1px);
+        }
+
+    .tedoen .tedoen-icoon {
+        display: grid;
+        grid-row: span 3;
+        place-items: center;
+        width: 2.25rem;
+        height: 2.25rem;
+        border-radius: 8px;
+        background: var(--bh-accent-zacht);
+        color: var(--bh-accent);
+    }
+
+        .tedoen .tedoen-icoon .icoon {
+            width: 1.15rem;
+            height: 1.15rem;
+        }
+
+    .tedoen .tedoen-getal {
+        font-size: 1.4rem;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.15;
+    }
+
+    .tedoen .tedoen-wat {
+        color: var(--bh-zacht);
+        font-size: .85rem;
+    }
+
+    .tedoen .tedoen-verder {
+        display: flex;
+        align-items: center;
+        gap: .3rem;
+        margin-top: .3rem;
+        color: var(--bh-accent);
+        font-size: .85rem;
+        font-weight: 500;
+    }
+
+        .tedoen .tedoen-verder .icoon {
+            width: .85rem;
+            height: .85rem;
+            transition: transform var(--bh-gewoon) var(--bh-curve);
+        }
+
+    .tedoen > a:hover .tedoen-verder .icoon {
+        transform: translateX(3px);
+    }
+
+/* Alles gedaan: één rustige regel met een vinkje. */
+.tedoen-klaar {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin-bottom: 1.25rem;
+    color: var(--bh-zacht);
+    font-size: .9rem;
+}
+
+    .tedoen-klaar .icoon {
+        color: var(--bh-accent);
+    }
+
+/* ---------- Smalle schermen en minder beweging ---------- */
+
+@media (max-width: 900px) {
+    .administratie-inhoud {
+        margin: 0;
+        padding: 1rem;
+        min-height: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .zijmenu-items, .zijmenu-link > .icoon, .zijmenu-groep.inklapbaar .icoon, .paginatabs .nav-link::after,
+    .tedoen > a, .tedoen .tedoen-verder .icoon, .knopmenu .menu, .btn, .widget {
+        transition: none;
+        animation: none;
+    }
+}

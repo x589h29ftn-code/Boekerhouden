@@ -31,6 +31,13 @@
     --bs-focus-ring-color: rgba(141, 176, 227, .3);
     --kleur-zacht: var(--bh-zacht);
     --kleur-lijn: var(--bh-lijn);
+    /* vormgeving.css */
+    --bh-zijbalk: #181d24;
+    --bh-aanwijs: rgba(255, 255, 255, .05);
+    --bh-teller: #2b323c;
+    --bh-teller-tekst: #c3cad3;
+    --bh-schaduw: 0 1px 2px rgba(0, 0, 0, .3);
+    --bh-schaduw-hoog: 0 12px 30px rgba(0, 0, 0, .45);
 }
 
 [data-bs-theme="dark"] :is(html, body) {
@@ -178,7 +185,16 @@
 }
 
 [data-bs-theme="dark"] .zijmenu-link.actief {
-    box-shadow: inset 2px 0 0 var(--bh-accent);
+    background: var(--bh-accent-zacht);
+    box-shadow: none;
+}
+
+[data-bs-theme="dark"] .zijmenu-link > .icoon {
+    color: #8a949f;
+}
+
+[data-bs-theme="dark"] .widget {
+    background: #20262e;
 }
 
 [data-bs-theme="dark"] .status.stip-open::before {

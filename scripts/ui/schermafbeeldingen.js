@@ -210,9 +210,9 @@ function totp(sleutel) {
   if (!page.url().includes(`van=${new Date().getFullYear()}-${mm}-01`)) log.push('maand in de grafiek gaat niet naar de juiste periode: ' + page.url());
   await page.screenshot({ path: `${uit}/${pre}-dashboard-doorklik-maand.png` });
   await page.goto(`${basis}/a/${id}`); await page.waitForSelector('.dashboard'); await page.waitForTimeout(1200);
-  await page.click('[data-widget="inkoop"] a.kerngetal'); await page.waitForURL(/\/inkoop$/);
+  await page.click('nav.zijmenu a[href$="/inkoop"]'); await page.waitForURL(/\/inkoop$/);
   await page.goto(`${basis}/a/${id}`); await page.waitForSelector('.dashboard'); await page.waitForTimeout(1200);
-  await page.click('[data-widget="bankmutaties"] a.kerngetal'); await page.waitForURL(/\/bank$/);
+  await page.click('.tedoen a[href$="/bank"]'); await page.waitForURL(/\/bank$/);
   await page.goto(`${basis}/a/${id}`); await page.waitForSelector('.dashboard'); await page.waitForTimeout(1200);
   await page.locator('[data-widget="liquiditeit"] .raakvlak').last().hover(); await page.waitForTimeout(300);
   await page.screenshot({ path: `${uit}/${pre}-dashboard-liquiditeit.png`, fullPage: true });

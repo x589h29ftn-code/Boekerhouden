@@ -5,6 +5,8 @@
 @inject AdministratieDienst AdministratieDienst
 @inject NavigationManager Navigatie
 @inject TimeProvider Tijd
+@inject KantooroverzichtDienst Kantooroverzicht
+@inject Zijbalkstand Zijbalk
 
 @if (!geladen)
 {
@@ -49,7 +51,7 @@ else
                 }
             </div>
             <nav class="zijmenu">
-                <a class="zijmenu-link @(Actief.Length == 0 ? "actief" : null)" href="/a/@kop.Id" aria-current="@(Actief.Length == 0 ? "page" : null)">Overzicht</a>
+                <a class="zijmenu-link @(Actief.Length == 0 ? "actief" : null)" href="/a/@kop.Id" aria-current="@(Actief.Length == 0 ? "page" : null)"><Icoon Naam="house" />Overzicht</a>
                 @foreach (var groep in Administratiemenu.Groepen)
                 {
                     var zichtbaar = groep.Items.Where(i => i.Zichtbaar(kop)).ToList();
@@ -58,11 +60,28 @@ else
                         continue;
                     }
 
-                    <div class="zijmenu-groep">@groep.Naam</div>
-                    @foreach (var item in zichtbaar)
+                    var open = !groep.Inklapbaar || Zijbalk.IsOpen(groep.Naam) || zichtbaar.Any(i => i.Pad == MenuPad);
+                    @if (groep.Inklapbaar)
                     {
-                        <a class="zijmenu-link @(item.Pad == MenuPad ? "actief" : null)" href="@($"/a/{kop.Id}{item.Pad}")" aria-current="@(item.Pad == MenuPad ? "page" : null)">@item.Naam</a>
+                        <button type="button" class="zijmenu-groep inklapbaar @(open ? "open" : null)" aria-expanded="@(open ? "true" : "false")" @onclick="() => Zijbalk.Wissel(groep.Naam)">@groep.Naam<Icoon Naam="caret-right" /></button>
                     }
+                    else
+                    {
+                        <div class="zijmenu-groep">@groep.Naam</div>
+                    }
+                    <div class="zijmenu-items @(open ? null : "dicht")"><div class="zijmenu-binnen">
+                        @foreach (var item in zichtbaar)
+                        {
+                            var aantal = aantallen?.Bij(item.Pad) ?? 0;
+                            <a class="zijmenu-link @(item.Pad == MenuPad ? "actief" : null)" href="@($"/a/{kop.Id}{item.Pad}")" aria-current="@(item.Pad == MenuPad ? "page" : null)" tabindex="@(open ? null : "-1")">@if (item.Icoon is { } icoon)
+                                {
+                                    <Icoon Naam="@icoon" />
+                                }<span class="zijmenu-naam">@item.Naam</span>@if (aantal > 0)
+                                {
+                                    <span class="zijmenu-aantal" title="@($"{aantal} te verwerken")">@aantal</span>
+                                }</a>
+                        }
+                    </div></div>
                 }
             </nav>
         </aside>
@@ -73,6 +92,17 @@ else
                     <a class="terug" href="@terug" title="Terug" aria-label="Terug"><Icoon Naam="arrow-left" /></a>
                 }
                 <div class="me-auto paginakop">
+                    @if (TerugAdres is { } kruimelterug && Kruimels(kruimelterug) is { Count: > 0 } kruimels)
+                    {
+                        <nav class="kruimel" aria-label="Kruimelpad">
+                            @foreach (var (naam, adres) in kruimels)
+                            {
+                                <a href="@adres">@naam</a>
+                                <Icoon Naam="caret-right" />
+                            }
+                            <span>@Titel</span>
+                        </nav>
+                    }
                     <h1 class="h3 mb-0">@Kopnaam@if (kop.Gearchiveerd is not null)
                         {
                             <span class="status ms-2 fs-6" title="Uit het archief halen kan bij Administraties">gearchiveerd, alleen inzien</span>
@@ -118,6 +148,7 @@ else
     private AdministratieKop? kop;
     private Uitvoerder? wie;
     private DateOnly vandaag;
+    private Zijbalkaantallen? aantallen;
 
     [CascadingParameter]
     private Task<AuthenticationState> Authenticatie { get; set; } = default!;
@@ -161,6 +192,24 @@ else
         && string.Equals(Navigatie.ToBaseRelativePath(Navigatie.Uri).Split('?', '#')[0].TrimEnd('/'), $"a/{Id}{Actief}", StringComparison.OrdinalIgnoreCase)
         ? groep : null;
 
+    /// <summary>
+    /// Het kruimelpad naar de pagina waar de pijl terug naartoe gaat: de groep en het tabblad (Inkoop › Geboekt) of de
+    /// regel in het menu (Kolommenbalans); leeg als dat adres geen pagina uit het menu is.
+    /// </summary>
+    private List<(string Naam, string Adres)> Kruimels(string terug)
+    {
+        var pad = terug[$"/a/{Id}".Length..].Split('?', '#')[0].TrimEnd('/');
+        if (Administratiemenu.GroepVan(pad) is { } groep)
+        {
+            var eerste = groep.Tabs[0];
+            return pad == eerste.Pad
+                ? [(groep.Naam, terug)]
+                : [(groep.Naam, $"/a/{Id}{eerste.Pad}"), (groep.Tabs.First(t => t.Pad == pad).Naam, terug)];
+        }
+
+        return Administratiemenu.AllePaginas().FirstOrDefault(p => p.Item.Pad == pad).Item is { } item ? [(item.Naam, terug)] : [];
+    }
+
     /// <summary>De titel: bij tabbladen de naam van de groep (Inkoop, Facturen maken), anders die van de pagina.</summary>
     private string Kopnaam => Tabs?.Naam ?? Titel;
 
@@ -185,6 +234,7 @@ else
         kop = await AdministratieDienst.Open(wie, Id);
         if (kop is not null)
         {
+            aantallen = await Kantooroverzicht.Aantallen(wie, Id);
             await BijOpenen.InvokeAsync(new Geopend(kop, wie));
         }
 

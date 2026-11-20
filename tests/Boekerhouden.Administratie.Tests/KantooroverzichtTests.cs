@@ -83,4 +83,25 @@ public sealed class KantooroverzichtTests(AdministratieFixture app) : IClassFixt
         Assert.Empty(await app.Dienst<KantooroverzichtDienst>().Stand(lid));
         Assert.False((await app.Dienst<KantooroverzichtDienst>().Stand(wie)).ContainsKey(id));
     }
+
+    [Fact]
+    public async Task De_zijbalk_telt_wat_te_verwerken_is_en_alleen_voor_leden()
+    {
+        var wie = await app.Beheerder();
+        var id = await MetWerk(wie);
+        var stand = (await app.Dienst<KantooroverzichtDienst>().Stand(wie))[id];
+
+        var aantallen = await app.Dienst<KantooroverzichtDienst>().Aantallen(wie, id);
+        Assert.Equal(stand.Inkoop, aantallen.Inkoop);
+        Assert.Equal(stand.Bank, aantallen.Bank);
+        Assert.Equal(1, aantallen.Concepten);
+        Assert.Equal(0, aantallen.Verkoop);
+        Assert.Equal(aantallen.Inkoop, aantallen.Bij("/inkoop"));
+        Assert.Equal(aantallen.Bank, aantallen.Bij("/bank"));
+        Assert.Equal(1, aantallen.Bij("/facturen"));
+        Assert.Equal(0, aantallen.Bij("/journaal"));
+
+        var buiten = await app.Gebruiker("Bert Buitenstaander");
+        await Assert.ThrowsAsync<GeenToegangException>(() => app.Dienst<KantooroverzichtDienst>().Aantallen(buiten, id));
+    }
 }

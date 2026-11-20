@@ -22,6 +22,20 @@ public sealed record Werkstand(
     public bool Leeg => Inkoop == 0 && Bank == 0 && Concepten == 0 && Vervallen == 0;
 }
 
+/// <summary>Wat er in één administratie te verwerken is, voor de aantallen in de zijbalk.</summary>
+public sealed record Zijbalkaantallen(int Inkoop, int Verkoop, int Bank, int Concepten)
+{
+    /// <summary>Het aantal achter de regel met dit pad in het menu, of 0.</summary>
+    public int Bij(string pad) => pad switch
+    {
+        "/inkoop" => Inkoop,
+        "/verkoop" => Verkoop,
+        "/bank" => Bank,
+        "/facturen" => Concepten,
+        _ => 0,
+    };
+}
+
 /// <summary>Een soort werk in de werklijst van de startpagina.</summary>
 public enum Werksoort
 {
@@ -78,5 +92,19 @@ public sealed class KantooroverzichtDienst(Toegang toegang, TimeProvider tijd)
                 v.Bedrag,
                 a.AfgeslotenTot));
         }
+    }
+
+    /// <summary>
+    /// De aantallen achter de regels in de zijbalk van één administratie: inkoopfacturen, ingelezen verkoopfacturen en
+    /// bankmutaties te verwerken, en verkoopconcepten. Vier tellingen op de database, licht genoeg voor elke pagina.
+    /// </summary>
+    public async Task<Zijbalkaantallen> Aantallen(Uitvoerder wie, Guid administratie)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
+        var inkoop = await db.Documenten.CountAsync(d => d.Status == Documentstatus.TeVerwerken);
+        var verkoop = await db.Verkoopdocumenten.CountAsync(v => v.Status == Verkoopstatus.Concept && v.Ingelezen);
+        var concepten = await db.Verkoopdocumenten.CountAsync(v => v.Status == Verkoopstatus.Concept && !v.Ingelezen);
+        var bank = await db.Banktransacties.CountAsync(t => t.Status == Banktransactiestatus.TeVerwerken);
+        return new Zijbalkaantallen(inkoop, verkoop, bank, concepten);
     }
 }

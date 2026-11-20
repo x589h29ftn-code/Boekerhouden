@@ -1,0 +1,42 @@
+@* De hoofdknop bij inkoop en verkoop: Facturen inlezen, met ernaast een pijltje voor de andere manieren (een stapel
+   splitsen). Eén duidelijke knop in plaats van twee naast elkaar; het bestandsveld van de pagina (InvoerId, ook het
+   sleepvlak) en dat van de stapel staan buiten het menu, zodat inlezen doorloopt als het menu dichtgaat. *@
+@using Boekerhouden.Boekhouding.Facturen
+
+<Stapelinvoer Wie="Wie" Administratie="Administratie" Soort="Soort" Verborgen="true" InvoerId="@StapelId" />
+<span class="knopmenu splitsknop inleesknop">
+    <label class="btn btn-primary @(Bezig ? "disabled" : null)" for="@InvoerId" aria-busy="@(Bezig ? "true" : null)" title="@Titel"><Icoon Naam="upload-simple" /> Facturen inlezen</label>
+    <button type="button" class="btn btn-primary" aria-label="Meer manieren om in te lezen" aria-expanded="@(open ? "true" : "false")" @onclick="() => open = !open"><Icoon Naam="caret-down" /></button>
+    @if (open)
+    {
+        <span class="menu">
+            <label class="menuregel" for="@InvoerId" @onclick="() => open = false">Facturen inlezen<small>PDF, e-factuur (UBL) of foto; slepen op de pagina kan ook</small></label>
+            <label class="menuregel" for="@StapelId" @onclick="() => open = false">Stapel splitsen<small>één PDF met veel facturen, in losse facturen knippen</small></label>
+        </span>
+    }
+</span>
+
+@code {
+    private bool open;
+
+    [Parameter, EditorRequired]
+    public Uitvoerder Wie { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public Guid Administratie { get; set; }
+
+    [Parameter, EditorRequired]
+    public Factuursoort Soort { get; set; }
+
+    /// <summary>Het id van het bestandsveld van de pagina (het sleepvlak), bijv. <c>bestanden</c>.</summary>
+    [Parameter, EditorRequired]
+    public string InvoerId { get; set; } = "";
+
+    [Parameter]
+    public string? Titel { get; set; }
+
+    [Parameter]
+    public bool Bezig { get; set; }
+
+    private string StapelId => $"stapel-{Soort.ToString().ToLowerInvariant()}";
+}

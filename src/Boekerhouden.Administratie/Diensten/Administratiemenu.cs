@@ -1,10 +1,10 @@
 namespace Boekerhouden.Administratie.Diensten;
 
 /// <summary>
-/// Een pagina in het menu van een administratie: het pad na <c>/a/{id}</c>, de naam, het recht dat nodig is en (bij
-/// <paramref name="AlleenBv"/>) alleen voor een BV.
+/// Een pagina in het menu van een administratie: het pad na <c>/a/{id}</c>, de naam, het recht dat nodig is, (bij
+/// <paramref name="AlleenBv"/>) alleen voor een BV, en het icoon in de zijbalk (een naam uit iconen.svg).
 /// </summary>
-public sealed record Menuitem(string Pad, string Naam, Recht Recht, bool AlleenBv = false)
+public sealed record Menuitem(string Pad, string Naam, Recht Recht, bool AlleenBv = false, string? Icoon = null)
 {
     public bool Zichtbaar(AdministratieKop kop)
     {
@@ -13,8 +13,8 @@ public sealed record Menuitem(string Pad, string Naam, Recht Recht, bool AlleenB
     }
 }
 
-/// <summary>Een groep in het menu, met zijn pagina's.</summary>
-public sealed record Menugroep(string Naam, IReadOnlyList<Menuitem> Items);
+/// <summary>Een groep in het menu, met zijn pagina's; een inklapbare groep (inrichting) is dicht tot je hem opent.</summary>
+public sealed record Menugroep(string Naam, IReadOnlyList<Menuitem> Items, bool Inklapbaar = false);
 
 /// <summary>
 /// Pagina's die bij elkaar horen onder één regel in het menu, als tabbladen bovenaan de pagina (bijv. Inkoop: te
@@ -33,34 +33,34 @@ public static class Administratiemenu
     [
         new("Verwerken",
         [
-            new("/inkoop", "Inkoop", Recht.Lezen),
-            new("/verkoop", "Verkoop", Recht.Lezen),
-            new("/bank", "Bank", Recht.Lezen),
-            new("/memoriaal", "Memoriaal", Recht.Boekhouden),
+            new("/inkoop", "Inkoop", Recht.Lezen, Icoon: "shopping-cart-simple"),
+            new("/verkoop", "Verkoop", Recht.Lezen, Icoon: "storefront"),
+            new("/bank", "Bank", Recht.Lezen, Icoon: "bank"),
+            new("/memoriaal", "Memoriaal", Recht.Boekhouden, Icoon: "note-pencil"),
         ]),
         new("Facturen",
         [
-            new("/facturen", "Facturen maken", Recht.Lezen),
+            new("/facturen", "Facturen maken", Recht.Lezen, Icoon: "file-plus"),
         ]),
         new("Overzichten",
         [
-            new("/kolommenbalans", "Kolommenbalans", Recht.Lezen),
-            new("/grootboek", "Grootboekkaart", Recht.Lezen),
-            new("/journaal", "Journaal", Recht.Lezen),
-            new("/debiteuren", "Openstaande posten", Recht.Lezen),
-            new("/btw", "Btw-aangifte", Recht.Lezen),
-            new("/vpb", "Fiscale positie", Recht.Lezen, AlleenBv: true),
-            new("/activa", "Vaste activa", Recht.Lezen),
-            new("/aansluitingen", "Aansluitingen", Recht.Lezen),
+            new("/kolommenbalans", "Kolommenbalans", Recht.Lezen, Icoon: "table"),
+            new("/grootboek", "Grootboekkaart", Recht.Lezen, Icoon: "book-open-text"),
+            new("/journaal", "Journaal", Recht.Lezen, Icoon: "list-numbers"),
+            new("/debiteuren", "Openstaande posten", Recht.Lezen, Icoon: "hourglass-medium"),
+            new("/btw", "Btw-aangifte", Recht.Lezen, Icoon: "percent"),
+            new("/vpb", "Fiscale positie", Recht.Lezen, AlleenBv: true, Icoon: "scales"),
+            new("/activa", "Vaste activa", Recht.Lezen, Icoon: "buildings"),
+            new("/aansluitingen", "Aansluitingen", Recht.Lezen, Icoon: "checks"),
         ]),
         new("Inrichting",
         [
-            new("/relaties", "Relaties", Recht.Lezen),
-            new("/regels", "Regels", Recht.Lezen),
-            new("/rekeningschema", "Rekeningschema", Recht.Lezen),
-            new("/perioden", "Perioden", Recht.Lezen),
-            new("/instellingen", "Instellingen", Recht.Boekhouden),
-        ]),
+            new("/relaties", "Relaties", Recht.Lezen, Icoon: "address-book"),
+            new("/regels", "Regels", Recht.Lezen, Icoon: "sliders-horizontal"),
+            new("/rekeningschema", "Rekeningschema", Recht.Lezen, Icoon: "tree-structure"),
+            new("/perioden", "Perioden", Recht.Lezen, Icoon: "calendar-check"),
+            new("/instellingen", "Instellingen", Recht.Boekhouden, Icoon: "gear-six"),
+        ], Inklapbaar: true),
     ];
 
     public static readonly IReadOnlyList<Tabgroep> Tabgroepen =

@@ -1,5 +1,6 @@
 @page "/a/{Id:guid}"
 @inject DashboardDienst Dashboards
+@inject KantooroverzichtDienst Kantooroverzicht
 
 <AdministratieKader Id="Id" Titel="Dashboard" BijOpenen="Open">
     <Acties>
@@ -22,11 +23,40 @@
         }
         else
         {
+            @if (!aanpassen && aantallen is not null)
+            {
+                var taken = Taken();
+                @if (taken.Count > 0)
+                {
+                    <div class="tedoen-kop">Te doen</div>
+                    <div class="tedoen">
+                        @foreach (var t in taken)
+                        {
+                            <a href="@Pad(t.Pad)" title="@t.Toelichting">
+                                <span class="tedoen-icoon"><Icoon Naam="@t.Icoon" /></span>
+                                <span class="tedoen-getal">@t.Getal</span>
+                                <span class="tedoen-wat">@t.Wat</span>
+                                <span class="tedoen-verder">@t.Verder <Icoon Naam="arrow-right" /></span>
+                            </a>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="tedoen-klaar"><Icoon Naam="circle-check" /> Alles verwerkt</div>
+                }
+            }
             <div class="dashboard @(aanpassen ? "aanpassen" : null)">
                 @for (var i = 0; i < indeling.Count; i++)
                 {
                     var index = i;
                     var keuze = indeling[i];
+                    if (!aanpassen && keuze.Soort is Widget.Inkoop or Widget.Bankmutaties)
+                    {
+                        // Wat te verwerken is, staat al bij Te doen.
+                        continue;
+                    }
+
                     <section class="widget @(Breed(keuze.Soort) ? "breed" : null)" data-widget="@keuze.Soort.ToString().ToLowerInvariant()" @key="keuze.Soort">
                         <header class="widgetkop">
                             <h2>@Titel(keuze)</h2>
@@ -95,9 +125,57 @@
     private IEnumerable<Widget> Beschikbaar => Enum.GetValues<Widget>()
         .Where(w => indeling.All(k => k.Soort != w) && (w != Widget.Vennootschapsbelasting || geopend?.Kop.Ondernemingsvorm == Boekhouding.Grootboek.Ondernemingsvorm.BV));
 
+    private Zijbalkaantallen? aantallen;
+
+    /// <summary>Een taak bij Te doen: wat er ligt, hoeveel, en waar je het doet.</summary>
+    private sealed record Taak(string Icoon, string Getal, string Wat, string Verder, string Pad, string? Toelichting = null);
+
+    /// <summary>
+    /// Te doen: wat er te verwerken is (bank, inkoop, ingelezen verkoop, conceptfacturen) en wat over de vervaldatum is
+    /// (debiteuren en crediteuren, als die widget op het dashboard staat). Alleen wat er is; niets = alles verwerkt.
+    /// </summary>
+    private List<Taak> Taken()
+    {
+        var taken = new List<Taak>();
+        var a = aantallen!;
+        if (a.Bank > 0)
+        {
+            var oudste = dashboard?.Bankmutaties?.Oudste is { } o ? $", oudste {Weergave.Datum(o)}" : null;
+            taken.Add(new("bank", $"{a.Bank}", $"{(a.Bank == 1 ? "bankmutatie" : "bankmutaties")} te verwerken{oudste}", "Naar de bank", "/bank"));
+        }
+
+        if (a.Inkoop > 0)
+        {
+            taken.Add(new("shopping-cart-simple", $"{a.Inkoop}", $"{(a.Inkoop == 1 ? "inkoopfactuur" : "inkoopfacturen")} te verwerken", "Naar inkoop", "/inkoop"));
+        }
+
+        if (a.Verkoop > 0)
+        {
+            taken.Add(new("storefront", $"{a.Verkoop}", $"{(a.Verkoop == 1 ? "verkoopfactuur" : "verkoopfacturen")} te verwerken", "Naar verkoop", "/verkoop"));
+        }
+
+        if (a.Concepten > 0)
+        {
+            taken.Add(new("file-plus", $"{a.Concepten}", $"{(a.Concepten == 1 ? "conceptfactuur" : "conceptfacturen")} nog niet verstuurd", "Naar facturen", "/facturen"));
+        }
+
+        if (dashboard?.Debiteuren is { AantalVervallen: > 0 } deb)
+        {
+            taken.Add(new("hourglass-medium", $"{deb.AantalVervallen}", $"{(deb.AantalVervallen == 1 ? "verkoopfactuur" : "verkoopfacturen")} over de vervaldatum, samen {Weergave.BedragHeel(deb.Vervallen)}", "Openstaande posten", "/debiteuren"));
+        }
+
+        if (dashboard?.Crediteuren is { AantalVervallen: > 0 } cred)
+        {
+            taken.Add(new("hourglass-medium", $"{cred.AantalVervallen}", $"{(cred.AantalVervallen == 1 ? "inkoopfactuur" : "inkoopfacturen")} over de vervaldatum, samen {Weergave.BedragHeel(cred.Vervallen)}", "Openstaande posten", "/crediteuren"));
+        }
+
+        return taken;
+    }
+
     private async Task Open(Geopend g)
     {
         geopend = g;
+        aantallen = await Kantooroverzicht.Aantallen(g.Wie, Id);
         opgeslagen = await Dashboards.Indeling(g.Wie, Id);
         indeling = [.. opgeslagen];
         await Laad();

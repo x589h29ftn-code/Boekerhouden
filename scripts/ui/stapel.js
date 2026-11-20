@@ -41,9 +41,9 @@ function totp(sleutel) {
   try {
     const stapelpdf = path.join(uit, 'stapel-inkoop.pdf');
     require('child_process').execFileSync('python3', [path.join(__dirname, 'maak-stapel.py'), stapelpdf]);
-    await page.goto(`${basis}/a/${id}/inkoop`); await page.waitForSelector('label:has-text("Stapel splitsen")'); await page.waitForTimeout(800);
+    await page.goto(`${basis}/a/${id}/inkoop`); await page.waitForSelector('#stapel-inkoop', { state: 'attached' }); await page.waitForTimeout(800);
     const voorStapel = await page.locator('table tbody tr').count();
-    await page.locator('label:has-text("Stapel splitsen") input[type=file]').setInputFiles(stapelpdf);
+    await page.locator('#stapel-inkoop').setInputFiles(stapelpdf);
     await page.waitForURL(/\/stapel\/[0-9a-f-]+$/, { timeout: 30000 }); await page.waitForSelector('.stapelblad canvas.klaar', { timeout: 30000 }); await page.waitForTimeout(1500);
     const bladen = await page.locator('.stapelblad').count();
     if (bladen !== 15) log.push(`stapel: ${bladen} pagina's in plaats van 15`);
@@ -65,8 +65,8 @@ function totp(sleutel) {
 
   // Verkoop: dezelfde stapel als verkoopfacturen.
   try {
-    await page.goto(`${basis}/a/${id}/verkoop`); await page.waitForSelector('label:has-text("Stapel splitsen")'); await page.waitForTimeout(800);
-    await page.locator('label:has-text("Stapel splitsen") input[type=file]').setInputFiles(path.join(uit, 'stapel-inkoop.pdf'));
+    await page.goto(`${basis}/a/${id}/verkoop`); await page.waitForSelector('#stapel-verkoop', { state: 'attached' }); await page.waitForTimeout(800);
+    await page.locator('#stapel-verkoop').setInputFiles(path.join(uit, 'stapel-inkoop.pdf'));
     await page.waitForURL(/\/stapel\/[0-9a-f-]+$/, { timeout: 30000 }); await page.waitForSelector('.stapelblad canvas.klaar', { timeout: 30000 }); await page.waitForTimeout(1200);
     await page.locator('[data-blad="5"] .bladvoet').hover(); await page.locator('[data-blad="5"] .bladactie').click(); await page.waitForTimeout(600);
     await page.screenshot({ path: `${uit}/${pre}-stapel-verkoop.png`, fullPage: true });

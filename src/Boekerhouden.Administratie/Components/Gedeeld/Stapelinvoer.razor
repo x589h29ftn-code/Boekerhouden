@@ -9,11 +9,23 @@
 {
     <a class="btn btn-sm btn-link stapel-open" href="/a/@Administratie/stapel/@s.Id" title="@s.Bestandsnaam, @s.Paginas pagina's, ingelezen @Weergave.Moment(s.IngelezenOp): verder met knippen">Stapel verder splitsen</a>
 }
-<label class="btn btn-sm btn-outline-secondary @(bezig ? "disabled" : null)" aria-busy="@(bezig ? "true" : null)"
-       title="Eén PDF met alle facturen (bijv. een gescande map): je knipt hem in losse facturen, daarna staan ze hier per stuk">
-    @(bezig ? "Stapel inlezen" : "Stapel splitsen")
-    <InputFile class="d-none" accept=".pdf,application/pdf" OnChange="LeesIn" disabled="@bezig" aria-label="Stapel splitsen" />
-</label>
+@if (Verborgen)
+{
+    @* Zonder eigen knop: het menu van Facturen inlezen (Inleesknop) wijst met een label naar dit veld. *@
+    <InputFile id="@InvoerId" class="d-none" accept=".pdf,application/pdf" OnChange="LeesIn" disabled="@bezig" aria-label="Stapel splitsen" />
+    @if (bezig)
+    {
+        <span class="status stapel-bezig">Stapel inlezen</span>
+    }
+}
+else
+{
+    <label class="btn btn-sm btn-outline-secondary @(bezig ? "disabled" : null)" aria-busy="@(bezig ? "true" : null)"
+           title="Eén PDF met alle facturen (bijv. een gescande map): je knipt hem in losse facturen, daarna staan ze hier per stuk">
+        @(bezig ? "Stapel inlezen" : "Stapel splitsen")
+        <InputFile class="d-none" accept=".pdf,application/pdf" OnChange="LeesIn" disabled="@bezig" aria-label="Stapel splitsen" />
+    </label>
+}
 @if (fout is not null)
 {
     <span class="status let-op stapel-fout" role="alert">@fout</span>
@@ -26,6 +38,14 @@
 
     [Parameter, EditorRequired]
     public Uitvoerder Wie { get; set; } = default!;
+
+    /// <summary>Alleen het (onzichtbare) bestandsveld met <see cref="InvoerId"/>, zonder knop: voor in een menu.</summary>
+    [Parameter]
+    public bool Verborgen { get; set; }
+
+    /// <summary>Het id van het bestandsveld, waar een label in een menu naar wijst.</summary>
+    [Parameter]
+    public string? InvoerId { get; set; }
 
     [Parameter]
     public Guid Administratie { get; set; }
