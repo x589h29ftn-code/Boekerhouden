@@ -51,7 +51,9 @@ samenstelpakket.
 
 ### 3.1 Grootboek en journaal
 
-- **Rekeningschema** per administratie: nummer, naam, RGS-code en eventueel een **functie**
+- **Rekeningschema** per administratie: nummer, naam, RGS-code (te kiezen uit een keuzelijst met de hoofdposten en de
+  codes van de meegeleverde schema's en het eigen schema, met de naam erbij; balans- en resultaatcodes apart,
+  `Rekeningschemas.Rgskeuze`; een andere code uit het RGS-werkboek mag ook) en eventueel een **functie**
   (bank, kas, debiteuren, crediteuren, te vorderen btw, af te dragen btw, resultaat). Met de functie
   vinden de automatische boekingen de juiste rekening, zonder vaste nummers.
 - **Rekeningschema kiezen** bij een nieuwe administratie (`Rekeningschemas`, `Schemakeuze`): *Sifer* (het

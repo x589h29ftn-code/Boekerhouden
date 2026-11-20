@@ -1,0 +1,19 @@
+@* De keuzelijsten met RGS-codes voor een veld met list="rgs-balans" of list="rgs-resultaat": de code met de naam
+   erachter (Rekeningschemas.Rgskeuze). Typen filtert de lijst; een code die er niet in staat, mag ook (RGS-werkboek). *@
+<datalist id="rgs-balans">
+    @foreach (var (rgs, naam) in Codes.Where(c => c.Code.StartsWith('B')))
+    {
+        <option value="@rgs">@naam</option>
+    }
+</datalist>
+<datalist id="rgs-resultaat">
+    @foreach (var (rgs, naam) in Codes.Where(c => c.Code.StartsWith('W')))
+    {
+        <option value="@rgs">@naam</option>
+    }
+</datalist>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<(string Code, string Naam)> Codes { get; set; } = [];
+}

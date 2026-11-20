@@ -37,7 +37,11 @@
                 </div>
                 <div class="col-sm-2">
                     <label class="form-label" for="rgs">RGS-code</label>
-                    <input id="rgs" class="form-control" @bind="rgs" placeholder="WBedKanTef" />
+                    <input id="rgs" class="form-control" @bind="rgs" @bind:event="oninput" list="@(soort == Rekeningsoort.Balans ? "rgs-balans" : "rgs-resultaat")" autocomplete="off" placeholder="@(soort == Rekeningsoort.Balans ? "BLimBanRba" : "WBedKanTef")" title="@Rgsnaam(rgs)" />
+                    @if (Rgsnaam(rgs) is { } gekozenRgs)
+                    {
+                        <div class="small text-secondary mt-1 text-truncate">@gekozenRgs</div>
+                    }
                 </div>
                 <div class="col-sm-2">
                     <button class="btn btn-outline-primary w-100" @onclick="VoegToe">Toevoegen</button>
@@ -70,7 +74,7 @@
                                     </select>
                                 </td>
                                 <td class="text-secondary">@(r.IsBalans ? "balans" : "resultaat")</td>
-                                <td><input class="form-control form-control-sm" @bind="bewerk.Rgs" @bind:event="oninput" aria-label="RGS-code" placeholder="@(r.IsBalans ? "BLimBanRba" : "WBedKanKan")" /></td>
+                                <td><input class="form-control form-control-sm" @bind="bewerk.Rgs" @bind:event="oninput" aria-label="RGS-code" list="@(r.IsBalans ? "rgs-balans" : "rgs-resultaat")" autocomplete="off" title="@Rgsnaam(bewerk.Rgs)" placeholder="@(r.IsBalans ? "BLimBanRba" : "WBedKanKan")" /></td>
                                 <td class="small text-secondary">@Rekeningindeling.Groep(r with { RgsCode = string.IsNullOrWhiteSpace(bewerk.Rgs) ? null : bewerk.Rgs.Trim() }).Naam</td>
                                 <td>
                                     @if (!r.IsBalans)
@@ -100,6 +104,7 @@
                     }
                 </tbody>
             </table>
+            <RgsKeuzelijsten Codes="rgscodes" />
             <datalist id="margegroepen">
                 @foreach (var g in schema.Alle.Select(r => r.Margegroep).OfType<string>().Distinct().Order())
                 {
@@ -113,6 +118,13 @@
 @code {
     private Geopend? geopend;
     private Boekhouding.Grootboek.Rekeningschema? schema;
+
+    /// <summary>De RGS-codes om uit te kiezen (hoofdposten, de meegeleverde schema's en het eigen schema).</summary>
+    private IReadOnlyList<(string Code, string Naam)> rgscodes = [];
+
+    /// <summary>De naam bij een gekozen of getypte RGS-code, of leeg als die niet in de keuzelijst staat.</summary>
+    private string? Rgsnaam(string? code) =>
+        string.IsNullOrWhiteSpace(code) ? null : rgscodes.FirstOrDefault(c => c.Code == code.Trim()) is { Naam: { } n } ? n : null;
     private string nummer = "";
     private string naam = "";
     private Rekeningsoort soort = Rekeningsoort.Resultaat;
@@ -131,6 +143,7 @@
         geopend = g;
         magWijzigen = g.Kop.Mag(Recht.Boekhouden);
         schema = await Grootboek.Schema(g.Wie, Id);
+        rgscodes = Rekeningschemas.Rgskeuze(schema);
         codes = (await Btw.Tabel()).Op(DateOnly.FromDateTime(Tijd.GetLocalNow().DateTime));
     }
 

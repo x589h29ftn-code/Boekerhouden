@@ -33,6 +33,30 @@ public static class Rekeningschemas
         _ => StandaardRekeningschema.Rekeningen(vorm),
     };
 
+    /// <summary>
+    /// De RGS-codes om uit te kiezen bij een rekening: de hoofdposten en de codes van de meegeleverde schema's (Sifer per
+    /// rechtsvorm en OVPA) en van het eigen schema, met de naam van de rekening erbij. Alleen codes die in een schema
+    /// staan: geen verzonnen codes. Gesorteerd op code; balans (B…) en resultaat (W…) door elkaar.
+    /// </summary>
+    public static IReadOnlyList<(string Code, string Naam)> Rgskeuze(Rekeningschema? eigen = null)
+    {
+        var codes = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (code, naam, _) in RgsHoofdposten.Posten)
+        {
+            codes.TryAdd(code, naam);
+        }
+
+        var schemas = Keuzes.SelectMany(k => k.Keuze == Schemakeuze.Sifer
+            ? Enum.GetValues<Ondernemingsvorm>().SelectMany(v => Rekeningen(k.Keuze, v))
+            : Rekeningen(k.Keuze, Ondernemingsvorm.BV));
+        foreach (var r in (eigen?.Alle ?? []).Concat(schemas).Where(r => !string.IsNullOrWhiteSpace(r.RgsCode)))
+        {
+            codes.TryAdd(r.RgsCode!, r.Naam);
+        }
+
+        return [.. codes.OrderBy(c => c.Key, StringComparer.Ordinal).Select(c => (c.Key, c.Value))];
+    }
+
     /// <summary>De dagboeken; bank en kas op de bank- en kasrekening van het schema.</summary>
     public static IReadOnlyList<Dagboek> Dagboeken(Schemakeuze keuze)
     {
