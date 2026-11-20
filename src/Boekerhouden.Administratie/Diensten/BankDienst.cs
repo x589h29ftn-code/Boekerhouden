@@ -326,7 +326,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
                 {
                     Bankactie.Afletteren => await BoekAfletteren(db, administratie, transactie, [.. voorstel.Afletteren.Automatisch!.Posten.Select(p => p.Id)], wie, voorstel.Reden),
                     Bankactie.OpRekening => await BoekOpRekening(db, administratie, transactie, voorstel.Advies.Rekeningnummer!, voorstel.Advies.BtwCode,
-                        voorstel.Advies.Bron == Adviesbron.Herkend ? voorstel.Advies.Omschrijving : null, voorstel.Relatie, wie, voorstel.Reden),
+                        voorstel.Advies.Bron is Adviesbron.Herkend or Adviesbron.Regel ? voorstel.Advies.Omschrijving : null, voorstel.Relatie, wie, voorstel.Reden),
                     _ => null,
                 };
             if (uitkomst?.IsGelukt == true)

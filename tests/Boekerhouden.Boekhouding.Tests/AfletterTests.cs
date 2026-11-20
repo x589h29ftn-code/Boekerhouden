@@ -453,6 +453,18 @@ public sealed class BankverwerkerTests
     }
 
     [Fact]
+    public void Een_regel_met_een_vaste_omschrijving_vult_de_variabelen_met_de_mutatie()
+    {
+        var regel = Bankkosten with { Omschrijving = "#tegenpartij #maand #jaar (#kwartaal) #onzin" };
+
+        var voorstel = Bankverwerker.Verwerk(Kosten() with { TegenNaam = "ING Bank", Datum = new(2026, 3, 31) }, [], [], [regel], new Leergeheugen(), BtwCodes.Standaard);
+
+        // Een onbekende variabele blijft staan zoals hij is.
+        Assert.Equal("ING Bank maart 2026 (Q1) #onzin", voorstel.Advies.Omschrijving);
+        Assert.Equal("Huur ING Bank", Bankverwerker.Omschrijving("Huur #leverancier", voorstel.Mutatie));
+    }
+
+    [Fact]
     public void Een_mogelijke_factuur_gaat_voor_op_een_automatische_regel()
     {
         var post = new OpenPost(Guid.NewGuid(), Factuursoort.Inkoop, "ING", "2026-03", new(2026, 3, 1), new(2026, 3, 31), -7.5m, -7.5m);

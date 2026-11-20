@@ -416,12 +416,15 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
         }
 
         var regel = await app.Dienst<InrichtingDienst>().VoegRegelToe(wie, id,
-            new Verwerkingsregel("Jansen", "4300", "I21", Automatisch: true, Soort: Verwerkingssoort.Bankmutatie, TegenIban: "NL36INGB0007654321"));
+            new Verwerkingsregel("Jansen", "4300", "I21", Automatisch: true, Soort: Verwerkingssoort.Bankmutatie, TegenIban: "NL36INGB0007654321", Omschrijving: "Onderhoud #maand #jaar"));
         Assert.True(regel.IsGelukt, string.Join("; ", regel.Fouten));
         var april = await bank.Lees(wie, id, Afschrift(april: true), "april.mt940");
 
         Assert.Equal(1, april.Waarde!.Automatisch);
         Assert.Equal(165m, Saldo(await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026), "4300"));
+        // De vaste omschrijving van de regel, met de maand en het jaar van de mutatie.
+        var kaart = await app.Dienst<GrootboekDienst>().Kaart(wie, id, "4300", new(2026, 4, 1), new(2026, 4, 30));
+        Assert.Contains(kaart.Mutaties, m => m.Omschrijving == "Onderhoud april 2026");
     }
 
     [Fact]

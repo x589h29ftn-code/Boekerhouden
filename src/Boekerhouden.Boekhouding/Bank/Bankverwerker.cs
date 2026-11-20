@@ -61,7 +61,39 @@ public static class Bankverwerker
         var relatie = relaties.FirstOrDefault(r => r.HeeftIban(mutatie.TegenIban));
         var afletteren = Afletteraar.Zoek(mutatie, openPosten, relaties);
         var advies = Verwerkingsadviseur.Advies(Gegevens(mutatie, relatie), regels, geheugen, relatie, btwCodes);
+        // Een vaste omschrijving van de regel (bijv. "Huur #maand #jaar") met de gegevens van de mutatie.
+        if (advies.Omschrijving is { } omschrijving && Omschrijvingssjabloon.IsSjabloon(omschrijving))
+        {
+            advies = advies with { Omschrijving = Omschrijving(omschrijving, mutatie, relatie) };
+        }
+
         return new Bankvoorstel(mutatie, relatie, afletteren, advies);
+    }
+
+    /// <summary>De variabelen die bij een bankmutatie iets betekenen (voor de keuzelijst bij een regel).</summary>
+    public static IReadOnlyList<(string Naam, string Betekenis)> Variabelen { get; } =
+    [
+        ("#tegenpartij", "de relatie of de naam van de tegenrekening"),
+        ("#omschrijving", "de omschrijving van de bank"),
+        ("#datum", "de boekdatum"),
+        ("#maand", "de maand van de boekdatum"),
+        ("#maandnr", "de maand als getal, maart is 3"),
+        ("#kwartaal", "het kwartaal van de boekdatum"),
+        ("#jaar", "het jaar van de boekdatum"),
+        ("#kenmerk", "het betalingskenmerk"),
+    ];
+
+    /// <summary>
+    /// Een omschrijving met variabelen gevuld met de bankmutatie: <c>#tegenpartij</c> (ook <c>#leverancier</c> en
+    /// <c>#klant</c>) is de relatie of de naam van de tegenrekening, <c>#omschrijving</c> de omschrijving van de bank,
+    /// <c>#datum</c>, <c>#maand</c>, <c>#kwartaal</c> en <c>#jaar</c> van de boekdatum, <c>#kenmerk</c> het betalingskenmerk.
+    /// </summary>
+    public static string Omschrijving(string sjabloon, Bankmutatie mutatie, Relatie? relatie = null)
+    {
+        ArgumentNullException.ThrowIfNull(sjabloon);
+        ArgumentNullException.ThrowIfNull(mutatie);
+        return Omschrijvingssjabloon.Vul(sjabloon, new Factuurvariabelen(
+            Omschrijving: mutatie.Omschrijving, Leverancier: relatie?.Naam ?? mutatie.TegenNaam, Datum: mutatie.Datum, Kenmerk: mutatie.Betalingskenmerk));
     }
 
     /// <summary>Wat de regels en het leergeheugen van een bankmutatie weten.</summary>

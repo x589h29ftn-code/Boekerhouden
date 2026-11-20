@@ -75,7 +75,7 @@
                     </div>
                 </div>
                 <div class="row g-2 mb-2">
-                    <div class="col-md-8"><label class="form-label" for="boekomschr">Omschrijving boeking</label><input id="boekomschr" class="form-control" @bind="invoer.Omschrijving" placeholder="bijv. Telefoon #maand #jaar" /></div>
+                    <div class="col-md-8"><label class="form-label" for="boekomschr">Omschrijving boeking</label><input id="boekomschr" class="form-control" @bind="invoer.Omschrijving" placeholder="bijv. Telefoon #maand #jaar" title="@string.Join(", ", Boekhouding.Facturen.Omschrijvingssjabloon.Variabelen.Select(v => $"{v.Naam} = {v.Betekenis}"))" /></div>
                 </div>
                 <datalist id="rekeningen">
                     @foreach (var r in rekeningen)

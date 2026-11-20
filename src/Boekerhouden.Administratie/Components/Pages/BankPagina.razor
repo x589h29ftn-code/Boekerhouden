@@ -1,6 +1,7 @@
 @page "/a/{Id:guid}/bank"
 @using Boekerhouden.Boekhouding.Afletteren
 @using Boekerhouden.Boekhouding.Bank
+@using Boekerhouden.Boekhouding.Facturen
 @using Boekerhouden.Boekhouding.Regels
 @using Boekerhouden.Boekhouding.Relaties
 @inject BankDienst Bank
@@ -582,6 +583,27 @@
                                                 </select>
                                             </div>
                                         </div>
+                                        <div class="mt-2">
+                                            <label class="form-label small mb-0" for="auto-omschrijving">Omschrijving boeking</label>
+                                            <div class="input-group input-group-sm">
+                                                <input id="auto-omschrijving" autocomplete="off" class="form-control form-control-sm" @bind="autoOmschrijving" @bind:event="oninput" placeholder="bijv. Huur #maand #jaar" />
+                                                <select @key="autoVariabeleKeuze" class="form-select flex-grow-0 variabelekeuze" aria-label="Variabele invoegen" title="Variabele invoegen" @onchange="VoegAutoVariabeleToe">
+                                                    <option value="">#</option>
+                                                    @foreach (var (naam, betekenis) in Bankverwerker.Variabelen)
+                                                    {
+                                                        <option value="@naam" title="@betekenis">@naam</option>
+                                                    }
+                                                </select>
+                                            </div>
+                                            @if (Omschrijvingssjabloon.IsSjabloon(autoOmschrijving))
+                                            {
+                                                <div class="small text-secondary mt-1" title="Zo komt de omschrijving in de boeking">@Bankverwerker.Omschrijving(autoOmschrijving!, g.Voorstel.Mutatie, g.Voorstel.Relatie)</div>
+                                            }
+                                            @foreach (var o in Omschrijvingssjabloon.Onbekend(autoOmschrijving))
+                                            {
+                                                <div class="status let-op mt-1">#@o is geen variabele.</div>
+                                            }
+                                        </div>
                                         <div class="d-flex flex-wrap gap-3 mt-2">
                                                 @if (g.Mutatie.TegenIban is { } autoIbanTekst)
                                                 {
@@ -867,7 +889,19 @@
     private bool autoIban;
     private bool autoAutomatisch = true;
     private string? autoBtw;
+    private string? autoOmschrijving;
+    private int autoVariabeleKeuze;
     private Regeltreffer? bewerkRegel;
+
+    private void VoegAutoVariabeleToe(ChangeEventArgs e)
+    {
+        if (e.Value is string { Length: > 0 } variabele)
+        {
+            autoOmschrijving = $"{autoOmschrijving?.TrimEnd()} {variabele}".TrimStart();
+        }
+
+        autoVariabeleKeuze++;
+    }
 
     private static string Bandbreedte(Verwerkingsregel regel) =>
         (regel.BedragVan, regel.BedragTot) switch
@@ -885,6 +919,7 @@
         {
             bewerkRegel = null;
             autoBtw = regels.FirstOrDefault(r => r.Post is null)?.BtwCode;
+            autoOmschrijving = null;
         }
     }
 
@@ -904,6 +939,7 @@
         autoIban = regel.TegenIban is not null;
         autoAutomatisch = regel.Automatisch;
         autoBtw = regel.BtwCode;
+        autoOmschrijving = regel.Omschrijving;
         if (regels.FirstOrDefault(r => r.Post is null) is { } eerste)
         {
             (eerste.Rekening, eerste.BtwCode) = (regel.Rekeningnummer, regel.BtwCode);
@@ -1199,12 +1235,13 @@
             Rekening = advies?.Rekeningnummer,
             BtwCode = advies?.BtwCode,
             Bedrag = Bedragen.Getal(Math.Abs(m.Bedrag)),
-            // Herkend (bijv. de Belastingdienst): de omschrijving staat al klaar, zoals "Omzetbelasting 3e kwartaal 2026".
-            Omschrijving = advies?.Bron == Adviesbron.Herkend ? advies.Omschrijving : null,
+            // Herkend (bijv. de Belastingdienst) of een regel met een vaste omschrijving: de omschrijving staat al klaar,
+            // zoals "Omzetbelasting 3e kwartaal 2026" of "Huur november 2026" (de variabelen gevuld met de mutatie).
+            Omschrijving = advies?.Bron is Adviesbron.Herkend or Adviesbron.Regel ? advies.Omschrijving : null,
         }];
 
         // Autoherkenning: de naam van de tegenpartij (of de eerste woorden van de omschrijving) en een ruime bandbreedte.
-        autoOpen = false;
+        (autoOpen, autoOmschrijving) = (false, null);
         autoTekst = m.TegenNaam is { Length: > 0 } naam ? naam.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0] : string.Join(' ', m.Omschrijving.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(3));
         autoVan = "1";
         autoTot = Bedragen.Getal(Math.Ceiling(Math.Abs(m.Bedrag) * 1.5m / 10m) * 10m);
@@ -1391,15 +1428,15 @@
             BedragVan: van,
             BedragTot: tot,
             TegenIban: autoIban ? g.Mutatie.TegenIban : null,
-            Richting: g.Mutatie.Bedrag < 0 ? Regelrichting.Betaling : Regelrichting.Ontvangst);
+            Richting: g.Mutatie.Bedrag < 0 ? Regelrichting.Betaling : Regelrichting.Ontvangst,
+            Omschrijving: Leeg(autoOmschrijving));
         if (bewerkRegel is { } bestaand)
         {
-            // Wat de gebruiker niet in het paneel ziet, blijft zoals het was (soort, relatie, omschrijving van de boeking).
+            // Wat de gebruiker niet in het paneel ziet, blijft zoals het was (soort en relatie).
             regel = regel with
             {
                 Soort = bestaand.Regel.Soort,
                 Relatie = bestaand.Regel.Relatie,
-                Omschrijving = bestaand.Regel.Omschrijving,
                 Richting = bestaand.Regel.Richting,
                 // Het veld waar de regel al op zocht (naam of omschrijving) houdt de tekst; had hij geen van beide, dan
                 // zoals bij een nieuwe regel.

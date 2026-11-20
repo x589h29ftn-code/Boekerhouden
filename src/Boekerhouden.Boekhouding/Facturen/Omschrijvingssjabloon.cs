@@ -28,6 +28,7 @@ public static partial class Omschrijvingssjabloon
         ("#omschrijving", "de omschrijving van de factuur"),
         ("#leverancier", "de naam van de leverancier"),
         ("#klant", "de naam van de klant (verkoopfactuur)"),
+        ("#tegenpartij", "de naam van de tegenpartij (bankmutatie)"),
         ("#datum", "de factuurdatum"),
         ("#vervaldatum", "de vervaldatum"),
         ("#maand", "de maand van de factuurdatum"),
@@ -61,7 +62,7 @@ public static partial class Omschrijvingssjabloon
     {
         "factuurnummer" => g.Factuurnummer ?? string.Empty,
         "omschrijving" => g.Omschrijving ?? string.Empty,
-        "leverancier" or "klant" => g.Leverancier ?? string.Empty,
+        "leverancier" or "klant" or "tegenpartij" => g.Leverancier ?? string.Empty,
         "datum" => g.Datum?.ToString("dd-MM-yyyy", Nl) ?? string.Empty,
         "vervaldatum" => g.Vervaldatum?.ToString("dd-MM-yyyy", Nl) ?? string.Empty,
         "maand" => g.Datum?.ToString("MMMM", Nl) ?? string.Empty,
