@@ -186,6 +186,7 @@ public sealed class VerkoopimportTests(AdministratieFixture app) : IClassFixture
         Assert.Equal(paden.Count, Administratiemenu.Groepen.SelectMany(g => g.Items).Select(i => i.Naam).Distinct().Count());
         Assert.DoesNotContain("/inkoopboek", paden);
         Assert.DoesNotContain("/proefbalans", paden);
+        Assert.DoesNotContain("/balans", paden);
 
         // Een tabblad laat de regel van zijn groep oplichten; de eerste tab is die regel zelf.
         Assert.Equal("/inkoop", Administratiemenu.MenuPad("/inkoopboek"));
@@ -198,6 +199,7 @@ public sealed class VerkoopimportTests(AdministratieFixture app) : IClassFixture
         // Zoeken vindt ook de tabbladen en de pagina's zonder eigen regel, elk pad één keer.
         var alle = Administratiemenu.AllePaginas().ToList();
         Assert.Contains(alle, p => p.Item.Pad == "/proefbalans");
+        Assert.Contains(alle, p => p.Item.Pad == "/balans");
         Assert.Contains(alle, p => p.Item.Pad == "/inkoopboek" && p.Item.Naam == "Inkoop · Geboekt");
         Assert.Equal(alle.Count, alle.Select(p => p.Item.Pad).Distinct().Count());
     }

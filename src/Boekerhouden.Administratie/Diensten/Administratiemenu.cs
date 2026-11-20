@@ -44,7 +44,6 @@ public static class Administratiemenu
         ]),
         new("Overzichten",
         [
-            new("/balans", "Balans en W&V", Recht.Lezen),
             new("/kolommenbalans", "Kolommenbalans", Recht.Lezen),
             new("/grootboek", "Grootboekkaart", Recht.Lezen),
             new("/journaal", "Journaal", Recht.Lezen),
@@ -76,6 +75,7 @@ public static class Administratiemenu
     /// <summary>Pagina's zonder eigen regel of tabblad: alleen te vinden via Zoeken (Ctrl+K).</summary>
     public static readonly IReadOnlyList<Menuitem> Verborgen =
     [
+        new("/balans", "Balans en W&V", Recht.Lezen),
         new("/proefbalans", "Proefbalans", Recht.Lezen),
     ];
 

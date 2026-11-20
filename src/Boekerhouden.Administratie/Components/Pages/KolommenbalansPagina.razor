@@ -6,6 +6,7 @@
 @inject OverzichtDienst Overzicht
 @inject ActivaDienst Activa
 @inject IJSRuntime JS
+@inject AuditfileDienst Auditfiles
 
 <AdministratieKader Id="Id" Titel="Kolommenbalans" Actief="/kolommenbalans" BijOpenen="Open">
     <Acties>
@@ -32,6 +33,7 @@
         <div class="btn-group btn-group-sm text-nowrap" role="group" aria-label="Downloaden">
             <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De kolommenbalans als Excel (met vorig jaar als dat aan staat)" @onclick="Excel">Excel</button>
             <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De kolommenbalans als PDF, A4 liggend (met vorig jaar als dat aan staat)" @onclick="Pdf">PDF</button>
+            <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="@($"Het boekjaar {tot.Year} als XML Auditfile Financieel (XAF 3.2), voor de Belastingdienst, de accountant of een ander pakket")" @onclick="Auditfile">Auditfile</button>
         </div>
     </Acties>
     <ChildContent>
@@ -381,6 +383,21 @@
             _ => new Boekerhouden.Administratie.Export.Exportregel(Boekerhouden.Administratie.Export.Exportsoort.Subtotaal, null, p.Tekst, p.Niveau,
                 [.. Enumerable.Range(0, kolommen).Select(k => (decimal?)p.Onder.Sum(x => W(rekening(x), k)))]),
         })];
+
+    /// <summary>Het boekjaar van het einde van de periode als auditfile (XAF), net als vroeger bij Balans en W&amp;V.</summary>
+    private async Task Auditfile()
+    {
+        bezig = true;
+        try
+        {
+            var bestand = await Auditfiles.Maak(geopend!.Wie, Id, tot.Year);
+            await JS.Bewaar(bestand.Inhoud, bestand.Bestandsnaam, "application/xml");
+        }
+        finally
+        {
+            bezig = false;
+        }
+    }
 
     private async Task Excel()
     {
