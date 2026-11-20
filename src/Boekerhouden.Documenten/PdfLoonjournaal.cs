@@ -12,6 +12,9 @@ namespace Boekerhouden.Documenten;
 /// bedragen (eventueel per kostenplaats) eronder; de grens is de tweede "Totaal" op de totaalregel of het midden.</item>
 /// <item><b>Lijst</b>: per regel "nummer naam" met het bedrag in een kolom Debet of Credit (op de plek van de kolomkop),
 /// met D/C erachter, of met een teken (min of een min erachter = credit).</item>
+/// <item><b>Posten</b>: een journaal zonder rekeningnummers onder de kop "Journaal", per regel een post ("Totaal kosten
+/// werkgever", "Te betalen loonheffingen", "Netto loon") met het bedrag in de linker (debet) of rechter (credit) kolom,
+/// tot de totaalregel ("Tellingen journaalpost"). Een los streepje voor een bedrag is "idem €", geen min.</item>
 /// </list>
 /// </summary>
 public static partial class PdfLoonjournaal
@@ -33,7 +36,7 @@ public static partial class PdfLoonjournaal
         {
             (van, tot) = (maand, maand);
         }
-        var lezingen = new[] { TweeKolommen(regels, woorden), Lijst(regels) }
+        var lezingen = new[] { TweeKolommen(regels, woorden), Lijst(regels), Posten(regels) }
             .Where(l => l is { Rekeningen.Count: > 0 })
             .Select(l => new Loonjournaal(werkgever, van, tot, [.. l!.Rekeningen.Where(r => r.Bedrag != 0)], l.TotaalDebet, l.TotaalCredit, l.KolomDebet, l.KolomCredit))
             .ToList();
@@ -172,6 +175,56 @@ public static partial class PdfLoonjournaal
         }
     }
 
+    /// <summary>
+    /// Posten zonder rekeningnummer: onder de kop "Journaal" per regel een naam en één bedrag, debet of credit volgens de
+    /// kolom (de kolommen van de totaalregel, anders links of rechts van het midden van de bedragen). Het nummer van de
+    /// post is een sleutel uit de naam (<see cref="Loonjournaalregel.HeeftNummer"/> is dan onwaar), zodat de koppeling
+    /// met het rekeningschema onthouden kan worden.
+    /// </summary>
+    private static Lezing? Posten(List<List<Tekstwoord>> regels)
+    {
+        var start = regels.FindIndex(r => r.Count == 1 && Is(r[0], "journaal")) + 1;
+        if (start == 0)
+        {
+            return null;
+        }
+
+        // De regels tot en met de totaalregel; daarna volgen specificaties die niet in de boeking horen.
+        // "Totaal kosten werkgever" is een post, geen totaalregel: die heeft twee bedragen (debet en credit).
+        var eind = regels.FindIndex(start, r => r.Any(w => Is(w, "tellingen")) || (r.Any(IsTotaal) && r.Count(w => Bedrag(w) is not null) >= 2));
+        var deel = regels.Skip(start).Take((eind < 0 ? regels.Count : eind) - start).ToList();
+        var totaal = eind < 0 ? null : regels[eind].Where(w => Bedrag(w) is not null).ToList();
+        var midden = (Tekstwoord w) => (w.X0 + w.X1) / 2;
+        var bedragen = deel.SelectMany(r => r.Where(w => Bedrag(w) is not null)).ToList();
+        if (bedragen.Count == 0)
+        {
+            return null;
+        }
+
+        var (debetX, creditX) = totaal is [var td, .., var tc] && midden(tc) > midden(td)
+            ? (midden(td), midden(tc))
+            : (bedragen.Min(midden), bedragen.Max(midden));
+        var posten = new List<Loonjournaalregel>();
+        foreach (var regel in deel)
+        {
+            var bedrag = regel.FirstOrDefault(w => Bedrag(w) is not null);
+            var naam = string.Join(' ', regel.TakeWhile(w => Bedrag(w) is null && w.Tekst is not ("€" or "-" or "EUR")).Select(w => w.Tekst)).Trim();
+            if (bedrag is null || !naam.Any(char.IsLetter))
+            {
+                continue;
+            }
+
+            // Een los streepje vóór het bedrag is "idem €"; alleen een min aan het bedrag zelf is een teken.
+            var waarde = Bedrag(bedrag)!.Value;
+            var credit = Math.Abs(midden(bedrag) - creditX) < Math.Abs(midden(bedrag) - debetX);
+            posten.Add(new Loonjournaalregel(Loonjournaalregel.Sleutel(naam), naam, credit ? -waarde : waarde));
+        }
+
+        decimal? totaalDebet = totaal is [var d, ..] ? Bedrag(d) : null;
+        decimal? totaalCredit = totaal is [_, .., var c] ? Bedrag(c) : null;
+        return new Lezing(posten, totaalDebet, totaalCredit);
+    }
+
     /// <summary>"4020 Brutolonen": een rekeningnummer met een naam erachter (de naam zonder bedragen en zonder D/C).</summary>
     private static (string Nummer, string Naam)? Rekeningkop(List<Tekstwoord> woorden)
     {
@@ -193,6 +246,8 @@ public static partial class PdfLoonjournaal
     private static decimal? Bedrag(Tekstwoord woord)
     {
         var tekst = woord.Tekst.Trim().TrimStart('€').Trim();
+        // "45.000,-": hele euro's.
+        tekst = tekst.EndsWith(",-", StringComparison.Ordinal) ? tekst[..^1] + "00" : tekst;
         if (!BedragPatroon().IsMatch(tekst))
         {
             return null;

@@ -60,7 +60,7 @@ public sealed class LoonjournaalDienst(Toegang toegang, GrootboekDienst grootboe
 
         if (journaal is null)
         {
-            return Uitkomst<Loonjournaalvoorstel>.Mislukt($"In {naam} is geen loonjournaal gevonden (rekeningen met bedragen in een kolom debet en credit).");
+            return Uitkomst<Loonjournaalvoorstel>.Mislukt($"In {naam} is geen loonjournaal gevonden (rekeningen of posten met bedragen in een kolom debet en credit).");
         }
 
         var schema = await grootboek.Schema(wie, administratie);
@@ -68,7 +68,7 @@ public sealed class LoonjournaalDienst(Toegang toegang, GrootboekDienst grootboe
         var koppelingen = Loonkoppelingen.Stel(journaal, schema, onthouden);
         var signalen = journaal.Controle().ToList();
         signalen.AddRange(koppelingen.Where(k => k.Bron == Loonkoppelbron.Nieuw)
-            .Select(k => $"Nieuw in het salarispakket: {k.Regel.Nummer} {k.Regel.Naam}. Kies bij welke rekening die hoort."));
+            .Select(k => $"Nieuw in het salarispakket: {(k.Regel.HeeftNummer ? $"{k.Regel.Nummer} " : null)}{k.Regel.Naam}. Kies bij welke rekening die hoort."));
         return Uitkomst<Loonjournaalvoorstel>.Met(new Loonjournaalvoorstel(naam, journaal, koppelingen, signalen));
     }
 
@@ -101,7 +101,7 @@ public sealed class LoonjournaalDienst(Toegang toegang, GrootboekDienst grootboe
                 db.Loonkoppelingen.Add(new Loonrekeningkoppeling { AdministratieId = administratie, Loonrekening = regel.Nummer, Loonnaam = regel.Naam, Rekeningnummer = rekening });
             }
 
-            gewijzigd.Add($"{regel.Nummer} {regel.Naam} → {rekening}");
+            gewijzigd.Add($"{(regel.HeeftNummer ? $"{regel.Nummer} " : null)}{regel.Naam} → {rekening}");
         }
 
         if (gewijzigd.Count > 0)

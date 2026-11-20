@@ -2,8 +2,23 @@ using Boekerhouden.Boekhouding.Grootboek;
 
 namespace Boekerhouden.Boekhouding.Loon;
 
-/// <summary>Een rekening uit het journaal van het salarispakket: nummer en naam zoals daar, en het bedrag (debet positief).</summary>
-public sealed record Loonjournaalregel(string Nummer, string Naam, decimal Bedrag);
+/// <summary>
+/// Een rekening uit het journaal van het salarispakket: nummer en naam zoals daar, en het bedrag (debet positief). Een
+/// journaal zonder rekeningnummers (alleen posten als "Netto loon") krijgt als nummer een sleutel uit de naam.
+/// </summary>
+public sealed record Loonjournaalregel(string Nummer, string Naam, decimal Bedrag)
+{
+    /// <summary>Een echt rekeningnummer uit het salarispakket (cijfers), geen sleutel uit de naam.</summary>
+    public bool HeeftNummer => Nummer.Length > 0 && Nummer.All(char.IsAsciiDigit);
+
+    /// <summary>Een sleutel voor een post zonder nummer: de letters en cijfers van de naam, hoogstens 20 tekens.</summary>
+    public static string Sleutel(string naam)
+    {
+        ArgumentNullException.ThrowIfNull(naam);
+        var sleutel = new string([.. naam.ToLowerInvariant().Where(char.IsLetterOrDigit)]);
+        return sleutel.Length > 20 ? sleutel[..20] : sleutel;
+    }
+}
 
 /// <summary>
 /// Het (cumulatieve) loonjournaal uit een salarispakket: per rekening van het salarispakket het totaal (de regels per

@@ -17,6 +17,36 @@ public sealed class PdfLoonjournaalTests
     }
 
     [Fact]
+    public void Posten_zonder_rekeningnummer_met_een_streepje_als_idem()
+    {
+        var journaal = PdfLoonjournaal.Lees(FictiefLoonjournaal.Posten())!;
+
+        Assert.Equal(
+            [("Totaal kosten werkgever", 12_500m), ("Te betalen loonheffingen", -3_200m), ("Netto loon", -9_300m)],
+            journaal.Regels.Select(r => (r.Naam, r.Bedrag)));
+        Assert.All(journaal.Regels, r => Assert.False(r.HeeftNummer));
+        Assert.Equal("nettoloon", journaal.Regels[2].Nummer);
+        Assert.Equal((12_500m, 12_500m), (journaal.TotaalDebet, journaal.TotaalCredit));
+        Assert.Empty(journaal.Controle());
+    }
+
+    [Fact]
+    public void Een_echt_loonjournaal_sluit()
+    {
+        // Alleen met een echt journaal buiten git (BOEKERHOUDEN_LOONJOURNAAL); anders niets te doen.
+        if (Environment.GetEnvironmentVariable("BOEKERHOUDEN_LOONJOURNAAL") is not { Length: > 0 } pad || !File.Exists(pad))
+        {
+            return;
+        }
+
+        var journaal = PdfLoonjournaal.Lees(File.ReadAllBytes(pad));
+
+        Assert.NotNull(journaal);
+        Assert.Empty(journaal.Controle());
+        Assert.True(journaal.Debet > 0 && journaal.Debet == journaal.Credit);
+    }
+
+    [Fact]
     public void Afwijkend_totaal_geeft_een_signaal()
     {
         var journaal = PdfLoonjournaal.Lees(FictiefLoonjournaal.Pdf("10.100,00"))!;

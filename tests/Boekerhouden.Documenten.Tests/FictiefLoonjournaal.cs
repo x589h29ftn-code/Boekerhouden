@@ -42,6 +42,39 @@ public static class FictiefLoonjournaal
         return builder.Build();
     }
 
+    /// <summary>
+    /// Een journaal zonder rekeningnummers: onder de kop "Journaal" drie posten, debet links en credit rechts, met "€"
+    /// of een los streepje (idem) voor het bedrag; daarna de totaalregel en een specificatie die er niet bij hoort.
+    /// </summary>
+    public static byte[] Posten()
+    {
+        var builder = new PdfDocumentBuilder();
+        var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+        var pagina = builder.AddPage(PageSize.A4);
+        var y = 800.0;
+        void Regel(params (double X, string Tekst)[] delen)
+        {
+            foreach (var (x, tekst) in delen)
+            {
+                pagina.AddText(tekst, 9, new PdfPoint(x, y), font);
+            }
+
+            y -= 14;
+        }
+
+        Regel((30, "Journaal"), (80, "1"), (90, "2026"));
+        Regel((30, "Voorbeeld"), (80, "Holding"), (120, "B.V."));
+        Regel((30, "Journaal"));
+        Regel((30, "Totaal"), (60, "kosten"), (95, "werkgever"), (300, "EUR"), (360, "12.500,00"));
+        Regel((30, "Te"), (45, "betalen"), (85, "loonheffingen"), (430, "EUR"), (490, "3.200,00"));
+        Regel((30, "Netto"), (60, "loon"), (430, "-"), (490, "9.300,00"));
+        Regel((30, "Tellingen"), (80, "journaalpost"), (300, "EUR"), (360, "12.500,00"), (430, "EUR"), (490, "12.500,00"));
+        Regel((30, "Specificatie"), (90, "kosten"), (125, "werkgever"));
+        Regel((30, "Bruto"), (60, "loon"), (430, "EUR"), (490, "11.000,-"));
+        Regel((30, "Sociale"), (70, "lasten"), (430, "-"), (490, "1.500,00"));
+        return builder.Build();
+    }
+
     /// <summary>De opbouw van een ander salarispakket: één rekening per regel.</summary>
     public enum Lijstsoort
     {

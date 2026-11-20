@@ -109,7 +109,11 @@
                             {
                                 <tr>
                                     <td>
-                                        <span class="rekeningnummer">@k.Regel.Nummer</span> @k.Regel.Naam
+                                        @if (k.Regel.HeeftNummer)
+                                        {
+                                            <span class="rekeningnummer">@k.Regel.Nummer</span>
+                                        }
+                                        @k.Regel.Naam
                                         @if (k.Bron == Boekhouding.Loon.Loonkoppelbron.Nieuw)
                                         {
                                             <span class="status let-op ms-2" title="Deze rekening was er de vorige keren niet">nieuw</span>
