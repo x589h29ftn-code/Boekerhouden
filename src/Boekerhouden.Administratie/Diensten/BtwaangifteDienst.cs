@@ -147,6 +147,12 @@ public sealed class BtwaangifteDienst(Toegang toegang, GrootboekDienst grootboek
             return Uitkomst.Mislukt("Deze aangifte is niet vastgelegd.");
         }
 
+        // De aangifte hoort bij de periode: is die afgesloten, dan eerst heropenen.
+        if (await GrootboekDienst.Afgesloten(db, administratie, tot) is { } afgesloten)
+        {
+            return Uitkomst.Mislukt(afgesloten);
+        }
+
         db.IngediendeAangiften.Remove(aangifte);
         await db.SaveChangesAsync();
         await audit.Log(wie, AuditActies.BtwaangifteIngetrokken, Periodenaam(van, tot), $"te betalen was {NaarDomein(aangifte).TeBetalen:0.00}", administratie);
