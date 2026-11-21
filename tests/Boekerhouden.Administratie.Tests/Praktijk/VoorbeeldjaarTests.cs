@@ -236,6 +236,7 @@ public sealed class VoorbeeldjaarTests(AdministratieFixture app, ITestOutputHelp
         Controleer(verschillen, "Activastaat boekwaarde eind", staat.BoekwaardeEind, 5_100m);
 
         verschillen.AddRange(await Invarianten.Controleer(app, wie, id, "het voorbeeldjaar"));
+        verschillen.AddRange(await Samenhang.Controleer(app, wie, id, "het voorbeeldjaar"));
         foreach (var v in verschillen)
         {
             uitvoer.WriteLine("  - " + v);

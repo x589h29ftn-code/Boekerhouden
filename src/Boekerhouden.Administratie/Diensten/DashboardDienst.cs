@@ -355,7 +355,10 @@ public sealed class DashboardDienst(
         var posten = await db.OpenstaandePosten.AsNoTracking().Where(p => p.Soort == soort && p.Openstaand != 0)
             .Select(p => new { p.Openstaand, p.Vervaldatum }).ToListAsync();
         var vervallen = posten.Where(p => p.Vervaldatum < vandaag).ToList();
-        return new Openstaand(posten.Count, Math.Abs(posten.Sum(p => p.Openstaand)), vervallen.Count, Math.Abs(vervallen.Sum(p => p.Openstaand)));
+        // Te ontvangen of te betalen positief; een tegoed (bijv. een creditfactuur op een betaalde factuur) negatief, niet
+        // als bedrag dat nog open staat.
+        var teken = soort == Factuursoort.Verkoop ? 1 : -1;
+        return new Openstaand(posten.Count, teken * posten.Sum(p => p.Openstaand), vervallen.Count, teken * vervallen.Sum(p => p.Openstaand));
     }
 
     /// <summary>

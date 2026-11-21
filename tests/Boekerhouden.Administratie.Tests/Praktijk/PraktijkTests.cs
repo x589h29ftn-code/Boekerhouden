@@ -321,6 +321,7 @@ public sealed class PraktijkTests(AdministratieFixture app, ITestOutputHelper ui
             uitvoer.WriteLine("  " + n);
         }
 
+        verschillen.AddRange(await Samenhang.Controleer(app, wie, id, "na het kwartaal"));
         uitvoer.WriteLine($"Klaar in {klok.Elapsed.TotalSeconds:0.0} s; {verschillen.Count} verschillen.");
         foreach (var v in verschillen)
         {

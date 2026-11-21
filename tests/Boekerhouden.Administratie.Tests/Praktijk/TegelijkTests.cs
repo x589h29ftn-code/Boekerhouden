@@ -180,5 +180,6 @@ public sealed class TegelijkTests(AdministratieFixture app, ITestOutputHelper ui
         }
 
         fouten.AddRange(await Invarianten.Controleer(app, wie, id, "na alles tegelijk"));
+        fouten.AddRange(await Samenhang.Controleer(app, wie, id, "na alles tegelijk"));
     }
 }

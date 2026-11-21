@@ -203,6 +203,12 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     (saldi, vier btw-aangiften per rubriek, openstaande posten, activastaat, vpb). Vond: verlegde btw viel weg bij 0 in
     het btw-veld. **Open: de uitkomst laten narekenen door de accountant.** Daarna (voorgesteld): btw-randgevallen,
     jaarafsluiting en doorschuiven, auditfile heen en terug met XSD, beveiligingsscan.
+29. **Samenhang** (21 november): `Praktijk/Samenhang` controleert dat hetzelfde getal langs elke weg gelijk is
+    (proefbalans, kolommenbalans per jaar, per periode en per halfjaar, per maand, grootboekkaarten, journaal, balans
+    en W&V, verkoop- en inkoopboek tegen hun dagboeken, auditfile, btw-jaar tegen de perioden, fiscale positie,
+    aansluitingen, en het dashboard tegen grootboek en openstaande posten). Draait aan het eind van het voorbeeldjaar,
+    de jaar-, praktijk-, reeks-, tegelijk- en wijzigtests. Vond: het dashboard toonde een tegoed van een klant als
+    nog te ontvangen (`DashboardDienst.Open` nam de absolute waarde).
     Gevonden en opgelost: dubbele boekingen en gaten in de nummering bij tegelijk werken (vergrendelen en daarna
     opnieuw kijken; SQLite neemt de schrijfvergrendeling meteen), aangifte intrekken na afsluiten, een latere creditnota
     op een eerdere peildatum, verzamelbetaling bij veel open posten, IBAN van een bekende leverancier op een factuur

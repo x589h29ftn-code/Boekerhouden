@@ -309,6 +309,7 @@ public sealed class JaarTests(AdministratieFixture app, ITestOutputHelper uitvoe
             }
         }
 
+        verschillen.AddRange(await Samenhang.Controleer(app, wie, id, "na het jaar"));
         uitvoer.WriteLine($"Resultaat 2025 {p26.Resultaat}, 2026 {p27.Resultaat}; afgesloten t/m {afgesloten.LastOrDefault()}; klaar in {klok.Elapsed.TotalSeconds:0.0} s; {verschillen.Count} verschillen.");
         foreach (var v in verschillen)
         {

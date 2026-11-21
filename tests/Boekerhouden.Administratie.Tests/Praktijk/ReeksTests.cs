@@ -104,6 +104,11 @@ public sealed class ReeksTests(AdministratieFixture app, ITestOutputHelper uitvo
             }
         }
 
+        if (fouten.Count == 0)
+        {
+            fouten.AddRange(await Samenhang.Controleer(app, w.Wie, w.Id, $"na seed {seed}"));
+        }
+
         uitvoer.WriteLine($"Seed {seed}: {verslag.Count} stappen; " + string.Join(", ", telling.OrderBy(t => t.Key, StringComparer.Ordinal).Select(t => $"{t.Key} {t.Value.Gelukt}/{t.Value.Gelukt + t.Value.Geweigerd}")));
         foreach (var reden in redenen.GroupBy(r => r).OrderByDescending(g => g.Count()))
         {

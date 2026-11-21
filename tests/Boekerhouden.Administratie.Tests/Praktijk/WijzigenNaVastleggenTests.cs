@@ -129,6 +129,7 @@ public sealed class WijzigenNaVastleggenTests(AdministratieFixture app, ITestOut
         Moet(true, "Verkoop terugdraaien", await activa.TerugdraaienDesinvestering(wie, id, desinvestering.Id));
         Moet(false, "Verkopen met een datum in de afgesloten periode", await activa.Desinvesteer(wie, id, actief.Waarde, new Desinvesteringsinvoer(new(2025, 3, 15), Desinvesteringssoort.Verkoop, 100m, 2_500m, "1800", "4900")));
         await Stap("na terugdraaien desinvestering");
+        fouten.AddRange(await Samenhang.Controleer(app, wie, id, "na alle wijzigingen"));
 
         foreach (var f in fouten)
         {
@@ -136,6 +137,29 @@ public sealed class WijzigenNaVastleggenTests(AdministratieFixture app, ITestOut
         }
 
         Assert.True(fouten.Count == 0, $"{fouten.Count} afwijkingen:\n" + string.Join("\n", fouten));
+    }
+
+    /// <summary>Gevonden met de samenhangcontrole: een tegoed van een klant telde op het dashboard als nog te ontvangen.</summary>
+    [Fact]
+    public async Task Een_betaalde_en_daarna_gecrediteerde_factuur_is_op_het_dashboard_een_tegoed()
+    {
+        var w = await Werkadministratie.Maak(app, "Tegoed Credit B.V.");
+        var verkoop = app.Dienst<VerkoopDienst>();
+        var factuur = await w.Concept(new(2025, 11, 10), 1_000m);
+        var nummer = (await verkoop.MaakDefinitief(w.Wie, w.Id, factuur)).Waarde!;
+        var bank = app.Dienst<BankDienst>();
+        foreach (var m in await w.Bank(new Boekhouding.Bank.Bankmutatie(new(2025, 11, 20), 1_210m, $"Factuur {nummer}", Praktijkset.Fietsplan.Iban, Praktijkset.Fietsplan.Naam)))
+        {
+            var post = (await bank.OpenPosten(w.Wie, w.Id)).Single(p => p.Factuurnummer == nummer);
+            Assert.True((await bank.Afletteren(w.Wie, w.Id, m.Id, [post.Id])).IsGelukt);
+        }
+
+        var credit = await verkoop.Crediteer(w.Wie, w.Id, factuur);
+        Assert.True((await verkoop.MaakDefinitief(w.Wie, w.Id, credit.Waarde)).IsGelukt);
+
+        var dashboard = await app.Dienst<DashboardDienst>().Laad(w.Wie, w.Id, [new Widgetkeuze(Widget.Debiteuren)]);
+        Assert.Equal(-1_210m, dashboard.Debiteuren!.Totaal);
+        Assert.Empty(await Samenhang.Controleer(app, w.Wie, w.Id, "na crediteren van een betaalde factuur"));
     }
 
     [Fact]
