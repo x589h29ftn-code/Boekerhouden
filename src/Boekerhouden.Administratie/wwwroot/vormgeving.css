@@ -727,3 +727,46 @@ html.zijbalk-smal .zijmenu::after {
 .hulp-knop {
     bottom: 1rem;
 }
+
+/* ---------- Aan de slag ingeklapt ----------
+   Eén regel met de volgende stap en de teller; uitklappen (de regel aanklikken) toont alle stappen. */
+details.aandeslag > summary {
+    list-style: none;
+    cursor: pointer;
+    gap: 1rem;
+    border-bottom: 0;
+}
+
+    details.aandeslag > summary::-webkit-details-marker {
+        display: none;
+    }
+
+details.aandeslag[open] > summary {
+    border-bottom: 1px solid var(--bh-lijn);
+}
+
+.aandeslag-volgende {
+    margin-left: auto;
+    font-weight: 400;
+    font-size: .88rem;
+    text-decoration: none;
+}
+
+.aandeslag-teller .icoon {
+    transition: transform var(--bh-snel) ease;
+}
+
+details.aandeslag[open] .aandeslag-teller .icoon {
+    transform: rotate(180deg);
+}
+
+/* ---------- Dashboard: widgets zo hoog als hun inhoud ----------
+   Een kerngetal rekt niet meer uit tot de hoogte van een grafiek ernaast; kleine widgets vullen de gaten op. */
+.dashboard {
+    align-items: start;
+    grid-auto-flow: row dense;
+}
+
+.dashboard .widget {
+    min-height: 8.5rem;
+}

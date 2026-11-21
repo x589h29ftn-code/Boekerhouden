@@ -95,7 +95,14 @@ public sealed record Widgetkeuze(Widget Soort, string? Optie = null)
 
 /// <summary>Saldo van een bank- of kasrekening.</summary>
 /// <param name="Afschrift">Datum en eindsaldo van het laatst ingelezen afschrift (alleen bij een bank met IBAN).</param>
-public sealed record Liquiderekening(string Dagboek, string Naam, string Rekening, decimal Saldo, (DateOnly Datum, decimal Saldo)? Afschrift);
+public sealed record Liquiderekening(string Dagboek, string Naam, string Rekening, decimal Saldo, (DateOnly Datum, decimal Saldo)? Afschrift, int TeVerwerken = 0)
+{
+    /// <summary>
+    /// Wat het dashboard toont: het grootboek, maar zolang er mutaties te verwerken zijn het laatste afschrift (het
+    /// grootboek loopt dan nog achter, en een verschil zegt dan niets).
+    /// </summary>
+    public decimal Getoond => TeVerwerken > 0 && Afschrift is { } a ? a.Saldo : Saldo;
+}
 
 /// <summary>
 /// De btw: het saldo van de btw-rekeningen tot en met de afgelopen periode (credit = te betalen) en wat er in de lopende
@@ -323,7 +330,8 @@ public sealed class DashboardDienst(
             .. liquide
                 .Where(d => d.Soort == Dagboeksoort.Bank || saldi.ContainsKey(d.Rekeningnummer!))
                 .Select(d => new Liquiderekening(d.Code, d.Naam, d.Rekeningnummer!, saldi.GetValueOrDefault(d.Rekeningnummer!),
-                    standen.GetValueOrDefault(d.Code) is { Tot: { } datum, Saldo: { } saldo } ? (datum, saldo) : null)),
+                    standen.GetValueOrDefault(d.Code) is { Tot: { } datum, Saldo: { } saldo } ? (datum, saldo) : null,
+                    standen.GetValueOrDefault(d.Code)?.TeVerwerken ?? 0)),
         ];
     }
 

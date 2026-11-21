@@ -26,11 +26,17 @@
             @if (!aanpassen && startstappen is { Count: > 0 })
             {
                 var klaar = startstappen.Count(st => st.Klaar);
-                <section class="aandeslag" aria-label="Aan de slag">
-                    <div class="aandeslag-kop">
+                var volgende = startstappen.FirstOrDefault(st => !st.Klaar);
+                @* Ingeklapt één regel met de volgende stap; uitklappen toont ze allemaal. *@
+                <details class="aandeslag" aria-label="Aan de slag">
+                    <summary class="aandeslag-kop">
                         <span>Aan de slag</span>
-                        <span class="aandeslag-teller">@klaar van @startstappen.Count</span>
-                    </div>
+                        @if (volgende is not null)
+                        {
+                            <a class="aandeslag-volgende" href="@Pad(volgende.Pad)" title="@volgende.Toelichting">Volgende: @volgende.Naam <Icoon Naam="arrow-right" /></a>
+                        }
+                        <span class="aandeslag-teller">@klaar van @startstappen.Count <Icoon Naam="caret-down" /></span>
+                    </summary>
                     <div class="aandeslag-balk"><span style="width:@(klaar * 100 / startstappen.Count)%"></span></div>
                     <ol>
                         @foreach (var st in startstappen)
@@ -43,7 +49,7 @@
                             </li>
                         }
                     </ol>
-                </section>
+                </details>
             }
             @if (!aanpassen && aantallen is not null)
             {
@@ -334,14 +340,18 @@
     private RenderFragment Inhoud(Widgetkeuze keuze) => keuze.Soort switch
     {
         Widget.Liquide when dashboard!.Liquide is { } rekeningen => @<div>
-            <a class="kerngetal" href="@Pad("/bank")">@Weergave.BedragHeel(rekeningen.Sum(r => r.Saldo))</a>
+            <a class="kerngetal" href="@Pad("/bank")">@Weergave.BedragHeel(rekeningen.Sum(r => r.Getoond))</a>
             <table class="widgettabel">
-                @foreach (var (r, heel) in rekeningen.Zip(Weergave.HeleEuros(rekeningen.Select(r => r.Saldo))))
+                @foreach (var (r, heel) in rekeningen.Zip(Weergave.HeleEuros(rekeningen.Select(r => r.Getoond))))
                 {
-                    <tr title="@(r.Afschrift is { } a ? $"Laatste afschrift t/m {Weergave.Datum(a.Datum)}: {Weergave.BedragHeel(a.Saldo)}" : $"Rekening {r.Rekening}")">
+                    <tr title="@(r.Afschrift is { } a ? $"Laatste afschrift t/m {Weergave.Datum(a.Datum)}: {Weergave.BedragHeel(a.Saldo)}; grootboek {Weergave.BedragHeel(r.Saldo)}" : $"Rekening {r.Rekening}")">
                         <td><a href="@Grootboekkaart(r.Rekening, Nieuwjaar, Vandaag)">@r.Naam</a></td>
                         <td class="text-end">
-                            @if (r.Afschrift is { } afschrift && afschrift.Saldo != r.Saldo)
+                            @if (r.TeVerwerken > 0)
+                            {
+                                <a class="zacht me-2" href="@Pad("/bank")">nog @r.TeVerwerken te verwerken</a>
+                            }
+                            else if (r.Afschrift is { } afschrift && afschrift.Saldo != r.Saldo)
                             {
                                 <a class="let-op me-2" href="@Pad("/aansluitingen")">afschrift @Weergave.BedragHeel(afschrift.Saldo)</a>
                             }
