@@ -178,10 +178,18 @@ public sealed class InkoopDienst(
             return new(null, null, fout.Message);
         }
 
+        // Een leeg bestand (bijv. een mislukte download) heeft niets om na te kijken: niet bewaren.
+        if (bytes.Length == 0)
+        {
+            return new(null, null, $"{naam} is leeg en niet ingelezen.");
+        }
+
         var hash = Convert.ToHexStringLower(SHA256.HashData(bytes));
         if (await db.Documenten.AsNoTracking().FirstOrDefaultAsync(d => d.Sha256 == hash && d.Status != Documentstatus.Quarantaine, annulering) is { } eerder)
         {
-            return new(eerder.Id, eerder.Status, $"Dubbele factuur: {naam} is al ingelezen op {Weergave.DatumTijd(eerder.IngelezenOp)} en niet opnieuw ingelezen.", Dubbel: true);
+            // "Dubbele factuur" alleen als het eerder ingelezen bestand ook als factuur is herkend.
+            var wat = eerder.Herkend is null ? "Al ingelezen" : "Dubbele factuur";
+            return new(eerder.Id, eerder.Status, $"{wat}: {naam} is al ingelezen op {Weergave.DatumTijd(eerder.IngelezenOp)} en niet opnieuw ingelezen.", Dubbel: true);
         }
 
         var document = new Document

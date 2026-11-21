@@ -54,6 +54,11 @@ public sealed class VerkoopimportDienst(
             return new(null, false, $"{naam}: {fout.Message}");
         }
 
+        if (bytes.Length == 0)
+        {
+            return new(null, false, $"{naam} is leeg en niet ingelezen.");
+        }
+
         Guid id;
         bool zonderBelemmering;
         string melding;
