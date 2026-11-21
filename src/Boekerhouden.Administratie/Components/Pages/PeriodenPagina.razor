@@ -2,6 +2,7 @@
 @using System.Globalization
 @inject PeriodeDienst Perioden
 @inject GrootboekDienst Grootboek
+@inject AfsluitDienst Afsluiten
 
 <AdministratieKader Id="Id" Titel="Perioden" Actief="/perioden" BijOpenen="Open">
     <Kenmerken>
@@ -15,6 +16,10 @@
         }
     </Kenmerken>
     <Acties>
+        @if (Voorstel is { } voorstel && vraag is null)
+        {
+            <button class="btn btn-primary" disabled="@bezig" @onclick="() => VraagAfsluiten(voorstel)"><Icoon Naam="lock-simple" /> @Maand(voorstel) afsluiten</button>
+        }
         <JaarKeuze Jaren="jaren" Jaar="jaar" JaarChanged="KiesJaar" />
     </Acties>
     <ChildContent>
@@ -23,13 +28,32 @@
             <div class="bericht mb-3 periodevraag">
                 @if (vraag.Afsluiten)
                 {
-                    <div>Afsluiten t/m @Weergave.Datum(vraag.Datum)?</div>
+                    var allesKlaar = vraag.Stappen.All(st => st.Klaar) && vraag.Signalen.Count == 0;
+                    <div class="afsluitplan-kop">Afsluiten tot en met @Weergave.Datum(vraag.Datum)</div>
+                    <ol class="afsluitplan">
+                        @foreach (var st in vraag.Stappen)
+                        {
+                            <li class="@(st.Klaar ? "klaar" : "open")">
+                                <span class="afsluitplan-stip"><Icoon Naam="@(st.Klaar ? "check" : st.Icoon)" /></span>
+                                <span class="afsluitplan-naam">@st.Naam</span>
+                                @if (!st.Klaar)
+                                {
+                                    <span class="afsluitplan-nog">@st.Nog</span>
+                                    <a class="afsluitplan-naar" href="@($"/a/{Id}{st.Pad}")">Naar @NaarNaam(st.Pad) <Icoon Naam="arrow-right" /></a>
+                                }
+                            </li>
+                        }
+                        <li class="laatste @(allesKlaar ? "klaar" : null)">
+                            <span class="afsluitplan-stip"><Icoon Naam="lock-simple" /></span>
+                            <span class="afsluitplan-naam">Periode afsluiten</span>
+                        </li>
+                    </ol>
                     @foreach (var s in vraag.Signalen)
                     {
                         <div class="small text-secondary">@s</div>
                     }
                     <div class="mt-2">
-                        <button class="btn btn-sm btn-primary me-2" disabled="@bezig" @onclick="SluitAf">@(vraag.Signalen.Count > 0 ? "Toch afsluiten" : "Afsluiten")</button>
+                        <button class="btn btn-sm btn-primary me-2" disabled="@bezig" @onclick="SluitAf">@(allesKlaar ? "Afsluiten" : "Toch afsluiten")</button>
                         <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" @onclick="() => vraag = null">Annuleren</button>
                     </div>
                 }
@@ -92,7 +116,27 @@
 @code {
     private static readonly CultureInfo Nederlands = CultureInfo.GetCultureInfo("nl-NL");
 
-    private sealed record Vraag(bool Afsluiten, DateOnly Datum, IReadOnlyList<string> Signalen, bool Alles = false);
+    private sealed record Vraag(bool Afsluiten, DateOnly Datum, IReadOnlyList<string> Signalen, bool Alles = false, IReadOnlyList<Afsluitstap>? Plan = null)
+    {
+        public IReadOnlyList<Afsluitstap> Stappen => Plan ?? [];
+    }
+
+    /// <summary>De naam van de pagina achter een stap, voor de link "Naar ...".</summary>
+    private static string NaarNaam(string pad) => pad switch
+    {
+        "/bank" => "de bank",
+        "/inkoop" => "inkoop",
+        "/verkoop" => "verkoop",
+        "/facturen" => "facturen",
+        "/activa" => "vaste activa",
+        "/aansluitingen" => "aansluitingen",
+        "/btw" => "btw-aangifte",
+        _ => "de pagina",
+    };
+
+    /// <summary>De maand om af te sluiten als je op de knop bovenaan klikt: de vorige maand, als die nog open is.</summary>
+    private DateOnly? Voorstel => stand is null || !mag ? null
+        : new DateOnly(vandaag.Year, vandaag.Month, 1).AddDays(-1) is var vorige && (stand.AfgeslotenTot is not { } af || af < vorige) ? vorige : null;
 
     private Geopend? geopend;
     private Periodestand? stand;
@@ -132,7 +176,13 @@
     private async Task VraagAfsluiten(DateOnly tot)
     {
         (bericht, fouten, bezig) = (null, [], true);
-        vraag = new Vraag(true, tot, await Perioden.Openstaand(geopend!.Wie, Id, tot));
+        // De signalen die het stappenplan niet al laat zien (bijv. een saldo op vraagposten zit in de aansluitingen).
+        var plan = await Afsluiten.Stappen(geopend!.Wie, Id, tot);
+        var signalen = (await Perioden.Openstaand(geopend!.Wie, Id, tot))
+            .Where(sig => !sig.Contains("bankmutatie", StringComparison.Ordinal) && !sig.Contains("Te verwerken bij inkoop", StringComparison.Ordinal)
+                && !sig.Contains("conceptfactu", StringComparison.Ordinal) && !sig.StartsWith("Afschrijvingen", StringComparison.Ordinal) && !sig.StartsWith("Saldo op", StringComparison.Ordinal))
+            .ToList();
+        vraag = new Vraag(true, tot, signalen, Plan: plan);
         bezig = false;
     }
 
