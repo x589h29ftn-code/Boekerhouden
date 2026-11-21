@@ -40,10 +40,7 @@
             </span>
         }
         <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
-        <div class="btn-group btn-group-sm text-nowrap" role="group" aria-label="Downloaden">
-            <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De grootboekkaart als Excel" @onclick="Excel">Excel</button>
-            <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De grootboekkaart als PDF (A4 liggend)" @onclick="Pdf">PDF</button>
-        </div>
+        <Downloadmenu Bezig="bezig" Keuzes="@([new("Excel", "De grootboekkaart als Excel", Excel), new("PDF", "De grootboekkaart als PDF (A4 liggend)", Pdf)])" />
     </Acties>
     <ChildContent>
         @if (Alle && kaarten is not null)

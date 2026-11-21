@@ -1,0 +1,35 @@
+@* Downloaden (Excel, PDF, auditfile) achter één knop met een menu, zoals Nieuw in het memoriaal: de kop van een
+   overzicht blijft rustig. *@
+
+<span class="knopmenu downloadmenu">
+    <button type="button" class="btn btn-sm btn-outline-secondary" disabled="@Bezig" aria-haspopup="menu" aria-expanded="@(open ? "true" : "false")"
+            @onclick="() => open = !open">Downloaden <Icoon Naam="chevron-down" /></button>
+    @if (open)
+    {
+        <span class="menu" role="menu">
+            @foreach (var keuze in Keuzes)
+            {
+                <button type="button" role="menuitem" title="@keuze.Titel" @onclick="() => Kies(keuze)">@keuze.Naam</button>
+            }
+        </span>
+    }
+</span>
+
+@code {
+    private bool open;
+
+    /// <summary>Wat er te downloaden is: de naam in het menu, de uitleg in de tooltip, en wat er gebeurt.</summary>
+    public sealed record Keuze(string Naam, string Titel, Func<Task> Actie);
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<Keuze> Keuzes { get; set; } = [];
+
+    [Parameter]
+    public bool Bezig { get; set; }
+
+    private async Task Kies(Keuze keuze)
+    {
+        open = false;
+        await keuze.Actie();
+    }
+}

@@ -30,11 +30,10 @@
             <label class="form-check-label text-secondary" for="met-nul">Ook zonder saldo</label>
         </span>
         <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
-        <div class="btn-group btn-group-sm text-nowrap" role="group" aria-label="Downloaden">
-            <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De kolommenbalans als Excel (met vorig jaar als dat aan staat)" @onclick="Excel">Excel</button>
-            <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De kolommenbalans als PDF, A4 liggend (met vorig jaar als dat aan staat)" @onclick="Pdf">PDF</button>
-            <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="@($"Het boekjaar {tot.Year} als XML Auditfile Financieel (XAF 3.2), voor de Belastingdienst, de accountant of een ander pakket")" @onclick="Auditfile">Auditfile</button>
-        </div>
+        <Downloadmenu Bezig="bezig" Keuzes="@([
+            new("Excel", "De kolommenbalans als Excel (met vorig jaar als dat aan staat)", Excel),
+            new("PDF", "De kolommenbalans als PDF, A4 liggend (met vorig jaar als dat aan staat)", Pdf),
+            new($"Auditfile {tot.Year}", $"Het boekjaar {tot.Year} als XML Auditfile Financieel (XAF 3.2), voor de Belastingdienst, de accountant of een ander pakket", Auditfile)])" />
     </Acties>
     <ChildContent>
         <Foutmeldingen Fouten="fouten" />
