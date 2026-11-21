@@ -190,6 +190,20 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     update, onderbroken situaties). Daaruit: de ruimtecontrole vóór een kopie of update (`Reservekopieen.MaakRuimte`).
     Open: inkoop inlezen wordt traag (1 s per factuur) als vijf gebruikers dat tegelijk in dezelfde administratie
     doen; en één CI-run was rood op een niet-gevonden wankele test (run 197).
+27. **Stresstests foutzoeken** (21 november), alle met vaste controles (`Praktijk/Invarianten`: proefbalans,
+    debiteuren/crediteuren tegen de openstaande posten, bank, btw-aansluiting, activastaat, keten):
+    `Praktijk/JaarTests` (een heel jaar en de jaarovergang), `WijzigenNaVastleggenTests` (na de aangifte en na
+    afsluiten), `TegelijkTests` (vier gebruikers aan hetzelfde), `ReeksTests` (willekeurige reeksen met seed;
+    `BOEKERHOUDEN_STRESS_REEKS=600:1,2,3`), `MisleidenTests` (het leergeheugen misleiden), `HerstelTests`
+    (afgebroken bankimport), `PraktijkTests.Vijf_keer_zo_groot` (`BOEKERHOUDEN_STRESS_PRAKTIJK=5`: 500 + 500),
+    `ToegangOveralTests` (elke dienstmethode door een buitenstaander), `BankformatenTests`, `FiscaleRandgevallenTests`,
+    `Documenten.Tests/FactuuropmakenTests` en `scripts/ui/druk.js` (dubbelklikken, twee tabbladen, trage verbinding).
+    Gevonden en opgelost: dubbele boekingen en gaten in de nummering bij tegelijk werken (vergrendelen en daarna
+    opnieuw kijken; SQLite neemt de schrijfvergrendeling meteen), aangifte intrekken na afsluiten, een latere creditnota
+    op een eerdere peildatum, verzamelbetaling bij veel open posten, IBAN van een bekende leverancier op een factuur
+    van een ander bedrijf, factuurnummer onder het label in twee kolommen, MT940-label na een afgebroken regel, CAMT
+    over meerdere dagen. Bewust zo gelaten: een factuur op een andere naam op het eigen adres boekt wel vanzelf.
+    Niet in het pakket (dus niet getest): KOR, margeregeling, ICP-opgave en oninbare vorderingen.
 
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).
