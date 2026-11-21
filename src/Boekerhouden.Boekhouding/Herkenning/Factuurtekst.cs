@@ -490,9 +490,17 @@ public static partial class Factuurtekst
             if (FactuurnummerLabel().Match(regels[i]) is { Success: true } m)
             {
                 var rest = regels[i][(m.Index + m.Length)..].TrimStart(' ', ':', '#', '.', '\t');
-                if (rest.Length == 0 && i + 1 < regels.Count)
+                if (rest.Length == 0)
                 {
-                    rest = regels[i + 1];
+                    // Het label staat alleen op zijn regel, het nummer eronder. In twee kolommen kan daar eerst een regel
+                    // van de andere kolom staan (het adres van de klant): de eerste van de volgende drie regels met iets
+                    // wat een nummer is, geen postcode, datum of bedrag.
+                    if (regels.Skip(i + 1).Take(3).Select(NummerOpRegel).FirstOrDefault(n => n is not null) is { } eronder)
+                    {
+                        return eronder;
+                    }
+
+                    continue;
                 }
 
                 var waarde = rest.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.TrimEnd('.', ',', ';');
@@ -523,6 +531,23 @@ public static partial class Factuurtekst
                 {
                     return m.Groups[1].Value;
                 }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Het eerste woord van een regel dat een factuurnummer kan zijn: met een cijfer, en geen postcode, datum of bedrag.</summary>
+    private static string? NummerOpRegel(string regel)
+    {
+        var woorden = regel.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
+        for (var w = 0; w < woorden.Length; w++)
+        {
+            var woord = woorden[w].TrimEnd('.', ',', ';', ':');
+            var postcode = woord.Length == 4 && woord.All(char.IsAsciiDigit) && w + 1 < woorden.Length && woorden[w + 1].Length == 2 && woorden[w + 1].All(char.IsAsciiLetterUpper);
+            if (woord.Length >= 3 && woord.Any(char.IsDigit) && !postcode && Datums(woord).Count == 0 && Bedragen(woord).Count == 0)
+            {
+                return woord;
             }
         }
 
