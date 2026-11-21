@@ -100,6 +100,14 @@ public static class Inkoopverwerker
             belemmeringen.Add($"Het IBAN op de factuur ({Relaties.Iban.Toon(iban)}) is niet het bekende IBAN van {leverancier.Relatie.Naam}. Controleer dit bij de leverancier via een bekend telefoonnummer.");
         }
 
+        // Andersom: het IBAN (of KvK-nummer) hoort bij een bekende leverancier, maar de factuur komt van een ander
+        // bedrijf (ander btw-nummer of een naam die er niet op lijkt). Een fraudeur met het IBAN en adres van een
+        // bekende leverancier mag niet vanzelf op die leverancier geboekt worden.
+        if (leverancier is { Op: "IBAN" or "KvK-nummer" } opNummer && AnderBedrijf(herkend, opNummer.Relatie) is { } ander)
+        {
+            belemmeringen.Add($"De factuur komt van {ander}, maar het {opNummer.Op} hoort bij {opNummer.Relatie.Naam}. Controleer dit bij de leverancier via een bekend telefoonnummer.");
+        }
+
         if (advies.Automatisch && limietAutomatisch is { } limiet && herkend.TotaalInclusief is { } bedrag && Math.Abs(bedrag) > limiet)
         {
             belemmeringen.Add($"Het bedrag is hoger dan de limiet voor automatisch verwerken ({Domain.Bedragen.Euro(limiet)}).");
@@ -282,6 +290,20 @@ public static class Inkoopverwerker
 
         var (excl, btw) = BtwBerekening.UitInclusief(totaal, advies.Percentage);
         return [new Factuurregel(omschrijving, rekening, advies.Code, excl, btw)];
+    }
+
+    /// <summary>
+    /// Het bedrijf op de factuur als dat niet de herkende relatie is: een ander btw-nummer dan bij de relatie bekend, of
+    /// (zonder btw-nummer bij de relatie) een naam die er niet op lijkt. Leeg als het klopt of niet te zeggen is.
+    /// </summary>
+    private static string? AnderBedrijf(HerkendeFactuur herkend, Relatie relatie)
+    {
+        if (herkend.BtwNummer is { } btw && relatie.BtwNummer is { } bekend)
+        {
+            return BtwNummer.Normaliseer(btw) == BtwNummer.Normaliseer(bekend) ? null : $"{herkend.Naam ?? "een ander bedrijf"} (btw-nummer {btw})";
+        }
+
+        return herkend.Naam is { Length: > 0 } naam && Namen.Normaliseer(naam).Length > 0 && !Namen.LijktOp(relatie.Naam, naam) ? naam : null;
     }
 
     private static BestaandeFactuur? Dubbel(HerkendeFactuur herkend, string relatie, IEnumerable<BestaandeFactuur> bestaand) =>
