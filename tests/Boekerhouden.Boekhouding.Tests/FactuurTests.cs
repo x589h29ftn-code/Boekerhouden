@@ -73,6 +73,21 @@ public sealed class FactuurboekerTests
         Assert.Equal(-100m, open.Bedrag);
     }
 
+    /// <summary>Gevonden met het voorbeeldjaar: 0 btw zoals op de factuur mag de verlegde btw niet wegboeken.</summary>
+    [Theory]
+    [InlineData("IEU")]
+    [InlineData("IVL")]
+    public void Verlegde_btw_met_nul_zoals_op_de_factuur_wordt_toch_berekend(string code)
+    {
+        var factuur = Inkoop("EU-78", new Factuurregel("Software", "4200", code, 100m, Btw: 0m));
+
+        var (post, open) = Factuurboeker.Boek(factuur, Testadministratie.Inkoop, "2026-0003", Testadministratie.Schema(), Testadministratie.Btw);
+
+        Assert.Equal(21m, Bedrag(post, "1510"));
+        Assert.Equal(-21m, Bedrag(post, "1520"));
+        Assert.Equal(-100m, open.Bedrag);
+    }
+
     [Fact]
     public void Verkoopfactuur_debiteuren_debet_omzet_en_btw_credit_per_tarief()
     {

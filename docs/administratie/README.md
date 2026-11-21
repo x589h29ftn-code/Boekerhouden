@@ -993,6 +993,8 @@ administratie (nu de RGS-code als tekst bij een nieuwe rekening), en de hulppagi
 
 ### 3.21 Praktijktest: een kwartaal inkoop, verkoop en bank
 
+Zie ook het voorbeeldjaar met de hand uitgerekend: [voorbeeldjaar-2025.md](voorbeeldjaar-2025.md) (`Praktijk/VoorbeeldjaarTests`).
+
 Een verzonnen fietsenhandel (Fietsenhandel De Spaak B.V.) over het eerste kwartaal van 2026, met de bank tot en met
 april: `tests/Boekerhouden.Administratie.Tests/Praktijk/`. `Praktijkset` maakt alles uit één bron: 100 inkoopfacturen van
 15 leveranciers (UBL en PDF; 21%, 9% en 21% op één factuur, vrijgesteld, verlegd, een dienst uit de EU, creditnota's),

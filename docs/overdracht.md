@@ -198,6 +198,11 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     (afgebroken bankimport), `PraktijkTests.Vijf_keer_zo_groot` (`BOEKERHOUDEN_STRESS_PRAKTIJK=5`: 500 + 500),
     `ToegangOveralTests` (elke dienstmethode door een buitenstaander), `BankformatenTests`, `FiscaleRandgevallenTests`,
     `Documenten.Tests/FactuuropmakenTests` en `scripts/ui/druk.js` (dubbelklikken, twee tabbladen, trage verbinding).
+28. **Voorbeeldjaar** (21 november): een vast jaar (2025) met de hand uitgerekend, `docs/administratie/voorbeeldjaar-2025.md`
+    (om door een accountant na te rekenen), en `Praktijk/VoorbeeldjaarTests` die elk bedrag tot op de cent controleert
+    (saldi, vier btw-aangiften per rubriek, openstaande posten, activastaat, vpb). Vond: verlegde btw viel weg bij 0 in
+    het btw-veld. **Open: de uitkomst laten narekenen door de accountant.** Daarna (voorgesteld): btw-randgevallen,
+    jaarafsluiting en doorschuiven, auditfile heen en terug met XSD, beveiligingsscan.
     Gevonden en opgelost: dubbele boekingen en gaten in de nummering bij tegelijk werken (vergrendelen en daarna
     opnieuw kijken; SQLite neemt de schrijfvergrendeling meteen), aangifte intrekken na afsluiten, een latere creditnota
     op een eerdere peildatum, verzamelbetaling bij veel open posten, IBAN van een bekende leverancier op een factuur

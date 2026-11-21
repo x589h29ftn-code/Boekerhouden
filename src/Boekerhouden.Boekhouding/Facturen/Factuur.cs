@@ -36,7 +36,9 @@ public sealed record Factuur(
     internal static decimal BtwVan(Factuurregel regel, IEnumerable<BtwCode> codes)
     {
         var code = BtwCodes.Zoek(codes, regel.BtwCode) ?? throw new ArgumentException($"Btw-code {regel.BtwCode} bestaat niet.", nameof(regel));
-        return regel.Btw ?? code.Bereken(regel.Bedrag);
+        // Verlegde btw staat niet op de factuur (daar 0 of leeg): die berekent het pakket altijd zelf, anders valt hij
+        // stil weg uit de aangifte (2a, 4a, 4b) en de voorbelasting.
+        return regel.Btw is { } btw && !(code.Verlegd && btw == 0) ? btw : code.Bereken(regel.Bedrag);
     }
 
     internal static decimal BtwOpFactuur(Factuurregel regel, IEnumerable<BtwCode> codes)
