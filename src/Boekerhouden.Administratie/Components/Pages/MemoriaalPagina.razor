@@ -5,6 +5,7 @@
 @inject LoonjournaalDienst Loonjournaal
 @inject TimeProvider Tijd
 @inject NavigationManager Navigatie
+@inject Bestandoverdracht Overdracht
 
 <AdministratieKader Id="Id" Titel="Memoriaal" Actief="/memoriaal" BijOpenen="Open">
     <Acties>
@@ -314,6 +315,12 @@
         {
             Kopieer(bron.Post);
         }
+
+        // Een loonjournaal dat op een andere pagina is losgelaten (overal slepen): hier verder met koppelen.
+        if (Overdracht.Neem(Overalinlezen.Memoriaaldoel(Id)) is { } loonbestand)
+        {
+            await LeesLoonjournaal(new MemoryStream(loonbestand.Inhoud), loonbestand.Naam);
+        }
     }
 
     /// <summary>Een ander memoriaal (tab): dezelfde pagina, andere query.</summary>
@@ -381,11 +388,23 @@
 
     private async Task LeesLoonjournaal(InputFileChangeEventArgs e)
     {
-        (loonfouten, kopieBron, bericht, menuOpen, loonBezig) = (null, null, null, false, true);
         try
         {
             await using var stream = e.File.OpenReadStream(LoonjournaalDienst.MaximumBytes);
-            var uitkomst = await Loonjournaal.Lees(geopend!.Wie, Id, stream, e.File.Name);
+            await LeesLoonjournaal(stream, e.File.Name);
+        }
+        catch (IOException)
+        {
+            loonfouten = [$"{e.File.Name} is groter dan {LoonjournaalDienst.MaximumBytes / 1024 / 1024} MB."];
+        }
+    }
+
+    private async Task LeesLoonjournaal(Stream stream, string bestandsnaam)
+    {
+        (loonfouten, kopieBron, bericht, menuOpen, loonBezig) = (null, null, null, false, true);
+        try
+        {
+            var uitkomst = await Loonjournaal.Lees(geopend!.Wie, Id, stream, bestandsnaam);
             loonfouten = uitkomst.IsGelukt ? null : uitkomst.Fouten;
             if (uitkomst.Waarde is { } v)
             {
@@ -397,10 +416,6 @@
                     ? $"Loonjournaal {van} t/m {tot}"
                     : $"Loonjournaal {loonMaand.ToString("MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("nl-NL"))}";
             }
-        }
-        catch (IOException)
-        {
-            loonfouten = [$"{e.File.Name} is groter dan {LoonjournaalDienst.MaximumBytes / 1024 / 1024} MB."];
         }
         finally
         {

@@ -1,0 +1,109 @@
+@* Overal slepen: op een pagina zonder eigen sleepvlak kun je toch documenten loslaten. Sifer herkent per bestand wat
+   het is (InleesDienst) en zet het in de juiste werklijst; gaan ze allemaal naar dezelfde plek, dan gaat de pagina
+   erheen. Een loonjournaal gaat via de bestandsoverdracht naar het memoriaal, waar de rekeningen gekoppeld worden. *@
+@using Boekerhouden.Administratie.Diensten
+@inject InleesDienst Inlezen
+@inject Bestandoverdracht Overdracht
+@inject Meldingen Meldingen
+@inject NavigationManager Navigatie
+
+<Sleepvlak Id="overal-inlezen" Pagina="true" Tekst="Documenten inlezen" Bezig="bezig" OnChange="LeesIn"
+           Accept=".pdf,.xml,.jpg,.jpeg,.png,.mt940,.940,.sta,.swi,.txt,.camt,application/pdf,application/xml,text/xml,image/jpeg,image/png" />
+
+@code {
+    private bool bezig;
+
+    [Parameter, EditorRequired]
+    public Uitvoerder Wie { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public Guid Administratie { get; set; }
+
+    /// <summary>Na het inlezen (als de pagina blijft staan): om de aantallen in de zijbalk bij te werken.</summary>
+    [Parameter]
+    public EventCallback Ingelezen { get; set; }
+
+    /// <summary>Waar een soort heen gaat.</summary>
+    internal static string Pad(Inleessoort soort) => soort switch
+    {
+        Inleessoort.Bank => "/bank",
+        Inleessoort.Verkoop => "/verkoop",
+        Inleessoort.Loonjournaal => "/memoriaal",
+        _ => "/inkoop",
+    };
+
+    /// <summary>Een korte samenvatting, bijv. "2 inkoopfacturen naar inkoop, 1 afschrift naar de bank".</summary>
+    internal static string Samenvatting(IReadOnlyList<Overalingelezen> uitkomsten)
+    {
+        var delen = uitkomsten.Where(u => u.Gelukt).GroupBy(u => u.Soort).Select(g => g.Key switch
+        {
+            Inleessoort.Bank => $"{g.Count()} {(g.Count() == 1 ? "afschrift" : "afschriften")} naar de bank",
+            Inleessoort.Verkoop => $"{g.Count()} {(g.Count() == 1 ? "verkoopfactuur" : "verkoopfacturen")} naar verkoop",
+            Inleessoort.Loonjournaal => "loonjournaal naar het memoriaal",
+            _ => $"{g.Count()} {(g.Count() == 1 ? "inkoopfactuur" : "inkoopfacturen")} naar inkoop",
+        }).ToList();
+        var mislukt = uitkomsten.Count(u => !u.Gelukt);
+        if (mislukt > 0)
+        {
+            delen.Add($"{mislukt} niet ingelezen ({string.Join("; ", uitkomsten.Where(u => !u.Gelukt).Select(u => u.Melding.StartsWith(u.Bestand, StringComparison.OrdinalIgnoreCase) ? u.Melding : $"{u.Bestand}: {u.Melding}"))})");
+        }
+
+        return string.Join(", ", delen);
+    }
+
+    private async Task LeesIn(InputFileChangeEventArgs e)
+    {
+        bezig = true;
+        var uitkomsten = new List<Overalingelezen>();
+        try
+        {
+            foreach (var bestand in e.GetMultipleFiles(250))
+            {
+                byte[] inhoud;
+                try
+                {
+                    await using var stream = bestand.OpenReadStream(InleesDienst.MaximumBytes);
+                    using var geheugen = new MemoryStream();
+                    await stream.CopyToAsync(geheugen);
+                    inhoud = geheugen.ToArray();
+                }
+                catch (IOException)
+                {
+                    uitkomsten.Add(new(bestand.Name, Inleessoort.Inkoop, false, $"groter dan {InleesDienst.MaximumBytes / 1024 / 1024} MB"));
+                    continue;
+                }
+
+                var uitkomst = await Inlezen.Lees(Wie, Administratie, inhoud, bestand.Name, bestand.ContentType);
+                if (uitkomst.Soort == Inleessoort.Loonjournaal)
+                {
+                    Overdracht.Geef(Memoriaaldoel(Administratie), bestand.Name, inhoud);
+                }
+
+                uitkomsten.Add(uitkomst);
+            }
+        }
+        finally
+        {
+            bezig = false;
+        }
+
+        if (uitkomsten.Count == 0)
+        {
+            return;
+        }
+
+        Meldingen.Toon(Samenvatting(uitkomsten));
+        var plekken = uitkomsten.Where(u => u.Gelukt).Select(u => u.Soort).Distinct().ToList();
+        if (plekken.Count == 1)
+        {
+            Navigatie.NavigateTo($"/a/{Administratie}{Pad(plekken[0])}");
+        }
+        else
+        {
+            await Ingelezen.InvokeAsync();
+        }
+    }
+
+    /// <summary>Het doel van een loonjournaal in de bestandsoverdracht: het memoriaal van deze administratie.</summary>
+    public static string Memoriaaldoel(Guid administratie) => $"loonjournaal-{administratie}";
+}

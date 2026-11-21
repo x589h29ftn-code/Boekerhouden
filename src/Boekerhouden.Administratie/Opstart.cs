@@ -133,6 +133,7 @@ public static class Opstart
         services.AddSingleton<AansluitingDienst>();
         services.AddSingleton<PeriodeDienst>();
         services.AddSingleton<AfsluitDienst>();
+        services.AddSingleton<InleesDienst>();
         services.AddSingleton<ActivaDienst>();
         services.AddSingleton<BeginbalansDienst>();
         services.AddSingleton<ActivastaatDienst>();

@@ -124,6 +124,10 @@ else
                 </nav>
             }
             @ChildContent(kop)
+            @if (OveralSlepen && kop.Mag(Recht.Invoeren) && wie is not null)
+            {
+                <Overalinlezen Wie="wie" Administratie="Id" Ingelezen="VerversAantallen" />
+            }
         </div>
     </div>
     <footer class="statusbalk">
@@ -208,6 +212,21 @@ else
         }
 
         return Administratiemenu.AllePaginas().FirstOrDefault(p => p.Item.Pad == pad).Item is { } item ? [(item.Naam, terug)] : [];
+    }
+
+    /// <summary>De pagina's met een eigen sleepvlak (inlezen, afschriften, loonjournaal, activastaat, beginbalans):
+    /// daar niet overal slepen, anders vangen twee vlakken hetzelfde bestand.</summary>
+    private static readonly HashSet<string> EigenSleepvlak = new(StringComparer.Ordinal) { "/inkoop", "/verkoop", "/bank", "/memoriaal", "/activa", "/beginbalans" };
+
+    /// <summary>Overal slepen op deze pagina: niet op een pagina met een eigen sleepvlak of een detailpagina.</summary>
+    private bool OveralSlepen => TerugAdres is null && !EigenSleepvlak.Contains(Actief);
+
+    private async Task VerversAantallen()
+    {
+        if (wie is not null)
+        {
+            aantallen = await Kantooroverzicht.Aantallen(wie, Id);
+        }
     }
 
     /// <summary>De titel: bij tabbladen de naam van de groep (Inkoop, Facturen maken), anders die van de pagina.</summary>
