@@ -218,7 +218,6 @@ Afgesproken of voorgesteld maar nog niet gebouwd, ongeveer in volgorde van wens:
 | Wat | Toelichting |
 |---|---|
 | Logo / woordmerk | Een eigen woordmerk of het logo van het kantoor (kantoorinstelling), ook in favicon en PDF's |
-| Afdrukken | Elk overzicht netjes met Ctrl+P: zonder menu en knoppen, met administratie, periode en paginanummers |
 | Lettertype beoordelen | Segoe UI (systeem) staat aan sinds commit `aea7fd9`; de gebruiker test het in de Windows-app. Terug naar IBM Plex is één regel (`--bs-body-font-family` in `uitstraling.css`) |
 | Verkoop: vervolg | Versturen vanuit het pakket (SMTP of Peppol) in plaats van een .eml; terugkerende facturen vanzelf maken (zonder klik); herinneringen; ouderdomsanalyse debiteuren |
 | Btw-aangifte (A10) | Aangifte per rubriek en afdracht (perioden afsluiten is er: na de aangifte de periode afsluiten) |
@@ -295,6 +294,12 @@ scripts/ui/herstart.sh && node scripts/ui/schermafbeeldingen.js /tmp/schermen vo
   nieuwe weergave op en zet dan weergave en cijfers samen om. Wie eerst de schakelaar omzet en daarna laadt, laat de
   pagina één keer tekenen met de cijfers van de vorige weergave (kolommenbalans: index buiten de array, tabel weg, alleen
   de tweede keer). `scripts/ui/schakelaars.js` klikt alle schakelaars op alle pagina's heen en terug en meldt fouten.
+- **Afdrukken** (`wwwroot/afdrukken.css`, de afdrukkop in `AdministratieKader`): een nieuw bedieningselement (knop,
+  schakelaar, zoekveld) hoort niet op papier; de meeste vallen al weg (`.btn`, `button`, lege velden, schakelaars die uit
+  staan), een ander krijgt `.no-print`. Geen `break-inside: avoid` op kaarten of tabellen (dan blijft de eerste pagina
+  leeg). `scripts/ui/afdrukken.js` drukt elk overzicht af en meldt fouten; kijk ook zelf naar de PDF's.
+- **Na een grote import** (auditfile): PostgreSQL rekent met oude statistieken tot de autoanalyze en het overzicht liep
+  daardoor tegen de time-out van 30 s; `AuditfileDienst` doet daarom zelf `ANALYZE` na het inlezen.
 - **Windows-app nalopen**: de CI-job `windows-app-proef` vult de app met twee jaar gegevens en klikt elke pagina na
   (`Proef.cs`, `proef.js`); bij een rode job staan in het artefact `windows-app-proef` het verslag `proef.txt` (met de
   pagina en knop van de fout) en schermafdrukken. Een nieuwe pagina hoort in `Proef.Paginas`.

@@ -35,6 +35,15 @@
     else { bewaar('dichtheid', knop.getAttribute('data-dichtheid')); }
     pas();
   });
+  // Afdrukken altijd zwart op wit: de donkere weergave tijdens het afdrukken uit, daarna weer zoals gekozen.
+  // Het moment in de afdrukkop (AdministratieKader) is dat van afdrukken, niet dat van openen.
+  window.addEventListener('beforeprint', function () {
+    h.removeAttribute('data-bs-theme');
+    var nu = new Date(), twee = function (n) { return (n < 10 ? '0' : '') + n; };
+    var moment = nu.getDate() + '-' + (nu.getMonth() + 1) + '-' + nu.getFullYear() + ' ' + twee(nu.getHours()) + ':' + twee(nu.getMinutes());
+    document.querySelectorAll('.afdrukmoment').forEach(function (e) { e.textContent = moment; });
+  });
+  window.addEventListener('afterprint', pas);
   // Het menu wordt door Blazor getekend (ook later): de gekozen knop bijwerken als hij verschijnt.
   document.addEventListener('toggle', function (e) { if (e.target instanceof Element && e.target.matches('.gebruikersmenu')) { pas(); } }, true);
 })();

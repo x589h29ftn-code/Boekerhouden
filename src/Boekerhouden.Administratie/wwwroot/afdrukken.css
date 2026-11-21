@@ -1,0 +1,206 @@
+/* Afdrukken (Ctrl+P): alleen de inhoud van de pagina, zonder kopbalk, menu, knoppen en statusbalk. Bovenaan de
+   afdrukkop (administratie, wanneer en door wie afgedrukt; AdministratieKader), daaronder de titel en de kenmerken van
+   de pagina; de periode staat in de velden, die als gewone tekst worden afgedrukt. Onderaan elke pagina het
+   paginanummer. Altijd zwart op wit, ook in de donkere weergave (thema.js zet die tijdens het afdrukken uit). */
+
+.afdrukkop {
+    display: none;
+}
+
+@page {
+    size: A4;
+    margin: 14mm 12mm 16mm 12mm;
+
+    @bottom-right {
+        content: "Pagina " counter(page) " van " counter(pages);
+        font-family: "Segoe UI", system-ui, sans-serif;
+        font-size: 8pt;
+        color: #555;
+    }
+}
+
+/* Brede overzichten (de kolommenbalans per maand) op liggend papier. */
+@page breed {
+    size: A4 landscape;
+}
+
+@media print {
+    .administratie-inhoud:has(.maandoverzicht) {
+        page: breed;
+    }
+
+    .maandoverzicht {
+        font-size: 7pt !important;
+    }
+
+    /* Een leeg veld (zoeken, filter) hoort niet op papier; ook de grijze voorbeeldtekst niet. */
+    input:placeholder-shown, textarea:placeholder-shown, .kolomgreep {
+        display: none !important;
+    }
+
+    /* Bootstrap-rijen hebben negatieve marges voor de goten: op papier niet. */
+    .row {
+        --bs-gutter-x: 0;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+
+    :root,
+    :root[data-bs-theme="dark"] {
+        color-scheme: light;
+    }
+
+    html, body, main, .hoofdinhoud, .administratie, .administratie-inhoud {
+        background: #fff !important;
+        color: #000 !important;
+        box-shadow: none !important;
+        border: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: auto !important;
+        max-width: none !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+    }
+
+    /* Alles wat bij het werken hoort, niet bij het stuk; een schakelaar die uit staat ook (aan: alleen de tekst, die zegt wat er getoond wordt). */
+    .kopbalk, .zijbalk, .statusbalk, .hulp-knop, .paginatabs, .kruimel, .terug, .btn, button, .knopmenu, .actiebalk,
+    .uitklapmenu, .melding-kort, .zoekknop, .zoekvenster-achter, .sleepvlak, .laadschets,
+    .kolom-knop, .rij-acties, .regelknoppen, input[type="checkbox"], input[type="file"], .no-print,
+    .form-check:has(input[type="checkbox"]:not(:checked)) {
+        display: none !important;
+    }
+
+    .afdrukkop {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        font-size: 8.5pt;
+        color: #333;
+        border-bottom: 1px solid #999;
+        padding-bottom: 2mm;
+        margin-bottom: 4mm;
+    }
+
+    .afdrukkop strong {
+        font-size: 10pt;
+        color: #000;
+    }
+
+    h1, .h3 {
+        font-size: 14pt !important;
+    }
+
+    .kopkenmerken {
+        font-size: 9pt;
+        color: #333 !important;
+    }
+
+    /* Velden (periode, rekening, filters) als gewone tekst. */
+    input, select, textarea {
+        border: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        appearance: none;
+        -webkit-appearance: none;
+        color: #000 !important;
+        width: auto !important;
+        min-width: 0 !important;
+        field-sizing: content;
+    }
+
+    input::placeholder {
+        color: transparent;
+    }
+
+    label {
+        color: #333 !important;
+    }
+
+    a {
+        color: inherit !important;
+        text-decoration: none !important;
+    }
+
+    /* Tabellen: over de volle breedte, de kop op elke pagina, geen regel doormidden, geen vaste kop of schuifbalk. */
+    .table-responsive, .tabelvak, .kop-vast, [class*="scroll"] {
+        overflow: visible !important;
+        max-height: none !important;
+    }
+
+    table {
+        width: 100% !important;
+        table-layout: auto !important;
+        font-size: 8.5pt !important;
+        color: #000 !important;
+        background: #fff !important;
+    }
+
+    th, td {
+        white-space: normal !important;
+        overflow-wrap: break-word;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        background: #fff !important;
+        color: #000 !important;
+        position: static !important;
+        padding: 1px 3px !important;
+    }
+
+    /* De kop mag over twee regels (Btw-bedrag) en zonder sorteerpijl: dan houdt de omschrijving de ruimte. */
+    th.text-end, th {
+        white-space: normal !important;
+    }
+
+    .sorteerpijl {
+        display: none !important;
+    }
+
+    /* Bedragen en datums op één regel. */
+    td.text-end, td.bedrag, td .bedrag, td.datum {
+        white-space: nowrap !important;
+        overflow-wrap: normal;
+    }
+
+    thead {
+        display: table-header-group;
+    }
+
+    /* Het totaal alleen aan het eind, niet onderaan elke pagina. */
+    tfoot {
+        display: table-row-group;
+    }
+
+    col {
+        width: auto !important;
+    }
+
+    /* Een regel niet doormidden; een kaart of tabel mag wel over pagina's lopen (anders schuift hij heel door en blijft
+       de eerste pagina leeg). */
+    tr {
+        break-inside: avoid;
+    }
+
+    h1, h2, h3, h4 {
+        break-after: avoid;
+    }
+
+    [style*="position: sticky"], .sticky-top, thead th {
+        position: static !important;
+    }
+
+    /* De donkere weergave: alle tekst zwart, geen donkere vlakken (als het afdrukken buiten thema.js om gaat). */
+    :root[data-bs-theme="dark"] * {
+        color: #000 !important;
+        background-color: transparent !important;
+        border-color: #999 !important;
+    }
+
+    .status, .status.let-op, .status.fout {
+        color: #000 !important;
+    }
+}

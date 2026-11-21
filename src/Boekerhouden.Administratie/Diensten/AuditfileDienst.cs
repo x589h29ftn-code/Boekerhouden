@@ -305,6 +305,13 @@ public sealed class AuditfileDienst(IDbContextFactory<AdministratieDbContext> db
         db.OpenstaandePosten.AddRange(open);
         await db.SaveChangesAsync(annulering);
         await transactie.CommitAsync(annulering);
+        if (db.Database.IsNpgsql())
+        {
+            // Duizenden boekingen in één keer: zonder verse statistieken kiest PostgreSQL tot de volgende autoanalyze
+            // een plan dat het overzicht en de kolommenbalans tientallen seconden laat rekenen.
+            await db.Database.ExecuteSqlRawAsync("""ANALYZE "Boekingen", "Boekingsregels", "OpenstaandePosten", "Relaties", "Rekeningen";""", CancellationToken.None);
+        }
+
         await audit.Log(wie, AuditActies.AuditfileIngelezen, naam, $"{Path.GetFileName(bestandsnaam)}; XAF {a.Versie}; {a.Kop.Boekjaar}; {geboekt.Count} boekingen", id);
         return Uitkomst<Auditfileinlezing>.Met(new Auditfileinlezing(id, naam, rekeningen.Count, relatiecodes.Count, geboekt.Count, open.Count));
     }

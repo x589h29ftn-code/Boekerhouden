@@ -12,6 +12,7 @@ public static class Hulpsectie
         ("administraties", "Administraties"),
         ("overzicht", "Overzicht"),
         ("slepen", "Overal slepen en zoeken"),
+        ("afdrukken", "Afdrukken"),
         ("inkoop", "Inkoop"),
         ("verkoop", "Verkoop inlezen"),
         ("bank", "Bank"),
