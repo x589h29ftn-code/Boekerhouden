@@ -237,32 +237,32 @@ internal sealed class Praktijkset
 
     // ---------------------------------------------------------------- partijen
 
-    private static readonly Partijdata Groothandel = Leverancier("Rijwielgroothandel Noord B.V.", "RABO", "0101010101", "Groningen", 1);
-    private static readonly Partijdata Onderdelen = Leverancier("Onderdelen Centrale B.V.", "INGB", "0202020202", "Utrecht", 2);
-    private static readonly Partijdata Energie = Leverancier("Energie Oost B.V.", "ABNA", "0303030303", "Zwolle", 3);
-    private static readonly Partijdata Telecom = Leverancier("Telecom Noord B.V.", "INGB", "0404040404", "Leeuwarden", 4);
-    private static readonly Partijdata Vastgoed = Leverancier("Vastgoed De Hoek B.V.", "RABO", "0505050505", "Ergens", 5);
-    private static readonly Partijdata Koffie = Leverancier("Koffie en Co B.V.", "INGB", "0606060606", "Amersfoort", 6);
-    private static readonly Partijdata Hamer = Leverancier("Bouwbedrijf Hamer B.V.", "ABNA", "0707070707", "Ergens", 7);
-    private static readonly Partijdata Cloud = new("Wolkkassa Ltd", MaakIban("IE", "AIBK", "93115212345678"), "IE6388047V", null, "IE", "Harbour Road 12", "D02 X285", "Dublin");
-    private static readonly Partijdata Drukkerij = Leverancier("Drukkerij Pers B.V.", "RABO", "0909090909", "Deventer", 9);
-    private static readonly Partijdata Lease = Leverancier("Lease Auto B.V.", "INGB", "0110110110", "Amsterdam", 10);
-    private static readonly Partijdata Verzekeraar = Leverancier("Verzekeraar Zeker N.V.", "ABNA", "0220220220", "Den Haag", 11);
-    private static readonly Partijdata Cijfers = Leverancier("Administratiekantoor Cijfers B.V.", "RABO", "0330330330", "Ergens", 12);
-    private static readonly Partijdata Transport = Leverancier("Transport Snel B.V.", "INGB", "0440440440", "Meppel", 13);
-    private static readonly Partijdata Kantoor = Leverancier("Kantoorvakhandel Pen B.V.", "ABNA", "0550550550", "Assen", 14);
-    private static readonly Partijdata Reclame = Leverancier("Reclamebureau Vonk B.V.", "RABO", "0660660660", "Heerenveen", 15);
+    internal static readonly Partijdata Groothandel = Leverancier("Rijwielgroothandel Noord B.V.", "RABO", "0101010101", "Groningen", 1);
+    internal static readonly Partijdata Onderdelen = Leverancier("Onderdelen Centrale B.V.", "INGB", "0202020202", "Utrecht", 2);
+    internal static readonly Partijdata Energie = Leverancier("Energie Oost B.V.", "ABNA", "0303030303", "Zwolle", 3);
+    internal static readonly Partijdata Telecom = Leverancier("Telecom Noord B.V.", "INGB", "0404040404", "Leeuwarden", 4);
+    internal static readonly Partijdata Vastgoed = Leverancier("Vastgoed De Hoek B.V.", "RABO", "0505050505", "Ergens", 5);
+    internal static readonly Partijdata Koffie = Leverancier("Koffie en Co B.V.", "INGB", "0606060606", "Amersfoort", 6);
+    internal static readonly Partijdata Hamer = Leverancier("Bouwbedrijf Hamer B.V.", "ABNA", "0707070707", "Ergens", 7);
+    internal static readonly Partijdata Cloud = new("Wolkkassa Ltd", MaakIban("IE", "AIBK", "93115212345678"), "IE6388047V", null, "IE", "Harbour Road 12", "D02 X285", "Dublin");
+    internal static readonly Partijdata Drukkerij = Leverancier("Drukkerij Pers B.V.", "RABO", "0909090909", "Deventer", 9);
+    internal static readonly Partijdata Lease = Leverancier("Lease Auto B.V.", "INGB", "0110110110", "Amsterdam", 10);
+    internal static readonly Partijdata Verzekeraar = Leverancier("Verzekeraar Zeker N.V.", "ABNA", "0220220220", "Den Haag", 11);
+    internal static readonly Partijdata Cijfers = Leverancier("Administratiekantoor Cijfers B.V.", "RABO", "0330330330", "Ergens", 12);
+    internal static readonly Partijdata Transport = Leverancier("Transport Snel B.V.", "INGB", "0440440440", "Meppel", 13);
+    internal static readonly Partijdata Kantoor = Leverancier("Kantoorvakhandel Pen B.V.", "ABNA", "0550550550", "Assen", 14);
+    internal static readonly Partijdata Reclame = Leverancier("Reclamebureau Vonk B.V.", "RABO", "0660660660", "Heerenveen", 15);
 
-    private static readonly Partijdata Fietsplan = Zakelijk("Fietsplan Zakelijk B.V.", "INGB", "0711711711", "Utrecht", 21);
-    private static readonly Partijdata Hotel = Zakelijk("Hotel De Klant B.V.", "RABO", "0722722722", "Ergens", 22);
-    private static readonly Partijdata Bezorg = Zakelijk("Bezorgdienst Vlot B.V.", "ABNA", "0733733733", "Zwolle", 23);
-    private static readonly Partijdata Sportclub = Zakelijk("Sportclub De Wielen", "INGB", "0744744744", "Ergens", 24, btw: false);
-    private static readonly Partijdata Zorg = Zakelijk("Zorginstelling Rust", "RABO", "0755755755", "Ergens", 25, btw: false);
-    private static readonly Partijdata Steen = Zakelijk("Bouwbedrijf Steen B.V.", "ABNA", "0766766766", "Meppel", 26);
-    private static readonly Partijdata Strand = Zakelijk("Fietsverhuur Strand B.V.", "INGB", "0777777777", "Zandvoort", 27);
-    private static readonly Partijdata Muller = new("Radhaus Müller GmbH", MaakIban("DE", "", "370400440532013000"), "DE811569869", null, "DE", "Hauptstraße 5", "50667", "Köln");
-    private static readonly Partijdata Velo = new("Velohaus Bergtal AG", MaakIban("CH", "", "00762011623852957"), null, null, "CH", "Bahnhofstrasse 9", "8001", "Zürich");
-    private static readonly Partijdata School = Zakelijk("Scholengemeenschap Ergens", "RABO", "0788788788", "Ergens", 30, btw: false);
+    internal static readonly Partijdata Fietsplan = Zakelijk("Fietsplan Zakelijk B.V.", "INGB", "0711711711", "Utrecht", 21);
+    internal static readonly Partijdata Hotel = Zakelijk("Hotel De Klant B.V.", "RABO", "0722722722", "Ergens", 22);
+    internal static readonly Partijdata Bezorg = Zakelijk("Bezorgdienst Vlot B.V.", "ABNA", "0733733733", "Zwolle", 23);
+    internal static readonly Partijdata Sportclub = Zakelijk("Sportclub De Wielen", "INGB", "0744744744", "Ergens", 24, btw: false);
+    internal static readonly Partijdata Zorg = Zakelijk("Zorginstelling Rust", "RABO", "0755755755", "Ergens", 25, btw: false);
+    internal static readonly Partijdata Steen = Zakelijk("Bouwbedrijf Steen B.V.", "ABNA", "0766766766", "Meppel", 26);
+    internal static readonly Partijdata Strand = Zakelijk("Fietsverhuur Strand B.V.", "INGB", "0777777777", "Zandvoort", 27);
+    internal static readonly Partijdata Muller = new("Radhaus Müller GmbH", MaakIban("DE", "", "370400440532013000"), "DE811569869", null, "DE", "Hauptstraße 5", "50667", "Köln");
+    internal static readonly Partijdata Velo = new("Velohaus Bergtal AG", MaakIban("CH", "", "00762011623852957"), null, null, "CH", "Bahnhofstrasse 9", "8001", "Zürich");
+    internal static readonly Partijdata School = Zakelijk("Scholengemeenschap Ergens", "RABO", "0788788788", "Ergens", 30, btw: false);
 
     private static readonly Partijdata[] Particulieren =
     [
@@ -746,7 +746,7 @@ internal sealed class Praktijkset
         }
     }
 
-    private static readonly Partijdata Belastingdienst = new("Belastingdienst", Belastingherkenning.BelastingdienstIban, null, null, "NL", "Postbus 2", "7300 AA", "Apeldoorn");
+    internal static readonly Partijdata Belastingdienst = new("Belastingdienst", Belastingherkenning.BelastingdienstIban, null, null, "NL", "Postbus 2", "7300 AA", "Apeldoorn");
 
     /// <summary>Een betalingskenmerk van de Belastingdienst voor de eigen onderneming: soort (1 = omzetbelasting, 6 = loonheffingen), jaar en tijdvak.</summary>
     private static string BelastingKenmerk(char soort, int jaar, int tijdvak) =>
@@ -927,7 +927,7 @@ internal sealed class Praktijkset
     private static string Getal(decimal bedrag) => bedrag.ToString("0.00", CultureInfo.InvariantCulture);
 
     /// <summary>De factuur als bestand: een e-factuur (UBL) of een PDF in de opmaak van de afzender.</summary>
-    private static byte[] Document(Factuurdata f, Partijdata afzender, Partijdata ontvanger)
+    internal static byte[] Document(Factuurdata f, Partijdata afzender, Partijdata ontvanger)
     {
         var papier = f.Papier("X") with { Klant = ontvanger.Partij };
         return f.Formaat == Formaat.Ubl
