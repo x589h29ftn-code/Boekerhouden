@@ -310,17 +310,31 @@ public static class OverzichtExport
                 html.Append(CultureInfo.InvariantCulture, $"""<h2 style="font-size:10pt;margin:14px 0 4px">{E(kaart.Rekening.Nummer)} {E(kaart.Rekening.Naam)}</h2>""");
             }
 
-            html.Append("""<table><colgroup><col style="width:8%"><col style="width:6%"><col style="width:9%"><col><col style="width:5%"><col style="width:8%"><col style="width:11%"><col style="width:9%"><col style="width:9%"><col style="width:9%"></colgroup>""");
-            html.Append("""<thead><tr><th>Datum</th><th>Dagboek</th><th>Boekstuk</th><th>Omschrijving</th><th>Btw</th><th class="r">Btw-bedrag</th><th>Factuur</th><th class="r">Debet</th><th class="r">Credit</th><th class="r">Saldo</th></tr></thead><tbody>""");
-            html.Append(CultureInfo.InvariantCulture, $"""<tr class="zacht"><td class="datum">{Datum(kaart.Van)}</td><td colspan="8">Beginsaldo</td><td class="r">{Bedrag(kaart.Beginsaldo)}</td></tr>""");
+            // Btw- en factuurkolommen alleen als er op deze kaart iets in staat (zoals op het scherm): anders krijgt de
+            // omschrijving die ruimte en past ze meestal op één regel.
+            var metBtw = kaart.Mutaties.Any(m => m.BtwCode is not null || m.Btw is not null);
+            var metFactuur = kaart.Mutaties.Any(m => !string.IsNullOrEmpty(m.Factuurnummer));
+            var tussen = (metBtw ? 2 : 0) + (metFactuur ? 1 : 0);
+            html.Append("""<table><colgroup><col style="width:8%"><col style="width:6%"><col style="width:9%"><col>""");
+            html.Append(metBtw ? """<col style="width:5%"><col style="width:8%">""" : null);
+            html.Append(metFactuur ? """<col style="width:11%">""" : null);
+            html.Append("""<col style="width:10%"><col style="width:10%"><col style="width:10%"></colgroup>""");
+            html.Append("""<thead><tr><th>Datum</th><th>Dagboek</th><th>Boekstuk</th><th>Omschrijving</th>""");
+            html.Append(metBtw ? """<th>Btw</th><th class="r">Btw-bedrag</th>""" : null);
+            html.Append(metFactuur ? "<th>Factuur</th>" : null);
+            html.Append("""<th class="r">Debet</th><th class="r">Credit</th><th class="r">Saldo</th></tr></thead><tbody>""");
+            html.Append(CultureInfo.InvariantCulture, $"""<tr class="zacht"><td class="datum">{Datum(kaart.Van)}</td><td colspan="{5 + tussen}">Beginsaldo</td><td class="r">{Bedrag(kaart.Beginsaldo)}</td></tr>""");
             foreach (var m in kaart.Mutaties)
             {
+                html.Append(CultureInfo.InvariantCulture, $"""<tr><td class="datum">{Datum(m.Datum)}</td><td>{E(m.Dagboek)}</td><td>{E(m.Boekstuk)}</td><td>{E(m.Omschrijving)}</td>""");
+                html.Append(metBtw ? $"""<td class="zacht">{E(m.BtwCode ?? "")}</td><td class="r">{(m.Btw is { } b ? Bedrag(b) : "")}</td>""" : null);
+                html.Append(metFactuur ? $"""<td class="zacht">{E(m.Factuurnummer ?? "")}</td>""" : null);
                 html.Append(CultureInfo.InvariantCulture,
-                    $"""<tr><td class="datum">{Datum(m.Datum)}</td><td>{E(m.Dagboek)}</td><td>{E(m.Boekstuk)}</td><td>{E(m.Omschrijving)}</td><td class="zacht">{E(m.BtwCode ?? "")}</td><td class="r">{(m.Btw is { } b ? Bedrag(b) : "")}</td><td class="zacht">{E(m.Factuurnummer ?? "")}</td><td class="r">{(m.Bedrag > 0 ? Bedrag(m.Bedrag) : "")}</td><td class="r">{(m.Bedrag < 0 ? Bedrag(-m.Bedrag) : "")}</td><td class="r">{Bedrag(m.Saldo)}</td></tr>""");
+                    $"""<td class="r">{(m.Bedrag > 0 ? Bedrag(m.Bedrag) : "")}</td><td class="r">{(m.Bedrag < 0 ? Bedrag(-m.Bedrag) : "")}</td><td class="r">{Bedrag(m.Saldo)}</td></tr>""");
             }
 
             html.Append(CultureInfo.InvariantCulture,
-                $"""<tr class="totaal"><td colspan="7">Totaal en eindsaldo</td><td class="r">{Bedrag(kaart.TotaalDebet)}</td><td class="r">{Bedrag(kaart.TotaalCredit)}</td><td class="r">{Bedrag(kaart.Eindsaldo)}</td></tr></tbody></table>""");
+                $"""<tr class="totaal"><td colspan="{4 + tussen}">Totaal en eindsaldo</td><td class="r">{Bedrag(kaart.TotaalDebet)}</td><td class="r">{Bedrag(kaart.TotaalCredit)}</td><td class="r">{Bedrag(kaart.Eindsaldo)}</td></tr></tbody></table>""");
         }
 
         html.Append("</body></html>");

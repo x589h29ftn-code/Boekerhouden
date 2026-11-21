@@ -1,5 +1,7 @@
-@* De openstaande posten crediteuren of debiteuren op een peildatum, per relatie (OpenpostenDienst). Een post aanklikken
-   opent de factuur (inkoop: het document, verkoop: de gemaakte factuur) of de boeking, met de pijl terug naar de lijst. *@
+@* De openstaande posten crediteuren of debiteuren op een peildatum (OpenpostenDienst): per relatie met subtotalen,
+   alleen de subtotalen per relatie, of alle posten op datum. Een post aanklikken opent de factuur (inkoop: het document,
+   verkoop: de gemaakte factuur) of de boeking, met de pijl terug naar de lijst; een subtotaal aanklikken toont de
+   posten van die relatie. De PDF volgt de gekozen weergave. *@
 @using Boekerhouden.Boekhouding.Facturen
 @inject OpenpostenDienst Openposten
 @inject NavigationManager Navigatie
@@ -18,6 +20,11 @@
                 }
             </select>
         }
+        <select class="form-select form-select-sm w-auto" aria-label="Weergave" @bind="weergave" @bind:after="KiesWeergave">
+            <option value="@Openpostenweergave.PerRelatie">Per @Relatienaam met subtotalen</option>
+            <option value="@Openpostenweergave.Totalen">Alleen subtotalen per @Relatienaam</option>
+            <option value="@Openpostenweergave.Posten">Alle posten op datum</option>
+        </select>
         <label class="small text-secondary" for="peildatum">Peildatum</label>
         <DatumVeld Id="peildatum" @bind-Waarde="peildatum" @bind-Waarde:after="KiesPeildatum" />
         <button class="btn btn-sm btn-outline-secondary" @onclick="Pdf" disabled="@bezig" title="De lijst als PDF (A4 liggend)">PDF</button>
@@ -30,50 +37,116 @@
         }
         else if (lijst is not null)
         {
-            @foreach (var r in lijst.Relaties)
+            @if (weergave == Openpostenweergave.Totalen)
             {
-                <div class="openposten-relatie">
-                    <h2 class="h6 mb-1"><span class="openposten-code">@r.Relatie</span>@r.Naam</h2>
-                    <div class="card overzichtskaart mb-3">
-                        <table class="table align-middle mb-0 overzichtstabel openposten" data-sleepbaar="@Naam">
-                            <colgroup><col style="width:8.5rem" /><col style="width:9rem" /><col /><col style="width:11rem" /><col style="width:10rem" /><col style="width:9rem" /><col style="width:10rem" /><col style="width:4.5rem" /></colgroup>
-                            <thead>
-                                <tr><th>Boekdatum</th><th>Vervaldatum</th><th>Omschrijving</th><th>Factuurnr.</th><th class="text-end">Factuurbedrag</th><th class="text-end">Betaald</th><th class="text-end">Openstaand</th><th class="text-end" title="Dagen sinds de factuurdatum">Oud</th></tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var p in r.Posten)
-                                {
-                                    <tr class="klikbaar" title="@(p.Document is null ? "Naar de boeking" : "Naar de factuur met de boeking") (@p.Dagboek @p.Boekstuk)" @onclick="() => NaarBron(p)">
-                                        <td class="text-nowrap">@Weergave.Datum(p.Datum)</td>
-                                        <td class="text-nowrap">@Weergave.Datum(p.Vervaldatum)</td>
-                                        <td>@p.Omschrijving</td>
-                                        <td>@p.Factuurnummer</td>
-                                        <td class="bedrag text-end">@Weergave.Bedrag(p.Factuurbedrag)</td>
-                                        <td class="bedrag text-end">@Weergave.Bedrag(p.Betaald)</td>
-                                        <td class="bedrag text-end">@Weergave.Bedrag(p.Openstaand)</td>
-                                        <td class="text-end text-secondary">@p.Ouderdom</td>
-                                    </tr>
-                                }
-                            </tbody>
-                            <tfoot>
-                                <tr>
-                                    <td colspan="4">Totaal</td>
+                <div class="card overzichtskaart mb-3">
+                    <table class="table align-middle mb-0 overzichtstabel openposten" data-sleepbaar="@($"{Naam}-totalen")">
+                        <colgroup><col style="width:9rem" /><col /><col style="width:6rem" /><col style="width:10rem" /><col style="width:9rem" /><col style="width:10rem" /><col style="width:5rem" /></colgroup>
+                        <thead>
+                            <tr><th>Code</th><th>@Hoofdletter(Relatienaam)</th><th class="text-end">Posten</th><th class="text-end">Factuurbedrag</th><th class="text-end">Betaald</th><th class="text-end">Openstaand</th><th class="text-end" title="Dagen sinds de oudste factuur">Oudste</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in lijst.Relaties)
+                            {
+                                <tr class="klikbaar" title="De posten van @r.Naam" @onclick="() => ToonRelatie(r.Relatie)">
+                                    <td class="text-secondary">@r.Relatie</td>
+                                    <td>@r.Naam</td>
+                                    <td class="text-end">@r.Posten.Count</td>
                                     <td class="bedrag text-end">@Weergave.Bedrag(r.Factuurbedrag)</td>
                                     <td class="bedrag text-end">@Weergave.Bedrag(r.Betaald)</td>
                                     <td class="bedrag text-end">@Weergave.Bedrag(r.Openstaand)</td>
-                                    <td></td>
+                                    <td class="text-end text-secondary">@(r.Posten.Count == 0 ? null : r.Posten.Max(p => p.Ouderdom))</td>
                                 </tr>
-                            </tfoot>
-                        </table>
-                    </div>
+                            }
+                        </tbody>
+                    </table>
                 </div>
             }
+            else if (weergave == Openpostenweergave.Posten)
+            {
+                <div class="card overzichtskaart mb-3">
+                    <table class="table align-middle mb-0 overzichtstabel openposten" data-sleepbaar="@($"{Naam}-posten")">
+                        <colgroup><col style="width:8rem" /><col style="width:8.5rem" /><col style="width:12rem" /><col /><col style="width:8rem" /><col style="width:9.5rem" /><col style="width:8rem" /><col style="width:9.5rem" /><col style="width:4rem" /></colgroup>
+                        <thead>
+                            <tr><th>Boekdatum</th><th>Vervaldatum</th><th>@Hoofdletter(Relatienaam)</th><th>Omschrijving</th><th>Factuurnr.</th><th class="text-end">Factuurbedrag</th><th class="text-end">Betaald</th><th class="text-end">Openstaand</th><th class="text-end" title="Dagen sinds de factuurdatum">Oud</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var (r, p) in lijst.Relaties.SelectMany(r => r.Posten.Select(p => (r, p))).OrderBy(x => x.p.Datum).ThenBy(x => x.p.Factuurnummer, StringComparer.Ordinal))
+                            {
+                                <tr class="klikbaar" title="@(p.Document is null ? "Naar de boeking" : "Naar de factuur met de boeking") (@p.Dagboek @p.Boekstuk)" @onclick="() => NaarBron(p)">
+                                    <td class="text-nowrap">@Weergave.Datum(p.Datum)</td>
+                                    <td class="text-nowrap">@Weergave.Datum(p.Vervaldatum)</td>
+                                    <td title="@r.Relatie">@r.Naam</td>
+                                    <td>@p.Omschrijving</td>
+                                    <td>@p.Factuurnummer</td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(p.Factuurbedrag)</td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(p.Betaald)</td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(p.Openstaand)</td>
+                                    <td class="text-end text-secondary">@p.Ouderdom</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                @foreach (var r in lijst.Relaties)
+                {
+                    <div class="openposten-relatie">
+                        <h2 class="h6 mb-1"><span class="openposten-code">@r.Relatie</span>@r.Naam</h2>
+                        <div class="card overzichtskaart mb-3">
+                            <table class="table align-middle mb-0 overzichtstabel openposten" data-sleepbaar="@Naam">
+                                <colgroup><col style="width:8.5rem" /><col style="width:9rem" /><col /><col style="width:11rem" /><col style="width:10rem" /><col style="width:9rem" /><col style="width:10rem" /><col style="width:4.5rem" /></colgroup>
+                                <thead>
+                                    <tr><th>Boekdatum</th><th>Vervaldatum</th><th>Omschrijving</th><th>Factuurnr.</th><th class="text-end">Factuurbedrag</th><th class="text-end">Betaald</th><th class="text-end">Openstaand</th><th class="text-end" title="Dagen sinds de factuurdatum">Oud</th></tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var p in r.Posten)
+                                    {
+                                        <tr class="klikbaar" title="@(p.Document is null ? "Naar de boeking" : "Naar de factuur met de boeking") (@p.Dagboek @p.Boekstuk)" @onclick="() => NaarBron(p)">
+                                            <td class="text-nowrap">@Weergave.Datum(p.Datum)</td>
+                                            <td class="text-nowrap">@Weergave.Datum(p.Vervaldatum)</td>
+                                            <td>@p.Omschrijving</td>
+                                            <td>@p.Factuurnummer</td>
+                                            <td class="bedrag text-end">@Weergave.Bedrag(p.Factuurbedrag)</td>
+                                            <td class="bedrag text-end">@Weergave.Bedrag(p.Betaald)</td>
+                                            <td class="bedrag text-end">@Weergave.Bedrag(p.Openstaand)</td>
+                                            <td class="text-end text-secondary">@p.Ouderdom</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="4">Totaal @r.Naam</td>
+                                        <td class="bedrag text-end">@Weergave.Bedrag(r.Factuurbedrag)</td>
+                                        <td class="bedrag text-end">@Weergave.Bedrag(r.Betaald)</td>
+                                        <td class="bedrag text-end">@Weergave.Bedrag(r.Openstaand)</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                }
+            }
             <div class="card overzichtskaart">
-                <table class="table align-middle mb-0 overzichtstabel openposten" data-sleepbaar="@Naam">
-                    <colgroup><col style="width:8.5rem" /><col style="width:9rem" /><col /><col style="width:11rem" /><col style="width:10rem" /><col style="width:9rem" /><col style="width:10rem" /><col style="width:4.5rem" /></colgroup>
+                <table class="table align-middle mb-0 overzichtstabel openposten">
+                    @if (weergave == Openpostenweergave.Totalen)
+                    {
+                        <colgroup><col style="width:9rem" /><col /><col style="width:6rem" /><col style="width:10rem" /><col style="width:9rem" /><col style="width:10rem" /><col style="width:5rem" /></colgroup>
+                    }
+                    else if (weergave == Openpostenweergave.Posten)
+                    {
+                        <colgroup><col style="width:8rem" /><col style="width:8.5rem" /><col style="width:12rem" /><col /><col style="width:8rem" /><col style="width:9.5rem" /><col style="width:8rem" /><col style="width:9.5rem" /><col style="width:4rem" /></colgroup>
+                    }
+                    else
+                    {
+                        <colgroup><col style="width:8.5rem" /><col style="width:9rem" /><col /><col style="width:11rem" /><col style="width:10rem" /><col style="width:9rem" /><col style="width:10rem" /><col style="width:4.5rem" /></colgroup>
+                    }
                     <tfoot>
                         <tr class="generaal">
-                            <td colspan="4">Totaal generaal (@lijst.Relaties.Count @(lijst.Relaties.Count == 1 ? Relatienaam : Relatienamen), @lijst.Relaties.Sum(r => r.Posten.Count) posten)</td>
+                            <td colspan="@(weergave == Openpostenweergave.Posten ? 5 : weergave == Openpostenweergave.Totalen ? 3 : 4)">Totaal generaal (@lijst.Relaties.Count @(lijst.Relaties.Count == 1 ? Relatienaam : Relatienamen), @lijst.Relaties.Sum(r => r.Posten.Count) posten)</td>
                             <td class="bedrag text-end">@Weergave.Bedrag(lijst.Factuurbedrag)</td>
                             <td class="bedrag text-end">@Weergave.Bedrag(lijst.Betaald)</td>
                             <td class="bedrag text-end">@Weergave.Bedrag(lijst.Openstaand)</td>
@@ -104,6 +177,12 @@
     [Parameter]
     public string? PeildatumTekst { get; set; }
 
+    /// <summary>De weergave uit het adres (<c>weergave=totalen</c> of <c>weergave=posten</c>); anders per relatie.</summary>
+    [Parameter]
+    public string? WeergaveTekst { get; set; }
+
+    private Openpostenweergave weergave;
+
     private bool Inkoop => Soort == Factuursoort.Inkoop;
 
     /// <summary>crediteuren of debiteuren: in de titel, het adres en de PDF.</summary>
@@ -118,6 +197,7 @@
         // Een andere administratie (wisselaar): het filter op een relatie van de vorige hoort er niet bij.
         (geopend, relatie) = (g, "");
         peildatum = DateOnly.TryParseExact(PeildatumTekst, "yyyy-MM-dd", out var d) ? d : DateOnly.FromDateTime(Tijd.GetLocalNow().Date);
+        weergave = WeergaveTekst switch { "totalen" => Openpostenweergave.Totalen, "posten" => Openpostenweergave.Posten, _ => Openpostenweergave.PerRelatie };
         await Laad();
     }
 
@@ -134,14 +214,30 @@
 
     private async Task KiesPeildatum()
     {
-        Navigatie.NavigateTo($"/a/{Id}/{Naam}?peildatum={peildatum:yyyy-MM-dd}", replace: true);
+        Navigatie.NavigateTo(Adres(), replace: true);
         await Laad();
     }
+
+    private void KiesWeergave() => Navigatie.NavigateTo(Adres(), replace: true);
+
+    /// <summary>Vanuit de subtotalen: de posten van één relatie, met de subtotalen weer terug via de weergave.</summary>
+    private async Task ToonRelatie(string code)
+    {
+        (relatie, weergave) = (code, Openpostenweergave.PerRelatie);
+        Navigatie.NavigateTo(Adres(), replace: true);
+        await Laad();
+    }
+
+    /// <summary>Het adres van deze lijst met peildatum en weergave, om terug te komen op dezelfde plek.</summary>
+    private string Adres() =>
+        $"/a/{Id}/{Naam}?peildatum={peildatum:yyyy-MM-dd}{weergave switch { Openpostenweergave.Totalen => "&weergave=totalen", Openpostenweergave.Posten => "&weergave=posten", _ => null }}";
+
+    private static string Hoofdletter(string tekst) => char.ToUpperInvariant(tekst[0]) + tekst[1..];
 
     /// <summary>Naar de factuur met de boeking (of de boeking), met de pijl terug naar deze lijst op dezelfde peildatum.</summary>
     private void NaarBron(Openpost post)
     {
-        var terug = Uri.EscapeDataString($"/a/{Id}/{Naam}?peildatum={peildatum:yyyy-MM-dd}");
+        var terug = Uri.EscapeDataString(Adres());
         Navigatie.NavigateTo(post.Document is { } document
             ? $"/a/{Id}/{(Inkoop ? "inkoop" : "verkoop")}/{document}?terug={terug}"
             : $"/a/{Id}/boeking/{Uri.EscapeDataString(post.Dagboek)}/{Uri.EscapeDataString(post.Boekstuk)}?terug={terug}");
@@ -153,8 +249,8 @@
         try
         {
             var uitkomst = Inkoop
-                ? await Openposten.CrediteurenPdf(geopend!.Wie, Id, peildatum, relatie.Length == 0 ? null : relatie)
-                : await Openposten.DebiteurenPdf(geopend!.Wie, Id, peildatum, relatie.Length == 0 ? null : relatie);
+                ? await Openposten.CrediteurenPdf(geopend!.Wie, Id, peildatum, relatie.Length == 0 ? null : relatie, weergave)
+                : await Openposten.DebiteurenPdf(geopend!.Wie, Id, peildatum, relatie.Length == 0 ? null : relatie, weergave);
             fouten = uitkomst.Fouten;
             if (uitkomst.IsGelukt)
             {

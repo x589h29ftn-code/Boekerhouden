@@ -44,7 +44,7 @@ function totp(sleutel) {
   const paginas = ['/', '/administraties/nieuw', '/hulp', '/beheer/gebruikers', '/beheer/btw', '/beheer/instellingen', '/beheer/wijzigingslog',
     a(''), a('/inkoop'), a('/verkoop'), a('/verkoop/nieuw'), a('/verkoop/terugkerend'), a('/facturen'), a('/factuurlayout'), a('/bank'), a('/bank/openstaand'),
     a('/memoriaal'), a(`/kolommenbalans?${j}`), a(`/kolommenbalans?${j}&weergave=maand`), a(`/grootboek?rekening=1100&${j}`), a(`/grootboek?${j}`),
-    a(`/journaal?${j}`), a('/debiteuren'), a('/crediteuren'), a('/btw?jaar=2025'), a('/btw/rondrekening'), a('/vpb?jaar=2025'), a('/activa'), a('/activa/staat'),
+    a(`/journaal?${j}`), a('/debiteuren'), a('/debiteuren?weergave=totalen'), a('/debiteuren?weergave=posten'), a('/crediteuren'), a('/btw?jaar=2025'), a('/btw/rondrekening'), a('/vpb?jaar=2025'), a('/activa'), a('/activa/staat'),
     a('/activa/nieuw'), a('/aansluitingen'), a(`/inkoopboek?${j}`), a(`/verkoopboek?${j}`), a('/relaties'), a('/regels'), a('/rekeningschema'),
     a('/perioden'), a('/instellingen'), a('/beginbalans'), a('/balans?jaar=2025'), a('/proefbalans?jaar=2025')];
   const engels = /\b(Save|Cancel|Delete|Loading|Submit|Search|Edit|Close|Settings|Error|Upload|Download|Back|Next|Previous)\b/;

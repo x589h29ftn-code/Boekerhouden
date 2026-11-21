@@ -1,6 +1,6 @@
 @page "/a/{Id:guid}/crediteuren"
 
-<OpenpostenOverzicht Id="Id" Soort="Boekhouding.Facturen.Factuursoort.Inkoop" PeildatumTekst="@PeildatumTekst" />
+<OpenpostenOverzicht Id="Id" Soort="Boekhouding.Facturen.Factuursoort.Inkoop" PeildatumTekst="@PeildatumTekst" WeergaveTekst="@WeergaveTekst" />
 
 @code {
     [Parameter]
@@ -8,4 +8,7 @@
 
     [SupplyParameterFromQuery(Name = "peildatum")]
     public string? PeildatumTekst { get; set; }
+
+    [SupplyParameterFromQuery(Name = "weergave")]
+    public string? WeergaveTekst { get; set; }
 }

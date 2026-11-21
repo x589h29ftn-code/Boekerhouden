@@ -20,6 +20,7 @@ In de cloudsessie is Playwright met Chromium al geïnstalleerd (`require('playwr
 `docs/overdracht.md` voor het PDF-probleem met Chromium en voor schermafbeeldingen met een Windows-lettertype.
 
 De auditfile voor `afdrukken.js` en `consistentie.js` (een volle, verzonnen administratie) maak je met
-`BOEKERHOUDEN_AFDRUKGEGEVENS=/tmp/afdruk.xaf dotnet test tests/Boekerhouden.Administratie.Tests --filter Afdrukgegevens`.
+`BOEKERHOUDEN_AFDRUKGEGEVENS=/tmp/afdruk.xaf dotnet test tests/Boekerhouden.Administratie.Tests --filter Afdrukgegevens`
+(met `BOEKERHOUDEN_AFDRUKSCHAAL=15` erbij alle bedragen vijftien keer zo groot: ruim een ton per maand per kostenrekening).
 Het script controleert per pagina de afdrukkop, paginanummers, geen menu of knoppen, niets buiten het papier, geen te
 smalle kolommen, geen lege eerste pagina en zwart op wit; de PDF's komen in de map, om ook zelf naar te kijken.

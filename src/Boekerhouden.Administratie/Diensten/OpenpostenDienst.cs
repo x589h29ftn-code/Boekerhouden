@@ -48,6 +48,19 @@ public sealed record Openpostenlijst(string Administratie, DateOnly Peildatum, F
     public decimal Openstaand => Relaties.Sum(r => r.Openstaand);
 }
 
+/// <summary>Hoe de lijst openstaande posten getoond en afgedrukt wordt.</summary>
+public enum Openpostenweergave
+{
+    /// <summary>Per relatie de posten, met een subtotaal per relatie.</summary>
+    PerRelatie,
+
+    /// <summary>Alleen de subtotalen: één regel per relatie.</summary>
+    Totalen,
+
+    /// <summary>Alle posten in één lijst op datum, met de relatie erbij.</summary>
+    Posten,
+}
+
 /// <summary>
 /// De lijst openstaande posten (crediteuren) op een peildatum. Wat op die datum openstond, volgt uit het journaal:
 /// de facturen tot en met de peildatum, min de betalingen tot en met de peildatum (de regels op crediteuren met dezelfde
@@ -63,12 +76,12 @@ public sealed class OpenpostenDienst(Toegang toegang, PdfDienst pdf)
     public const string ZonderKlant = "Zonder klant";
 
     /// <summary>De lijst als PDF (A4 liggend), voor de download.</summary>
-    public async Task<Uitkomst<byte[]>> CrediteurenPdf(Uitvoerder wie, Guid administratie, DateOnly peildatum, string? relatie = null, CancellationToken stoppen = default) =>
-        await pdf.Maak(OpenpostenHtml.Maak(await Crediteuren(wie, administratie, peildatum, relatie)), stoppen);
+    public async Task<Uitkomst<byte[]>> CrediteurenPdf(Uitvoerder wie, Guid administratie, DateOnly peildatum, string? relatie = null, Openpostenweergave weergave = Openpostenweergave.PerRelatie, CancellationToken stoppen = default) =>
+        await pdf.Maak(OpenpostenHtml.Maak(await Crediteuren(wie, administratie, peildatum, relatie), weergave), stoppen);
 
     /// <summary>De openstaande debiteuren als PDF (A4 liggend).</summary>
-    public async Task<Uitkomst<byte[]>> DebiteurenPdf(Uitvoerder wie, Guid administratie, DateOnly peildatum, string? relatie = null, CancellationToken stoppen = default) =>
-        await pdf.Maak(OpenpostenHtml.Maak(await Debiteuren(wie, administratie, peildatum, relatie)), stoppen);
+    public async Task<Uitkomst<byte[]>> DebiteurenPdf(Uitvoerder wie, Guid administratie, DateOnly peildatum, string? relatie = null, Openpostenweergave weergave = Openpostenweergave.PerRelatie, CancellationToken stoppen = default) =>
+        await pdf.Maak(OpenpostenHtml.Maak(await Debiteuren(wie, administratie, peildatum, relatie), weergave), stoppen);
 
     public Task<Openpostenlijst> Crediteuren(Uitvoerder wie, Guid administratie, DateOnly peildatum, string? relatie = null) =>
         Lijst(wie, administratie, Factuursoort.Inkoop, peildatum, relatie);

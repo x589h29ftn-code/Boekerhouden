@@ -1,6 +1,7 @@
 using Boekerhouden.Administratie.Diensten;
 using Boekerhouden.Administratie.Export;
 using Boekerhouden.Boekhouding.Facturen;
+using Boekerhouden.Boekhouding.Grootboek;
 using UglyToad.PdfPig;
 
 namespace Boekerhouden.Administratie.Tests;
@@ -47,6 +48,49 @@ public sealed class AfdrukopmaakTests(AdministratieFixture app) : IClassFixture<
         var html = OpenpostenHtml.Maak(lijst);
         Assert.Contains("<div class=\"relatie\"><h2>", html, StringComparison.Ordinal);
         Assert.Contains("<div class=\"relatie kort\"><h2>", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Openstaande_posten_per_relatie_alleen_subtotalen_of_op_datum()
+    {
+        var lijst = Lijst(3, 2);
+        var perRelatie = OpenpostenHtml.Maak(lijst);
+        Assert.Contains("Totaal Lange Klant B.V.", perRelatie, StringComparison.Ordinal);
+        Assert.Contains("Totaal Korte Klant B.V.", perRelatie, StringComparison.Ordinal);
+
+        // Alleen de subtotalen: één regel per relatie met het aantal posten, en het totaal generaal dat sluit.
+        var totalen = OpenpostenHtml.Maak(lijst, Openpostenweergave.Totalen);
+        Assert.DoesNotContain("F-1<", totalen, StringComparison.Ordinal);
+        Assert.Contains("<td>Lange Klant B.V.</td><td class=\"r\">3</td><td class=\"r\">306,00</td>", totalen, StringComparison.Ordinal);
+        Assert.Contains("<td>Korte Klant B.V.</td><td class=\"r\">2</td><td class=\"r\">203,00</td>", totalen, StringComparison.Ordinal);
+        Assert.Contains("<td class=\"r\">5</td><td class=\"r\">509,00</td>", totalen, StringComparison.Ordinal);
+
+        // Alle posten op datum: de relatie in een eigen kolom, in volgorde van boekdatum over de relaties heen.
+        var posten = OpenpostenHtml.Maak(lijst, Openpostenweergave.Posten);
+        Assert.DoesNotContain("Totaal Lange", posten, StringComparison.Ordinal);
+        var datums = System.Text.RegularExpressions.Regex.Matches(posten, "<tr><td class=\"datum\">([0-9-]+)</td>")
+            .Select(m => DateOnly.ParseExact(m.Groups[1].Value, "dd-MM-yyyy", System.Globalization.CultureInfo.InvariantCulture)).ToList();
+        Assert.Equal(5, datums.Count);
+        Assert.Equal(datums.Order(), datums);
+        Assert.Contains("<td>Korte Klant B.V.</td>", posten, StringComparison.Ordinal);
+        Assert.Contains("509,00", posten, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Grootboekkaart_zonder_btw_of_factuur_laat_die_kolommen_weg()
+    {
+        var rekening = new Rekening("1100", "Bank", Rekeningsoort.Balans);
+        Grootboekkaart Kaart(string? btw, string? factuur) => new(rekening, new(2025, 1, 1), new(2025, 12, 31), 0m,
+            [new Kaartregel(new(2025, 3, 1), "MEM", "2025-0001", "Huur", -1_000m, -1_000m, null, factuur, btw, btw is null ? null : -210m)]);
+        var kaal = OverzichtExport.KaartHtml(Kaart(null, null), "Afdruk B.V.");
+        Assert.DoesNotContain("Btw-bedrag", kaal, StringComparison.Ordinal);
+        Assert.DoesNotContain("<th>Factuur</th>", kaal, StringComparison.Ordinal);
+        Assert.Contains("colspan=\"4\">Totaal en eindsaldo", kaal, StringComparison.Ordinal);
+
+        var vol = OverzichtExport.KaartHtml(Kaart("I21", "F-9"), "Afdruk B.V.");
+        Assert.Contains("Btw-bedrag", vol, StringComparison.Ordinal);
+        Assert.Contains("<th>Factuur</th>", vol, StringComparison.Ordinal);
+        Assert.Contains("colspan=\"7\">Totaal en eindsaldo", vol, StringComparison.Ordinal);
     }
 
     [PdfBrowserFact]
