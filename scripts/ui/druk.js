@@ -55,9 +55,12 @@ function totp(sleutel) {
     await p.waitForTimeout(600);
   }
 
+  // Het aantal uitgegeven factuurnummers in de verkooplijst (alle jaren).
   async function definitief() {
-    await page.goto(`${basis}/a/${id}/verkoop`); await page.waitForTimeout(1500);
-    return await page.locator('tbody tr').filter({ hasNotText: 'concept' }).count();
+    await page.goto(`${basis}/a/${id}/facturen`); await page.waitForTimeout(1500);
+    const tekst = await page.locator('main').innerText();
+    if (process.env.DEBUG) console.log(tekst.slice(0, 1500));
+    return new Set(tekst.match(/\b20\d{6}\b/g) || []).size;
   }
 
   // 1. Dubbel- en driedubbelklikken op Definitief maken.
