@@ -871,3 +871,16 @@ details.aandeslag[open] .aandeslag-teller .icoon {
     border-top: 1px solid var(--bh-lijn);
     margin: .35rem 0;
 }
+
+/* ---------- Brede schermen ----------
+   Een overzicht met een naam en een paar bedragen (kolommenbalans, jaarvergelijking, proefbalans) wordt niet breder
+   dan nodig: op een breed scherm staan de bedragen anders ver van de rekeningnamen. */
+.overzichtskaart:has(> table.kolommenbalans), .card:has(> table[data-sleepbaar="proefbalans"]) {
+    max-width: 72rem;
+}
+
+/* Een gearchiveerde administratie blijft grijs, maar de acties (uit archief halen, verwijderen) zijn gewone,
+   leesbare knoppen: anders vallen ze weg in het grijs. */
+.administratielijst tr.gearchiveerd .regelacties .btn {
+    color: var(--bh-accent) !important;
+}
