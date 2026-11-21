@@ -45,9 +45,11 @@ public static class Camt053Lezer
                    ?? Tekst(Kind(Kind(Kind(rekening, "Id"), "Othr"), "Id"))
                    ?? throw new BankbestandException("Een afschrift heeft geen rekening (Acct/Id).");
         var saldi = Kinderen(stmt, "Bal").Select(b => (Code: Tekst(Kind(Kind(Kind(b, "Tp"), "CdOrPrtry"), "Cd")), Bedrag: Bedrag(b), Datum: Datum(Kind(b, "Dt")))).ToList();
-        // Het openingssaldo van de dag zelf (OPBD); anders het slotsaldo van de vorige dag (PRCD), met die datum.
-        var begin = saldi.FirstOrDefault(s => s.Code is "OPBD") is { Code: not null } open ? open : saldi.FirstOrDefault(s => s.Code is "PRCD");
-        var eind = saldi.FirstOrDefault(s => s.Code is "CLBD");
+        // Het openingssaldo van de dag zelf (OPBD); anders het slotsaldo van de vorige dag (PRCD), met die datum. Een
+        // afschrift over meerdere dagen heeft per dag een saldo: het begin is het vroegste, het eind het laatste.
+        var begin = saldi.Where(s => s.Code is "OPBD").OrderBy(s => s.Datum).FirstOrDefault() is { Code: not null } open ? open
+            : saldi.Where(s => s.Code is "PRCD").OrderBy(s => s.Datum).FirstOrDefault();
+        var eind = saldi.Where(s => s.Code is "CLBD").OrderBy(s => s.Datum).LastOrDefault();
         if (begin.Code is null || eind.Code is null)
         {
             throw new BankbestandException($"Het afschrift van {iban} mist het begin- of eindsaldo (OPBD/PRCD en CLBD).");

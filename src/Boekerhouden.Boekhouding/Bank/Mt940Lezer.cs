@@ -359,7 +359,9 @@ public static partial class Mt940Lezer
     [GeneratedRegex(@"/([A-Z]{2,11})(?=/)")]
     private static partial Regex CodePatroon();
 
-    [GeneratedRegex(@"\b(IBAN|BIC|NAAM|NAME|OMSCHRIJVING|BETALINGSKENM\.|BETALINGSKENMERK|KENMERK|MACHTIGING|INCASSANT):\s*", RegexOptions.IgnoreCase)]
+    // Ook direct na een cijfer: een regel die precies op de volle lengte afbreekt, wordt zonder spatie aan de volgende
+    // geplakt ("...123456780000NAAM: ..."), maar niet midden in een woord ("TELEFOONNAAM:").
+    [GeneratedRegex(@"(?<![A-Za-z])(IBAN|BIC|NAAM|NAME|OMSCHRIJVING|BETALINGSKENM\.|BETALINGSKENMERK|KENMERK|MACHTIGING|INCASSANT):\s*", RegexOptions.IgnoreCase)]
     private static partial Regex LabelPatroon();
 
     [GeneratedRegex(@"\s{2,}")]
