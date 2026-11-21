@@ -34,7 +34,7 @@
                         @foreach (var st in vraag.Stappen)
                         {
                             <li class="@(st.Klaar ? "klaar" : "open")">
-                                <span class="afsluitplan-stip"><Icoon Naam="@(st.Klaar ? "check" : st.Icoon)" /></span>
+                                <span class="afsluitplan-stip"><Icoon Naam="check" /></span>
                                 <span class="afsluitplan-naam">@st.Naam</span>
                                 @if (!st.Klaar)
                                 {
@@ -44,7 +44,7 @@
                             </li>
                         }
                         <li class="laatste @(allesKlaar ? "klaar" : null)">
-                            <span class="afsluitplan-stip"><Icoon Naam="lock-simple" /></span>
+                            <span class="afsluitplan-stip"><Icoon Naam="check" /></span>
                             <span class="afsluitplan-naam">Periode afsluiten</span>
                         </li>
                     </ol>

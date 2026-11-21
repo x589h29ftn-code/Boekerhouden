@@ -37,7 +37,7 @@
                         {
                             <li class="@(st.Klaar ? "klaar" : null)">
                                 <a href="@Pad(st.Pad)" title="@st.Toelichting">
-                                    <span class="aandeslag-vink"><Icoon Naam="@(st.Klaar ? "check" : st.Icoon)" /></span>
+                                    <span class="aandeslag-vink"><Icoon Naam="check" /></span>
                                     <span>@st.Naam</span>
                                 </a>
                             </li>
@@ -55,7 +55,6 @@
                         @foreach (var t in taken)
                         {
                             <a href="@Pad(t.Pad)" title="@t.Toelichting">
-                                <span class="tedoen-icoon"><Icoon Naam="@t.Icoon" /></span>
                                 <span class="tedoen-getal">@t.Getal</span>
                                 <span class="tedoen-wat">@t.Wat</span>
                                 <span class="tedoen-verder">@t.Verder <Icoon Naam="arrow-right" /></span>
@@ -65,7 +64,7 @@
                 }
                 else
                 {
-                    <div class="tedoen-klaar"><Icoon Naam="circle-check" /> Alles verwerkt</div>
+                    <div class="tedoen-klaar">Niets te verwerken</div>
                 }
             }
             <div class="dashboard @(aanpassen ? "aanpassen" : null)">

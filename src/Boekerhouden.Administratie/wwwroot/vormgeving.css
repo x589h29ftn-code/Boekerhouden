@@ -8,16 +8,20 @@
    - Rustige, vloeiende overgangen: knoppen, menu's, tabbladen, kaarten. Alles valt weg bij "minder beweging". */
 
 :root {
+    /* Koel grijs en inktblauw, geen crème en geen terracotta: zakelijke kantoorsoftware. De warme kleur is nu een
+       gedempt petrol (logo, de lijn onder het actieve menu); "let op" is donkere tekst, geen oranje. */
     --bh-oppervlak: #fff;
-    --bh-vlak: #f2f2ef;
-    --bh-zijbalk: #fafaf8;
-    --bh-aanwijs: rgba(23, 34, 56, .055);
-    --bh-teller: #e9e7e1;
-    --bh-teller-tekst: #4a5058;
-    --bh-schaduw: 0 1px 2px rgba(20, 30, 50, .05), 0 1px 1px rgba(20, 30, 50, .02);
-    --bh-schaduw-hoog: 0 10px 28px rgba(20, 30, 50, .13), 0 2px 6px rgba(20, 30, 50, .06);
-    --bh-rond: 10px;
-    --bh-rond-klein: 6px;
+    --bh-vlak: #f3f4f6;
+    --bh-kop: #f8f9fa;
+    --bh-zijbalk: #f8f9fa;
+    --bh-aanwijs: rgba(23, 34, 56, .05);
+    --bh-teller-tekst: #5b6470;
+    --bh-warm: #2c6e8f;
+    --bh-warm-zacht: #fbeaea;
+    --bh-schaduw: 0 1px 2px rgba(20, 30, 50, .04);
+    --bh-schaduw-hoog: 0 8px 22px rgba(20, 30, 50, .12), 0 1px 4px rgba(20, 30, 50, .06);
+    --bh-rond: 6px;
+    --bh-rond-klein: 4px;
 }
 
 body {
@@ -55,7 +59,6 @@ body {
 
         .zijmenu-link:hover > .icoon {
             color: var(--bh-tekst);
-            transform: scale(1.06);
         }
 
     .zijmenu-link.actief {
@@ -78,24 +81,22 @@ body {
 /* Wat er te verwerken is: een klein grijs getal rechts (geen kleur: het is informatie, geen alarm). */
 .zijmenu-aantal {
     margin-left: auto;
-    padding: .05rem .45rem;
-    border-radius: 999px;
-    background: var(--bh-teller);
     color: var(--bh-teller-tekst);
-    font-size: .72rem;
-    font-weight: 500;
+    font-size: .8rem;
     font-variant-numeric: tabular-nums;
-    line-height: 1.4;
-    animation: bh-vervagen var(--bh-gewoon) ease both;
 }
 
 .zijmenu-link.actief .zijmenu-aantal {
-    background: var(--bh-oppervlak);
     color: var(--bh-accent);
 }
 
+/* Groepskoppen gewoon geschreven, niet in kapitalen met spatiëring. */
 .zijmenu-groep {
     margin-top: 1rem;
+    color: var(--bh-zacht);
+    font-size: .78rem;
+    letter-spacing: 0;
+    text-transform: none;
 }
 
 /* Een inklapbare groep (Inrichting): de kop is een knop met een pijltje dat meedraait. */
@@ -179,12 +180,9 @@ html.zijbalk-smal .zijmenu-items.dicht {
 
 html.zijbalk-smal .zijmenu-aantal {
     position: absolute;
-    top: .1rem;
-    right: .15rem;
-    min-width: 1rem;
-    padding: 0 .25rem;
-    font-size: .62rem;
-    text-align: center;
+    top: .05rem;
+    right: .2rem;
+    font-size: .65rem;
 }
 
 html.zijbalk-smal .zijmenu::after {
@@ -234,18 +232,12 @@ html.zijbalk-smal .zijmenu::after {
 
 /* Kaarten op het witte vlak: een dunne rand, ronde hoeken, een zweem van schaduw. */
 .administratie-inhoud .card, .administratie-inhoud .widget {
-    border-radius: 8px;
+    border-radius: var(--bh-rond-klein);
 }
 
 .widget {
-    background: #fcfcfb;
-    transition: border-color var(--bh-gewoon) ease, box-shadow var(--bh-gewoon) ease;
+    background: var(--bh-oppervlak);
 }
-
-    .widget:hover {
-        border-color: var(--bh-lijn-sterk);
-        box-shadow: var(--bh-schaduw);
-    }
 
 /* De brutomarge per kwartaal heeft veel kolommen: wat dichter op elkaar, en schuiven in plaats van uit het vak lopen. */
 .widget:has(.margetabel) {
@@ -329,13 +321,6 @@ html.zijbalk-smal .zijmenu::after {
         transform: translateY(1px);
     }
 
-.btn-primary {
-    box-shadow: 0 1px 2px rgba(23, 34, 56, .18);
-}
-
-    .btn-primary:hover {
-        box-shadow: 0 3px 8px rgba(36, 66, 110, .22);
-    }
 
 :is(.form-control, .form-select) {
     border-radius: var(--bh-rond-klein);
@@ -344,7 +329,7 @@ html.zijbalk-smal .zijmenu::after {
 
 /* Het menu van een knop (Nieuw, Facturen inlezen): zweeft boven de pagina en komt zacht binnen. */
 .knopmenu .menu, .dropdown-menu, .wisselaar-paneel, .gebruikersmenu .menu {
-    border-radius: 8px;
+    border-radius: var(--bh-rond-klein);
     box-shadow: var(--bh-schaduw-hoog);
 }
 
@@ -409,21 +394,23 @@ html.zijbalk-smal .zijmenu::after {
     transition: background-color var(--bh-snel) ease;
 }
 
-/* ---------- Aan de slag (dashboard van een nieuwe administratie) ---------- */
+/* ---------- Aan de slag (dashboard van een nieuwe administratie) ----------
+   Zakelijk: een lijst met vinkvakjes zoals een checklist op papier, geen pillen of verlopen kleuren. */
 
 .aandeslag {
     margin-bottom: 1.5rem;
-    padding: 1rem 1.15rem 1.1rem;
     border: 1px solid var(--bh-lijn);
-    border-radius: 8px;
-    background: linear-gradient(180deg, var(--bh-accent-zacht), var(--bh-oppervlak) 70%);
-    animation: bh-binnen 260ms var(--bh-curve) backwards;
+    border-radius: var(--bh-rond-klein);
+    background: var(--bh-oppervlak);
 }
 
 .aandeslag-kop {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
+    padding: .6rem .9rem;
+    border-bottom: 1px solid var(--bh-lijn);
+    background: var(--bh-kop);
     font-weight: 600;
 }
 
@@ -434,167 +421,133 @@ html.zijbalk-smal .zijmenu::after {
 }
 
 .aandeslag-balk {
-    height: 4px;
-    margin: .55rem 0 .8rem;
-    border-radius: 4px;
+    height: 3px;
     background: var(--bh-lijn);
-    overflow: hidden;
 }
 
     .aandeslag-balk > span {
         display: block;
         height: 100%;
-        border-radius: 4px;
         background: var(--bh-accent);
         transition: width 400ms var(--bh-curve);
     }
 
 .aandeslag ol {
-    display: flex;
-    flex-wrap: wrap;
-    gap: .5rem;
     margin: 0;
-    padding: 0;
+    padding: .25rem 0;
     list-style: none;
 }
 
 .aandeslag li a {
     display: flex;
     align-items: center;
-    gap: .5rem;
-    padding: .4rem .75rem .4rem .45rem;
-    border: 1px solid var(--bh-lijn);
-    border-radius: 999px;
-    background: var(--bh-oppervlak);
+    gap: .65rem;
+    padding: .35rem .9rem;
     color: var(--bh-tekst);
-    font-size: .875rem;
+    font-size: .9rem;
     text-decoration: none;
-    transition: border-color var(--bh-snel) ease, box-shadow var(--bh-snel) ease;
 }
 
     .aandeslag li a:hover {
-        border-color: var(--bh-accent);
-        box-shadow: 0 2px 8px rgba(36, 66, 110, .1);
+        background: var(--bh-aanwijs);
     }
 
+/* Het vinkvakje: leeg vierkantje, of een vinkje erin als het gedaan is (het icoon van de stap zelf niet). */
 .aandeslag-vink {
     display: grid;
+    flex: none;
     place-items: center;
-    width: 1.5rem;
-    height: 1.5rem;
-    border-radius: 50%;
-    background: var(--bh-accent-zacht);
-    color: var(--bh-accent);
+    width: 1rem;
+    height: 1rem;
+    border: 1px solid var(--bh-lijn-sterk);
+    border-radius: 3px;
+    background: var(--bh-oppervlak);
+    color: transparent;
 }
 
     .aandeslag-vink .icoon {
-        width: .85rem;
-        height: .85rem;
+        width: .7rem;
+        height: .7rem;
     }
+
+.aandeslag li:not(.klaar) .aandeslag-vink .icoon {
+    display: none;
+}
 
 .aandeslag li.klaar a {
     color: var(--bh-zacht);
+    text-decoration: line-through;
+    text-decoration-color: var(--bh-lijn-sterk);
 }
 
 .aandeslag li.klaar .aandeslag-vink {
+    border-color: var(--bh-accent);
     background: var(--bh-accent);
     color: #fff;
 }
 
-/* ---------- Na de laatste taak: verder met de volgende ---------- */
+/* ---------- Na de laatste taak: verder met de volgende (een gewone link met een pijl) ---------- */
 
 .volgende-taak {
     display: inline-flex;
     align-items: center;
-    gap: .5rem;
-    margin-top: .75rem;
-    padding: .45rem .85rem;
-    border: 1px solid var(--bh-lijn);
-    border-radius: 999px;
-    background: var(--bh-accent-zacht);
+    gap: .4rem;
+    margin-top: .5rem;
     color: var(--bh-accent);
-    font-size: .875rem;
-    font-weight: 500;
+    font-size: .9rem;
     text-decoration: none;
-    transition: border-color var(--bh-snel) ease, box-shadow var(--bh-snel) ease;
-    animation: bh-binnen 260ms var(--bh-curve) 120ms backwards;
 }
 
     .volgende-taak:hover {
-        border-color: var(--bh-accent);
-        box-shadow: 0 2px 8px rgba(36, 66, 110, .12);
+        text-decoration: underline;
     }
 
-    .volgende-taak .icoon:last-child {
-        transition: transform var(--bh-gewoon) var(--bh-curve);
+    .volgende-taak .icoon:first-child {
+        display: none;
     }
 
-    .volgende-taak:hover .icoon:last-child {
-        transform: translateX(3px);
-    }
-
-/* ---------- Periode afsluiten: het stappenplan ---------- */
+/* ---------- Periode afsluiten: het stappenplan als controlelijst ---------- */
 
 .afsluitplan-kop {
-    margin-bottom: .6rem;
+    margin-bottom: .4rem;
     font-weight: 600;
 }
 
 .afsluitplan {
-    position: relative;
     margin: 0 0 .5rem;
     padding: 0;
+    border-top: 1px solid var(--bh-lijn);
     list-style: none;
 }
 
     .afsluitplan li {
-        position: relative;
         display: grid;
-        grid-template-columns: 1.75rem auto minmax(0, 1fr) auto;
+        grid-template-columns: 1rem auto minmax(0, 1fr) auto;
         align-items: center;
         column-gap: .65rem;
-        min-height: 2.1rem;
-        animation: bh-binnen 220ms var(--bh-curve) backwards;
+        min-height: 2rem;
+        border-bottom: 1px solid var(--bh-lijn);
     }
 
-        .afsluitplan li:nth-child(2) { animation-delay: 30ms; }
-        .afsluitplan li:nth-child(3) { animation-delay: 60ms; }
-        .afsluitplan li:nth-child(4) { animation-delay: 90ms; }
-        .afsluitplan li:nth-child(5) { animation-delay: 120ms; }
-        .afsluitplan li:nth-child(n + 6) { animation-delay: 150ms; }
-
-        /* De lijn tussen de stappen. */
-        .afsluitplan li:not(:last-child)::after {
-            content: "";
-            position: absolute;
-            top: 1.6rem;
-            bottom: -.5rem;
-            left: calc(.875rem - 1px);
-            width: 2px;
-            background: var(--bh-lijn);
-        }
-
-        .afsluitplan li.klaar:not(:last-child)::after {
-            background: var(--bh-accent);
-            opacity: .45;
-        }
-
 .afsluitplan-stip {
-    z-index: 1;
     display: grid;
     place-items: center;
-    width: 1.75rem;
-    height: 1.75rem;
+    width: 1rem;
+    height: 1rem;
     border: 1px solid var(--bh-lijn-sterk);
-    border-radius: 50%;
+    border-radius: 3px;
     background: var(--bh-oppervlak);
-    color: var(--bh-zacht);
+    color: transparent;
 }
 
     .afsluitplan-stip .icoon {
-        width: .9rem;
-        height: .9rem;
+        width: .7rem;
+        height: .7rem;
     }
+
+.afsluitplan li:not(.klaar) .afsluitplan-stip .icoon {
+    display: none;
+}
 
 .afsluitplan li.klaar .afsluitplan-stip {
     border-color: var(--bh-accent);
@@ -607,134 +560,94 @@ html.zijbalk-smal .zijmenu::after {
 }
 
 .afsluitplan-nog {
-    color: var(--bh-warm);
+    color: var(--bh-zacht);
     font-size: .85rem;
 }
 
 .afsluitplan-naar {
-    display: inline-flex;
-    align-items: center;
-    gap: .25rem;
     font-size: .85rem;
     text-decoration: none;
     white-space: nowrap;
 }
 
+    .afsluitplan-naar:hover {
+        text-decoration: underline;
+    }
+
     .afsluitplan-naar .icoon {
-        width: .8rem;
-        height: .8rem;
-        transition: transform var(--bh-gewoon) var(--bh-curve);
+        width: .75rem;
+        height: .75rem;
     }
 
-    .afsluitplan-naar:hover .icoon {
-        transform: translateX(3px);
-    }
-
-/* ---------- Te doen (dashboard) ---------- */
+/* ---------- Te doen (dashboard): een korte lijst, één regel per taak ---------- */
 
 .tedoen-kop {
-    margin: .1rem 0 .55rem;
-    color: var(--bh-zacht);
-    font-size: .75rem;
+    margin: 0 0 .4rem;
+    font-size: .95rem;
     font-weight: 600;
-    letter-spacing: .05em;
-    text-transform: uppercase;
 }
 
 .tedoen {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
-    gap: .75rem;
     margin-bottom: 1.5rem;
+    border: 1px solid var(--bh-lijn);
+    border-radius: var(--bh-rond-klein);
+    background: var(--bh-oppervlak);
 }
 
     .tedoen > a {
         display: grid;
-        grid-template-columns: auto minmax(0, 1fr);
-        column-gap: .8rem;
-        row-gap: .1rem;
-        padding: .85rem 1rem;
-        border: 1px solid var(--bh-lijn);
-        border-radius: 8px;
-        background: var(--bh-oppervlak);
+        grid-template-columns: 3.5rem minmax(0, 1fr) auto;
+        align-items: baseline;
+        column-gap: .75rem;
+        padding: .45rem .9rem;
         color: inherit;
         text-decoration: none;
-        transition: border-color var(--bh-gewoon) ease, box-shadow var(--bh-gewoon) ease, transform var(--bh-gewoon) var(--bh-curve);
-        animation: bh-binnen 260ms var(--bh-curve) backwards;
     }
 
-        .tedoen > a:nth-child(2) { animation-delay: 40ms; }
-        .tedoen > a:nth-child(3) { animation-delay: 80ms; }
-        .tedoen > a:nth-child(4) { animation-delay: 120ms; }
-        .tedoen > a:nth-child(n + 5) { animation-delay: 160ms; }
+        .tedoen > a + a {
+            border-top: 1px solid var(--bh-lijn);
+        }
 
         .tedoen > a:hover {
-            border-color: var(--bh-accent);
-            box-shadow: 0 4px 14px rgba(36, 66, 110, .1);
-            transform: translateY(-1px);
+            background: var(--bh-aanwijs);
         }
 
     .tedoen .tedoen-icoon {
-        display: grid;
-        grid-row: span 3;
-        place-items: center;
-        width: 2.25rem;
-        height: 2.25rem;
-        border-radius: 8px;
-        background: var(--bh-accent-zacht);
-        color: var(--bh-accent);
+        display: none;
     }
-
-        .tedoen .tedoen-icoon .icoon {
-            width: 1.15rem;
-            height: 1.15rem;
-        }
 
     .tedoen .tedoen-getal {
-        font-size: 1.4rem;
         font-weight: 600;
         font-variant-numeric: tabular-nums;
-        line-height: 1.15;
-    }
-
-    .tedoen .tedoen-wat {
-        color: var(--bh-zacht);
-        font-size: .85rem;
+        text-align: right;
     }
 
     .tedoen .tedoen-verder {
-        display: flex;
-        align-items: center;
-        gap: .3rem;
-        margin-top: .3rem;
         color: var(--bh-accent);
         font-size: .85rem;
-        font-weight: 500;
+        white-space: nowrap;
     }
 
         .tedoen .tedoen-verder .icoon {
-            width: .85rem;
-            height: .85rem;
-            transition: transform var(--bh-gewoon) var(--bh-curve);
+            width: .75rem;
+            height: .75rem;
         }
 
-    .tedoen > a:hover .tedoen-verder .icoon {
-        transform: translateX(3px);
-    }
-
-/* Alles gedaan: één rustige regel met een vinkje. */
+/* Alles gedaan: één rustige regel. */
 .tedoen-klaar {
     display: flex;
     align-items: center;
-    gap: .5rem;
+    gap: .45rem;
     margin-bottom: 1.25rem;
     color: var(--bh-zacht);
     font-size: .9rem;
 }
 
-    .tedoen-klaar .icoon {
-        color: var(--bh-accent);
-    }
+/* "Let op" zonder oranje: donkere, iets zwaardere tekst. De kleur blijft voor wat echt fout is (.fout). */
+.status.let-op, .let-op, .stapel-open {
+    color: var(--bh-tekst) !important;
+    font-weight: 600;
+}
 
 /* ---------- Smalle schermen en minder beweging ---------- */
 
@@ -748,13 +661,13 @@ html.zijbalk-smal .zijmenu::after {
 
 @media (prefers-reduced-motion: reduce) {
     .zijmenu-items, .zijmenu-link > .icoon, .zijmenu-groep.inklapbaar .icoon, .paginatabs .nav-link::after,
-    .tedoen > a, .tedoen .tedoen-verder .icoon, .knopmenu .menu, .btn, .widget {
+    .knopmenu .menu, .btn, .aandeslag-balk > span {
         transition: none;
         animation: none;
     }
 }
 
-/* In een lege staat: de iconen van de link niet zo groot als het icoon van de lege staat. */
+/* In een lege staat: het pijltje van de link niet zo groot als het icoon van de lege staat. */
 .leeg-blok .volgende-taak .icoon {
     width: 1rem;
     height: 1rem;
