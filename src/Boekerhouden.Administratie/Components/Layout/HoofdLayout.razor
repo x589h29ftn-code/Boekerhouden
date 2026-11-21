@@ -64,16 +64,24 @@
 {
     <Meldingenhouder />
 }
+<AuthorizeView>
+    @if (Pad != "hulp")
+    {
+        <a class="hulp-knop" href="/hulp#@Hulpsectie.Van(Pad)" title="Documentatie" aria-label="Documentatie"><Icoon Naam="question" /></a>
+    }
+</AuthorizeView>
 
 @code {
     private ErrorBoundary? foutgrens;
 
-    // Op interactieve pagina's blijft de layout staan bij navigatie; dan het menu bijwerken.
+    // Op interactieve pagina's blijft de layout staan bij navigatie; dan het menu en het vraagteken bijwerken.
     protected override void OnInitialized() => Navigatie.LocationChanged += Verplaatst;
 
     private void Verplaatst(object? afzender, LocationChangedEventArgs e) => InvokeAsync(StateHasChanged);
 
     public void Dispose() => Navigatie.LocationChanged -= Verplaatst;
 
-    private string Onderdeel => Navigatie.ToBaseRelativePath(Navigatie.Uri).StartsWith("beheer", StringComparison.Ordinal) ? "beheer" : "werk";
+    private string Pad => Navigatie.ToBaseRelativePath(Navigatie.Uri).Split('?', '#')[0];
+
+    private string Onderdeel => Pad.StartsWith("beheer", StringComparison.Ordinal) ? "beheer" : "werk";
 }

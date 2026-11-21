@@ -230,7 +230,7 @@ Afgesproken of voorgesteld maar nog niet gebouwd, ongeveer in volgorde van wens:
 | Auditfile: vervolg | De btw-code per boekingsregel zit niet in de XAF-export; XAF 4.0 is alleen met een zelfgemaakt voorbeeld getest |
 | Vaste activa: vervolg | Degressief en fiscaal naast commercieel, overzicht investeringsaftrek (KIA) |
 | Updates webapp | Dezelfde aanpak voor de webapp op kantoor: onderhoudsmodus, `pg_dump` met controle, `--migreer` in plaats van automatisch bij het starten, versleutelde kopie buiten de server, CI-test vanaf de vorige release |
-| Hulppagina | De uitleg hoort in `/hulp` (CLAUDE.md, rustige uitstraling); in het administratiepakket nog niet gebouwd |
+| Dashboard sneller | Het maandoverzicht (grafiek, kerncijfers, marge) laadt alle boekingen van het jaar; met sommen per rekening en maand in SQL zou het dashboard bij 12.000 boekingen van 0,7 s naar enkele tientallen ms kunnen |
 
 ## 3. Werkwijze met de gebruiker
 

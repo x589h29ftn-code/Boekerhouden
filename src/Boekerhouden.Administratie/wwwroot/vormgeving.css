@@ -679,3 +679,22 @@ html.zijbalk-smal .zijmenu::after {
 .woordmerk::before {
     background-color: #b4532a;
 }
+
+/* Het vraagteken rechtsonder: een icoon in plaats van een teken. */
+.hulp-knop {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    bottom: 2.4rem;
+}
+
+/* De documentatie: een leesbare kolom in het midden. */
+.hulp {
+    max-width: 50rem;
+    margin: 0 auto;
+}
+
+    .hulp-knop svg {
+        width: 1.1rem;
+        height: 1.1rem;
+    }

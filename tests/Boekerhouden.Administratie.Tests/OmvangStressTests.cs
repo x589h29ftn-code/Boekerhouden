@@ -229,6 +229,11 @@ public sealed class OmvangStressTests(AdministratieFixture app, ITestOutputHelpe
         await Tijd("lijst van administraties", async () => $"{(await app.Dienst<AdministratieDienst>().Lijst(wie)).Count} administraties");
         await Tijd("werklijst van het kantoor (alle adm.)", async () => $"{(await app.Dienst<KantooroverzichtDienst>().Stand(wie)).Count} standen");
         await Tijd("dashboard", async () => (await app.Dienst<DashboardDienst>().Laad(wie, model, DashboardDienst.Standaard)).GetType().Name.Length > 0 ? null : null);
+        foreach (var widget in Enum.GetValues<Widget>())
+        {
+            await Tijd($"  dashboard: {widget}", async () => { await app.Dienst<DashboardDienst>().Laad(wie, model, [new Widgetkeuze(widget)]); return null; });
+        }
+
         await Tijd($"kolommenbalans {jaar}", async () => $"{(await grootboek.Kolommenbalans(wie, model, van, tot)).Regels.Count} rekeningen");
         await Tijd($"balans en W&V {jaar}", async () => { await grootboek.Jaaroverzicht(wie, model, jaar); return null; });
         await Tijd($"grootboekkaart crediteuren {jaar}", async () => $"{(await grootboek.Kaart(wie, model, "1600", van, tot)).Mutaties.Count} regels");
