@@ -1,6 +1,6 @@
 // Lay-out en consistentie van alle pagina's, op een laptop (1366x768) en een breed scherm (1920x1080): geen
 // horizontale schuifbalk, precies één titel, hoogstens een paar knoppen in de kop en één primaire knop, geen losse tekens
-// als icoon, geen Engelse woorden, geen afgekapte tekst zonder tooltip, elk veld met een label, geen fouten in de
+// als icoon, geen Engelse woorden, geen afgekapte tekst zonder tooltip, geen samengeknepen kolommen, elk veld met een label, geen fouten in de
 // console. Meldt per pagina wat afwijkt; de schermafbeeldingen in <map>.
 // Gebruik: scripts/ui/herstart.sh && node scripts/ui/consistentie.js <auditfile.xaf> <map>
 const { chromium } = require('playwright');
@@ -74,6 +74,10 @@ function totp(sleutel) {
         uit.afgekapt = [...document.querySelectorAll('main *')].filter(e => zichtbaar(e) && e.children.length === 0 && e.scrollWidth > e.clientWidth + 1
           && getComputedStyle(e).textOverflow === 'ellipsis' && !e.closest('[title]') && !(e.tagName === 'INPUT' || e.tagName === 'SELECT'))
           .map(e => `"${e.textContent.trim().slice(0, 25)}"`).slice(0, 3);
+        // Een tabelcel waarin een woord letter voor letter onder elkaar staat: de kolom is samengeknepen.
+        uit.geknepen = [...document.querySelectorAll('main td, main th')].filter(e => zichtbaar(e) && e.innerText.trim().length >= 4
+          && e.clientWidth < 48 && e.getBoundingClientRect().height > 3 * parseFloat(getComputedStyle(e).lineHeight || '20'))
+          .map(e => `"${e.innerText.trim().replace(/\s+/g, '').slice(0, 20)}"`).slice(0, 3);
         uit.zonderLabel = [...document.querySelectorAll('main input, main select, main textarea')].filter(e => zichtbaar(e)
           && e.getAttribute('aria-hidden') !== 'true' && !['hidden', 'checkbox', 'radio', 'file', 'submit', 'button'].includes(e.type)
           && !e.getAttribute('aria-label') && !e.getAttribute('aria-labelledby') && !e.closest('label')
@@ -88,6 +92,7 @@ function totp(sleutel) {
       if (r.los.length) meld(huidig, `losse tekens als knop: ${r.los.join(' ')}`);
       if (r.engels.length) meld(huidig, `Engels: ${r.engels.join(', ')}`);
       if (r.afgekapt.length) meld(huidig, `afgekapt zonder tooltip: ${r.afgekapt.join(', ')}`);
+      if (r.geknepen.length) meld(huidig, `samengeknepen kolom: ${r.geknepen.join(', ')}`);
       if (r.zonderLabel.length) meld(huidig, `velden zonder label: ${r.zonderLabel.join(', ')}`);
       if (breedte === 1366) await page.screenshot({ path: path.join(uit, pad.replace(`/a/${id}`, 'a').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') + '.png') || 'start.png' });
     }
