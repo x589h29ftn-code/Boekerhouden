@@ -69,6 +69,65 @@ public sealed record Maandoverzicht(DateOnly Van, DateOnly Tot, IReadOnlyList<Da
     public IReadOnlyList<decimal> ResultaatPerMaand =>
         [.. Maanden.Select((_, i) => -Regels.Where(r => !r.Rekening.IsBalans).Sum(r => r.PerMaand[i]))];
 
+    /// <summary>
+    /// Het overzicht uit sommen in plaats van losse boekingen (de database telt op): per rekening het saldo van vóór de
+    /// periode en per rekening en maand de mutaties binnen de periode. Hetzelfde als <see cref="Journaal.Maandoverzicht"/>:
+    /// balansrekeningen beginnen met hun stand, het resultaat van vóór de periode komt op het onverdeelde resultaat.
+    /// </summary>
+    public static Maandoverzicht Uit(Rekeningschema schema, DateOnly van, DateOnly tot,
+        IEnumerable<(string Rekening, decimal Bedrag)> voor, IEnumerable<(string Rekening, int Jaar, int Maand, decimal Bedrag)> binnen)
+    {
+        ArgumentNullException.ThrowIfNull(schema);
+        ArgumentNullException.ThrowIfNull(voor);
+        ArgumentNullException.ThrowIfNull(binnen);
+        if (tot < van)
+        {
+            throw new ArgumentException("De periode eindigt vóór het begin.", nameof(tot));
+        }
+
+        var maanden = new List<DateOnly>();
+        for (var m = new DateOnly(van.Year, van.Month, 1); m <= tot; m = m.AddMonths(1))
+        {
+            maanden.Add(m);
+        }
+
+        if (maanden.Count > MaximumMaanden)
+        {
+            throw new ArgumentException($"Per maand kan over hoogstens {MaximumMaanden} maanden.", nameof(tot));
+        }
+
+        var begin = schema.Alle.ToDictionary(r => r.Nummer, _ => 0m, StringComparer.Ordinal);
+        var perMaand = schema.Alle.ToDictionary(r => r.Nummer, _ => new decimal[maanden.Count], StringComparer.Ordinal);
+        var eerder = 0m;
+        foreach (var (nummer, bedrag) in voor)
+        {
+            var rekening = schema.Zoek(nummer) ?? throw new InvalidOperationException($"Rekening {nummer} staat niet in het rekeningschema.");
+            if (rekening.IsBalans)
+            {
+                begin[rekening.Nummer] += bedrag;
+            }
+            else
+            {
+                eerder += bedrag;
+            }
+        }
+
+        foreach (var (nummer, jaar, maand, bedrag) in binnen)
+        {
+            var rekening = schema.Zoek(nummer) ?? throw new InvalidOperationException($"Rekening {nummer} staat niet in het rekeningschema.");
+            perMaand[rekening.Nummer][((jaar - van.Year) * 12) + maand - van.Month] += bedrag;
+        }
+
+        if (eerder != 0)
+        {
+            var onverdeeld = schema.MetFunctie(Rekeningfunctie.OnverdeeldResultaat).FirstOrDefault()
+                ?? throw new InvalidOperationException("Er is resultaat van vóór de periode, maar geen rekening voor het onverdeelde resultaat.");
+            begin[onverdeeld.Nummer] += eerder;
+        }
+
+        return new Maandoverzicht(van, tot, maanden, [.. schema.Alle.Select(r => new Maandoverzichtregel(r, begin[r.Nummer], perMaand[r.Nummer]))]);
+    }
+
     /// <summary>De periode van één maand, binnen <see cref="Van"/> en <see cref="Tot"/> (om op door te klikken).</summary>
     public (DateOnly Van, DateOnly Tot) Periode(int maand)
     {

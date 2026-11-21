@@ -498,8 +498,23 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
         (await Journaal(wie, administratie, van, tot)).Kolommenbalans(van, tot);
 
     /// <summary>De kolommenbalans per maand over een periode: begin, mutaties per maand en eind per rekening.</summary>
-    public async Task<Maandoverzicht> Maandoverzicht(Uitvoerder wie, Guid administratie, DateOnly van, DateOnly tot) =>
-        (await Journaal(wie, administratie, van, tot)).Maandoverzicht(van, tot);
+    public async Task<Maandoverzicht> Maandoverzicht(Uitvoerder wie, Guid administratie, DateOnly van, DateOnly tot)
+    {
+        // De database telt op (per rekening vóór de periode, per rekening en maand erin): geen losse boekingen laden.
+        await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
+        var voor = await (from r in db.GeldendeRegels
+                          join b in db.Boekingen on r.BoekingId equals b.Id
+                          where b.Datum < van
+                          group r.Bedrag by r.Rekeningnummer into g
+                          select new { Rekening = g.Key, Bedrag = g.Sum() }).ToListAsync();
+        var binnen = await (from r in db.GeldendeRegels
+                            join b in db.Boekingen on r.BoekingId equals b.Id
+                            where b.Datum >= van && b.Datum <= tot
+                            group r.Bedrag by new { r.Rekeningnummer, b.Datum.Year, b.Datum.Month } into g
+                            select new { g.Key.Rekeningnummer, g.Key.Year, g.Key.Month, Bedrag = g.Sum() }).ToListAsync();
+        return Boekhouding.Grootboek.Maandoverzicht.Uit(await LaadSchema(db), van, tot,
+            voor.Select(v => (v.Rekening, v.Bedrag)), binnen.Select(b => (b.Rekeningnummer, b.Year, b.Month, b.Bedrag)));
+    }
 
     /// <summary>Eén boeking (dagboek en boekstuk, de geldende versie), met de factuur waar hij bij hoort; leeg als hij niet bestaat.</summary>
     public async Task<Boekingsdetail?> Boeking(Uitvoerder wie, Guid administratie, string dagboek, string boekstuk)

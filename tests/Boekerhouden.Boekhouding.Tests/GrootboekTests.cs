@@ -224,6 +224,43 @@ public sealed class JournaalTests
     }
 
     [Fact]
+    public void Maandoverzicht_uit_sommen_is_gelijk_aan_dat_uit_de_boekingen()
+    {
+        var journaal = Testadministratie.Journaal();
+        var toeval = new Random(7);
+        string[] rekeningen = ["1100", "8000", "4200", "0500", "1300"];
+        for (var i = 1; i <= 300; i++)
+        {
+            var datum = new DateOnly(2024, 1, 1).AddDays(toeval.Next(3 * 365));
+            var bedrag = Math.Round((decimal)toeval.NextDouble() * 1_000, 2);
+            var (debet, credit) = (rekeningen[toeval.Next(5)], rekeningen[toeval.Next(5)]);
+            if (debet != credit)
+            {
+                journaal.Boek(Memoriaal($"{datum.Year}-{i:0000}", datum, (debet, bedrag), (credit, -bedrag)));
+            }
+        }
+
+        foreach (var (van, tot) in new[] { (new DateOnly(2025, 1, 1), new DateOnly(2025, 12, 31)), (new DateOnly(2025, 3, 15), new DateOnly(2026, 4, 10)), (new DateOnly(2024, 1, 1), new DateOnly(2024, 1, 1)) })
+        {
+            var regels = journaal.Posten.SelectMany(p => p.Regels.Select(r => (p.Datum, r.Rekeningnummer, r.Bedrag))).ToList();
+            var voor = regels.Where(r => r.Datum < van).GroupBy(r => r.Rekeningnummer).Select(g => (g.Key, g.Sum(r => r.Bedrag)));
+            var binnen = regels.Where(r => r.Datum >= van && r.Datum <= tot).GroupBy(r => (r.Rekeningnummer, r.Datum.Year, r.Datum.Month))
+                .Select(g => (g.Key.Rekeningnummer, g.Key.Year, g.Key.Month, g.Sum(r => r.Bedrag)));
+
+            var verwacht = journaal.Maandoverzicht(van, tot);
+            var uitSommen = Maandoverzicht.Uit(journaal.Schema, van, tot, voor, binnen);
+
+            Assert.Equal(verwacht.Maanden, uitSommen.Maanden);
+            Assert.All(verwacht.Regels.Zip(uitSommen.Regels), x =>
+            {
+                Assert.Equal(x.First.Rekening.Nummer, x.Second.Rekening.Nummer);
+                Assert.Equal(x.First.Begin, x.Second.Begin);
+                Assert.Equal(x.First.PerMaand, x.Second.PerMaand);
+            });
+        }
+    }
+
+    [Fact]
     public void Uitgebreide_indeling_volgt_de_rgs_hoofdpost()
     {
         var schema = Testadministratie.Schema();
