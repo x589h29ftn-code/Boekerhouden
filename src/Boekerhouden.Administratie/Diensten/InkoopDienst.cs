@@ -77,7 +77,8 @@ internal sealed record Verdelingsgegevens(DateOnly Van, DateOnly Tot, string Rek
 
 /// <summary>Wat er met een ingelezen bestand gebeurd is.</summary>
 /// <param name="Dubbel">Hetzelfde bestand is al eerder ingelezen: niet opnieuw ingelezen.</param>
-public sealed record Inleesuitkomst(Guid? DocumentId, Documentstatus? Status, string Melding, bool Dubbel = false)
+/// <param name="NietHerkend">Bewaard in Te verwerken, maar er is geen factuur in herkend (bijv. een onleesbaar bestand): met de hand nakijken.</param>
+public sealed record Inleesuitkomst(Guid? DocumentId, Documentstatus? Status, string Melding, bool Dubbel = false, bool NietHerkend = false)
 {
     public bool IsGeboekt => Status == Documentstatus.Geboekt;
 }
@@ -246,7 +247,7 @@ public sealed class InkoopDienst(
 
         if (herkenning.Factuur is not { } herkend)
         {
-            return new(document.Id, document.Status, $"{naam}: {herkenning.Melding}");
+            return new(document.Id, document.Status, $"{naam}: {herkenning.Melding}", NietHerkend: true);
         }
 
         var voorstel = Voorstel(herkend, context);

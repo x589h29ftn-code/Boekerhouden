@@ -50,9 +50,27 @@ public sealed class PraktijkTests(AdministratieFixture app, ITestOutputHelper ui
     [Fact]
     public async Task Een_kwartaal_inkoop_verkoop_en_bank()
     {
-        var set = Praktijkset.Maak();
+        var verschillen = await Doorloop(1);
+        Assert.True(verschillen.Count == 0, $"{verschillen.Count} verschillen:\n" + string.Join("\n", verschillen));
+    }
+
+    /// <summary>
+    /// Dezelfde procedure met de set vijf keer zo groot (500 inkoop, 500 verkoop, de bank erbij): meldt hoeveel er vanzelf
+    /// gaat en wat er misgaat, zonder te falen op verschillen; alleen een fout in het pakket zelf laat hem falen.
+    /// </summary>
+    [PraktijkStressFact]
+    public async Task Vijf_keer_zo_groot()
+    {
+        var verschillen = await Doorloop(PraktijkStressFactAttribute.Rondes);
+        uitvoer.WriteLine($"Verschillen: {verschillen.Count}");
+    }
+
+    private async Task<List<string>> Doorloop(int rondes)
+    {
+        var set = Praktijkset.Maak(rondes);
         var bestanden = set.Bestanden();
         var verschillen = new List<string>();
+        var (aantalInkoop, aantalVerkoop) = (set.Inkoop.Count, set.Verkoop.Count);
         var klok = Stopwatch.StartNew();
         var wie = await app.Beheerder();
         var id = await Inrichten(wie, set);
@@ -112,7 +130,7 @@ public sealed class PraktijkTests(AdministratieFixture app, ITestOutputHelper ui
             }
         }
 
-        uitvoer.WriteLine($"Inkoop: {inkoopAuto} van 100 vanzelf geboekt, {inkoopDubbel} dubbel herkend ({klok.Elapsed.TotalSeconds:0.0} s).");
+        uitvoer.WriteLine($"Inkoop: {inkoopAuto} van {aantalInkoop} vanzelf geboekt, {inkoopDubbel} dubbel herkend ({klok.Elapsed.TotalSeconds:0.0} s).");
 
         // ---- verkoop: de facturen uit het kassapakket inlezen; een onbekende klant met de hand kiezen
         var import = app.Dienst<VerkoopimportDienst>();
@@ -159,7 +177,7 @@ public sealed class PraktijkTests(AdministratieFixture app, ITestOutputHelper ui
             }
         }
 
-        uitvoer.WriteLine($"Verkoop: {verkoopAuto} van 100 vanzelf geboekt ({klok.Elapsed.TotalSeconds:0.0} s).");
+        uitvoer.WriteLine($"Verkoop: {verkoopAuto} van {aantalVerkoop} vanzelf geboekt ({klok.Elapsed.TotalSeconds:0.0} s).");
 
         // ---- bank: per afschrift inlezen en wat blijft staan meteen verwerken (zoals de stappenlijst zegt), dan het
         // volgende; april komt twee keer (overlappend).
@@ -167,6 +185,7 @@ public sealed class PraktijkTests(AdministratieFixture app, ITestOutputHelper ui
         var alle = set.Betaal.SelectMany(p => p.Batch ?? [p]).ToDictionary(p => p.EndToEnd);
         var perSoort = new Dictionary<string, int>(StringComparer.Ordinal);
         var metDeHand = 0;
+        var (bankNieuw, bankAuto) = (0, 0);
         foreach (var bestand in bestanden.Where(b => b.Map == "bank").OrderBy(b => b.Naam, StringComparer.Ordinal))
         {
             var gelezen = await bank.Lees(wie, id, new MemoryStream(bestand.Inhoud), bestand.Naam);
@@ -177,6 +196,7 @@ public sealed class PraktijkTests(AdministratieFixture app, ITestOutputHelper ui
             }
 
             var w = gelezen.Waarde!;
+            (bankNieuw, bankAuto) = (bankNieuw + w.Nieuw, bankAuto + w.Automatisch);
             var teVerwerken = await bank.Lijst(wie, id);
             uitvoer.WriteLine($"Bank {bestand.Naam}: {w.Nieuw} nieuw, {w.Dubbel} al ingelezen, {w.MogelijkDubbel} mogelijk dubbel, {w.Automatisch} vanzelf geboekt, {teVerwerken.Count} met de hand. {string.Join(" ", w.Meldingen)}");
             if (w.MogelijkDubbel > 0)
@@ -210,7 +230,7 @@ public sealed class PraktijkTests(AdministratieFixture app, ITestOutputHelper ui
             }
         }
 
-        uitvoer.WriteLine($"Bank: {metDeHand} mutaties met de hand ({klok.Elapsed.TotalSeconds:0.0} s): " + string.Join(", ", perSoort.OrderByDescending(x => x.Value).Select(x => $"{x.Key} {x.Value}")));
+        uitvoer.WriteLine($"Bank: {bankNieuw} nieuwe mutaties, {bankAuto} vanzelf geboekt, {metDeHand} met de hand ({klok.Elapsed.TotalSeconds:0.0} s): " + string.Join(", ", perSoort.OrderByDescending(x => x.Value).Select(x => $"{x.Key} {x.Value}")));
         if ((await bank.Lijst(wie, id)).Count is > 0 and var rest)
         {
             verschillen.Add($"Bank: nog {rest} mutaties te verwerken.");
@@ -307,7 +327,7 @@ public sealed class PraktijkTests(AdministratieFixture app, ITestOutputHelper ui
             uitvoer.WriteLine("  - " + v);
         }
 
-        Assert.True(verschillen.Count == 0, $"{verschillen.Count} verschillen:\n" + string.Join("\n", verschillen));
+        return verschillen;
     }
 
     /// <summary>De administratie zoals bij de start van de procedure: gegevens, betaalverschil, spaarrekening, kruisposten en het memoriaal.</summary>
@@ -427,4 +447,19 @@ public sealed class PraktijkTests(AdministratieFixture app, ITestOutputHelper ui
             verschillen.Add($"{wat}:{tekst}");
         }
     }
+}
+
+/// <summary>De praktijktest op grotere schaal: alleen als <c>BOEKERHOUDEN_STRESS_PRAKTIJK</c> het aantal rondes geeft (5 = 500 + 500).</summary>
+internal sealed class PraktijkStressFactAttribute : FactAttribute
+{
+    public PraktijkStressFactAttribute()
+    {
+        if (Rondes == 0)
+        {
+            Skip = "Zet BOEKERHOUDEN_STRESS_PRAKTIJK op het aantal rondes (bijv. 5 voor 500 inkoop- en 500 verkoopfacturen) om deze stresstest te draaien.";
+        }
+    }
+
+    public static int Rondes =>
+        Environment.GetEnvironmentVariable("BOEKERHOUDEN_STRESS_PRAKTIJK") is { Length: > 0 } w && int.TryParse(w, System.Globalization.CultureInfo.InvariantCulture, out var n) && n > 0 ? n : 0;
 }

@@ -175,6 +175,16 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
                 $"{naam}: het afschrift van {Iban.Toon(fout2.Iban)} klopt niet: beginsaldo plus mutaties wijkt {Domain.Bedragen.Euro(fout2.Verschil)} af van het eindsaldo. Er is niets ingelezen.");
         }
 
+        // Vanaf hier één transactie met de administratie vergrendeld: twee afschriften die tegelijk binnenkomen (bijv. een
+        // map die in één keer wordt losgelaten) zien elkaars mutaties, zodat een overlap als dubbel telt in plaats van
+        // dat de database dezelfde mutatie twee keer krijgt; en een afschrift komt er helemaal in, of niet.
+        await using var inleestransactie = await db.Database.BeginTransactionAsync(annulering);
+        await db.Vergrendel(administratie);
+
+        // Het wijzigingslog schrijft via een eigen verbinding: pas na de commit, anders wacht het op deze transactie
+        // (SQLite heeft één schrijver tegelijk) en staat er niets in het log van wat niet is ingelezen.
+        var logregels = new List<(string Actie, string Onderwerp, string? Toelichting)>();
+
         // Eerst bij elke rekening het dagboek, zodat een onbekende rekening niets half inleest.
         // Een nieuw IBAN wordt pas aan zijn dagboek gekoppeld (en opgeslagen) als alle rekeningen in het bestand kloppen.
         var bankdagboeken = new Dictionary<string, Dagboekdefinitie>(StringComparer.Ordinal);
@@ -199,7 +209,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             await db.SaveChangesAsync(annulering);
             foreach (var (dagboek, iban) in gekoppeld)
             {
-                await audit.Log(wie, AuditActies.BankdagboekGekoppeld, $"{dagboek.Code} {dagboek.Naam}", Iban.Toon(iban), administratie);
+                logregels.Add((AuditActies.BankdagboekGekoppeld, $"{dagboek.Code} {dagboek.Naam}", Iban.Toon(iban)));
             }
         }
 
@@ -283,8 +293,14 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             }
 
             await db.SaveChangesAsync(annulering);
-            await audit.Log(wie, AuditActies.AfschriftIngelezen, $"{dagboek.Code} {Iban.Toon(iban)} {afschrift.Nummer}".Trim(),
-                $"{naam}; {regels.Count} mutaties; eindsaldo {afschrift.Eindsaldo:0.00}", administratie);
+            logregels.Add((AuditActies.AfschriftIngelezen, $"{dagboek.Code} {Iban.Toon(iban)} {afschrift.Nummer}".Trim(),
+                $"{naam}; {regels.Count} mutaties; eindsaldo {afschrift.Eindsaldo:0.00}"));
+        }
+
+        await inleestransactie.CommitAsync(annulering);
+        foreach (var (actie, onderwerp, toelichting) in logregels)
+        {
+            await audit.Log(wie, actie, onderwerp, toelichting, administratie);
         }
 
         var automatisch = await VerwerkAutomatisch(db, administratie, nieuw, wie, annulering);

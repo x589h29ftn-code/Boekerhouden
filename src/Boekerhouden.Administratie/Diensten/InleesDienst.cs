@@ -17,7 +17,8 @@ public enum Inleessoort
 }
 
 /// <summary>Wat er met één bestand is gebeurd: de soort, of het gelukt is, en de melding van het inlezen.</summary>
-public sealed record Overalingelezen(string Bestand, Inleessoort Soort, bool Gelukt, string Melding);
+/// <param name="Nakijken">Wel ingelezen, maar niet als factuur herkend: staat bij inkoop om met de hand na te kijken.</param>
+public sealed record Overalingelezen(string Bestand, Inleessoort Soort, bool Gelukt, string Melding, bool Nakijken = false);
 
 /// <summary>De eigen gegevens van de administratie waarmee een verkoopfactuur te herkennen is.</summary>
 public sealed record Eigengegevens(string Naam, string? KvkNummer, string? BtwNummer, IReadOnlyList<string> Ibans);
@@ -66,12 +67,12 @@ public sealed class InleesDienst(
                 return new(naam, soort, b.IsGelukt, b.IsGelukt ? "afschrift ingelezen" : string.Join(" ", b.Fouten));
             case Inleessoort.Verkoop:
                 var v = await verkoop.Lees(wie, administratie, new MemoryStream(inhoud), naam, inhoudstype, annulering);
-                return new(naam, soort, v.Id is not null, v.Melding);
+                return new(naam, soort, v.Id is not null && !v.Dubbel, v.Melding);
             case Inleessoort.Loonjournaal:
                 return new(naam, soort, true, "loonjournaal: de rekeningen koppelen in het memoriaal");
             default:
                 var i = await inkoop.Lees(wie, administratie, new MemoryStream(inhoud), naam, inhoudstype, annulering: annulering);
-                return new(naam, Inleessoort.Inkoop, i.DocumentId is not null && i.Status != Documentstatus.Quarantaine, i.Melding);
+                return new(naam, Inleessoort.Inkoop, i.DocumentId is not null && i.Status != Documentstatus.Quarantaine && !i.Dubbel, i.Melding, i.NietHerkend);
         }
     }
 

@@ -40,7 +40,8 @@
             Inleessoort.Bank => $"{g.Count()} {(g.Count() == 1 ? "afschrift" : "afschriften")} naar de bank",
             Inleessoort.Verkoop => $"{g.Count()} {(g.Count() == 1 ? "verkoopfactuur" : "verkoopfacturen")} naar verkoop",
             Inleessoort.Loonjournaal => "loonjournaal naar het memoriaal",
-            _ => $"{g.Count()} {(g.Count() == 1 ? "inkoopfactuur" : "inkoopfacturen")} naar inkoop",
+            _ => $"{g.Count()} {(g.Count() == 1 ? "inkoopfactuur" : "inkoopfacturen")} naar inkoop"
+                + (g.Count(u => u.Nakijken) is var nakijken and > 0 ? $" ({nakijken} niet herkend, nakijken)" : null),
         }).ToList();
         var mislukt = uitkomsten.Count(u => !u.Gelukt);
         if (mislukt > 0)

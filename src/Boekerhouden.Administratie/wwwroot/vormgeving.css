@@ -674,3 +674,8 @@ html.zijbalk-smal .zijmenu::after {
     margin: 0;
     color: inherit;
 }
+
+/* Het merkje in de kopbalk houdt zijn oranje, ook in donker; de rest van de uitstraling is sober. */
+.woordmerk::before {
+    background-color: #b4532a;
+}

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Boekerhouden.Boekhouding.Bank;
 using Boekerhouden.Boekhouding.Btw;
@@ -66,7 +67,8 @@ internal sealed record Factuurdata(
     Betaalwijze Betaling,
     bool Credit = false,
     string? CreditVoor = null,
-    string? Kenmerk = null)
+    string? Kenmerk = null,
+    int Ronde = 0)
 {
     /// <summary>De factuur zoals de afzender hem schrijft (credit: negatieve aantallen).</summary>
     public Verkoopfactuur Papier(string relatie) =>
@@ -211,11 +213,21 @@ internal sealed class Praktijkset
     public decimal KortingInkoop { get; private set; }
 
     private readonly Random toeval = new(20260101);
+
+    /// <summary>Hoe vaak de facturen voorkomen (1 = de gewone set van 100 + 100).</summary>
+    public int Rondes { get; private init; } = 1;
+
+    private int ronde;
+
+    /// <summary>Het factuurnummer in de huidige ronde: het laatste getal 1000 per ronde hoger (ronde 0 = zoals het staat).</summary>
+    private string N(string nummer) => ronde == 0 ? nummer : Regex.Replace(nummer, @"\d+(?=\D*$)", m =>
+        (long.Parse(m.Value, CultureInfo.InvariantCulture) + ronde * 1000L).ToString(CultureInfo.InvariantCulture).PadLeft(m.Value.Length, '0'));
     private int volgnummer;
 
-    public static Praktijkset Maak()
+    /// <summary>De set; met <paramref name="rondes"/> groter dan 1 komen dezelfde soorten facturen (met andere nummers en bedragen) zo vaak voor, voor een stresstest.</summary>
+    public static Praktijkset Maak(int rondes = 1)
     {
-        var set = new Praktijkset();
+        var set = new Praktijkset { Rondes = rondes };
         set.MaakInkoop();
         set.MaakVerkoop();
         set.MaakMemoriaal();
@@ -282,6 +294,25 @@ internal sealed class Praktijkset
 
     private void MaakInkoop()
     {
+        for (ronde = 0; ronde < Rondes; ronde++)
+        {
+            var start = Inkoop.Count;
+            MaakInkoopRonde();
+            for (var i = start; i < Inkoop.Count; i++)
+            {
+                Inkoop[i] = Inkoop[i] with { Ronde = ronde };
+            }
+        }
+
+        ronde = 0;
+        if (Inkoop.Count != 100 * Rondes)
+        {
+            throw new InvalidOperationException($"{Inkoop.Count} inkoopfacturen in plaats van {100 * Rondes}.");
+        }
+    }
+
+    private void MaakInkoopRonde()
+    {
         // Rijwielgroothandel en Transport: wekelijks, betaald met een verzamelbetaling in de maand erna.
         for (var i = 0; i < 20; i++)
         {
@@ -297,13 +328,13 @@ internal sealed class Praktijkset
                 regels.Add(new Regeldata("Fietsverlichting set", Aantal(5, 20), Prijs(8, 15), "V21", "7000", "I21"));
             }
 
-            Inkoop.Add(new Factuurdata(true, Groothandel, $"RG-26-{1001 + i}", datum, datum.AddDays(30), "Levering fietsen", regels, Formaat.Ubl, Betaalwijze.Verzamel));
+            Inkoop.Add(new Factuurdata(true, Groothandel, N($"RG-26-{1001 + i}"), datum, datum.AddDays(30), "Levering fietsen", regels, Formaat.Ubl, Betaalwijze.Verzamel));
         }
 
         for (var i = 0; i < 20; i++)
         {
             var datum = Begin.AddDays(4 + i * 4);
-            Inkoop.Add(new Factuurdata(true, Transport, $"TS{260100 + i * 7}", datum, datum.AddDays(30), "Transportkosten",
+            Inkoop.Add(new Factuurdata(true, Transport, N($"TS{260100 + i * 7}"), datum, datum.AddDays(30), "Transportkosten",
                 [new Regeldata($"Transport rit {i + 1}", 1, Prijs(45, 180), "V21", "7000", "I21")], Formaat.Ubl, Betaalwijze.Verzamel));
         }
 
@@ -313,12 +344,12 @@ internal sealed class Praktijkset
             var datum = Begin.AddDays(5 + i * 6);
             if (i == 5)
             {
-                Inkoop.Add(new Factuurdata(true, Onderdelen, $"OC-2026-{501 + i}", datum, datum.AddDays(14), "Retour onderdelen",
-                    [new Regeldata("Retour kettingen", 10, 18.40m, "V21", "7000", "I21")], Formaat.Pdf, Betaalwijze.Verrekend, Credit: true, CreditVoor: $"OC-2026-{501 + i - 1}"));
+                Inkoop.Add(new Factuurdata(true, Onderdelen, N($"OC-2026-{501 + i}"), datum, datum.AddDays(14), "Retour onderdelen",
+                    [new Regeldata("Retour kettingen", 10, 18.40m, "V21", "7000", "I21")], Formaat.Pdf, Betaalwijze.Verrekend, Credit: true, CreditVoor: N($"OC-2026-{501 + i - 1}")));
                 continue;
             }
 
-            Inkoop.Add(new Factuurdata(true, Onderdelen, $"OC-2026-{501 + i}", datum, datum.AddDays(14), "Onderdelen",
+            Inkoop.Add(new Factuurdata(true, Onderdelen, N($"OC-2026-{501 + i}"), datum, datum.AddDays(14), "Onderdelen",
             [
                 new Regeldata("Buitenbanden", Aantal(10, 30), Prijs(9, 16), "V21", "7000", "I21"),
                 new Regeldata("Remblokken", Aantal(10, 40), Prijs(2, 5), "V21", "7000", "I21"),
@@ -330,16 +361,16 @@ internal sealed class Praktijkset
         {
             var eerste = Begin.AddMonths(m);
             var maand = eerste.ToString("MMMM yyyy", Nl);
-            Inkoop.Add(new Factuurdata(true, Energie, $"EO{2026001 + m}", eerste.AddDays(4), eerste.AddDays(19), $"Energie {maand}",
+            Inkoop.Add(new Factuurdata(true, Energie, N($"EO{2026001 + m}"), eerste.AddDays(4), eerste.AddDays(19), $"Energie {maand}",
                 [new Regeldata($"Elektriciteit en gas {maand}", 1, Prijs(410, 520), "V21", "4110", "I21")], Formaat.Ubl, m == 1 ? Betaalwijze.IncassoStorno : Betaalwijze.Incasso));
-            Inkoop.Add(new Factuurdata(true, Telecom, $"T-{9100234 + m}", eerste.AddDays(6), eerste.AddDays(21), $"Abonnement {maand}",
+            Inkoop.Add(new Factuurdata(true, Telecom, N($"T-{9100234 + m}"), eerste.AddDays(6), eerste.AddDays(21), $"Abonnement {maand}",
                 [new Regeldata($"Zakelijk abonnement {maand}", 1, 74.34m, "V21", "4310", "I21"), new Regeldata("Extra bundel", 1, 12.40m, "V21", "4310", "I21")], Formaat.Pdf, Betaalwijze.Incasso));
-            var huur = $"VH-2026-{m + 1:00}";
+            var huur = N($"VH-2026-{m + 1:00}");
             Inkoop.Add(new Factuurdata(true, Vastgoed, huur, eerste, eerste, $"Huur winkelpand {maand}",
                 [new Regeldata($"Huur Dorpsstraat 1 {maand}", 1, 2_750m, "VVR", "4100", "I0")], Formaat.Ubl, Betaalwijze.Kenmerk, Kenmerk: Betalingskenmerk.Maak("7" + huur)));
-            Inkoop.Add(new Factuurdata(true, Lease, $"LA{77000 + m}", eerste.AddDays(9), eerste.AddDays(24), $"Lease bestelbus {maand}",
+            Inkoop.Add(new Factuurdata(true, Lease, N($"LA{77000 + m}"), eerste.AddDays(9), eerste.AddDays(24), $"Lease bestelbus {maand}",
                 [new Regeldata($"Leasetermijn bestelbus {maand}", 1, 489m, "V21", "4210", "I21")], Formaat.Ubl, Betaalwijze.Incasso));
-            Inkoop.Add(new Factuurdata(true, Cloud, $"INV-{4400 + m}", eerste.AddDays(1), eerste.AddDays(15), $"Kassasoftware {maand}",
+            Inkoop.Add(new Factuurdata(true, Cloud, N($"INV-{4400 + m}"), eerste.AddDays(1), eerste.AddDays(15), $"Kassasoftware {maand}",
                 [new Regeldata($"Kassasoftware licence {eerste:MMMM yyyy}", 1, 149m, "VVL", "4330", "IEU")], Formaat.Ubl, Betaalwijze.Nummer));
         }
 
@@ -347,7 +378,7 @@ internal sealed class Praktijkset
         for (var i = 0; i < 10; i++)
         {
             var datum = Begin.AddDays(7 + i * 8);
-            Inkoop.Add(new Factuurdata(true, Koffie, $"KC{3100 + i}", datum, datum.AddDays(14), "Koffie en machine",
+            Inkoop.Add(new Factuurdata(true, Koffie, N($"KC{3100 + i}"), datum, datum.AddDays(14), "Koffie en machine",
             [
                 new Regeldata("Koffiebonen 1 kg", Aantal(3, 8), 17.95m, "V9", "4900", "I9"),
                 new Regeldata("Melk en suiker", Aantal(2, 6), 3.49m, "V9", "4900", "I9"),
@@ -356,44 +387,40 @@ internal sealed class Praktijkset
         }
 
         // Verlegd: de verbouwing van de werkplaats; de tweede staat aan het eind nog open.
-        Inkoop.Add(new Factuurdata(true, Hamer, "H-26-014", new(2026, 1, 26), new(2026, 2, 9), "Verbouwing werkplaats termijn 1",
+        Inkoop.Add(new Factuurdata(true, Hamer, N("H-26-014"), new(2026, 1, 26), new(2026, 2, 9), "Verbouwing werkplaats termijn 1",
             [new Regeldata("Verbouwing werkplaats, eerste termijn", 1, 6_800m, "VVL", "4900", "IVL")], Formaat.Ubl, Betaalwijze.Nummer));
-        Inkoop.Add(new Factuurdata(true, Hamer, "H-26-031", new(2026, 3, 27), new(2026, 4, 10), "Verbouwing werkplaats termijn 2",
+        Inkoop.Add(new Factuurdata(true, Hamer, N("H-26-031"), new(2026, 3, 27), new(2026, 4, 10), "Verbouwing werkplaats termijn 2",
             [new Regeldata("Verbouwing werkplaats, tweede termijn", 1, 4_250m, "VVL", "4900", "IVL")], Formaat.Ubl, Betaalwijze.Open));
 
         // Drukkerij: een creditnota, betaald als factuur min creditnota.
-        Inkoop.Add(new Factuurdata(true, Drukkerij, "DP-6610", new(2026, 1, 12), new(2026, 1, 26), "Folders voorjaar",
+        Inkoop.Add(new Factuurdata(true, Drukkerij, N("DP-6610"), new(2026, 1, 12), new(2026, 1, 26), "Folders voorjaar",
             [new Regeldata("Folders A5, 5000 stuks", 1, 640m, "V21", "4400", "I21")], Formaat.Pdf, Betaalwijze.MinCredit));
-        Inkoop.Add(new Factuurdata(true, Drukkerij, "DP-6611", new(2026, 1, 14), new(2026, 1, 28), "Drukfout folders",
-            [new Regeldata("Korting drukfout folders", 1, 120m, "V21", "4400", "I21")], Formaat.Pdf, Betaalwijze.Verrekend, Credit: true, CreditVoor: "DP-6610"));
-        Inkoop.Add(new Factuurdata(true, Drukkerij, "DP-6702", new(2026, 2, 16), new(2026, 3, 2), "Posters",
+        Inkoop.Add(new Factuurdata(true, Drukkerij, N("DP-6611"), new(2026, 1, 14), new(2026, 1, 28), "Drukfout folders",
+            [new Regeldata("Korting drukfout folders", 1, 120m, "V21", "4400", "I21")], Formaat.Pdf, Betaalwijze.Verrekend, Credit: true, CreditVoor: N("DP-6610")));
+        Inkoop.Add(new Factuurdata(true, Drukkerij, N("DP-6702"), new(2026, 2, 16), new(2026, 3, 2), "Posters",
             [new Regeldata("Posters A2", 25, 6.80m, "V21", "4400", "I21")], Formaat.Pdf, Betaalwijze.Nummer));
-        Inkoop.Add(new Factuurdata(true, Drukkerij, "DP-6788", new(2026, 3, 10), new(2026, 3, 24), "Visitekaartjes",
+        Inkoop.Add(new Factuurdata(true, Drukkerij, N("DP-6788"), new(2026, 3, 10), new(2026, 3, 24), "Visitekaartjes",
             [new Regeldata("Visitekaartjes", 2, 64.50m, "V21", "4400", "I21")], Formaat.Pdf, Betaalwijze.Nummer));
 
-        Inkoop.Add(new Factuurdata(true, Verzekeraar, "POL-2026-118", new(2026, 1, 3), new(2026, 1, 31), "Bedrijfsverzekering 1e kwartaal",
-            [new Regeldata("Inventaris- en aansprakelijkheidsverzekering", 1, 1_245.60m, "VVR", "4500", "I0")], Formaat.Ubl, Betaalwijze.Kenmerk, Kenmerk: Betalingskenmerk.Maak("8201261180001")));
-        Inkoop.Add(new Factuurdata(true, Cijfers, "AC-2026-0042", new(2026, 3, 30), new(2026, 4, 30), "Samenstellen jaarrekening 2025",
+        Inkoop.Add(new Factuurdata(true, Verzekeraar, N("POL-2026-118"), new(2026, 1, 3), new(2026, 1, 31), "Bedrijfsverzekering 1e kwartaal",
+            [new Regeldata("Inventaris- en aansprakelijkheidsverzekering", 1, 1_245.60m, "VVR", "4500", "I0")], Formaat.Ubl, Betaalwijze.Kenmerk, Kenmerk: Betalingskenmerk.Maak($"82012611800{ronde + 1:00}")));
+        Inkoop.Add(new Factuurdata(true, Cijfers, N("AC-2026-0042"), new(2026, 3, 30), new(2026, 4, 30), "Samenstellen jaarrekening 2025",
             [new Regeldata("Samenstellen jaarrekening 2025", 1, 1_850m, "V21", "4600", "I21")], Formaat.Pdf, Betaalwijze.Open));
 
         // Kantoorvakhandel: één factuur per abuis twee keer betaald; de leverancier betaalt terug.
         for (var i = 0; i < 12; i++)
         {
             var datum = Begin.AddDays(8 + i * 7);
-            Inkoop.Add(new Factuurdata(true, Kantoor, $"KV/{26}/{0150 + i:0000}", datum, datum.AddDays(14), "Kantoorartikelen",
+            Inkoop.Add(new Factuurdata(true, Kantoor, N($"KV/{26}/{0150 + i:0000}"), datum, datum.AddDays(14), "Kantoorartikelen",
                 [new Regeldata("Kantoorartikelen", 1, Prijs(25, 240), "V21", "4300", "I21")], Formaat.Pdf, i == 4 ? Betaalwijze.Dubbel : Betaalwijze.Nummer));
         }
 
         // Reclamebureau: de eerste betaald met 2% korting, de tweede nog open.
-        Inkoop.Add(new Factuurdata(true, Reclame, "RV-2026-007", new(2026, 1, 20), new(2026, 2, 19), "Campagne voorjaar",
+        Inkoop.Add(new Factuurdata(true, Reclame, N("RV-2026-007"), new(2026, 1, 20), new(2026, 2, 19), "Campagne voorjaar",
             [new Regeldata("Ontwerp campagne voorjaar", 1, 950m, "V21", "4400", "I21")], Formaat.Pdf, Betaalwijze.Korting));
-        Inkoop.Add(new Factuurdata(true, Reclame, "RV-2026-019", new(2026, 3, 23), new(2026, 4, 22), "Social media maart",
+        Inkoop.Add(new Factuurdata(true, Reclame, N("RV-2026-019"), new(2026, 3, 23), new(2026, 4, 22), "Social media maart",
             [new Regeldata("Social media maart", 1, 1_400m, "V21", "4400", "I21")], Formaat.Pdf, Betaalwijze.Open));
 
-        if (Inkoop.Count != 100)
-        {
-            throw new InvalidOperationException($"{Inkoop.Count} inkoopfacturen in plaats van 100.");
-        }
     }
 
     // ---------------------------------------------------------------- verkoop
@@ -414,66 +441,79 @@ internal sealed class Praktijkset
         public Gepland? CreditVoor { get; } = creditVoor;
 
         public string Nummer { get; set; } = "";
+
+        public int Ronde { get; set; }
     }
 
     private void MaakVerkoop()
     {
         var planning = new List<Gepland>();
-        void Plan(Partijdata klant, int aantal, int start, int stap, Func<int, IReadOnlyList<Regeldata>> regels, Func<int, Betaalwijze> betaling)
+        for (ronde = 0; ronde < Rondes; ronde++)
         {
-            for (var i = 0; i < aantal; i++)
+            var eersteVanRonde = planning.Count;
+            void Plan(Partijdata klant, int aantal, int start, int stap, Func<int, IReadOnlyList<Regeldata>> regels, Func<int, Betaalwijze> betaling)
             {
-                planning.Add(new Gepland(klant, Begin.AddDays(start + i * stap), regels(i), betaling(i), Formaat.Ubl));
-            }
-        }
-
-        Plan(Fietsplan, 13, 3, 6, _ => [new Regeldata("E-bike leasefiets", Aantal(1, 3), Prijs(1_850, 3_200), "V21", "8010", "V21")], _ => Betaalwijze.Som);
-        Plan(Hotel, 6, 5, 14, _ => [new Regeldata("Onderhoud huurfietsen", Aantal(6, 12), 45m, "V9", "8000", "V9"), new Regeldata("Onderdelen", 1, Prijs(50, 200), "V21", "8010", "V21")],
-            i => i < 3 ? Betaalwijze.Som : Betaalwijze.Kenmerk);
-        Plan(Bezorg, 8, 4, 10, _ => [new Regeldata("Bakfiets elektrisch", 1, Prijs(2_400, 3_600), "V21", "8010", "V21"), new Regeldata("Reparatie en afstellen", 1, Prijs(60, 140), "V9", "8000", "V9")],
-            i => i == 2 ? Betaalwijze.Deel : Betaalwijze.Kenmerk);
-        Plan(Sportclub, 4, 9, 18, _ => [new Regeldata("Clubfietsen", Aantal(2, 4), Prijs(450, 700), "V21", "8010", "V21")], i => i == 1 ? Betaalwijze.Dubbel : Betaalwijze.Kenmerk);
-        Plan(Zorg, 4, 11, 19, _ => [new Regeldata("Driewielfiets", 1, Prijs(1_400, 2_100), "V21", "8010", "V21")], i => i == 1 ? Betaalwijze.MinCredit : Betaalwijze.Nummer);
-        Plan(Steen, 4, 6, 20, _ => [new Regeldata("Bedrijfsfiets", Aantal(1, 3), Prijs(900, 1_300), "V21", "8010", "V21")], i => i == 2 ? Betaalwijze.Verschil : Betaalwijze.Kenmerk);
-        Plan(Strand, 5, 8, 16, _ => [new Regeldata("Huurfiets", Aantal(4, 10), Prijs(520, 640), "V21", "8010", "V21")], i => i == 3 ? Betaalwijze.Korting : Betaalwijze.Kenmerk);
-        Plan(Muller, 3, 10, 25, _ => [new Regeldata("Lastenrad", Aantal(2, 4), Prijs(2_100, 2_600), "VEU", "8010", "VEU")], _ => Betaalwijze.Nummer);
-        Plan(Velo, 2, 20, 45, _ => [new Regeldata("E-bike Trekking", Aantal(3, 5), Prijs(2_300, 2_800), "VEX", "8010", "VEX")], i => i == 0 ? Betaalwijze.Nummer : Betaalwijze.Open);
-        Plan(School, 2, 13, 35, _ => [new Regeldata("Schoolfietsen", Aantal(5, 12), Prijs(420, 560), "V21", "8010", "V21")], _ => Betaalwijze.Kenmerk);
-
-        // Particulieren: reparaties (9%) en fietsen (21%); een paar betalen niet, J. de Vries één keer via de rekening van de partner.
-        for (var p = 0; p < Particulieren.Length; p++)
-        {
-            var aantal = p < 5 ? 5 : 4;
-            for (var i = 0; i < aantal; i++)
-            {
-                var betaling = (p, i) switch
+                for (var i = 0; i < aantal; i++)
                 {
-                    (0, 2) => Betaalwijze.AnderIban,
-                    (3, 3) or (6, 3) or (8, 3) => Betaalwijze.Open,
-                    _ when i % 2 == 1 => Betaalwijze.Nummer,
-                    _ => Betaalwijze.Kenmerk,
-                };
-                IReadOnlyList<Regeldata> regels = (p + i) % 3 == 0
-                    ? [new Regeldata("Stadsfiets", 1, Prijs(600, 1_400), "V21", "8010", "V21"), new Regeldata("Ringslot", 1, 34.95m, "V21", "8010", "V21")]
-                    : [new Regeldata("Reparatie fiets", 1, Prijs(35, 180), "V9", "8000", "V9")];
-                planning.Add(new Gepland(Particulieren[p], Begin.AddDays(2 + p * 3 + i * 15), regels, betaling, i == 1 ? Formaat.Pdf : Formaat.Ubl));
+                    planning.Add(new Gepland(klant, Begin.AddDays(start + i * stap), regels(i), betaling(i), Formaat.Ubl));
+                }
+            }
+
+            Plan(Fietsplan, 13, 3, 6, _ => [new Regeldata("E-bike leasefiets", Aantal(1, 3), Prijs(1_850, 3_200), "V21", "8010", "V21")], _ => Betaalwijze.Som);
+            Plan(Hotel, 6, 5, 14, _ => [new Regeldata("Onderhoud huurfietsen", Aantal(6, 12), 45m, "V9", "8000", "V9"), new Regeldata("Onderdelen", 1, Prijs(50, 200), "V21", "8010", "V21")],
+                i => i < 3 ? Betaalwijze.Som : Betaalwijze.Kenmerk);
+            Plan(Bezorg, 8, 4, 10, _ => [new Regeldata("Bakfiets elektrisch", 1, Prijs(2_400, 3_600), "V21", "8010", "V21"), new Regeldata("Reparatie en afstellen", 1, Prijs(60, 140), "V9", "8000", "V9")],
+                i => i == 2 ? Betaalwijze.Deel : Betaalwijze.Kenmerk);
+            Plan(Sportclub, 4, 9, 18, _ => [new Regeldata("Clubfietsen", Aantal(2, 4), Prijs(450, 700), "V21", "8010", "V21")], i => i == 1 ? Betaalwijze.Dubbel : Betaalwijze.Kenmerk);
+            Plan(Zorg, 4, 11, 19, _ => [new Regeldata("Driewielfiets", 1, Prijs(1_400, 2_100), "V21", "8010", "V21")], i => i == 1 ? Betaalwijze.MinCredit : Betaalwijze.Nummer);
+            Plan(Steen, 4, 6, 20, _ => [new Regeldata("Bedrijfsfiets", Aantal(1, 3), Prijs(900, 1_300), "V21", "8010", "V21")], i => i == 2 ? Betaalwijze.Verschil : Betaalwijze.Kenmerk);
+            Plan(Strand, 5, 8, 16, _ => [new Regeldata("Huurfiets", Aantal(4, 10), Prijs(520, 640), "V21", "8010", "V21")], i => i == 3 ? Betaalwijze.Korting : Betaalwijze.Kenmerk);
+            Plan(Muller, 3, 10, 25, _ => [new Regeldata("Lastenrad", Aantal(2, 4), Prijs(2_100, 2_600), "VEU", "8010", "VEU")], _ => Betaalwijze.Nummer);
+            Plan(Velo, 2, 20, 45, _ => [new Regeldata("E-bike Trekking", Aantal(3, 5), Prijs(2_300, 2_800), "VEX", "8010", "VEX")], i => i == 0 ? Betaalwijze.Nummer : Betaalwijze.Open);
+            Plan(School, 2, 13, 35, _ => [new Regeldata("Schoolfietsen", Aantal(5, 12), Prijs(420, 560), "V21", "8010", "V21")], _ => Betaalwijze.Kenmerk);
+
+            // Particulieren: reparaties (9%) en fietsen (21%); een paar betalen niet, J. de Vries één keer via de rekening van de partner.
+            for (var p = 0; p < Particulieren.Length; p++)
+            {
+                var aantal = p < 5 ? 5 : 4;
+                for (var i = 0; i < aantal; i++)
+                {
+                    var betaling = (p, i) switch
+                    {
+                        (0, 2) => Betaalwijze.AnderIban,
+                        (3, 3) or (6, 3) or (8, 3) => Betaalwijze.Open,
+                        _ when i % 2 == 1 => Betaalwijze.Nummer,
+                        _ => Betaalwijze.Kenmerk,
+                    };
+                    IReadOnlyList<Regeldata> regels = (p + i) % 3 == 0
+                        ? [new Regeldata("Stadsfiets", 1, Prijs(600, 1_400), "V21", "8010", "V21"), new Regeldata("Ringslot", 1, 34.95m, "V21", "8010", "V21")]
+                        : [new Regeldata("Reparatie fiets", 1, Prijs(35, 180), "V9", "8000", "V9")];
+                    planning.Add(new Gepland(Particulieren[p], Begin.AddDays(2 + p * 3 + i * 15), regels, betaling, i == 1 ? Formaat.Pdf : Formaat.Ubl));
+                }
+            }
+
+            // Vier creditnota's: Zorginstelling (verrekend in de betaling), Scholengemeenschap en A. Bakker (terugbetaald) en
+            // Fietsplan (in de sombetaling van de maand).
+            void Credit(Partijdata klant, Func<Gepland, bool> welke, Betaalwijze betaling, decimal deel)
+            {
+                var bron = planning.Skip(eersteVanRonde).First(f => f.Klant == klant && f.CreditVoor is null && welke(f));
+                var regel = bron.Regels[0];
+                planning.Add(new Gepland(klant, bron.Datum.AddDays(3),
+                    [regel with { Omschrijving = $"Creditering {regel.Omschrijving.ToLowerInvariant()}", Aantal = 1, Prijs = Math.Round(regel.Prijs * deel, 2) }], betaling, Formaat.Ubl, bron));
+            }
+
+            Credit(Zorg, f => f.Betaling == Betaalwijze.MinCredit, Betaalwijze.Verrekend, 0.25m);
+            Credit(School, _ => true, Betaalwijze.Terugbetaald, 0.10m);
+            Credit(Particulieren[1], f => f.Regels[0].Papiercode == "V21", Betaalwijze.Terugbetaald, 1m);
+            Credit(Fietsplan, _ => true, Betaalwijze.Som, 0.20m);
+
+            foreach (var g in planning.Skip(eersteVanRonde))
+            {
+                g.Ronde = ronde;
             }
         }
 
-        // Vier creditnota's: Zorginstelling (verrekend in de betaling), Scholengemeenschap en A. Bakker (terugbetaald) en
-        // Fietsplan (in de sombetaling van de maand).
-        void Credit(Partijdata klant, Func<Gepland, bool> welke, Betaalwijze betaling, decimal deel)
-        {
-            var bron = planning.First(f => f.Klant == klant && f.CreditVoor is null && welke(f));
-            var regel = bron.Regels[0];
-            planning.Add(new Gepland(klant, bron.Datum.AddDays(3),
-                [regel with { Omschrijving = $"Creditering {regel.Omschrijving.ToLowerInvariant()}", Aantal = 1, Prijs = Math.Round(regel.Prijs * deel, 2) }], betaling, Formaat.Ubl, bron));
-        }
-
-        Credit(Zorg, f => f.Betaling == Betaalwijze.MinCredit, Betaalwijze.Verrekend, 0.25m);
-        Credit(School, _ => true, Betaalwijze.Terugbetaald, 0.10m);
-        Credit(Particulieren[1], f => f.Regels[0].Papiercode == "V21", Betaalwijze.Terugbetaald, 1m);
-        Credit(Fietsplan, _ => true, Betaalwijze.Som, 0.20m);
+        ronde = 0;
 
         // Het kassapakket nummert door op datum.
         var nummer = 0;
@@ -482,12 +522,12 @@ internal sealed class Praktijkset
             f.Nummer = $"VF26-{++nummer:0000}";
             var credit = f.CreditVoor is not null;
             Verkoop.Add(new Factuurdata(false, f.Klant, f.Nummer, f.Datum, credit ? f.Datum : f.Datum.AddDays(14), credit ? $"Creditnota bij {f.CreditVoor!.Nummer}" : $"Factuur {f.Nummer}",
-                f.Regels, f.Formaat, f.Betaling, Credit: credit, CreditVoor: f.CreditVoor?.Nummer, Kenmerk: credit ? null : Betalingskenmerk.Maak(f.Nummer)));
+                f.Regels, f.Formaat, f.Betaling, Credit: credit, CreditVoor: f.CreditVoor?.Nummer, Kenmerk: credit ? null : Betalingskenmerk.Maak(f.Nummer), Ronde: f.Ronde));
         }
 
-        if (Verkoop.Count != 100 || Verkoop.Any(f => f.Datum > new DateOnly(2026, 3, 31)))
+        if (Verkoop.Count != 100 * Rondes || Verkoop.Any(f => f.Datum > new DateOnly(2026, 3, 31)))
         {
-            throw new InvalidOperationException($"{Verkoop.Count} verkoopfacturen in plaats van 100, of een na het kwartaal.");
+            throw new InvalidOperationException($"{Verkoop.Count} verkoopfacturen in plaats van {100 * Rondes}, of een na het kwartaal.");
         }
     }
 
@@ -557,7 +597,7 @@ internal sealed class Praktijkset
                         Betaal.Add(Post(new DateOnly(2026, 4, 14), -f.Totaal, f.Partij, $"Terugbetaling dubbel betaald {f.Nummer}", Afhandeling.Op(f.Nummer) with { Toelichting = $"Terugbetaling: afletteren op {f.Nummer}" }));
                         break;
                     case Betaalwijze.MinCredit:
-                        var credit = Verkoop.Single(c => c.Credit && c.Partij == f.Partij);
+                        var credit = Verkoop.Single(c => c.Credit && c.Partij == f.Partij && c.Ronde == f.Ronde);
                         Betaal.Add(Post(Max(dag, credit.Datum.AddDays(2)), f.Totaal - credit.Totaal, f.Partij, $"Factuur {f.Nummer} minus creditnota {credit.Nummer}", Afhandeling.Op(f.Nummer, credit.Nummer)));
                         break;
                     case Betaalwijze.Verschil:
@@ -577,16 +617,18 @@ internal sealed class Praktijkset
         }
 
         // Sombetalingen: Fietsplan per maand met de nummers (en de creditnota), Hotel de eerste drie zonder nummers.
-        foreach (var maand in Verkoop.Where(f => f.Partij == Fietsplan).GroupBy(f => f.Datum.Month))
+        foreach (var maand in Verkoop.Where(f => f.Partij == Fietsplan).GroupBy(f => (f.Datum.Month, f.Ronde)))
         {
             var lijst = maand.ToList();
-            var dag = new DateOnly(2026, maand.Key, 1).AddMonths(1).AddDays(9);
+            var dag = new DateOnly(2026, maand.Key.Month, 1).AddMonths(1).AddDays(9);
             Betaal.Add(Post(dag, lijst.Sum(f => f.Getekend), Fietsplan, $"Facturen {string.Join(" ", lijst.Select(f => f.Nummer))}", Afhandeling.Op([.. lijst.Select(f => f.Nummer)])));
         }
 
-        var hotel = Verkoop.Where(f => f.Partij == Hotel && f.Betaling == Betaalwijze.Som).ToList();
-        Betaal.Add(Post(hotel[^1].Datum.AddDays(12), hotel.Sum(f => f.Totaal), Hotel, "Betaling openstaande facturen",
-            Afhandeling.Op([.. hotel.Select(f => f.Nummer)]) with { Toelichting = $"Som zonder factuurnummers: afletteren op {string.Join(", ", hotel.Select(f => f.Nummer))}" }));
+        foreach (var hotel in Verkoop.Where(f => f.Partij == Hotel && f.Betaling == Betaalwijze.Som).GroupBy(f => f.Ronde).Select(g => g.ToList()))
+        {
+            Betaal.Add(Post(hotel[^1].Datum.AddDays(12), hotel.Sum(f => f.Totaal), Hotel, "Betaling openstaande facturen",
+                Afhandeling.Op([.. hotel.Select(f => f.Nummer)]) with { Toelichting = $"Som zonder factuurnummers: afletteren op {string.Join(", ", hotel.Select(f => f.Nummer))}" }));
+        }
 
         // Creditnota's terugbetaald.
         foreach (var c in Verkoop.Where(f => f.Credit && f.Betaling == Betaalwijze.Terugbetaald))
@@ -627,7 +669,7 @@ internal sealed class Praktijkset
                     Betaal.Add(Post(dag.AddDays(25), f.Totaal, f.Partij, $"Terugbetaling dubbel betaald {f.Nummer}", Afhandeling.Op(f.Nummer)));
                     break;
                 case Betaalwijze.MinCredit:
-                    var credit = Inkoop.Single(c => c.Credit && c.Partij == f.Partij);
+                    var credit = Inkoop.Single(c => c.Credit && c.Partij == f.Partij && c.Ronde == f.Ronde);
                     Betaal.Add(Post(Max(f.Datum, credit.Datum).AddDays(8), -(f.Totaal - credit.Totaal), f.Partij, $"Factuur {f.Nummer} minus creditnota {credit.Nummer}", Afhandeling.Op(f.Nummer, credit.Nummer)));
                     break;
                 case Betaalwijze.Korting:
@@ -779,8 +821,10 @@ internal sealed class Praktijkset
         }
 
         // Dezelfde factuur komt twee weken later nog eens binnen (doorgestuurd uit de mail): hetzelfde bestand.
-        var dubbel = Inkoop.First(f => f.Partij == Kantoor && f.Datum.Month == 2);
-        uit.Add(new Praktijkbestand("inkoop", $"{dubbel.Datum.AddDays(14):yyyy-MM-dd} Doorgestuurd {Veilig(dubbel.Nummer)}.pdf", uit.Single(b => b.Naam == dubbel.Bestandsnaam).Inhoud));
+        foreach (var dubbel in Inkoop.Where(f => f.Partij == Kantoor && f.Datum.Month == 2).GroupBy(f => f.Ronde).Select(g => g.First()))
+        {
+            uit.Add(new Praktijkbestand("inkoop", $"{dubbel.Datum.AddDays(14):yyyy-MM-dd} Doorgestuurd {Veilig(dubbel.Nummer)}.pdf", uit.Single(b => b.Naam == dubbel.Bestandsnaam).Inhoud));
+        }
         foreach (var f in Verkoop)
         {
             uit.Add(new Praktijkbestand("verkoop", f.Bestandsnaam, Document(f, Eigen, f.Partij)));
