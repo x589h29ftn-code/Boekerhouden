@@ -14,6 +14,13 @@ internal sealed class OpenpostenVensterExtern : Form
         StartPosition = FormStartPosition.WindowsDefaultLocation;
         var webview = new BlazorWebView { Dock = DockStyle.Fill, HostPage = Path.Combine("wwwroot", "index.html"), Services = diensten };
         webview.RootComponents.Add<OpenpostenExtern>("#app", new Dictionary<string, object?> { [nameof(OpenpostenExtern.Administratie)] = administratie });
+        webview.BlazorWebViewInitialized += (_, e) => Vensterstijl.Pas(e.WebView.CoreWebView2);
         Controls.Add(webview);
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        Vensterstijl.Titelbalk(Handle);
     }
 }

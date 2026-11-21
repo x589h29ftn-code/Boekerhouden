@@ -22,6 +22,14 @@ internal static class Program
         var map = proef ?? LokaleApp.StandaardMap;
         Directory.CreateDirectory(map);
         Foutlog.Map = map;
+
+        // Eén Sifer tegelijk: een tweede start (bijv. dubbelklikken op een afschrift) geeft zijn bestanden aan de eerste.
+        var bestanden = proef is null ? Openen.Bestanden(args) : [];
+        Mutex? slot = null;
+        if (proef is null && Openen.AlGestart(map, bestanden, out slot))
+        {
+            return 0;
+        }
         Application.ThreadException += (_, e) => Foutlog.Toon(e.Exception);
         AppDomain.CurrentDomain.UnhandledException += (_, e) => Foutlog.Schrijf(e.ExceptionObject as Exception);
 
@@ -39,6 +47,11 @@ internal static class Program
 
         // Alle vensters (de app, de losse factuurviewer) delen hetzelfde profiel, zodat ze met elkaar kunnen praten.
         Environment.SetEnvironmentVariable("WEBVIEW2_USER_DATA_FOLDER", Path.Combine(map, "venster"));
+
+        if (proef is null)
+        {
+            Openen.Registreer();
+        }
 
         var werkwijze = proef is not null
             ? new Werkwijze(args.Contains("--kantoorserver") ? Werkwijzestand.Kantoorserver : Werkwijzestand.Alleen)
@@ -63,16 +76,23 @@ internal static class Program
             }
         }
 
-        return werkwijze.Stand switch
+        try
         {
-            Werkwijzestand.Kantoorserver => AlsKantoorserver(map, werkwijze, proef),
-            Werkwijzestand.Werkplek when Uri.TryCreate(werkwijze.Server, UriKind.Absolute, out var server) => AlsWerkplek(map, werkwijze, server),
-            _ => Alleen(map, proef),
-        };
+            return werkwijze.Stand switch
+            {
+                Werkwijzestand.Kantoorserver => AlsKantoorserver(map, werkwijze, proef, bestanden),
+                Werkwijzestand.Werkplek when Uri.TryCreate(werkwijze.Server, UriKind.Absolute, out var server) => AlsWerkplek(map, werkwijze, server, bestanden),
+                _ => Alleen(map, proef, bestanden),
+            };
+        }
+        finally
+        {
+            slot?.Dispose();
+        }
     }
 
     /// <summary>Alleen op deze pc: de schermen rechtstreeks op het eigen gegevensbestand.</summary>
-    private static int Alleen(string map, string? proef)
+    private static int Alleen(string map, string? proef, IReadOnlyList<string> bestanden)
     {
         var services = new ServiceCollection();
         services.AddWindowsFormsBlazorWebView();
@@ -93,7 +113,8 @@ internal static class Program
 
         // De proef vult vooraf een administratie met twee jaar gegevens, zodat de schermen iets te tonen hebben.
         var proefgegevens = proef is null ? null : Proef.Voorbereiden(diensten).GetAwaiter().GetResult();
-        using var venster = new HoofdVenster(diensten, proef, proefgegevens);
+        using var venster = new HoofdVenster(diensten, map, proef, proefgegevens);
+        Begin(venster, map, proef, bestanden);
         Application.Run(venster);
         return venster.Uitslag;
     }
@@ -102,7 +123,7 @@ internal static class Program
     /// Deze pc deelt zijn gegevens: eerst de gewone start (update, reservekopie, de gebruiker van deze pc) en de eigen
     /// werkplek, dan de server in dit proces, en het venster als werkplek van die server.
     /// </summary>
-    private static int AlsKantoorserver(string map, Werkwijze werkwijze, string? proef)
+    private static int AlsKantoorserver(string map, Werkwijze werkwijze, string? proef, IReadOnlyList<string> bestanden)
     {
         var sleutel = Werkplekopslag.Sleutel(map);
         Proefuitkomst? proefgegevens = null;
@@ -134,6 +155,7 @@ internal static class Program
         try
         {
             using var venster = new Kantoorvenster(new Uri($"https://localhost:{werkwijze.Poort}/"), sleutel, Kantoorserver.Certificaatvingerafdruk, map, werkwijze, server: true, proef, proefgegevens);
+            Begin(venster, map, proef, bestanden);
             Application.Run(venster);
             return venster.Uitslag;
         }
@@ -144,9 +166,10 @@ internal static class Program
     }
 
     /// <summary>De gegevens staan op de kantoor-pc: alleen het venster, verbonden met die server.</summary>
-    private static int AlsWerkplek(string map, Werkwijze werkwijze, Uri server)
+    private static int AlsWerkplek(string map, Werkwijze werkwijze, Uri server, IReadOnlyList<string> bestanden)
     {
         using var venster = new Kantoorvenster(server, Werkplekopslag.Sleutel(map), werkwijze.Certificaat, map, werkwijze, server: false);
+        Begin(venster, map, null, bestanden);
         Application.Run(venster);
         return venster.Uitslag;
     }
@@ -165,6 +188,18 @@ internal static class Program
 
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         return gegevens;
+    }
+
+    /// <summary>De bestanden van de opdrachtregel, en luisteren naar een volgende start (niet bij de proef).</summary>
+    private static void Begin(Proefvenster venster, string map, string? proef, IReadOnlyList<string> bestanden)
+    {
+        if (proef is not null)
+        {
+            return;
+        }
+
+        venster.Open(bestanden);
+        Openen.Luister(map, venster.Open);
     }
 
     private static void Meld(IReadOnlyList<string> meldingen, string? proef)

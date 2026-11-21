@@ -42,7 +42,13 @@ internal sealed class Kantoorvenster : Proefvenster
         verbinding = new Werkplekverbinding(adres, sleutel, certificaat);
         Text = Naam;
         Icon = Merk.Icoon ?? Icon;
-        ZetMaat(proefmap is not null);
+        ZetMaat(proefmap is not null, map);
+        webview.DefaultBackgroundColor = Vensterstijl.Achtergrond(Donker);
+        paneel.BackColor = Vensterstijl.Achtergrond(Donker);
+        if (Donker)
+        {
+            (kop.ForeColor, tekst.ForeColor, code.ForeColor) = (Color.FromArgb(229, 231, 235), Color.FromArgb(156, 163, 175), Color.FromArgb(147, 177, 230));
+        }
 
         var inhoud = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, Location = new Point(64, 64) };
         tekst.Margin = new Padding(3, 10, 3, 0);
@@ -86,7 +92,8 @@ internal sealed class Kantoorvenster : Proefvenster
         }
 
         var kern = webview.CoreWebView2;
-        kern.Settings.AreDevToolsEnabled = false;
+        Vensterstijl.Pas(kern, ZetThema);
+        Koppel(kern);
 
         // Het certificaat van de kantoorserver is door niemand ondertekend: alleen het vastgelegde certificaat mag.
         kern.ServerCertificateErrorDetected += (_, e) =>

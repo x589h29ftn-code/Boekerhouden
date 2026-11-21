@@ -13,6 +13,8 @@
     <Product>Sifer</Product>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationIcon>sifer.ico</ApplicationIcon>
+    <!-- De titelbalk in de kleur van de app (DwmSetWindowAttribute via LibraryImport). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

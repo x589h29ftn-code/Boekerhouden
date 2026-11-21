@@ -69,7 +69,7 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
 - `src/Boekerhouden.Administratie.Windows` – de Windows-app voor de tests: WinForms met BlazorWebView (dezelfde
   schermen, geen webserver), SQLite in `%LOCALAPPDATA%`, geen inloggen; als kantoorserver start hij de webapp in zijn
   eigen proces en is het venster (`Kantoorvenster`, WebView2) een werkplek van die server, net als op de andere pc's
-  (`Werkplekopslag` = de sleutel van de werkplek, DPAPI; `Startkeuze` = de keuze bij de eerste start). Bouwt op Linux (`EnableWindowsTargeting`),
+  (`Werkplekopslag` = de sleutel van de werkplek, DPAPI; `Startkeuze` = de keuze bij de eerste start; `Vensterstijl` = titelbalk in de kleur van de app, geen browsermenu, F5 en statusbalk, het script voor thema en openen; `Vensterplek` (in `Lokaal/`) = plek en maat van het venster onthouden; `Openen` = één Sifer tegelijk, bestanden openen vanuit Windows (Openen met, dubbelklik) via `window.siferOpen`). Bouwt op Linux (`EnableWindowsTargeting`),
   draait alleen op Windows. `scripts/maak-windows-app.ps1` / `.sh` maken de zip; de CI ook, en start hem op Windows.
 - De database bestaat in twee smaken: PostgreSQL (`Data/Migraties`) en SQLite (`SqliteAdministratieDbContext`,
   `Data/MigratiesSqlite`). Na een modelwijziging in het administratiepakket beide migraties maken.

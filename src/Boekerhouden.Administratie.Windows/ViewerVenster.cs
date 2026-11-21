@@ -19,8 +19,18 @@ internal sealed class ViewerVenster : Form
             [nameof(LosseViewer.Document)] = document,
         });
         // Zoomen (Ctrl+wiel, Ctrl+/-) doet de viewer zelf, op de factuur; het venster zelf zoomt dus niet mee.
-        webview.BlazorWebViewInitialized += (_, e) => e.WebView.CoreWebView2.Settings.IsZoomControlEnabled = false;
+        webview.BlazorWebViewInitialized += (_, e) =>
+        {
+            Vensterstijl.Pas(e.WebView.CoreWebView2);
+            e.WebView.CoreWebView2.Settings.IsZoomControlEnabled = false;
+        };
         Controls.Add(webview);
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        Vensterstijl.Titelbalk(Handle);
     }
 
     /// <summary>Gesloten omdat het volgende document in een nieuw venster op dezelfde plek staat (niet door de gebruiker).</summary>
