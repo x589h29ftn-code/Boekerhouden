@@ -64,8 +64,8 @@ public sealed class JournaalTests
         Assert.Contains("Dagboek XXX bestaat niet.", fouten);
         Assert.Contains("Geef de boeking een boekstuknummer.", fouten);
         Assert.Contains("Geef de boeking een omschrijving.", fouten);
-        Assert.Contains("Regel 1 heeft een onbekende rekening.", fouten);
-        Assert.Contains("Regel 2 heeft geen bedrag.", fouten);
+        Assert.Contains(fouten, f => f.StartsWith("Regel 1 heeft een onbekende rekening. Kies een rekening", StringComparison.Ordinal));
+        Assert.Contains("Regel 2 heeft geen bedrag. Vul een bedrag in of haal de regel weg.", fouten);
         Assert.Contains("Regel 3 heeft meer dan twee decimalen.", fouten);
         Assert.Contains(fouten, f => f.StartsWith("De boeking is niet in evenwicht", StringComparison.Ordinal));
         Assert.Throws<ArgumentException>(() => journaal.Boek(post));

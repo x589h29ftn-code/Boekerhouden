@@ -126,15 +126,20 @@
                             </tr>
                         }
                     </tbody>
+                    @* Het totaal telt alleen de geboekte facturen; staan er alleen nog te verwerken facturen, dan geen totaal
+                       (anders staat er "0 facturen" onder een lijst met facturen). *@
+                    @if (zichtbaar.Any(r => r.Status == Verkoopstatus.Definitief))
+                    {
                     <tfoot>
                         <tr class="generaal">
-                            <td colspan="@(magInvoeren ? 6 : 5)">Totaal (@Aantal(zichtbaar.Count(r => r.Status == Verkoopstatus.Definitief)))</td>
+                            <td colspan="@(magInvoeren ? 6 : 5)" title="Alleen de definitieve (geboekte) facturen">Totaal geboekt (@Aantal(zichtbaar.Count(r => r.Status == Verkoopstatus.Definitief)))</td>
                             <td class="bedrag text-end">@Weergave.Bedrag(zichtbaar.Where(r => r.Status == Verkoopstatus.Definitief).Sum(r => r.Exclusief))</td>
                             <td class="bedrag text-end">@Weergave.Bedrag(zichtbaar.Where(r => r.Status == Verkoopstatus.Definitief).Sum(r => r.Totaal))</td>
                             <td class="bedrag text-end">@Weergave.Bedrag(zichtbaar.Sum(r => r.Openstaand ?? 0m))</td>
                             <td></td>
                         </tr>
                     </tfoot>
+                    }
                 </table>
             </div>
             @if (gekozen.Count > 0)

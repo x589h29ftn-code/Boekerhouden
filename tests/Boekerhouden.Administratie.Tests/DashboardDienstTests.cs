@@ -234,4 +234,28 @@ public sealed class DashboardDienstTests(VasteDagFixture app) : IClassFixture<Va
         Assert.Equal("liquide,btw:kwartaal,maandgrafiek:kosten", Widgetkeuze.Schrijf(gelezen));
         Assert.Empty(Widgetkeuze.Lees(null));
     }
+
+    [Fact]
+    public async Task Aan_de_slag_vinkt_de_eerste_stappen_af_en_verdwijnt_als_alles_gedaan_is()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Aan De Slag B.V.");
+        var dashboard = app.Dienst<DashboardDienst>();
+
+        var stappen = await dashboard.Startstappen(wie, id);
+        Assert.Equal(["Gegevens van de onderneming", "Eigen bankrekening", "Beginbalans", "Eerste bankafschrift", "Eerste factuur"], stappen.Select(s => s.Naam));
+        Assert.All(stappen, s => Assert.False(s.Klaar && s.Naam == "Beginbalans"));
+
+        // Een afschrift inlezen vinkt die stap af (het IBAN van het afschrift komt bij het bankdagboek).
+        Assert.True((await app.Dienst<BankDienst>().Lees(wie, id, BankTests.Afschrift(), "ing.mt940")).IsGelukt);
+        stappen = await dashboard.Startstappen(wie, id);
+        Assert.True(stappen.Single(s => s.Naam == "Eerste bankafschrift").Klaar);
+        Assert.True(stappen.Single(s => s.Naam == "Eigen bankrekening").Klaar);
+        Assert.False(stappen.Single(s => s.Naam == "Beginbalans").Klaar);
+
+        // Wie geen lid is, krijgt niets.
+        var buiten = await app.Gebruiker("Bert Buiten Dashboard");
+        await Assert.ThrowsAsync<GeenToegangException>(() => dashboard.Startstappen(buiten, id));
+    }
 }
+

@@ -77,7 +77,7 @@ public sealed class BoekenTests(AdministratieFixture app) : IClassFixture<Admini
 
         var uitkomst = await grootboek.Boek(wie, id, Post("2026-0001", new(2026, 1, 2), ("1100", 10m), ("9999", -9m)));
 
-        Assert.Contains("Regel 2 heeft een onbekende rekening.", uitkomst.Fouten);
+        Assert.Contains(uitkomst.Fouten, f => f.StartsWith("Regel 2 heeft een onbekende rekening.", StringComparison.Ordinal));
         Assert.Contains(uitkomst.Fouten, f => f.StartsWith("De boeking is niet in evenwicht", StringComparison.Ordinal));
         Assert.Contains("Boekstuk 2026-0001 bestaat al in dagboek MEM.", uitkomst.Fouten);
         Assert.Single(await grootboek.Posten(wie, id));

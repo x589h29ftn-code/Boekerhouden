@@ -51,7 +51,7 @@ else
                 }
             </div>
             <nav class="zijmenu">
-                <a class="zijmenu-link @(Actief.Length == 0 ? "actief" : null)" href="/a/@kop.Id" aria-current="@(Actief.Length == 0 ? "page" : null)"><Icoon Naam="house" />Overzicht</a>
+                <a class="zijmenu-link @(Actief.Length == 0 ? "actief" : null)" href="/a/@kop.Id" title="Overzicht" aria-current="@(Actief.Length == 0 ? "page" : null)"><Icoon Naam="house" /><span class="zijmenu-naam">Overzicht</span></a>
                 @foreach (var groep in Administratiemenu.Groepen)
                 {
                     var zichtbaar = groep.Items.Where(i => i.Zichtbaar(kop)).ToList();
@@ -73,12 +73,12 @@ else
                         @foreach (var item in zichtbaar)
                         {
                             var aantal = aantallen?.Bij(item.Pad) ?? 0;
-                            <a class="zijmenu-link @(item.Pad == MenuPad ? "actief" : null)" href="@($"/a/{kop.Id}{item.Pad}")" aria-current="@(item.Pad == MenuPad ? "page" : null)" tabindex="@(open ? null : "-1")">@if (item.Icoon is { } icoon)
+                            <a class="zijmenu-link @(item.Pad == MenuPad ? "actief" : null)" href="@($"/a/{kop.Id}{item.Pad}")" title="@(aantal > 0 ? $"{item.Naam}: {aantal} te verwerken" : item.Naam)" aria-current="@(item.Pad == MenuPad ? "page" : null)" tabindex="@(open ? null : "-1")">@if (item.Icoon is { } icoon)
                                 {
                                     <Icoon Naam="@icoon" />
                                 }<span class="zijmenu-naam">@item.Naam</span>@if (aantal > 0)
                                 {
-                                    <span class="zijmenu-aantal" title="@($"{aantal} te verwerken")">@aantal</span>
+                                    <span class="zijmenu-aantal">@aantal</span>
                                 }</a>
                         }
                     </div></div>

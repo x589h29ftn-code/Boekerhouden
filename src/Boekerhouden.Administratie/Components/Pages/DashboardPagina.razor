@@ -23,6 +23,28 @@
         }
         else
         {
+            @if (!aanpassen && startstappen is { Count: > 0 })
+            {
+                var klaar = startstappen.Count(st => st.Klaar);
+                <section class="aandeslag" aria-label="Aan de slag">
+                    <div class="aandeslag-kop">
+                        <span>Aan de slag</span>
+                        <span class="aandeslag-teller">@klaar van @startstappen.Count</span>
+                    </div>
+                    <div class="aandeslag-balk"><span style="width:@(klaar * 100 / startstappen.Count)%"></span></div>
+                    <ol>
+                        @foreach (var st in startstappen)
+                        {
+                            <li class="@(st.Klaar ? "klaar" : null)">
+                                <a href="@Pad(st.Pad)" title="@st.Toelichting">
+                                    <span class="aandeslag-vink"><Icoon Naam="@(st.Klaar ? "check" : st.Icoon)" /></span>
+                                    <span>@st.Naam</span>
+                                </a>
+                            </li>
+                        }
+                    </ol>
+                </section>
+            }
             @if (!aanpassen && aantallen is not null)
             {
                 var taken = Taken();
@@ -126,6 +148,7 @@
         .Where(w => indeling.All(k => k.Soort != w) && (w != Widget.Vennootschapsbelasting || geopend?.Kop.Ondernemingsvorm == Boekhouding.Grootboek.Ondernemingsvorm.BV));
 
     private Zijbalkaantallen? aantallen;
+    private IReadOnlyList<Startstap>? startstappen;
 
     /// <summary>Een taak bij Te doen: wat er ligt, hoeveel, en waar je het doet.</summary>
     private sealed record Taak(string Icoon, string Getal, string Wat, string Verder, string Pad, string? Toelichting = null);
@@ -176,6 +199,7 @@
     {
         geopend = g;
         aantallen = await Kantooroverzicht.Aantallen(g.Wie, Id);
+        startstappen = await Dashboards.Startstappen(g.Wie, Id);
         opgeslagen = await Dashboards.Indeling(g.Wie, Id);
         indeling = [.. opgeslagen];
         await Laad();

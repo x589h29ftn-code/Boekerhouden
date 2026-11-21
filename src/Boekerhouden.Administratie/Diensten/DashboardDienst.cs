@@ -107,6 +107,9 @@ public sealed record Btwstand(Aangifteperiode Afgelopen, decimal Saldo, Aangifte
     public decimal TeBetalen => -Saldo;
 }
 
+/// <summary>Een stap bij Aan de slag: wat, waarom (tooltip), of hij gedaan is, en waar je hem doet.</summary>
+public sealed record Startstap(string Naam, string Toelichting, bool Klaar, string Pad, string Icoon);
+
 /// <summary>Openstaande posten van debiteuren of crediteuren, als positieve bedragen.</summary>
 public sealed record Openstaand(int Aantal, decimal Totaal, int AantalVervallen, decimal Vervallen);
 
@@ -227,6 +230,35 @@ public sealed class DashboardDienst(
     }
 
     /// <summary>De cijfers voor de gekozen widgets.</summary>
+    /// <summary>
+    /// Aan de slag: de eerste stappen in een nieuwe administratie (gegevens, bankrekening, beginbalans, eerste afschrift,
+    /// eerste factuur), elk met of hij al gedaan is. Leeg zodra alles gedaan is, of als de administratie al in gebruik is
+    /// (vanaf 25 boekingen): dan is de lijst niet meer nodig.
+    /// </summary>
+    public async Task<IReadOnlyList<Startstap>> Startstappen(Uitvoerder wie, Guid administratie)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
+        if (await db.Boekingen.CountAsync() >= 25)
+        {
+            return [];
+        }
+
+        var a = await db.Administraties.AsNoTracking().SingleAsync(x => x.Id == administratie);
+        var bankIban = await db.Dagboeken.AnyAsync(d => d.Iban != null && d.Iban != "");
+        var stappen = new List<Startstap>
+        {
+            new("Gegevens van de onderneming", "adres, KvK- en btw-nummer, voor op de facturen en de herkenning",
+                !string.IsNullOrWhiteSpace(a.Straat) && (!string.IsNullOrWhiteSpace(a.KvkNummer) || !string.IsNullOrWhiteSpace(a.BtwNummer)), "/instellingen", "gear-six"),
+            new("Eigen bankrekening", "het IBAN, zodat afschriften en betalingen herkend worden", a.Ibans.Count > 0 || bankIban, "/instellingen", "bank"),
+            new("Beginbalans", "uit de jaarrekening van vorig jaar of met de hand",
+                await db.Boekingen.AnyAsync(b => b.Omschrijving.StartsWith("Beginbalans")), "/beginbalans", "scales"),
+            new("Eerste bankafschrift", "MT940, CAMT.053 of PDF van de bank", await db.Afschriften.AnyAsync(), "/bank", "bank"),
+            new("Eerste factuur", "een inkoopfactuur inlezen of een verkoopfactuur maken",
+                await db.Documenten.AnyAsync() || await db.Verkoopdocumenten.AnyAsync(), "/inkoop", "shopping-cart-simple"),
+        };
+        return stappen.All(s => s.Klaar) ? [] : stappen;
+    }
+
     public async Task<Dashboard> Laad(Uitvoerder wie, Guid administratie, IReadOnlyList<Widgetkeuze> keuzes)
     {
         ArgumentNullException.ThrowIfNull(keuzes);

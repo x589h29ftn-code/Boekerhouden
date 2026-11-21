@@ -151,6 +151,46 @@ body {
     box-shadow: var(--bh-schaduw);
 }
 
+/* Smal (de knop linksboven): alleen de iconen, de naam in de tooltip; een aantal als stipje op het icoon. */
+html.zijbalk-smal .administratie {
+    grid-template-columns: 3.4rem minmax(0, 1fr);
+}
+
+html.zijbalk-smal .zijbalk > .zijmenu {
+    display: flex;
+    margin-top: 1.6rem;
+}
+
+html.zijbalk-smal .zijmenu-link {
+    position: relative;
+    justify-content: center;
+    margin: 0 .3rem;
+    padding: .45rem 0;
+}
+
+html.zijbalk-smal :is(.zijmenu-naam, .zijmenu-groep) {
+    display: none;
+}
+
+html.zijbalk-smal .zijmenu-items.dicht {
+    grid-template-rows: 1fr;
+    opacity: 1;
+}
+
+html.zijbalk-smal .zijmenu-aantal {
+    position: absolute;
+    top: .1rem;
+    right: .15rem;
+    min-width: 1rem;
+    padding: 0 .25rem;
+    font-size: .62rem;
+    text-align: center;
+}
+
+html.zijbalk-smal .zijmenu::after {
+    height: 1rem;
+}
+
 /* ---------- De inhoud op een wit vlak ---------- */
 
 .administratie-inhoud {
@@ -367,6 +407,98 @@ body {
 
 :is(.table, .overzichtstabel) > tbody > tr {
     transition: background-color var(--bh-snel) ease;
+}
+
+/* ---------- Aan de slag (dashboard van een nieuwe administratie) ---------- */
+
+.aandeslag {
+    margin-bottom: 1.5rem;
+    padding: 1rem 1.15rem 1.1rem;
+    border: 1px solid var(--bh-lijn);
+    border-radius: 8px;
+    background: linear-gradient(180deg, var(--bh-accent-zacht), var(--bh-oppervlak) 70%);
+    animation: bh-binnen 260ms var(--bh-curve) backwards;
+}
+
+.aandeslag-kop {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-weight: 600;
+}
+
+.aandeslag-teller {
+    color: var(--bh-zacht);
+    font-size: .82rem;
+    font-weight: 400;
+}
+
+.aandeslag-balk {
+    height: 4px;
+    margin: .55rem 0 .8rem;
+    border-radius: 4px;
+    background: var(--bh-lijn);
+    overflow: hidden;
+}
+
+    .aandeslag-balk > span {
+        display: block;
+        height: 100%;
+        border-radius: 4px;
+        background: var(--bh-accent);
+        transition: width 400ms var(--bh-curve);
+    }
+
+.aandeslag ol {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.aandeslag li a {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .4rem .75rem .4rem .45rem;
+    border: 1px solid var(--bh-lijn);
+    border-radius: 999px;
+    background: var(--bh-oppervlak);
+    color: var(--bh-tekst);
+    font-size: .875rem;
+    text-decoration: none;
+    transition: border-color var(--bh-snel) ease, box-shadow var(--bh-snel) ease;
+}
+
+    .aandeslag li a:hover {
+        border-color: var(--bh-accent);
+        box-shadow: 0 2px 8px rgba(36, 66, 110, .1);
+    }
+
+.aandeslag-vink {
+    display: grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    background: var(--bh-accent-zacht);
+    color: var(--bh-accent);
+}
+
+    .aandeslag-vink .icoon {
+        width: .85rem;
+        height: .85rem;
+    }
+
+.aandeslag li.klaar a {
+    color: var(--bh-zacht);
+}
+
+.aandeslag li.klaar .aandeslag-vink {
+    background: var(--bh-accent);
+    color: #fff;
 }
 
 /* ---------- Te doen (dashboard) ---------- */

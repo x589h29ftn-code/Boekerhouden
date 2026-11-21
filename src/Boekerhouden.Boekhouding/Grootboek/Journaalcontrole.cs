@@ -39,26 +39,28 @@ public static class Journaalcontrole
             fouten.Add($"Een boeking heeft hoogstens {MaximumRegels} regels.");
         }
 
-        Regelnummers(regels, r => schema.Zoek(r.Rekeningnummer) is null, "heeft een onbekende rekening", fouten);
-        Regelnummers(regels, r => r.Bedrag == 0, "heeft geen bedrag", fouten);
+        Regelnummers(regels, r => schema.Zoek(r.Rekeningnummer) is null, "heeft een onbekende rekening", fouten,
+            "Kies een rekening uit het rekeningschema (F2) of voeg hem daar toe.");
+        Regelnummers(regels, r => r.Bedrag == 0, "heeft geen bedrag", fouten, "Vul een bedrag in of haal de regel weg.");
         Regelnummers(regels, r => decimal.Round(r.Bedrag, 2) != r.Bedrag, "heeft meer dan twee decimalen", fouten);
 
         var debet = regels.Where(r => r.Bedrag > 0).Sum(r => r.Bedrag);
         var credit = -regels.Where(r => r.Bedrag < 0).Sum(r => r.Bedrag);
         if (debet != credit)
         {
-            fouten.Add($"De boeking is niet in evenwicht: debet {Bedragen.Euro(debet)}, credit {Bedragen.Euro(credit)}, verschil {Bedragen.Euro(debet - credit)}.");
+            fouten.Add($"De boeking is niet in evenwicht: debet {Bedragen.Euro(debet)}, credit {Bedragen.Euro(credit)}, verschil {Bedragen.Euro(debet - credit)}. Pas een bedrag aan of zet het verschil op een regel erbij.");
         }
 
         return fouten;
     }
 
-    private static void Regelnummers(IReadOnlyList<Journaalregel> regels, Func<Journaalregel, bool> fout, string melding, List<string> fouten)
+    /// <summary>Eén melding voor alle regels met dezelfde fout, met (als die er is) wat je eraan doet.</summary>
+    private static void Regelnummers(IReadOnlyList<Journaalregel> regels, Func<Journaalregel, bool> fout, string melding, List<string> fouten, string? oplossing = null)
     {
         var nummers = regels.Select((r, i) => (r, i)).Where(x => fout(x.r)).Select(x => x.i + 1).ToList();
         if (nummers.Count > 0)
         {
-            fouten.Add($"Regel {string.Join(", ", nummers)} {melding}.");
+            fouten.Add($"Regel {string.Join(", ", nummers)} {melding}.{(oplossing is null ? null : " " + oplossing)}");
         }
     }
 }
