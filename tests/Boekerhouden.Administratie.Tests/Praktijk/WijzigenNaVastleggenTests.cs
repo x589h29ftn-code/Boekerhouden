@@ -138,6 +138,25 @@ public sealed class WijzigenNaVastleggenTests(AdministratieFixture app, ITestOut
         Assert.True(fouten.Count == 0, $"{fouten.Count} afwijkingen:\n" + string.Join("\n", fouten));
     }
 
+    [Fact]
+    public async Task Een_latere_creditnota_verandert_de_openstaande_posten_op_een_eerdere_peildatum_niet()
+    {
+        var w = await Werkadministratie.Maak(app, "Peildatum Credit B.V.");
+        var verkoop = app.Dienst<VerkoopDienst>();
+        var factuur = await w.Concept(new(2025, 11, 10), 1_000m);
+        var nummer = (await verkoop.MaakDefinitief(w.Wie, w.Id, factuur)).Waarde!;
+        var credit = await verkoop.Crediteer(w.Wie, w.Id, factuur);
+        Assert.True((await verkoop.MaakDefinitief(w.Wie, w.Id, credit.Waarde)).IsGelukt);
+
+        // Eind 2025 bestond de creditnota nog niet: de factuur staat helemaal open, zoals in het grootboek.
+        var eind2025 = (await app.Dienst<OpenpostenDienst>().Debiteuren(w.Wie, w.Id, new(2025, 12, 31))).Relaties.SelectMany(r => r.Posten).ToList();
+        Assert.Equal(1_210m, Assert.Single(eind2025, p => p.Factuurnummer == nummer).Openstaand);
+
+        // Nu is hij verrekend: niets open.
+        Assert.Empty((await app.Dienst<OpenpostenDienst>().Debiteuren(w.Wie, w.Id, new(2026, 12, 31))).Relaties);
+        Assert.Empty(await Invarianten.Controleer(app, w.Wie, w.Id, "na crediteren"));
+    }
+
     /// <summary>Alle saldi tot en met de afgesloten periode, om te zien dat er niets veranderd is.</summary>
     private async Task<List<string>> Saldi(Uitvoerder wie, Guid id) =>
         [.. (await app.Dienst<GrootboekDienst>().Kolommenbalans(wie, id, new DateOnly(2025, 1, 1), new DateOnly(2025, 3, 31))).Regels

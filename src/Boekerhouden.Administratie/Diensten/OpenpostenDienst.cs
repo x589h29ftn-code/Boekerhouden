@@ -108,15 +108,42 @@ public sealed class OpenpostenDienst(Toegang toegang, PdfDienst pdf)
         var perFactuur = andere.Where(b => b.Relatie != null && b.Factuurnummer != null).ToLookup(b => (b.Relatie!, b.Factuurnummer!));
         var namen = await db.Relaties.AsNoTracking().ToDictionaryAsync(r => r.Code, r => r.Naam);
 
+        // Wat een post zelf al vereffend is (afletteren, betalingen en correcties via het journaal, verrekenen) min die
+        // regels in het journaal is de verrekening met een creditnota; die heeft geen eigen boeking. Een oudere betaling
+        // die de post niet bijwerkte, maakt het verschil kleiner of tegengesteld: dan geen verrekening.
+        decimal Verrekening(OpenstaandePost p)
+        {
+            var vereffend = p.Openstaand - p.Bedrag;
+            var verschil = vereffend - perFactuur[(p.Relatie, p.Factuurnummer)].Sum(b => b.Bedrag);
+            return Math.Sign(verschil) == Math.Sign(vereffend) && Math.Abs(vereffend) > Math.Abs(vereffend - verschil) ? verschil : 0m;
+        }
+
+        // Een verrekening heeft geen datum: op de peildatum telt hij alleen voor zover beide kanten (de factuur en de
+        // creditnota van dezelfde relatie) dan al bestonden. Per relatie dus het kleinste van wat de facturen en wat de
+        // creditnota's tot de peildatum verrekend zijn, verdeeld over de oudste eerst; zo blijft de lijst sluiten op
+        // het grootboek, ook op een peildatum vóór de creditnota.
+        var verrekening = new Dictionary<Guid, decimal>();
+        foreach (var relatieposten in posten.Select(p => (Post: p, Bedrag: Verrekening(p))).Where(x => x.Bedrag != 0).GroupBy(x => x.Post.Relatie))
+        {
+            var omlaag = relatieposten.Where(x => x.Bedrag < 0).OrderBy(x => x.Post.Datum).ToList();
+            var omhoog = relatieposten.Where(x => x.Bedrag > 0).OrderBy(x => x.Post.Datum).ToList();
+            var samen = Math.Min(-omlaag.Sum(x => x.Bedrag), omhoog.Sum(x => x.Bedrag));
+            foreach (var (kant, teken) in new[] { (omlaag, -1m), (omhoog, 1m) })
+            {
+                var rest = samen;
+                foreach (var (post, bedrag) in kant)
+                {
+                    var deel = Math.Min(rest, Math.Abs(bedrag));
+                    verrekening[post.Id] = teken * deel;
+                    rest -= deel;
+                }
+            }
+        }
+
         var regels = posten.Select(p =>
         {
             var alle = perFactuur[(p.Relatie, p.Factuurnummer)].ToList();
-            // Wat de post zelf al vereffend is (afletteren, betalingen en correcties via het journaal, verrekenen) min die
-            // regels in het journaal is de verrekening met een creditnota; die heeft geen eigen boeking. Een oudere
-            // betaling die de post niet bijwerkte, maakt het verschil kleiner of tegengesteld: dan geen verrekening.
-            var vereffend = p.Openstaand - p.Bedrag;
-            var verschil = vereffend - alle.Sum(b => b.Bedrag);
-            var verrekend = Math.Sign(verschil) == Math.Sign(vereffend) && Math.Abs(vereffend) > Math.Abs(vereffend - verschil) ? verschil : 0m;
+            var verrekend = verrekening.GetValueOrDefault(p.Id);
             var betaald = -s * (alle.Where(b => b.Datum <= peildatum).Sum(b => b.Bedrag) + verrekend);
             var boeking = boekingen.GetValueOrDefault(p.BoekingId);
             return (p.Relatie, Post: new Openpost(p.Id, p.Datum, p.Vervaldatum, boeking?.Omschrijving ?? "", p.Factuurnummer, s * p.Bedrag, betaald,
