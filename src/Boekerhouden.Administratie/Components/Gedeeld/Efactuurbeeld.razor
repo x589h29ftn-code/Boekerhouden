@@ -1,0 +1,98 @@
+@* Een e-factuur (UBL) zonder meegestuurde PDF: de gegevens uit de e-factuur als een factuur op papier, zodat er
+   naast het formulier altijd iets te controleren is. De bedragen zijn exact zoals in de e-factuur. *@
+@using Boekerhouden.Boekhouding.Herkenning
+
+<div class="factuurviewer efactuur">
+    @if (Factuur is null)
+    {
+        <div class="p-4 text-secondary">Deze e-factuur is niet te lezen.</div>
+    }
+    else
+    {
+        <div class="efactuur-blad">
+            <div class="efactuur-kop">
+                <div>
+                    <div class="efactuur-naam">@(Factuur.Naam ?? "Onbekende leverancier")</div>
+                    @foreach (var regel in Kenmerken())
+                    {
+                        <div class="efactuur-zacht">@regel</div>
+                    }
+                </div>
+                <div class="efactuur-gegevens">
+                    <div class="efactuur-soort">@(Factuur.TotaalInclusief < 0 ? "Creditnota" : "Factuur") · e-factuur</div>
+                    <dl>
+                        <dt>Nummer</dt><dd>@Factuur.Factuurnummer</dd>
+                        <dt>Datum</dt><dd>@(Factuur.Factuurdatum is { } d ? Weergave.Datum(d) : null)</dd>
+                        @if (Factuur.Vervaldatum is { } verval)
+                        {
+                            <dt>Vervaldatum</dt><dd>@Weergave.Datum(verval)</dd>
+                        }
+                        @if (Factuur.Betalingskenmerk is { } kenmerk)
+                        {
+                            <dt>Kenmerk</dt><dd>@kenmerk</dd>
+                        }
+                    </dl>
+                </div>
+            </div>
+            @if (Factuur.Omschrijving is { } omschrijving)
+            {
+                <div class="efactuur-omschrijving">@omschrijving</div>
+            }
+            <table class="efactuur-regels">
+                <thead><tr><th>Omschrijving</th><th class="text-end">Btw</th><th class="text-end">Bedrag</th></tr></thead>
+                <tbody>
+                    @foreach (var r in Factuur.Regels ?? [])
+                    {
+                        <tr><td>@r.Omschrijving</td><td class="text-end">@(r.Percentage is { } p ? $"{p:0.##}%" : null)</td><td class="text-end">@Weergave.Bedrag(r.Bedrag)</td></tr>
+                    }
+                </tbody>
+            </table>
+            <dl class="efactuur-totalen">
+                @if (Factuur.TotaalExclusief is { } exclusief)
+                {
+                    <dt>Totaal exclusief btw</dt><dd>@Weergave.Bedrag(exclusief)</dd>
+                }
+                @foreach (var b in Factuur.Btw ?? [])
+                {
+                    <dt>Btw @($"{b.Percentage:0.##}%")@(b.Grondslag is { } g ? $" over {Weergave.Bedrag(g)}" : null)</dt><dd>@Weergave.Bedrag(b.Btw)</dd>
+                }
+                @if (Factuur.Verlegd)
+                {
+                    <dt>Btw verlegd</dt><dd></dd>
+                }
+                @if (Factuur.TotaalInclusief is { } inclusief)
+                {
+                    <dt class="efactuur-totaal">Te betalen</dt><dd class="efactuur-totaal">@Weergave.Bedrag(inclusief)</dd>
+                }
+            </dl>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public HerkendeFactuur? Factuur { get; set; }
+
+    private IEnumerable<string> Kenmerken()
+    {
+        if (Factuur is null)
+        {
+            yield break;
+        }
+
+        if (Factuur.BtwNummer is { } btw)
+        {
+            yield return $"Btw {btw}";
+        }
+
+        if (Factuur.KvkNummer is { } kvk)
+        {
+            yield return $"KvK {kvk}";
+        }
+
+        if (Factuur.Iban is { } iban)
+        {
+            yield return iban;
+        }
+    }
+}

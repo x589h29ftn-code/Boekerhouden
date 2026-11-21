@@ -257,12 +257,17 @@ public static class Opstart
 
         // Een ingelezen document bekijken: alleen voor leden, een PDF in de pdf-viewer van de browser (in een sandbox,
         // zonder scripts), al het andere als download (beveiliging §4.5).
+        // Met ?beeld=1 (de viewer): wat er te bekijken is, bij een e-factuur de meegestuurde PDF.
         app.MapGet("/a/{administratie:guid}/documenten/{document:guid}", async (Guid administratie, Guid document, HttpContext context, InkoopDienst inkoop) =>
         {
             (byte[] Inhoud, string Inhoudstype, string Bestandsnaam)? bestand;
             try
             {
                 bestand = await inkoop.Inhoud(context.User.AlsUitvoerder(), administratie, document);
+                if (bestand is { } origineel && context.Request.Query.ContainsKey("beeld") && InkoopDienst.Beeldvan(origineel.Inhoud) is { } beeld)
+                {
+                    bestand = (beeld, "application/pdf", Path.ChangeExtension(origineel.Bestandsnaam, ".pdf"));
+                }
             }
             catch (GeenToegangException)
             {

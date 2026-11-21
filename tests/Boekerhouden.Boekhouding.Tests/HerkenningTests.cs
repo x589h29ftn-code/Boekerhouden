@@ -364,6 +364,28 @@ public sealed class UblTests
     }
 
     [Fact]
+    public void De_meegestuurde_pdf_van_een_e_factuur_is_te_bekijken()
+    {
+        var pdf = Convert.ToBase64String("%PDF-1.4 een factuur"u8.ToArray());
+        string Ubl(string bijlagen) => $"""
+            <Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+                     xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+                     xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+              <cbc:ID>F-1</cbc:ID>
+              {bijlagen}
+            </Invoice>
+            """;
+        static string Bijlage(string soort, string inhoud) =>
+            $"""<cac:AdditionalDocumentReference><cbc:ID>1</cbc:ID><cac:Attachment><cbc:EmbeddedDocumentBinaryObject mimeCode="{soort}" filename="f">{inhoud}</cbc:EmbeddedDocumentBinaryObject></cac:Attachment></cac:AdditionalDocumentReference>""";
+        static byte[]? Lees(string xml) => UblFactuurLezer.Pdfbijlage(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(xml)));
+
+        Assert.Equal("%PDF-1.4 een factuur"u8.ToArray(), Lees(Ubl(Bijlage("image/png", "aGFsbG8=") + Bijlage("application/pdf", pdf))));
+        Assert.Null(Lees(Ubl("")));
+        Assert.Null(Lees(Ubl(Bijlage("application/pdf", "geen base64!"))));
+        Assert.Null(Lees("geen xml"));
+    }
+
+    [Fact]
     public void Ander_xml_is_geen_ubl()
     {
         Assert.False(UblFactuurLezer.IsUbl(new MemoryStream("<Document/>"u8.ToArray())));

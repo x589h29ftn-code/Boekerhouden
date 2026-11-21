@@ -61,12 +61,13 @@
                         <span class="form-check-label">@naam</span>
                     </label>
                 }
+                @if (geopend is not null)
+                {
+                    <div class="menu-scheiding"></div>
+                    <DocumentOpenen Wie="geopend.Wie" Administratie="Id" Document="DocumentId" Tekst="Origineel openen" Klasse="btn btn-sm btn-link px-0 text-start" />
+                }
             </div>
         </details>
-        @if (geopend is not null)
-        {
-            <DocumentOpenen Wie="geopend.Wie" Administratie="Id" Document="DocumentId" Tekst="Origineel" Klasse="btn btn-sm btn-outline-secondary" />
-        }
     </Acties>
     <ChildContent>
         @if (verwerking is null)
@@ -148,7 +149,14 @@
                 {
                     <div @ref="scheiding" class="verwerken-scheiding @(ViewerZichtbaar ? null : "d-none")"></div>
                     <div @ref="viewerPaneel" class="verwerken-viewer @(ViewerZichtbaar ? null : "d-none")">
-                        <div @ref="viewer" class="factuurviewer"></div>
+                        @if (verwerking.HeeftBeeld)
+                        {
+                            <div @ref="viewer" class="factuurviewer"></div>
+                        }
+                        else
+                        {
+                            <Efactuurbeeld Factuur="verwerking.Herkend" />
+                        }
                     </div>
                 }
             </div>
@@ -428,7 +436,14 @@
                 </div>
                 <div @ref="scheiding" class="verwerken-scheiding @(ViewerZichtbaar ? null : "d-none")" title="Sleep om de factuur breder of smaller te maken; dubbelklik voor de standaardbreedte"></div>
                 <div @ref="viewerPaneel" class="verwerken-viewer @(ViewerZichtbaar ? null : "d-none")">
-                    <div @ref="viewer" class="factuurviewer"></div>
+                    @if (verwerking?.HeeftBeeld != false)
+                    {
+                        <div @ref="viewer" class="factuurviewer"></div>
+                    }
+                    else
+                    {
+                        <Efactuurbeeld Factuur="verwerking.Herkend" />
+                    }
                 </div>
             </div>
         }
@@ -762,10 +777,10 @@
         zelf ??= DotNetObjectReference.Create(this);
         module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./factuurviewer.js");
         // In de webapp haalt de viewer de PDF bij de server; in de Windows-app (geen server) krijgt hij de inhoud mee.
-        object bron = $"/a/{Id}/documenten/{DocumentId}";
-        if (Diensten.GetService<IDocumentvenster>() is not null && await Inkoop.Inhoud(geopend!.Wie, Id, DocumentId) is { } inhoud)
+        object bron = $"/a/{Id}/documenten/{DocumentId}?beeld=1";
+        if (Diensten.GetService<IDocumentvenster>() is not null && await Inkoop.Beeld(geopend!.Wie, Id, DocumentId) is { } beeld)
         {
-            bron = new DotNetStreamReference(new MemoryStream(inhoud.Inhoud));
+            bron = new DotNetStreamReference(new MemoryStream(beeld));
         }
 
         await module.InvokeVoidAsync("scheiding", scheiding, viewerPaneel);

@@ -33,15 +33,15 @@
             return;
         }
 
-        object bron = $"/a/{Administratie}/documenten/{Document}";
+        object bron = $"/a/{Administratie}/documenten/{Document}?beeld=1";
         if (Diensten.GetService<IDocumentvenster>() is not null)
         {
-            if (await Inkoop.Inhoud(Wie, Administratie, Document) is not { } inhoud)
+            if (await Inkoop.Beeld(Wie, Administratie, Document) is not { } beeld)
             {
                 return;
             }
 
-            bron = new DotNetStreamReference(new MemoryStream(inhoud.Inhoud));
+            bron = new DotNetStreamReference(new MemoryStream(beeld));
         }
 
         module = await JS.InvokeAsync<IJSObjectReference>("import", "./factuurviewer.js");

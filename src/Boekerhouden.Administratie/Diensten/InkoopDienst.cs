@@ -115,7 +115,8 @@ public sealed record Verwerking(
     IReadOnlyList<BtwCode> BtwCodes,
     Btwtabel Btwtabel,
     IReadOnlyList<Factuurveld>? UitZoektemplate = null,
-    string? Standaardomschrijving = null);
+    string? Standaardomschrijving = null,
+    bool HeeftBeeld = true);
 
 /// <summary>
 /// Inkoopfacturen: inlezen (eerst de virusscan, dan pas openen), herkennen, het voorstel (regel &gt; geleerd &gt;
@@ -378,8 +379,9 @@ public sealed class InkoopDienst(
 
         var voorstel = herkend is null ? null : await Voorstel(db, herkend, context);
         var (schema, _) = await GrootboekDienst.Inrichting(db);
+        var inhoud = await db.DocumentInhouden.AsNoTracking().Where(x => x.DocumentId == document).Select(x => x.Inhoud).FirstOrDefaultAsync();
         return new Verwerking(Regel(d), herkend, voorstel, context.Relaties, schema, context.Btw.Op(herkend?.Factuurdatum ?? DateOnly.MaxValue), context.Btw, uitTemplate,
-            context.Instellingen.Omschrijving);
+            context.Instellingen.Omschrijving, inhoud is not null && Beeldvan(inhoud) is not null);
     }
 
     /// <summary>Bewaart een document zonder boeking: privé, of geen boeking nodig. Het blijft in te zien en is terug te zetten.</summary>
@@ -854,6 +856,24 @@ public sealed class InkoopDienst(
     }
 
     /// <summary>De inhoud van een document, om te bekijken of te downloaden.</summary>
+    /// <summary>
+    /// Wat de viewer toont: de PDF zelf, bij een e-factuur de meegestuurde PDF; leeg als er niets te bekijken is (een
+    /// e-factuur zonder PDF: dan toont het scherm de gegevens van de e-factuur).
+    /// </summary>
+    public async Task<byte[]?> Beeld(Uitvoerder wie, Guid administratie, Guid document) =>
+        await Inhoud(wie, administratie, document) is { } bestand ? Beeldvan(bestand.Inhoud) : null;
+
+    internal static byte[]? Beeldvan(byte[] inhoud)
+    {
+        if (inhoud.AsSpan(0, Math.Min(inhoud.Length, 1024)).IndexOf("%PDF-"u8) >= 0)
+        {
+            return inhoud;
+        }
+
+        using var stroom = new MemoryStream(inhoud);
+        return UblFactuurLezer.IsUbl(stroom) ? UblFactuurLezer.Pdfbijlage(stroom) : null;
+    }
+
     public async Task<(byte[] Inhoud, string Inhoudstype, string Bestandsnaam)?> Inhoud(Uitvoerder wie, Guid administratie, Guid document)
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);

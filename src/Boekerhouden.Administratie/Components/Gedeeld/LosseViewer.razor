@@ -27,13 +27,13 @@
         }
 
         var wie = (await Authenticatie).User.AlsUitvoerder();
-        if (await Inkoop.Inhoud(wie, Administratie, Document) is not { } inhoud)
+        if (await Inkoop.Beeld(wie, Administratie, Document) is not { } beeld)
         {
             return;
         }
 
         module = await JS.InvokeAsync<IJSObjectReference>("import", "./factuurviewer.js");
-        await module.InvokeVoidAsync("extern", container, new DotNetStreamReference(new MemoryStream(inhoud.Inhoud)), Document.ToString());
+        await module.InvokeVoidAsync("extern", container, new DotNetStreamReference(new MemoryStream(beeld)), Document.ToString());
     }
 
     public async ValueTask DisposeAsync()

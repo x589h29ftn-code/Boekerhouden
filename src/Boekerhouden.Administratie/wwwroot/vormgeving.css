@@ -770,3 +770,104 @@ details.aandeslag[open] .aandeslag-teller .icoon {
 .dashboard .widget {
     min-height: 8.5rem;
 }
+
+/* ---------- Een e-factuur zonder PDF (Efactuurbeeld) ----------
+   Als een factuur op papier, in het vlak van de viewer. */
+.efactuur {
+    overflow: auto;
+    background: var(--bh-vlak);
+    padding: 1rem;
+}
+
+.efactuur-blad {
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: 1.75rem 2rem;
+    background: #fff;
+    border: 1px solid var(--bh-lijn);
+    border-radius: var(--bh-rond-klein);
+    color: #1f2937;
+    font-size: .875rem;
+}
+
+.efactuur-kop {
+    display: flex;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.efactuur-naam {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: .25rem;
+}
+
+.efactuur-zacht, .efactuur-soort {
+    color: #6b7280;
+    font-size: .8rem;
+}
+
+.efactuur-gegevens dl, .efactuur-totalen {
+    display: grid;
+    grid-template-columns: auto auto;
+    column-gap: 1rem;
+    row-gap: .1rem;
+    margin: .35rem 0 0;
+}
+
+    .efactuur-gegevens dt, .efactuur-totalen dt {
+        font-weight: 400;
+        color: #6b7280;
+    }
+
+    .efactuur-gegevens dd, .efactuur-totalen dd {
+        margin: 0;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+
+.efactuur-omschrijving {
+    margin-bottom: .75rem;
+}
+
+.efactuur-regels {
+    width: 100%;
+    margin-bottom: 1rem;
+    border-collapse: collapse;
+}
+
+    .efactuur-regels th {
+        font-weight: 500;
+        font-size: .78rem;
+        color: #6b7280;
+        border-bottom: 1px solid var(--bh-lijn);
+        padding: .3rem 0;
+    }
+
+    .efactuur-regels td {
+        padding: .3rem 0;
+        border-bottom: 1px solid #f0f1f3;
+        font-variant-numeric: tabular-nums;
+    }
+
+        .efactuur-regels th + th, .efactuur-regels td + td {
+            padding-left: 1rem;
+        }
+
+.efactuur-totalen {
+    width: max-content;
+    margin-left: auto;
+}
+
+    .efactuur-totalen .efactuur-totaal {
+        font-weight: 600;
+        color: #1f2937;
+        border-top: 1px solid var(--bh-lijn);
+        padding-top: .25rem;
+    }
+
+.weergavemenu .menu-scheiding {
+    border-top: 1px solid var(--bh-lijn);
+    margin: .35rem 0;
+}

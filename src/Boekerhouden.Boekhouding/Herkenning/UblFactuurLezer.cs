@@ -32,6 +32,46 @@ public static class UblFactuurLezer
         }
     }
 
+    /// <summary>
+    /// De PDF die met de e-factuur is meegestuurd (een <c>AdditionalDocumentReference</c> met een PDF als bijlage, zoals
+    /// Peppol-facturen vaak hebben), om de factuur te kunnen bekijken; leeg als er geen is.
+    /// </summary>
+    public static byte[]? Pdfbijlage(Stream stream)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        try
+        {
+            using var xml = XmlReader.Create(stream, Instellingen(sluiten: false));
+            var wortel = XDocument.Load(xml).Root;
+            foreach (var bijlage in wortel?.Descendants().Where(e => e.Name.LocalName == "EmbeddedDocumentBinaryObject") ?? [])
+            {
+                if ((string?)bijlage.Attribute("mimeCode") is { } soort && !soort.Contains("pdf", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var inhoud = Convert.FromBase64String(bijlage.Value.Trim());
+                    if (inhoud.AsSpan(0, Math.Min(inhoud.Length, 1024)).IndexOf("%PDF-"u8) >= 0)
+                    {
+                        return inhoud;
+                    }
+                }
+                catch (FormatException)
+                {
+                    // Geen geldige base64: een andere bijlage proberen.
+                }
+            }
+        }
+        catch (XmlException)
+        {
+            return null;
+        }
+
+        return null;
+    }
+
     public static HerkendeFactuur Lees(Stream stream)
     {
         ArgumentNullException.ThrowIfNull(stream);
