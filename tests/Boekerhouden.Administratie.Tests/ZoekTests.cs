@@ -68,7 +68,14 @@ public sealed class ZoekTests(AdministratieFixture app) : IClassFixture<Administ
         Assert.Contains(await Zoek(wie, "geboekt", id), r => r.Soort == Zoeksoort.Pagina && r.Url == $"/a/{id}/inkoopboek" && r.Titel == "Inkoop · Geboekt");
         Assert.Contains(await Zoek(wie, "proefbalans", id), r => r.Soort == Zoeksoort.Pagina && r.Url == $"/a/{id}/proefbalans");
 
-        // De volgorde van de groepen: pagina's eerst, administraties laatst.
+        // Ook iets doen: acties op wat je wilt, eerst in de lijst.
+        var afschrift = await Zoek(wie, "afschrift", id);
+        Assert.Equal((Zoeksoort.Actie, "Bankafschrift inlezen", $"/a/{id}/bank"), (afschrift[0].Soort, afschrift[0].Titel, afschrift[0].Url));
+        Assert.Contains(await Zoek(wie, "btw kwartaal", id), r => r.Soort == Zoeksoort.Actie && r.Titel == "Btw-aangifte doen");
+        Assert.Contains(await Zoek(wie, "nieuwe factuur", id), r => r.Soort == Zoeksoort.Actie && r.Url == $"/a/{id}/verkoop/nieuw");
+        Assert.DoesNotContain(await Zoek(wie, "kolommen", id), r => r.Soort == Zoeksoort.Actie);
+
+        // De volgorde van de groepen: acties en pagina's eerst, administraties laatst.
         var alles = await Zoek(wie, "laptop", id);
         Assert.Equal([.. alles.OrderBy(r => r.Soort)], alles);
         Assert.Empty(await Zoek(wie, "l", id));
@@ -84,6 +91,7 @@ public sealed class ZoekTests(AdministratieFixture app) : IClassFixture<Administ
         Assert.Empty(await Zoek(buiten, "1.234,56", id));
         Assert.Empty(await Zoek(buiten, "kolommen", id));
         Assert.Empty(await Zoek(buiten, "zoekwinkel", id));
+        Assert.Empty(await Zoek(buiten, "afschrift", id));
     }
 
     [Fact]
@@ -94,6 +102,8 @@ public sealed class ZoekTests(AdministratieFixture app) : IClassFixture<Administ
         await app.Dienst<AdministratieDienst>().ZetLid(id, inzien.Id!.Value, Lidmaatschapsrol.Inzien, wie);
 
         Assert.DoesNotContain(await Zoek(inzien, "memoriaal", id), r => r.Soort == Zoeksoort.Pagina);
+        Assert.DoesNotContain(await Zoek(inzien, "memoriaal", id), r => r.Soort == Zoeksoort.Actie);
+        Assert.Contains(await Zoek(wie, "memoriaal", id), r => r.Soort == Zoeksoort.Actie && r.Titel == "Nieuwe memoriaalboeking");
         Assert.Contains(await Zoek(wie, "memoriaal", id), r => r.Soort == Zoeksoort.Pagina);
         Assert.Contains(await Zoek(inzien, "jansen", id), r => r.Soort == Zoeksoort.Relatie);
         Assert.Contains(await Zoek(inzien, "zoekwinkel", id), r => r.Soort == Zoeksoort.Administratie);

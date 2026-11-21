@@ -7,6 +7,7 @@ namespace Boekerhouden.Administratie.Diensten;
 /// <summary>Wat een zoekresultaat is; de volgorde is die van de groepen in het zoekvenster.</summary>
 public enum Zoeksoort
 {
+    Actie,
     Pagina,
     Relatie,
     Rekening,
@@ -41,6 +42,7 @@ public sealed class ZoekDienst(Toegang toegang, AdministratieDienst administrati
         var resultaten = new List<Zoekresultaat>();
         if (administratie is { } id && await administraties.Open(wie, id) is { } kop)
         {
+            resultaten.AddRange(Acties(kop, zoek));
             resultaten.AddRange(Paginas(kop, zoek));
             await using var db = await toegang.Open(wie, id, Recht.Lezen);
             resultaten.AddRange(await InAdministratie(db, id, zoek));
@@ -49,6 +51,50 @@ public sealed class ZoekDienst(Toegang toegang, AdministratieDienst administrati
         resultaten.AddRange((await administraties.Lijst(wie, zoek)).Take(PerSoort)
             .Select(a => new Zoekresultaat(Zoeksoort.Administratie, a.Naam, Weergave.Tekst(a.Ondernemingsvorm), $"/a/{a.Id}")));
         return [.. resultaten.OrderBy(r => r.Soort)];
+    }
+
+    /// <summary>Iets doen in plaats van iets vinden: naam, trefwoorden, waar het gebeurt en het recht dat nodig is.</summary>
+    private sealed record Zoekactie(string Naam, string Trefwoorden, string Pad, Recht Recht, string Detail);
+
+    private static readonly Zoekactie[] Zoekacties =
+    [
+        new("Inkoopfacturen inlezen", "factuur facturen inkoop inlezen uploaden pdf bon scan", "/inkoop", Recht.Invoeren, "Inkoop"),
+        new("Verkoopfacturen inlezen", "factuur facturen verkoop inlezen uploaden ander pakket", "/verkoop", Recht.Invoeren, "Verkoop"),
+        new("Nieuwe verkoopfactuur", "factuur maken nieuw nieuwe verkoop klant", "/verkoop/nieuw", Recht.Invoeren, "Facturen maken"),
+        new("Terugkerende factuur", "factuur terugkerend abonnement herhalen elke maand", "/verkoop/terugkerend", Recht.Invoeren, "Facturen maken"),
+        new("Bankafschrift inlezen", "bank afschrift afschriften inlezen mt940 camt rekeningafschrift", "/bank", Recht.Invoeren, "Bank"),
+        new("Nieuwe memoriaalboeking", "boeken boeking memoriaal journaalpost nieuw nieuwe", "/memoriaal", Recht.Boekhouden, "Memoriaal"),
+        new("Loonjournaal importeren", "loon loonjournaal salaris importeren inlezen", "/memoriaal", Recht.Boekhouden, "Memoriaal"),
+        new("Btw-aangifte doen", "btw aangifte omzetbelasting kwartaal maand vastleggen", "/btw", Recht.Lezen, "Btw-aangifte"),
+        new("Periode afsluiten", "periode maand afsluiten blokkeren vastzetten", "/perioden", Recht.Boekhouden, "Perioden"),
+        new("Auditfile maken", "auditfile xaf exporteren accountant belastingdienst", "/kolommenbalans", Recht.Lezen, "Kolommenbalans"),
+        new("Beginbalans inlezen", "beginbalans jaarrekening openingsbalans inlezen", "/beginbalans", Recht.Boekhouden, "Instellingen"),
+        new("Nieuwe relatie", "relatie klant leverancier nieuw nieuwe toevoegen", "/relaties", Recht.Invoeren, "Relaties"),
+        new("Nieuwe regel", "regel automatisch boeken herkennen nieuw nieuwe", "/regels", Recht.Boekhouden, "Regels"),
+        new("Nieuw actief", "actief activa investering afschrijven nieuw", "/activa", Recht.Boekhouden, "Vaste activa"),
+    ];
+
+    /// <summary>
+    /// De acties waar elk woord van de zoektekst (vanaf drie letters) het begin van een woord van de naam of de
+    /// trefwoorden is; alleen wat de gebruiker in deze administratie mag.
+    /// </summary>
+    private static IEnumerable<Zoekresultaat> Acties(AdministratieKop kop, string zoek)
+    {
+        var woorden = zoek.ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(w => w.Length >= 3).ToList();
+        if (woorden.Count == 0)
+        {
+            return [];
+        }
+
+        return Zoekacties
+            .Where(a => kop.Mag(a.Recht))
+            .Where(a =>
+            {
+                var tokens = $"{a.Naam} {a.Trefwoorden}".ToLowerInvariant().Split([' ', '-'], StringSplitOptions.RemoveEmptyEntries);
+                return woorden.All(w => tokens.Any(t => t.StartsWith(w, StringComparison.Ordinal)));
+            })
+            .Select(a => new Zoekresultaat(Zoeksoort.Actie, a.Naam, a.Detail, $"/a/{kop.Id}{a.Pad}"))
+            .Take(PerSoort);
     }
 
     private static IEnumerable<Zoekresultaat> Paginas(AdministratieKop kop, string zoek) =>
