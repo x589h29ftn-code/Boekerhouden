@@ -18,17 +18,26 @@
             <button class="btn btn-outline-secondary @(perMaand ? null : "active")" @onclick="() => Zet(uitgebreid, false)">Totaal</button>
             <button class="btn btn-outline-secondary @(perMaand ? "active" : null)" title="Begin, de mutaties per maand en het eind" @onclick="() => Zet(uitgebreid, true)">Per maand</button>
         </div>
-        @if (!perMaand)
-        {
-            <span class="form-check mb-0 small text-nowrap">
-                <input class="form-check-input" type="checkbox" id="vorig-jaar" checked="@vergelijk" @onchange="WisselVergelijking" />
-                <label class="form-check-label text-secondary" for="vorig-jaar" title="Dezelfde periode een jaar eerder ernaast, met het verschil in procenten">Vorig jaar</label>
-            </span>
-        }
-        <span class="form-check mb-0 small text-nowrap">
-            <input class="form-check-input" type="checkbox" id="met-nul" @bind="metNul" />
-            <label class="form-check-label text-secondary" for="met-nul">Ook zonder saldo</label>
-        </span>
+        <details class="uitklapmenu weergavemenu">
+            <summary class="btn btn-sm btn-outline-secondary">Weergave</summary>
+            <div class="menu">
+                @if (!perMaand)
+                {
+                    <label class="form-check" title="Dezelfde periode een jaar eerder ernaast, met het verschil in procenten">
+                        <input class="form-check-input" type="checkbox" id="vorig-jaar" checked="@vergelijk" @onchange="WisselVergelijking" />
+                        <span class="form-check-label">Vorig jaar ernaast</span>
+                    </label>
+                }
+                <label class="form-check">
+                    <input class="form-check-input" type="checkbox" id="met-nul" @bind="metNul" />
+                    <span class="form-check-label">Ook zonder saldo</span>
+                </label>
+                <label class="form-check" title="Afgerond op hele euro's, zodat per maand alle maanden naast elkaar passen; het exacte bedrag staat in de tooltip">
+                    <input class="form-check-input" type="checkbox" id="hele-euros" checked="@heel" @onchange="WisselHeel" />
+                    <span class="form-check-label">Hele euro's</span>
+                </label>
+            </div>
+        </details>
         <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
         <Downloadmenu Bezig="bezig" Keuzes="@([
             new("Excel", "De kolommenbalans als Excel (met vorig jaar als dat aan staat)", Excel),
@@ -165,10 +174,11 @@
         else if (perMaand && maanden is not null)
         {
             <div class="card overzichtskaart maandoverzicht-kaart">
-                <table class="table align-middle mb-0 overzichtstabel maandoverzicht" style="@Letter" data-sleepbaar="maandoverzicht">
+                @* Bij hele euro's een nieuwe tabel (@key) met eigen breedtes: de kolommen worden dan opnieuw gemeten en krimpen mee. *@
+                <table @key="heel" class="table align-middle mb-0 overzichtstabel maandoverzicht @(heel ? "heel" : null)" style="@Letter" data-sleepbaar="@(heel ? "maandoverzicht-heel" : "maandoverzicht")">
                     <thead>
                         <tr>
-                            <th>Grootboek</th>
+                            <th data-breedte="@(heel ? "240" : null)">Grootboek</th>
                             <th class="text-end">Beginbalans</th>
                             @foreach (var m in maanden.Maanden)
                             {
@@ -183,14 +193,14 @@
                             @if (p.Regel is { } r)
                             {
                                 <tr title="@r.Rekening.RgsCode">
-                                    <td class="klikbaar @(uitgebreid ? "ingesprongen" : null)" @onclick="() => NaarKaart(r.Rekening.Nummer, van, tot)"><span class="rekeningnummer">@r.Rekening.Nummer</span> @r.Rekening.Naam@ActivaStatus(r.Rekening.Nummer)</td>
-                                    <td class="bedrag text-end text-secondary">@Getal(W(r.Rekening, 0))</td>
+                                    <td class="klikbaar @(uitgebreid ? "ingesprongen" : null)" title="@r.Rekening.Nummer @r.Rekening.Naam" @onclick="() => NaarKaart(r.Rekening.Nummer, van, tot)"><span class="rekeningnummer">@r.Rekening.Nummer</span> @r.Rekening.Naam@ActivaStatus(r.Rekening.Nummer)</td>
+                                    <td class="bedrag text-end text-secondary" title="@Exact(r.Rekening, 0)">@Getal(W(r.Rekening, 0))</td>
                                     @for (var i = 0; i < maanden.Maanden.Count; i++)
                                     {
                                         var n = i;
-                                        <td class="bedrag text-end klikbaar" title="@r.Rekening.Naam, @maanden.Maanden[n].ToString("MMMM yyyy", Nederlands)" @onclick="() => NaarMaand(r.Rekening.Nummer, n)">@Getal(W(r.Rekening, n + 1))</td>
+                                        <td class="bedrag text-end klikbaar" title="@Maandtitel(r.Rekening, n)" @onclick="() => NaarMaand(r.Rekening.Nummer, n)">@Getal(W(r.Rekening, n + 1))</td>
                                     }
-                                    <td class="bedrag text-end fw-semibold">@Getal(W(r.Rekening, maanden.Maanden.Count + 1))</td>
+                                    <td class="bedrag text-end fw-semibold" title="@Exact(r.Rekening, maanden.Maanden.Count + 1)">@Getal(W(r.Rekening, maanden.Maanden.Count + 1))</td>
                                 </tr>
                             }
                             else if (p.Soort == Presentatiesoort.Kop)
@@ -244,6 +254,8 @@
     private IReadOnlyList<Vergelijkingsregel>? vergelijking;
     private Maandoverzicht? maanden;
     private Overzichtsweergave weergave = Overzichtsweergave.Standaard;
+    private bool heel;
+    private Dictionary<string, decimal[]> exact = new(StringComparer.Ordinal);
 
     /// <summary>Per rekening de bedragen per kolom zoals getoond: exact, of per kolom afgerond op hele euro's zodat de totalen sluiten.</summary>
     private Dictionary<string, decimal[]> waarden = new(StringComparer.Ordinal);
@@ -275,6 +287,7 @@
         (van, tot) = Weergave.Periode(VanTekst, TotTekst) ?? Periode.Jaar((await Grootboek.Boekjaren(g.Wie, Id))[0]);
         (uitgebreid, perMaand, vergelijk) = (Indeling == "rgs", WeergaveKeuze == "maand", VergelijkKeuze == "jaar");
         weergave = await Kantoor.Weergave();
+        heel = weergave.HeleEuros;
         await Laad();
     }
 
@@ -496,7 +509,8 @@
     {
         var lijst = regels.ToList();
         waarden = lijst.ToDictionary(r => r.Rekening.Nummer, r => r.Kolommen.ToArray(), StringComparer.Ordinal);
-        if (!weergave.HeleEuros || lijst.Count == 0)
+        exact = lijst.ToDictionary(r => r.Rekening.Nummer, r => r.Kolommen.ToArray(), StringComparer.Ordinal);
+        if (!heel || lijst.Count == 0)
         {
             return;
         }
@@ -543,7 +557,21 @@
     /// <summary>Het resultaat zoals getoond: credit min debet in de W&amp;V-kolommen.</summary>
     private decimal Resultaat => Kolomtotaal(1) - Kolomtotaal(0);
 
-    private string Bedrag(decimal bedrag) => weergave.HeleEuros ? Weergave.BedragHeel(bedrag) : Weergave.Bedrag(bedrag);
+    private string Bedrag(decimal bedrag) => heel ? Weergave.BedragHeel(bedrag) : Weergave.Bedrag(bedrag);
+
+    /// <summary>Het exacte bedrag van een cel, voor de tooltip als er in hele euro's getoond wordt.</summary>
+    private string? Exact(Rekening rekening, int kolom) =>
+        heel && exact.TryGetValue(rekening.Nummer, out var k) && kolom < k.Length && k[kolom] != 0 ? Weergave.Bedrag(k[kolom]) : null;
+
+    private string Maandtitel(Rekening rekening, int maand) =>
+        $"{rekening.Naam}, {maanden!.Maanden[maand].ToString("MMMM yyyy", Nederlands)}{(Exact(rekening, maand + 1) is { } e ? $": {e}" : null)}";
+
+    /// <summary>Hele euro's aan of uit: opnieuw rekenen (de afronding is per kolom, zodat de totalen blijven sluiten).</summary>
+    private async Task WisselHeel()
+    {
+        heel = !heel;
+        await Laad();
+    }
 
     private string? Getal(decimal bedrag) => bedrag == 0 ? null : Bedrag(bedrag);
 

@@ -23,8 +23,7 @@
             <button class="btn btn-outline-secondary @(perPeriode ? null : "active")" title="Omzet en btw onder elkaar, met de afdrachten en de suppletie" @onclick="() => KiesWeergave(false)">Jaaropstelling</button>
             <button class="btn btn-outline-secondary @(perPeriode ? "active" : null)" title="De rubrieken met de perioden naast elkaar" @onclick="() => KiesWeergave(true)">Per periode</button>
         </div>
-        <button class="btn btn-sm btn-outline-secondary" disabled="@(bezig || stand is null)" title="De rondrekening als Excel" @onclick="Excel">Excel</button>
-        <button class="btn btn-sm btn-outline-secondary" disabled="@(bezig || stand is null)" title="De rondrekening als PDF" @onclick="Pdf">PDF</button>
+        <Downloadmenu Bezig="@(bezig || stand is null)" Keuzes="@([new("Excel", "De rondrekening als Excel", Excel), new("PDF", "De rondrekening als PDF", Pdf)])" />
     </Acties>
     <ChildContent>
         <Foutmeldingen Fouten="fouten" />

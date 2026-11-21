@@ -41,8 +41,7 @@
         @if (staat is not null)
         {
             <JaarKeuze Jaren="jaren" Jaar="jaar" JaarChanged="KiesJaar" />
-            <button class="btn btn-outline-secondary" disabled="@bezig" title="De activastaat als Excel" @onclick="Excel">Excel</button>
-            <button class="btn btn-outline-secondary" disabled="@bezig" title="De activastaat als PDF, A4 liggend" @onclick="Pdf">PDF</button>
+            <Downloadmenu Bezig="bezig" Keuzes="@([new("Excel", "De activastaat als Excel", Excel), new("PDF", "De activastaat als PDF, A4 liggend", Pdf)])" />
         }
         else if (mag)
         {

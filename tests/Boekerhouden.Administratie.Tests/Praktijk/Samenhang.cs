@@ -155,13 +155,16 @@ internal static class Samenhang
 
         // Vandaag: het dashboard tegen het grootboek en de openstaande posten.
         var dashboarddienst = app.Dienst<DashboardDienst>();
-        var dashboard = await dashboarddienst.Laad(wie, id, [new(Widget.Liquide), new(Widget.Debiteuren), new(Widget.Crediteuren), new(Widget.Kerncijfers)]);
+        var dashboard = await dashboarddienst.Laad(wie, id, [new(Widget.Liquide), new(Widget.Liquiditeit), new(Widget.Debiteuren), new(Widget.Crediteuren), new(Widget.Kerncijfers)]);
         var vandaag = dashboard.Vandaag;
         var nu = (await grootboek.Kolommenbalans(wie, id, new DateOnly(vandaag.Year, 1, 1), vandaag)).Regels.ToDictionary(r => r.Rekening.Nummer, r => r.Saldo);
         foreach (var l in dashboard.Liquide ?? [])
         {
             Vergelijk($"dashboard liquide {l.Rekening}", l.Saldo, nu.GetValueOrDefault(l.Rekening));
         }
+
+        // Bank en kas en de grafiek liquiditeit (de laatste maand loopt tot vandaag) tellen dezelfde rekeningen.
+        Vergelijk("dashboard bank en kas tegen liquiditeit", (dashboard.Liquide ?? []).Sum(l => l.Saldo), dashboard.Liquiditeit?[^1].Saldo ?? 0m);
 
         var openposten = app.Dienst<OpenpostenDienst>();
         Vergelijk("dashboard debiteuren", dashboard.Debiteuren?.Totaal ?? 0m, (await openposten.Debiteuren(wie, id, vandaag)).Relaties.Sum(r => r.Openstaand));

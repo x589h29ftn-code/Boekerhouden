@@ -193,11 +193,19 @@
                 {
                     <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="Alle mutaties in Te verwerken opnieuw herkennen: afletteren, regels (ook autoherkenning) en wat er geleerd is" aria-busy="@(bezig ? "true" : null)" @onclick="VerwerkOpnieuw">Opnieuw herkennen</button>
                 }
-                <button class="btn btn-sm btn-outline-secondary" title="De openstaande posten in een eigen venster, bijv. op een tweede beeldscherm" @onclick="OpenpostenExtern"><Icoon Naam="app-window" /><span>Posten in venster</span></button>
-                <span class="form-check mb-0">
-                    <input class="form-check-input" type="checkbox" id="ookgeboekt" checked="@ookGeboekt" @onchange="WisselGeboekt" />
-                    <label class="form-check-label small text-secondary" for="ookgeboekt">Ook geboekt</label>
-                </span>
+                @* Alleen wat iets doet: het venster met posten als er iets te verwerken is, en Ook geboekt als er al een
+                   afschrift is ingelezen. *@
+                @if (mutaties?.Any(m => m.Status == Banktransactiestatus.TeVerwerken) == true)
+                {
+                    <button class="btn btn-sm btn-outline-secondary" title="De openstaande posten in een eigen venster, bijv. op een tweede beeldscherm" @onclick="OpenpostenExtern"><Icoon Naam="app-window" /><span>Posten in venster</span></button>
+                }
+                @if (ookGeboekt || stand.Any(b => b.Tot is not null))
+                {
+                    <span class="form-check mb-0">
+                        <input class="form-check-input" type="checkbox" id="ookgeboekt" checked="@ookGeboekt" @onchange="WisselGeboekt" />
+                        <label class="form-check-label small text-secondary" for="ookgeboekt">Ook geboekt</label>
+                    </span>
+                }
             </div>
         }
     </div>

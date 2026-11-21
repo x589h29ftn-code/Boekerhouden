@@ -282,14 +282,14 @@ public sealed class DashboardDienst(
         {
             dashboard = keuze.Soort switch
             {
-                Widget.Liquide => dashboard with { Liquide = await Liquide(wie, administratie, db, dagboeken, vandaag) },
+                Widget.Liquide => dashboard with { Liquide = await Liquide(wie, administratie, db, schema, dagboeken, vandaag) },
                 Widget.Liquiditeit => dashboard with { Liquiditeit = await Liquiditeit(db, schema, dagboeken, vandaag) },
                 Widget.Btw => dashboard with { Btw = await Btw(db, schema, keuze.Geldig == Widgetkeuze.Maand ? Aangiftefrequentie.Maand : Aangiftefrequentie.Kwartaal, vandaag) },
                 Widget.Inkoop => dashboard with { Inkoop = await TeVerwerkenInkoop(wie, administratie) },
                 Widget.Bankmutaties => dashboard with { Bankmutaties = await TeVerwerkenBank(db) },
                 Widget.Debiteuren => dashboard with { Debiteuren = await Open(db, Factuursoort.Verkoop, vandaag) },
                 Widget.Crediteuren => dashboard with { Crediteuren = await Open(db, Factuursoort.Inkoop, vandaag) },
-                Widget.Maandgrafiek => dashboard with { Maandgrafiek = (vandaag.Year, await Maandgrafiek(Overzicht, vandaag.Year)) },
+                Widget.Maandgrafiek => dashboard with { Maandgrafiek = await Maandgrafiek(Overzicht, vandaag.Year) },
                 Widget.Kerncijfers => dashboard with { Kerncijfers = await Kerncijfers(Overzicht, vandaag) },
                 Widget.Marge => dashboard with { Marge = await Marge(Overzicht, vandaag) },
                 Widget.Verkoop => dashboard with
@@ -318,13 +318,21 @@ public sealed class DashboardDienst(
     private static List<Dagboek> Liquidedagboeken(IReadOnlyList<Dagboek> dagboeken) =>
         [.. dagboeken.Where(d => d.Soort is Dagboeksoort.Bank or Dagboeksoort.Kas && d.Rekeningnummer is not null)];
 
-    private async Task<IReadOnlyList<Liquiderekening>> Liquide(Uitvoerder wie, Guid administratie, AdministratieDbContext db, IReadOnlyList<Dagboek> dagboeken, DateOnly vandaag)
+    /// <summary>
+    /// Bank en kas: de rekeningen van de bank- en kasdagboeken, en daarnaast de rekeningen met de functie bank of kas
+    /// zonder dagboek (bijv. na het inlezen van een auditfile) — dezelfde rekeningen als de grafiek liquiditeit, zodat
+    /// die twee elkaar niet tegenspreken.
+    /// </summary>
+    private async Task<IReadOnlyList<Liquiderekening>> Liquide(Uitvoerder wie, Guid administratie, AdministratieDbContext db, Rekeningschema schema, IReadOnlyList<Dagboek> dagboeken, DateOnly vandaag)
     {
         var liquide = Liquidedagboeken(dagboeken);
-        var saldi = await Saldi(db, [.. liquide.Select(d => d.Rekeningnummer!)], null, vandaag);
+        var metDagboek = liquide.Select(d => d.Rekeningnummer!).ToHashSet(StringComparer.Ordinal);
+        var losse = schema.Alle.Where(r => r.Functie is Rekeningfunctie.Bank or Rekeningfunctie.Kas && !metDagboek.Contains(r.Nummer)).ToList();
+        var saldi = await Saldi(db, [.. metDagboek, .. losse.Select(r => r.Nummer)], null, vandaag);
         var standen = (await bank.Stand(wie, administratie)).ToDictionary(s => s.Dagboek, StringComparer.Ordinal);
 
-        // Een kas zonder boekingen laten we weg; een bank altijd (ook als er nog niets is ingelezen).
+        // Een kas zonder boekingen laten we weg; een bank altijd (ook als er nog niets is ingelezen). Een rekening zonder
+        // dagboek alleen als er op geboekt is.
         return
         [
             .. liquide
@@ -332,6 +340,7 @@ public sealed class DashboardDienst(
                 .Select(d => new Liquiderekening(d.Code, d.Naam, d.Rekeningnummer!, saldi.GetValueOrDefault(d.Rekeningnummer!),
                     standen.GetValueOrDefault(d.Code) is { Tot: { } datum, Saldo: { } saldo } ? (datum, saldo) : null,
                     standen.GetValueOrDefault(d.Code)?.TeVerwerken ?? 0)),
+            .. losse.Where(r => saldi.ContainsKey(r.Nummer)).Select(r => new Liquiderekening("", r.Naam, r.Nummer, saldi[r.Nummer], null)),
         ];
     }
 
@@ -399,8 +408,25 @@ public sealed class DashboardDienst(
         ];
     }
 
-    private static async Task<IReadOnlyList<Maandcijfer>> Maandgrafiek(Func<DateOnly, DateOnly, Task<Maandoverzicht>> overzicht, int jaar) =>
-        Maandcijfers.Uit(await overzicht(new DateOnly(jaar, 1, 1), new DateOnly(jaar, 12, 31)));
+    /// <summary>
+    /// De maandgrafiek van dit jaar; staat er in dit jaar nog niets in de resultatenrekening (begin januari, of een
+    /// administratie die tot vorig jaar loopt), dan die van vorig jaar in plaats van een lege grafiek.
+    /// </summary>
+    private static async Task<(int, IReadOnlyList<Maandcijfer>)> Maandgrafiek(Func<DateOnly, DateOnly, Task<Maandoverzicht>> overzicht, int jaar)
+    {
+        static bool Leeg(IReadOnlyList<Maandcijfer> maanden) => maanden.All(m => m.Omzet == 0 && m.Inkoop == 0 && m.OverigeKosten == 0);
+        var dit = Maandcijfers.Uit(await overzicht(new DateOnly(jaar, 1, 1), new DateOnly(jaar, 12, 31)));
+        if (Leeg(dit))
+        {
+            var vorig = Maandcijfers.Uit(await overzicht(new DateOnly(jaar - 1, 1, 1), new DateOnly(jaar - 1, 12, 31)));
+            if (!Leeg(vorig))
+            {
+                return (jaar - 1, vorig);
+            }
+        }
+
+        return (jaar, dit);
+    }
 
     /// <summary>
     /// De brutomarge per margegroep van 1 januari tot en met vandaag, dezelfde periode vorig jaar en per kwartaal van dit

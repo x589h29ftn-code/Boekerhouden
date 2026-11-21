@@ -28,8 +28,7 @@
                 <option value="@Aangiftefrequentie.Jaar">per jaar</option>
             </select>
         }
-        <button class="btn btn-sm btn-outline-secondary" disabled="@(bezig || gekozen is null)" title="De aangifte van de gekozen periode als Excel" @onclick="Excel">Excel</button>
-        <button class="btn btn-sm btn-outline-secondary" disabled="@(bezig || gekozen is null)" title="De aangifte van de gekozen periode als PDF" @onclick="Pdf">PDF</button>
+        <Downloadmenu Bezig="@(bezig || gekozen is null)" Keuzes="@([new("Excel", "De aangifte van de gekozen periode als Excel", Excel), new("PDF", "De aangifte van de gekozen periode als PDF", Pdf)])" />
     </Acties>
     <ChildContent>
         <Foutmeldingen Fouten="fouten" />

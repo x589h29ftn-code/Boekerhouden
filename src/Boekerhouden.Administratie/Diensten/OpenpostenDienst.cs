@@ -83,6 +83,14 @@ public sealed class OpenpostenDienst(Toegang toegang, PdfDienst pdf)
     public async Task<Uitkomst<byte[]>> DebiteurenPdf(Uitvoerder wie, Guid administratie, DateOnly peildatum, string? relatie = null, Openpostenweergave weergave = Openpostenweergave.PerRelatie, CancellationToken stoppen = default) =>
         await pdf.Maak(OpenpostenHtml.Maak(await Debiteuren(wie, administratie, peildatum, relatie), weergave), stoppen);
 
+    /// <summary>De openstaande crediteuren als Excel, in de gekozen weergave.</summary>
+    public async Task<byte[]> CrediteurenExcel(Uitvoerder wie, Guid administratie, DateOnly peildatum, string? relatie = null, Openpostenweergave weergave = Openpostenweergave.PerRelatie) =>
+        OverzichtExport.OpenpostenExcel(await Crediteuren(wie, administratie, peildatum, relatie), weergave);
+
+    /// <summary>De openstaande debiteuren als Excel, in de gekozen weergave.</summary>
+    public async Task<byte[]> DebiteurenExcel(Uitvoerder wie, Guid administratie, DateOnly peildatum, string? relatie = null, Openpostenweergave weergave = Openpostenweergave.PerRelatie) =>
+        OverzichtExport.OpenpostenExcel(await Debiteuren(wie, administratie, peildatum, relatie), weergave);
+
     public Task<Openpostenlijst> Crediteuren(Uitvoerder wie, Guid administratie, DateOnly peildatum, string? relatie = null) =>
         Lijst(wie, administratie, Factuursoort.Inkoop, peildatum, relatie);
 

@@ -487,6 +487,119 @@ public static class OverzichtExport
             b.BalansDebet + Math.Max(-winst, 0), b.BalansCredit + Math.Max(winst, 0));
     }
 
+    /// <summary>
+    /// De openstaande posten als Excel, in dezelfde weergave als op het scherm: per relatie met subtotalen, alleen de
+    /// subtotalen, of alle posten op datum; bedragen en datums als getal en datum, zodat er mee te rekenen is.
+    /// </summary>
+    public static byte[] OpenpostenExcel(Diensten.Openpostenlijst lijst, Diensten.Openpostenweergave weergave = Diensten.Openpostenweergave.PerRelatie)
+    {
+        ArgumentNullException.ThrowIfNull(lijst);
+        var inkoop = lijst.Soort == Boekhouding.Facturen.Factuursoort.Inkoop;
+        var relatienaam = inkoop ? "Leverancier" : "Klant";
+        using var boek = new XLWorkbook();
+        var blad = boek.AddWorksheet(inkoop ? "Crediteuren" : "Debiteuren");
+        blad.Cell(1, 1).Value = inkoop ? "Openstaande posten crediteuren" : "Openstaande posten debiteuren";
+        blad.Cell(1, 1).Style.Font.Bold = true;
+        blad.Cell(1, 1).Style.Font.FontSize = 13;
+        blad.Cell(2, 1).Value = $"{lijst.Administratie} · peildatum {Datum(lijst.Peildatum)}";
+        blad.Cell(2, 1).Style.Font.FontColor = XLColor.FromHtml("#6c757d");
+        int rij;
+        int eersteBedrag;
+        if (weergave == Diensten.Openpostenweergave.Totalen)
+        {
+            rij = Koppen(blad, 4, ["Code", relatienaam, "Posten", "Factuurbedrag", "Betaald", "Openstaand", "Oudste"]);
+            eersteBedrag = 4;
+            foreach (var r in lijst.Relaties)
+            {
+                blad.Cell(rij, 1).Value = r.Relatie;
+                blad.Cell(rij, 2).Value = r.Naam;
+                blad.Cell(rij, 3).Value = r.Posten.Count;
+                blad.Cell(rij, 4).Value = r.Factuurbedrag;
+                blad.Cell(rij, 5).Value = r.Betaald;
+                blad.Cell(rij, 6).Value = r.Openstaand;
+                if (r.Posten.Count > 0)
+                {
+                    blad.Cell(rij, 7).Value = r.Posten.Max(p => p.Ouderdom);
+                }
+
+                rij++;
+            }
+
+            blad.Cell(rij, 1).Value = "Totaal generaal";
+            blad.Cell(rij, 3).Value = lijst.Relaties.Sum(r => r.Posten.Count);
+        }
+        else
+        {
+            var perRelatie = weergave == Diensten.Openpostenweergave.PerRelatie;
+            string[] koppen = perRelatie
+                ? ["Boekdatum", "Vervaldatum", "Omschrijving", "Factuurnr.", "Factuurbedrag", "Betaald", "Openstaand", "Oud"]
+                : ["Boekdatum", "Vervaldatum", relatienaam, "Omschrijving", "Factuurnr.", "Factuurbedrag", "Betaald", "Openstaand", "Oud"];
+            rij = Koppen(blad, 4, koppen);
+            eersteBedrag = perRelatie ? 5 : 6;
+            void Post(Diensten.Openpostrelatie r, Diensten.Openpost p)
+            {
+                var k = 1;
+                blad.Cell(rij, k++).Value = p.Datum.ToDateTime(TimeOnly.MinValue);
+                blad.Cell(rij, k++).Value = p.Vervaldatum.ToDateTime(TimeOnly.MinValue);
+                if (!perRelatie)
+                {
+                    blad.Cell(rij, k++).Value = r.Naam;
+                }
+
+                blad.Cell(rij, k++).Value = p.Omschrijving;
+                blad.Cell(rij, k++).Value = p.Factuurnummer;
+                blad.Cell(rij, k++).Value = p.Factuurbedrag;
+                blad.Cell(rij, k++).Value = p.Betaald;
+                blad.Cell(rij, k++).Value = p.Openstaand;
+                blad.Cell(rij, k).Value = p.Ouderdom;
+                rij++;
+            }
+
+            if (perRelatie)
+            {
+                foreach (var r in lijst.Relaties)
+                {
+                    blad.Cell(rij, 1).Value = $"{r.Relatie} {r.Naam}";
+                    blad.Cell(rij, 1).Style.Font.Bold = true;
+                    rij++;
+                    foreach (var p in r.Posten)
+                    {
+                        Post(r, p);
+                    }
+
+                    blad.Cell(rij, 1).Value = $"Totaal {r.Naam}";
+                    blad.Cell(rij, eersteBedrag).Value = r.Factuurbedrag;
+                    blad.Cell(rij, eersteBedrag + 1).Value = r.Betaald;
+                    blad.Cell(rij, eersteBedrag + 2).Value = r.Openstaand;
+                    blad.Row(rij).Style.Font.Bold = true;
+                    rij += 2;
+                }
+            }
+            else
+            {
+                foreach (var (r, p) in lijst.Relaties.SelectMany(r => r.Posten.Select(p => (r, p))).OrderBy(x => x.p.Datum).ThenBy(x => x.p.Factuurnummer, StringComparer.Ordinal))
+                {
+                    Post(r, p);
+                }
+            }
+
+            blad.Column(1).Style.DateFormat.Format = "dd-mm-yyyy";
+            blad.Column(2).Style.DateFormat.Format = "dd-mm-yyyy";
+            blad.Cell(rij, 1).Value = "Totaal generaal";
+        }
+
+        blad.Cell(rij, eersteBedrag).Value = lijst.Factuurbedrag;
+        blad.Cell(rij, eersteBedrag + 1).Value = lijst.Betaald;
+        blad.Cell(rij, eersteBedrag + 2).Value = lijst.Openstaand;
+        blad.Row(rij).Style.Font.Bold = true;
+        for (var kolom = eersteBedrag; kolom < eersteBedrag + 3; kolom++)
+        {
+            blad.Column(kolom).Style.NumberFormat.Format = Getalnotatie;
+        }
+
+        return Bewaar(boek, blad);
+    }
+
     private static void Kop(IXLWorksheet blad, string titel, string administratie, DateOnly van, DateOnly tot)
     {
         blad.Cell(1, 1).Value = titel;

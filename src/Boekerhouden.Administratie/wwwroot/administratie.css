@@ -1204,10 +1204,19 @@ body.scheiding-slepen {
 }
 
 .maandoverzicht > :is(thead, tbody, tfoot) > tr > :first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
     position: sticky;
     left: 0;
     z-index: 1;
     background: var(--bs-body-bg);
+}
+
+/* In hele euro's zijn de bedragen korter: smallere kolommen, zodat er meer maanden naast elkaar passen. */
+table.maandoverzicht.heel > :is(thead, tbody, tfoot) > tr > :is(td, th):not(:first-child) {
+    min-width: 4.5rem;
+    padding-left: .4rem;
+    padding-right: .4rem;
 }
 
 .maandoverzicht td.klikbaar {

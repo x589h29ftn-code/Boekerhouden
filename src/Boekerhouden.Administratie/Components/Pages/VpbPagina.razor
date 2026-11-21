@@ -24,8 +24,7 @@
             <label class="form-check-label text-secondary" for="alle-regels" title="Ook de regels zonder bedrag, om er een in te vullen">Alle regels</label>
         </span>
         <JaarKeuze Jaren="jaren" Jaar="jaar" JaarChanged="KiesJaar" />
-        <button class="btn btn-sm btn-outline-secondary" disabled="@(bezig || stand is null)" title="De fiscale positie als Excel" @onclick="Excel">Excel</button>
-        <button class="btn btn-sm btn-outline-secondary" disabled="@(bezig || stand is null)" title="De fiscale positie als PDF" @onclick="Pdf">PDF</button>
+        <Downloadmenu Bezig="@(bezig || stand is null)" Keuzes="@([new("Excel", "De fiscale positie als Excel", Excel), new("PDF", "De fiscale positie als PDF", Pdf)])" />
     </Acties>
     <ChildContent>
         <Foutmeldingen Fouten="fouten" />

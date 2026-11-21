@@ -27,7 +27,7 @@
         </select>
         <label class="small text-secondary" for="peildatum">Peildatum</label>
         <DatumVeld Id="peildatum" @bind-Waarde="peildatum" @bind-Waarde:after="KiesPeildatum" />
-        <button class="btn btn-sm btn-outline-secondary" @onclick="Pdf" disabled="@bezig" title="De lijst als PDF (A4 liggend)">PDF</button>
+        <Downloadmenu Bezig="bezig" Keuzes="@([new("Excel", "De lijst als Excel, in de gekozen weergave", Excel), new("PDF", "De lijst als PDF (A4 liggend), in de gekozen weergave", Pdf)])" />
     </Acties>
     <ChildContent>
         <Foutmeldingen Fouten="fouten" />
@@ -241,6 +241,22 @@
         Navigatie.NavigateTo(post.Document is { } document
             ? $"/a/{Id}/{(Inkoop ? "inkoop" : "verkoop")}/{document}?terug={terug}"
             : $"/a/{Id}/boeking/{Uri.EscapeDataString(post.Dagboek)}/{Uri.EscapeDataString(post.Boekstuk)}?terug={terug}");
+    }
+
+    private async Task Excel()
+    {
+        bezig = true;
+        try
+        {
+            var inhoud = Inkoop
+                ? await Openposten.CrediteurenExcel(geopend!.Wie, Id, peildatum, relatie.Length == 0 ? null : relatie, weergave)
+                : await Openposten.DebiteurenExcel(geopend!.Wie, Id, peildatum, relatie.Length == 0 ? null : relatie, weergave);
+            await JS.Bewaar(inhoud, $"Openstaande posten {Naam} {peildatum:yyyy-MM-dd}.xlsx", Download.Excel);
+        }
+        finally
+        {
+            bezig = false;
+        }
     }
 
     private async Task Pdf()

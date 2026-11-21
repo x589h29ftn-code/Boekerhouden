@@ -31,10 +31,22 @@
                 <thead>
                     <tr>
                         <SorteerKop Sortering="sortering" Naam="Naam" Gewijzigd="StateHasChanged" />
-                        <SorteerKop Sortering="sortering" Naam="IBAN" Gewijzigd="StateHasChanged" />
-                        <SorteerKop Sortering="sortering" Naam="Btw-nummer" Gewijzigd="StateHasChanged" />
-                        <SorteerKop Sortering="sortering" Naam="KvK" Gewijzigd="StateHasChanged" />
-                        <SorteerKop Sortering="sortering" Naam="Standaardrekening" Gewijzigd="StateHasChanged" />
+                        @if (MetIban)
+                        {
+                            <SorteerKop Sortering="sortering" Naam="IBAN" Gewijzigd="StateHasChanged" />
+                        }
+                        @if (MetBtw)
+                        {
+                            <SorteerKop Sortering="sortering" Naam="Btw-nummer" Gewijzigd="StateHasChanged" />
+                        }
+                        @if (MetKvk)
+                        {
+                            <SorteerKop Sortering="sortering" Naam="KvK" Gewijzigd="StateHasChanged" />
+                        }
+                        @if (MetRekening)
+                        {
+                            <SorteerKop Sortering="sortering" Naam="Standaardrekening" Gewijzigd="StateHasChanged" />
+                        }
                         <th></th>
                     </tr>
                 </thead>
@@ -42,14 +54,26 @@
                     @foreach (var r in sortering.Pas(relaties))
                     {
                         <tr class="regel-met-acties">
-                            <td title="@r.Code"><a class="text-reset" href="/a/@Id/relaties/@Uri.EscapeDataString(r.Code)">@r.Naam</a>@if (r.Klant?.IsKlant == true)
+                            <td title="@r.Code"><a class="text-reset" href="/a/@Id/relaties/@Uri.EscapeDataString(r.Code)">@r.Naam</a>@if (Soort(r) is { } soort)
                                 {
-                                    <span class="status ms-2">klant</span>
+                                    <span class="status ms-2">@soort</span>
                                 }</td>
-                            <td class="small">@string.Join(", ", r.Ibans.Select(Boekhouding.Relaties.Iban.Toon))</td>
-                            <td class="small">@r.BtwNummer</td>
-                            <td class="small">@r.KvkNummer</td>
-                            <td class="small">@r.Tegenrekening</td>
+                            @if (MetIban)
+                            {
+                                <td class="small">@string.Join(", ", r.Ibans.Select(Boekhouding.Relaties.Iban.Toon))</td>
+                            }
+                            @if (MetBtw)
+                            {
+                                <td class="small">@r.BtwNummer</td>
+                            }
+                            @if (MetKvk)
+                            {
+                                <td class="small">@r.KvkNummer</td>
+                            }
+                            @if (MetRekening)
+                            {
+                                <td class="small">@r.Tegenrekening</td>
+                            }
                             <td class="text-end">
                                 @if (context.Mag(Recht.Invoeren))
                                 {
@@ -60,7 +84,7 @@
                         @if (ibanVoor?.Id == r.Id)
                         {
                             <tr>
-                                <td colspan="6">
+                                <td colspan="@Kolommen">
                                     <div class="d-flex gap-2 align-items-center py-1">
                                         <input class="form-control form-control-sm w-auto" size="34" @bind="ibans" aria-label="IBAN's, gescheiden door komma's" />
                                         @if (!Omgeving.ZonderWachtwoord)
@@ -91,6 +115,26 @@
         new("KvK", r => r.KvkNummer),
         new("Standaardrekening", r => r.Tegenrekening));
     private Invoer nieuw = new();
+
+    // Een kolom alleen als er bij een relatie iets in staat (zoals op de grootboekkaart).
+    private bool MetIban => relaties!.Any(r => r.Ibans.Count > 0);
+
+    private bool MetBtw => relaties!.Any(r => !string.IsNullOrEmpty(r.BtwNummer));
+
+    private bool MetKvk => relaties!.Any(r => !string.IsNullOrEmpty(r.KvkNummer));
+
+    private bool MetRekening => relaties!.Any(r => !string.IsNullOrEmpty(r.Tegenrekening));
+
+    private int Kolommen => 2 + (MetIban ? 1 : 0) + (MetBtw ? 1 : 0) + (MetKvk ? 1 : 0) + (MetRekening ? 1 : 0);
+
+    /// <summary>Klant, leverancier of allebei: zo zie je in één lijst wie wat is.</summary>
+    private static string? Soort(RelatieRegel r) => (r.Klant?.IsKlant == true, r.IsLeverancier) switch
+    {
+        (true, true) => "klant en leverancier",
+        (true, false) => "klant",
+        (false, true) => "leverancier",
+        _ => null,
+    };
     private RelatieRegel? ibanVoor;
     private string ibans = "";
     private string wachtwoord = "";

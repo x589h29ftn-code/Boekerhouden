@@ -32,6 +32,42 @@ public sealed class DashboardDienstTests(VasteDagFixture app) : IClassFixture<Va
     private static readonly IReadOnlyList<Widgetkeuze> Alles = [.. Enum.GetValues<Widget>().Select(w => new Widgetkeuze(w))];
 
     [Fact]
+    public async Task Na_een_auditfile_tellen_bank_en_kas_en_liquiditeit_dezelfde_rekeningen_en_de_grafiek_toont_vorig_jaar()
+    {
+        // Een administratie die tot vorig jaar loopt, als auditfile ingelezen: de bank heeft daarna de functie bank maar
+        // (nog) geen bankdagboek met die rekening.
+        var wie = await app.Beheerder();
+        var bron = await app.Administratie("Dashboard Auditfile Bron B.V.");
+        var grootboek = app.Dienst<GrootboekDienst>();
+        Assert.True((await app.Dienst<BankDienst>().VoegBankToe(wie, bron, "SPA", "Spaarrekening", null, "1110")).IsGelukt);
+        foreach (var post in new[]
+                 {
+                     Memoriaal("2025-0001", new(2025, 1, 1), ("1100", 5000m), ("1110", 2500m), ("0500", -7500m)),
+                     Memoriaal("2025-0002", new(2025, 6, 10), ("1100", 1000m), ("8000", -1000m)),
+                     Memoriaal("2025-0003", new(2025, 9, 1), ("4100", 300m), ("1100", -300m)),
+                 })
+        {
+            Assert.True((await grootboek.Boek(wie, bron, post)).IsGelukt);
+        }
+
+        var auditfiles = app.Dienst<AuditfileDienst>();
+        var bestand = await auditfiles.Maak(wie, bron, 2025);
+        var ingelezen = await auditfiles.LeesIn(wie, new MemoryStream(bestand.Inhoud), bestand.Bestandsnaam, Ondernemingsvorm.BV);
+        Assert.True(ingelezen.IsGelukt, string.Join("; ", ingelezen.Fouten));
+        var id = ingelezen.Waarde!.Administratie;
+
+        var dashboard = await app.Dienst<DashboardDienst>().Laad(wie, id, [new(Widget.Liquide), new(Widget.Liquiditeit), new(Widget.Maandgrafiek)]);
+        Assert.Equal(8200m, dashboard.Liquide!.Sum(r => r.Saldo));
+        Assert.Equal(8200m, dashboard.Liquiditeit![^1].Saldo);
+        Assert.Equal(["1100", "1110"], dashboard.Liquide!.Select(r => r.Rekening).Order(StringComparer.Ordinal));
+
+        // In 2026 is er nog niets geboekt: de grafiek toont 2025 in plaats van een lege grafiek.
+        var (jaar, maanden) = dashboard.Maandgrafiek!.Value;
+        Assert.Equal(2025, jaar);
+        Assert.Equal(1000m, maanden.Sum(m => m.Omzet));
+    }
+
+    [Fact]
     public async Task Bank_btw_maandgrafiek_en_kerncijfers()
     {
         var wie = await app.Beheerder();
@@ -93,7 +129,7 @@ public sealed class DashboardDienstTests(VasteDagFixture app) : IClassFixture<Va
     }
 
     [Fact]
-    public async Task Altijd_vanaf_vandaag_ook_als_er_dit_jaar_nog_niets_is_geboekt()
+    public async Task Kerncijfers_vanaf_vandaag_ook_als_er_dit_jaar_nog_niets_is_geboekt_de_grafiek_dan_vorig_jaar()
     {
         var wie = await app.Beheerder();
         var id = await app.Administratie("Dashboard Vorig Jaar B.V.");
@@ -101,8 +137,9 @@ public sealed class DashboardDienstTests(VasteDagFixture app) : IClassFixture<Va
 
         var dashboard = await app.Dienst<DashboardDienst>().Laad(wie, id, Alles);
 
-        Assert.Equal(2026, dashboard.Maandgrafiek!.Value.Jaar);
-        Assert.All(dashboard.Maandgrafiek.Value.Maanden, m => Assert.Equal(0m, m.Omzet));
+        // De grafiek is in 2026 nog leeg: dan die van 2025 (met het jaar in de titel), niet een lege grafiek.
+        Assert.Equal(2025, dashboard.Maandgrafiek!.Value.Jaar);
+        Assert.Equal(800m, dashboard.Maandgrafiek.Value.Maanden.Sum(m => m.Omzet));
         var (dit, vorig) = dashboard.Kerncijfers!.Value;
         Assert.Equal((new DateOnly(2026, 1, 1), new DateOnly(2026, 10, 15), 0m), (dit.Van, dit.Tot, dit.Omzet));
         Assert.Equal((new DateOnly(2025, 10, 15), 800m), (vorig.Tot, vorig.Omzet));

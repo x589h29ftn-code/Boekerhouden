@@ -54,7 +54,8 @@ public sealed record RelatieRegel(
     string? Tegenrekening,
     decimal? ControleVanaf = null,
     decimal? ControleAfwijking = null,
-    Klantgegevens? Klant = null);
+    Klantgegevens? Klant = null,
+    bool IsLeverancier = false);
 
 public sealed record RegelRegel(Guid Id, int Volgorde, Verwerkingsregel Regel);
 
@@ -136,8 +137,13 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
     public async Task<IReadOnlyList<RelatieRegel>> Relaties(Uitvoerder wie, Guid administratie)
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
+
+        // Leverancier: er is een inkoopfactuur (een openstaande post aan de inkoopkant, ook als hij betaald is).
+        var leveranciers = (await db.OpenstaandePosten.AsNoTracking().Where(p => p.Soort == Boekhouding.Facturen.Factuursoort.Inkoop)
+            .Select(p => p.Relatie).Distinct().ToListAsync()).ToHashSet(StringComparer.Ordinal);
         return [.. (await db.Relaties.AsNoTracking().OrderBy(r => r.Naam).ToListAsync())
-            .Select(r => new RelatieRegel(r.Id, r.Code, r.Naam, r.Ibans, r.BtwNummer, r.KvkNummer, r.Tegenrekening, r.ControleVanaf, r.ControleAfwijking, Klantgegevens.Van(r)))];
+            .Select(r => new RelatieRegel(r.Id, r.Code, r.Naam, r.Ibans, r.BtwNummer, r.KvkNummer, r.Tegenrekening, r.ControleVanaf, r.ControleAfwijking, Klantgegevens.Van(r),
+                leveranciers.Contains(r.Code)))];
     }
 
     /// <summary>Wat het pakket van deze leverancier geleerd heeft (inkoopfacturen), of leeg als de relatie niet bestaat.</summary>

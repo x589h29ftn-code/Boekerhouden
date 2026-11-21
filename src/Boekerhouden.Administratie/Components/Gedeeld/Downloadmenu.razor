@@ -1,5 +1,12 @@
 @* Downloaden (Excel, PDF, auditfile) achter één knop met een menu, zoals Nieuw in het memoriaal: de kop van een
-   overzicht blijft rustig. *@
+   overzicht blijft rustig. Op elk scherm op dezelfde plek: als laatste in de kop. Is er maar één keuze, dan is het een
+   gewone knop met die naam (geen menu met één regel). *@
+
+@if (Keuzes.Count == 1)
+{
+    <button type="button" class="btn btn-sm btn-outline-secondary downloadknop" disabled="@Bezig" title="@Keuzes[0].Titel" @onclick="() => Kies(Keuzes[0])">@Keuzes[0].Naam</button>
+    return;
+}
 
 <span class="knopmenu downloadmenu">
     <button type="button" class="btn btn-sm btn-outline-secondary" disabled="@Bezig" aria-haspopup="menu" aria-expanded="@(open ? "true" : "false")"
