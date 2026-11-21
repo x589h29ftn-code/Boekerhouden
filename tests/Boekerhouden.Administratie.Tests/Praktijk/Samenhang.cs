@@ -96,9 +96,13 @@ internal static class Samenhang
             var debiteuren = schema.MetFunctie(Rekeningfunctie.Debiteuren).Select(r => r.Nummer).ToHashSet(StringComparer.Ordinal);
             var crediteuren = schema.MetFunctie(Rekeningfunctie.Crediteuren).Select(r => r.Nummer).ToHashSet(StringComparer.Ordinal);
             var btw = schema.MetFunctie(Rekeningfunctie.Voorbelasting).Concat(schema.MetFunctie(Rekeningfunctie.AfTeDragenBtw)).Select(r => r.Nummer).ToHashSet(StringComparer.Ordinal);
-            void Boek(string naam, Dagboeksoort soort, IReadOnlyList<Factuurboekregel> boek, HashSet<string> tegen, int teken)
+            void Boek(string naam, Dagboeksoort soort, IReadOnlyList<Factuurboekregel> alles, HashSet<string> tegen, int teken)
             {
                 var codes = dagboeken.Where(d => d.Soort == soort).Select(d => d.Code).ToHashSet(StringComparer.Ordinal);
+
+                // Een factuur die in het memoriaal is geboekt (bijv. van vorig jaar) staat ook in het boek; vergelijk de
+                // facturen uit de verkoop- of inkoopdagboeken met die dagboeken.
+                var boek = alles.Where(b => codes.Contains(b.Dagboek)).ToList();
                 var regels = posten.Where(p => codes.Contains(p.Post.Dagboek)).SelectMany(p => p.Post.Regels).ToList();
                 // Een teruggedraaide factuur blijft met zijn tegenboeking in het dagboek staan, maar niet in het boek.
                 var inDagboek = posten.Where(p => codes.Contains(p.Post.Dagboek)).ToList();

@@ -236,6 +236,17 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
 
         var schema = await LaadSchema(db);
         var fouten = Journaalcontrole.Controleer(post, schema, dagboeken).ToList();
+
+        // Een btw-code die niet bestaat, telt stilletjes niet mee in de aangifte: weigeren.
+        if (post.Regels.Where(r => r.BtwCode is not null).Select(r => r.BtwCode!).Distinct(StringComparer.OrdinalIgnoreCase).ToList() is { Count: > 0 } gebruikt)
+        {
+            var codes = (await BtwDienst.Lees(db)).Codes;
+            foreach (var onbekend in gebruikt.Where(c => Boekhouding.Btw.BtwCodes.Zoek(codes, c) is null))
+            {
+                fouten.Add($"Btw-code {onbekend} bestaat niet. Kies een btw-code uit de btw-tabel.");
+            }
+        }
+
         if (await db.Boekingen.AnyAsync(b => b.Dagboek == post.Dagboek && b.Boekstuk == post.Boekstuk))
         {
             fouten.Add($"Boekstuk {post.Boekstuk} bestaat al in dagboek {post.Dagboek}.");
@@ -256,7 +267,7 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
         {
             await using var transactie = await db.Database.BeginTransactionAsync();
             boeking = await VoegToeAanKeten(db, administratie, post, wie);
-            await WerkOpenstaandePostenBij(db, post, schema);
+            await WerkOpenstaandePostenBij(db, post, schema, boeking, memoriaal: dagboek?.Soort == Dagboeksoort.Memoriaal);
             await db.SaveChangesAsync();
             await transactie.CommitAsync();
         }
@@ -349,7 +360,13 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
     /// memoriaal) werkt de openstaande post van die factuur bij, net als afletteren via de bank. Bij een aanpassing
     /// blijven die regels gelijk (<see cref="Boekingscorrectie"/>), dus alleen bij een nieuwe boeking.
     /// </summary>
-    private static async Task WerkOpenstaandePostenBij(AdministratieDbContext db, Journaalpost post, Rekeningschema schema)
+    /// <summary>
+    /// Een regel op debiteuren of crediteuren met een relatie en een factuurnummer: werkt de openstaande post van die
+    /// factuur bij. In het memoriaal maakt een regel in de richting van een factuur (debet op debiteuren, credit op
+    /// crediteuren) de post aan als hij er nog niet is (bijv. een factuur van vorig jaar), zodat de bank erop kan
+    /// afletteren; een betaling op een onbekend nummer blijft los staan.
+    /// </summary>
+    private static async Task WerkOpenstaandePostenBij(AdministratieDbContext db, Journaalpost post, Rekeningschema schema, Boeking boeking, bool memoriaal)
     {
         foreach (var regel in post.Regels)
         {
@@ -364,11 +381,32 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
                 continue;
             }
 
-            if (await db.OpenstaandePosten.Where(p => p.Soort == soort && p.Relatie == relatie && p.Factuurnummer == nummer)
-                    .OrderBy(p => p.Datum).FirstOrDefaultAsync() is { } open)
+            var open = db.OpenstaandePosten.Local.FirstOrDefault(p => p.Soort == soort && p.Relatie == relatie && p.Factuurnummer == nummer)
+                ?? await db.OpenstaandePosten.Where(p => p.Soort == soort && p.Relatie == relatie && p.Factuurnummer == nummer).OrderBy(p => p.Datum).FirstOrDefaultAsync();
+            if (open is not null)
             {
                 open.Openstaand += regel.Bedrag;
+                continue;
             }
+
+            if (!memoriaal || (soort == Factuursoort.Verkoop ? regel.Bedrag <= 0 : regel.Bedrag >= 0))
+            {
+                continue;
+            }
+
+            db.OpenstaandePosten.Add(new OpenstaandePost
+            {
+                Id = Guid.NewGuid(),
+                AdministratieId = boeking.AdministratieId,
+                Soort = soort.Value,
+                Relatie = relatie,
+                Factuurnummer = nummer,
+                Datum = post.Datum,
+                Vervaldatum = post.Datum,
+                Bedrag = regel.Bedrag,
+                Openstaand = regel.Bedrag,
+                BoekingId = boeking.Id,
+            });
         }
     }
 
