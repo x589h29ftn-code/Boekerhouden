@@ -402,9 +402,20 @@ public static class OverzichtExport
             html.Append("<style>@page { size: A4 portrait; margin: 14mm 14mm; } td, th { padding-top: 1.5pt; padding-bottom: 1.5pt; }</style>");
         }
 
-        var klein = tabel.Koppen.Count > 8 ? " style=\"font-size:7pt\"" : null;
+        // Veel kolommen (per maand: begin, twaalf maanden, eind) passen alleen op A4 liggend met een kleinere letter,
+        // minder ruimte in de cellen, een smalle rekeningkolom en kolomkoppen die mogen afbreken.
+        var breed = tabel.Koppen.Count > 12;
+        if (breed)
+        {
+            html.Append("<style>table.breed { font-size: 6.5pt; } table.breed td { padding: 2pt 2.5pt; } table.breed th { font-size: 5.5pt; letter-spacing: 0; padding: 3pt 2.5pt; white-space: normal; }</style>");
+        }
+
+        // Vanaf een miljoen passen de centen er per maand niet meer naast elkaar: dan in hele euro's (vermeld onderaan).
+        var heel = breed && tabel.Regels.Any(r => r.Bedragen.Any(b => b is { } x && Math.Abs(x) >= 1_000_000m));
+        var klein = breed ? " class=\"breed\"" : tabel.Koppen.Count > 8 ? " style=\"font-size:7pt\"" : null;
         var nummers = tabel.Regels.Any(r => r.Nummer is not null);
-        html.Append(CultureInfo.InvariantCulture, $"""<table{klein}><thead><tr>{(nummers ? "<th>Rekening</th>" : null)}<th style="width:{(tabel.Koppen.Count <= 3 ? 60 : nummers ? 24 : 30)}%">Omschrijving</th>""");
+        var omschrijving = tabel.Koppen.Count <= 3 ? 60 : breed ? 15 : nummers ? 24 : 30;
+        html.Append(CultureInfo.InvariantCulture, $"""<table{klein}><thead><tr>{(nummers ? $"<th style=\"width:{(breed ? 5 : 8)}%\">Rekening</th>" : null)}<th style="width:{omschrijving}%">Omschrijving</th>""");
         foreach (var kop in tabel.Koppen)
         {
             html.Append(CultureInfo.InvariantCulture, $"""<th class="r">{E(kop)}</th>""");
@@ -419,13 +430,19 @@ public static class OverzichtExport
                 $"""<tr{(klasse is null ? null : $" class=\"{klasse}\"")}>{(nummers ? $"<td>{E(r.Nummer ?? "")}</td>" : null)}<td style="padding-left:{inspringen.ToString("0.0", CultureInfo.InvariantCulture)}em{(r.Soort == Exportsoort.Kop ? ";font-weight:600" : null)}">{E(r.Tekst)}</td>""");
             for (var k = 0; k < tabel.Koppen.Count; k++)
             {
-                html.Append(CultureInfo.InvariantCulture, $"""<td class="r">{(k < r.Bedragen.Count && r.Bedragen[k] is { } b ? Leeg(b) : null)}</td>""");
+                html.Append(CultureInfo.InvariantCulture, $"""<td class="r">{(k < r.Bedragen.Count && r.Bedragen[k] is { } b ? heel ? LeegHeel(b) : Leeg(b) : null)}</td>""");
             }
 
             html.Append("</tr>");
         }
 
-        html.Append("</tbody></table></body></html>");
+        html.Append("</tbody></table>");
+        if (heel)
+        {
+            html.Append("<div class=\"voet\">Bedragen in hele euro's.</div>");
+        }
+
+        html.Append("</body></html>");
         return html.ToString();
     }
 
@@ -518,4 +535,6 @@ public static class OverzichtExport
     private static string Bedrag(decimal bedrag) => Bedragen.Getal(bedrag);
 
     private static string Leeg(decimal bedrag) => bedrag == 0 ? "" : Bedragen.Getal(bedrag);
+
+    private static string LeegHeel(decimal bedrag) => bedrag == 0 ? "" : Bedragen.Heel(bedrag);
 }

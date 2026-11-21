@@ -21,7 +21,9 @@ internal static class Exportstijl
         tr.totaal td { font-weight: 600; background: #f4f6f8; border-bottom: 0; }
         table.generaal { margin-top: 12pt; }
         table.generaal td { font-weight: 600; font-size: 10pt; background: #f4f6f8; border-top: 1px solid #1d5c63; border-bottom: 0; }
-        .relatie { break-inside: avoid; }
+        .relatie.kort { break-inside: avoid; }
+        h2 { break-after: avoid; }
+        tr { break-inside: avoid; }
         .voet { margin-top: 10pt; font-size: 7.5pt; color: #6c757d; }
         """;
 }

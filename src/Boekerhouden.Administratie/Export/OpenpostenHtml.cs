@@ -33,7 +33,7 @@ public static class OpenpostenHtml
         const string Kolommen = """<colgroup><col style="width:9%"><col style="width:9%"><col><col style="width:12%"><col style="width:11%"><col style="width:11%"><col style="width:11%"><col style="width:5%"></colgroup>""";
         foreach (var relatie in lijst.Relaties)
         {
-            html.Append(CultureInfo.InvariantCulture, $"""<div class="relatie"><h2><span class="code">{E(relatie.Relatie)}</span>{E(relatie.Naam)}</h2><table>{Kolommen}""");
+            html.Append(CultureInfo.InvariantCulture, $"""<div class="relatie{(relatie.Posten.Count <= 20 ? " kort" : null)}"><h2><span class="code">{E(relatie.Relatie)}</span>{E(relatie.Naam)}</h2><table>{Kolommen}""");
             html.Append("""<thead><tr><th>Boekdatum</th><th>Vervaldatum</th><th>Omschrijving</th><th>Factuurnr.</th><th class="r">Factuurbedrag</th><th class="r">Betaald</th><th class="r">Openstaand</th><th class="r">Oud</th></tr></thead><tbody>""");
             foreach (var p in relatie.Posten)
             {
