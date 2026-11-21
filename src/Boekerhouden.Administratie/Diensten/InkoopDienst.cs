@@ -250,7 +250,7 @@ public sealed class InkoopDienst(
             return new(document.Id, document.Status, $"{naam}: {herkenning.Melding}", NietHerkend: true);
         }
 
-        var voorstel = Voorstel(herkend, context);
+        var voorstel = await Voorstel(db, herkend, context);
         if (voorstel.Automatisch)
         {
             var uitkomst = await BoekFactuur(db, administratie, document, voorstel.Factuur!, herkend, voorstel.Leverancier!.Relatie, nieuw: null, wie,
@@ -293,7 +293,7 @@ public sealed class InkoopDienst(
             bekeken++;
             (herkend, _) = await PasZoektemplateToe(db, herkend, await Woorden(db, document.Id), context.Relaties);
             document.Herkend = JsonSerializer.Serialize(herkend, Json);
-            var voorstel = Voorstel(herkend, context);
+            var voorstel = await Voorstel(db, herkend, context);
             if (voorstel.Automatisch)
             {
                 var uitkomst = await BoekFactuur(db, administratie, document, voorstel.Factuur!, herkend, voorstel.Leverancier!.Relatie, nieuw: null, wie,
@@ -376,7 +376,7 @@ public sealed class InkoopDienst(
             (herkend, uitTemplate) = await PasZoektemplateToe(db, herkend, await Woorden(db, d.Id), context.Relaties);
         }
 
-        var voorstel = herkend is null ? null : Voorstel(herkend, context);
+        var voorstel = herkend is null ? null : await Voorstel(db, herkend, context);
         var (schema, _) = await GrootboekDienst.Inrichting(db);
         return new Verwerking(Regel(d), herkend, voorstel, context.Relaties, schema, context.Btw.Op(herkend?.Factuurdatum ?? DateOnly.MaxValue), context.Btw, uitTemplate,
             context.Instellingen.Omschrijving);
@@ -1260,8 +1260,6 @@ public sealed class InkoopDienst(
         Verwerkingsinstellingen Instellingen,
         IReadOnlyList<Relatie> Relaties,
         IReadOnlyList<Verwerkingsregel> Regels,
-        Leergeheugen Geheugen,
-        IReadOnlyList<BestaandeFactuur> Bestaand,
         Btwtabel Btw);
 
     private static async Task<Inkoopcontext> Context(AdministratieDbContext db, Guid administratie)
@@ -1270,21 +1268,33 @@ public sealed class InkoopDienst(
         var relaties = (await db.Relaties.AsNoTracking().OrderBy(r => r.Naam).ToListAsync()).Select(r => r.NaarDomein()).ToList();
         var regels = (await db.Regels.AsNoTracking().OrderBy(r => r.Volgorde).ToListAsync()).Select(r => r.NaarDomein()).ToList();
         var instellingen = gegevens.Afwijkend().Op(await KantoorDienst.Lees(db));
-        var geheugen = new Leergeheugen(instellingen);
-        foreach (var keuze in await db.Leerkeuzes.AsNoTracking().OrderBy(k => k.Id).ToListAsync())
-        {
-            geheugen.Onthoud(keuze.Sleutel, keuze.NaarDomein());
-        }
-
-        var bestaand = await db.OpenstaandePosten.AsNoTracking().Where(p => p.Soort == Factuursoort.Inkoop)
-            .Select(p => new BestaandeFactuur(p.Relatie, p.Factuurnummer, p.Datum, -p.Bedrag, p.Openstaand == 0)).ToListAsync();
-        return new Inkoopcontext(gegevens, instellingen, relaties, regels, geheugen, bestaand, await BtwDienst.Lees(db));
+        return new Inkoopcontext(gegevens, instellingen, relaties, regels, await BtwDienst.Lees(db));
     }
 
-    private static Inkoopvoorstel Voorstel(HerkendeFactuur herkend, Inkoopcontext context) =>
-        Inkoopverwerker.Verwerk(herkend, context.Relaties, context.Regels, context.Geheugen, context.Btw.Op(herkend.Factuurdatum ?? DateOnly.MaxValue), context.Bestaand,
+    /// <summary>
+    /// Het voorstel voor een herkende factuur. Het leergeheugen en de eerdere facturen worden alleen geladen voor de
+    /// leverancier die deze factuur herkent (het advies gebruikt één sleutel, de controle op dubbel alleen die
+    /// leverancier): zo blijft inlezen even snel als de administratie groeit.
+    /// </summary>
+    private static async Task<Inkoopvoorstel> Voorstel(AdministratieDbContext db, HerkendeFactuur herkend, Inkoopcontext context)
+    {
+        var leverancier = Leverancierherkenning.Zoek(herkend, context.Relaties);
+        var geheugen = new Leergeheugen(context.Instellingen);
+        if (Leergeheugen.Sleutel(Inkoopverwerker.Gegevens(herkend, leverancier?.Relatie)) is { } sleutel)
+        {
+            foreach (var keuze in await db.Leerkeuzes.AsNoTracking().Where(k => k.Sleutel == sleutel).OrderBy(k => k.Id).ToListAsync())
+            {
+                geheugen.Onthoud(keuze.Sleutel, keuze.NaarDomein());
+            }
+        }
+
+        var code = leverancier?.Relatie.Code;
+        List<BestaandeFactuur> bestaand = code is null ? [] : await db.OpenstaandePosten.AsNoTracking().Where(p => p.Soort == Factuursoort.Inkoop && p.Relatie == code)
+            .Select(p => new BestaandeFactuur(p.Relatie, p.Factuurnummer, p.Datum, -p.Bedrag, p.Openstaand == 0)).ToListAsync();
+        return Inkoopverwerker.Verwerk(herkend, context.Relaties, context.Regels, geheugen, context.Btw.Op(herkend.Factuurdatum ?? DateOnly.MaxValue), bestaand,
             context.Instellingen.Betalingstermijn, periodeOpen: null, context.Instellingen.Limiet, context.Instellingen.Omschrijving,
             context.Administratie.BtwPlichtig ? null : ZonderBtw(context.Btw.Op(herkend.Factuurdatum ?? DateOnly.MaxValue)));
+    }
 
     /// <summary>De btw-code voor een boeking zonder btw (in een administratie die niet btw-plichtig is).</summary>
     internal static BtwCode? ZonderBtw(IReadOnlyList<BtwCode> codes) =>
