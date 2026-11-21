@@ -266,6 +266,10 @@
             {
                 <label class="btn btn-sm btn-outline-primary" for="afschriften">Afschrift inlezen</label>
             }
+            @if (geopend is not null)
+            {
+                <VolgendeTaak Wie="geopend.Wie" Administratie="Id" Huidig="/bank" />
+            }
         </LegeStaat>
     }
     else if (mutaties is not null)

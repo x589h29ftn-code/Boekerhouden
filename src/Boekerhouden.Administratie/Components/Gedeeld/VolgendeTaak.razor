@@ -1,0 +1,45 @@
+@* Na de laatste taak in een werklijst: waar het volgende werk ligt, bijv. "Verder met 3 bankmutaties". Zo gaat de
+   gebruiker van inkoop naar bank naar verkoop zonder terug naar het menu. Niets als er nergens meer werk ligt. *@
+@inject KantooroverzichtDienst Kantooroverzicht
+
+@if (volgende is { } v)
+{
+    <a class="volgende-taak" href="@($"/a/{Administratie}{v.Pad}")">
+        <Icoon Naam="@v.Icoon" />
+        <span>Verder met @v.Tekst</span>
+        <Icoon Naam="arrow-right" />
+    </a>
+}
+
+@code {
+    private (string Pad, string Tekst, string Icoon)? volgende;
+
+    [Parameter, EditorRequired]
+    public Uitvoerder Wie { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public Guid Administratie { get; set; }
+
+    /// <summary>De werklijst waar de gebruiker nu is (bijv. <c>/inkoop</c>): die slaat hij over.</summary>
+    [Parameter, EditorRequired]
+    public string Huidig { get; set; } = "";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var a = await Kantooroverzicht.Aantallen(Wie, Administratie);
+        volgende = Volgende(a, Huidig);
+    }
+
+    /// <summary>De eerste andere werklijst met werk, in de volgorde van het maandwerk: bank, inkoop, verkoop, facturen.</summary>
+    internal static (string Pad, string Tekst, string Icoon)? Volgende(Zijbalkaantallen a, string huidig) =>
+        new (string Pad, int Aantal, string Een, string Meer, string Icoon)[]
+        {
+            ("/bank", a.Bank, "bankmutatie", "bankmutaties", "bank"),
+            ("/inkoop", a.Inkoop, "inkoopfactuur", "inkoopfacturen", "shopping-cart-simple"),
+            ("/verkoop", a.Verkoop, "verkoopfactuur", "verkoopfacturen", "storefront"),
+            ("/facturen", a.Concepten, "conceptfactuur", "conceptfacturen", "file-plus"),
+        }
+        .Where(x => x.Pad != huidig && x.Aantal > 0)
+        .Select(x => ((string Pad, string Tekst, string Icoon)?)(x.Pad, $"{x.Aantal} {(x.Aantal == 1 ? x.Een : x.Meer)}", x.Icoon))
+        .FirstOrDefault();
+}

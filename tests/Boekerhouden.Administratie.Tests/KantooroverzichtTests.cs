@@ -104,4 +104,15 @@ public sealed class KantooroverzichtTests(AdministratieFixture app) : IClassFixt
         var buiten = await app.Gebruiker("Bert Buitenstaander");
         await Assert.ThrowsAsync<GeenToegangException>(() => app.Dienst<KantooroverzichtDienst>().Aantallen(buiten, id));
     }
+
+    [Fact]
+    public void Na_de_laatste_taak_de_volgende_werklijst_in_de_volgorde_van_het_maandwerk()
+    {
+        var aantallen = new Zijbalkaantallen(Inkoop: 2, Verkoop: 1, Bank: 3, Concepten: 0);
+        Assert.Equal(("/inkoop", "2 inkoopfacturen", "shopping-cart-simple"), Components.Gedeeld.VolgendeTaak.Volgende(aantallen, "/bank"));
+        Assert.Equal(("/bank", "3 bankmutaties", "bank"), Components.Gedeeld.VolgendeTaak.Volgende(aantallen, "/inkoop"));
+        Assert.Equal("1 verkoopfactuur", Components.Gedeeld.VolgendeTaak.Volgende(aantallen with { Bank = 0, Inkoop = 0 }, "/bank")?.Tekst);
+        Assert.Null(Components.Gedeeld.VolgendeTaak.Volgende(new Zijbalkaantallen(0, 0, 4, 0), "/bank"));
+    }
 }
+

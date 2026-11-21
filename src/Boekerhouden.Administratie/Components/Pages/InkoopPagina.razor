@@ -55,6 +55,10 @@
                 {
                     <label class="btn btn-sm btn-outline-primary" for="bestanden">Facturen inlezen</label>
                 }
+                @if (geopend is not null)
+                {
+                    <VolgendeTaak Wie="geopend.Wie" Administratie="Id" Huidig="/inkoop" />
+                }
             </LegeStaat>
         }
         else if (teVerwerken is not null)

@@ -72,6 +72,10 @@
                         <label class="btn btn-sm btn-outline-primary" for="verkoopbestanden">Facturen inlezen</label>
                     }
                 }
+                @if (geopend is not null)
+                {
+                    <VolgendeTaak Wie="geopend.Wie" Administratie="Id" Huidig="@(Maken ? "/facturen" : "/verkoop")" />
+                }
             </LegeStaat>
         }
         else
