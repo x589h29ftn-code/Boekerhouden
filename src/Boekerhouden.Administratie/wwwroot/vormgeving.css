@@ -698,3 +698,32 @@ html.zijbalk-smal .zijmenu::after {
         width: 1.1rem;
         height: 1.1rem;
     }
+
+/* ---------- Zonder statusbalk ----------
+   De administratie, de gebruiker en de datum staan al in de zijbalk en de kopbalk; de ruimte van de statusbalk (1,75rem)
+   gaat naar de pagina. De zijbalk loopt tot de onderkant, en wat onderaan in beeld blijft staan (opslaanbalk, actiebalk,
+   meldingen, het vraagteken) zakt mee. */
+.zijbalk {
+    height: calc(100vh - 3rem);
+    margin-bottom: -1.25rem;
+}
+
+.administratie {
+    padding-bottom: 1.25rem;
+}
+
+.opslaanbalk {
+    bottom: .75rem;
+}
+
+.actiebalk {
+    bottom: .75rem;
+}
+
+.melding-kort {
+    bottom: 1rem;
+}
+
+.hulp-knop {
+    bottom: 1rem;
+}

@@ -69,7 +69,7 @@ internal static partial class Vensterstijl
               melding = document.createElement('div');
               melding.className = 'melding-kort';
               melding.setAttribute('role', 'status');
-              melding.style.position = 'fixed'; melding.style.left = '1rem'; melding.style.bottom = '2.4rem'; melding.style.zIndex = '1080';
+              melding.style.position = 'fixed'; melding.style.left = '1rem'; melding.style.bottom = '1rem'; melding.style.zIndex = '1080';
               document.body.appendChild(melding);
             }
             var tekst = (wachtend.length === 1 ? wachtend[0].name : wachtend.length + ' bestanden') + ' klaar om in te lezen: open een administratie.';

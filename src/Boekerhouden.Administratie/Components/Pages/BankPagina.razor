@@ -139,33 +139,35 @@
     }
     @if (Gekozenstand is { } gs)
     {
-        <div class="small text-secondary mb-2 bankaansluiting">
+        @* Eén korte status in gewone taal; de bedragen (grootboek, afschrift, verschil) in de tooltip. Zolang er mutaties
+           te verwerken zijn, loopt het grootboek vanzelf achter: dat is geen verschil om uit te zoeken. *@
+        <div class="small text-secondary mb-2 bankaansluiting" title="@Toelichting(gs)">
             @if (magRegels)
             {
                 <button class="btn btn-sm btn-link text-secondary p-0 me-2 bank-wijzigen" title="Naam, IBAN en grootboekrekening van @gs.Naam aanpassen" aria-label="Bankrekening aanpassen" @onclick="() => BewerkBank(gs)"><Icoon Naam="settings" /></button>
             }
             <a class="rekeningnummer" href="/a/@Id/grootboek?rekening=@gs.Rekening" title="Naar de grootboekkaart">@gs.Rekening</a>
-            @if (gs.Van is { } van)
+            <span class="scheiding">·</span>
+            @if (gs.Tot is not { } tot)
             {
-                <span class="scheiding">·</span>
-                <span title="Het saldo in het grootboek vóór het eerste afschrift van het jaar, tegen het beginsaldo op dat afschrift">beginstand @Weergave.Datum(van): @Weergave.Bedrag(gs.BeginGrootboek ?? 0m)@if (gs.Beginverschil is { } bv && bv != 0)
-                    {
-                        <span class="let-op"> (afschrift @Weergave.Bedrag(gs.Beginsaldo ?? 0m), verschil @Weergave.Bedrag(bv) · <a href="/a/@Id/beginbalans">beginbalans</a>)</span>
-                    }</span>
-                <span class="scheiding">·</span>
-                <span title="Het saldo in het grootboek tot en met het laatste afschrift, tegen het eindsaldo op dat afschrift">grootboek t/m @Weergave.Datum(gs.Tot!.Value): @Weergave.Bedrag(gs.Grootboek ?? 0m)@if (gs.Verschil is { } eindverschil && eindverschil != 0)
-                    {
-                        <span class="let-op"> (afschrift @Weergave.Bedrag(gs.Saldo ?? 0m), verschil @Weergave.Bedrag(eindverschil) · <a href="/a/@Id/aansluitingen">aansluitingen</a>)</span>
-                    }
-                    else
-                    {
-                        <span> sluit aan</span>
-                    }</span>
+                <span>nog geen afschrift</span>
+            }
+            else if (gs.Verschil is not { } verschil || verschil == 0)
+            {
+                <span>sluit aan op het afschrift t/m @Weergave.Datum(tot)</span>
+            }
+            else if (gs.TeVerwerken > 0)
+            {
+                <span>te vergelijken met het afschrift als alles verwerkt is</span>
             }
             else
             {
+                <a class="let-op" href="/a/@Id/aansluitingen">verschil met het afschrift @Weergave.Bedrag(verschil)</a>
+            }
+            @if (gs.Beginverschil is { } bv && bv != 0)
+            {
                 <span class="scheiding">·</span>
-                <span>nog geen afschrift</span>
+                <a class="let-op" href="/a/@Id/beginbalans">beginbalans wijkt @Weergave.Bedrag(bv) af</a>
             }
         </div>
     }
@@ -277,7 +279,7 @@
         var zichtbaar = mutatiesortering.Pas(mutaties.Where(PastFilter)).ToList();
         var teKiezen = zichtbaar.Where(m => m.Status == Banktransactiestatus.TeVerwerken).ToList();
         <div class="row g-3 bankwerk @(gekozen is null ? null : "met-paneel")">
-            <div class="@(gekozen is null ? "col-12" : "col-lg-5 banklijst")" data-groeit="@(gekozen is null ? null : "544")">
+            <div class="@(gekozen is null ? "col-12" : "col-lg-5 banklijst")" data-groeit="@(gekozen is null ? null : "640")">
                 @if (gekozen is null)
                 {
                     <Foutmeldingen Fouten="fouten" />
@@ -657,6 +659,31 @@
 </AdministratieKader>
 
 @code {
+    /// <summary>De bedragen achter de status onder de kop: grootboek en afschrift, aan het begin en aan het eind.</summary>
+    private static string Toelichting(Bankstand gs)
+    {
+        if (gs.Tot is not { } tot)
+        {
+            return "Nog geen afschrift ingelezen.";
+        }
+
+        var regels = new List<string>
+        {
+            $"Grootboek t/m {Weergave.Datum(tot)}: {Weergave.Bedrag(gs.Grootboek ?? 0m)}; afschrift: {Weergave.Bedrag(gs.Saldo ?? 0m)}.",
+        };
+        if (gs.Van is { } van)
+        {
+            regels.Add($"Beginstand {Weergave.Datum(van)}: grootboek {Weergave.Bedrag(gs.BeginGrootboek ?? 0m)}; afschrift {Weergave.Bedrag(gs.Beginsaldo ?? 0m)}.");
+        }
+
+        if (gs.TeVerwerken > 0)
+        {
+            regels.Add($"Nog {gs.TeVerwerken} {(gs.TeVerwerken == 1 ? "mutatie" : "mutaties")} te verwerken.");
+        }
+
+        return string.Join("\n", regels);
+    }
+
     private const int MaximumBestanden = 20;
 
     private Geopend? geopend;

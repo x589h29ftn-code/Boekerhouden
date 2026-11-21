@@ -1,6 +1,6 @@
 // Afdrukken controleren: een volle administratie (auditfile) inlezen en elk overzicht afdrukken zoals Ctrl+P (als
 // PDF, met de afdrukstijl), licht en donker. Per pagina: de administratie bovenaan, paginanummers, geen menu, zoekknop,
-// statusbalk of knoppen, niets rechts van het papier af, en zwart op wit. Meldt wat er misgaat; de PDF's in <map>.
+// knoppen, niets rechts van het papier af, en zwart op wit. Meldt wat er misgaat; de PDF's in <map>.
 // Gebruik: scripts/ui/herstart.sh && node scripts/ui/afdrukken.js <auditfile.xaf> <map>
 // (de auditfile: BOEKERHOUDEN_AFDRUKGEGEVENS=<pad> dotnet test tests/Boekerhouden.Administratie.Tests --filter Afdrukgegevens)
 const { chromium } = require('playwright');
@@ -36,7 +36,7 @@ function totp(sleutel) {
   await page.click('text=Nieuwe administratie'); await page.waitForSelector('#naam'); await page.waitForTimeout(800);
   await page.setInputFiles('#auditfile', auditfile);
   await page.waitForURL(/\/a\/[0-9a-f-]+/, { timeout: 120000 }); const id = page.url().split('/a/')[1].split(/[/?#]/)[0];
-  const naam = (await page.locator('.statusbalk span').first().innerText()).trim();
+  const naam = (await page.locator('.wisselaar-naam').first().innerText()).trim();
   console.log(`administratie ${naam}`);
 
   const jaar = 'van=2025-01-01&tot=2025-12-31';

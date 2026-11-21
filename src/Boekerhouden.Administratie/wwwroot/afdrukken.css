@@ -1,4 +1,4 @@
-/* Afdrukken (Ctrl+P): alleen de inhoud van de pagina, zonder kopbalk, menu, knoppen en statusbalk. Bovenaan de
+/* Afdrukken (Ctrl+P): alleen de inhoud van de pagina, zonder kopbalk, menu en knoppen. Bovenaan de
    afdrukkop (administratie, wanneer en door wie afgedrukt; AdministratieKader), daaronder de titel en de kenmerken van
    de pagina; de periode staat in de velden, die als gewone tekst worden afgedrukt. Onderaan elke pagina het
    paginanummer. Altijd zwart op wit, ook in de donkere weergave (thema.js zet die tijdens het afdrukken uit). */
@@ -64,7 +64,7 @@
     }
 
     /* Alles wat bij het werken hoort, niet bij het stuk; een schakelaar die uit staat ook (aan: alleen de tekst, die zegt wat er getoond wordt). */
-    .kopbalk, .zijbalk, .statusbalk, .hulp-knop, .paginatabs, .kruimel, .terug, .btn, button, .knopmenu, .actiebalk,
+    .kopbalk, .zijbalk, .hulp-knop, .paginatabs, .kruimel, .terug, .btn, button, .knopmenu, .actiebalk,
     .uitklapmenu, .melding-kort, .zoekknop, .zoekvenster-achter, .sleepvlak, .laadschets,
     .kolom-knop, .rij-acties, .regelknoppen, input[type="checkbox"], input[type="file"], .no-print,
     .form-check:has(input[type="checkbox"]:not(:checked)) {

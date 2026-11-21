@@ -26,7 +26,7 @@ public sealed class AfdrukkenTests(AdministratieFixture app) : IClassFixture<Adm
 
         var stijl = await client.GetStringAsync(new Uri("/afdrukken.css", UriKind.Relative));
         Assert.Contains("counter(pages)", stijl, StringComparison.Ordinal);
-        foreach (var weg in new[] { ".kopbalk", ".zijbalk", ".statusbalk", ".hulp-knop", "button" })
+        foreach (var weg in new[] { ".kopbalk", ".zijbalk", ".hulp-knop", "button" })
         {
             Assert.Contains(weg, stijl, StringComparison.Ordinal);
         }

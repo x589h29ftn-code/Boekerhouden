@@ -135,16 +135,6 @@ else
             }
         </div>
     </div>
-    <footer class="statusbalk">
-        <span title="@(kop.KvkNummer is { } kvk ? $"KvK {kvk}" : null)">@kop.Naam</span>
-        <span class="scheiding">·</span>
-        <span>@Weergave.Tekst(kop.Ondernemingsvorm)</span>
-        <span class="ms-auto">@wie?.Naam</span>
-        <span class="scheiding">·</span>
-        <span>@Weergave.Tekst(kop.Rol)</span>
-        <span class="scheiding">·</span>
-        <span>@vandaag.ToString("dddd d MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("nl-NL"))</span>
-    </footer>
 }
 
 @code {
@@ -156,7 +146,6 @@ else
     private bool geladen;
     private AdministratieKop? kop;
     private Uitvoerder? wie;
-    private DateOnly vandaag;
     private Zijbalkaantallen? aantallen;
 
     [CascadingParameter]
@@ -254,7 +243,6 @@ else
         }
 
         wie = (await Authenticatie).User.AlsUitvoerder();
-        vandaag = DateOnly.FromDateTime(Tijd.GetLocalNow().DateTime);
         kop = await AdministratieDienst.Open(wie, Id);
         if (kop is not null)
         {
