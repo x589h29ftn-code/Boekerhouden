@@ -265,6 +265,11 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
             // Een collega boekte op hetzelfde moment met hetzelfde boekstuknummer: dezelfde melding als bij de controle vooraf.
             return Uitkomst<long>.Mislukt($"Boekstuk {post.Boekstuk} bestaat al in dagboek {post.Dagboek}.");
         }
+        catch (PeriodeAfgeslotenException fout)
+        {
+            // Een collega sloot de periode op hetzelfde moment af.
+            return Uitkomst<long>.Mislukt(fout.Message);
+        }
 
         await audit.Log(wie, AuditActies.Geboekt, $"{post.Dagboek} {boeking.Boekstuk}", $"{boeking.Omschrijving}; {post.TotaalDebet:0.00}", administratie);
         return Uitkomst<long>.Met(boeking.Volgnummer);

@@ -624,6 +624,10 @@ public sealed class InkoopDienst(
             // geboekt; opnieuw proberen ziet wat de ander deed.
             return Uitkomst.Mislukt("Een collega legde op hetzelfde moment hetzelfde vast (bijv. dezelfde nieuwe leverancier). Er is niets geboekt; probeer het opnieuw.");
         }
+        catch (PeriodeAfgeslotenException fout)
+        {
+            return Uitkomst.Mislukt(fout.Message);
+        }
     }
 
     private async Task<Uitkomst> BoekFactuur(Uitvoerder wie, Guid administratie, Guid document, Factuurinvoer invoer)
@@ -932,6 +936,25 @@ public sealed class InkoopDienst(
         return datums.Count == 0 ? null : await GrootboekDienst.Afgesloten(db, administratie, [.. datums]);
     }
 
+    /// <summary>
+    /// Of het document in de database niet meer is zoals het geladen werd (een collega boekte, paste aan of verwijderde
+    /// het intussen): dan de melding, anders leeg. Alleen na <see cref="AdministratieDbContext.Vergrendel"/> zinvol.
+    /// </summary>
+    private static async Task<string?> DoorCollegaGewijzigd(AdministratieDbContext db, Document document)
+    {
+        var entry = db.Entry(document);
+        if (entry.State == EntityState.Added)
+        {
+            return null;
+        }
+
+        var (status, boeking) = (entry.Property(d => d.Status).OriginalValue, entry.Property(d => d.BoekingId).OriginalValue);
+        var nu = await db.Documenten.AsNoTracking().Where(d => d.Id == document.Id).Select(d => new { d.Status, d.BoekingId }).SingleOrDefaultAsync();
+        return nu is null ? "Dit document is intussen verwijderd."
+            : nu.Status != status || nu.BoekingId != boeking ? "Een collega heeft dit document zojuist geboekt of aangepast; open het opnieuw om te zien wat er staat."
+            : null;
+    }
+
     /// <summary>Het memoriaal van het standaardschema; daar komt een periodeverdeling in (ook als er meer memorialen zijn).</summary>
     private static readonly string StandaardMemoriaal = StandaardRekeningschema.Dagboeken.First(d => d.Soort == Dagboeksoort.Memoriaal).Code;
 
@@ -940,6 +963,20 @@ public sealed class InkoopDienst(
         Relatie? relatie, NieuweRelatie? nieuw, Uitvoerder wie, bool automatisch, string? sjabloon, Guid? verrekenMet = null, Periodeverdeling? verdeling = null,
         Boeking? vorige = null, OpenstaandePost? vorigePost = null)
     {
+        // Eén boeking tegelijk per administratie; daarna nagaan of een collega dit document intussen al boekte (of
+        // aanpaste): alles hierna, ook de controle op een dubbel factuurnummer, ziet dan de stand van na die collega.
+        await using var transactie = await db.Database.BeginTransactionAsync();
+        await db.Vergrendel(administratie);
+        if (await DoorCollegaGewijzigd(db, document) is { } gewijzigd)
+        {
+            return Uitkomst.Mislukt(gewijzigd);
+        }
+
+        if (vorigePost is not null && await db.OpenstaandePosten.AsNoTracking().Where(p => p.Id == vorigePost.Id).Select(p => p.Openstaand).SingleOrDefaultAsync() != vorigePost.Bedrag)
+        {
+            return Uitkomst.Mislukt($"Factuur {vorigePost.Factuurnummer} is intussen (deels) betaald of verrekend; draai eerst die betaling of verrekening terug.");
+        }
+
         var (schema, dagboeken) = await GrootboekDienst.Inrichting(db);
         var dagboek = dagboeken.FirstOrDefault(x => x.Soort == Dagboeksoort.Inkoop);
         if (dagboek is null)
@@ -992,8 +1029,6 @@ public sealed class InkoopDienst(
             return Uitkomst.Mislukt([.. fouten]);
         }
 
-        await using var transactie = await db.Database.BeginTransactionAsync();
-        await db.Vergrendel(administratie);
         if (nieuw is not null)
         {
             var iban = string.IsNullOrWhiteSpace(nieuw.Iban) ? null : Iban.Normaliseer(nieuw.Iban);

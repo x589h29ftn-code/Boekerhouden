@@ -25,13 +25,19 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
 
     /// <summary>
     /// Laat andere boekingen in dezelfde administratie wachten tot het eind van deze transactie (volgnummers en de
-    /// hash-keten). Op PostgreSQL met een rij-lock; SQLite laat sowieso maar één schrijvende transactie tegelijk toe.
+    /// hash-keten). Op PostgreSQL met een rij-lock. SQLite laat maar één schrijvende transactie tegelijk toe, maar neemt
+    /// die pas bij de eerste schrijfopdracht: een lege update neemt hem meteen, zodat wat de transactie na de
+    /// vergrendeling leest (bijv. of een collega het document al boekte) niet meer kan veranderen.
     /// </summary>
     public async Task Vergrendel(Guid administratie)
     {
         if (Database.IsNpgsql())
         {
             await Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"Administraties\" WHERE \"Id\" = {administratie} FOR UPDATE");
+        }
+        else if (Database.IsSqlite() && Database.CurrentTransaction is not null)
+        {
+            await Database.ExecuteSqlRawAsync("UPDATE \"Administraties\" SET \"Id\" = \"Id\" WHERE 0");
         }
     }
 

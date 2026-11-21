@@ -436,6 +436,18 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
 
         await using var transactie = await db.Database.BeginTransactionAsync();
         await db.Vergrendel(administratie);
+        // Een collega kan hem intussen definitief gemaakt (of verwijderd) hebben: na de vergrendeling opnieuw kijken.
+        var nu = await db.Verkoopdocumenten.AsNoTracking().Where(v => v.Id == id).Select(v => new { v.Status, v.Nummer }).SingleOrDefaultAsync();
+        if (nu is null)
+        {
+            return Uitkomst<string>.Mislukt("Deze factuur bestaat niet (meer).");
+        }
+
+        if (nu.Status != Verkoopstatus.Concept)
+        {
+            return Uitkomst<string>.Mislukt($"Factuur {nu.Nummer} is al definitief.");
+        }
+
         var jaar = document.Datum.Year;
         var begin = jaar.ToString(System.Globalization.CultureInfo.InvariantCulture);
         string nummer;
@@ -486,7 +498,16 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
             return Uitkomst<string>.Mislukt([.. controle]);
         }
 
-        var boeking = await grootboek.VoegToeAanKeten(db, administratie, post, wie);
+        Boeking boeking;
+        try
+        {
+            boeking = await grootboek.VoegToeAanKeten(db, administratie, post, wie);
+        }
+        catch (PeriodeAfgeslotenException fout)
+        {
+            // Een collega sloot de periode op hetzelfde moment af.
+            return Uitkomst<string>.Mislukt(fout.Message);
+        }
         if (verdeling is not null)
         {
             var geboekt = factuur.NaarFactuur(codes);

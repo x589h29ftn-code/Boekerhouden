@@ -133,7 +133,16 @@ public sealed class BtwaangifteDienst(Toegang toegang, GrootboekDienst grootboek
             VastgelegdOp = tijd.GetUtcNow(),
             VastgelegdDoor = wie.Naam,
         });
-        await db.SaveChangesAsync();
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException fout) when (Databasefout.IsDubbel(fout))
+        {
+            // Een collega legde dezelfde aangifte op hetzelfde moment vast.
+            return Uitkomst.Mislukt("Deze aangifte is al vastgelegd.");
+        }
+
         await audit.Log(wie, AuditActies.BtwaangifteVastgelegd, Periodenaam(van, tot), $"te betalen {aangifte.TeBetalen:0.00}", administratie);
         return Uitkomst.Gelukt;
     }

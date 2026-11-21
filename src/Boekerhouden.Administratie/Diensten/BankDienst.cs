@@ -599,7 +599,16 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             return Uitkomst.Mislukt([.. controle]);
         }
 
-        var boeking = await grootboek.VoegToeAanKeten(db, administratie, post, wie);
+        Boeking boeking;
+        try
+        {
+            boeking = await grootboek.VoegToeAanKeten(db, administratie, post, wie);
+        }
+        catch (PeriodeAfgeslotenException fout)
+        {
+            // Een collega sloot de periode op hetzelfde moment af.
+            return Uitkomst.Mislukt(fout.Message);
+        }
         foreach (var p in bijgewerkt)
         {
             open.Single(o => o.Id == p.Id).Openstaand = p.Openstaand;
@@ -1068,7 +1077,16 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             return Uitkomst.Mislukt([.. controle]);
         }
 
-        var boeking = await grootboek.VoegToeAanKeten(db, administratie, post, wie);
+        Boeking boeking;
+        try
+        {
+            boeking = await grootboek.VoegToeAanKeten(db, administratie, post, wie);
+        }
+        catch (PeriodeAfgeslotenException fout)
+        {
+            // Een collega sloot de periode op hetzelfde moment af.
+            return Uitkomst.Mislukt(fout.Message);
+        }
         foreach (var open in bijgewerkt)
         {
             posten.Single(p => p.Id == open.Id).Openstaand = open.Openstaand;
@@ -1145,7 +1163,16 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             return Uitkomst.Mislukt([.. controle]);
         }
 
-        var boeking = await grootboek.VoegToeAanKeten(db, administratie, post, wie);
+        Boeking boeking;
+        try
+        {
+            boeking = await grootboek.VoegToeAanKeten(db, administratie, post, wie);
+        }
+        catch (PeriodeAfgeslotenException fout)
+        {
+            // Een collega sloot de periode op hetzelfde moment af.
+            return Uitkomst.Mislukt(fout.Message);
+        }
         t.Status = Banktransactiestatus.Geboekt;
         ConceptWeg(db, t.Id);
         t.BoekingId = boeking.Id;
