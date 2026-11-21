@@ -131,6 +131,22 @@ public sealed class AfletteraarTests
     }
 
     [Fact]
+    public void Verzamelbetaling_met_de_nummers_ook_als_de_relatie_veel_meer_open_heeft()
+    {
+        // Twintig oudere posten van dezelfde relatie, met dezelfde bedragen: de genoemde posten gaan voor.
+        var ouder = Enumerable.Range(0, 20).Select(i => Crediteur("JANSEN", $"KH-2026-{1000 + i}", i % 2 == 0 ? 774.40m : -145.20m, Datum.AddDays(-40 + i))).ToList();
+        var factuur = Crediteur("JANSEN", "KH-2026-7610", 774.40m);
+        var creditnota = Crediteur("JANSEN", "KH-2026-7611", -145.20m);
+        var som = new[] { Crediteur("JANSEN", "KH-2026-8001", 100m), Crediteur("JANSEN", "KH-2026-8002", 200m), Crediteur("JANSEN", "KH-2026-8003", 300m) };
+
+        var min = Afletteraar.Zoek(Betaling(-629.20m, "Factuur KH-2026-7610 minus creditnota KH-2026-7611", IbanJansen), [.. ouder, factuur, creditnota, .. som], Relaties);
+        var verzamel = Afletteraar.Zoek(Betaling(-600m, "Facturen KH-2026-8001 KH-2026-8002 KH-2026-8003", IbanJansen), [.. ouder, factuur, creditnota, .. som], Relaties);
+
+        Assert.Equal([factuur, creditnota], min.Automatisch!.Posten);
+        Assert.Equal(som, verzamel.Automatisch!.Posten);
+    }
+
+    [Fact]
     public void Factuur_min_creditnota_in_een_betaling()
     {
         var factuur = Crediteur("JANSEN", "KH-2026-2201", 1210m);

@@ -133,7 +133,16 @@ public static partial class Afletteraar
 
         // 0. Verzamelbetaling met de nummers: enkele posten van de relatie bij het IBAN (ook met een creditnota) die
         // samen precies het bedrag zijn.
-        var vanIban = alle.Where(p => viaIban.Contains(p.Relatie) && !p.IsBetaald).OrderBy(p => p.Datum).Take(MaximumVoorVerzamelbetaling).ToList();
+        // Eerst de posten die de mutatie zelf noemt: samen precies het bedrag is zeker, ook als de relatie veel meer
+        // posten open heeft dan er gecombineerd worden; daarna aangevuld met de oudste.
+        var openVanIban = alle.Where(p => viaIban.Contains(p.Relatie) && !p.IsBetaald).OrderBy(p => p.Datum).ToList();
+        var genoemdePosten = openVanIban.Where(p => Factuurnummers.Genoemd(p.Factuurnummer, tekst)).ToList();
+        if (genoemdePosten.Count >= 2 && genoemdePosten.Sum(p => p.Openstaand) == mutatie.Bedrag && genoemdePosten.Any(p => Math.Sign(p.Openstaand) == Math.Sign(mutatie.Bedrag)))
+        {
+            Voegtoe(genoemdePosten, Zekerheid.Zeker, $"Factuurnummers en de som van {genoemdePosten.Count} posten");
+        }
+
+        var vanIban = genoemdePosten.Concat(openVanIban.Except(genoemdePosten)).Take(MaximumVoorVerzamelbetaling).ToList();
         if (Combinatie(vanIban, mutatie.Bedrag) is { } genoemd && genoemd.All(p => Factuurnummers.Genoemd(p.Factuurnummer, tekst)))
         {
             Voegtoe(genoemd, Zekerheid.Zeker, $"Factuurnummers en de som van {genoemd.Count} posten");

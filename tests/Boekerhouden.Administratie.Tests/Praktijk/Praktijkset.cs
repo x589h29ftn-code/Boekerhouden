@@ -300,7 +300,9 @@ internal sealed class Praktijkset
             MaakInkoopRonde();
             for (var i = start; i < Inkoop.Count; i++)
             {
-                Inkoop[i] = Inkoop[i] with { Ronde = ronde };
+                // Andere bedragen per ronde: dezelfde leverancier met hetzelfde bedrag op dezelfde dag is terecht 'lijkt al geboekt'.
+                var factor = 1 + ronde * 0.013m;
+                Inkoop[i] = Inkoop[i] with { Ronde = ronde, Regels = [.. Inkoop[i].Regels.Select(r => r with { Prijs = Math.Round(r.Prijs * factor, 2, MidpointRounding.AwayFromZero) })] };
             }
         }
 

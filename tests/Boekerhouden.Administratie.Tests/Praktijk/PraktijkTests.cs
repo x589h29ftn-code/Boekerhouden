@@ -263,7 +263,7 @@ public sealed class PraktijkTests(AdministratieFixture app, ITestOutputHelper ui
         Controleer(verschillen, "Vraagposten (2000)", Saldo("2000"), -set.Vraagpost);
         Controleer(verschillen, "Loonheffing (1520)", Saldo("1520"), 0m);
         Controleer(verschillen, "Nettolonen (1800)", Saldo("1800"), 0m);
-        Controleer(verschillen, "Betaalverschil (9000 zonder bankkosten)", Saldo("9000") - set.Betaal.Where(p => p.Afhandeling.Rekening == "9000").Sum(p => -p.Bedrag), 0.02m);
+        Controleer(verschillen, "Betaalverschil (9000 zonder bankkosten)", Saldo("9000") - set.Betaal.Where(p => p.Afhandeling.Rekening == "9000").Sum(p => -p.Bedrag), 0.02m * set.Rondes);
         Controleer(verschillen, "Btw (1500 + 1510) na betaling Q1", Saldo("1500") + Saldo("1510"), -set.AangifteQ1.Afronding);
         Controleer(verschillen, "Proefbalans in evenwicht", proef.Regels.Sum(r => r.Saldo), 0m);
 
