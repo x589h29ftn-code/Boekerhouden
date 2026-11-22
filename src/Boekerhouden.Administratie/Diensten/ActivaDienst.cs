@@ -307,7 +307,7 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
 
         if (invoer.Datum < a.Aanschafdatum)
         {
-            fouten.Add("De extra afschrijving ligt niet vóór de aanschafdatum.");
+            fouten.Add("Een extra afschrijving kan niet vóór de aanschafdatum.");
         }
 
         var geboekt = Samen(await db.Afschrijvingen.AsNoTracking().Where(x => x.ActivumId == id).ToDictionaryAsync(x => x.Maand, x => x.Bedrag),

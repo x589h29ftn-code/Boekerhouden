@@ -40,6 +40,7 @@ public sealed class ActivaWijzigenTests(AdministratieFixture app) : IClassFixtur
         Assert.Contains((await dienst.ExtraAfschrijven(wie, id, laptop, new Extrainvoer(new(2026, 6, 15), 1200m))).Fouten, f => f.Contains("boekwaarde", StringComparison.Ordinal));
         Assert.False((await dienst.ExtraAfschrijven(wie, id, laptop, new Extrainvoer(new(2026, 6, 15), 0m))).IsGelukt);
         Assert.False((await dienst.ExtraAfschrijven(wie, id, laptop, new Extrainvoer(new(2026, 6, 15), 10m, "0210"))).IsGelukt);
+        Assert.Contains("Een extra afschrijving kan niet vóór de aanschafdatum.", (await dienst.ExtraAfschrijven(wie, id, laptop, new Extrainvoer(new(2026, 3, 1), 10m))).Fouten);
 
         var uitkomst = await dienst.ExtraAfschrijven(wie, id, laptop, new Extrainvoer(new(2026, 6, 15), 300m, null, "Waardevermindering na waterschade"));
         Assert.True(uitkomst.IsGelukt, string.Join("; ", uitkomst.Fouten));

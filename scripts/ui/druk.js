@@ -1,9 +1,11 @@
-// De schermen onder druk, met alleen verzonnen gegevens: dubbel- en driedubbelklikken op Definitief maken en Boeken,
+// De schermen onder druk, met alleen verzonnen gegevens: dubbel- en driedubbelklikken op Definitief maken en Boeken
+// (ook een extra afschrijving op een vast actief),
 // dezelfde factuur in twee tabbladen tegelijk definitief maken, de terugknop na boeken, en dat alles ook met een
 // trage verbinding (400 ms vertraging). Meldt wat er misgaat (twee nummers, twee boekingen, fouten in de console).
 // Gebruik: scripts/ui/herstart.sh && node scripts/ui/druk.js
 const { chromium } = require('playwright');
 const crypto = require('crypto');
+const path = require('path');
 
 function totp(sleutel) {
   const a = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'; let bits = '';
@@ -122,6 +124,23 @@ function totp(sleutel) {
   if (naTerug - voorTerug !== 1) meld(`terugknop gaf ${naTerug - voorTerug} definitieve facturen`);
 
   // 5. Trage verbinding: dubbelklik met 400 ms vertraging.
+  // Vast actief: een inkoopfactuur op de inventaris wordt een actief; dubbelklik op Boeken bij een extra afschrijving.
+  await page.goto(`${basis}/a/${id}/inkoop`); await page.waitForTimeout(1200);
+  await page.setInputFiles('#bestanden', path.resolve(__dirname, '../../tests/Fictief/administratie/belnet-2026-0411.xml')); await page.waitForTimeout(3000);
+  await page.goto(`${basis}/a/${id}/inkoop`); await page.waitForTimeout(1200);
+  await page.locator('table tbody a').first().click(); await page.waitForSelector('#nummer'); await page.waitForTimeout(1500);
+  const inventaris = page.locator('input[aria-label=Rekening]').first();
+  await inventaris.click(); await inventaris.fill('0200'); await page.keyboard.press('Tab'); await page.waitForTimeout(500);
+  await page.click('button.btn-primary:has-text("oeken")'); await page.waitForTimeout(2000);
+  await page.goto(`${basis}/a/${id}/activa`); await page.waitForTimeout(1500);
+  await page.locator('table tbody tr').first().click(); await page.waitForTimeout(2500);
+  await page.click('.wijzigmenu > button'); await page.click('.wijzigmenu .menu button:has-text("Extra afschrijving")'); await page.waitForTimeout(500);
+  await page.fill('#extra-bedrag', '1'); await page.fill('#extra-datum', '15-06-2026');
+  await page.click('.actiepaneel button.btn-primary:has-text("Boeken")', { clickCount: 2, delay: 20 }); await page.waitForTimeout(2500);
+  const extra = await page.locator('table.extraafschrijvingen tbody tr').count();
+  console.log(`dubbelklik op Boeken (extra afschrijving): ${extra} extra afschrijving(en)`);
+  if (extra !== 1) meld(`dubbelklik op Boeken bij een extra afschrijving gaf ${extra} boekingen`);
+
   const cdp = await context.newCDPSession(page);
   await cdp.send('Network.enable');
   await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: 400, downloadThroughput: 500 * 1024, uploadThroughput: 250 * 1024 });

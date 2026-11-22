@@ -745,6 +745,12 @@
 
     private async Task ExtraAfschrijven()
     {
+        // Een dubbelklik (of een tweede klik voordat de knop uit staat) boekt niet twee keer.
+        if (bezig)
+        {
+            return;
+        }
+
         if (!BedragParser.TryParse(extra.Bedrag ?? "", out var bedrag))
         {
             fouten = ["Het bedrag is niet te lezen."];
@@ -764,6 +770,12 @@
 
     private async Task TerugdraaienExtra(long id)
     {
+        // Een dubbelklik (of een tweede klik voordat de knop uit staat) boekt niet twee keer.
+        if (bezig)
+        {
+            return;
+        }
+
         bezig = true;
         var uitkomst = await Activa.TerugdraaienExtra(geopend!.Wie, Id, id);
         fouten = uitkomst.Fouten;
@@ -776,6 +788,12 @@
 
     private async Task WijzigRestwaarde()
     {
+        // Een dubbelklik (of een tweede klik voordat de knop uit staat) boekt niet twee keer.
+        if (bezig)
+        {
+            return;
+        }
+
         if (!BedragParser.TryParse(string.IsNullOrWhiteSpace(nieuweRest.Bedrag) ? "0" : nieuweRest.Bedrag, out var rest))
         {
             fouten = ["De restwaarde is niet te lezen."];
@@ -829,6 +847,12 @@
 
     private async Task Herzie()
     {
+        // Een dubbelklik (of een tweede klik voordat de knop uit staat) boekt niet twee keer.
+        if (bezig)
+        {
+            return;
+        }
+
         if (!BedragParser.TryParse(herzien.Percentage ?? "", out var procent))
         {
             fouten = ["Het percentage is niet te lezen."];
@@ -847,6 +871,12 @@
 
     private async Task VerwijderHerziening(DateOnly maand)
     {
+        // Een dubbelklik (of een tweede klik voordat de knop uit staat) boekt niet twee keer.
+        if (bezig)
+        {
+            return;
+        }
+
         bezig = true;
         var uitkomst = await Activa.VerwijderHerziening(geopend!.Wie, Id, detail!.Id, maand);
         bezig = false;
@@ -954,6 +984,12 @@
 
     private async Task Bewaar()
     {
+        // Een dubbelklik (of een tweede klik voordat de knop uit staat) boekt niet twee keer.
+        if (bezig)
+        {
+            return;
+        }
+
         if (f!.Invoer() is not { } invoer)
         {
             formfouten = ["Een bedrag is niet te lezen."];
@@ -982,6 +1018,12 @@
 
     private async Task Verwijder()
     {
+        // Een dubbelklik (of een tweede klik voordat de knop uit staat) boekt niet twee keer.
+        if (bezig)
+        {
+            return;
+        }
+
         bezig = true;
         var uitkomst = await Activa.Verwijder(geopend!.Wie, Id, detail!.Id);
         fouten = uitkomst.Fouten;
@@ -1033,6 +1075,12 @@
 
     private async Task Desinvesteer()
     {
+        // Een dubbelklik (of een tweede klik voordat de knop uit staat) boekt niet twee keer.
+        if (bezig)
+        {
+            return;
+        }
+
         bezig = true;
         var uitkomst = await Activa.Desinvesteer(geopend!.Wie, Id, detail!.Id, weg.Invoer());
         fouten = uitkomst.Fouten;
@@ -1046,6 +1094,12 @@
 
     private async Task Terugdraaien(long desinvestering)
     {
+        // Een dubbelklik (of een tweede klik voordat de knop uit staat) boekt niet twee keer.
+        if (bezig)
+        {
+            return;
+        }
+
         bezig = true;
         var uitkomst = await Activa.TerugdraaienDesinvestering(geopend!.Wie, Id, desinvestering);
         fouten = uitkomst.Fouten;
@@ -1058,6 +1112,12 @@
 
     private async Task AfschrijvenTotVorigeMaand()
     {
+        // Een dubbelklik (of een tweede klik voordat de knop uit staat) boekt niet twee keer.
+        if (bezig)
+        {
+            return;
+        }
+
         bezig = true;
         var uitkomst = await Activa.Afschrijven(geopend!.Wie, Id, VorigeMaand, Afschrijvingsfrequentie.Maand, detail!.Id);
         fouten = uitkomst.Fouten;
