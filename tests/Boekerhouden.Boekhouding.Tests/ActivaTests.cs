@@ -91,11 +91,11 @@ public sealed class ActivaTests
         var fouten = fout.Controleer(schema).ToList();
         Assert.Contains("Vul een omschrijving in.", fouten);
         Assert.Contains("De aanschafwaarde moet groter zijn dan 0.", fouten);
-        Assert.Contains(fouten, f => f.StartsWith("De looptijd", StringComparison.Ordinal));
-        Assert.Contains("Afschrijven begint niet vóór de maand van aanschaf.", fouten);
+        Assert.Contains(fouten, f => f.StartsWith("Kies een looptijd", StringComparison.Ordinal));
+        Assert.Contains("Afschrijven kan niet beginnen vóór de maand van aanschaf.", fouten);
         Assert.Contains(fouten, f => f.Contains("kostenrekening 0210 hoort in de winst-en-verliesrekening", StringComparison.Ordinal));
         Assert.Contains(fouten, f => f.Contains("Rekening 1100 is voor de bank", StringComparison.Ordinal));
-        Assert.Contains("De restwaarde ligt tussen 0 en de aanschafwaarde.", Laptop(rest: 2000m).Controleer().ToList());
+        Assert.Contains("Kies een restwaarde tussen 0 en de aanschafwaarde.", Laptop(rest: 2000m).Controleer().ToList());
     }
 
     [Fact]

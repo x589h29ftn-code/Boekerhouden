@@ -67,7 +67,7 @@ public sealed class VerkoopimportDienst(
             var hash = Convert.ToHexStringLower(SHA256.HashData(bytes));
             if (await db.Verkoopbestanden.AsNoTracking().FirstOrDefaultAsync(b => b.Sha256 == hash, annulering) is { } eerder)
             {
-                return new(eerder.VerkoopdocumentId, false, $"Dubbele factuur: {naam} is al eerder ingelezen en niet opnieuw ingelezen.", Dubbel: true);
+                return new(eerder.VerkoopdocumentId, false, $"Dubbele factuur: {naam} is al eerder ingelezen.", Dubbel: true);
             }
 
             if (virusscanners.FirstOrDefault() is { } scanner)

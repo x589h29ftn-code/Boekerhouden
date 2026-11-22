@@ -251,7 +251,7 @@ public sealed class Journaal
 
         if (maanden.Count > Grootboek.Maandoverzicht.MaximumMaanden)
         {
-            throw new ArgumentException($"Per maand kan over hoogstens {Grootboek.Maandoverzicht.MaximumMaanden} maanden.", nameof(tot));
+            throw new ArgumentException($"Per maand kan voor hoogstens {Grootboek.Maandoverzicht.MaximumMaanden} maanden.", nameof(tot));
         }
 
         var begin = Schema.Alle.ToDictionary(r => r.Nummer, _ => 0m, StringComparer.Ordinal);

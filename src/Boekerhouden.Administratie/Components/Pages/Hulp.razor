@@ -1,6 +1,6 @@
 @page "/hulp"
 
-<PageTitle>Documentatie – Sifer administratie</PageTitle>
+<PageTitle>Documentatie - Sifer</PageTitle>
 
 <div class="hulp">
     <h1 class="h3 mb-3">Documentatie</h1>
@@ -26,7 +26,7 @@
     <p>Elke pagina druk je af met <kbd>Ctrl</kbd>+<kbd>P</kbd> (of bewaar je zo als PDF). Op papier staan alleen de titel, de periode en de gegevens: geen menu, knoppen of lege zoekvelden. Bovenaan staat de administratie met het KvK-nummer, wanneer en door wie er is afgedrukt; onderaan het paginanummer. De kop van een tabel staat op elke pagina, het totaal alleen aan het eind. De kolommenbalans per maand komt liggend op papier. In de donkere weergave wordt het toch zwart op wit.</p>
 
     <h2 id="inkoop">Inkoop</h2>
-    <p>Lees inkoopfacturen in als PDF, foto of e-factuur (UBL). Sifer herkent de leverancier, het factuurnummer, de datums, de bedragen en de btw, en stelt een rekening voor. Kies je een paar keer dezelfde rekening voor een leverancier, dan boekt Sifer diens facturen daarna zelf. Dat gebeurt niet bij een ander IBAN of adres dan eerder, een veel hoger bedrag, een factuur die al geboekt lijkt of een IBAN dat bij een andere leverancier hoort: die blijven staan om na te kijken.</p>
+    <p>Lees inkoopfacturen in als PDF, foto of e-factuur (UBL). Sifer herkent de leverancier, het factuurnummer, de datums, de bedragen en de btw, en stelt een rekening voor. Kies je een paar keer dezelfde rekening voor een leverancier, dan boekt Sifer de facturen van die leverancier daarna zelf. Dat gebeurt niet bij een ander IBAN of adres dan eerder, een veel hoger bedrag, een factuur die al geboekt lijkt of een IBAN dat bij een andere leverancier hoort: die blijven staan om na te kijken.</p>
     <p>Wat niet herkend is, wijs je aan op de factuur; Sifer onthoudt die plek voor de volgende keer. Een PDF met meerdere facturen splits je met <em>Stapel splitsen</em>. Een geboekte factuur kun je openen en aanpassen of terugdraaien, zolang hij niet betaald is en de periode open is. Op het tabblad <em>Geboekt</em> staat het inkoopboek.</p>
 
     <h2 id="verkoop">Verkoop inlezen</h2>
@@ -49,16 +49,16 @@
     <p>Sleep de blokken (logo, adres, gegevens, regels, totalen, voettekst) naar hun plek. De lay-out geldt voor alle facturen van de administratie.</p>
 
     <h2 id="kolommenbalans">Kolommenbalans</h2>
-    <p>Per rekening de stand over een periode, met balans en winst-en-verliesrekening en het resultaat. Ook per maand en uitgebreid (met de RGS-indeling en subtotalen). Klik op een bedrag om de boekingen te zien. Onder <em>Weergave</em>: vorig jaar ernaast, ook rekeningen zonder saldo, en hele euro's (per maand passen dan alle maanden naast elkaar; het exacte bedrag staat in de tooltip). Onder <em>Downloaden</em>: Excel, PDF en het boekjaar als auditfile (XAF). Op elk overzicht staat Downloaden op dezelfde plek, als laatste in de kop.</p>
+    <p>Per rekening de stand over een periode, met balans en winst-en-verliesrekening en het resultaat. Ook per maand en uitgebreid (met de RGS-indeling en subtotalen). Klik op een bedrag om de boekingen te zien. Onder <em>Weergave</em>: vorig jaar ernaast, ook rekeningen zonder saldo, en hele euro's (per maand passen dan alle maanden naast elkaar; wijs een bedrag aan voor het exacte bedrag). Onder <em>Downloaden</em>: Excel, PDF en het boekjaar als auditfile (XAF). Op elk overzicht staat Downloaden op dezelfde plek, als laatste in de kop.</p>
 
     <h2 id="grootboek">Grootboekkaart</h2>
     <p>Alle boekingen op een rekening, met begin- en eindsaldo. Zoek op omschrijving, bedrag, relatie of factuurnummer. Selecteer regels om ze naar een andere rekening te herboeken (niet voor bank, debiteuren, crediteuren of btw).</p>
 
     <h2 id="journaal">Journaal</h2>
-    <p>Alle boekingen in volgorde, met filters. Elke boeking zit in een keten die niet ongemerkt te veranderen is: aanpassen maakt een nieuwe versie, de oude blijft bewaard.</p>
+    <p>Alle boekingen in volgorde, met filters. Niemand kan een boeking ongemerkt veranderen: aanpassen maakt een nieuwe versie, de oude blijft bewaard.</p>
 
     <h2 id="openstaand">Openstaande posten</h2>
-    <p>Wat klanten nog moeten betalen (debiteuren) en wat er nog te betalen is (crediteuren), op een peildatum. Een creditnota telt pas mee vanaf de dag dat hij bestaat. De lijst sluit op het saldo in het grootboek.</p>
+    <p>Wat klanten nog moeten betalen (debiteuren) en wat er nog te betalen is (crediteuren), op een peildatum. Een creditfactuur telt pas mee vanaf de dag dat hij bestaat. De lijst sluit aan op het saldo in het grootboek.</p>
     <p>Kies de weergave rechtsboven: per klant of leverancier de posten met een subtotaal, alleen de subtotalen (één regel per relatie; aanklikken toont de posten van die relatie), of alle posten in één lijst op datum. De PDF volgt de gekozen weergave.</p>
 
     <h2 id="btw">Btw-aangifte</h2>
@@ -87,7 +87,7 @@
     <p><em>Periode afsluiten</em> loopt de stappen langs (bank bij, inkoop en verkoop verwerkt, aansluitingen, btw vastgelegd). Na het afsluiten kan in die periode niets meer worden geboekt, aangepast of ingetrokken. Heropenen kan met een reden; dat komt in het wijzigingslog.</p>
 
     <h2 id="instellingen">Instellingen en beginbalans</h2>
-    <p>Eigen gegevens (naam, adres, btw- en KvK-nummer, IBAN's), btw-plichtig ja of nee, de grens en rekening voor kleine betaalverschillen, de map voor de documenten en de standaardomschrijving. De beginbalans lees je in uit de jaarrekening van vorig jaar (PDF) of vul je met de hand in.</p>
+    <p>Hier staan je eigen gegevens (naam, adres, btw- en KvK-nummer, IBAN's), of je btw-plichtig bent, de grens en rekening voor kleine betaalverschillen, de map voor de documenten en de standaardomschrijving. De beginbalans lees je in uit de jaarrekening van vorig jaar (PDF) of vul je met de hand in.</p>
 
     <h2 id="beheer">Beheer</h2>
     <p>Voor de beheerder: gebruikers en hun rechten (tweestapsverificatie is verplicht voor de beheerder), de btw-tabel met codes en tarieven per datum, de kantoorinstellingen die voor alle administraties gelden, het wijzigingslog en, in de Windows-app, reservekopieën en delen met de andere pc's op kantoor.</p>

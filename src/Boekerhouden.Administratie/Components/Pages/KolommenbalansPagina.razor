@@ -32,7 +32,7 @@
                     <input class="form-check-input" type="checkbox" id="met-nul" @bind="metNul" />
                     <span class="form-check-label">Ook zonder saldo</span>
                 </label>
-                <label class="form-check" title="Afgerond op hele euro's, zodat per maand alle maanden naast elkaar passen; het exacte bedrag staat in de tooltip">
+                <label class="form-check" title="Afgerond op hele euro's, zodat per maand alle maanden naast elkaar passen; wijs een bedrag aan voor het exacte bedrag">
                     <input class="form-check-input" type="checkbox" id="hele-euros" checked="@heel" @onchange="WisselHeel" />
                     <span class="form-check-label">Hele euro's</span>
                 </label>
@@ -343,7 +343,7 @@
         }
         catch (ArgumentException)
         {
-            (maanden, uitgebreid, perMaand, melding) = (null, rgs, true, $"Per maand kan over hoogstens {Maandoverzicht.MaximumMaanden} maanden; kies een kortere periode.");
+            (maanden, uitgebreid, perMaand, melding) = (null, rgs, true, $"Per maand kan voor hoogstens {Maandoverzicht.MaximumMaanden} maanden; kies een kortere periode.");
         }
     }
 

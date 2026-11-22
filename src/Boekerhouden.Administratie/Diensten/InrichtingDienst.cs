@@ -542,7 +542,7 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
 
         if (invoer.Contact?.Land is { Length: > 0 } land && land.Trim().Length != 2)
         {
-            fouten.Add("Het land is een landcode van twee letters (NL, BE, DE …).");
+            fouten.Add("Vul het land in als code van twee letters (NL, BE, DE).");
         }
 
         var ibans = invoer.Ibans.Where(i => !string.IsNullOrWhiteSpace(i)).Select(Iban.Normaliseer).Distinct().ToList();
@@ -654,12 +654,12 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
 
             if (k.Land is { Length: > 0 } land && land.Trim().Length != 2)
             {
-                fouten.Add("Het land is een landcode van twee letters (NL, BE, DE …).");
+                fouten.Add("Vul het land in als code van twee letters (NL, BE, DE).");
             }
 
             if (k.Betalingstermijn is < 0 or > 365)
             {
-                fouten.Add("De betalingstermijn ligt tussen 0 en 365 dagen.");
+                fouten.Add("Kies een betalingstermijn van 0 tot 365 dagen.");
             }
 
             if (!string.IsNullOrWhiteSpace(k.Email) && !k.Email.Contains('@', StringComparison.Ordinal))

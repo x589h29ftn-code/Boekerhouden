@@ -92,7 +92,7 @@ public static class Bankboeker
         var totaal = posten.Sum(p => p.Bedrag) + regels.Sum(r => r.Bedrag);
         if (totaal != mutatie.Bedrag)
         {
-            throw new InvalidOperationException($"Posten en regels ({totaal:0.00}) sluiten niet op de mutatie ({mutatie.Bedrag:0.00}).");
+            throw new InvalidOperationException($"Posten en regels ({totaal:0.00}) sluiten niet aan op de mutatie ({mutatie.Bedrag:0.00}).");
         }
 
         var journaal = new List<Journaalregel> { new(BankRekening(dagboek), mutatie.Bedrag, mutatie.Omschrijving) };

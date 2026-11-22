@@ -227,7 +227,7 @@ public sealed class InrichtingTests(AdministratieFixture app) : IClassFixture<Ad
         Assert.Equal(2, huidig.Geldend.Drempel);
         Assert.Null(huidig.Afwijkend.Drempel);
 
-        Assert.Equal(["Automatisch verwerken na 1 tot 10 gelijke keuzes."], (await dienst.WijzigInstellingen(wie, id, huidig with { Afwijkend = huidig.Afwijkend with { Drempel = 0 } })).Fouten);
+        Assert.Equal(["Kies voor automatisch verwerken 1 tot 10 gelijke keuzes."], (await dienst.WijzigInstellingen(wie, id, huidig with { Afwijkend = huidig.Afwijkend with { Drempel = 0 } })).Fouten);
         Assert.True((await dienst.WijzigInstellingen(wie, id, huidig with { Afwijkend = huidig.Afwijkend with { Drempel = 3 } })).IsGelukt);
         Assert.Equal(3, (await dienst.Instellingen(wie, id)).Geldend.Drempel);
 
@@ -250,7 +250,7 @@ public sealed class InrichtingTests(AdministratieFixture app) : IClassFixture<Ad
         var standaard = Verwerkingsinstellingen.Standaard with { Omschrijving = "#leverancier #factuurnummer #maand" };
 
         await Assert.ThrowsAsync<GeenToegangException>(() => kantoor.Wijzig(medewerker, standaard));
-        Assert.Equal(["De standaardomschrijving kent #maandd niet."], (await kantoor.Wijzig(wie, standaard with { Omschrijving = "#leverancier #maandd" })).Fouten);
+        Assert.Equal(["Onbekende variabele in de standaardomschrijving: #maandd."], (await kantoor.Wijzig(wie, standaard with { Omschrijving = "#leverancier #maandd" })).Fouten);
         try
         {
             Assert.True((await kantoor.Wijzig(wie, standaard)).IsGelukt);
@@ -294,7 +294,7 @@ public sealed class InrichtingTests(AdministratieFixture app) : IClassFixture<Ad
         var medewerker = await app.Gebruiker("Mia Medewerker");
 
         await Assert.ThrowsAsync<GeenToegangException>(() => kantoor.Wijzig(medewerker, Verwerkingsinstellingen.Standaard with { Drempel = 5 }));
-        Assert.Equal(["De bandbreedte ligt tussen 1 en 10 keer het hoogste bedrag."], (await kantoor.Wijzig(wie, Verwerkingsinstellingen.Standaard with { Bandbreedte = 0.5m })).Fouten);
+        Assert.Equal(["Kies een bandbreedte van 1 tot 10 keer het hoogste bedrag."], (await kantoor.Wijzig(wie, Verwerkingsinstellingen.Standaard with { Bandbreedte = 0.5m })).Fouten);
         Assert.True((await kantoor.Wijzig(wie, new Verwerkingsinstellingen(3, 1.5m, 250m, 14, false, "/data/#administratie"))).IsGelukt);
 
         var volgt = await inrichting.Instellingen(wie, id);

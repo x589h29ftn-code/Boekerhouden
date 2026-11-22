@@ -57,7 +57,7 @@ public static class Verkoopcontrole
 
             if (regel.Korting is < 0 or > 100)
             {
-                fouten.Add($"Regel {i + 1}: de korting ligt tussen 0 en 100%.");
+                fouten.Add($"Regel {i + 1}: kies een korting tussen 0 en 100%.");
             }
 
             var code = BtwCodes.Zoek(codes, regel.BtwCode);
@@ -83,7 +83,7 @@ public static class Verkoopcontrole
 
         if (!factuur.IsCredit && afzender.Ibans is not { Count: > 0 })
         {
-            fouten.Add("Vul het eigen IBAN in (Instellingen); de klant moet weten waar hij betaalt.");
+            fouten.Add("Vul het eigen IBAN in (Instellingen); dat moet op de factuur staan.");
         }
 
         var klantnummer = factuur.Klant.BtwNummer is { } k ? BtwNummer.Normaliseer(k) : null;
@@ -100,7 +100,7 @@ public static class Verkoopcontrole
             }
             else if (klantnummer!.StartsWith("NL", StringComparison.Ordinal) || !BtwNummer.IsEuLand(klantnummer[..2]))
             {
-                fouten.Add("Een levering binnen de EU (ICP) is aan een klant met een btw-nummer uit een ander EU-land.");
+                fouten.Add("Een levering binnen de EU (ICP) kan alleen aan een klant met een btw-nummer uit een ander EU-land.");
             }
         }
 

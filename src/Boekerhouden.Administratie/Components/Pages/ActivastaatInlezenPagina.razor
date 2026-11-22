@@ -24,7 +24,7 @@
             }
             else
             {
-                <span class="status let-op">sluit niet op de totalen</span>
+                <span class="status let-op">sluit niet aan op de totalen</span>
             }
         }
     </Kenmerken>
@@ -38,7 +38,7 @@
     <ChildContent>
         @if (!context.Mag(Recht.Boekhouden))
         {
-            <div class="alert alert-warning">De staat inlezen is voor het kantoor.</div>
+            <div class="alert alert-warning">Alleen het kantoor kan een activastaat inlezen.</div>
         }
         else
         {

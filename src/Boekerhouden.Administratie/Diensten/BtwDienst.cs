@@ -69,7 +69,7 @@ public sealed class BtwDienst(IDbContextFactory<AdministratieDbContext> dbFactor
 
         if (await db.Btwtarieven.CountAsync(t => t.Tarief == tarief.Tarief) == 1)
         {
-            return Uitkomst.Mislukt($"Het tarief {Naam(tarief.Tarief)} houdt minstens één percentage.");
+            return Uitkomst.Mislukt($"Het tarief {Naam(tarief.Tarief)} heeft minstens één percentage nodig.");
         }
 
         db.Btwtarieven.Remove(tarief);
@@ -87,7 +87,7 @@ public sealed class BtwDienst(IDbContextFactory<AdministratieDbContext> dbFactor
         omschrijving = (omschrijving ?? string.Empty).Trim();
         if (code.Length is 0 or > 10 || !code.All(char.IsAsciiLetterOrDigit))
         {
-            return Uitkomst.Mislukt("Een btw-code is 1 tot 10 letters of cijfers.");
+            return Uitkomst.Mislukt("Een btw-code bestaat uit 1 tot 10 letters of cijfers.");
         }
 
         if (omschrijving.Length == 0)

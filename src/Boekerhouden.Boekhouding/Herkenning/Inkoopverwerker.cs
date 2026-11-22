@@ -157,7 +157,7 @@ public static class Inkoopverwerker
                     herkend.Betalingskenmerk);
                 if (factuur.Totaal(btwCodes) != totaal)
                 {
-                    belemmeringen.Add($"De regels ({factuur.Totaal(btwCodes):0.00}) sluiten niet op het totaal ({totaal:0.00}).");
+                    belemmeringen.Add($"De regels ({factuur.Totaal(btwCodes):0.00}) sluiten niet aan op het totaal ({totaal:0.00}).");
                 }
             }
         }

@@ -25,10 +25,10 @@ public sealed class VerwerkingsinstellingenTests
     public void Ongeldige_instellingen() =>
         Assert.Equal(
             [
-                "Automatisch verwerken na 1 tot 10 gelijke keuzes.",
-                "De bandbreedte ligt tussen 1 en 10 keer het hoogste bedrag.",
+                "Kies voor automatisch verwerken 1 tot 10 gelijke keuzes.",
+                "Kies een bandbreedte van 1 tot 10 keer het hoogste bedrag.",
                 "De limiet kan niet negatief zijn.",
-                "De betalingstermijn ligt tussen 0 en 365 dagen.",
+                "Kies een betalingstermijn van 0 tot 365 dagen.",
                 "De documentmap mag geen '..' bevatten.",
             ],
             new Verwerkingsinstellingen(0, 0.5m, -1, 400, true, "/data/../geheim").Controleer());

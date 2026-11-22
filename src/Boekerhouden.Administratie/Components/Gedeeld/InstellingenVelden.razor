@@ -39,7 +39,7 @@
     </div>
     <div class="col-md-4">
         <label class="form-label" for="adrescontrole">Adrescontrole</label>
-        <select id="adrescontrole" class="form-select" @bind="Invoer.Adrescontrole" title="Een nieuwe postcode op de factuur van een bekende leverancier ter controle voorleggen">
+        <select id="adrescontrole" class="form-select" @bind="Invoer.Adrescontrole" title="Een factuur van een bekende leverancier met een nieuwe postcode eerst laten nakijken">
             @if (Kantoor is not null)
             {
                 <option value="@InstellingenInvoer.Kantoor">kantoor: @(Kantoor.Adrescontrole ? "aan" : "uit")</option>
@@ -51,7 +51,7 @@
     <div class="col-md-4">
         <label class="form-label" for="betaalverschil">Klein betaalverschil afboeken tot</label>
         <input id="betaalverschil" class="form-control" @bind="Invoer.Betaalverschil" placeholder="@(Grijs(Kantoor?.Betaalverschil is { } b ? Bedragen.Euro(b) : null) ?? "uit")"
-               title="Een betaling die zoveel afwijkt van de enige passende factuur (nummer en IBAN kloppen) automatisch afletteren en het verschil afboeken" />
+               title="Wijkt een betaling hooguit zoveel af van de factuur (nummer en IBAN kloppen), dan lettert Sifer af en boekt het verschil af" />
     </div>
     <div class="col-md-4">
         <label class="form-label" for="verschilrekening">Rekening betaalverschillen</label>
@@ -67,7 +67,7 @@
     {
         <div class="col-12">
             <label class="form-label" for="standaardomschrijving">Standaardomschrijving inkoopfactuur</label>
-            <input id="standaardomschrijving" class="form-control" @bind="Invoer.Omschrijving" @bind:event="oninput" maxlength="200" placeholder="uit (bijv. #leverancier #factuurnummer #maand)"
+            <input id="standaardomschrijving" class="form-control" @bind="Invoer.Omschrijving" @bind:event="oninput" maxlength="200" placeholder="bijv. #leverancier #factuurnummer #maand"
                    title="@string.Join(", ", Omschrijvingssjabloon.Variabelen.Select(v => $"{v.Naam} = {v.Betekenis}"))" />
             @if (Omschrijvingssjabloon.IsSjabloon(Invoer.Omschrijving))
             {
@@ -76,7 +76,7 @@
         </div>
         <div class="col-12">
             <label class="form-label" for="standaardomschrijving-verkoop">Standaardomschrijving ingelezen verkoopfactuur</label>
-            <input id="standaardomschrijving-verkoop" class="form-control" @bind="Invoer.OmschrijvingVerkoop" @bind:event="oninput" maxlength="200" placeholder="uit (bijv. Verkoop #klant #maandnr-#jaar)"
+            <input id="standaardomschrijving-verkoop" class="form-control" @bind="Invoer.OmschrijvingVerkoop" @bind:event="oninput" maxlength="200" placeholder="bijv. Verkoop #klant #maandnr-#jaar"
                    title="@string.Join(", ", Omschrijvingssjabloon.Variabelen.Select(v => $"{v.Naam} = {v.Betekenis}"))" />
             @if (Omschrijvingssjabloon.IsSjabloon(Invoer.OmschrijvingVerkoop))
             {

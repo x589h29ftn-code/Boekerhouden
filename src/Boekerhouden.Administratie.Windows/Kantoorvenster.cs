@@ -187,12 +187,12 @@ internal sealed class Kantoorvenster : Proefvenster
                     webview.CoreWebView2.Navigate(verbinding.Binnen(uitdaging).AbsoluteUri);
                     break;
                 case Werkplekstand.Wacht:
-                    Toon("Wacht op de beheerder", $"Deze pc is aangemeld bij {verbinding.Server.Host} als {Environment.UserName}. De beheerder koppelt de werkplek onder Beheer, Gebruikers en toegang; daar hoort dezelfde code te staan.",
+                    Toon("Wacht op de beheerder", $"Deze pc is aangemeld bij {verbinding.Server.Host} als {Environment.UserName}. De beheerder koppelt deze pc onder Beheer > Gebruikers en toegang. Daar staat dezelfde code.",
                         verbinding.Code, knoppenZichtbaar: !server);
                     Straks(3000);
                     break;
                 default:
-                    Toon("Geen toegang", "Deze werkplek is niet aangenomen, of de gebruiker staat uit. Vraag de beheerder.", null, knoppenZichtbaar: true);
+                    Toon("Geen toegang", "Deze pc is niet gekoppeld, of je account is uitgeschakeld. Vraag het de beheerder.", null, knoppenZichtbaar: true);
                     Straks(15000);
                     break;
             }

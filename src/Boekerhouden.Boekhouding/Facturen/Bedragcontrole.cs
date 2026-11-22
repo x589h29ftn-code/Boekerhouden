@@ -47,7 +47,7 @@ public static class Bedragcontrole
         var totaal = boeking.Totaal(codes);
         if (factuur.Totaal is { } verwacht && totaal != verwacht)
         {
-            signalen.Add($"De boeking ({Bedragen.Euro(totaal)}) sluit niet op het totaal van de factuur ({Bedragen.Euro(verwacht)}); verschil {Bedragen.Euro(totaal - verwacht)}.");
+            signalen.Add($"De boeking ({Bedragen.Euro(totaal)}) sluit niet aan op het totaal van de factuur ({Bedragen.Euro(verwacht)}); verschil {Bedragen.Euro(totaal - verwacht)}.");
         }
 
         var btwBoeking = boeking.TotaalBtw(codes);

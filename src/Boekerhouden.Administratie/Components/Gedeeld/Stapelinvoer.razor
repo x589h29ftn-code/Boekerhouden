@@ -21,7 +21,7 @@
 else
 {
     <label class="btn btn-sm btn-outline-secondary @(bezig ? "disabled" : null)" aria-busy="@(bezig ? "true" : null)"
-           title="Eén PDF met alle facturen (bijv. een gescande map): je knipt hem in losse facturen, daarna staan ze hier per stuk">
+           title="Eén PDF met meerdere facturen (bijv. een gescande map) in losse facturen knippen">
         @(bezig ? "Stapel inlezen" : "Stapel splitsen")
         <InputFile class="d-none" accept=".pdf,application/pdf" OnChange="LeesIn" disabled="@bezig" aria-label="Stapel splitsen" />
     </label>

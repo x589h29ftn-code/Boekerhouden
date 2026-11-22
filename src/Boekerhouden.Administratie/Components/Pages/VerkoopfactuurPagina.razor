@@ -42,13 +42,13 @@
                 {
                     <span class="menu">
                         <button type="button" title="Een nieuw concept met dezelfde klant en regels" @onclick="async () => { menuOpen = false; await Kopieer(); }">Kopiëren</button>
-                        <button type="button" class="per-maand-knop" title="Een concept per maand met deze klant en regels, bijv. de fee voor twaalf maanden" @onclick="() => { menuOpen = false; OpenPerMaand(); }">Per maand…</button>
+                        <button type="button" class="per-maand-knop" title="Een concept per maand met deze klant en regels, bijv. voor een jaar vooruit" @onclick="() => { menuOpen = false; OpenPerMaand(); }">Per maand…</button>
                         @if (weergave is { Status: Verkoopstatus.Definitief } getoond)
                         {
                             <a href="/a/@Id/verkoop/terugkerend?factuur=@getoond.Id" title="Een terugkerende factuur maken met deze klant en regels (bijv. elke maand)">Herhalen…</a>
                             @if (getoond.CreditVoorId is null)
                             {
-                                <button type="button" title="Een creditfactuur met dezelfde regels, negatief" @onclick="async () => { menuOpen = false; await Crediteer(); }">Crediteren</button>
+                                <button type="button" title="Een creditfactuur die deze factuur tegenboekt" @onclick="async () => { menuOpen = false; await Crediteer(); }">Crediteren</button>
                             }
                         }
                     </span>
@@ -428,7 +428,7 @@
 
                 <div class="formulier-rij mt-3 @(Extern ? "d-none" : null)">
                     <label for="tekst">Tekst</label>
-                    <textarea id="tekst" class="form-control form-control-sm" rows="2" @bind="invoer.Tekst" @bind:event="oninput" placeholder="Een eigen tekst onder de regels (optioneel)"></textarea>
+                    <textarea id="tekst" class="form-control form-control-sm" rows="2" @bind="invoer.Tekst" @bind:event="oninput" placeholder="Tekst onder de regels"></textarea>
                 </div>
                 <div class="formulier-rij">
                     <span></span>

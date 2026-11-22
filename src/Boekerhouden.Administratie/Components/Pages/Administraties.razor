@@ -12,7 +12,7 @@
         <input class="form-check-input" type="checkbox" id="ook-gearchiveerd" @bind="ookGearchiveerd" @bind:after="Laad" />
         <label class="form-check-label text-secondary" for="ook-gearchiveerd">Ook gearchiveerd</label>
     </span>
-    <input class="form-control w-auto" type="search" placeholder="Zoek op naam" aria-label="Zoeken"
+    <input class="form-control w-auto" type="search" placeholder="Zoeken op naam" aria-label="Zoeken"
            @bind="zoek" @bind:event="oninput" @bind:after="Laad" />
     <AuthorizeView Roles="@Rollen.Kantoor">
         <a class="btn btn-primary" href="/administraties/nieuw">Nieuwe administratie</a>
@@ -117,7 +117,7 @@ else
                                 {
                                     @if (a.Gearchiveerd is null)
                                     {
-                                        <button class="btn btn-sm btn-link text-secondary p-0" disabled="@bezig" title="Einde van de klantrelatie: daarna alleen inzien" @onclick="() => Archiveer(a)">Archiveren</button>
+                                        <button class="btn btn-sm btn-link text-secondary p-0" disabled="@bezig" title="Bij het einde van de klantrelatie; daarna kun je alleen nog inzien" @onclick="() => Archiveer(a)">Archiveren</button>
                                     }
                                     else
                                     {

@@ -30,7 +30,7 @@
             }
             else
             {
-                <Inleesknop Wie="geopend.Wie" Administratie="Id" Soort="Boekhouding.Facturen.Factuursoort.Verkoop" InvoerId="verkoopbestanden" Bezig="bezig" Titel="Verkoopfacturen die de klant zelf heeft gemaakt: PDF, e-factuur (UBL) of scan; slepen op de pagina kan ook" />
+                <Inleesknop Wie="geopend.Wie" Administratie="Id" Soort="Boekhouding.Facturen.Factuursoort.Verkoop" InvoerId="verkoopbestanden" Bezig="bezig" Titel="Verkoopfacturen uit een ander pakket: PDF, e-factuur (UBL) of foto. Slepen kan ook." />
             }
         }
     </Acties>
@@ -81,7 +81,7 @@
         else
         {
             <div class="zoekbalk d-flex align-items-center gap-2 mb-3">
-                <input class="form-control form-control-sm zoek-tekst" type="search" placeholder="Zoek op klant, nummer of omschrijving" aria-label="Zoeken" @bind="zoek" @bind:event="oninput" />
+                <input class="form-control form-control-sm zoek-tekst" type="search" placeholder="Zoeken op klant, nummer of omschrijving" aria-label="Zoeken" @bind="zoek" @bind:event="oninput" />
                 <span class="form-check mb-0 small ms-2">
                     <input class="form-check-input" type="checkbox" id="alleen-open" @bind="alleenOpen" />
                     <label class="form-check-label text-secondary" for="alleen-open">Alleen open</label>

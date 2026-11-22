@@ -50,7 +50,7 @@ function totp(sleutel) {
   if (await page.locator('table tbody a').count() > 0) {
     await page.locator('table tbody a').first().click(); await page.waitForSelector('#nummer'); await page.waitForTimeout(1500);
     await page.screenshot({ path: `${uit}/${pre}-inkoop-verwerken.png` });
-    if (await page.locator('button:has-text("Automatisch herkennen")').count() === 0) log.push('knop Automatisch herkennen ontbreekt');
+    if (await page.locator('button:has-text("Opnieuw herkennen")').count() === 0) log.push('knop Opnieuw herkennen ontbreekt');
     if ((await page.inputValue('#omschrijving')) !== '#leverancier #factuurnummer #maand') log.push('standaardomschrijving niet voorgesteld: ' + await page.inputValue('#omschrijving'));
     const rek = page.locator('input[aria-label=Rekening]').first();
     if (!(await rek.inputValue())) { await rek.click(); await rek.fill('4310'); await page.keyboard.press('Tab'); }

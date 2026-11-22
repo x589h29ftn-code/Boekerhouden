@@ -84,7 +84,7 @@
                             }
                             else
                             {
-                                <button class="btn btn-sm btn-link text-secondary ms-auto acties" title="Het pakket begint weer bij nul: eerst zelf kiezen, dan een voorstel" @onclick="() => bevestigVergeten = true">Vergeten</button>
+                                <button class="btn btn-sm btn-link text-secondary ms-auto acties" title="Vergeten wat Sifer bij deze leverancier heeft geleerd" @onclick="() => bevestigVergeten = true">Vergeten</button>
                             }
                         }
                     </div>
@@ -123,7 +123,7 @@
             {
                 <div class="d-flex align-items-center flex-wrap gap-2">
                     <label for="vanaf">Vanaf</label>
-                    <input id="vanaf" class="form-control form-control-sm text-end veld-smal" @bind="vanaf" placeholder="bedrag" title="Facturen vanaf dit bedrag (inclusief btw) komen altijd ter controle" />
+                    <input id="vanaf" class="form-control form-control-sm text-end veld-smal" @bind="vanaf" placeholder="bedrag" title="Facturen vanaf dit bedrag (incl. btw) altijd laten nakijken" />
                     <label for="afwijking" class="ms-3">of bij meer dan</label>
                     <input id="afwijking" class="form-control form-control-sm text-end veld-procent" @bind="afwijking" placeholder="%" title="Afwijking ten opzichte van de vorige factuur, hoger of lager" />
                     <span>% verschil met de vorige factuur</span>
@@ -299,7 +299,7 @@
         (fouten, bevestigVergeten) = (uitkomst.Fouten, false);
         if (uitkomst.IsGelukt)
         {
-            bericht = "Vergeten; het pakket begint weer bij nul.";
+            bericht = "Vergeten; Sifer begint bij deze leverancier opnieuw.";
             await Open(geopend);
         }
     }

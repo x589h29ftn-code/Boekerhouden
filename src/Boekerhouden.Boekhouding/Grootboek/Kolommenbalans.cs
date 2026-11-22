@@ -93,7 +93,7 @@ public sealed record Maandoverzicht(DateOnly Van, DateOnly Tot, IReadOnlyList<Da
 
         if (maanden.Count > MaximumMaanden)
         {
-            throw new ArgumentException($"Per maand kan over hoogstens {MaximumMaanden} maanden.", nameof(tot));
+            throw new ArgumentException($"Per maand kan voor hoogstens {MaximumMaanden} maanden.", nameof(tot));
         }
 
         var begin = schema.Alle.ToDictionary(r => r.Nummer, _ => 0m, StringComparer.Ordinal);

@@ -100,7 +100,7 @@
                             }
                             @if (st.Jaar.Rest != 0)
                             {
-                                <tr><td title="Na een wijziging van de frequentie in het jaar vallen aangegeven en berekende perioden niet samen">Overig</td><td class="bedrag text-end">@Weergave.Bedrag(st.Jaar.Rest)</td></tr>
+                                <tr><td title="Verschil doordat de aangifteperiode in de loop van het jaar is veranderd">Overig</td><td class="bedrag text-end">@Weergave.Bedrag(st.Jaar.Rest)</td></tr>
                             }
                         </tbody>
                         <tfoot>
@@ -124,7 +124,7 @@
                             {
                                 @if (g.Vastgelegd is null)
                                 {
-                                    <button class="btn btn-sm btn-primary ms-auto" disabled="@bezig" title="De aangifte is ingediend: de bedragen van nu vastleggen; later boeken in deze periode wordt dan zichtbaar als verschil" @onclick="Vastleggen">Vastleggen als aangegeven</button>
+                                    <button class="btn btn-sm btn-primary ms-auto" disabled="@bezig" title="Na het indienen de bedragen vastleggen. Wat je later in deze periode boekt, zie je als verschil." @onclick="Vastleggen">Vastleggen als aangegeven</button>
                                 }
                                 else
                                 {
@@ -212,7 +212,7 @@
                                             }
                                             else
                                             {
-                                                <span class="status let-op" title="Er staat btw op een btw-rekening die in geen rubriek valt (een btw-code zonder rubriek, of handmatig geboekt met een btw-code)">@Weergave.Bedrag(aansluiting.Verschil)</span>
+                                                <span class="status let-op" title="Btw die in geen rubriek valt, bijv. door een btw-code zonder rubriek">@Weergave.Bedrag(aansluiting.Verschil)</span>
                                             }
                                         </td>
                                     </tr>

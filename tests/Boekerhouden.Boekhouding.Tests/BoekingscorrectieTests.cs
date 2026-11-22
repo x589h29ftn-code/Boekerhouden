@@ -35,10 +35,10 @@ public sealed class BoekingscorrectieTests
         Assert.Empty(Boekingscorrectie.Controleer(Bank, andereKosten, Schema));
 
         var anderBedrag = Bank with { Regels = [new("4310", 50m), new("1500", 10m), new("1100", -60m)] };
-        Assert.Equal(["De regels op 1100 horen bij het bankafschrift of de openstaande posten en blijven gelijk."], Boekingscorrectie.Controleer(Bank, anderBedrag, Schema));
+        Assert.Equal(["De regels op 1100 horen bij het bankafschrift of de openstaande posten en kunnen niet veranderen."], Boekingscorrectie.Controleer(Bank, anderBedrag, Schema));
 
         var andereDatum = andereKosten with { Datum = new(2026, 3, 3) };
-        Assert.Equal(["De datum blijft gelijk: de boeking hoort bij het bankafschrift of de openstaande posten."], Boekingscorrectie.Controleer(Bank, andereDatum, Schema));
+        Assert.Equal(["De datum kan niet veranderen: de boeking hoort bij het bankafschrift of de openstaande posten."], Boekingscorrectie.Controleer(Bank, andereDatum, Schema));
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public sealed class BoekingscorrectieTests
         var andereFactuur = betaling with { Regels = [new("1600", 121m, Relatie: "JANSEN", Factuurnummer: "F-2"), new("1100", -121m)] };
 
         Assert.Single(Boekingscorrectie.Controleer(betaling, andereFactuur, Schema));
-        Assert.Equal(["Een aanpassing blijft in hetzelfde dagboek."], Boekingscorrectie.Controleer(Memoriaal, Memoriaal with { Dagboek = "INK", Omschrijving = "x" }, Schema));
+        Assert.Equal(["Het dagboek kan bij een aanpassing niet veranderen."], Boekingscorrectie.Controleer(Memoriaal, Memoriaal with { Dagboek = "INK", Omschrijving = "x" }, Schema));
         Assert.True(Boekingscorrectie.IsVast(Schema.Zoek("1300")));
         Assert.False(Boekingscorrectie.IsVast(Schema.Zoek("1500")));
     }

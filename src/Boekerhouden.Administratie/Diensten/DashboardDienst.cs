@@ -213,12 +213,12 @@ public sealed class DashboardDienst(
         ArgumentNullException.ThrowIfNull(keuzes);
         if (wie.Id is not { } gebruiker)
         {
-            return Uitkomst.Mislukt("Alleen een gebruiker heeft een eigen dashboard.");
+            return Uitkomst.Mislukt("Log in om het dashboard in te delen.");
         }
 
         if (keuzes.Any(k => !Enum.IsDefined(k.Soort)) || keuzes.DistinctBy(k => k.Soort).Count() != keuzes.Count)
         {
-            return Uitkomst.Mislukt("Elke widget kan één keer op het dashboard.");
+            return Uitkomst.Mislukt("Een widget kan maar één keer op het dashboard staan.");
         }
 
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);

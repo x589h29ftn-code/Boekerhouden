@@ -15,7 +15,7 @@
     <ChildContent>
         @if (!context.Mag(Recht.Boekhouden))
         {
-            <div class="alert alert-warning">De beginbalans is voor het kantoor.</div>
+            <div class="alert alert-warning">Alleen het kantoor kan de beginbalans wijzigen.</div>
         }
         else
         {
@@ -63,7 +63,7 @@
                                     <td><RekeningKeuze @bind-Waarde="regel.Rekening" Schema="schema" Kader="geopend" /></td>
                                     <td><input class="form-control form-control-sm text-end" @bind="regel.Debet" @bind:event="oninput" aria-label="Debet" /></td>
                                     <td><input class="form-control form-control-sm text-end" @bind="regel.Credit" @bind:event="oninput" aria-label="Credit" /></td>
-                                    <td><button type="button" class="btn btn-sm btn-link text-secondary p-0 regel-weg" title="Regel weghalen" aria-label="Regel weghalen" @onclick="() => regels.Remove(regel)"><Icoon Naam="x" /></button></td>
+                                    <td><button type="button" class="btn btn-sm btn-link text-secondary p-0 regel-weg" title="Regel verwijderen" aria-label="Regel verwijderen" @onclick="() => regels.Remove(regel)"><Icoon Naam="x" /></button></td>
                                 </tr>
                             }
                         </tbody>

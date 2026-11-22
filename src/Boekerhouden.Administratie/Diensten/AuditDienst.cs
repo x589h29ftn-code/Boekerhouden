@@ -105,10 +105,10 @@ public static class AuditActies
 
     public const string KantoorinstellingenGewijzigd = "Kantoorinstellingen gewijzigd";
 
-    public const string ZoektemplateBijgewerkt = "Zoektemplate van leverancier bijgewerkt";
+    public const string ZoektemplateBijgewerkt = "Factuurindeling van leverancier bijgewerkt";
     public const string GeleerdVergeten = "Geleerde keuzes vergeten";
     public const string ZoekplekVergeten = "Plek op de factuur vergeten";
-    public const string ControleIngesteld = "Grens voor zelf controleren ingesteld";
+    public const string ControleIngesteld = "Controlegrens van leverancier ingesteld";
 
     public const string DocumentOpgeslagen = "Document in de documentmap gezet";
 
@@ -125,7 +125,7 @@ public static class AuditActies
     public const string AfschriftIngelezen = "Bankafschrift ingelezen";
     public const string BankmutatiesVerwijderd = "Bankmutaties verwijderd";
     public const string BankmutatieTerug = "Bankmutatie terug naar Te verwerken";
-    public const string GeenDubbeleBankmutatie = "Bankmutatie is niet dubbel";
+    public const string GeenDubbeleBankmutatie = "Bankmutatie gemarkeerd als niet dubbel";
     public const string BankdagboekGekoppeld = "Bankdagboek gekoppeld aan rekening";
     public const string Afgeletterd = "Afgeletterd";
     public const string IbanGeleerd = "IBAN geleerd bij relatie";

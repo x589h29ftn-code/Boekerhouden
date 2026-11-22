@@ -20,7 +20,7 @@ public static class Boekingscorrectie
         var fouten = new List<string>();
         if (nieuw.Dagboek != oud.Dagboek)
         {
-            fouten.Add("Een aanpassing blijft in hetzelfde dagboek.");
+            fouten.Add("Het dagboek kan bij een aanpassing niet veranderen.");
         }
 
         var vastOud = Vast(oud, schema);
@@ -28,12 +28,12 @@ public static class Boekingscorrectie
         if (!vastOud.SequenceEqual(vastNieuw))
         {
             var rekeningen = vastOud.Concat(vastNieuw).Select(r => r.Rekeningnummer).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
-            fouten.Add($"De regels op {string.Join(", ", rekeningen)} horen bij het bankafschrift of de openstaande posten en blijven gelijk.");
+            fouten.Add($"De regels op {string.Join(", ", rekeningen)} horen bij het bankafschrift of de openstaande posten en kunnen niet veranderen.");
         }
 
         if (vastOud.Count > 0 && nieuw.Datum != oud.Datum)
         {
-            fouten.Add("De datum blijft gelijk: de boeking hoort bij het bankafschrift of de openstaande posten.");
+            fouten.Add("De datum kan niet veranderen: de boeking hoort bij het bankafschrift of de openstaande posten.");
         }
 
         if (fouten.Count == 0 && Gelijk(oud, nieuw))

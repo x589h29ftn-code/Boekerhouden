@@ -647,7 +647,7 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
     {
         if (aantal is < 1 or > MaximumPerMaand)
         {
-            return Uitkomst<int>.Mislukt($"Per maand kan 1 tot {MaximumPerMaand} facturen.");
+            return Uitkomst<int>.Mislukt($"Kies 1 tot {MaximumPerMaand} maanden.");
         }
 
         if (maand is < 1 or > 12 || jaar is < 1900 or > 9999)

@@ -174,7 +174,7 @@ public sealed class VerkoopTests
         Assert.Contains(fouten, f => f.Contains("adres van Klant B.V.", StringComparison.Ordinal));
         Assert.Contains(fouten, f => f.StartsWith("Regel 1: vul de omschrijving", StringComparison.Ordinal));
         Assert.Contains(fouten, f => f.StartsWith("Regel 2: btw-code I21 is voor de inkoop", StringComparison.Ordinal));
-        Assert.Contains(fouten, f => f.StartsWith("Regel 3: de korting", StringComparison.Ordinal));
+        Assert.Contains(fouten, f => f.StartsWith("Regel 3: kies een korting", StringComparison.Ordinal));
         Assert.Contains(fouten, f => f.Contains("vervaldatum", StringComparison.Ordinal));
         Assert.Contains(Verkoopcontrole.Controleer(Factuur(), Eigen, Codes), f => f.Contains("geen regels", StringComparison.Ordinal));
     }

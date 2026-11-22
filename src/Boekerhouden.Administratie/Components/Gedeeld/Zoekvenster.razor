@@ -12,7 +12,7 @@
     <div class="zoekvenster" role="dialog" aria-label="Zoeken">
         <div class="zoekvenster-veld">
             <Icoon Naam="search" />
-            <input @ref="veld" placeholder="Zoek een relatie, factuur, bedrag, boekstuk, rekening of pagina" aria-label="Zoeken"
+            <input @ref="veld" placeholder="Zoeken op relatie, factuur, bedrag of pagina" aria-label="Zoeken"
                    @bind="tekst" @bind:event="oninput" @bind:after="Zoek" @onkeydown="Toets" />
         </div>
         @if (resultaten.Count > 0)

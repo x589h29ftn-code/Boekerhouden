@@ -382,7 +382,7 @@ public sealed class StapelDienst(
 
         if (stapel.Status != Stapelstatus.Open)
         {
-            return Uitkomst.Mislukt("Een gesplitste stapel blijft bewaard.");
+            return Uitkomst.Mislukt("Een gesplitste stapel kan niet worden verwijderd.");
         }
 
         db.Stapels.Remove(stapel);

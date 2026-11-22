@@ -11,7 +11,7 @@
         }
     </Kenmerken>
     <Acties>
-        <button class="btn btn-outline-secondary btn-sm" @onclick="Controleer" title="Is er buiten de app iets gewijzigd?">Keten controleren</button>
+        <button class="btn btn-outline-secondary btn-sm" @onclick="Controleer" title="Controleren of er buiten Sifer iets is gewijzigd">Keten controleren</button>
         @if (geopend is not null)
         {
             <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
@@ -41,7 +41,7 @@
                         <option value="@d">@d</option>
                     }
                 </select>
-                <input class="form-control form-control-sm kaartzoeken" placeholder="Zoeken op omschrijving, boekstuk, rekening, bedrag, relatie of factuurnummer" aria-label="Zoeken"
+                <input class="form-control form-control-sm kaartzoeken" placeholder="Zoeken op omschrijving, bedrag of relatie" aria-label="Zoeken"
                        @bind="zoek" @bind:event="oninput" />
             </div>
         }

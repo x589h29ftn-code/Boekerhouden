@@ -119,7 +119,7 @@ public sealed class FactuuropmaakDienst(Toegang toegang, AuditDienst audit, Time
 
         if (Logo.Soort(inhoud) is not { } soort)
         {
-            return Uitkomst.Mislukt("Een logo is een PNG- of JPEG-afbeelding.");
+            return Uitkomst.Mislukt("Het logo moet een PNG- of JPEG-afbeelding zijn.");
         }
 
         if (virusscanners.FirstOrDefault() is { } scanner)
@@ -292,7 +292,7 @@ public sealed class FactuuropmaakDienst(Toegang toegang, AuditDienst audit, Time
 
         if (b.Beeld.Concept)
         {
-            return Uitkomst<Factuurbestand>.Mislukt("Een e-factuur kan pas als de factuur definitief is.");
+            return Uitkomst<Factuurbestand>.Mislukt("Een e-factuur maken kan pas als de factuur definitief is.");
         }
 
         var xml = UblFactuurSchrijver.Schrijf(b.Beeld.Factuur, b.Beeld.Afzender, b.Beeld.Codes, b.Beeld.Referentie, b.Beeld.Tekst);
@@ -312,7 +312,7 @@ public sealed class FactuuropmaakDienst(Toegang toegang, AuditDienst audit, Time
 
         if (b.Beeld.Concept)
         {
-            return Uitkomst<Factuurbestand>.Mislukt("Versturen kan pas als de factuur definitief is.");
+            return Uitkomst<Factuurbestand>.Mislukt("De factuur versturen kan pas als hij definitief is.");
         }
 
         var pdfBestand = await Pdf(wie, administratie, factuur, stoppen);

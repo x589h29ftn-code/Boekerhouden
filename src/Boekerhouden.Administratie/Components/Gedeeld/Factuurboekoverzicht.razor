@@ -31,7 +31,7 @@
     <ChildContent>
         @* Eén werkbalk: zoeken en filters. *@
         <div class="zoekbalk werkbalk d-flex align-items-center flex-wrap gap-2">
-            <input class="form-control form-control-sm zoek-tekst" type="search" placeholder="@($"Zoek op {Relatienaam}, factuurnummer, boekstuk of omschrijving")" aria-label="Zoeken" @bind="tekst" @bind:event="oninput" />
+            <input class="form-control form-control-sm zoek-tekst" type="search" placeholder="@($"Zoeken op {Relatienaam}, factuurnummer of omschrijving")" aria-label="Zoeken" @bind="tekst" @bind:event="oninput" />
             <select class="form-select form-select-sm w-auto" aria-label="@Relatienaam" @bind="relatie">
                 <option value="">Alle @(Inkoop ? "leveranciers" : "klanten")</option>
                 @foreach (var l in Leveranciers)

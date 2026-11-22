@@ -15,7 +15,7 @@
     <Acties>
         @if (werkvoorraad is { Count: > 0 } && geopend?.Kop.Mag(Recht.Invoeren) == true)
         {
-            <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De hele werkvoorraad opnieuw herkennen met wat het pakket nu weet (relaties, regels, wat er geleerd is) en wat kan automatisch boeken" @onclick="HerkenWerkvoorraad">Automatisch herkennen</button>
+            <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="Alle facturen opnieuw herkennen en boeken wat zeker is" @onclick="HerkenWerkvoorraad">Opnieuw herkennen</button>
         }
         @if (werkvoorraad is { Count: > 0 } && Positie is { } positie)
         {
@@ -98,7 +98,7 @@
                         </span>
                         @if (context.Mag(Recht.Invoeren) && verwerking.Document.Status == Documentstatus.Geboekt)
                         {
-                            <button class="btn btn-sm btn-outline-primary ms-auto" title="Het formulier met wat er geboekt is; opslaan past dezelfde boeking aan (een nieuwe versie)" @onclick="BeginAanpassen" disabled="@bezig">Aanpassen</button>
+                            <button class="btn btn-sm btn-outline-primary ms-auto" title="De boeking aanpassen; de vorige versie blijft bewaard" @onclick="BeginAanpassen" disabled="@bezig">Aanpassen</button>
                         }
                         @if (context.Mag(Recht.Invoeren) && verwerking.Document.Status == Documentstatus.Gearchiveerd)
                         {
@@ -368,7 +368,7 @@
                                 <label for="verdelen">Periode verdelen</label>
                                 <div class="veld-rij flex-nowrap">
                                     <span class="form-check mb-0">
-                                        <input id="verdelen" class="form-check-input" type="checkbox" checked="@verdelen" @onchange="e => ZetVerdelen(e.Value is true)" title="Transitorisch boeken: via vooruitbetaalde kosten en per maand naar de kosten" />
+                                        <input id="verdelen" class="form-check-input" type="checkbox" checked="@verdelen" @onchange="e => ZetVerdelen(e.Value is true)" title="De kosten over de maanden van een periode verdelen, via vooruitbetaalde kosten" />
                                     </span>
                                     @if (verdelen)
                                     {
@@ -394,7 +394,7 @@
                                     <label for="activeren">Activeren</label>
                                     <div class="veld-rij flex-nowrap">
                                         <span class="form-check mb-0">
-                                            <input id="activeren" class="form-check-input" type="checkbox" @bind="activeren" title="Na het boeken meteen een vast actief van elke regel op een activarekening (inventaris, gebouwen, vervoermiddelen …), met afschrijvingsplan" />
+                                            <input id="activeren" class="form-check-input" type="checkbox" @bind="activeren" title="Na het boeken een vast actief maken van elke regel op een activarekening, met afschrijvingsplan" />
                                         </span>
                                         @if (activeren)
                                         {

@@ -273,7 +273,7 @@ public sealed class AdministratieDienst(IDbContextFactory<AdministratieDbContext
 
         if (voorwaarden.Boekingen > 0 && !voorwaarden.Gearchiveerd)
         {
-            return Uitkomst.Mislukt("Archiveer de administratie eerst: een administratie met boekingen gaat eerst naar het archief.");
+            return Uitkomst.Mislukt("Een administratie met boekingen moet eerst naar het archief; daarna kan hij weg.");
         }
 
         if (voorwaarden.Bewaarplicht is { } tot && tot >= DateOnly.FromDateTime(tijd.GetUtcNow().UtcDateTime) && !bewaarplichtGezien)

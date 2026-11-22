@@ -82,7 +82,7 @@ public sealed class Factuurherkenning(IEnumerable<IFactuurHerkenner> motoren, IV
         var geschikt = afbeelding ? [] : motoren.Where(m => m.Kan(bestandsnaam, inhoudstype)).ToList();
         if (geschikt.Count == 0 && !afbeelding)
         {
-            return new(null, "Dit soort bestand wordt (nog) niet herkend; lever een PDF, e-factuur (XML) of foto (JPEG, PNG) aan.");
+            return new(null, "Dit soort bestand kan Sifer (nog) niet lezen; gebruik een PDF, e-factuur (XML) of foto (JPEG, PNG).");
         }
 
         if (virusscanner is not null)
@@ -94,7 +94,7 @@ public sealed class Factuurherkenning(IEnumerable<IFactuurHerkenner> motoren, IV
                 case Scanuitslag.Besmet:
                     return new(null, $"Het bestand bevat kwaadaardige inhoud ({scan.Toelichting}) en wordt niet verwerkt.", Geweigerd: true);
                 case Scanuitslag.NietGescand:
-                    return new(null, $"{scan.Toelichting} Het bestand wordt pas verwerkt na een geslaagde scan.");
+                    return new(null, $"{scan.Toelichting} Het bestand is niet ingelezen; probeer het opnieuw als de virusscanner werkt.");
             }
         }
 

@@ -72,22 +72,22 @@ public sealed record Activum(
 
         if (Restwaarde < 0 || Restwaarde > Aanschafwaarde)
         {
-            yield return "De restwaarde ligt tussen 0 en de aanschafwaarde.";
+            yield return "Kies een restwaarde tussen 0 en de aanschafwaarde.";
         }
 
         if (Methode == Afschrijvingsmethode.Lineair && Looptijd is < 1 or > MaximaleLooptijd)
         {
-            yield return $"De looptijd is 1 tot {MaximaleLooptijd} maanden.";
+            yield return $"Kies een looptijd van 1 tot {MaximaleLooptijd} maanden.";
         }
 
         if (EersteMaand < new DateOnly(Aanschafdatum.Year, Aanschafdatum.Month, 1))
         {
-            yield return "Afschrijven begint niet vóór de maand van aanschaf.";
+            yield return "Afschrijven kan niet beginnen vóór de maand van aanschaf.";
         }
 
         if (AfgeschrevenVoorBegin < 0 || (Aanschafwaarde > 0 && AfgeschrevenVoorBegin > Afschrijfbaar && Methode == Afschrijvingsmethode.Lineair))
         {
-            yield return "Wat al is afgeschreven, ligt tussen 0 en de aanschafwaarde min de restwaarde.";
+            yield return "Wat al is afgeschreven, kan niet negatief zijn en niet hoger dan de aanschafwaarde min de restwaarde.";
         }
 
         if (schema is null)
@@ -139,17 +139,17 @@ public sealed record Herziening(DateOnly Ingang, decimal? PercentagePerJaar, dec
 
         if (PercentagePerJaar is <= 0 or > 100)
         {
-            yield return "Het percentage ligt tussen 0 en 100.";
+            yield return "Kies een percentage tussen 0 en 100.";
         }
 
         if (Restwaarde is { } rest && (rest < 0 || rest > activum.Aanschafwaarde))
         {
-            yield return "De restwaarde ligt tussen 0 en de aanschafwaarde.";
+            yield return "Kies een restwaarde tussen 0 en de aanschafwaarde.";
         }
 
         if (Maand < activum.EersteMaand)
         {
-            yield return "De wijziging gaat niet in vóór de eerste maand van afschrijven.";
+            yield return "De wijziging kan niet ingaan vóór de eerste maand van afschrijven.";
         }
 
         if (laatstGeboekt is { } laatst && Maand <= laatst)
@@ -409,7 +409,7 @@ public static class Desinvestering
     {
         if (deel is <= 0 or > 1)
         {
-            throw new ArgumentOutOfRangeException(nameof(deel), "Het deel ligt tussen 0 en 100%.");
+            throw new ArgumentOutOfRangeException(nameof(deel), "Kies een deel tussen 0 en 100%.");
         }
 
         static decimal Cent(decimal bedrag) => Math.Round(bedrag, 2, MidpointRounding.AwayFromZero);

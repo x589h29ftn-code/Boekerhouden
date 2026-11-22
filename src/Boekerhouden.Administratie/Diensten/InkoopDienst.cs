@@ -189,7 +189,7 @@ public sealed class InkoopDienst(
         {
             // "Dubbele factuur" alleen als het eerder ingelezen bestand ook als factuur is herkend.
             var wat = eerder.Herkend is null ? "Al ingelezen" : "Dubbele factuur";
-            return new(eerder.Id, eerder.Status, $"{wat}: {naam} is al ingelezen op {Weergave.DatumTijd(eerder.IngelezenOp)} en niet opnieuw ingelezen.", Dubbel: true);
+            return new(eerder.Id, eerder.Status, $"{wat}: {naam} is al ingelezen op {Weergave.DatumTijd(eerder.IngelezenOp)}.", Dubbel: true);
         }
 
         var document = new Document
@@ -397,7 +397,7 @@ public sealed class InkoopDienst(
     {
         if (soort is not (Documentsoort.Prive or Documentsoort.Overig))
         {
-            return Uitkomst.Mislukt("Alleen een privé-document of een document zonder boeking wordt zonder boeking bewaard.");
+            return Uitkomst.Mislukt("Alleen een privé-document of een document dat geen boeking nodig heeft, kun je bewaren zonder te boeken.");
         }
 
         await using var db = await toegang.Open(wie, administratie, Recht.Invoeren);

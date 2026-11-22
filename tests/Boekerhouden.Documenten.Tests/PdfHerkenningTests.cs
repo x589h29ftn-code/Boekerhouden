@@ -171,7 +171,7 @@ public sealed class PdfHerkenningTests
         var scan = await herkenning.HerkenAsync(new MemoryStream(leeg.Build()), "scan.pdf");
 
         Assert.Equal("Het bestand is geen PDF.", nep.Melding);
-        Assert.StartsWith("Dit soort bestand wordt (nog) niet herkend", foto.Melding, StringComparison.Ordinal);
+        Assert.StartsWith("Dit soort bestand kan Sifer (nog) niet lezen", foto.Melding, StringComparison.Ordinal);
         Assert.StartsWith("Geen tekst gevonden", scan.Melding, StringComparison.Ordinal);
         Assert.Null(scan.Factuur);
     }

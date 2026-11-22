@@ -51,7 +51,7 @@ public sealed class VirusscanTests
 
         Assert.Null(resultaat.Factuur);
         Assert.False(resultaat.Geweigerd);
-        Assert.Equal($"De virusscanner (127.0.0.1:{poort}) is niet bereikbaar. Het bestand wordt pas verwerkt na een geslaagde scan.", resultaat.Melding);
+        Assert.Equal($"De virusscanner (127.0.0.1:{poort}) is niet bereikbaar. Het bestand is niet ingelezen; probeer het opnieuw als de virusscanner werkt.", resultaat.Melding);
     }
 
     [Theory]

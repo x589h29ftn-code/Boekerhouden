@@ -31,7 +31,7 @@
         {
             @if (teVerwerken is { Count: > 0 })
             {
-                <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="Opnieuw door de facturen in Te verwerken, met wat het pakket nu weet (relaties, regels, wat er geleerd is)" @onclick="VerwerkOpnieuw">Opnieuw herkennen</button>
+                <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="De facturen in Te verwerken opnieuw herkennen met wat Sifer nu weet" @onclick="VerwerkOpnieuw">Opnieuw herkennen</button>
             }
             <Inleesknop Wie="geopend.Wie" Administratie="Id" Soort="Boekhouding.Facturen.Factuursoort.Inkoop" InvoerId="bestanden" Bezig="bezig" Titel="PDF, e-factuur (UBL) of foto; slepen op de pagina kan ook" />
         }

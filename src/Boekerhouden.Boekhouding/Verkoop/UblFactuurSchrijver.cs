@@ -31,7 +31,7 @@ public static class UblFactuurSchrijver
         ArgumentNullException.ThrowIfNull(codes);
         if (factuur.Nummer is null)
         {
-            throw new InvalidOperationException("Een e-factuur kan pas als de factuur een nummer heeft.");
+            throw new InvalidOperationException("Een e-factuur maken kan pas als de factuur een nummer heeft.");
         }
 
         var credit = factuur.IsCredit;

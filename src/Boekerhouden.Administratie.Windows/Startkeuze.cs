@@ -56,7 +56,7 @@ internal sealed class Startkeuze : Form
             var alleen = Knop("Alleen op deze pc", primair: true);
             alleen.Click += (_, _) => Kies(new Werkwijze());
             inhoud.Controls.Add(Keuze("Alleen op deze pc", "De gegevens staan op deze pc. Later delen met andere pc's op kantoor kan altijd.", alleen));
-            inhoud.Controls.Add(Keuze("Met de kantoor-pc", "Een andere pc op kantoor deelt de gegevens; deze pc werkt daarin mee.", rij));
+            inhoud.Controls.Add(Keuze("Met de kantoor-pc", "De gegevens staan op een andere pc op kantoor; deze pc maakt daar verbinding mee.", rij));
         }
         else
         {

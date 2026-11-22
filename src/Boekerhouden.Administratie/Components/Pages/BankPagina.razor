@@ -49,7 +49,7 @@
     <Acties>
         @if (geopend?.Kop.Mag(Recht.Invoeren) == true)
         {
-            <label class="btn btn-sm btn-outline-secondary @(bezig ? "disabled" : null)" for="bankpdf" title="Een rekeningafschrift dat alleen als PDF bestaat omzetten naar MT940 (om te bewaren of in te lezen)">PDF omzetten</label>
+            <label class="btn btn-sm btn-outline-secondary @(bezig ? "disabled" : null)" for="bankpdf" title="Een PDF-afschrift omzetten naar MT940">PDF omzetten</label>
             <InputFile id="bankpdf" class="d-none" accept=".pdf,application/pdf" OnChange="ZetPdfOm" disabled="@bezig" />
             <label class="btn btn-sm btn-primary @(bezig ? "disabled" : null)" for="afschriften" aria-busy="@(bezig ? "true" : null)" title="MT940, CAMT.053 of een PDF-afschrift; slepen op de pagina kan ook">Afschrift inlezen</label>
         }
@@ -187,11 +187,11 @@
             <div class="ms-auto d-flex align-items-center gap-3">
                 @if (mag && (mutaties?.Count(m => m.MogelijkDubbel && m.Status == Banktransactiestatus.TeVerwerken && PastFilter(m)) ?? 0) is > 0 and var dubbel)
                 {
-                    <button class="btn btn-sm btn-link p-0 let-op dubbelbericht" title="Alle mogelijk dubbele mutaties aanvinken" @onclick="KiesDubbel">@dubbel mogelijk dubbel</button>
+                    <button class="btn btn-sm btn-link p-0 let-op dubbelbericht" title="Alle mogelijk dubbele mutaties aanvinken" @onclick="KiesDubbel">@dubbel mogelijk dubbel ingelezen</button>
                 }
                 @if (mag && mutaties?.Any(m => m.Status == Banktransactiestatus.TeVerwerken) == true)
                 {
-                    <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="Alle mutaties in Te verwerken opnieuw herkennen: afletteren, regels (ook autoherkenning) en wat er geleerd is" aria-busy="@(bezig ? "true" : null)" @onclick="VerwerkOpnieuw">Opnieuw herkennen</button>
+                    <button class="btn btn-sm btn-outline-secondary" disabled="@bezig" title="Alle mutaties in Te verwerken opnieuw herkennen en afletteren" aria-busy="@(bezig ? "true" : null)" @onclick="VerwerkOpnieuw">Opnieuw herkennen</button>
                 }
                 @* Alleen wat iets doet: het venster met posten als er iets te verwerken is, en Ook geboekt als er al een
                    afschrift is ingelezen. *@
@@ -322,7 +322,7 @@
                                     <th></th>
                                 }
                                 <th><input class="form-control form-control-sm" placeholder="Filter op naam of omschrijving" aria-label="Filter op naam of omschrijving" @bind="filterTekst" @bind:event="oninput" /></th>
-                                <th><input class="form-control form-control-sm text-end" placeholder="Filter" aria-label="Filter op bedrag" title="Een bedrag (ook een deel, bijv. 199) of van-tot (bijv. 10-50); zonder minteken telt af en bij" @bind="filterBedrag" @bind:event="oninput" /></th>
+                                <th><input class="form-control form-control-sm text-end" placeholder="Filter" aria-label="Filter op bedrag" title="Een bedrag, een deel ervan (199) of van-tot (10-50); zonder minteken zowel af als bij" @bind="filterBedrag" @bind:event="oninput" /></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -383,7 +383,7 @@
                             }
                         </select>
                         <button class="btn btn-sm btn-primary" disabled="@(bezig || string.IsNullOrWhiteSpace(selectieRekening))" @onclick="BoekSelectie">Boeken</button>
-                        <VerwijderKnop Klasse="p-0" Bezig="bezig" Titel="De gekozen mutaties verdwijnen uit Te verwerken (bijv. dubbel ingelezen); een geboekte mutatie kan niet weg" Bevestigd="VerwijderSelectie" />
+                        <VerwijderKnop Klasse="p-0" Bezig="bezig" Titel="De gekozen mutaties uit Te verwerken halen (bijv. dubbel ingelezen)" Bevestigd="VerwijderSelectie" />
                         <button class="btn btn-sm btn-link text-secondary p-0" @onclick="() => geselecteerd.Clear()">Selectie wissen</button>
                     </div>
                 }
@@ -472,12 +472,12 @@
                                 <div class="paneelkop mb-0" title="@g.Voorstel.Advies.Reden">Regels</div>
                                 <table class="table table-sm align-middle mb-0 bankregels">
                                     <thead>
-                                        <tr><th class="k-factuur" title="Factuurnummer: een openstaande post">Factuur</th><th class="k-rekening">Rekening</th>@if (!ZonderBtw)
+                                        <tr><th class="k-factuur" title="De openstaande post (factuurnummer)">Factuur</th><th class="k-rekening">Rekening</th>@if (!ZonderBtw)
                                             {
                                                 <th class="k-btw">Btw</th>
                                             }<th class="text-end k-bedrag">Bedrag</th>@if (!ZonderBtw)
                                             {
-                                                <th class="text-end k-btwbedrag" title="Het btw-bedrag in het bedrag: volgens de code, of met de hand">Btw</th>
+                                                <th class="text-end k-btwbedrag" title="De btw in het bedrag, volgens de btw-code of zelf ingevuld">Btw</th>
                                             }<th>Omschrijving</th><th class="k-weg"></th></tr>
                                     </thead>
                                     <tbody>
@@ -530,7 +530,7 @@
                                                 <td>
                                                     @if (regels.Count > 1)
                                                     {
-                                                        <button class="btn btn-sm btn-link text-secondary regelactie p-0" title="Regel weghalen" aria-label="Regel weghalen" @onclick="() => regels.RemoveAt(n)"><Icoon Naam="x" /></button>
+                                                        <button class="btn btn-sm btn-link text-secondary regelactie p-0" title="Regel verwijderen" aria-label="Regel verwijderen" @onclick="() => regels.RemoveAt(n)"><Icoon Naam="x" /></button>
                                                     }
                                                 </td>
                                             </tr>

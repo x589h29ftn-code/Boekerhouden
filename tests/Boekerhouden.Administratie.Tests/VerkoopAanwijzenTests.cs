@@ -47,7 +47,7 @@ public sealed class VerkoopAanwijzenTests(AdministratieFixture app) : IClassFixt
         var (wie, id) = await Administratie();
         await Klant(wie, id);
         var kantoor = app.Dienst<KantoorDienst>();
-        Assert.Equal(["De standaardomschrijving voor verkoop kent #maant niet."],
+        Assert.Equal(["Onbekende variabele in de standaardomschrijving voor verkoop: #maant."],
             (await kantoor.Wijzig(wie, Verwerkingsinstellingen.Standaard with { OmschrijvingVerkoop = "Verkoop #klant #maant" })).Fouten);
         Assert.True((await kantoor.Wijzig(wie, Verwerkingsinstellingen.Standaard with { OmschrijvingVerkoop = "Verkoop #klant #maandnr-#jaar" })).IsGelukt);
         var import = app.Dienst<VerkoopimportDienst>();

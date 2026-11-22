@@ -7,7 +7,7 @@ namespace Boekerhouden.Administratie.Lokaal;
 /// <summary>Wat een update van de database deed: van welke naar welke versie, met welke reservekopie ervoor.</summary>
 public sealed record Updateverslag(string? Van, string Naar, int Migraties, Reservekopie? Reservekopie, long Boekingen, long Administraties);
 
-/// <summary>De database is bijgewerkt door een nieuwere versie van het pakket; deze versie kent die niet en opent hem niet.</summary>
+/// <summary>De database is bijgewerkt door een nieuwere versie van Sifer; deze versie kent die niet en opent hem niet.</summary>
 public sealed class NieuwereDatabaseException(string melding) : InvalidOperationException(melding);
 
 /// <summary>De update van de database is mislukt; de gegevens zijn teruggezet zoals ze waren.</summary>
@@ -37,7 +37,7 @@ public static class Databaseupdate
         if (toegepast.Except(bekend).Order(StringComparer.Ordinal).ToList() is { Count: > 0 } onbekend)
         {
             throw new NieuwereDatabaseException(
-                $"Deze gegevens zijn bijgewerkt door een nieuwere versie van het pakket (databaseversie {onbekend[^1]}). Deze versie opent ze niet, om niets te beschadigen: installeer de nieuwste versie.");
+                $"Deze gegevens zijn bijgewerkt door een nieuwere versie van Sifer (databaseversie {onbekend[^1]}). Deze versie opent ze niet, om niets te beschadigen: installeer de nieuwste versie.");
         }
 
         if (open.Count == 0)

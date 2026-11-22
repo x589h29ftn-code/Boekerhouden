@@ -405,7 +405,7 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
         var boeking = (await grootboek.Posten(wie, id, "BNK")).Single().Post;
         var anders = boeking with { Regels = [.. boeking.Regels.Select(r => r.Rekeningnummer == "4300" ? r with { Rekeningnummer = "4320" } : r)] };
         var bankAnders = anders with { Regels = [.. anders.Regels.Select(r => r.Rekeningnummer == "1100" ? r with { Bedrag = -199m } : r.Rekeningnummer == "4320" ? r with { Bedrag = r.Bedrag - 0.65m } : r)] };
-        Assert.Equal(["De regels op 1100 horen bij het bankafschrift of de openstaande posten en blijven gelijk."], (await grootboek.PasAan(wie, id, "BNK", boeking.Boekstuk, bankAnders)).Fouten);
+        Assert.Equal(["De regels op 1100 horen bij het bankafschrift of de openstaande posten en kunnen niet veranderen."], (await grootboek.PasAan(wie, id, "BNK", boeking.Boekstuk, bankAnders)).Fouten);
         var aangepast = await grootboek.PasAan(wie, id, "BNK", boeking.Boekstuk, anders);
         Assert.True(aangepast.IsGelukt, string.Join("; ", aangepast.Fouten));
         Assert.Equal((0m, 165m, -199.65m), (Saldo(await grootboek.Proefbalans(wie, id, 2026), "4300"), Saldo(await grootboek.Proefbalans(wie, id, 2026), "4320"), Saldo(await grootboek.Proefbalans(wie, id, 2026), "1100")));
@@ -653,7 +653,7 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
         // Te veel op een regel en het verschil met een min op een volgende regel (zoals "Regel toevoegen" voorstelt).
         Assert.Contains("sluiten niet", (await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("4300", "I21", 150m), new Bankregelinvoer("4330", null, 60m), new Bankregelinvoer("4330", null, 10.35m)])).Fouten[0], StringComparison.Ordinal);
         // Het btw-bedrag met de hand: alleen bij een code met btw, en niet hoger dan de regel.
-        Assert.Contains("hoort bij een btw-code", (await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("4300", null, 199.65m, Btw: 10m)])).Fouten[0], StringComparison.Ordinal);
+        Assert.Contains("kies een btw-code met btw", (await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("4300", null, 199.65m, Btw: 10m)])).Fouten[0], StringComparison.Ordinal);
         Assert.Contains("hoger dan de regel", (await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("4300", "I21", 199.65m, Btw: 200m)])).Fouten[0], StringComparison.Ordinal);
         // Op de bon stond 26,00 btw in plaats van de 26,03 die uit 21% volgt.
         var verdeeld = await bank.Verdeel(wie, id, jansen.Id, [], [new Bankregelinvoer("4300", "I21", 150m, "Papier", Btw: 26m), new Bankregelinvoer("4330", null, 60m, "Contributie"), new Bankregelinvoer("4330", null, -10.35m, "Korting contributie")]);

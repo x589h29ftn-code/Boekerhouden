@@ -143,7 +143,7 @@ public sealed class WebTests(AdministratieFixture app) : IClassFixture<Administr
 
         Assert.Contains("Belnet is telefoon", regelsOndernemer, StringComparison.Ordinal);
         Assert.DoesNotContain("Nieuwe regel", regelsOndernemer, StringComparison.Ordinal);
-        Assert.Contains("De instellingen zijn voor het kantoor.", instellingenOndernemer, StringComparison.Ordinal);
+        Assert.Contains("Alleen het kantoor kan de instellingen wijzigen.", instellingenOndernemer, StringComparison.Ordinal);
         Assert.DoesNotContain("Limiet automatisch boeken", instellingenOndernemer, StringComparison.Ordinal);
     }
 

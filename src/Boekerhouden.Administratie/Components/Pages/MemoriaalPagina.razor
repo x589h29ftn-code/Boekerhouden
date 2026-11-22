@@ -26,7 +26,7 @@
                         {
                             <button type="button" title="Een eerdere boeking overnemen, bijv. de loonjournaalpost van vorige maand" @onclick="() => { menuOpen = false; KopieKiezen(); }">Boeking kopiëren…</button>
                         }
-                        <label for="loonjournaal" title="Het journaal uit het salarispakket (PDF) als boeking" @onclick="() => menuOpen = false">Loonjournaal importeren…</label>
+                        <label for="loonjournaal" title="Het journaal uit het salarispakket (PDF) als boeking" @onclick="() => menuOpen = false">Loonjournaal inlezen…</label>
                     </span>
                 }
             </span>
@@ -35,7 +35,7 @@
     <ChildContent>
         @if (!context.Mag(Recht.Boekhouden))
         {
-            <div class="alert alert-warning">Het memoriaal is voor het kantoor.</div>
+            <div class="alert alert-warning">Alleen het kantoor kan in het memoriaal boeken.</div>
         }
         else if (geopend is not null && schema is not null && dagboek is not null)
         {
@@ -72,7 +72,7 @@
             {
                 <div class="bericht mb-2">@bericht</div>
             }
-            <Sleepvlak Id="loonjournaal" Pagina="true" Tekst="Loonjournaal importeren" Accept=".pdf,application/pdf" Meerdere="false" OnChange="LeesLoonjournaal" Bezig="loonBezig" />
+            <Sleepvlak Id="loonjournaal" Pagina="true" Tekst="Loonjournaal inlezen" Accept=".pdf,application/pdf" Meerdere="false" OnChange="LeesLoonjournaal" Bezig="loonBezig" />
             <Foutmeldingen Fouten="loonfouten" />
             @if (kopieBron is not null && posten is { Count: > 0 })
             {

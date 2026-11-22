@@ -24,7 +24,7 @@
     @if (Twijfels.Count > 0 && !Klaar)
     {
         <span class="scheiding">·</span>
-        <button type="button" class="btn btn-link btn-sm p-0 let-op" title="Naar de volgende plek waar het pakket niet zeker is" @onclick="VolgendeTwijfel">@Twijfels.Count twijfel</button>
+        <button type="button" class="btn btn-link btn-sm p-0 let-op" title="Naar de volgende twijfel" @onclick="VolgendeTwijfel">@Twijfels.Count @(Twijfels.Count == 1 ? "twijfel" : "twijfels")</button>
     }
     @if (lezen is { } l)
     {

@@ -388,7 +388,7 @@ public sealed class BoekenTests(AdministratieFixture app) : IClassFixture<Admini
         Assert.True((await grootboek.VoegMemoriaalToe(wie, id, " mlon ", "Memoriaal lonen")).IsGelukt);
         Assert.True((await grootboek.VoegMemoriaalToe(wie, id, "MACC", "Memoriaal accountant")).IsGelukt);
         Assert.Equal(["Dagboek MLON bestaat al."], (await grootboek.VoegMemoriaalToe(wie, id, "MLON", "Nog eens")).Fouten);
-        Assert.Equal(["Een dagboekcode is 2 tot 10 letters of cijfers, bijv. MLON."], (await grootboek.VoegMemoriaalToe(wie, id, "M LON", "X")).Fouten);
+        Assert.Equal(["Een dagboekcode bestaat uit 2 tot 10 letters of cijfers, bijv. MLON."], (await grootboek.VoegMemoriaalToe(wie, id, "M LON", "X")).Fouten);
         Assert.Equal(["Geef het dagboek een naam, bijv. Memoriaal lonen."], (await grootboek.VoegMemoriaalToe(wie, id, "MX", " ")).Fouten);
         var memorialen = (await grootboek.Dagboeken(wie, id)).Where(d => d.Soort == Dagboeksoort.Memoriaal).Select(d => d.Code).ToList();
         Assert.Equal(["MACC", "MEM", "MLON"], memorialen);

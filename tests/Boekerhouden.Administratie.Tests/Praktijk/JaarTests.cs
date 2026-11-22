@@ -278,7 +278,7 @@ public sealed class JaarTests(AdministratieFixture app, ITestOutputHelper uitvoe
         Controleer(verschillen, "Activastaat boekwaarde begin 2026", staat27.Totaal.BoekwaardeBegin, staat26.Totaal.AanschafEind - staat26.Totaal.AfschrijvingEind);
         if (!staat26.Sluit || !staat27.Sluit)
         {
-            verschillen.Add("Activastaat sluit niet op het grootboek.");
+            verschillen.Add("Activastaat sluit niet aan op het grootboek.");
         }
 
         // ---- bank en keten

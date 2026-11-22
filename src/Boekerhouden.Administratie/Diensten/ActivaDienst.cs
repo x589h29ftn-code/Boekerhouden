@@ -302,7 +302,7 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
         var bedrag = Math.Round(invoer.Bedrag, 2, MidpointRounding.AwayFromZero);
         if (bedrag <= 0 || bedrag != invoer.Bedrag)
         {
-            fouten.Add("Vul een bedrag groter dan 0 in, in centen.");
+            fouten.Add("Vul een bedrag groter dan 0 in, met hoogstens twee decimalen.");
         }
 
         if (invoer.Datum < a.Aanschafdatum)
@@ -315,7 +315,7 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
         var stand = Stand(a, geboekt, (await Stappen(db)).GetValueOrDefault(id) ?? []);
         if (bedrag > stand.Aanschaf - stand.Afgeschreven)
         {
-            fouten.Add($"Meer dan de boekwaarde ({Weergave.Bedrag(stand.Aanschaf - stand.Afgeschreven)}).");
+            fouten.Add($"Het bedrag is hoger dan de boekwaarde ({Weergave.Bedrag(stand.Aanschaf - stand.Afgeschreven)}).");
         }
 
         var (schema, dagboeken) = await GrootboekDienst.Inrichting(db);
@@ -386,7 +386,7 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
         var maand = new DateOnly(x.Datum.Year, x.Datum.Month, 1);
         if (await db.Afschrijvingen.AnyAsync(a => a.ActivumId == x.ActivumId && a.Maand > maand))
         {
-            return Uitkomst.Mislukt("Na deze extra afschrijving is er al afgeschreven; die afschrijvingen gaan uit van wat er toen over was.");
+            return Uitkomst.Mislukt("Na deze extra afschrijving is er al afgeschreven. Draai die afschrijvingen eerst terug.");
         }
 
         if (await db.Desinvesteringen.AnyAsync(d => d.ActivumId == x.ActivumId && d.Tegenboeking == null && d.Datum >= x.Datum))
@@ -760,13 +760,13 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
 
         if (invoer.Deel is <= 0 or > 100)
         {
-            fouten.Add("Het deel ligt tussen 0 en 100%.");
+            fouten.Add("Vul een deel tussen 0 en 100% in.");
         }
 
         var opbrengst = invoer.Soort == Desinvesteringssoort.Sloop ? 0m : invoer.Opbrengst;
         if (opbrengst < 0)
         {
-            fouten.Add("De opbrengst is 0 of meer.");
+            fouten.Add("De opbrengst kan niet negatief zijn.");
         }
 
         var resultaatrekening = schema.Zoek(invoer.Resultaatrekening?.Trim());
@@ -904,7 +904,7 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
 
         if (await db.Afschrijvingen.AnyAsync(x => x.ActivumId == d.ActivumId && x.Maand > d.Datum))
         {
-            return Uitkomst.Mislukt("Na deze desinvestering is er al afgeschreven; die afschrijvingen gaan uit van wat er toen over was.");
+            return Uitkomst.Mislukt("Na deze desinvestering is er al afgeschreven. Draai die afschrijvingen eerst terug.");
         }
 
         if (await GrootboekDienst.GeldendeBoeking(db, d.Boekstuk) is not { Regels.Count: > 0 } boeking)
@@ -1067,7 +1067,7 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
         var kandidaten = (await Kandidaten(wie, administratie)).Where(k => k.Boekstuk == boekstuk).ToList();
         if (kandidaten.Count == 0)
         {
-            return Uitkomst<IReadOnlyList<Guid>>.Mislukt($"In {boekstuk} staat geen aanschaf op een activarekening die nog geen actief is.");
+            return Uitkomst<IReadOnlyList<Guid>>.Mislukt($"In {boekstuk} staat geen aanschaf die nog als actief kan worden vastgelegd.");
         }
 
         var ids = new List<Guid>();

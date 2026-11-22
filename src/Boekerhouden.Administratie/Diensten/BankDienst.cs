@@ -532,7 +532,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             if (r.Btw is { } hand && (btw is not { BtwOpFactuur: true } || Math.Abs(hand) > Math.Abs(r.Bedrag)))
             {
                 fouten.Add(btw is not { BtwOpFactuur: true }
-                    ? $"Een btw-bedrag hoort bij een btw-code met btw (regel {rekening.Nummer})."
+                    ? $"Regel {rekening.Nummer}: kies een btw-code met btw, of haal het btw-bedrag weg."
                     : $"Het btw-bedrag {Domain.Bedragen.Getal(Math.Abs(hand))} is hoger dan de regel ({Domain.Bedragen.Getal(Math.Abs(r.Bedrag))}).");
                 continue;
             }
@@ -566,7 +566,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
 
         if (fouten.Count == 0 && postbedragen.Sum(p => p.Bedrag) + verdeling.Sum(v => v.Item1) is var totaal && totaal != t.Bedrag)
         {
-            fouten.Add($"De posten en regels ({Domain.Bedragen.Getal(Math.Abs(totaal))}) sluiten niet op de mutatie ({Domain.Bedragen.Getal(Math.Abs(t.Bedrag))}).");
+            fouten.Add($"De posten en regels ({Domain.Bedragen.Getal(Math.Abs(totaal))}) sluiten niet aan op de mutatie ({Domain.Bedragen.Getal(Math.Abs(t.Bedrag))}).");
         }
 
         if (fouten.Count > 0)
@@ -919,7 +919,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         var fouten = new List<string>();
         if (!System.Text.RegularExpressions.Regex.IsMatch(code, "^[A-Z0-9]{2,10}$"))
         {
-            fouten.Add("Een dagboekcode is 2 tot 10 letters of cijfers, bijv. BNK2.");
+            fouten.Add("Een dagboekcode bestaat uit 2 tot 10 letters of cijfers, bijv. BNK2.");
         }
 
         if (naam.Length == 0)
@@ -1339,7 +1339,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
             : 0m;
         if (opBank != 0)
         {
-            return Uitkomst.Mislukt("De boeking van deze mutatie staat nog op de bank; pas die boeking aan.");
+            return Uitkomst.Mislukt("Deze mutatie is al geboekt; pas die boeking aan.");
         }
 
         var stuk = t.BoekingId is { } vorige ? await db.Boekingen.AsNoTracking().Where(b => b.Id == vorige).Select(b => b.Dagboek + " " + b.Boekstuk).FirstOrDefaultAsync() : null;

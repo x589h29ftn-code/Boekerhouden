@@ -117,7 +117,7 @@ public static class Verkoopimport
                 var berekend = verkoop.Totaal(codes);
                 if (Math.Abs(berekend - totaal) > 0.01m * Math.Max(1, verkoop.Regels.Count))
                 {
-                    redenen.Add($"het totaal ({totaal:0.00}) sluit niet op de regels ({berekend:0.00})");
+                    redenen.Add($"het totaal ({totaal:0.00}) sluit niet aan op de regels ({berekend:0.00})");
                 }
             }
             catch (ArgumentException fout)

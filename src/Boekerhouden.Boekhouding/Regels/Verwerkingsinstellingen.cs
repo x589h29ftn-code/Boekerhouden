@@ -46,12 +46,12 @@ public sealed record Verwerkingsinstellingen(
         var fouten = new List<string>();
         if (Drempel is < 1 or > 10)
         {
-            fouten.Add("Automatisch verwerken na 1 tot 10 gelijke keuzes.");
+            fouten.Add("Kies voor automatisch verwerken 1 tot 10 gelijke keuzes.");
         }
 
         if (Bandbreedte is < 1 or > 10)
         {
-            fouten.Add("De bandbreedte ligt tussen 1 en 10 keer het hoogste bedrag.");
+            fouten.Add("Kies een bandbreedte van 1 tot 10 keer het hoogste bedrag.");
         }
 
         if (Limiet is < 0)
@@ -61,12 +61,12 @@ public sealed record Verwerkingsinstellingen(
 
         if (Betalingstermijn is < 0 or > 365)
         {
-            fouten.Add("De betalingstermijn ligt tussen 0 en 365 dagen.");
+            fouten.Add("Kies een betalingstermijn van 0 tot 365 dagen.");
         }
 
         if (Betaalverschil is < 0 or > 100)
         {
-            fouten.Add("Een klein betaalverschil is hoogstens € 100.");
+            fouten.Add("Een klein betaalverschil kan hoogstens € 100 zijn.");
         }
 
         if (Betaalverschil > 0 && string.IsNullOrWhiteSpace(Verschilrekening))
@@ -82,7 +82,7 @@ public sealed record Verwerkingsinstellingen(
 
         foreach (var onbekend in Facturen.Omschrijvingssjabloon.Onbekend(Omschrijving))
         {
-            fouten.Add($"De standaardomschrijving kent #{onbekend} niet.");
+            fouten.Add($"Onbekende variabele in de standaardomschrijving: #{onbekend}.");
         }
 
         if (OmschrijvingVerkoop is { Length: > 200 })
@@ -92,7 +92,7 @@ public sealed record Verwerkingsinstellingen(
 
         foreach (var onbekend in Facturen.Omschrijvingssjabloon.Onbekend(OmschrijvingVerkoop))
         {
-            fouten.Add($"De standaardomschrijving voor verkoop kent #{onbekend} niet.");
+            fouten.Add($"Onbekende variabele in de standaardomschrijving voor verkoop: #{onbekend}.");
         }
 
         return fouten;

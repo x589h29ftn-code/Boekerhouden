@@ -11,7 +11,7 @@
 <AdministratieKader Id="Id" Titel="Instellingen" Actief="/instellingen" BijOpenen="Open">
     @if (!context.Mag(Recht.Boekhouden))
     {
-        <div class="alert alert-warning">De instellingen zijn voor het kantoor.</div>
+        <div class="alert alert-warning">Alleen het kantoor kan de instellingen wijzigen.</div>
     }
     else if (gegevens is not null && instellingen is not null)
     {
@@ -82,7 +82,7 @@
                                                         <span class="status" title="Automatisch op RGS-code en naam">automatisch</span>
                                                     }
                                                 </td>
-                                                <td style="width:1.75rem"><button type="button" class="btn btn-sm btn-link text-secondary p-0 regelactie" title="Weghalen: gewoon aftrekbaar" aria-label="Weghalen" @onclick="() => ZetFiscaal(nummer, Fiscaalsoort.Gewoon)"><Icoon Naam="x" /></button></td>
+                                                <td style="width:1.75rem"><button type="button" class="btn btn-sm btn-link text-secondary p-0 regelactie" title="Weer gewoon aftrekbaar" aria-label="Weer gewoon aftrekbaar" @onclick="() => ZetFiscaal(nummer, Fiscaalsoort.Gewoon)"><Icoon Naam="x" /></button></td>
                                             </tr>
                                         }
                                     </tbody>
@@ -111,7 +111,7 @@
                                     <td class="text-secondary">@k.Loonrekening</td>
                                     <td>@k.Loonnaam</td>
                                     <td><RekeningKeuze Waarde="@k.Rekeningnummer" WaardeChanged="r => ZetLoon(koppeling.Loonrekening, koppeling.Loonnaam, r)" Schema="schema" Kader="geopend" Label="@($"Rekening voor {k.Loonnaam}")" /></td>
-                                    <td><button type="button" class="btn btn-sm btn-link text-secondary p-0 regelactie" title="Weghalen: bij het volgende loonjournaal geldt deze rekening weer als nieuw" aria-label="Weghalen" @onclick="() => VerwijderLoon(koppeling.Loonrekening)"><Icoon Naam="x" /></button></td>
+                                    <td><button type="button" class="btn btn-sm btn-link text-secondary p-0 regelactie" title="Koppeling verwijderen; bij het volgende loonjournaal kies je opnieuw" aria-label="Koppeling verwijderen" @onclick="() => VerwijderLoon(koppeling.Loonrekening)"><Icoon Naam="x" /></button></td>
                                 </tr>
                             }
                             <tr class="loonkoppeling-nieuw">

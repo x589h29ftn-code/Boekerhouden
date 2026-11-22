@@ -99,7 +99,7 @@
                         <span class="fw-semibold">Uitgangspunten</span>
                         @if (!p.Tarieven.Bekend)
                         {
-                            <span class="status let-op small" title="Dit jaar staat niet in de meegeleverde tabel; de tarieven van het dichtstbijzijnde jaar zijn genomen">tarieven controleren</span>
+                            <span class="status let-op small" title="Geen tarieven voor dit jaar; die van het dichtstbijzijnde jaar zijn gebruikt">tarieven controleren</span>
                         }
                         <button type="button" class="btn btn-sm btn-link text-secondary p-0 ms-auto" @onclick="() => tarieven = !tarieven">@(tarieven ? "Tarieven verbergen" : $"Tarieven {p.Jaar}")</button>
                     </div>

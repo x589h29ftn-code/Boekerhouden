@@ -191,7 +191,7 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
         var dagboek = new Dagboek(code.Trim().ToUpperInvariant(), naam.Trim(), Dagboeksoort.Memoriaal);
         if (!DagboekcodeVorm().IsMatch(dagboek.Code))
         {
-            return Uitkomst.Mislukt("Een dagboekcode is 2 tot 10 letters of cijfers, bijv. MLON.");
+            return Uitkomst.Mislukt("Een dagboekcode bestaat uit 2 tot 10 letters of cijfers, bijv. MLON.");
         }
 
         if (dagboek.Naam.Length == 0)

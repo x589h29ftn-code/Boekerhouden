@@ -45,7 +45,7 @@ public sealed class BedragcontroleTests
 
         Assert.Empty(Bedragcontrole.Controleer(regels, Testadministratie.Btw, new Factuurbedragen(121m, 21m)));
         Assert.Equal(
-            ["De boeking (€ 121,00) sluit niet op het totaal van de factuur (€ 125,00); verschil € -4,00."],
+            ["De boeking (€ 121,00) sluit niet aan op het totaal van de factuur (€ 125,00); verschil € -4,00."],
             Bedragcontrole.Controleer(regels, Testadministratie.Btw, new Factuurbedragen(125m)));
     }
 
