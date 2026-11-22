@@ -808,7 +808,7 @@ body.scheiding-slepen {
     border: 2px dashed var(--bs-border-color);
     border-radius: .75rem;
     background: var(--bs-body-bg);
-    transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease, transform .2s ease;
+    transition: border-color var(--bh-gewoon) ease, background-color var(--bh-gewoon) ease, box-shadow var(--bh-gewoon) ease, transform var(--bh-gewoon) var(--bh-curve);
     overflow: hidden;
 }
 
@@ -836,7 +836,7 @@ body.scheiding-slepen {
     font-size: 1.6rem;
     line-height: 1;
     color: var(--bs-primary);
-    transition: transform .25s ease;
+    transition: transform var(--bh-gewoon) var(--bh-curve);
 }
 
 .sleepvlak:hover, .sleepvlak:focus-within {
@@ -881,15 +881,15 @@ body.scheiding-slepen {
 
 /* Rustige beweging: regels, kaarten en knoppen reageren zacht op aanwijzen. */
 .table > tbody > tr > * {
-    transition: background-color .15s ease;
+    transition: background-color var(--bh-snel) ease;
 }
 
 .card {
-    transition: box-shadow .2s ease;
+    transition: box-shadow var(--bh-gewoon) ease;
 }
 
 .btn {
-    transition: color .15s ease, background-color .15s ease, border-color .15s ease, box-shadow .15s ease, transform .1s ease;
+    transition: color var(--bh-snel) ease, background-color var(--bh-snel) ease, border-color var(--bh-snel) ease, box-shadow var(--bh-snel) ease, transform .1s ease;
 }
 
 .btn:active:not(:disabled) {
@@ -958,7 +958,7 @@ body.scheiding-slepen {
 
 .regeltabel .regel-weg {
     opacity: 0;
-    transition: opacity .15s ease;
+    transition: opacity var(--bh-snel) ease;
 }
 
 .regeltabel tr:hover .regel-weg, .regeltabel .regel-weg:focus {
@@ -1738,9 +1738,7 @@ a.kerngetal:hover { color: var(--bh-accent); }
     padding: .5rem .85rem;
     border: 1px solid var(--bh-lijn);
     border-radius: 3px;
-    background: rgba(255, 255, 255, .92);
-    -webkit-backdrop-filter: blur(6px);
-    backdrop-filter: blur(6px);
+    background: #fff;
     transition: border-color var(--bh-snel) ease, box-shadow var(--bh-snel) ease;
 }
 

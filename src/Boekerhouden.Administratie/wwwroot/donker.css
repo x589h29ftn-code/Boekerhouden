@@ -83,17 +83,19 @@
 }
 
 [data-bs-theme="dark"] .opslaanbalk {
-    background: rgba(29, 34, 42, .92);
+    background: var(--bh-oppervlak);
 }
 
 [data-bs-theme="dark"] .melding-kort {
-    background: rgba(29, 34, 42, .85);
+    background: var(--bh-oppervlak);
     color: var(--bh-tekst);
 }
 
-    [data-bs-theme="dark"] .melding-kort:hover {
-        background: var(--bh-oppervlak);
-    }
+/* De laadschets: donkere balkjes met een zachte glans, niet de lichte van het lichte thema. */
+[data-bs-theme="dark"] .laadschets {
+    --bh-schets: #2a313b;
+    --bh-schets-glans: #343c47;
+}
 
 [data-bs-theme="dark"] :is(.gebruikersmenu .menu a:hover, .gebruikersmenu .menu button:hover, .toevoegmenu .menu button:hover,
     .beheermenu a:hover, .beheermenu a.active, .variabele:hover, a.terug:hover, .zijmenu-link:hover) {

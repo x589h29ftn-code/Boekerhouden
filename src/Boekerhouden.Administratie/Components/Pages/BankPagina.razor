@@ -391,7 +391,7 @@
             <div class="@(gekozen is null ? "d-none" : "col-lg-7 bankpaneel")">
                 @if (gekozen is { } g)
                 {
-                    <div class="card card-body verwerkpaneel">
+                    <div class="card card-body verwerkpaneel" @key="g.Mutatie.Id">
                         <div class="d-flex align-items-start gap-3 mb-3">
                             <div class="me-auto min-w-0">
                                 <div class="paneelnaam text-truncate">@Weergave.Tegenpartij(g.Mutatie.TegenNaam, g.Mutatie.Omschrijving)</div>
