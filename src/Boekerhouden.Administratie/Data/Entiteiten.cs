@@ -1148,6 +1148,40 @@ public sealed class ActivumDesinvestering : IVanAdministratie
 }
 
 /// <summary>
+/// Een extra afschrijving van een actief (bijv. een bijzondere waardevermindering): eenmalig op een datum, met een eigen
+/// memoriaalboeking (kosten tegen de cumulatieve afschrijving). Het plan schrijft daarna minder af.
+/// </summary>
+public sealed class ActivumExtraAfschrijving : IVanAdministratie
+{
+    public long Id { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    public Guid ActivumId { get; set; }
+
+    public DateOnly Datum { get; set; }
+
+    public decimal Bedrag { get; set; }
+
+    /// <summary>De kostenrekening van de boeking (die van het actief, of bijv. bijzondere waardeverminderingen).</summary>
+    public string Kostenrekening { get; set; } = string.Empty;
+
+    public string? Omschrijving { get; set; }
+
+    /// <summary>Dagboek en boekstuk, bijv. "MEM 2026-0042".</summary>
+    public string Boekstuk { get; set; } = string.Empty;
+
+    /// <summary>Teruggedraaid met deze tegenboeking; telt dan niet meer mee.</summary>
+    public string? Tegenboeking { get; set; }
+
+    public DateTimeOffset GeboektOp { get; set; }
+
+    public string GeboektDoor { get; set; } = string.Empty;
+
+    public Boekhouding.Activa.Extraafschrijving NaarDomein() => new(Datum, Bedrag);
+}
+
+/// <summary>
 /// Een formulier dat tussentijds bewaard is, om later verder te gaan: een inkoopfactuur of een bankmutatie die nog niet
 /// geboekt is. Na het boeken verdwijnt het concept.
 /// </summary>

@@ -1,5 +1,6 @@
-@* De factuur naast een overzicht (bijv. een boeking), alleen om te bekijken; met dezelfde versleepbare scheiding als
-   het verwerkscherm. In de webapp haalt de viewer de PDF bij de server, in de Windows-app krijgt hij de inhoud mee. *@
+@* De factuur naast een overzicht (bijv. een boeking of een vast actief), alleen om te bekijken; met dezelfde versleepbare
+   scheiding als het verwerkscherm. In de webapp haalt de viewer de PDF bij de server, in de Windows-app krijgt hij de
+   inhoud mee. Een e-factuur zonder PDF toont de gegevens uit de e-factuur, net als bij het verwerken. *@
 @implements IAsyncDisposable
 @inject InkoopDienst Inkoop
 @inject IJSRuntime JS
@@ -7,7 +8,14 @@
 
 <div @ref="scheiding" class="verwerken-scheiding" title="Sleep om de factuur breder of smaller te maken; dubbelklik voor de standaardbreedte"></div>
 <div @ref="paneel" class="verwerken-viewer">
-    <div @ref="viewer" class="factuurviewer"></div>
+    @if (verwerking is { HeeftBeeld: false } e)
+    {
+        <Efactuurbeeld Factuur="e.Herkend" />
+    }
+    else
+    {
+        <div @ref="viewer" class="factuurviewer"></div>
+    }
 </div>
 
 @code {
@@ -26,9 +34,20 @@
     [Parameter]
     public Guid Document { get; set; }
 
+    private Verwerking? verwerking;
+
+    protected override async Task OnInitializedAsync() => verwerking = await Inkoop.Verwerking(Wie, Administratie, Document);
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender)
+        {
+            return;
+        }
+
+        module = await JS.InvokeAsync<IJSObjectReference>("import", "./factuurviewer.js");
+        await module.InvokeVoidAsync("scheiding", scheiding, paneel);
+        if (verwerking is { HeeftBeeld: false })
         {
             return;
         }
@@ -44,8 +63,6 @@
             bron = new DotNetStreamReference(new MemoryStream(beeld));
         }
 
-        module = await JS.InvokeAsync<IJSObjectReference>("import", "./factuurviewer.js");
-        await module.InvokeVoidAsync("scheiding", scheiding, paneel);
         koppeling = await module.InvokeAsync<IJSObjectReference>("bekijk", viewer, bron, Document.ToString());
     }
 

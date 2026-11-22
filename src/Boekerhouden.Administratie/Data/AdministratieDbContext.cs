@@ -104,6 +104,8 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
 
     public DbSet<ActivumDesinvestering> Desinvesteringen => Set<ActivumDesinvestering>();
 
+    public DbSet<ActivumExtraAfschrijving> ExtraAfschrijvingen => Set<ActivumExtraAfschrijving>();
+
     public DbSet<Afschrift> Afschriften => Set<Afschrift>();
 
     public DbSet<Btwcodedefinitie> Btwcodes => Set<Btwcodedefinitie>();
@@ -617,6 +619,20 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.HasOne<Administratie>().WithMany().HasForeignKey(a => a.AdministratieId);
         });
 
+        builder.Entity<ActivumExtraAfschrijving>(e =>
+        {
+            e.ToTable("ExtraAfschrijvingen");
+            e.HasIndex(d => d.ActivumId);
+            e.HasIndex(d => new { d.AdministratieId, d.Boekstuk });
+            e.Property(d => d.Bedrag).HasPrecision(18, 2);
+            e.Property(d => d.Kostenrekening).HasMaxLength(20);
+            e.Property(d => d.Omschrijving).HasMaxLength(200);
+            e.Property(d => d.Boekstuk).HasMaxLength(100);
+            e.Property(d => d.Tegenboeking).HasMaxLength(100);
+            e.Property(d => d.GeboektDoor).HasMaxLength(200);
+            e.HasOne<Activum>().WithMany().HasForeignKey(d => d.ActivumId);
+            e.HasOne<Administratie>().WithMany().HasForeignKey(d => d.AdministratieId);
+        });
         builder.Entity<ActivumDesinvestering>(e =>
         {
             e.ToTable("Desinvesteringen");
@@ -638,6 +654,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
         });
 
         builder.Entity<ActivumDesinvestering>().HasQueryFilter(e => e.AdministratieId == Geopend);
+        builder.Entity<ActivumExtraAfschrijving>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Activum>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Afschrijving>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Dashboardindeling>().HasQueryFilter(e => e.AdministratieId == Geopend);

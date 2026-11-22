@@ -45,8 +45,8 @@ public sealed record Activum(
     public const int MaximaleLooptijd = 600;
 
     /// <summary>
-    /// Wijzigingen van de afschrijving per datum (schattingswijziging): vanaf een maand een ander percentage per jaar.
-    /// Werkt alleen vooruit; wat al geboekt is, blijft.
+    /// Wijzigingen van de afschrijving per datum (schattingswijziging): vanaf een maand een ander percentage per jaar
+    /// en/of een andere restwaarde. Werkt alleen vooruit; wat al geboekt is, blijft.
     /// </summary>
     public IReadOnlyList<Herziening> Herzieningen { get; init; } = [];
 
@@ -114,10 +114,12 @@ public sealed record Activum(
 }
 
 /// <summary>
-/// Vanaf <paramref name="Ingang"/> (een maand) wordt er <paramref name="PercentagePerJaar"/> van de aanschafwaarde min
-/// de restwaarde per jaar afgeschreven, tot de restwaarde is bereikt; bijv. van 20% naar 10% per 1 januari.
+/// Een wijziging van de afschrijving per datum (schattingswijziging, alleen vooruit). Vanaf <paramref name="Ingang"/>
+/// (een maand) wordt er <paramref name="PercentagePerJaar"/> van de aanschafwaarde min de restwaarde per jaar
+/// afgeschreven, tot de restwaarde is bereikt (bijv. van 20% naar 10% per 1 januari); en/of geldt vanaf die maand een
+/// andere <paramref name="Restwaarde"/>: wat er dan nog af moet, gaat over de maanden die nog komen.
 /// </summary>
-public sealed record Herziening(DateOnly Ingang, decimal PercentagePerJaar)
+public sealed record Herziening(DateOnly Ingang, decimal? PercentagePerJaar, decimal? Restwaarde = null)
 {
     public DateOnly Maand => new(Ingang.Year, Ingang.Month, 1);
 
@@ -130,9 +132,19 @@ public sealed record Herziening(DateOnly Ingang, decimal PercentagePerJaar)
             yield return "Dit actief wordt niet afgeschreven.";
         }
 
+        if (PercentagePerJaar is null && Restwaarde is null)
+        {
+            yield return "Vul een percentage per jaar of een restwaarde in.";
+        }
+
         if (PercentagePerJaar is <= 0 or > 100)
         {
             yield return "Het percentage ligt tussen 0 en 100.";
+        }
+
+        if (Restwaarde is { } rest && (rest < 0 || rest > activum.Aanschafwaarde))
+        {
+            yield return "De restwaarde ligt tussen 0 en de aanschafwaarde.";
         }
 
         if (Maand < activum.EersteMaand)
@@ -145,11 +157,29 @@ public sealed record Herziening(DateOnly Ingang, decimal PercentagePerJaar)
             yield return $"Tot en met {laatst:MM-yyyy} is al afgeschreven; een wijziging gaat daarna in (of draai die afschrijvingen eerst terug).";
         }
     }
+
+    /// <summary>Twee wijzigingen in dezelfde maand samen: wat de nieuwe invult, gaat voor; de rest blijft van de oude.</summary>
+    public Herziening Met(Herziening nieuw)
+    {
+        ArgumentNullException.ThrowIfNull(nieuw);
+        return new(Maand, nieuw.PercentagePerJaar ?? PercentagePerJaar, nieuw.Restwaarde ?? Restwaarde);
+    }
+}
+
+/// <summary>
+/// Een extra afschrijving (bijv. een bijzondere waardevermindering): eenmalig op een datum, naast het plan. Wat er
+/// daarna nog af moet, wordt kleiner; de maanden ervoor houden hun bedrag.
+/// </summary>
+public sealed record Extraafschrijving(DateOnly Datum, decimal Bedrag)
+{
+    public DateOnly Maand => new(Datum.Year, Datum.Month, 1);
 }
 
 /// <summary>Eén maand in het afschrijvingsplan; <see cref="Geboekt"/> als de maand al in het memoriaal staat.</summary>
-/// <param name="Cumulatief">Totaal afgeschreven na deze maand (ook wat vóór de eerste maand al was afgeschreven).</param>
-public sealed record Afschrijvingsmaand(DateOnly Maand, decimal Bedrag, decimal Cumulatief, decimal Boekwaarde, bool Geboekt);
+/// <param name="Bedrag">De gewone afschrijving van de maand.</param>
+/// <param name="Cumulatief">Totaal afgeschreven na deze maand (ook wat vóór de eerste maand al was afgeschreven, en de extra afschrijvingen).</param>
+/// <param name="Extra">De extra afschrijvingen in deze maand (al geboekt, eigen boeking).</param>
+public sealed record Afschrijvingsmaand(DateOnly Maand, decimal Bedrag, decimal Cumulatief, decimal Boekwaarde, bool Geboekt, decimal Extra = 0m);
 
 /// <summary>
 /// Het afschrijvingsplan van een actief: lineair per maand, tot op de cent verdeeld zodat het totaal precies klopt.
@@ -161,10 +191,13 @@ public static class Afschrijvingsplan
     /// <param name="geboekt">De geboekte afschrijvingen per maand (eerste dag).</param>
     /// <param name="desinvesteringen">Wat er (deels) van het actief af is gegaan; na de maand van een desinvestering
     /// rekent het plan met de rest: lagere aanschafwaarde, cumulatieve afschrijving en restwaarde.</param>
-    public static IReadOnlyList<Afschrijvingsmaand> Maak(Activum activum, IReadOnlyDictionary<DateOnly, decimal>? geboekt = null, IReadOnlyList<Desinvesteringsstap>? desinvesteringen = null)
+    /// <param name="extra">De geboekte extra afschrijvingen: vanaf hun maand gaat er minder over de maanden die nog komen.</param>
+    public static IReadOnlyList<Afschrijvingsmaand> Maak(Activum activum, IReadOnlyDictionary<DateOnly, decimal>? geboekt = null, IReadOnlyList<Desinvesteringsstap>? desinvesteringen = null,
+        IReadOnlyList<Extraafschrijving>? extra = null)
     {
         ArgumentNullException.ThrowIfNull(activum);
         geboekt ??= new Dictionary<DateOnly, decimal>();
+        var extraPerMaand = (extra ?? []).GroupBy(e => e.Maand).ToDictionary(g => g.Key, g => g.Sum(e => e.Bedrag));
         var stappen = (desinvesteringen ?? []).OrderBy(d => d.Datum).ToList();
         var aanschaf = activum.Aanschafwaarde;
         var cumulatief = activum.AfgeschrevenVoorBegin;
@@ -183,11 +216,13 @@ public static class Afschrijvingsplan
         var plan = new List<Afschrijvingsmaand>();
         if (activum.Methode == Afschrijvingsmethode.Geen)
         {
-            foreach (var (maand, bedrag) in geboekt.OrderBy(g => g.Key))
+            foreach (var maand in geboekt.Keys.Concat(extraPerMaand.Keys).Distinct().Order())
             {
                 PasToe(maand);
-                cumulatief += bedrag;
-                plan.Add(new Afschrijvingsmaand(maand, bedrag, cumulatief, aanschaf - cumulatief, true));
+                var isGeboekt = geboekt.TryGetValue(maand, out var bedrag);
+                var erbij = extraPerMaand.GetValueOrDefault(maand);
+                cumulatief += bedrag + erbij;
+                plan.Add(new Afschrijvingsmaand(maand, bedrag, cumulatief, aanschaf - cumulatief, isGeboekt, erbij));
             }
 
             return plan;
@@ -217,42 +252,90 @@ public static class Afschrijvingsplan
             gepland[open[i]] = verdeeld[i];
         }
 
-        // Herzieningen: vanaf de ingangsmaand een vast bedrag per maand (het nieuwe percentage), tot wat er nog af moet
-        // op is; de laatste maand krijgt het restje. Een latere herziening gaat weer voor vanaf haar eigen maand.
-        foreach (var herziening in activum.Herzieningen.OrderBy(h => h.Maand))
+        // Wijzigingen per datum en extra afschrijvingen, op volgorde van maand. Bij elke wijziging blijft wat ervoor
+        // gepland is staan en gaat wat er dan nog af moet over de maanden die nog komen: gelijk verdeeld over de rest van
+        // de looptijd, of (na een nieuw percentage) een vast bedrag per maand tot het op is; de laatste maand krijgt het
+        // restje. Een latere wijziging gaat weer voor vanaf haar eigen maand.
+        var herzieningen = activum.Herzieningen.GroupBy(h => h.Maand).ToDictionary(g => g.Key, g => g.Aggregate((a, b) => a.Met(b)));
+        var gebeurtenissen = herzieningen.Keys.Concat(extraPerMaand.Keys).Distinct().Order().ToList();
+        decimal? percentage = null;
+        var restwaarde = eindRest;
+        var extraTot = 0m;
+        foreach (var gebeurtenis in gebeurtenissen)
         {
-            foreach (var later in gepland.Keys.Where(m => m >= herziening.Maand).ToList())
+            if (herzieningen.TryGetValue(gebeurtenis, out var herziening))
+            {
+                percentage = herziening.PercentagePerJaar ?? percentage;
+                if (herziening.Restwaarde is { } nieuweRest)
+                {
+                    // De restwaarde geldt voor wat er op dat moment nog is; een latere gedeeltelijke desinvestering neemt haar deel mee.
+                    restwaarde = nieuweRest - stappen.Where(d => new DateOnly(d.Datum.Year, d.Datum.Month, 1) >= gebeurtenis).Sum(d => d.Restwaarde);
+                }
+            }
+
+            extraTot += extraPerMaand.GetValueOrDefault(gebeurtenis);
+            foreach (var later in gepland.Keys.Where(m => m >= gebeurtenis).ToList())
             {
                 gepland.Remove(later);
             }
 
-            var over = rest - gepland.Values.Sum();
-            var perMaand = Math.Round((eindAanschaf - eindRest) * herziening.PercentagePerJaar / 100m / 12m, 2, MidpointRounding.AwayFromZero);
-            for (var maand = herziening.Maand; over > 0 && perMaand > 0 && maand < herziening.Maand.AddMonths(MaximaleLooptijdNaHerziening); maand = maand.AddMonths(1))
+            var over = eindAanschaf - restwaarde - eindCumulatief - extraTot - gepland.Values.Sum();
+            if (over <= 0)
             {
-                if (geboekt.ContainsKey(maand))
+                continue;
+            }
+
+            if (percentage is { } procent)
+            {
+                var perMaand = Math.Round((eindAanschaf - restwaarde) * procent / 100m / 12m, 2, MidpointRounding.AwayFromZero);
+                for (var maand = gebeurtenis; over > 0 && perMaand > 0 && maand < gebeurtenis.AddMonths(MaximaleLooptijdNaHerziening); maand = maand.AddMonths(1))
                 {
-                    continue;
+                    if (geboekt.ContainsKey(maand))
+                    {
+                        continue;
+                    }
+
+                    var bedrag = Math.Min(perMaand, over);
+                    gepland[maand] = bedrag;
+                    over -= bedrag;
+                }
+            }
+            else
+            {
+                // Gelijk over de open maanden van de looptijd vanaf hier; zijn die er niet meer, dan de eerste open maand.
+                var nog = open.Where(m => m >= gebeurtenis).ToList();
+                if (nog.Count == 0)
+                {
+                    var maand = gebeurtenis;
+                    while (geboekt.ContainsKey(maand))
+                    {
+                        maand = maand.AddMonths(1);
+                    }
+
+                    nog = [maand];
                 }
 
-                var bedrag = Math.Min(perMaand, over);
-                gepland[maand] = bedrag;
-                over -= bedrag;
+                var verdeling = Verdeel(over, nog.Count);
+                for (var i = 0; i < nog.Count; i++)
+                {
+                    gepland[nog[i]] = verdeling[i];
+                }
             }
         }
 
-        maanden = [.. geboekt.Keys.Concat(gepland.Keys).Distinct().Order()];
+        maanden = [.. geboekt.Keys.Concat(gepland.Keys).Concat(extraPerMaand.Keys).Distinct().Order()];
         foreach (var maand in maanden)
         {
             PasToe(maand);
             var isGeboekt = geboekt.TryGetValue(maand, out var bedrag);
             if (!isGeboekt)
             {
-                bedrag = gepland[maand];
+                bedrag = gepland.GetValueOrDefault(maand);
             }
 
-            cumulatief += bedrag;
-            plan.Add(new Afschrijvingsmaand(maand, bedrag, cumulatief, aanschaf - cumulatief, isGeboekt));
+            var erbij = extraPerMaand.GetValueOrDefault(maand);
+            cumulatief += bedrag + erbij;
+            plan.Add(new Afschrijvingsmaand(maand, bedrag, cumulatief, aanschaf - cumulatief, isGeboekt, erbij));
         }
 
         return plan;

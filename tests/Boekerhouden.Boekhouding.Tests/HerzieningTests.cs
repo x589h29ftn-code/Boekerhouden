@@ -2,7 +2,10 @@ using Boekerhouden.Boekhouding.Activa;
 
 namespace Boekerhouden.Boekhouding.Tests;
 
-/// <summary>De afschrijving wijzigen per datum: vanaf een maand een ander percentage per jaar, alleen vooruit.</summary>
+/// <summary>
+/// De afschrijving wijzigen per datum: vanaf een maand een ander percentage per jaar of een andere restwaarde, en een
+/// extra afschrijving op een datum; alleen vooruit, wat ervoor ligt blijft.
+/// </summary>
 public sealed class HerzieningTests
 {
     private static Activum Laptop(decimal aanschaf = 1200m, decimal rest = 0m, int looptijd = 60, params Herziening[] herzieningen) =>
@@ -69,5 +72,80 @@ public sealed class HerzieningTests
         Assert.NotEmpty(new Herziening(new(2027, 1, 1), 101m).Controleer(actief, null));
         Assert.NotEmpty(new Herziening(new(2025, 12, 1), 10m).Controleer(actief, null));
         Assert.NotEmpty(new Herziening(new(2027, 1, 1), 10m).Controleer(actief with { Methode = Afschrijvingsmethode.Geen }, null));
+    }
+
+    [Fact]
+    public void Restwaarde_per_een_datum_wat_ervoor_ligt_blijft()
+    {
+        // 1.200 in 60 maanden: 20 per maand. Vanaf 2028 restwaarde 300: nog 1.200 - 300 - 480 = 420 over 36 maanden.
+        var actief = Laptop(herzieningen: new Herziening(new(2028, 1, 1), null, 300m));
+
+        var plan = Afschrijvingsplan.Maak(actief);
+
+        Assert.All(plan.Where(m => m.Maand.Year < 2028), m => Assert.Equal(20m, m.Bedrag));
+        Assert.Equal(420m, plan.Where(m => m.Maand.Year >= 2028).Sum(m => m.Bedrag));
+        Assert.Equal(new DateOnly(2030, 12, 1), plan[^1].Maand);
+        Assert.Equal(300m, plan[^1].Boekwaarde);
+        Assert.All(plan.Where(m => m.Maand.Year >= 2028), m => Assert.InRange(m.Bedrag, 11.66m, 11.67m));
+    }
+
+    [Fact]
+    public void Percentage_en_restwaarde_in_dezelfde_maand_en_lagere_restwaarde_daarna()
+    {
+        // Vanaf 2027: 10% per jaar van (1.200 - 200) = 8,33 per maand tot de restwaarde 200; vanaf 2029 restwaarde 0.
+        var actief = Laptop(herzieningen: [new Herziening(new(2027, 1, 1), 10m), new Herziening(new(2027, 1, 1), null, 200m), new Herziening(new(2029, 1, 1), null, 0m)]);
+
+        var plan = Afschrijvingsplan.Maak(actief);
+
+        Assert.All(plan.Where(m => m.Maand.Year is 2027 or 2028), m => Assert.Equal(8.33m, m.Bedrag));
+        Assert.Equal(1200m, plan.Sum(m => m.Bedrag));
+        Assert.Equal(0m, plan[^1].Boekwaarde);
+        // Vanaf 2029 weer 10% van de nieuwe grondslag (1.200 - 0): 10 per maand.
+        Assert.Equal(10m, plan.First(m => m.Maand.Year == 2029).Bedrag);
+    }
+
+    [Fact]
+    public void Extra_afschrijving_maakt_de_maanden_erna_kleiner_en_die_ervoor_niet()
+    {
+        // Zes maanden geboekt (120), in juli een extra afschrijving van 300: nog 1.200 - 120 - 300 = 780 over 54 maanden.
+        var geboekt = Enumerable.Range(0, 6).ToDictionary(i => new DateOnly(2026, 1 + i, 1), _ => 20m);
+        var plan = Afschrijvingsplan.Maak(Laptop(), geboekt, null, [new Extraafschrijving(new(2026, 7, 20), 300m)]);
+
+        var juli = plan.Single(m => m.Maand == new DateOnly(2026, 7, 1));
+        Assert.Equal((300m, false), (juli.Extra, juli.Geboekt));
+        Assert.Equal(780m, plan.Where(m => !m.Geboekt).Sum(m => m.Bedrag));
+        Assert.Equal(new DateOnly(2030, 12, 1), plan[^1].Maand);
+        Assert.Equal(0m, plan[^1].Boekwaarde);
+        Assert.Equal(1200m, plan.Sum(m => m.Bedrag + m.Extra));
+
+        // Een extra afschrijving later dan de open maanden ervoor: die houden hun 20.
+        var later = Afschrijvingsplan.Maak(Laptop(), geboekt, null, [new Extraafschrijving(new(2027, 1, 10), 300m)]);
+        Assert.All(later.Where(m => m.Maand >= new DateOnly(2026, 7, 1) && m.Maand < new DateOnly(2027, 1, 1)), m => Assert.Equal(20m, m.Bedrag));
+        Assert.Equal(1200m, later.Sum(m => m.Bedrag + m.Extra));
+        Assert.Equal(0m, later[^1].Boekwaarde);
+    }
+
+    [Fact]
+    public void Extra_afschrijving_tot_de_restwaarde_laat_niets_meer_over()
+    {
+        var plan = Afschrijvingsplan.Maak(Laptop(1200m, 200m), null, null, [new Extraafschrijving(new(2026, 1, 31), 1000m)]);
+
+        Assert.Equal(1000m, plan.Sum(m => m.Bedrag + m.Extra));
+        Assert.Equal(200m, plan[^1].Boekwaarde);
+
+        // Ook bij een actief dat niet wordt afgeschreven (grond): de extra afschrijving staat in het plan.
+        var grond = Afschrijvingsplan.Maak(Laptop() with { Methode = Afschrijvingsmethode.Geen }, null, null, [new Extraafschrijving(new(2026, 5, 1), 100m)]);
+        Assert.Equal((100m, 1100m), (Assert.Single(grond).Extra, grond[0].Boekwaarde));
+    }
+
+    [Fact]
+    public void Controle_op_restwaarde_en_samenvoegen_in_dezelfde_maand()
+    {
+        var actief = Laptop();
+        Assert.Empty(new Herziening(new(2027, 1, 1), null, 300m).Controleer(actief, null));
+        Assert.NotEmpty(new Herziening(new(2027, 1, 1), null, null).Controleer(actief, null));
+        Assert.NotEmpty(new Herziening(new(2027, 1, 1), null, -1m).Controleer(actief, null));
+        Assert.NotEmpty(new Herziening(new(2027, 1, 1), null, 1300m).Controleer(actief, null));
+        Assert.Equal(new Herziening(new(2027, 1, 1), 10m, 300m), new Herziening(new(2027, 1, 1), 10m).Met(new Herziening(new(2027, 1, 15), null, 300m)));
     }
 }

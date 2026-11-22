@@ -167,6 +167,8 @@ public static class AuditActies
     public const string AfschrijvingenGeboekt = "Afschrijvingen geboekt";
     public const string ActivumGedesinvesteerd = "Vast actief gedesinvesteerd";
     public const string DesinvesteringTeruggedraaid = "Desinvestering teruggedraaid";
+    public const string ActivumExtraAfgeschreven = "Extra afschrijving vast actief";
+    public const string ExtraAfschrijvingTeruggedraaid = "Extra afschrijving teruggedraaid";
     public const string DatabaseBijgewerkt = "Database bijgewerkt";
     public const string ReservekopieGemaakt = "Reservekopie gemaakt";
     public const string ReservekopieVerwijderd = "Reservekopie verwijderd";

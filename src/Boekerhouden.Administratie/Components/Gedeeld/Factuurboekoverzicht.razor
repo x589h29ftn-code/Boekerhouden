@@ -6,8 +6,30 @@
 @inject NavigationManager Navigatie
 
 <AdministratieKader Id="Id" Titel="@(Inkoop ? "Inkoop" : "Verkoop")" Actief="@($"/{Pad}")" BijOpenen="Open">
+    @* Kenmerken en periode in de kop, zoals op Te verwerken: dan staan de tabbladen bij het wisselen op dezelfde plek. *@
+    <Kenmerken>
+        @if (regels is not null)
+        {
+            var zichtbaar = Gefilterd.ToList();
+            <span>@zichtbaar.Count @(zichtbaar.Count == 1 ? "factuur" : "facturen") @(alleJaren ? "in alle jaren" : $"in {Periodetekst}")</span>
+            <span class="scheiding">·</span>
+            <span>totaal @Weergave.Bedrag(zichtbaar.Sum(r => r.Totaal))</span>
+            <span class="scheiding">·</span>
+            <span>open @Weergave.Bedrag(zichtbaar.Sum(r => r.Openstaand))</span>
+        }
+    </Kenmerken>
+    <Acties>
+        <span class="form-check small text-nowrap mb-0">
+            <input class="form-check-input" type="checkbox" id="alle-jaren" checked="@alleJaren" @onchange="WisselAlleJaren" />
+            <label class="form-check-label text-secondary" for="alle-jaren">Alle jaren</label>
+        </span>
+        @if (!alleJaren)
+        {
+            <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
+        }
+    </Acties>
     <ChildContent>
-        @* Eén werkbalk: zoeken en filters links, de periode rechts. *@
+        @* Eén werkbalk: zoeken en filters. *@
         <div class="zoekbalk werkbalk d-flex align-items-center flex-wrap gap-2">
             <input class="form-control form-control-sm zoek-tekst" type="search" placeholder="@($"Zoek op {Relatienaam}, factuurnummer, boekstuk of omschrijving")" aria-label="Zoeken" @bind="tekst" @bind:event="oninput" />
             <select class="form-select form-select-sm w-auto" aria-label="@Relatienaam" @bind="relatie">
@@ -29,16 +51,6 @@
             {
                 <button class="btn btn-sm btn-link text-secondary" @onclick="WisFilter">Wissen</button>
             }
-            <span class="ms-auto d-inline-flex align-items-center gap-3">
-                <span class="form-check small text-nowrap">
-                    <input class="form-check-input" type="checkbox" id="alle-jaren" checked="@alleJaren" @onchange="WisselAlleJaren" />
-                    <label class="form-check-label text-secondary" for="alle-jaren">Alle jaren</label>
-                </span>
-                @if (!alleJaren)
-                {
-                    <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
-                }
-            </span>
         </div>
         @if (regels is { Count: 0 })
         {
@@ -133,6 +145,8 @@
         Getal(bedragVan),
         Getal(bedragTot),
         alleenOpen);
+
+    private string Periodetekst => van.Month == 1 && van.Day == 1 && tot == new DateOnly(van.Year, 12, 31) ? van.Year.ToString(System.Globalization.CultureInfo.InvariantCulture) : $"{Weergave.Datum(van)} - {Weergave.Datum(tot)}";
 
     private IEnumerable<Factuurboekregel> Gefilterd => (regels ?? []).Where(Filter.Past);
 
