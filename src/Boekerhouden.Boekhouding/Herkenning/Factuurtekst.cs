@@ -590,7 +590,7 @@ public static partial class Factuurtekst
         string? BovenAdres()
         {
             var adres = regels.FindIndex(r => (Straat().IsMatch(r) || Postcode.Zoek(r.ToUpperInvariant()).Count > 0) && !NaamBovenAdres(regels.IndexOf(r)));
-            return adres is > 0 and < 15 && stukken.Where(x => x.Regel == adres - 1).Select(x => x.Tekst).LastOrDefault() is { } t && !IsAdres(t)
+            return adres is > 0 and < 15 && stukken.Where(x => x.Regel == adres - 1).Select(x => x.Tekst).LastOrDefault() is { } t && !IsAdres(t) && !IsLabel(t)
                    && t.Count(char.IsLetter) >= 5 && t.Any(char.IsLower) && Datums(t).Count == 0 && Bedragen(t).Count == 0
                 ? t
                 : null;
@@ -602,14 +602,36 @@ public static partial class Factuurtekst
         // Een flard van de tekstherkenning (een rand of schaduw gelezen als "nnen" of "mm"): geen naam.
         static bool Ruis(string t) => t.Length <= 5 && !t.Any(char.IsUpper) && !t.Any(char.IsDigit) && !t.Contains(' ', StringComparison.Ordinal);
         bool MetRechtsvorm(string t) => Rechtsvormen.Any(v => Regex.IsMatch(t, $@"(^|\s){Regex.Escape(v)}($|\s|,)", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1)));
-        return stukken.Where(x => x.Regel < 15).Select(x => x.Tekst).FirstOrDefault(MetRechtsvorm)
+
+        // Een kop van een tabel ("Datum/Tijd  Station  Product  Volume") of een regel daarvan: geen naam.
+        bool InTabel(int i) => Kolommen().Split(regels[i]).Count(d => d.Trim().Length > 0) >= 4;
+        var naam = stukken.Where(x => x.Regel < 15).Select(x => x.Tekst).FirstOrDefault(MetRechtsvorm)
                ?? stukken.Select(x => x.Tekst).FirstOrDefault(MetRechtsvorm)
                ?? NaamUitDomein(regels, stukken.Select(x => x.Tekst), eigenNamen)
                ?? BovenAdres()
-               ?? stukken.Where(x => x.Regel < Math.Min(15, Kopregel())).Select(x => x.Tekst).FirstOrDefault(t => t.Count(char.IsLetter) >= 3
-                   && !Regex.IsMatch(t, "^(fa[ck]tuur|invoice|nota|creditnota|credit note)\\b", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1))
-                   && !Regex.IsMatch(t, "^(omschrijving|artikel|aantal|bedrag|prijs|kassa|datum|kopie)\\b", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1))
-                   && Datums(t).Count == 0 && Bedragen(t).Count == 0);
+               ?? stukken.Where(x => x.Regel < Math.Min(15, Kopregel()) && !InTabel(x.Regel)).Select(x => x.Tekst).FirstOrDefault(t => t.Count(char.IsLetter) >= 3
+                   && t.Length <= 50 && !IsLabel(t) && Datums(t).Count == 0 && Bedragen(t).Count == 0);
+        return naam is null ? null : ZonderLabelErachter(naam);
+    }
+
+    /// <summary>
+    /// Een woord dat een label of kop is, geen naam: "Factuur", "Factuurdatum", "Invoice", "Debiteurnummer", "Blad",
+    /// "Omschrijving", "Datum/Tijd".
+    /// </summary>
+    private static bool IsLabel(string tekst) =>
+        Regex.IsMatch(tekst, @"^(?:fa[ck]tuur\p{L}*|invoice\p{L}*|nota|creditnota|credit note|debiteur\p{L}*|klant\p{L}*|blad|pagina|page|omschrijving|artikel|aantal|bedrag|prijs|kassa|datum\p{L}*|kopie)\b",
+            RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
+
+    /// <summary>Wat in dezelfde kolom achter de naam staat en een label is ("… B.V. BTW", "… KvK"), weg.</summary>
+    private static string ZonderLabelErachter(string naam)
+    {
+        var schoon = naam;
+        while (Regex.Match(schoon, @"\s+(?:btw(?:[- ]?nr\.?)?|vat|kvk|k\.v\.k\.?|iban|bic|tel\.?|telefoon|fax|e-?mail|www)\s*:?\s*$", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1)) is { Success: true } m)
+        {
+            schoon = schoon[..m.Index];
+        }
+
+        return schoon.Length > 0 ? schoon : naam;
     }
 
     private static readonly string[] Maildiensten =
@@ -699,7 +721,7 @@ public static partial class Factuurtekst
     [GeneratedRegex(@"\b[A-Z]{2}[0-9]{2}(?:\s?[A-Z0-9]{4}){2,7}(?:\s?[A-Z0-9]{1,3})?\b")]
     private static partial Regex IbanPatroon();
 
-    [GeneratedRegex(@"\b[A-Z]{2}\s?[0-9]{9}\s?B\s?[0-9]{2}\b")]
+    [GeneratedRegex(@"\b[A-Z]{2}\s?[0-9](?:[.\s]?[0-9]){8}[.\s]?B\s?[0-9]{2}\b")]
     private static partial Regex BtwPatroon();
 
     [GeneratedRegex(@"\b(?:VAT|BTW|TVA|IVA|UST-?IDNR\.?|USTID|MWST|VAT\s*(?:NO|NUMBER|REG\.?\s*NO)\.?)\s*(?:NR\.?|NUMMER|ID)?\s*:?\s*([A-Z]{2}\s?[0-9A-Z][0-9A-Z ]{6,13}[0-9A-Z])\b")]
@@ -720,7 +742,7 @@ public static partial class Factuurtekst
     [GeneratedRegex(@"^(?:klant(?:nummer|nr\.?)?|debiteur(?:nummer)?|aan|t\.?\s?a\.?\s?v\.?|ter attentie van|factuuradres|afleveradres|leveradres|bill(?:ed)?\s*to|invoice\s*to|ship\s*to|sold\s*to|customer(?:\s*(?:no|number|id))?|deliver(?:ed)?\s*to)\b\s*:?", RegexOptions.IgnoreCase)]
     private static partial Regex KlantLabel();
 
-    [GeneratedRegex(@"^[\p{L}][\p{L}'.\- ]{2,}\s[0-9]{1,5}\s?[a-zA-Z]?(?:[-/][0-9a-zA-Z]+)?(?:,|$)")]
+    [GeneratedRegex(@"^[\p{L}][\p{L}'.\- ]{2,}\s[0-9]{1,5}\s?[a-zA-Z]?(?:[-/][0-9a-zA-Z]+)?(?:\s+(?:unit|bus|box|bis|hs|app\.?|apt\.?|suite)\s*[0-9a-zA-Z]{1,5})?(?:,|$)", RegexOptions.IgnoreCase)]
     private static partial Regex Straat();
 
     [GeneratedRegex(@"btw\s*verlegd|verlegd\s*naar|verleggingsregeling|reverse[\s-]*charge|vat\s*reverse|art(?:icle|ikel)?\.?\s*196|autoliquidation|steuerschuldnerschaft", RegexOptions.IgnoreCase)]
@@ -779,7 +801,7 @@ public static partial class Factuurtekst
     [GeneratedRegex(@"(?:totaal\s*\(?\s*(?:excl\.?|exclusief|ex\.?)\s*(?:btw)?\)?|subtotaal|sub\s*total|total\s*\(?\s*excl\.?\s*vat\)?|netto\s*bedrag)", RegexOptions.IgnoreCase)]
     private static partial Regex ExclusiefLabel();
 
-    [GeneratedRegex(@"\b(?:totaal\s*\(?\s*(?:incl\.?|inclusief)\s*(?:btw)?\)?|te\s*betalen|totaalbedrag|fa[ck]tuurbedrag|total\s*\(?\s*(?:amount|due|incl\.?\s*vat)?\)?|totaal|pinnen|pinbetaling|pin\s+betaald|betaald\s+met\s+pin|pin(?=\s+(?:EUR|€)?\s*[0-9])|(?<![\p{L}-])bedrag(?=\s*:?\s*(?:EUR|€)?\s*[0-9]))(?!\s*\(?\s*(?:excl|exclusief|ex\b|btw\b|v[oó]{2}r|afgerond))(?<!(?:btw|vat)\s*totaal)", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(?:totaal\s*\(?\s*(?:incl\.?|inclusief)\s*(?:btw)?\)?|te\s*betalen|totaalbedrag|fa[ck]tuurbedrag|total\s*\(?\s*(?:amount|due|incl\.?\s*vat)?\)?|totaal(?!\s*(?:volume|aantal|liters?|ltr|uren|stuks|gewicht|kg|km|kilometers?)\b)|pinnen|pinbetaling|pin\s+betaald|betaald\s+met\s+pin|pin(?=\s+(?:EUR|€)?\s*[0-9])|(?<![\p{L}-])bedrag(?=\s*:?\s*(?:EUR|€)?\s*[0-9]))(?!\s*\(?\s*(?:excl|exclusief|ex\b|btw\b|v[oó]{2}r|afgerond))(?<!(?:btw|vat)\s*totaal)", RegexOptions.IgnoreCase)]
     private static partial Regex InclusiefLabel();
 
     [GeneratedRegex(@"(?:(?:btw|omzetbelasting|vat|b\.t\.w\.)\s*(?:hoog|laag)?\s*\(?\s*([0-9]{1,2}(?:[.,][0-9]+)?)\s*[%""”]\)?|([0-9]{1,2}(?:[.,][0-9]+)?)\s*%\s*(?:btw|vat|omzetbelasting)|(?<![\p{L}])btw\s+(?:hoog\s+|laag\s+)?(9|21)(?=\s+(?:€\s*)?[0-9]+[.,][0-9]{2}\s*$))", RegexOptions.IgnoreCase)]

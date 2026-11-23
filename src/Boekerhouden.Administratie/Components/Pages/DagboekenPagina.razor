@@ -1,0 +1,238 @@
+@page "/a/{Id:guid}/dagboeken"
+@using Boekerhouden.Boekhouding.Grootboek
+@inject GrootboekDienst Grootboek
+@inject NavigationManager Navigatie
+
+<AdministratieKader Id="Id" Titel="Dagboeken" Actief="/dagboeken" BijOpenen="Open" KopVast="true">
+    <Kenmerken>
+        @if (regels is not null && gekozen is not null)
+        {
+            var gevonden = Gevonden.Count;
+            <span>@(gevonden == regels.Count ? $"{regels.Count}" : $"{gevonden} van {regels.Count}") @(regels.Count == 1 ? "boeking" : "boekingen")</span>
+        }
+    </Kenmerken>
+    <Acties>
+        @if (geopend is not null)
+        {
+            <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
+        }
+    </Acties>
+    <ChildContent>
+        @if (dagboeken is { Count: > 0 })
+        {
+            <nav class="nav nav-underline paginatabs dagboektabs" aria-label="Dagboeken">
+                @foreach (var d in dagboeken)
+                {
+                    var actief = d.Code == gekozen?.Code;
+                    <a class="nav-link @(actief ? "active" : null)" href="@Adres(d.Code)" aria-current="@(actief ? "page" : null)" title="@d.Code · @Soortnaam(d.Soort)"
+                       @onclick="() => Kies(d)" @onclick:preventDefault="true">@d.Naam</a>
+                }
+            </nav>
+        }
+        @if (regels is { Count: > 0 })
+        {
+            <div class="d-flex align-items-center gap-2 mb-2 onderkop">
+                <input class="form-control form-control-sm kaartzoeken dagboekzoeken" placeholder="Zoeken op omschrijving, bedrag of relatie" aria-label="Zoeken"
+                       @bind="zoek" @bind:event="oninput" />
+            </div>
+        }
+        @if (dagboeken is { Count: 0 })
+        {
+            <LegeStaat Icoon="list-numbers" Tekst="Nog geen dagboeken" />
+        }
+        else if (regels is { Count: 0 })
+        {
+            <LegeStaat Icoon="file-text" Tekst="Geen boekingen in deze periode" />
+        }
+        else if (regels is not null && Gevonden.Count == 0)
+        {
+            <LegeStaat Icoon="search" Tekst="Geen boekingen gevonden" />
+        }
+        else if (regels is not null && gekozen is not null)
+        {
+            var factuurboek = gekozen.Soort is Dagboeksoort.Inkoop or Dagboeksoort.Verkoop;
+            var lijst = sortering.Pas(Gevonden).ToList();
+            <div class="card">
+                <table class="table table-sm align-middle mb-0 dagboekoverzicht" data-sleepbaar="dagboeken-@(factuurboek ? "factuur" : "bedrag")">
+                    <thead>
+                        <tr>
+                            <SorteerKop Sortering="sortering" Naam="Datum" Gewijzigd="StateHasChanged" />
+                            <SorteerKop Sortering="sortering" Naam="Boekstuk" Gewijzigd="StateHasChanged" />
+                            @if (factuurboek)
+                            {
+                                <SorteerKop Sortering="sortering" Naam="Factuur" Gewijzigd="StateHasChanged" />
+                                <SorteerKop Sortering="sortering" Naam="Relatie" Gewijzigd="StateHasChanged" />
+                            }
+                            <SorteerKop Sortering="sortering" Naam="Omschrijving" Klasse="rekt" Gewijzigd="StateHasChanged" />
+                            @if (factuurboek)
+                            {
+                                <SorteerKop Sortering="sortering" Naam="Exclusief" Klasse="text-end" Gewijzigd="StateHasChanged" />
+                                <SorteerKop Sortering="sortering" Naam="Btw" Klasse="text-end" Gewijzigd="StateHasChanged" />
+                                <SorteerKop Sortering="sortering" Naam="Totaal" Klasse="text-end" Gewijzigd="StateHasChanged" />
+                            }
+                            else
+                            {
+                                <SorteerKop Sortering="sortering" Naam="Bedrag" Klasse="text-end" Gewijzigd="StateHasChanged" />
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in lijst)
+                        {
+                            var p = r.Post;
+                            <tr class="klikbaar" @onclick="() => OpenBoeking(p)" title="Openen: bekijken of aanpassen">
+                                <td class="text-nowrap">
+                                    <button type="button" class="btn btn-sm btn-link text-secondary p-0 me-1 regels-tonen" title="Regels tonen" aria-label="Regels tonen"
+                                            @onclick="() => Wissel(p.Boekstuk)" @onclick:stopPropagation="true"><Icoon Naam="@(open.Contains(p.Boekstuk) ? "chevron-down" : "chevron-right")" /></button>@Weergave.Datum(p.Datum)
+                                </td>
+                                <td class="text-nowrap">@p.Boekstuk</td>
+                                @if (factuurboek)
+                                {
+                                    <td class="text-nowrap">@r.Factuur</td>
+                                    <td class="text-truncate" title="@r.Relatie">@r.Relatie</td>
+                                }
+                                <td class="text-truncate" title="@p.Omschrijving">@p.Omschrijving</td>
+                                @if (factuurboek)
+                                {
+                                    <td class="bedrag text-end">@Weergave.Bedrag(r.Exclusief)</td>
+                                    <td class="bedrag text-end">@Weergave.Bedrag(r.Btw)</td>
+                                }
+                                <td class="bedrag text-end">@Weergave.Bedrag(r.Bedrag)</td>
+                            </tr>
+                            @if (open.Contains(p.Boekstuk))
+                            {
+                                @foreach (var regel in p.Regels)
+                                {
+                                    <tr class="small">
+                                        <td></td>
+                                        <td colspan="@(factuurboek ? 3 : 1)" class="text-secondary"><a href="/a/@Id/grootboek?rekening=@Uri.EscapeDataString(regel.Rekeningnummer)&@Weergave.Periodequery(van, tot)" title="De grootboekkaart van deze rekening">@regel.Rekeningnummer @schema?.Zoek(regel.Rekeningnummer)?.Naam</a></td>
+                                        <td class="text-secondary" colspan="@(factuurboek ? 3 : 1)">@regel.Omschrijving @regel.BtwCode</td>
+                                        <td class="bedrag text-end">@Weergave.Bedrag(regel.Bedrag)</td>
+                                    </tr>
+                                }
+                            }
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr class="totaal">
+                            <td colspan="@(factuurboek ? 5 : 3)">Totaal</td>
+                            @if (factuurboek)
+                            {
+                                <td class="bedrag text-end">@Weergave.Bedrag(lijst.Sum(r => r.Exclusief))</td>
+                                <td class="bedrag text-end">@Weergave.Bedrag(lijst.Sum(r => r.Btw))</td>
+                            }
+                            <td class="bedrag text-end">@Weergave.Bedrag(lijst.Sum(r => r.Bedrag))</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        }
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private IReadOnlyList<Dagboek>? dagboeken;
+    private Dagboek? gekozen;
+    private IReadOnlyList<Dagboekregel>? regels;
+    private Rekeningschema? schema;
+    private string? zoek;
+    private DateOnly van;
+    private DateOnly tot;
+    private readonly HashSet<string> open = [];
+
+    private readonly Sortering<Dagboekregel> sortering = new(
+        new("Datum", r => r.Post.Datum, EerstOplopend: false),
+        new("Boekstuk", r => r.Post.Boekstuk),
+        new("Factuur", r => r.Factuur),
+        new("Relatie", r => r.Relatie?.ToUpperInvariant()),
+        new("Omschrijving", r => r.Post.Omschrijving.ToUpperInvariant()),
+        new("Exclusief", r => r.Exclusief, EerstOplopend: false),
+        new("Btw", r => r.Btw, EerstOplopend: false),
+        new("Totaal", r => r.Bedrag, EerstOplopend: false),
+        new("Bedrag", r => r.Bedrag, EerstOplopend: false));
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "dagboek")]
+    public string? DagboekCode { get; set; }
+
+    [SupplyParameterFromQuery(Name = "van")]
+    public string? VanTekst { get; set; }
+
+    [SupplyParameterFromQuery(Name = "tot")]
+    public string? TotTekst { get; set; }
+
+    /// <summary>De boekingen die bij de zoektekst passen.</summary>
+    private IReadOnlyList<Dagboekregel> Gevonden =>
+        [.. (regels ?? []).Where(r => Journaalzoeker.Past(r.Post, zoek, schema))];
+
+    private async Task Open(Geopend g)
+    {
+        (geopend, zoek) = (g, null);
+        open.Clear();
+        schema = await Grootboek.Schema(g.Wie, Id);
+        dagboeken = Dagboekoverzicht.Volgorde(await Grootboek.Dagboeken(g.Wie, Id));
+        var boekjaren = await Grootboek.Boekjaren(g.Wie, Id);
+        (van, tot) = Weergave.Periode(VanTekst, TotTekst) ?? Periode.Jaar(boekjaren[0]);
+        gekozen = dagboeken.FirstOrDefault(d => string.Equals(d.Code, DagboekCode, StringComparison.OrdinalIgnoreCase)) ?? dagboeken.FirstOrDefault();
+        await Laad();
+    }
+
+    private async Task Laad()
+    {
+        if (gekozen is null || schema is null)
+        {
+            regels = null;
+            return;
+        }
+
+        var posten = await Grootboek.Posten(geopend!.Wie, Id, gekozen.Code, van, tot);
+        regels = [.. posten.Select(p => Dagboekoverzicht.Regel(p.Post, gekozen, schema))];
+    }
+
+    private string Adres(string code) => $"/a/{Id}/dagboeken?dagboek={Uri.EscapeDataString(code)}&{Weergave.Periodequery(van, tot)}";
+
+    /// <summary>Een ander tabblad: zonder de pagina opnieuw op te bouwen, en het adres onthoudt het dagboek.</summary>
+    private async Task Kies(Dagboek d)
+    {
+        (gekozen, zoek) = (d, null);
+        open.Clear();
+        Navigatie.NavigateTo(Adres(d.Code), replace: true);
+        await Laad();
+    }
+
+    private async Task KiesPeriode((DateOnly Van, DateOnly Tot) periode)
+    {
+        (van, tot) = periode;
+        open.Clear();
+        if (gekozen is not null)
+        {
+            Navigatie.NavigateTo(Adres(gekozen.Code), replace: true);
+        }
+
+        await Laad();
+    }
+
+    /// <summary>De boeking openen; de terugknop brengt je weer hier, op hetzelfde tabblad en in dezelfde periode.</summary>
+    private void OpenBoeking(Journaalpost p) =>
+        Navigatie.NavigateTo($"/a/{Id}/boeking/{Uri.EscapeDataString(p.Dagboek)}/{Uri.EscapeDataString(p.Boekstuk)}?terug={Uri.EscapeDataString(Adres(p.Dagboek))}");
+
+    private void Wissel(string boekstuk)
+    {
+        if (!open.Remove(boekstuk))
+        {
+            open.Add(boekstuk);
+        }
+    }
+
+    private static string Soortnaam(Dagboeksoort soort) => soort switch
+    {
+        Dagboeksoort.Inkoop => "inkoop",
+        Dagboeksoort.Verkoop => "verkoop",
+        Dagboeksoort.Bank => "bank",
+        Dagboeksoort.Kas => "kas",
+        _ => "memoriaal",
+    };
+}

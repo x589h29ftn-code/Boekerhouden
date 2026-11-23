@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 using Boekerhouden.Administratie.Data;
@@ -169,7 +170,7 @@ public sealed class InleesDienst(
         }
 
         var compact = Compact(tekst);
-        if (eigen.Ibans.Any(i => Compact(i) is { Length: >= 15 } iban && compact.Contains(iban, StringComparison.Ordinal)))
+        if (eigen.Ibans.Any(i => Compact(i) is { Length: >= 15 } iban && OpFactuurAlsBetaalrekening(tekst, iban)))
         {
             return Inleessoort.Verkoop;
         }
@@ -178,6 +179,29 @@ public sealed class InleesDienst(
             ? Inleessoort.Verkoop
             : Inleessoort.Inkoop;
     }
+
+    /// <summary>
+    /// Of het eigen IBAN op de factuur staat als de rekening om op te betalen (dan is het een verkoopfactuur), en niet
+    /// alleen als de rekening waarvan de leverancier het bedrag afschrijft ("wordt afgeschreven van rekeningnummer …",
+    /// automatische incasso): dat staat op een inkoopfactuur.
+    /// </summary>
+    private static bool OpFactuurAlsBetaalrekening(string tekst, string iban)
+    {
+        var patroon = string.Join(@"\s*", iban.Select(c => Regex.Escape(c.ToString())));
+        foreach (Match m in Regex.Matches(tekst, patroon, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
+        {
+            var ervoor = tekst[Math.Max(0, m.Index - 100)..m.Index].ToLowerInvariant();
+            if (!Incassowoorden.Any(w => ervoor.Contains(w, StringComparison.Ordinal)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static readonly string[] Incassowoorden =
+        ["afgeschreven", "afschrijven", "incasso", "geïncasseerd", "geincasseerd", "incasseren", "machtiging", "van uw rekening", "van uw bankrekening"];
 
     /// <summary>De leverancier in een e-factuur (UBL): de namen en de nummers (btw, KvK, endpoint).</summary>
     private static (List<string> Namen, List<string> Nummers)? Leverancier(byte[] inhoud)

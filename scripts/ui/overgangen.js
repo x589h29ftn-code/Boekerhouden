@@ -1,6 +1,6 @@
-// Overgangen nalopen, met alleen verzonnen gegevens: welke vlakken zacht binnenkomen (vensters, menu's, panelen),
-// of een paginawissel als overvloeier gaat (View Transitions, met de zijbalk die blijft staan), en schermafbeeldingen
-// van de laadschets en de melding in licht en donker.
+// Overgangen nalopen, met alleen verzonnen gegevens: welke vlakken zacht binnenkomen (vensters, menu's, panelen), dat
+// een andere pagina er meteen staat zonder beweging, en schermafbeeldingen van de laadschets en de melding in licht en
+// donker.
 // Gebruik: scripts/ui/herstart.sh && node scripts/ui/overgangen.js <map> [voorvoegsel]
 const { chromium } = require('playwright');
 const crypto = require('crypto');
@@ -59,17 +59,13 @@ function totp(sleutel) {
     return r;
   }));
 
-  // Paginawissel: telt of de browser een overvloeier doet bij een klik in de zijbalk.
-  await page.evaluate(() => { window.__overgangen = 0; if (document.startViewTransition) { const o = document.startViewTransition.bind(document); document.startViewTransition = (f) => { window.__overgangen++; const t0 = performance.now(); const v = o(f); v.finished.then(() => { window.__duur = Math.round(performance.now() - t0); }, () => { window.__duur = 'afgebroken'; }); return v; }; } });
-  await page.click('.zijmenu a[href$="/journaal"], aside a[href$="/journaal"]'); await page.waitForTimeout(1200);
-  uitkomst['paginawissel-overvloeier'] = await page.evaluate(() => window.__overgangen);
-  uitkomst['paginawissel-duur-ms'] = await page.evaluate(() => window.__duur);
-  // Nog een paar keer heen en weer, ook snel achter elkaar: geen afgebroken overgangen of fouten.
-  for (const doel of ['/kolommenbalans', '/grootboek', '/journaal', '/bank', '/inkoop']) { await page.click(`aside a[href*="${doel}"] >> nth=0`); await page.waitForTimeout(120); }
-  await page.waitForTimeout(1500);
+  // Paginawissel: geen overvloeier en de inhoud beweegt niet (ook na snel achter elkaar klikken).
+  await page.evaluate(() => { window.__overgangen = 0; if (document.startViewTransition) { const o = document.startViewTransition.bind(document); document.startViewTransition = (f) => { window.__overgangen++; return o(f); }; } });
+  for (const doel of ['/journaal', '/kolommenbalans', '/grootboek', '/bank', '/verkoop', '/inkoop']) { await page.click(`aside a[href*="${doel}"] >> nth=0`); await page.waitForTimeout(120); }
+  await page.waitForTimeout(1200);
+  uitkomst['paginawissel-overvloeiers'] = await page.evaluate(() => window.__overgangen);
+  uitkomst['inhoud-animatie'] = await page.evaluate(() => getComputedStyle(document.querySelector('.administratie-inhoud')).animationName);
   uitkomst['na-snel-klikken'] = page.url().replace(basis, '').split('/').pop();
-  uitkomst['zijbalk-naam'] = await page.evaluate(() => { const z = document.querySelector('aside'); return z ? getComputedStyle(z).viewTransitionName : null; });
-  uitkomst['url-na-klik'] = page.url().replace(basis, '');
 
   // Laadschets en melding, licht en donker.
   for (const thema of ['licht', 'donker']) {

@@ -22,6 +22,7 @@ public static class Hulpsectie
         ("factuurlayout", "Lay-out van de factuur"),
         ("kolommenbalans", "Kolommenbalans"),
         ("grootboek", "Grootboekkaart"),
+        ("dagboeken", "Dagboeken"),
         ("journaal", "Journaal"),
         ("openstaand", "Openstaande posten"),
         ("btw", "Btw-aangifte"),

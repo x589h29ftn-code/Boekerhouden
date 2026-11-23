@@ -453,9 +453,7 @@ th[aria-sort="descending"] .sorteerpijl {
     }
 }
 
-.administratie-inhoud, .beheer-inhoud, .pagina-binnen {
-    animation: bh-binnen var(--bh-gewoon) var(--bh-curve) backwards;
-}
+/* Een andere pagina staat er meteen, zonder beweging (een wissel tussen bijv. Inkoop en Verkoop voelde onrustig). */
 
 tr.verwerkt > td {
     animation: bh-verwerkt 280ms var(--bh-curve) forwards;
@@ -507,7 +505,6 @@ tr.verwerkt > td {
     gap: .4rem;
     padding: 2rem 1rem;
     color: var(--bh-zacht);
-    animation: bh-binnen var(--bh-gewoon) var(--bh-curve) backwards;
 }
 
     .leeg .icoon {

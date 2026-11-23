@@ -46,6 +46,7 @@ public static class Administratiemenu
         [
             new("/kolommenbalans", "Kolommenbalans", Recht.Lezen, Icoon: "table"),
             new("/grootboek", "Grootboekkaart", Recht.Lezen, Icoon: "book-open-text"),
+            new("/dagboeken", "Dagboeken", Recht.Lezen, Icoon: "book-open"),
             new("/journaal", "Journaal", Recht.Lezen, Icoon: "list-numbers"),
             new("/debiteuren", "Openstaande posten", Recht.Lezen, Icoon: "hourglass-medium"),
             new("/btw", "Btw-aangifte", Recht.Lezen, Icoon: "percent"),

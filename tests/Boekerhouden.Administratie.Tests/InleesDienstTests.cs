@@ -34,6 +34,12 @@ public sealed class InleesDienstTests(AdministratieFixture app) : IClassFixture<
         Assert.Equal(Inleessoort.Verkoop, InleesDienst.HerkenTekst("Factuur 2026-015 KvK 87654321 Btw NL123456782B01", Eigen));
         Assert.Equal(Inleessoort.Inkoop, InleesDienst.HerkenTekst("Factuur BN-2026-0411 Belnet B.V. IBAN NL63 TRIO 0212 3456 78 aan Voorbeeld Handel B.V.", Eigen));
 
+        // Een inkoopfactuur die via incasso wordt betaald, noemt het eigen IBAN als de rekening waarvan wordt afgeschreven:
+        // dat is geen verkoopfactuur (de tankpasfactuur kwam anders bij Verkoop terecht en leek daarna dubbel).
+        Assert.Equal(Inleessoort.Inkoop, InleesDienst.HerkenTekst("Factuur 7731 Tankstation De Brandstof Totaalbedrag 454,54 Het factuurbedrag zal worden afgeschreven van rekeningnummer NL20 INGB 0001 2345 67", Eigen));
+        Assert.Equal(Inleessoort.Inkoop, InleesDienst.HerkenTekst("Factuur 7732 Wij incasseren het bedrag via automatische incasso van NL20INGB0001234567", Eigen));
+        Assert.Equal(Inleessoort.Verkoop, InleesDienst.HerkenTekst("Factuur 2026-016 Graag betalen op NL20 INGB 0001 2345 67. Bij machtiging wordt niets afgeschreven.", Eigen));
+
         // Een PDF die niet geopend mag worden (geen schone virusscan) gaat naar inkoop: die zet hem in quarantaine.
         Assert.Equal(Inleessoort.Inkoop, InleesDienst.Herken("x.pdf", "%PDF-1.7 ..."u8.ToArray(), Eigen, null));
     }

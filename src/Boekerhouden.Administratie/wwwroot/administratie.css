@@ -1958,3 +1958,8 @@ tr:hover .rij-actie, .rij-actie:focus-visible { opacity: 1; }
     border-radius: var(--bh-rond-klein, .375rem);
     background: var(--bs-tertiary-bg);
 }
+
+/* Dagboeken: het zoekveld zo breed als nodig, niet over de hele pagina. */
+.dagboekzoeken {
+    max-width: 22rem;
+}
