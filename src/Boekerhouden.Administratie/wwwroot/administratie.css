@@ -492,7 +492,8 @@ html.zijbalk-smal .zijbalk {
 }
 
 .verwerken-formulier {
-    flex: 1 1 auto;
+    /* Krijgt wat over is naast de factuur, en minstens 520 pixels. */
+    flex: 1 1 0;
     min-width: 520px;
 }
 
@@ -501,7 +502,9 @@ html.zijbalk-smal .zijbalk {
 }
 
 .verwerken-viewer {
-    flex: 0 0 auto;
+    /* Krimpt mee als de onthouden breedte niet past (bijv. met de werkvoorraad erbij of op een kleiner scherm), zodat
+       de pagina nooit breder wordt dan het venster. */
+    flex: 0 1 auto;
     width: 40%;
     min-width: 320px;
     position: sticky;

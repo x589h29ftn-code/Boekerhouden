@@ -390,8 +390,10 @@ export function scheiding(handvat, paneel) {
     handvat.addEventListener('pointermove', (e) => {
         if (!slepen) return;
         const rechts = paneel.getBoundingClientRect().right;
-        // Het formulier links houdt minstens 520 pixels.
-        const max = Math.min(window.innerWidth * 0.8, paneel.parentElement.getBoundingClientRect().width - 520 - handvat.offsetWidth);
+        // Het formulier links houdt minstens 520 pixels; de werkvoorraad links ervan telt mee.
+        const formulier = paneel.parentElement.querySelector('.verwerken-formulier');
+        const links = formulier ? formulier.getBoundingClientRect().left : paneel.parentElement.getBoundingClientRect().left;
+        const max = Math.min(window.innerWidth * 0.8, rechts - links - 520 - handvat.offsetWidth);
         zet(Math.round(Math.min(max, Math.max(320, rechts - e.clientX - handvat.offsetWidth / 2))));
     });
     handvat.addEventListener('pointerup', () => {

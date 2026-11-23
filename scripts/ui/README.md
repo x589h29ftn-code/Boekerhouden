@@ -11,6 +11,7 @@ node scripts/ui/schermafbeeldingen.js /tmp/schermen voor   # PNG's per scherm
 scripts/ui/herstart.sh && node scripts/ui/schakelaars.js /tmp/schermen   # alle schakelaars heen en terug, meldt fouten
 scripts/ui/herstart.sh && node scripts/ui/druk.js        # dubbelklikken, twee tabbladen, terugknop, trage verbinding
 scripts/ui/herstart.sh && node scripts/ui/overgangen.js /tmp/schermen voor   # vensters, menu's, panelen zacht; paginawissel zonder beweging; laadschets en melding licht en donker
+scripts/ui/herstart.sh && BREEDTE=1400 node scripts/ui/verwerkbreedte.js /tmp/schermen   # verwerkscherm op 1600/1920/2560 breed: nooit breder dan het venster
 scripts/ui/herstart.sh && node scripts/ui/openen.js /tmp/afdruk.xaf   # bestanden openen vanuit Windows (het script van de Windows-app)
 scripts/ui/herstart.sh && node scripts/ui/afdrukken.js /tmp/afdruk.xaf /tmp/afdruk   # elk overzicht afdrukken (licht en donker), meldt fouten
 scripts/ui/herstart.sh && node scripts/ui/consistentie.js /tmp/afdruk.xaf /tmp/consistentie   # lay-out over 41 schermen op twee maten: scrollen, knoppen, tekens, Engels, labels
