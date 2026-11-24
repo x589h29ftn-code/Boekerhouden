@@ -28,6 +28,7 @@ public static class Hulpsectie
         ("btw", "Btw-aangifte"),
         ("vpb", "Fiscale positie"),
         ("activa", "Vaste activa"),
+        ("kostenplaatsen", "Kostenplaatsen"),
         ("aansluitingen", "Aansluitingen"),
         ("relaties", "Relaties"),
         ("regels", "Regels"),

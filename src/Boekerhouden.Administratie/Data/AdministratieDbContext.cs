@@ -82,6 +82,8 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
 
     public DbSet<Kantoorinstellingen> Kantoorinstellingen => Set<Kantoorinstellingen>();
 
+    public DbSet<Kostenplaats> Kostenplaatsen => Set<Kostenplaats>();
+
     public DbSet<Apparaat> Apparaten => Set<Apparaat>();
 
     public DbSet<VerwijderdeAdministratie> VerwijderdeAdministraties => Set<VerwijderdeAdministratie>();
@@ -265,6 +267,17 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(r => r.BtwCode).HasMaxLength(10);
             e.Property(r => r.Relatie).HasMaxLength(50);
             e.Property(r => r.Factuurnummer).HasMaxLength(50);
+            e.Property(r => r.Kostenplaats).HasMaxLength(20);
+            e.HasIndex(r => new { r.AdministratieId, r.Kostenplaats });
+        });
+
+        builder.Entity<Kostenplaats>(e =>
+        {
+            e.ToTable("Kostenplaatsen");
+            e.HasIndex(k => new { k.AdministratieId, k.Code }).IsUnique();
+            e.Property(k => k.Code).HasMaxLength(20);
+            e.Property(k => k.Naam).HasMaxLength(100);
+            e.HasOne<Administratie>().WithMany().HasForeignKey(k => k.AdministratieId);
         });
 
         builder.Entity<AuditRegel>(e =>
@@ -375,6 +388,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
         builder.Entity<Dagboekdefinitie>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Boeking>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Boekingsregel>().HasQueryFilter(e => e.AdministratieId == Geopend);
+        builder.Entity<Kostenplaats>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Handelsrelatie>().HasQueryFilter(e => e.AdministratieId == Geopend);
         builder.Entity<Document>().HasQueryFilter(e => e.AdministratieId == Geopend);
 

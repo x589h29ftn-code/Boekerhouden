@@ -10,8 +10,9 @@ public sealed record AdministratieInvoer(string Naam, Ondernemingsvorm Ondernemi
 
 /// <summary>Een administratie zoals de gebruiker hem ziet, met zijn eigen rol erin.</summary>
 /// <param name="Gearchiveerd">Gearchiveerd: alleen inzien (<see cref="Mag"/> geeft dan alleen Lezen).</param>
+/// <param name="Kostenplaatsen">De module kostenplaatsen staat aan (kantoorinstelling).</param>
 public sealed record AdministratieKop(Guid Id, string Naam, Ondernemingsvorm Ondernemingsvorm, string? KvkNummer, string? BtwNummer, Lidmaatschapsrol Rol,
-    DateTimeOffset? Gearchiveerd = null, bool BtwPlichtig = true, string? Klantnummer = null)
+    DateTimeOffset? Gearchiveerd = null, bool BtwPlichtig = true, string? Klantnummer = null, bool Kostenplaatsen = false)
 {
     public bool Mag(Recht recht) => Toegang.Mag(Rol, recht) && (Gearchiveerd is null || recht == Recht.Lezen);
 }
@@ -54,7 +55,7 @@ public sealed class AdministratieDienst(IDbContextFactory<AdministratieDbContext
 
         await using var db = await dbFactory.CreateDbContextAsync();
         var administratie = await db.Administraties.AsNoTracking().SingleAsync(a => a.Id == id);
-        return Kop(administratie, rol);
+        return Kop(administratie, rol) with { Kostenplaatsen = (await KantoorDienst.LeesModules(db)).Kostenplaatsen };
     }
 
     /// <summary>

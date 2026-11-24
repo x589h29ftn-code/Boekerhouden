@@ -21,7 +21,7 @@ public sealed class AuditfileTests
         [new AuditfileRegel("1100", 5000m), new AuditfileRegel("0500", -5000m)],
         [new AuditfileDagboek("INK", "Inkoop", Dagboeksoort.Inkoop, null,
             [new AuditfileBoeking("2026-0001", "Belnet maart", new(2026, 3, 1), 3,
-                [new AuditfileRegel("4310", 24.99m, "Telefoon maart"), new AuditfileRegel("1600", -24.99m, "Belnet maart", "BELNET", "BN-0311")])]),
+                [new AuditfileRegel("4310", 24.99m, "Telefoon maart", Kostenplaats: "AUTO1"), new AuditfileRegel("1600", -24.99m, "Belnet maart", "BELNET", "BN-0311")])]),
          new AuditfileDagboek("BNK", "Bank", Dagboeksoort.Bank, "1100",
             [new AuditfileBoeking("2026-0001", "Betaling Belnet", new(2026, 3, 20), 3,
                 [new AuditfileRegel("1600", 24.99m, null, "BELNET", "BN-0311"), new AuditfileRegel("1100", -24.99m)])])]);
@@ -50,6 +50,7 @@ public sealed class AuditfileTests
         var inkoop = terug.Dagboeken.Single(d => d.Code == "INK").Boekingen.Single();
         Assert.Equal(("2026-0001", "Belnet maart", new DateOnly(2026, 3, 1), 3), (inkoop.Boekstuk, inkoop.Omschrijving, inkoop.Datum, inkoop.Periode));
         Assert.Equal(new AuditfileRegel("1600", -24.99m, "Belnet maart", "BELNET", "BN-0311"), inkoop.Regels[1]);
+        Assert.Equal("AUTO1", inkoop.Regels[0].Kostenplaats);
         Assert.Equal("Belnet maart", terug.Dagboeken.Single(d => d.Code == "INK").Boekingen.Single().Regels[1].Omschrijving);
     }
 

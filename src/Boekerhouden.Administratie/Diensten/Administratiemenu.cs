@@ -4,12 +4,13 @@ namespace Boekerhouden.Administratie.Diensten;
 /// Een pagina in het menu van een administratie: het pad na <c>/a/{id}</c>, de naam, het recht dat nodig is, (bij
 /// <paramref name="AlleenBv"/>) alleen voor een BV, en het icoon in de zijbalk (een naam uit iconen.svg).
 /// </summary>
-public sealed record Menuitem(string Pad, string Naam, Recht Recht, bool AlleenBv = false, string? Icoon = null)
+/// <param name="Kostenplaatsen">Alleen als de module kostenplaatsen aanstaat.</param>
+public sealed record Menuitem(string Pad, string Naam, Recht Recht, bool AlleenBv = false, string? Icoon = null, bool Kostenplaatsen = false)
 {
     public bool Zichtbaar(AdministratieKop kop)
     {
         ArgumentNullException.ThrowIfNull(kop);
-        return kop.Mag(Recht) && (!AlleenBv || kop.Ondernemingsvorm == Boekhouding.Grootboek.Ondernemingsvorm.BV);
+        return kop.Mag(Recht) && (!AlleenBv || kop.Ondernemingsvorm == Boekhouding.Grootboek.Ondernemingsvorm.BV) && (!Kostenplaatsen || kop.Kostenplaatsen);
     }
 }
 
@@ -52,6 +53,7 @@ public static class Administratiemenu
             new("/btw", "Btw-aangifte", Recht.Lezen, Icoon: "percent"),
             new("/vpb", "Fiscale positie", Recht.Lezen, AlleenBv: true, Icoon: "scales"),
             new("/activa", "Vaste activa", Recht.Lezen, Icoon: "buildings"),
+            new("/kostenplaatsen", "Kostenplaatsen", Recht.Lezen, Icoon: "squares-four", Kostenplaatsen: true),
             new("/aansluitingen", "Aansluitingen", Recht.Lezen, Icoon: "checks"),
         ]),
         new("Inrichting",

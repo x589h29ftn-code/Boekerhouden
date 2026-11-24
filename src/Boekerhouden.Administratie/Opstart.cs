@@ -135,6 +135,7 @@ public static class Opstart
         services.AddSingleton<AfsluitDienst>();
         services.AddSingleton<InleesDienst>();
         services.AddSingleton<ActivaDienst>();
+        services.AddSingleton<KostenplaatsDienst>();
         services.AddSingleton<BeginbalansDienst>();
         services.AddSingleton<ActivastaatDienst>();
         services.AddSingleton<ConceptDienst>();

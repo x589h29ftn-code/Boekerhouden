@@ -106,6 +106,12 @@ public static class AuditActies
 
     public const string KantoorinstellingenGewijzigd = "Kantoorinstellingen gewijzigd";
 
+    public const string KostenplaatsToegevoegd = "Kostenplaats toegevoegd";
+
+    public const string KostenplaatsGewijzigd = "Kostenplaats gewijzigd";
+
+    public const string KostenplaatsVerwijderd = "Kostenplaats verwijderd";
+
     public const string ZoektemplateBijgewerkt = "Factuurindeling van leverancier bijgewerkt";
     public const string GeleerdVergeten = "Geleerde keuzes vergeten";
     public const string ZoekplekVergeten = "Plek op de factuur vergeten";

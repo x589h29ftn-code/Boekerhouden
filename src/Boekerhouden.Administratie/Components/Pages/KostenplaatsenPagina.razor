@@ -1,0 +1,219 @@
+@page "/a/{Id:guid}/kostenplaatsen"
+@using Boekerhouden.Boekhouding.Grootboek
+@inject KostenplaatsDienst Kostenplaatsen
+@inject GrootboekDienst Grootboek
+@inject NavigationManager Navigatie
+
+<AdministratieKader Id="Id" Titel="Kostenplaatsen" Actief="/kostenplaatsen" BijOpenen="Open">
+    <Acties>
+        @if (geopend is not null && geopend.Kop.Kostenplaatsen)
+        {
+            <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
+        }
+    </Acties>
+    <ChildContent>
+        <Foutmeldingen Fouten="fouten" />
+        @if (geopend is not null && !geopend.Kop.Kostenplaatsen)
+        {
+            <LegeStaat Icoon="squares-four" Tekst="De module kostenplaatsen staat uit" />
+        }
+        else if (totalen is not null)
+        {
+            @if (MagBeheren)
+            {
+                <Uitklapformulier Tekst="Nieuwe kostenplaats" Open="@(totalen.Count == 0)" @ref="formulier">
+                    <div class="d-flex align-items-end flex-wrap gap-2">
+                        <div>
+                            <label class="form-label" for="kp-code">Code</label>
+                            <input id="kp-code" class="form-control form-control-sm" maxlength="@KostenplaatsDienst.MaxCode" placeholder="bijv. AUTO1" @bind="code" />
+                        </div>
+                        <div class="flex-grow-1">
+                            <label class="form-label" for="kp-naam">Naam</label>
+                            <input id="kp-naam" class="form-control form-control-sm" maxlength="@KostenplaatsDienst.MaxNaam" placeholder="bijv. Auto AB-123-C" @bind="naam" />
+                        </div>
+                        <button class="btn btn-sm btn-primary" @onclick="VoegToe">Toevoegen</button>
+                    </div>
+                </Uitklapformulier>
+            }
+            @if (totalen.Count == 0)
+            {
+                <LegeStaat Icoon="squares-four" Tekst="Nog geen kostenplaatsen" />
+            }
+            else
+            {
+                <div class="card">
+                    <table class="table table-sm align-middle mb-0 kostenplaatsen" data-sleepbaar="kostenplaatsen">
+                        <thead>
+                            <tr>
+                                <th>Kostenplaats</th>
+                                <th class="text-end">Regels</th>
+                                <th class="text-end">Kosten</th>
+                                <th class="text-end">Opbrengsten</th>
+                                <th class="text-end">Resultaat</th>
+                                <th style="width:5rem"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var t in Zichtbaar)
+                            {
+                                var k = t.Kostenplaats;
+                                @if (bewerkt == k.Id)
+                                {
+                                    <tr class="bewerken">
+                                        <td colspan="5">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="rekeningnummer">@k.Code</span>
+                                                <input class="form-control form-control-sm" maxlength="@KostenplaatsDienst.MaxNaam" @bind="naamBewerkt" aria-label="Naam" />
+                                                <span class="form-check form-switch mb-0 text-nowrap">
+                                                    <input id="vervallen" class="form-check-input" type="checkbox" role="switch" @bind="vervallenBewerkt" />
+                                                    <label class="form-check-label" for="vervallen" title="Niet meer te kiezen op nieuwe boekingen; wat er al op staat, blijft">Vervallen</label>
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td class="text-nowrap text-end">
+                                            <button class="btn btn-sm btn-primary" @onclick="() => Bewaar(k)">Opslaan</button>
+                                            <button class="btn btn-sm btn-link text-secondary" @onclick="() => bewerkt = null">Annuleren</button>
+                                        </td>
+                                    </tr>
+                                }
+                                else
+                                {
+                                    <tr class="klikbaar @(k.Vervallen ? "text-secondary" : null)" @onclick="() => OpenKostenplaats(k)" title="De boekingen op @k.Code">
+                                        <td><span class="rekeningnummer">@k.Code</span> @k.Naam @if (k.Vervallen)
+                                            {
+                                                <span class="status ms-1">vervallen</span>
+                                            }</td>
+                                        <td class="text-end">@t.Regels</td>
+                                        <td class="bedrag text-end">@Weergave.Bedrag(t.Kosten)</td>
+                                        <td class="bedrag text-end">@Weergave.Bedrag(t.Opbrengsten)</td>
+                                        <td class="bedrag text-end">@Weergave.Bedrag(t.Resultaat)</td>
+                                        <td class="text-end text-nowrap regelacties">
+                                            @if (MagBeheren)
+                                            {
+                                                <button class="icoonknop" title="Wijzigen" aria-label="Wijzigen" @onclick="() => Bewerk(k)" @onclick:stopPropagation="true"><Icoon Naam="note-pencil" /></button>
+                                                @if (k.Regels == 0)
+                                                {
+                                                    <button class="icoonknop" title="Verwijderen" aria-label="Verwijderen" @onclick="() => Verwijder(k)" @onclick:stopPropagation="true"><Icoon Naam="x" /></button>
+                                                }
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr class="totaal">
+                                <td>Totaal</td>
+                                <td class="text-end">@Zichtbaar.Sum(t => t.Regels)</td>
+                                <td class="bedrag text-end">@Weergave.Bedrag(Zichtbaar.Sum(t => t.Kosten))</td>
+                                <td class="bedrag text-end">@Weergave.Bedrag(Zichtbaar.Sum(t => t.Opbrengsten))</td>
+                                <td class="bedrag text-end">@Weergave.Bedrag(Zichtbaar.Sum(t => t.Resultaat))</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                @if (totalen.Any(t => t.Kostenplaats.Vervallen))
+                {
+                    <div class="form-check mt-2 small">
+                        <input id="toon-vervallen" class="form-check-input" type="checkbox" @bind="toonVervallen" />
+                        <label class="form-check-label text-secondary" for="toon-vervallen">Vervallen tonen</label>
+                    </div>
+                }
+            }
+        }
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private IReadOnlyList<Kostenplaatstotaal>? totalen;
+    private IReadOnlyList<string>? fouten;
+    private DateOnly van;
+    private DateOnly tot;
+    private string? code;
+    private string? naam;
+    private Guid? bewerkt;
+    private string? naamBewerkt;
+    private bool vervallenBewerkt;
+    private bool toonVervallen;
+    private Uitklapformulier? formulier;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "van")]
+    public string? VanTekst { get; set; }
+
+    [SupplyParameterFromQuery(Name = "tot")]
+    public string? TotTekst { get; set; }
+
+    [Inject]
+    private Meldingen Meldingen { get; set; } = default!;
+
+    private bool MagBeheren => geopend?.Kop.Mag(Recht.Boekhouden) == true;
+
+    private IReadOnlyList<Kostenplaatstotaal> Zichtbaar => [.. (totalen ?? []).Where(t => toonVervallen || !t.Kostenplaats.Vervallen || t.Regels > 0)];
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        var boekjaren = await Grootboek.Boekjaren(g.Wie, Id);
+        (van, tot) = Weergave.Periode(VanTekst, TotTekst) ?? Periode.Jaar(boekjaren[0]);
+        await Laad();
+    }
+
+    private async Task Laad()
+    {
+        if (geopend is { Kop.Kostenplaatsen: true })
+        {
+            totalen = await Kostenplaatsen.Overzicht(geopend.Wie, Id, van, tot);
+        }
+    }
+
+    private async Task KiesPeriode((DateOnly Van, DateOnly Tot) periode)
+    {
+        (van, tot) = periode;
+        Navigatie.NavigateTo($"/a/{Id}/kostenplaatsen?{Weergave.Periodequery(van, tot)}", replace: true);
+        await Laad();
+    }
+
+    private async Task VoegToe()
+    {
+        var uitkomst = await Kostenplaatsen.VoegToe(geopend!.Wie, Id, code ?? "", naam ?? "");
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            Meldingen.Toon($"Kostenplaats {code?.Trim()} toegevoegd.");
+            (code, naam) = (null, null);
+            await Laad();
+        }
+    }
+
+    private void Bewerk(Kostenplaatsregel k) => (bewerkt, naamBewerkt, vervallenBewerkt, fouten) = (k.Id, k.Naam, k.Vervallen, null);
+
+    private async Task Bewaar(Kostenplaatsregel k)
+    {
+        var uitkomst = await Kostenplaatsen.Wijzig(geopend!.Wie, Id, k.Id, naamBewerkt ?? "", vervallenBewerkt);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            bewerkt = null;
+            await Laad();
+        }
+    }
+
+    private async Task Verwijder(Kostenplaatsregel k)
+    {
+        var uitkomst = await Kostenplaatsen.Verwijder(geopend!.Wie, Id, k.Id);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            Meldingen.Toon($"Kostenplaats {k.Code} verwijderd.");
+            await Laad();
+        }
+    }
+
+    private void OpenKostenplaats(Kostenplaatsregel k) =>
+        Navigatie.NavigateTo($"/a/{Id}/kostenplaatsen/{Uri.EscapeDataString(k.Code)}?{Weergave.Periodequery(van, tot)}");
+}

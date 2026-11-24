@@ -295,6 +295,7 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
             }
         }
 
+        fouten.AddRange(await KostenplaatsDienst.Fouten(db, post));
         if (await db.Boekingen.AnyAsync(b => b.Dagboek == post.Dagboek && b.Boekstuk == post.Boekstuk))
         {
             fouten.Add($"Boekstuk {post.Boekstuk} bestaat al in dagboek {post.Dagboek}.");
@@ -499,6 +500,7 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
                     BtwCode = Leeg(r.BtwCode),
                     Relatie = Leeg(r.Relatie),
                     Factuurnummer = Leeg(r.Factuurnummer),
+                    Kostenplaats = Leeg(r.Kostenplaats),
                 }),
             ],
         };
@@ -738,7 +740,8 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
             Omschrijving = nieuw.Omschrijving.Trim(),
             Regels = [.. nieuw.Regels.Where(r => r.Bedrag != 0 || !string.IsNullOrWhiteSpace(r.Rekeningnummer))],
         };
-        var fouten = Boekingscorrectie.Controleer(oud.NaarDomein(), post, schema, memoriaal).Concat(Journaalcontrole.Controleer(post, schema, dagboeken)).Distinct().ToList();
+        var fouten = Boekingscorrectie.Controleer(oud.NaarDomein(), post, schema, memoriaal).Concat(Journaalcontrole.Controleer(post, schema, dagboeken))
+            .Concat(await KostenplaatsDienst.Fouten(db, post, oud.NaarDomein())).Distinct().ToList();
         if (fouten.Count > 0)
         {
             return Uitkomst<int>.Mislukt([.. fouten]);

@@ -32,17 +32,27 @@ public static class Journaalketen
             post.Boekstuk,
             post.Datum.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             post.Omschrijving,
-            post.Regels.Select(r => new object?[]
-            {
-                r.Rekeningnummer,
-                r.Bedrag.ToString("0.00", CultureInfo.InvariantCulture),
-                r.Omschrijving,
-                r.BtwCode,
-                r.Relatie,
-                r.Factuurnummer,
-            }).ToArray(),
+            post.Regels.Select(Regel).ToArray(),
         });
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(inhoud)));
+    }
+
+    /// <summary>
+    /// Een regel in de hash. De kostenplaats kwam later: alleen een regel met een kostenplaats heeft een zevende veld,
+    /// zodat de hash van bestaande boekingen niet verandert.
+    /// </summary>
+    private static object?[] Regel(Journaalregel r)
+    {
+        object?[] velden =
+        [
+            r.Rekeningnummer,
+            r.Bedrag.ToString("0.00", CultureInfo.InvariantCulture),
+            r.Omschrijving,
+            r.BtwCode,
+            r.Relatie,
+            r.Factuurnummer,
+        ];
+        return string.IsNullOrEmpty(r.Kostenplaats) ? velden : [.. velden, r.Kostenplaats];
     }
 
     /// <summary>

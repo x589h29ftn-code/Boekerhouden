@@ -5,6 +5,7 @@
 @using Boekerhouden.Boekhouding.Grootboek
 @inject GrootboekDienst Grootboek
 @inject BtwDienst Btw
+@inject KostenplaatsDienst Kostenplaatsen
 
 <div class="boeking-bewerken">
     <Foutmeldingen Fouten="fouten" />
@@ -27,6 +28,9 @@
                 <tr><th style="width:30%">Grootboek</th><th>Omschrijving</th>@if (!ZonderBtw)
                     {
                         <th style="width:7rem">Btw</th>
+                    }@if (MetKostenplaats)
+                    {
+                        <th style="width:10rem">Kostenplaats</th>
                     }<th class="text-end" style="width:8rem">Debet</th><th class="text-end" style="width:8rem">Credit</th><th style="width:1.75rem"></th></tr>
             </thead>
             <tbody>
@@ -40,6 +44,10 @@
                             @if (!ZonderBtw)
                             {
                                 <td class="text-secondary">@regel.BtwCode</td>
+                            }
+                            @if (MetKostenplaats)
+                            {
+                                <td><KostenplaatsKeuze @bind-Waarde="regel.Kostenplaats" Lijst="kostenplaatsen" /></td>
                             }
                             <td class="bedrag text-end">@regel.Debet</td>
                             <td class="bedrag text-end">@regel.Credit</td>
@@ -63,6 +71,10 @@
                                     </select>
                                 </td>
                             }
+                            @if (MetKostenplaats)
+                            {
+                                <td><KostenplaatsKeuze @bind-Waarde="regel.Kostenplaats" Lijst="kostenplaatsen" /></td>
+                            }
                             <td><input class="form-control form-control-sm text-end" @bind="regel.Debet" @bind:event="oninput" aria-label="Debet" /></td>
                             <td><input class="form-control form-control-sm text-end" @bind="regel.Credit" @bind:event="oninput" aria-label="Credit" /></td>
                             <td><button class="btn btn-sm btn-link text-secondary p-0 regel-weg" title="Regel verwijderen" @onclick="() => invoer.Regels.Remove(regel)" disabled="@(invoer.Regels.Count <= 2)"><Icoon Naam="x" /></button></td>
@@ -72,7 +84,7 @@
             </tbody>
             <tfoot>
                 <tr class="generaal">
-                    <td colspan="@(ZonderBtw ? 2 : 3)"><button class="btn btn-sm btn-link nog-een-regel p-0" @onclick="RegelErbij"><Icoon Naam="plus" /> Nog een regel</button></td>
+                    <td colspan="@((ZonderBtw ? 2 : 3) + (MetKostenplaats ? 1 : 0))"><button class="btn btn-sm btn-link nog-een-regel p-0" @onclick="RegelErbij"><Icoon Naam="plus" /> Nog een regel</button></td>
                     <td class="bedrag text-end">@Weergave.Bedrag(invoer.TotaalDebet)</td>
                     <td class="bedrag text-end">@Weergave.Bedrag(invoer.TotaalCredit)</td>
                     <td></td>
@@ -112,6 +124,10 @@
 
     private Invoer invoer = new();
     private string boekstuk = "";
+    private IReadOnlyList<Kostenplaatsregel> kostenplaatsen = [];
+
+    /// <summary>De kolom Kostenplaats: als de module aanstaat en er kostenplaatsen zijn, of als een regel er al een heeft.</summary>
+    private bool MetKostenplaats => kostenplaatsen.Count > 0 || invoer.Regels.Any(r => r.Kostenplaats is not null);
 
     /// <summary>Het boekstuk dat het pakket voorstelde; zolang de gebruiker het niet zelf wijzigde, volgt het de datum.</summary>
     private string? voorgesteld;
@@ -185,6 +201,7 @@
     {
         var datum = Post?.Datum ?? (Voorbeeld is { } v ? (VoorbeeldOpDatum ? v.Datum : Volgende(v.Datum)) : Datum);
         codes = (await Btw.Tabel()).Op(datum);
+        kostenplaatsen = await Kostenplaatsen.Keuze(Kader.Wie, Kader.Kop.Id);
         if (Post is null && Voorbeeld is { } bron)
         {
             // Een kopie in een andere maand: "Lonen oktober" wordt "Lonen november" (zoals bij kopiëren naar een maand).
@@ -227,6 +244,7 @@
         BtwCode = r.BtwCode,
         Relatie = r.Relatie,
         Factuurnummer = r.Factuurnummer,
+        Kostenplaats = r.Kostenplaats,
         Debet = r.Bedrag > 0 ? Bedragen.Getal(r.Bedrag) : null,
         Credit = r.Bedrag < 0 ? Bedragen.Getal(-r.Bedrag) : null,
         Vast = vast,
@@ -266,7 +284,7 @@
         }
 
         var regels = invoer.Regels.Where(r => r.Vast || r.Rekening.Trim().Length > 0 || r.Bedrag != 0)
-            .Select(r => new Journaalregel(r.Rekening.Trim(), r.Bedrag, Leeg(r.Omschrijving), Leeg(r.BtwCode), Leeg(r.Relatie), Leeg(r.Factuurnummer)))
+            .Select(r => new Journaalregel(r.Rekening.Trim(), r.Bedrag, Leeg(r.Omschrijving), Leeg(r.BtwCode), Leeg(r.Relatie), Leeg(r.Factuurnummer), Leeg(r.Kostenplaats)))
             .ToList();
         bezig = true;
         try
@@ -350,6 +368,8 @@
         public string? Relatie { get; set; }
 
         public string? Factuurnummer { get; set; }
+
+        public string? Kostenplaats { get; set; }
 
         public string? Debet { get; set; }
 

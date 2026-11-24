@@ -318,7 +318,7 @@ public sealed class Boeking : IVanAdministratie
     public List<Boekingsregel> Regels { get; set; } = [];
 
     public Journaalpost NaarDomein() => new(Dagboek, Boekstuk, Datum, Omschrijving,
-        [.. Regels.OrderBy(r => r.Regelnummer).Select(r => new Journaalregel(r.Rekeningnummer, r.Bedrag, r.Omschrijving, r.BtwCode, r.Relatie, r.Factuurnummer))]);
+        [.. Regels.OrderBy(r => r.Regelnummer).Select(r => new Journaalregel(r.Rekeningnummer, r.Bedrag, r.Omschrijving, r.BtwCode, r.Relatie, r.Factuurnummer, r.Kostenplaats))]);
 }
 
 public sealed class Boekingsregel : IVanAdministratie
@@ -342,6 +342,27 @@ public sealed class Boekingsregel : IVanAdministratie
     public string? Relatie { get; set; }
 
     public string? Factuurnummer { get; set; }
+
+    /// <summary>De code van de kostenplaats; leeg = geen.</summary>
+    public string? Kostenplaats { get; set; }
+}
+
+/// <summary>
+/// Een kostenplaats van de administratie: een extra indeling van kosten en opbrengsten naast het grootboek, bijv. een
+/// auto, afdeling of vestiging. Een boekingsregel kan er één hebben (<see cref="Boekingsregel.Kostenplaats"/>, de code).
+/// Een kostenplaats die gebruikt is, gaat niet weg maar vervalt: hij staat dan niet meer in de keuzelijst.
+/// </summary>
+public sealed class Kostenplaats : IVanAdministratie
+{
+    public Guid Id { get; set; }
+
+    public Guid AdministratieId { get; set; }
+
+    public string Code { get; set; } = string.Empty;
+
+    public string Naam { get; set; } = string.Empty;
+
+    public bool Vervallen { get; set; }
 }
 
 /// <summary>Eén regel in het wijzigingslog; wordt nooit gewijzigd of verwijderd (de database weigert dat).</summary>
@@ -647,6 +668,9 @@ public sealed class Kantoorinstellingen
 
     /// <summary>Bedragen in de overzichten afgerond op hele euro's (1.200 in plaats van 1.200,45).</summary>
     public bool OverzichtHeleEuros { get; set; }
+
+    /// <summary>De module kostenplaatsen staat aan: kostenplaatsen beheren en op boekingsregels kiezen.</summary>
+    public bool Kostenplaatsen { get; set; }
 
     /// <summary>De standaardomschrijving van een inkoopfactuur, met variabelen; leeg = uit.</summary>
     public string? Standaardomschrijving { get; set; }

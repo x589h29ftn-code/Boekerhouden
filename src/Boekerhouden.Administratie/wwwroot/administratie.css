@@ -1480,8 +1480,11 @@ body *:not(#geen):not(.factuurvoorbeeld-pagina *, .ontwerpvlak-pagina *)::after 
 .formuliersectie { margin-bottom: var(--r2); padding-bottom: var(--r1); border-bottom: 1px solid var(--bh-lijn); color: var(--bh-zacht); font-size: .8125rem; }
 
 /* Administraties: acties op een regel pas bij aanwijzen; een gearchiveerde administratie in grijs. */
-.administratielijst .regelacties { opacity: 0; transition: opacity var(--bh-snel) ease; }
-.administratielijst tr:hover .regelacties, .administratielijst tr:focus-within .regelacties { opacity: 1; }
+.administratielijst .regelacties, .kostenplaatsen .regelacties { opacity: 0; transition: opacity var(--bh-snel) ease; }
+.administratielijst tr:hover .regelacties, .administratielijst tr:focus-within .regelacties,
+.kostenplaatsen tr:hover .regelacties, .kostenplaatsen tr:focus-within .regelacties { opacity: 1; }
+.kostenplaatsen .regelacties .icoonknop { border: 0; background: transparent; color: var(--bh-zacht); padding: .125rem .25rem; line-height: 1; border-radius: var(--bs-border-radius-sm); }
+.kostenplaatsen .regelacties .icoonknop:hover { color: var(--bh-accent); background: var(--bh-accent-zacht); }
 .administratielijst tr.gearchiveerd > td, .administratielijst tr.gearchiveerd > td a { color: var(--bh-zacht); }
 .administratielijst tr.verwijderregel > td { background: var(--bh-warm-zacht); }
 

@@ -71,8 +71,16 @@ public static class Boekingscorrectie
 
     private static bool Gelijk(Journaalpost a, Journaalpost b) =>
         a.Datum == b.Datum && a.Omschrijving.Trim() == b.Omschrijving.Trim() && a.Regels.Count == b.Regels.Count
-        && a.Regels.Zip(b.Regels).All(x => x.First with { Omschrijving = Leeg(x.First.Omschrijving), BtwCode = Leeg(x.First.BtwCode), Relatie = Leeg(x.First.Relatie), Factuurnummer = Leeg(x.First.Factuurnummer) }
-            == x.Second with { Omschrijving = Leeg(x.Second.Omschrijving), BtwCode = Leeg(x.Second.BtwCode), Relatie = Leeg(x.Second.Relatie), Factuurnummer = Leeg(x.Second.Factuurnummer) });
+        && a.Regels.Zip(b.Regels).All(x => Gewoon(x.First) == Gewoon(x.Second));
+
+    private static Journaalregel Gewoon(Journaalregel r) => r with
+    {
+        Omschrijving = Leeg(r.Omschrijving),
+        BtwCode = Leeg(r.BtwCode),
+        Relatie = Leeg(r.Relatie),
+        Factuurnummer = Leeg(r.Factuurnummer),
+        Kostenplaats = Leeg(r.Kostenplaats),
+    };
 
     private static string? Leeg(string? tekst) => string.IsNullOrWhiteSpace(tekst) ? null : tekst.Trim();
 }

@@ -4,13 +4,15 @@ namespace Boekerhouden.Boekhouding.Grootboek;
 /// Eén regel van een journaalpost: een bedrag op een grootboekrekening (debet positief, credit negatief). Een regel
 /// met een btw-code op een gewone rekening is de grondslag; op een btw-rekening is het de btw zelf.
 /// </summary>
+/// <param name="Kostenplaats">De code van de kostenplaats (bijv. een auto of afdeling); leeg = geen.</param>
 public sealed record Journaalregel(
     string Rekeningnummer,
     decimal Bedrag,
     string? Omschrijving = null,
     string? BtwCode = null,
     string? Relatie = null,
-    string? Factuurnummer = null);
+    string? Factuurnummer = null,
+    string? Kostenplaats = null);
 
 /// <summary>Een journaalpost in een dagboek: altijd in evenwicht.</summary>
 public sealed record Journaalpost(

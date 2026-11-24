@@ -604,6 +604,23 @@ afschrijvingen als memoriaalboeking per periode, desinvesteren (ook voor een dee
 Nog niet: degressief afschrijven, fiscale afschrijving naast de commerciële (met de grenzen voor goodwill en
 gebouwen) en een overzicht voor de investeringsaftrek.
 
+### 3.14a Kostenplaatsen
+
+Een kostenplaats is een extra indeling van kosten en opbrengsten naast het grootboek: de rekening zegt *wat* het is
+(brandstof, onderhoud), de kostenplaats *waar* of *waarvoor* (auto AB-123-C, de winkel, afdeling montage). Zo zie je
+per auto of afdeling wat hij kost of oplevert, zonder voor elke auto aparte rekeningen. Een kostendrager (product,
+project) is een tweede, vergelijkbare as; die is er nog niet.
+
+| Onderdeel | Hoe |
+|---|---|
+| Module | Een kantoorinstelling (*Beheer, Instellingen, Modules*, alleen de beheerder; `KantoorDienst.WijzigModules`, `Kantoormodules`, in het log). Uit: geen menu, geen kolom, de dienst weigert nieuwe kostenplaatsen. Uitzetten laat wat geboekt is staan |
+| Kostenplaatsen | Per administratie (`Kostenplaats`: code, naam, vervallen), op Overzichten › Kostenplaatsen (`KostenplaatsDienst`). Code hooguit 20 tekens zonder spaties, uniek; naam hooguit 100. Beheren: recht Boekhouden; zien: iedereen met toegang. Een kostenplaats waarop geboekt is (ook in een eerdere versie van een boeking) verwijder je niet: hij *vervalt* en staat dan niet meer in de keuzelijst. Alles in het wijzigingslog |
+| Op de boekingsregel | `Journaalregel.Kostenplaats` / `Boekingsregel.Kostenplaats` (de code). Nooit verplicht. In het memoriaal en bij het aanpassen van een boeking een kolom *Kostenplaats* (`KostenplaatsKeuze`) zodra er kostenplaatsen zijn. Boeken controleert dat de code bestaat en (bij een nieuwe regel) niet vervallen is (`KostenplaatsDienst.Fouten`); een aanpassing mag een vervallen kostenplaats houden die er al op stond |
+| Hash-keten | De kostenplaats telt mee in de hash, maar alleen als hij gevuld is (een zevende veld per regel), zodat de hash van bestaande boekingen niet verandert (`Journaalketen`, `KostenplaatsketenTests`). Alleen een andere kostenplaats is ook een wijziging (een nieuwe versie) |
+| Overzicht | Per kostenplaats over de periode (op boekingsdatum): het aantal regels, de kosten (resultaatrekeningen met een debetsaldo), de opbrengsten (creditsaldo) en het resultaat. Klikken: alle regels op die kostenplaats met boeking, rekening, omschrijving en relatie, te zoeken en per rekening met subtotalen; een regel opent de boeking. Op de boeking staat de kostenplaats als kolom met een link naar het overzicht |
+| Auditfile | Schrijven: `costID` op de regel (XAF 3.2, na `invRef`). Inlezen: `costID` wordt de kostenplaats van de regel, en elke gebruikte code een kostenplaats (naam = code) |
+| Migraties | PostgreSQL en SQLite (`Kostenplaatsen`). Op SQLite haalt de Down-migratie de kolom met `ALTER TABLE … DROP COLUMN` weg, zodat de triggers die boekingen onwijzigbaar maken blijven staan |
+
 ## 5. Roadmap in plakjes
 
 | # | Plakje | Resultaat |

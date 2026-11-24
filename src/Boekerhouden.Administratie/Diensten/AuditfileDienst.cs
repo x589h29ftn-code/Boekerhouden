@@ -95,7 +95,7 @@ public sealed class AuditfileDienst(IDbContextFactory<AdministratieDbContext> db
         return [.. post.Regels.Select(r => new AuditfileRegel(r.Rekeningnummer, r.Bedrag, r.Omschrijving, r.Relatie, r.Factuurnummer, r.BtwCode,
             r.BtwCode is null ? null
             : schema.Zoek(r.Rekeningnummer)?.Functie is Rekeningfunctie.Voorbelasting or Rekeningfunctie.AfTeDragenBtw ? r.Bedrag
-            : Journaal.BtwBij(schema, post, r) ?? 0m))];
+            : Journaal.BtwBij(schema, post, r) ?? 0m, r.Kostenplaats))];
     }
 
     /// <summary>
@@ -194,7 +194,8 @@ public sealed class AuditfileDienst(IDbContextFactory<AdministratieDbContext> db
                 var omschrijving = Kort(b.Omschrijving ?? b.Regels.Select(r => r.Omschrijving).FirstOrDefault(o => o is not null) ?? $"{d.Naam} {boekstuk}", 500);
                 posten.Add(new Journaalpost(codes[d.Code], boekstuk, b.Datum, omschrijving,
                     [.. b.Regels.Where(r => r.Bedrag != 0).Select(r => new Journaalregel(Kort(r.Rekening, 20), r.Bedrag, KortOfLeeg(r.Omschrijving, 500),
-                        r.BtwCode is { } c && btwcodes.Contains(c) ? c.ToUpperInvariant() : null, KortOfLeeg(r.Relatie, 50), KortOfLeeg(r.Factuurnummer, 50)))]));
+                        r.BtwCode is { } c && btwcodes.Contains(c) ? c.ToUpperInvariant() : null, KortOfLeeg(r.Relatie, 50), KortOfLeeg(r.Factuurnummer, 50),
+                        KortOfLeeg(r.Kostenplaats, KostenplaatsDienst.MaxCode)))]));
             }
         }
 
@@ -293,6 +294,7 @@ public sealed class AuditfileDienst(IDbContextFactory<AdministratieDbContext> db
                     BtwCode = r.BtwCode,
                     Relatie = r.Relatie,
                     Factuurnummer = r.Factuurnummer,
+                    Kostenplaats = r.Kostenplaats,
                 })],
             };
             boeking.Hash = Journaalketen.Hash(boeking.NaarDomein(), boeking.Volgnummer, vorigeHash);
@@ -301,6 +303,9 @@ public sealed class AuditfileDienst(IDbContextFactory<AdministratieDbContext> db
             geboekt.Add(boeking);
         }
 
+        // De kostenplaatsen uit de auditfile (costID): elke gebruikte code wordt een kostenplaats met de code als naam.
+        db.Kostenplaatsen.AddRange(posten.SelectMany(p => p.Regels).Select(r => r.Kostenplaats).OfType<string>().Distinct(StringComparer.Ordinal)
+            .Select(c => new Kostenplaats { Id = Guid.NewGuid(), AdministratieId = id, Code = c, Naam = c }));
         var open = OpenstaandePosten(id, geboekt, schema);
         db.OpenstaandePosten.AddRange(open);
         await db.SaveChangesAsync(annulering);

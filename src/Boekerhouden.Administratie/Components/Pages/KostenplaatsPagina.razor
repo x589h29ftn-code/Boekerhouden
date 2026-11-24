@@ -1,0 +1,152 @@
+@page "/a/{Id:guid}/kostenplaatsen/{Code}"
+@inject KostenplaatsDienst Kostenplaatsen
+@inject GrootboekDienst Grootboek
+@inject NavigationManager Navigatie
+
+<AdministratieKader Id="Id" Titel="@Titel" Actief="/kostenplaatsen" BijOpenen="Open" Terug="@($"/a/{Id}/kostenplaatsen?{Weergave.Periodequery(van, tot)}")" KopVast="true">
+    <Kenmerken>
+        @if (regels is not null)
+        {
+            <span>@regels.Count @(regels.Count == 1 ? "regel" : "regels")</span>
+            <span class="scheiding">·</span>
+            <span title="Opbrengsten min kosten op de resultaatrekeningen">resultaat @Weergave.Bedrag(-regels.Where(r => !r.IsBalans).Sum(r => r.Bedrag))</span>
+        }
+    </Kenmerken>
+    <Acties>
+        @if (geopend is not null)
+        {
+            <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
+        }
+    </Acties>
+    <ChildContent>
+        @if (geladen && kostenplaats is null)
+        {
+            <div class="alert alert-warning">Kostenplaats @Code bestaat niet.</div>
+        }
+        else if (regels is { Count: 0 })
+        {
+            <LegeStaat Icoon="file-text" Tekst="Geen boekingen in deze periode" />
+        }
+        else if (regels is not null)
+        {
+            <div class="d-flex align-items-center gap-2 mb-2 onderkop">
+                <input class="form-control form-control-sm kaartzoeken" placeholder="Zoeken op omschrijving, rekening, relatie of bedrag" aria-label="Zoeken" @bind="zoek" @bind:event="oninput" />
+                <span class="form-check form-switch mb-0 ms-2 small text-nowrap">
+                    <input id="per-rekening" class="form-check-input" type="checkbox" role="switch" @bind="perRekening" />
+                    <label class="form-check-label" for="per-rekening">Per rekening</label>
+                </span>
+            </div>
+            var lijst = Gevonden;
+            <div class="card">
+                <table class="table table-sm align-middle mb-0 kostenplaatsboekingen" data-sleepbaar="kostenplaatsboekingen">
+                    <thead>
+                        <tr><th>Datum</th><th>Boekstuk</th><th>Grootboek</th><th>Omschrijving</th><th>Relatie</th><th class="text-end">Debet</th><th class="text-end">Credit</th></tr>
+                    </thead>
+                    <tbody>
+                        @if (perRekening)
+                        {
+                            @foreach (var groep in lijst.GroupBy(r => r.Rekeningnummer).OrderBy(g => g.Key, StringComparer.Ordinal))
+                            {
+                                <tr class="groepkop"><td colspan="7"><span class="rekeningnummer">@groep.Key</span> @groep.First().Rekeningnaam</td></tr>
+                                @foreach (var r in groep)
+                                {
+                                    @Regel(r)
+                                }
+                                var saldo = groep.Sum(r => r.Bedrag);
+                                <tr class="subtotaal"><td colspan="5">Totaal @groep.Key</td><td class="bedrag text-end">@(saldo > 0 ? Weergave.Bedrag(saldo) : null)</td><td class="bedrag text-end">@(saldo < 0 ? Weergave.Bedrag(-saldo) : null)</td></tr>
+                            }
+                        }
+                        else
+                        {
+                            @foreach (var r in lijst)
+                            {
+                                @Regel(r)
+                            }
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr class="totaal">
+                            <td colspan="5">Totaal</td>
+                            <td class="bedrag text-end">@Weergave.Bedrag(lijst.Where(r => r.Bedrag > 0).Sum(r => r.Bedrag))</td>
+                            <td class="bedrag text-end">@Weergave.Bedrag(-lijst.Where(r => r.Bedrag < 0).Sum(r => r.Bedrag))</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        }
+    </ChildContent>
+</AdministratieKader>
+
+@code {
+    private Geopend? geopend;
+    private Kostenplaatsregel? kostenplaats;
+    private IReadOnlyList<Kostenplaatsboeking>? regels;
+    private bool geladen;
+    private string? zoek;
+    private bool perRekening;
+    private DateOnly van;
+    private DateOnly tot;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [Parameter]
+    public string Code { get; set; } = "";
+
+    [SupplyParameterFromQuery(Name = "van")]
+    public string? VanTekst { get; set; }
+
+    [SupplyParameterFromQuery(Name = "tot")]
+    public string? TotTekst { get; set; }
+
+    private string Titel => kostenplaats is { } k ? $"{k.Code} {k.Naam}" : "Kostenplaats";
+
+    private IReadOnlyList<Kostenplaatsboeking> Gevonden =>
+        string.IsNullOrWhiteSpace(zoek)
+            ? regels ?? []
+            : [.. (regels ?? []).Where(r => new[] { r.Omschrijving, r.Rekeningnummer, r.Rekeningnaam, r.Relatie, r.Factuurnummer, r.Boekstuk, Weergave.Bedrag(Math.Abs(r.Bedrag)) }
+                .Any(t => t?.Contains(zoek.Trim(), StringComparison.OrdinalIgnoreCase) == true))];
+
+    private RenderFragment Regel(Kostenplaatsboeking r) => @<tr class="klikbaar" @onclick="() => OpenBoeking(r)" title="Openen: bekijken of aanpassen">
+        <td class="text-nowrap">@Weergave.Datum(r.Datum)</td>
+        <td class="text-nowrap">@r.Dagboek @r.Boekstuk</td>
+        <td class="text-truncate" title="@r.Rekeningnaam"><span class="rekeningnummer">@r.Rekeningnummer</span> @r.Rekeningnaam</td>
+        <td class="text-truncate" title="@r.Omschrijving">@r.Omschrijving</td>
+        <td class="text-truncate text-secondary">@r.Relatie</td>
+        <td class="bedrag text-end">@(r.Bedrag > 0 ? Weergave.Bedrag(r.Bedrag) : null)</td>
+        <td class="bedrag text-end">@(r.Bedrag < 0 ? Weergave.Bedrag(-r.Bedrag) : null)</td>
+    </tr>;
+
+    private async Task Open(Geopend g)
+    {
+        geopend = g;
+        var boekjaren = await Grootboek.Boekjaren(g.Wie, Id);
+        (van, tot) = Weergave.Periode(VanTekst, TotTekst) ?? Periode.Jaar(boekjaren[0]);
+        await Laad();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (geopend is not null && kostenplaats?.Code != Code)
+        {
+            await Laad();
+        }
+    }
+
+    private async Task Laad()
+    {
+        kostenplaats = (await Kostenplaatsen.Lijst(geopend!.Wie, Id)).FirstOrDefault(k => k.Code == Code);
+        regels = kostenplaats is null ? null : await Kostenplaatsen.Boekingen(geopend.Wie, Id, kostenplaats.Code, van, tot);
+        geladen = true;
+    }
+
+    private async Task KiesPeriode((DateOnly Van, DateOnly Tot) periode)
+    {
+        (van, tot) = periode;
+        Navigatie.NavigateTo($"/a/{Id}/kostenplaatsen/{Uri.EscapeDataString(Code)}?{Weergave.Periodequery(van, tot)}", replace: true);
+        await Laad();
+    }
+
+    private void OpenBoeking(Kostenplaatsboeking r) =>
+        Navigatie.NavigateTo($"/a/{Id}/boeking/{Uri.EscapeDataString(r.Dagboek)}/{Uri.EscapeDataString(r.Boekstuk)}?terug={Uri.EscapeDataString($"/a/{Id}/kostenplaatsen/{Uri.EscapeDataString(Code)}?{Weergave.Periodequery(van, tot)}")}");
+}

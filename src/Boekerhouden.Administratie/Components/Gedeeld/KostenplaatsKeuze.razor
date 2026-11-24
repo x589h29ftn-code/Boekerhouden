@@ -1,0 +1,36 @@
+@* De kostenplaats van een regel: een keuzelijst met de kostenplaatsen van de administratie, leeg = geen. Een vervallen
+   kostenplaats die al op de regel staat, blijft te zien. *@
+
+<select class="form-select form-select-sm @Klasse" value="@(Waarde ?? "")" @onchange="Kies" aria-label="Kostenplaats" title="@Titel" disabled="@Uit">
+    <option value=""></option>
+    @foreach (var k in Lijst)
+    {
+        <option value="@k.Code" title="@k.Naam">@k.Weergave</option>
+    }
+    @if (!string.IsNullOrEmpty(Waarde) && Lijst.All(k => k.Code != Waarde))
+    {
+        <option value="@Waarde">@Waarde</option>
+    }
+</select>
+
+@code {
+    [Parameter]
+    public string? Waarde { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> WaardeChanged { get; set; }
+
+    /// <summary>De kostenplaatsen om uit te kiezen (<see cref="KostenplaatsDienst.Keuze"/>).</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<Kostenplaatsregel> Lijst { get; set; } = [];
+
+    [Parameter]
+    public string? Klasse { get; set; }
+
+    [Parameter]
+    public bool Uit { get; set; }
+
+    private string? Titel => Lijst.FirstOrDefault(k => k.Code == Waarde)?.Weergave ?? "Kostenplaats";
+
+    private Task Kies(ChangeEventArgs e) => WaardeChanged.InvokeAsync(e.Value is string { Length: > 0 } code ? code : null);
+}

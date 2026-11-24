@@ -108,7 +108,7 @@ public static partial class AuditfileLezer
                 return new AuditfileBoeking(Tekst(t, "nr") ?? "", Leeg(Tekst(t, "desc")), datum,
                     int.TryParse(Tekst(t, "periodNumber"), NumberStyles.Integer, Inv, out var p) ? p : datum.Month,
                     [.. Kinderen(t, "trLine").Select(r => new AuditfileRegel(Tekst(r, "accID") ?? "", Bedrag(r, fouten), Leeg(Tekst(r, "desc")),
-                        Leeg(Tekst(r, "custSupID")), Leeg(Tekst(r, "invRef")), Leeg(Tekst(Kind(r, "vat"), "vatID"))))]);
+                        Leeg(Tekst(r, "custSupID")), Leeg(Tekst(r, "invRef")), Leeg(Tekst(Kind(r, "vat"), "vatID")), Kostenplaats: Leeg(Tekst(r, "costID"))))]);
             }).ToList();
             var code = Tekst(j, "jrnID") ?? "";
             return new AuditfileDagboek(code, Tekst(j, "desc") ?? code, soort, Leeg(Tekst(j, "offsetAccID")), boekingen);
