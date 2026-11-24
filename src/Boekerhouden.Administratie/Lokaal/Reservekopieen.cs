@@ -180,7 +180,7 @@ public sealed class Reservekopieen(string gegevensmap, TimeProvider tijd)
             using var kopie = new SqliteConnection($"Data Source={doel};Pooling=False");
             bron.Open();
             kopie.Open();
-            bron.BackupDatabase(kopie);
+            Kopieer(bron, kopie);
 
             // De database draait in WAL-modus en de kopie erft dat: dan kan een deel nog in een los -wal-bestand staan.
             // Terug naar een gewoon journaal schrijft alles in het ene bestand, zodat de kopie op zichzelf staat.
@@ -417,6 +417,26 @@ public sealed class Reservekopieen(string gegevensmap, TimeProvider tijd)
     {
         using var stroom = File.OpenRead(pad);
         return Convert.ToHexString(SHA256.HashData(stroom));
+    }
+
+    /// <summary>
+    /// Kopieert de database. Schrijft er net iemand in (of ruimt SQLite het WAL-bestand op), dan is hij heel even
+    /// vergrendeld (fout 5 of 6): dan even wachten en opnieuw, in plaats van de kopie te laten mislukken.
+    /// </summary>
+    internal static void Kopieer(SqliteConnection bron, SqliteConnection kopie)
+    {
+        for (var poging = 1; ; poging++)
+        {
+            try
+            {
+                bron.BackupDatabase(kopie);
+                return;
+            }
+            catch (SqliteException fout) when (fout.SqliteErrorCode is 5 or 6 && poging < 10)
+            {
+                Thread.Sleep(100 * poging);
+            }
+        }
     }
 
     private static string Soortnaam(Reservekopiesoort soort) => soort switch

@@ -396,6 +396,48 @@ public sealed class UpdateEnReservekopieTests : IDisposable
     }
 
     [Fact]
+    public async Task Een_kopie_wacht_even_als_de_database_net_vergrendeld_is()
+    {
+        var map = Directory.CreateTempSubdirectory("sifer-slot-").FullName;
+        try
+        {
+            var bestand = Path.Combine(map, "bron.db");
+            var schrijver = new SqliteConnection($"Data Source={bestand};Pooling=False");
+            schrijver.Open();
+            using (var opdracht = schrijver.CreateCommand())
+            {
+                // Iemand schrijft en houdt de database even helemaal vast (ook voor lezers).
+                opdracht.CommandText = "PRAGMA journal_mode = WAL; CREATE TABLE t (x); INSERT INTO t VALUES (1); PRAGMA locking_mode = EXCLUSIVE; BEGIN EXCLUSIVE; INSERT INTO t VALUES (2);";
+                opdracht.ExecuteNonQuery();
+            }
+
+            var los = Task.Run(async () =>
+            {
+                await Task.Delay(400);
+                using var klaar = schrijver.CreateCommand();
+                klaar.CommandText = "COMMIT";
+                klaar.ExecuteNonQuery();
+                schrijver.Dispose();
+            });
+            using var bron = new SqliteConnection($"Data Source={bestand};Mode=ReadOnly;Pooling=False");
+            using var kopie = new SqliteConnection($"Data Source={Path.Combine(map, "kopie.db")};Pooling=False");
+            bron.Open();
+            kopie.Open();
+            Reservekopieen.Kopieer(bron, kopie);
+            await los;
+
+            using var tel = kopie.CreateCommand();
+            tel.CommandText = "SELECT count(*) FROM t";
+            Assert.Equal(2L, tel.ExecuteScalar());
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            Directory.Delete(map, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Bij_te_weinig_schijfruimte_gaan_oude_kopieen_weg_en_anders_gebeurt_er_niets()
     {
         await GevuldeApp();
