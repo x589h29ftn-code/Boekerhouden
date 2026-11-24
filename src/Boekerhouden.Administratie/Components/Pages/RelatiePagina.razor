@@ -2,6 +2,7 @@
 @using Boekerhouden.Boekhouding.Herkenning
 @inject InrichtingDienst Inrichting
 @inject GrootboekDienst Grootboek
+@inject KostenplaatsDienst Kostenplaatsen
 
 <AdministratieKader Id="Id" Titel="@(geleerd?.Relatie.Naam ?? "Relatie")" Actief="/relaties" BijOpenen="Open">
     <Foutmeldingen Fouten="fouten" />
@@ -31,6 +32,13 @@
                         <label class="form-label" for="ro" title="De omschrijving van de boeking bij een factuur van deze relatie, met variabelen als #maand en #factuurnummer. Gaat voor op de standaard van de administratie; een regel of de omschrijving op de factuur zelf gaat weer voor. Leeg = de standaard.">Omschrijving boeking</label>
                         <input id="ro" class="form-control form-control-sm" maxlength="200" @bind="gegevens.Omschrijving" placeholder="zoals de administratie" />
                     </div>
+                    @if (kostenplaatsen.Count > 0 || gegevens.Kostenplaats is not null)
+                    {
+                        <div class="col-md-3">
+                            <label class="form-label" title="Komt vanzelf op de regels van een inkoop- of verkoopfactuur van deze relatie; per regel aan te passen.">Kostenplaats</label>
+                            <KostenplaatsKeuze @bind-Waarde="gegevens.Kostenplaats" Lijst="kostenplaatsen" />
+                        </div>
+                    }
                 </div>
                 <div class="form-check mt-3 mb-2">
                     <input class="form-check-input" type="checkbox" id="klant" @bind="gegevens.IsKlant" />
@@ -211,7 +219,7 @@
         var r = geleerd!.Relatie;
         var uitkomst = await Inrichting.WijzigRelatie(geopend!.Wie, Id, r.Id, new RelatieInvoer(gegevens.Naam, gegevens.BtwNummer, gegevens.KvkNummer, gegevens.Tegenrekening,
             new Klantgegevens(gegevens.IsKlant, gegevens.Straat, gegevens.Postcode, gegevens.Plaats, gegevens.Land, gegevens.Email, gegevens.Contactpersoon, termijn,
-                gegevens.Omzetrekening, gegevens.Verkoopbtwcode), gegevens.Omschrijving));
+                gegevens.Omzetrekening, gegevens.Verkoopbtwcode), gegevens.Omschrijving, gegevens.Kostenplaats));
         fouten = uitkomst.Fouten;
         if (uitkomst.IsGelukt)
         {
@@ -232,6 +240,8 @@
         public string? Tegenrekening { get; set; }
 
         public string? Omschrijving { get; set; }
+
+        public string? Kostenplaats { get; set; }
 
         public bool IsKlant { get; set; }
 
@@ -260,6 +270,7 @@
             KvkNummer = r.KvkNummer,
             Tegenrekening = r.Tegenrekening,
             Omschrijving = r.Omschrijving,
+            Kostenplaats = r.Kostenplaats,
             IsKlant = r.Klant?.IsKlant ?? false,
             Straat = r.Klant?.Straat,
             Postcode = r.Klant?.Postcode,
@@ -273,8 +284,11 @@
         };
     }
 
+    private IReadOnlyList<Kostenplaatsregel> kostenplaatsen = [];
+
     private async Task Open(Geopend g)
     {
+        kostenplaatsen = await Kostenplaatsen.Keuze(g.Wie, Id);
         geopend = g;
         geleerd = await Inrichting.Geleerd(g.Wie, Id, Code);
         if (geleerd is not null)

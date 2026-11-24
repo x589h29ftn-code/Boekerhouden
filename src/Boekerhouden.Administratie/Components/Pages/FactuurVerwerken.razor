@@ -10,6 +10,7 @@
 @inject NavigationManager Navigatie
 @inject IJSRuntime JS
 @inject IServiceProvider Diensten
+@inject KostenplaatsDienst Kostenplaatsen
 
 <AdministratieKader Id="Id" Titel="Factuur verwerken" Actief="/inkoop" BijOpenen="Open" Terug="@(Terug ?? $"/a/{Id}/inkoop")">
     <Acties>
@@ -125,7 +126,10 @@
                                 }
                                 <table class="table table-sm align-baseline regeltabel mt-3 mb-0">
                                     <thead>
-                                        <tr><th>Omschrijving</th><th>Grootboekrekening</th><th>Btw</th><th class="text-end">Excl. btw</th><th class="text-end">Btw-bedrag</th></tr>
+                                        <tr><th>Omschrijving</th><th>Grootboekrekening</th><th>Btw</th><th class="text-end">Excl. btw</th><th class="text-end">Btw-bedrag</th>@if (g.Regels.Any(r => r.Kostenplaats is not null))
+                                            {
+                                                <th>Kostenplaats</th>
+                                            }</tr>
                                     </thead>
                                     <tbody>
                                         @foreach (var r in g.Regels)
@@ -136,6 +140,10 @@
                                                 <td title="@r.BtwCode">@(BtwCodes.Zoek(verwerking.Btwtabel.Op(g.Datum), r.BtwCode)?.Kort ?? r.BtwCode)</td>
                                                 <td class="bedrag text-end">@Weergave.Bedrag(r.Bedrag)</td>
                                                 <td class="bedrag text-end">@(r.Btw is { } b ? Weergave.Bedrag(b) : null)</td>
+                                                @if (g.Regels.Any(x => x.Kostenplaats is not null))
+                                                {
+                                                    <td class="text-secondary">@r.Kostenplaats</td>
+                                                }
                                             </tr>
                                         }
                                     </tbody>
@@ -289,15 +297,19 @@
                                         {
                                             <th>Omschrijving</th>
                                         }
-                                        <th style="width:27%">Grootboekrekening</th>
+                                        <th style="width:@(MetKostenplaats ? "22%" : "27%")">Grootboekrekening</th>
                                         @if (!ZonderBtw)
                                         {
-                                            <th style="width:21%">Btw</th>
+                                            <th style="width:@(MetKostenplaats ? "15%" : "21%")">Btw</th>
                                         }
                                         <th class="text-end" style="width:15%">@(ZonderBtw ? "Bedrag" : "Excl. btw")</th>
                                         @if (Toon("btwbedrag") && !ZonderBtw)
                                         {
                                             <th class="text-end" style="width:14%">Btw-bedrag</th>
+                                        }
+                                        @if (MetKostenplaats)
+                                        {
+                                            <th style="width:13%">Kostenplaats</th>
                                         }
                                         <th style="width:1.75rem"></th>
                                     </tr>
@@ -338,6 +350,10 @@
                                                         }
                                                     </div>
                                                 </td>
+                                            }
+                                            @if (MetKostenplaats)
+                                            {
+                                                <td><KostenplaatsKeuze @bind-Waarde="regel.Kostenplaats" Lijst="kostenplaatsen" /></td>
                                             }
                                             <td><button class="btn btn-sm btn-link text-secondary p-0 regel-weg" title="Regel verwijderen" @onclick="() => Verwijder(regel)" disabled="@(regels.Count <= 1)"><Icoon Naam="x" /></button></td>
                                         </tr>
@@ -613,6 +629,7 @@
         geopend = g;
         geladen = DocumentId;
         activarekeningen = await Activa.Activarekeningen(g.Wie, Id);
+        kostenplaatsen = await Kostenplaatsen.Keuze(g.Wie, Id);
         werkvoorraad = await Inkoop.Lijst(g.Wie, Id, Documentstatus.TeVerwerken);
         verwerking = await Inkoop.Verwerking(g.Wie, Id, DocumentId);
         if (verwerking is null)
@@ -636,7 +653,7 @@
         regels = NietBtwPlichtig && voorstel?.Factuur is null && Boekerhouden.Administratie.Diensten.InkoopDienst.ZonderBtw(Codes) is { } geen
             ? [new Invoerregel { Rekening = rekening, BtwCode = geen.Code, Bedrag = herkend?.TotaalInclusief is { } incl ? Bedragen.Getal(Math.Abs(incl)) : null }]
             : voorstel?.Factuur is { } f
-            ? [.. f.Regels.Select(r => new Invoerregel { Rekening = r.Rekeningnummer, BtwCode = r.BtwCode, Bedrag = Bedragen.Getal(r.Bedrag), Btw = r.Btw is { } b ? Bedragen.Getal(b) : null })]
+            ? [.. f.Regels.Select(r => new Invoerregel { Rekening = r.Rekeningnummer, BtwCode = r.BtwCode, Bedrag = Bedragen.Getal(r.Bedrag), Btw = r.Btw is { } b ? Bedragen.Getal(b) : null, Kostenplaats = r.Kostenplaats })]
             : verlegd is not null
                 ? [new Invoerregel { Rekening = rekening, BtwCode = verlegd.Code, Bedrag = (herkend!.TotaalExclusief ?? herkend.TotaalInclusief) is { } v ? Bedragen.Getal(v) : null }]
                 : herkend?.Btwregels is { Count: > 0 } btw
@@ -648,6 +665,8 @@
                         Btw = Bedragen.Getal(b.Btw),
                     })]
                     : [new Invoerregel { Rekening = rekening, BtwCode = standaardCode, Bedrag = Exclusief(herkend, standaardCode) is { } e ? Bedragen.Getal(e) : null }];
+
+        ZetStandaardKostenplaats();
 
         // Een creditnota (negatief totaal) staat in het formulier zonder minteken; het pakket boekt hem omgekeerd.
         soort = herkend?.TotaalInclusief < 0 ? Documentsoort.Creditnota : Documentsoort.Factuur;
@@ -1081,7 +1100,7 @@
     /// <summary>Een regel erbij (uitsplitsen): met wat er nog niet verdeeld is ten opzichte van het factuurtotaal.</summary>
     private void RegelToevoegen()
     {
-        var regel = new Invoerregel { Rekening = regels[^1].Rekening, BtwCode = regels[^1].BtwCode };
+        var regel = new Invoerregel { Rekening = regels[^1].Rekening, BtwCode = regels[^1].BtwCode, Kostenplaats = regels[^1].Kostenplaats };
         if (Verschil is { } verschil && verschil != 0 && BtwCodes.Zoek(Codes, regel.BtwCode) is { } code)
         {
             // Wat er nog over is (of te veel is: dan een negatieve regel). Bij btw op de factuur gaat de btw uit het
@@ -1133,7 +1152,7 @@
         bezig = true;
         var inhoud = new Inkoopconcept(leverancier, nieuw.Naam, nieuw.Iban, nieuw.BtwNummer, nieuw.KvkNummer, factuurnummer, datum, vervaldatum, omschrijving, kenmerk,
             soort, factuurbedrag, verdelen, verdeelVan, verdeelTot, verdeelRekening,
-            [.. regels.Select(x => new Inkoopconceptregel(x.Rekening, x.BtwCode, x.Bedrag, x.Btw, x.BtwHandmatig, x.Omschrijving))], verrekenMet);
+            [.. regels.Select(x => new Inkoopconceptregel(x.Rekening, x.BtwCode, x.Bedrag, x.Btw, x.BtwHandmatig, x.Omschrijving, x.Kostenplaats))], verrekenMet);
         await Concepten.Bewaar(geopend!.Wie, Id, Conceptsoort.Inkoop, DocumentId, inhoud, $"{Variabelen.Leverancier} {factuurnummer}".Trim());
         concept = await Concepten.Lees<Inkoopconcept>(geopend.Wie, Id, Conceptsoort.Inkoop, DocumentId);
         bezig = false;
@@ -1146,7 +1165,7 @@
         nieuw = new NieuweLeverancier { Naam = c.NieuwNaam, Iban = c.NieuwIban, BtwNummer = c.NieuwBtwNummer, KvkNummer = c.NieuwKvkNummer };
         (soort, factuurbedrag, verdelen, verdeelVan, verdeelTot, verdeelRekening) = (c.Soort, c.Factuurbedrag, c.Verdelen, c.VerdeelVan, c.VerdeelTot, c.VerdeelRekening);
         verrekenMet = c.VerrekenMet;
-        regels = [.. c.Regels.Select(x => new Invoerregel { Rekening = x.Rekening, BtwCode = x.BtwCode, Bedrag = x.Bedrag, Btw = x.Btw, BtwHandmatig = x.BtwHandmatig, Omschrijving = x.Omschrijving })];
+        regels = [.. c.Regels.Select(x => new Invoerregel { Rekening = x.Rekening, BtwCode = x.BtwCode, Bedrag = x.Bedrag, Btw = x.Btw, BtwHandmatig = x.BtwHandmatig, Omschrijving = x.Omschrijving, Kostenplaats = x.Kostenplaats })];
         if (regels.Count == 0)
         {
             regels.Add(new Invoerregel());
@@ -1174,7 +1193,7 @@
             leverancier == Nieuw ? null : leverancier,
             leverancier == Nieuw ? new NieuweRelatie(nieuw.Naam, nieuw.Iban, nieuw.BtwNummer, nieuw.KvkNummer) : null,
             factuurnummer, datum, vervaldatum, omschrijving,
-            [.. regels.Select(r => new Factuurregel(string.IsNullOrWhiteSpace(r.Omschrijving) ? omschrijving : r.Omschrijving.Trim(), r.Rekening.Trim(), r.BtwCode, Getal(r.Bedrag)!.Value, Getal(BtwTekst(r))))],
+            [.. regels.Select(r => new Factuurregel(string.IsNullOrWhiteSpace(r.Omschrijving) ? omschrijving : r.Omschrijving.Trim(), r.Rekening.Trim(), r.BtwCode, Getal(r.Bedrag)!.Value, Getal(BtwTekst(r)), r.Kostenplaats))],
             kenmerk,
             [.. aanwijzingen.Values],
             soort == Documentsoort.Creditnota,
@@ -1282,6 +1301,7 @@
 
     private async Task LaadHistorie()
     {
+        ZetStandaardKostenplaats();
         historie = leverancier == Nieuw || geopend is null ? [] : await Inkoop.Historie(geopend.Wie, Id, leverancier);
         voorkeur = [.. historie.GroupBy(h => h.Rekening).OrderByDescending(g => g.Count()).Select(g => g.Key)];
     }
@@ -1332,6 +1352,7 @@
                 Bedrag = Bedragen.Getal(r.Bedrag),
                 Btw = r.Btw is { } b ? Bedragen.Getal(b) : null,
                 Omschrijving = r.Omschrijving.Length > 0 ? r.Omschrijving : null,
+                Kostenplaats = r.Kostenplaats,
             }),
         ];
         foreach (var r in regels)
@@ -1516,7 +1537,7 @@
         Documentsoort Soort, string? Factuurbedrag, bool Verdelen, DateOnly VerdeelVan, DateOnly VerdeelTot, string VerdeelRekening,
         IReadOnlyList<Inkoopconceptregel> Regels, Guid? VerrekenMet = null);
 
-    public sealed record Inkoopconceptregel(string Rekening, string BtwCode, string? Bedrag, string? Btw, bool BtwHandmatig, string? Omschrijving);
+    public sealed record Inkoopconceptregel(string Rekening, string BtwCode, string? Bedrag, string? Btw, bool BtwHandmatig, string? Omschrijving, string? Kostenplaats = null);
 
     private sealed class NieuweLeverancier
     {
@@ -1544,5 +1565,26 @@
 
         /// <summary>Eigen omschrijving van deze regel; leeg = de omschrijving van de factuur.</summary>
         public string? Omschrijving { get; set; }
+
+        public string? Kostenplaats { get; set; }
+    }
+
+    private IReadOnlyList<Kostenplaatsregel> kostenplaatsen = [];
+
+    /// <summary>De kolom Kostenplaats: als er kostenplaatsen zijn (module aan), of als een regel er al een heeft.</summary>
+    private bool MetKostenplaats => kostenplaatsen.Count > 0 || regels.Any(r => r.Kostenplaats is not null);
+
+    /// <summary>De standaard kostenplaats van de gekozen leverancier op de regels die er nog geen hebben.</summary>
+    private void ZetStandaardKostenplaats()
+    {
+        if (verwerking?.Relaties.FirstOrDefault(r => r.Code == leverancier)?.Kostenplaats is not { Length: > 0 } standaard || kostenplaatsen.All(k => k.Code != standaard))
+        {
+            return;
+        }
+
+        foreach (var r in regels.Where(r => r.Kostenplaats is null))
+        {
+            r.Kostenplaats = standaard;
+        }
     }
 }

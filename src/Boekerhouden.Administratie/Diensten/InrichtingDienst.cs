@@ -11,7 +11,9 @@ namespace Boekerhouden.Administratie.Diensten;
 
 /// <param name="Klant">De gegevens als klant; leeg = ongewijzigd laten.</param>
 /// <param name="Omschrijving">De omschrijving van een boeking van deze relatie, met variabelen; leeg = de standaard van de administratie.</param>
-public sealed record RelatieInvoer(string Naam, string? BtwNummer, string? KvkNummer, string? Tegenrekening, Klantgegevens? Klant = null, string? Omschrijving = null);
+/// <param name="Kostenplaats">De standaard kostenplaats voor facturen van deze relatie; leeg = geen.</param>
+public sealed record RelatieInvoer(string Naam, string? BtwNummer, string? KvkNummer, string? Tegenrekening, Klantgegevens? Klant = null, string? Omschrijving = null,
+    string? Kostenplaats = null);
 
 /// <summary>
 /// De gegevens van een relatie als klant: adres en contact voor op de factuur, betalingstermijn, en de omzetrekening
@@ -57,7 +59,8 @@ public sealed record RelatieRegel(
     decimal? ControleAfwijking = null,
     Klantgegevens? Klant = null,
     bool IsLeverancier = false,
-    string? Omschrijving = null);
+    string? Omschrijving = null,
+    string? Kostenplaats = null);
 
 public sealed record RegelRegel(Guid Id, int Volgorde, Verwerkingsregel Regel);
 
@@ -146,7 +149,7 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
             .Select(p => p.Relatie).Distinct().ToListAsync()).ToHashSet(StringComparer.Ordinal);
         return [.. (await db.Relaties.AsNoTracking().OrderBy(r => r.Naam).ToListAsync())
             .Select(r => new RelatieRegel(r.Id, r.Code, r.Naam, r.Ibans, r.BtwNummer, r.KvkNummer, r.Tegenrekening, r.ControleVanaf, r.ControleAfwijking, Klantgegevens.Van(r),
-                leveranciers.Contains(r.Code), r.Omschrijving))];
+                leveranciers.Contains(r.Code), r.Omschrijving, r.Kostenplaats))];
     }
 
     /// <summary>Wat het pakket van deze leverancier geleerd heeft (inkoopfacturen), of leeg als de relatie niet bestaat.</summary>
@@ -174,7 +177,7 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
             .ToList();
         return new GeleerdeLeverancier(
             new RelatieRegel(r.Id, r.Code, r.Naam, r.Ibans, r.BtwNummer, r.KvkNummer, r.Tegenrekening, r.ControleVanaf, r.ControleAfwijking, Klantgegevens.Van(r),
-                Omschrijving: r.Omschrijving),
+                Omschrijving: r.Omschrijving, Kostenplaats: r.Kostenplaats),
             voorstel,
             geheugen.Drempel,
             [.. keuzes.Select(k => new Bevestigd(k.Tijdstip, k.NaarDomein()))],
@@ -664,6 +667,11 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
             fouten.Add($"Rekening {invoer.Tegenrekening} bestaat niet.");
         }
 
+        if (Leeg(invoer.Kostenplaats) is { } kostenplaats && !await db.Kostenplaatsen.AnyAsync(k => k.Code == kostenplaats))
+        {
+            fouten.Add($"Kostenplaats {kostenplaats} bestaat niet.");
+        }
+
         if (Omschrijvingssjabloon.Onbekend(invoer.Omschrijving) is { Count: > 0 } onbekend)
         {
             fouten.Add($"Onbekende variabele in de omschrijving: {string.Join(", ", onbekend.Select(o => "#" + o))}.");
@@ -702,6 +710,7 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
         relatie.KvkNummer = Leeg(invoer.KvkNummer);
         relatie.Tegenrekening = Leeg(invoer.Tegenrekening);
         relatie.Omschrijving = Leeg(invoer.Omschrijving);
+        relatie.Kostenplaats = Leeg(invoer.Kostenplaats);
         if (invoer.Klant is { } k)
         {
             relatie.Klant = k.IsKlant;

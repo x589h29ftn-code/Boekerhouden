@@ -903,7 +903,7 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
             var eerder = i < vorige.Count ? await GeldendeBoeking(db, vorige[i]) : null;
             var boekstuk = eerder?.Boekstuk ?? await VolgendBoekstuk(db, memoriaal.Code, maand.Year);
             var post = new Journaalpost(eerder?.Dagboek ?? memoriaal.Code, boekstuk, maand, Kort($"Verdeling {factuur.Factuurnummer} {maand:MM-yyyy} ({i + 1}/{maanden.Count}): {factuur.Omschrijving}"),
-                [.. maandregels.Select(r => new Journaalregel(r.Rekeningnummer, r.Bedrag, Kort($"Verdeling {i + 1}/{maanden.Count}: {r.Omschrijving ?? factuur.Omschrijving}"), null, factuur.Relatie, factuur.Factuurnummer))]);
+                [.. maandregels.Select(r => new Journaalregel(r.Rekeningnummer, r.Bedrag, Kort($"Verdeling {i + 1}/{maanden.Count}: {r.Omschrijving ?? factuur.Omschrijving}"), null, factuur.Relatie, factuur.Factuurnummer, r.Kostenplaats))]);
             if (Journaalcontrole.Controleer(post, schema, dagboeken) is { Count: > 0 } fouten)
             {
                 return Uitkomst<IReadOnlyList<string>>.Mislukt([.. fouten]);

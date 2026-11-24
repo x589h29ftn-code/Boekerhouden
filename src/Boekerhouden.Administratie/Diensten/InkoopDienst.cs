@@ -478,7 +478,7 @@ public sealed class InkoopDienst(
         }
 
         var regels = kosten.Select(r => new Factuurregel(r.Omschrijving == boeking.Omschrijving ? string.Empty : r.Omschrijving ?? string.Empty, r.Rekeningnummer,
-            r.BtwCode ?? "I0", teken * r.Bedrag, btwPerRegel[r] is { } b ? teken * b : null)).ToList();
+            r.BtwCode ?? "I0", teken * r.Bedrag, btwPerRegel[r] is { } b ? teken * b : null, r.Kostenplaats)).ToList();
 
         // Met een periodeverdeling staan de kosten op de verdeelrekening; de kostenrekeningen per regel zijn bewaard.
         var verdeling = doc.Verdeling is { } json ? JsonSerializer.Deserialize<Verdelingsgegevens>(json, Json) : null;
@@ -1093,7 +1093,7 @@ public sealed class InkoopDienst(
             return Uitkomst.Mislukt(fout.Message.Split(" (Parameter", 2)[0]);
         }
 
-        var controle = Journaalcontrole.Controleer(post, schema, dagboeken);
+        var controle = Journaalcontrole.Controleer(post, schema, dagboeken).Concat(await KostenplaatsDienst.Fouten(db, post, vorige?.NaarDomein())).ToList();
         if (controle.Count > 0)
         {
             return Uitkomst.Mislukt([.. controle]);
@@ -1105,7 +1105,7 @@ public sealed class InkoopDienst(
         var oudeStukken = oudeVerdeling?.Boekstukken ?? [];
         if (verdeling is not null)
         {
-            var verdeeld = await grootboek.BoekVerdeling(db, administratie, verdeling, memoriaal!, factuur, [.. factuur.Regels.Select(r => new Verdeelregel(r.Rekeningnummer, r.Bedrag, r.Omschrijving))], schema, dagboeken, wie, oudeStukken);
+            var verdeeld = await grootboek.BoekVerdeling(db, administratie, verdeling, memoriaal!, factuur, [.. factuur.Regels.Select(r => new Verdeelregel(r.Rekeningnummer, r.Bedrag, r.Omschrijving, r.Kostenplaats))], schema, dagboeken, wie, oudeStukken);
             if (!verdeeld.IsGelukt)
             {
                 return Uitkomst.Mislukt([.. verdeeld.Fouten]);

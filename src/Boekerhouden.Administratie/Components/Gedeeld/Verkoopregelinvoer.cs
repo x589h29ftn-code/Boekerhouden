@@ -23,6 +23,8 @@ public sealed class Verkoopregelinvoer
 
     public string BtwCode { get; set; } = "V21";
 
+    public string? Kostenplaats { get; set; }
+
     /// <summary>Geen aantal: een vast bedrag, de prijs is het bedrag van de regel.</summary>
     public bool Vast => string.IsNullOrWhiteSpace(Aantal);
 
@@ -36,7 +38,8 @@ public sealed class Verkoopregelinvoer
         }
 
         var korting = string.IsNullOrWhiteSpace(Korting) ? 0m : BedragParser.TryParse(Korting.TrimEnd('%', ' '), out var k) ? k : -1m;
-        return new Verkoopregel(Omschrijving ?? "", aantal, prijs, Rekening ?? "", BtwCode, Vast ? null : Eenheid, korting, Vast);
+        return new Verkoopregel(Omschrijving ?? "", aantal, prijs, Rekening ?? "", BtwCode, Vast ? null : Eenheid, korting, Vast,
+            string.IsNullOrWhiteSpace(Kostenplaats) ? null : Kostenplaats);
     }
 
     public static Verkoopregelinvoer Van(Verkoopregel r) => new()
@@ -49,6 +52,7 @@ public sealed class Verkoopregelinvoer
         Korting = r.Korting == 0 ? null : r.Korting.ToString("0.##", Nl),
         Rekening = r.Rekeningnummer,
         BtwCode = r.BtwCode,
+        Kostenplaats = r.Kostenplaats,
     };
 
     /// <summary>De regels als ze allemaal te lezen zijn; anders de fouten per regel.</summary>

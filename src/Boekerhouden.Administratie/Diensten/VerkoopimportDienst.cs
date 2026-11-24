@@ -102,6 +102,10 @@ public sealed class VerkoopimportDienst(
             var codes = context.Btwtabel.Op(datum);
             var omzet = relatie?.Omzetrekening ?? context.Omzetrekening ?? "";
             var regels = Verkoopimport.Regels(herkend, codes, omzet, relatie?.Land ?? herkend.Afnemer?.Land);
+            if (relatie?.Kostenplaats is { Length: > 0 } kostenplaats && await db.Kostenplaatsen.AnyAsync(k => k.Code == kostenplaats && !k.Vervallen, annulering))
+            {
+                regels = [.. regels.Select(r => r with { Kostenplaats = kostenplaats })];
+            }
             var vervaldatum = herkend.Vervaldatum ?? datum.AddDays(relatie?.Betalingstermijn ?? context.Betalingstermijn);
             var invoer = new Verkoopinvoer(relatie?.Code ?? "", datum, vervaldatum,
                 Omschrijving(string.IsNullOrWhiteSpace(relatie?.Omschrijving) ? context.OmschrijvingIngelezen : relatie.Omschrijving, herkend, relatie?.Naam, datum, vervaldatum), regels, Factuurnummer: herkend.Factuurnummer);

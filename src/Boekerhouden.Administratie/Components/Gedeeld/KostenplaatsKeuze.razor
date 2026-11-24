@@ -5,7 +5,7 @@
     <option value=""></option>
     @foreach (var k in Lijst)
     {
-        <option value="@k.Code" title="@k.Naam">@k.Weergave</option>
+        <option value="@k.Code" title="@k.Naam">@(AlleenCode ? k.Code : k.Weergave)</option>
     }
     @if (!string.IsNullOrEmpty(Waarde) && Lijst.All(k => k.Code != Waarde))
     {
@@ -29,6 +29,10 @@
 
     [Parameter]
     public bool Uit { get; set; }
+
+    /// <summary>Alleen de code in de lijst (een smalle kolom); de naam staat in de tooltip.</summary>
+    [Parameter]
+    public bool AlleenCode { get; set; }
 
     private string? Titel => Lijst.FirstOrDefault(k => k.Code == Waarde)?.Weergave ?? "Kostenplaats";
 

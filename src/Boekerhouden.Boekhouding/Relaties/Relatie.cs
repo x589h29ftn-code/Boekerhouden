@@ -11,6 +11,7 @@ namespace Boekerhouden.Boekhouding.Relaties;
 /// De omschrijving van een boeking van deze relatie, met variabelen zoals <c>#maand</c>; gaat voor op de
 /// standaardomschrijving van de administratie en het kantoor. Leeg = die standaard.
 /// </param>
+/// <param name="Kostenplaats">De standaard kostenplaats voor facturen van deze relatie (bijv. de garage: de auto).</param>
 public sealed record Relatie(
     string Code,
     string Naam,
@@ -20,7 +21,8 @@ public sealed record Relatie(
     string? Tegenrekening = null,
     decimal? ControleVanaf = null,
     decimal? ControleAfwijking = null,
-    string? Omschrijving = null)
+    string? Omschrijving = null,
+    string? Kostenplaats = null)
 {
     public bool HeeftIban(string? iban) => iban is not null && Ibans.Any(i => Iban.Normaliseer(i) == Iban.Normaliseer(iban));
 }

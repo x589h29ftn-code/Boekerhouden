@@ -409,6 +409,9 @@ public sealed class Handelsrelatie : IVanAdministratie
     /// <summary>De omschrijving van een boeking van deze relatie (inkoop of ingelezen verkoop), met variabelen; leeg = de standaard.</summary>
     public string? Omschrijving { get; set; }
 
+    /// <summary>De standaard kostenplaats voor facturen van deze relatie; leeg = geen.</summary>
+    public string? Kostenplaats { get; set; }
+
     // Gegevens als klant: adres en contact (voor de verkoopfactuur), betalingstermijn en de standaard omzetrekening en btw-code.
 
     /// <summary>Een klant (debiteur): staat in de keuzelijst bij het factureren.</summary>
@@ -446,7 +449,7 @@ public sealed class Handelsrelatie : IVanAdministratie
 
     public DateTimeOffset AangemaaktOp { get; set; }
 
-    public Boekhouding.Relaties.Relatie NaarDomein() => new(Code, Naam, [.. Ibans], BtwNummer, KvkNummer, Tegenrekening, ControleVanaf, ControleAfwijking, Omschrijving);
+    public Boekhouding.Relaties.Relatie NaarDomein() => new(Code, Naam, [.. Ibans], BtwNummer, KvkNummer, Tegenrekening, ControleVanaf, ControleAfwijking, Omschrijving, Kostenplaats);
 }
 
 public enum Documentstatus
@@ -944,7 +947,9 @@ public sealed class Verkoopdocumentregel : IVanAdministratie
     /// <summary>Een vast bedrag: op de factuur alleen het bedrag, zonder aantal, eenheid en prijs.</summary>
     public bool Vast { get; set; }
 
-    public Boekhouding.Verkoop.Verkoopregel NaarDomein() => new(Omschrijving, Aantal, Prijs, Rekeningnummer, BtwCode, Eenheid, Korting, Vast);
+    public string? Kostenplaats { get; set; }
+
+    public Boekhouding.Verkoop.Verkoopregel NaarDomein() => new(Omschrijving, Aantal, Prijs, Rekeningnummer, BtwCode, Eenheid, Korting, Vast, Kostenplaats);
 }
 
 /// <summary>

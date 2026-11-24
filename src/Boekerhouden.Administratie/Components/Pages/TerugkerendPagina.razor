@@ -4,6 +4,7 @@
 @inject AbonnementDienst Abonnementen
 @inject VerkoopDienst Verkoop
 @inject NavigationManager Navigatie
+@inject KostenplaatsDienst Kostenplaatsen
 
 <AdministratieKader Id="Id" Titel="Terugkerende facturen" Actief="/verkoop/terugkerend" BijOpenen="Open">
     <Kenmerken>
@@ -127,7 +128,7 @@
                         <input id="omschrijving" class="form-control form-control-sm" style="max-width:40rem" @bind="f.Omschrijving" placeholder="bijv. Huur #periode" title="@Variabelen" />
                     </div>
                     <div class="mt-3">
-                        <Verkoopregels Regels="f.Regels" Schema="gegevens.Schema" Codes="Codes" Kader="geopend" Omzetrekening="@gegevens.Omzetrekening" Placeholder="bijv. Huur #maand" />
+                        <Verkoopregels Regels="f.Regels" Schema="gegevens.Schema" Codes="Codes" Kader="geopend" Omzetrekening="@gegevens.Omzetrekening" Placeholder="bijv. Huur #maand" Kostenplaatsen="kostenplaatsen" />
                     </div>
                     <div class="formulier-rij mt-3">
                         <span></span>
@@ -193,10 +194,13 @@
 
     private static string Variabelen => string.Join("\n", Abonnementsplan.Variabelen.Select(v => $"{v.Naam}: {v.Betekenis}"));
 
+    private IReadOnlyList<Kostenplaatsregel> kostenplaatsen = [];
+
     private async Task Open(Geopend g)
     {
         geopend = g;
         gegevens = await Verkoop.Context(g.Wie, Id);
+        kostenplaatsen = await Kostenplaatsen.Keuze(g.Wie, Id);
         await Laad();
         if (VanFactuur is { } factuur && await Abonnementen.VanFactuur(g.Wie, Id, factuur) is { } voorstel)
         {

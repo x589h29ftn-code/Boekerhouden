@@ -6,7 +6,8 @@ namespace Boekerhouden.Boekhouding.Bank;
 
 /// <summary>Een verschil bij afletteren dat niet open blijft staan maar op een rekening gaat (bijv. betalingskorting).</summary>
 /// <param name="Btwbedrag">Het btw-bedrag met de hand (zonder teken), in plaats van het bedrag dat uit het percentage volgt.</param>
-public sealed record Afboeking(string Rekeningnummer, BtwCode? Btw, string? Omschrijving = null, decimal? Btwbedrag = null);
+/// <param name="Kostenplaats">De kostenplaats van de regel op de rekening (niet van de btw); leeg = geen.</param>
+public sealed record Afboeking(string Rekeningnummer, BtwCode? Btw, string? Omschrijving = null, decimal? Btwbedrag = null, string? Kostenplaats = null);
 
 /// <summary>Zet een bankmutatie om in een journaalpost in het bankdagboek.</summary>
 public static class Bankboeker
@@ -127,12 +128,12 @@ public static class Bankboeker
             }
 
             var functie = btw.Richting == BtwRichting.Inkoop ? Rekeningfunctie.Voorbelasting : Rekeningfunctie.AfTeDragenBtw;
-            yield return new Journaalregel(afboeking.Rekeningnummer, grondslag, tekst, btw.Code, relatie);
+            yield return new Journaalregel(afboeking.Rekeningnummer, grondslag, tekst, btw.Code, relatie, Kostenplaats: afboeking.Kostenplaats);
             yield return new Journaalregel(schema.Enige(functie).Nummer, btwBedrag, $"Btw {tekst.ToLowerInvariant()}", btw.Code, relatie);
         }
         else
         {
-            yield return new Journaalregel(afboeking.Rekeningnummer, bedrag, tekst, afboeking.Btw?.Code, relatie);
+            yield return new Journaalregel(afboeking.Rekeningnummer, bedrag, tekst, afboeking.Btw?.Code, relatie, Kostenplaats: afboeking.Kostenplaats);
         }
     }
 

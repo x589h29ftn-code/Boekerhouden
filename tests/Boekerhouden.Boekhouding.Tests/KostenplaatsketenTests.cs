@@ -50,3 +50,39 @@ public sealed class KostenplaatsketenTests
         Assert.Equal(["Er is niets gewijzigd."], Boekingscorrectie.Controleer(met, met with { Regels = [met.Regels[0], met.Regels[1] with { Kostenplaats = " " }] }, schema, memoriaal: true));
     }
 }
+
+/// <summary>De kostenplaats van een factuurregel komt op de kosten- of omzetregel van de boeking, en mee in de verdeling.</summary>
+public sealed class KostenplaatsFactuurTests
+{
+    [Fact]
+    public void Alleen_de_kostenregel_krijgt_de_kostenplaats()
+    {
+        var factuur = new Facturen.Factuur(Facturen.Factuursoort.Inkoop, "GARAGE", "G-1", new(2026, 3, 10), new(2026, 4, 9), "Onderhoud",
+            [new Facturen.Factuurregel("Onderhoud", "4100", "I21", 100m, Kostenplaats: "AUTO1"), new Facturen.Factuurregel("Overig", "4100", "I21", 50m)]);
+
+        var (post, _) = Facturen.Factuurboeker.Boek(factuur, Testadministratie.Inkoop, "2026-0001", Testadministratie.Schema(), Testadministratie.Btw);
+
+        var met = Assert.Single(post.Regels, r => r.Kostenplaats is not null);
+        Assert.Equal(("4100", 100m, "AUTO1"), (met.Rekeningnummer, met.Bedrag, met.Kostenplaats));
+    }
+
+    [Fact]
+    public void Een_verkoopregel_geeft_zijn_kostenplaats_door()
+    {
+        var factuur = new Verkoop.Verkoopfactuur("KLANT", new Verkoop.Partij("Klant", new()), "20260001", new(2026, 3, 1), new(2026, 3, 15), "Maart",
+            [new Verkoop.Verkoopregel("Brood", 2m, 50m, "8000", "V9", Kostenplaats: "WINKEL")]);
+
+        Assert.Equal("WINKEL", factuur.NaarFactuur(Testadministratie.Btw).Regels.Single().Kostenplaats);
+    }
+
+    [Fact]
+    public void De_verdeling_per_maand_houdt_de_kostenplaats()
+    {
+        var verdeling = new Periodeverdeling(new(2026, 1, 1), new(2026, 3, 31), "1410");
+
+        var maanden = verdeling.PerMaand([new Verdeelregel("4300", 300m, "Verzekering", "AUTO1")]);
+
+        Assert.Equal(3, maanden.Count);
+        Assert.All(maanden, m => Assert.Equal([("4300", "AUTO1"), ("1410", null)], m.Regels.Select(r => (r.Rekeningnummer, r.Kostenplaats))));
+    }
+}

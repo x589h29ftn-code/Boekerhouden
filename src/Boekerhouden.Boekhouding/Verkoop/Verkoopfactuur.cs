@@ -51,7 +51,8 @@ public sealed record Verkoopregel(
     string BtwCode,
     string? Eenheid = null,
     decimal Korting = 0m,
-    bool Vast = false)
+    bool Vast = false,
+    string? Kostenplaats = null)
 {
     /// <summary>Het regelbedrag exclusief btw, op centen afgerond (half van nul af).</summary>
     public decimal Bedrag => Math.Round(Aantal * Prijs * (100m - Korting) / 100m, 2, MidpointRounding.AwayFromZero);
@@ -124,7 +125,7 @@ public sealed record Verkoopfactuur(
             var gehad = verdeeld.GetValueOrDefault(r.BtwCode);
             var btw = laatste[r.BtwCode] == i ? btwPerCode[r.BtwCode] - gehad : code.Verlegd ? 0m : code.Bereken(r.Bedrag);
             verdeeld[r.BtwCode] = gehad + btw;
-            regels.Add(new Factuurregel(Regelomschrijving(r), r.Rekeningnummer, code.Code, r.Bedrag, btw));
+            regels.Add(new Factuurregel(Regelomschrijving(r), r.Rekeningnummer, code.Code, r.Bedrag, btw, r.Kostenplaats));
         }
 
         return new Factuur(Factuursoort.Verkoop, Relatie, Nummer, Datum, Vervaldatum, Omschrijving, regels, Betalingskenmerk);

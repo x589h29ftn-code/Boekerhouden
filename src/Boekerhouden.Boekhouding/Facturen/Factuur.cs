@@ -13,7 +13,8 @@ public enum Factuursoort
 /// tenzij hij is opgegeven (bijv. zoals herkend op de factuur van de leverancier).
 /// </summary>
 /// <param name="Bedrag">Exclusief btw; negatief bij een creditfactuur.</param>
-public sealed record Factuurregel(string Omschrijving, string Rekeningnummer, string BtwCode, decimal Bedrag, decimal? Btw = null);
+/// <param name="Kostenplaats">De kostenplaats van de kosten- of omzetregel; leeg = geen.</param>
+public sealed record Factuurregel(string Omschrijving, string Rekeningnummer, string BtwCode, decimal Bedrag, decimal? Btw = null, string? Kostenplaats = null);
 
 /// <summary>Een inkoop- of verkoopfactuur, zoals die geboekt wordt.</summary>
 public sealed record Factuur(

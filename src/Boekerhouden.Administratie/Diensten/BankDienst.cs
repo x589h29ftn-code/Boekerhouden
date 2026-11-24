@@ -28,7 +28,7 @@ public sealed record Herverwerking(int Bekeken, int Geboekt);
 /// telt de rekening niet). Het bedrag inclusief btw, zoals op het afschrift (zonder teken).
 /// </summary>
 /// <param name="Btw">Het btw-bedrag met de hand (zonder teken); leeg = volgens het percentage van de btw-code.</param>
-public sealed record Bankregelinvoer(string Rekening, string? BtwCode, decimal Bedrag, string? Omschrijving = null, Guid? Post = null, decimal? Btw = null);
+public sealed record Bankregelinvoer(string Rekening, string? BtwCode, decimal Bedrag, string? Omschrijving = null, Guid? Post = null, decimal? Btw = null, string? Kostenplaats = null);
 
 /// <summary>Het verschil bij afletteren op een rekening boeken in plaats van open te laten staan (bijv. betalingskorting).</summary>
 public sealed record Verschilafboeking(string Rekening, string? BtwCode, string? Omschrijving = null);
@@ -537,7 +537,8 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
                 continue;
             }
 
-            verdeling.Add((Math.Sign(t.Bedrag) * r.Bedrag, new Afboeking(rekening.Nummer, btw, string.IsNullOrWhiteSpace(r.Omschrijving) ? null : Kort(r.Omschrijving.Trim(), 200), r.Btw)));
+            verdeling.Add((Math.Sign(t.Bedrag) * r.Bedrag, new Afboeking(rekening.Nummer, btw, string.IsNullOrWhiteSpace(r.Omschrijving) ? null : Kort(r.Omschrijving.Trim(), 200), r.Btw,
+                string.IsNullOrWhiteSpace(r.Kostenplaats) ? null : r.Kostenplaats.Trim())));
         }
 
         // Posten: de hele post, of per regel een bedrag op een post (een deel, of meer dan openstaat).
@@ -594,7 +595,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
 
         var boekstuk = await GrootboekDienst.VolgendBoekstuk(db, dagboek.Code, t.Datum.Year);
         var (post, bijgewerkt) = Bankboeker.Verdeeld(t.NaarDomein(), [.. postbedragen.Select(p => (p.Post.NaarDomein(), p.Bedrag))], verdeling, dagboek, boekstuk, schema);
-        if (Journaalcontrole.Controleer(post, schema, dagboeken) is { Count: > 0 } controle)
+        if (Journaalcontrole.Controleer(post, schema, dagboeken).Concat(await KostenplaatsDienst.Fouten(db, post)).ToList() is { Count: > 0 } controle)
         {
             return Uitkomst.Mislukt([.. controle]);
         }

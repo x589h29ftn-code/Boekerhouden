@@ -1,7 +1,7 @@
 namespace Boekerhouden.Boekhouding.Grootboek;
 
 /// <summary>Een kostenregel van de factuur die over de maanden wordt verdeeld (bedrag met teken, zoals geboekt).</summary>
-public sealed record Verdeelregel(string Rekeningnummer, decimal Bedrag, string? Omschrijving = null);
+public sealed record Verdeelregel(string Rekeningnummer, decimal Bedrag, string? Omschrijving = null, string? Kostenplaats = null);
 
 /// <summary>
 /// Een factuur over een periode (bijv. een jaarabonnement van 1-9-2026 t/m 31-8-2027) transitorisch verdelen: de

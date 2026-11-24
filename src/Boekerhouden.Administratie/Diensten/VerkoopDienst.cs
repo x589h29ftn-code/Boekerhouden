@@ -96,7 +96,7 @@ public sealed record Verkoopweergave(
 }
 
 /// <summary>Een klant in de keuzelijst bij het factureren, met wat er bij een nieuwe regel wordt voorgesteld.</summary>
-public sealed record Klantkeuze(string Code, string Naam, Partij Gegevens, int? Betalingstermijn, string? Omzetrekening, string? Verkoopbtwcode);
+public sealed record Klantkeuze(string Code, string Naam, Partij Gegevens, int? Betalingstermijn, string? Omzetrekening, string? Verkoopbtwcode, string? Kostenplaats = null);
 
 /// <summary>Alles wat het factuurscherm nodig heeft: rekeningen, btw, klanten en de standaarden.</summary>
 /// <param name="Omzetrekening">De standaard omzetrekening (de eerste W&amp;V-rekening met RGS-omzet).</param>
@@ -143,7 +143,7 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
         var verdeel = schema.Alle.FirstOrDefault(r => r.IsBalans && r.RgsCode?.StartsWith("BSchOpa", StringComparison.Ordinal) == true && r.Naam.Contains("ooruit", StringComparison.OrdinalIgnoreCase))?.Nummer
             ?? schema.Alle.FirstOrDefault(r => r.IsBalans && r.RgsCode?.StartsWith("BSchOpa", StringComparison.Ordinal) == true)?.Nummer;
         return new Verkoopcontext(schema, await BtwDienst.Lees(db),
-            [.. relaties.Select(r => new Klantkeuze(r.Code, r.Naam, r.AlsKlant(), r.Betalingstermijn, r.Omzetrekening, r.Verkoopbtwcode))],
+            [.. relaties.Select(r => new Klantkeuze(r.Code, r.Naam, r.AlsKlant(), r.Betalingstermijn, r.Omzetrekening, r.Verkoopbtwcode, r.Kostenplaats))],
             a.Afzender(), a.Afwijkend().Op(kantoor).Betalingstermijn, omzet, verdeel, a.Afwijkend().Op(kantoor).OmschrijvingVerkoop);
     }
 
@@ -317,6 +317,7 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
             Korting = r.Korting,
             Rekeningnummer = r.Rekeningnummer?.Trim() ?? "",
             BtwCode = r.BtwCode?.Trim().ToUpperInvariant() ?? "",
+            Kostenplaats = Leeg(r.Kostenplaats, KostenplaatsDienst.MaxCode),
         }));
     }
 
@@ -493,7 +494,7 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
             return Uitkomst<string>.Mislukt(fout.Message.Split(" (Parameter", 2)[0]);
         }
 
-        if (Journaalcontrole.Controleer(post, schema, dagboeken) is { Count: > 0 } controle)
+        if (Journaalcontrole.Controleer(post, schema, dagboeken).Concat(await KostenplaatsDienst.Fouten(db, post)).ToList() is { Count: > 0 } controle)
         {
             return Uitkomst<string>.Mislukt([.. controle]);
         }
@@ -512,7 +513,7 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
         {
             var geboekt = factuur.NaarFactuur(codes);
             var verdeeld = await grootboek.BoekVerdeling(db, administratie, verdeling, memoriaal!, geboekt,
-                [.. geboekt.Regels.Select(r => new Verdeelregel(r.Rekeningnummer, -r.Bedrag, r.Omschrijving))], schema, dagboeken, wie, []);
+                [.. geboekt.Regels.Select(r => new Verdeelregel(r.Rekeningnummer, -r.Bedrag, r.Omschrijving, r.Kostenplaats))], schema, dagboeken, wie, []);
             if (!verdeeld.IsGelukt)
             {
                 return Uitkomst<string>.Mislukt([.. verdeeld.Fouten]);

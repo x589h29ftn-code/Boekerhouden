@@ -16,6 +16,10 @@
                 <th style="width:27%">Grootboekrekening</th>
                 <th style="width:21%">Btw</th>
                 <th class="text-end" style="width:15%">Excl. btw</th>
+                @if (MetKostenplaats)
+                {
+                    <th style="width:15%">Kostenplaats</th>
+                }
                 <th style="width:1.75rem"></th>
             </tr>
         </thead>
@@ -34,6 +38,10 @@
                         </select>
                     </td>
                     <td><input class="form-control form-control-sm text-end" @bind="regel.Prijs" @bind:event="oninput" @bind:after="Meld" aria-label="Bedrag exclusief btw" data-doel="@Doel("bedrag", regel)" data-doelnaam="Bedrag exclusief btw" /></td>
+                    @if (MetKostenplaats)
+                    {
+                        <td><KostenplaatsKeuze @bind-Waarde="regel.Kostenplaats" @bind-Waarde:after="Meld" Lijst="Kostenplaatsen" /></td>
+                    }
                     <td><button class="btn btn-sm btn-link text-secondary p-0 regel-weg" title="Regel verwijderen" @onclick="() => Verwijder(regel)" disabled="@(Regels.Count <= 1)"><Icoon Naam="x" /></button></td>
                 </tr>
             }
@@ -66,6 +74,10 @@ else
                 <th class="text-end" style="width:5rem" title="Korting in procenten">Korting</th>
                 <th style="width:16rem">Omzetrekening</th>
                 <th style="width:9rem">Btw</th>
+                @if (MetKostenplaats)
+                {
+                    <th style="width:10rem">Kostenplaats</th>
+                }
                 <th class="text-end" style="width:8rem">Bedrag</th>
                 <th style="width:1.75rem"></th>
             </tr>
@@ -88,6 +100,10 @@ else
                             }
                         </select>
                     </td>
+                    @if (MetKostenplaats)
+                    {
+                        <td><KostenplaatsKeuze @bind-Waarde="regel.Kostenplaats" @bind-Waarde:after="Meld" Lijst="Kostenplaatsen" /></td>
+                    }
                     <td class="bedrag text-end">@(regel.Domein() is { } d ? Weergave.Bedrag(d.Bedrag) : null)</td>
                     <td><button class="btn btn-sm btn-link text-secondary p-0 regel-weg" title="Regel verwijderen" @onclick="() => Verwijder(regel)" disabled="@(Regels.Count <= 1)"><Icoon Naam="x" /></button></td>
                 </tr>
@@ -96,16 +112,16 @@ else
         <tfoot>
             <tr>
                 <td colspan="5"><button class="btn btn-sm btn-link nog-een-regel p-0" @onclick="RegelErbij"><Icoon Naam="plus" /> Nog een regel</button></td>
-                <td colspan="2" class="totaallabel text-secondary small">Totaal exclusief btw</td>
+                <td colspan="@(MetKostenplaats ? 3 : 2)" class="totaallabel text-secondary small">Totaal exclusief btw</td>
                 <td class="bedrag text-end">@Weergave.Bedrag(Factuur.TotaalExclusief)</td>
                 <td></td>
             </tr>
             @foreach (var b in Btw.Where(b => b.Btw != 0))
             {
-                <tr><td colspan="7" class="text-end text-secondary small">Btw @Btwpercentage.Tekst(b.Code.Percentage) over @Weergave.Bedrag(b.Grondslag)</td><td class="bedrag text-end">@Weergave.Bedrag(b.Btw)</td><td></td></tr>
+                <tr><td colspan="@(MetKostenplaats ? 8 : 7)" class="text-end text-secondary small">Btw @Btwpercentage.Tekst(b.Code.Percentage) over @Weergave.Bedrag(b.Grondslag)</td><td class="bedrag text-end">@Weergave.Bedrag(b.Btw)</td><td></td></tr>
             }
             <tr class="generaal">
-                <td colspan="7" class="totaallabel">Totaal</td>
+                <td colspan="@(MetKostenplaats ? 8 : 7)" class="totaallabel">Totaal</td>
                 <td class="bedrag text-end">@Weergave.Bedrag(Factuur.TotaalExclusief + Btw.Sum(b => b.Btw))</td>
                 <td></td>
             </tr>
@@ -140,6 +156,16 @@ else
 
     [Parameter]
     public string Placeholder { get; set; } = "Wat is er geleverd?";
+
+    /// <summary>De kostenplaatsen om uit te kiezen (module aan); leeg = geen kolom.</summary>
+    [Parameter]
+    public IReadOnlyList<Kostenplaatsregel> Kostenplaatsen { get; set; } = [];
+
+    /// <summary>De kostenplaats voor een nieuwe regel als er nog geen vorige regel is (bijv. die van de klant).</summary>
+    [Parameter]
+    public string? Kostenplaats { get; set; }
+
+    private bool MetKostenplaats => Kostenplaatsen.Count > 0 || Regels.Any(r => r.Kostenplaats is not null);
 
     /// <summary>
     /// Er staat een factuur naast waarop gebieden aan te wijzen zijn (een ingelezen verkoopfactuur): de omschrijving
@@ -187,7 +213,13 @@ else
     private async Task RegelErbij()
     {
         var vorige = Regels.LastOrDefault();
-        Regels.Add(new Verkoopregelinvoer { Aantal = "1", Rekening = vorige?.Rekening ?? Omzetrekening, BtwCode = vorige?.BtwCode ?? BtwCode ?? (Kader?.Kop.BtwPlichtig == false ? "VVR" : "V21") });
+        Regels.Add(new Verkoopregelinvoer
+        {
+            Aantal = "1",
+            Rekening = vorige?.Rekening ?? Omzetrekening,
+            BtwCode = vorige?.BtwCode ?? BtwCode ?? (Kader?.Kop.BtwPlichtig == false ? "VVR" : "V21"),
+            Kostenplaats = vorige is null ? Kostenplaats : vorige.Kostenplaats,
+        });
         await Meld();
     }
 }

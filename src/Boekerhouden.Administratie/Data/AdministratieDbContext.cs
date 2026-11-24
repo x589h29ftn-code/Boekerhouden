@@ -301,6 +301,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(r => r.KvkNummer).HasMaxLength(20);
             e.Property(r => r.Tegenrekening).HasMaxLength(20);
             e.Property(r => r.Omschrijving).HasMaxLength(200);
+            e.Property(r => r.Kostenplaats).HasMaxLength(20);
             e.Property(r => r.ControleVanaf).HasPrecision(18, 2);
             e.Property(r => r.ControleAfwijking).HasPrecision(6, 2);
             e.Property(r => r.Straat).HasMaxLength(200);
@@ -558,6 +559,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(r => r.Korting).HasPrecision(6, 2);
             e.Property(r => r.Rekeningnummer).HasMaxLength(20);
             e.Property(r => r.BtwCode).HasMaxLength(10);
+            e.Property(r => r.Kostenplaats).HasMaxLength(20);
         });
 
         builder.Entity<Factuurlayout>(e =>

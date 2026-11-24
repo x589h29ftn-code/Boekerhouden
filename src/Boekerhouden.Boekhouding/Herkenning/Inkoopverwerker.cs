@@ -139,6 +139,12 @@ public static class Inkoopverwerker
             }
             else
             {
+                // De standaard kostenplaats van de leverancier op elke regel.
+                if (leverancier.Relatie.Kostenplaats is { Length: > 0 } kostenplaats)
+                {
+                    factuurregels = [.. factuurregels.Select(r => r with { Kostenplaats = kostenplaats })];
+                }
+
                 // Met een omschrijving uit een regel, de relatie of de standaard krijgen ook de grootboekregels die omschrijving.
                 var sjabloon = Sjabloon(advies, leverancier.Relatie, standaardomschrijving);
                 if (sjabloon is { Length: > 0 })

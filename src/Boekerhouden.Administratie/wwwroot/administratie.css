@@ -604,6 +604,13 @@ body.scheiding-slepen {
 .bankregels th.k-rekening { width: 22%; }
 .bankregels th.k-btw { width: 14%; }
 .bankregels th.k-bedrag { width: 13%; }
+.bankregels th.k-kostenplaats { width: 11%; }
+/* Met een kolom kostenplaats: de andere wat smaller, zodat de omschrijving leesbaar blijft. */
+.bankregels.met-kostenplaats th.k-factuur { width: 12%; }
+.bankregels.met-kostenplaats th.k-rekening { width: 19%; }
+.bankregels.met-kostenplaats th.k-btw { width: 11%; }
+.bankregels.met-kostenplaats th.k-bedrag { width: 11%; }
+.bankregels.met-kostenplaats th.k-btwbedrag { width: 9%; }
 .bankregels th.k-btwbedrag { width: 12%; }
 .bankregels .form-select-sm { padding-right: 1.4rem; background-position: right .3rem center; }
 .bankregels .form-control-sm { padding-left: .35rem; padding-right: .35rem; }

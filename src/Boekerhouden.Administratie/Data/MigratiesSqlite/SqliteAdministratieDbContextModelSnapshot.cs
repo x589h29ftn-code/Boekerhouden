@@ -1646,6 +1646,10 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.Property<bool>("Klant")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Kostenplaats")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("KvkNummer")
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
@@ -2227,6 +2231,10 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.Property<long>("Korting")
                         .HasPrecision(6, 2)
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("Kostenplaats")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Omschrijving")
                         .IsRequired()

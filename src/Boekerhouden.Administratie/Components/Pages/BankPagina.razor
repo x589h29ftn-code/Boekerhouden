@@ -12,6 +12,7 @@
 @inject IJSRuntime JS
 @inject IServiceProvider Diensten
 @inject Meldingen Meldingen
+@inject KostenplaatsDienst Kostenplaatsen
 @inject ConceptDienst Concepten
 @inject NavigationManager Navigatie
 
@@ -474,7 +475,7 @@
                         {
                             <div class="mb-2">
                                 <div class="paneelkop mb-0" title="@g.Voorstel.Advies.Reden">Regels</div>
-                                <table class="table table-sm align-middle mb-0 bankregels">
+                                <table class="table table-sm align-middle mb-0 bankregels @(kostenplaatsen.Count > 0 ? "met-kostenplaats" : null)">
                                     <thead>
                                         <tr><th class="k-factuur" title="De openstaande post (factuurnummer)">Factuur</th><th class="k-rekening">Rekening</th>@if (!ZonderBtw)
                                             {
@@ -482,7 +483,10 @@
                                             }<th class="text-end k-bedrag">Bedrag</th>@if (!ZonderBtw)
                                             {
                                                 <th class="text-end k-btwbedrag" title="De btw in het bedrag, volgens de btw-code of zelf ingevuld">Btw</th>
-                                            }<th>Omschrijving</th><th class="k-weg"></th></tr>
+                                            }<th>Omschrijving</th>@if (kostenplaatsen.Count > 0)
+                                            {
+                                                <th class="k-kostenplaats" title="Kostenplaats">Kpl.</th>
+                                            }<th class="k-weg"></th></tr>
                                     </thead>
                                     <tbody>
                                         @for (var i = 0; i < regels.Count; i++)
@@ -531,6 +535,10 @@
                                                     </td>
                                                 }
                                                 <td><input id="@($"regel-omschrijving-{n}")" autocomplete="off" class="form-control form-control-sm" @bind="regel.Omschrijving" aria-label="Omschrijving" placeholder="@(post is not null ? $"Betaling {post.Factuurnummer}" : Standaardomschrijving(g.Mutatie))" /></td>
+                                                @if (kostenplaatsen.Count > 0)
+                                                {
+                                                    <td><KostenplaatsKeuze @bind-Waarde="regel.Kostenplaats" Lijst="kostenplaatsen" Uit="@(post is not null)" AlleenCode="true" /></td>
+                                                }
                                                 <td>
                                                     @if (regels.Count > 1)
                                                     {
@@ -990,9 +998,13 @@
     }
 
     /// <summary>Een regel in het verwerkpaneel: een deel van de mutatie op een openstaande post of op een grootboekrekening.</summary>
+    private IReadOnlyList<Kostenplaatsregel> kostenplaatsen = [];
+
     private sealed class Regelinvoer
     {
         public Guid? Post { get; set; }
+
+        public string? Kostenplaats { get; set; }
 
         public string? Rekening { get; set; }
 
@@ -1173,6 +1185,7 @@
         geopend = g;
         mag = g.Kop.Mag(Recht.Invoeren);
         magRegels = g.Kop.Mag(Recht.Boekhouden);
+        kostenplaatsen = await Kostenplaatsen.Keuze(g.Wie, Id);
         // Een andere administratie: niets van de vorige blijft staan.
         klikken++;
         (schema, gekozen, venster, omzetting, omzetfout, opnieuw, nieuweBank, bankfouten, factuurUitkomst, fouten) =
@@ -1462,7 +1475,7 @@
             : await Bank.Verdeel(geopend!.Wie, Id, gekozen!.Mutatie.Id, [],
                 [.. ingevuld.Select(r => new Bankregelinvoer(r.Rekening ?? "", r.BtwCode, r.Waarde,
                     string.IsNullOrWhiteSpace(r.Omschrijving) ? (r.Post is null ? Standaardomschrijving(gekozen.Mutatie) : null) : r.Omschrijving, r.Post,
-                    r.Post is null && Btwvolgenscode(gekozen, r) is not null ? r.Btwwaarde : null))]);
+                    r.Post is null && Btwvolgenscode(gekozen, r) is not null ? r.Btwwaarde : null, r.Post is null ? r.Kostenplaats : null))]);
         await Na(uitkomst, mutatie);
     }
 

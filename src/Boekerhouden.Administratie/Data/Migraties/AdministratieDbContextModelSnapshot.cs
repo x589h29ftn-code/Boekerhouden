@@ -1668,6 +1668,10 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.Property<bool>("Klant")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("Kostenplaats")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<string>("KvkNummer")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
@@ -2257,6 +2261,10 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.Property<decimal>("Korting")
                         .HasPrecision(6, 2)
                         .HasColumnType("numeric(6,2)");
+
+                    b.Property<string>("Kostenplaats")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<string>("Omschrijving")
                         .IsRequired()

@@ -13,6 +13,7 @@
 @inject VerkoopimportDienst Import
 @inject NavigationManager Navigatie
 @inject IJSRuntime JS
+@inject KostenplaatsDienst Kostenplaatsen
 
 <AdministratieKader Id="Id" Titel="@Titel" Actief="@Lijst" Terug="@(Terug ?? $"/a/{Id}{Lijst}")" BijOpenen="Open">
     <Kenmerken>
@@ -262,7 +263,7 @@
                                 </div>
                             </div>
 
-                            <Verkoopregels Regels="invoer.Regels" Schema="Schema" Codes="Codes" Kader="geopend" Omzetrekening="@(Gekozen?.Omzetrekening ?? verkoop.Omzetrekening)" BtwCode="@(Gekozen?.Verkoopbtwcode)" Gewijzigd="StateHasChanged" Aanwijzen="true" Verwerken="true" />
+                            <Verkoopregels Regels="invoer.Regels" Schema="Schema" Codes="Codes" Kader="geopend" Omzetrekening="@(Gekozen?.Omzetrekening ?? verkoop.Omzetrekening)" BtwCode="@(Gekozen?.Verkoopbtwcode)" Kostenplaatsen="kostenplaatsen" Kostenplaats="@(Gekozen?.Kostenplaats)" Gewijzigd="StateHasChanged" Aanwijzen="true" Verwerken="true" />
 
                             <div class="veld mt-3">
                                 <label for="verdelen">Periode verdelen</label>
@@ -423,7 +424,7 @@
                 }
 
                 <div class="mt-3">
-                    <Verkoopregels Regels="invoer.Regels" Schema="Schema" Codes="codes" Kader="geopend" Omzetrekening="@(Gekozen?.Omzetrekening ?? verkoop.Omzetrekening)" BtwCode="@(Gekozen?.Verkoopbtwcode)" Gewijzigd="StateHasChanged" Aanwijzen="Extern" />
+                    <Verkoopregels Regels="invoer.Regels" Schema="Schema" Codes="codes" Kader="geopend" Omzetrekening="@(Gekozen?.Omzetrekening ?? verkoop.Omzetrekening)" BtwCode="@(Gekozen?.Verkoopbtwcode)" Kostenplaatsen="kostenplaatsen" Kostenplaats="@(Gekozen?.Kostenplaats)" Gewijzigd="StateHasChanged" Aanwijzen="Extern" />
                 </div>
 
                 <div class="formulier-rij mt-3 @(Extern ? "d-none" : null)">
@@ -553,8 +554,11 @@
     {
         geopend = g;
         bericht = BerichtTekst;
+        kostenplaatsen = await Kostenplaatsen.Keuze(g.Wie, Id);
         await Laad();
     }
+
+    private IReadOnlyList<Kostenplaatsregel> kostenplaatsen = [];
 
     private async Task Laad()
     {
@@ -726,6 +730,15 @@
             foreach (var regel in invoer.Regels.Where(r => string.IsNullOrWhiteSpace(r.Omschrijving) && string.IsNullOrWhiteSpace(r.Prijs)))
             {
                 (regel.Rekening, regel.BtwCode) = (klant.Omzetrekening ?? regel.Rekening, klant.Verkoopbtwcode ?? regel.BtwCode);
+            }
+
+            // De standaard kostenplaats van de klant op de regels die er nog geen hebben.
+            if (klant.Kostenplaats is { Length: > 0 } kp && kostenplaatsen.Any(k => k.Code == kp))
+            {
+                foreach (var regel in invoer.Regels.Where(r => r.Kostenplaats is null))
+                {
+                    regel.Kostenplaats = kp;
+                }
             }
         }
 

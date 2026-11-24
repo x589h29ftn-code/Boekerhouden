@@ -31,7 +31,8 @@ public static class Factuurboeker
         var regels = new List<Journaalregel>();
         foreach (var regel in factuur.Regels)
         {
-            regels.Add(new Journaalregel(regel.Rekeningnummer, teken * regel.Bedrag, regel.Omschrijving, regel.BtwCode, factuur.Relatie, factuur.Factuurnummer));
+            regels.Add(new Journaalregel(regel.Rekeningnummer, teken * regel.Bedrag, regel.Omschrijving, regel.BtwCode, factuur.Relatie, factuur.Factuurnummer,
+                string.IsNullOrWhiteSpace(regel.Kostenplaats) ? null : regel.Kostenplaats.Trim()));
         }
 
         foreach (var perCode in factuur.Regels.GroupBy(r => BtwCodes.Zoek(codes, r.BtwCode)!))
