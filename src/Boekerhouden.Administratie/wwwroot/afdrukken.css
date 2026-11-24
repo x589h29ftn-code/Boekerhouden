@@ -64,7 +64,7 @@
     }
 
     /* Alles wat bij het werken hoort, niet bij het stuk; een schakelaar die uit staat ook (aan: alleen de tekst, die zegt wat er getoond wordt). */
-    .kopbalk, .zijbalk, .hulp-knop, .paginatabs, .kruimel, .terug, .btn, button, .knopmenu, .actiebalk,
+    .kopbalk, .zijbalk, .hulp-knop, .paginahulp, .paginatabs, .kruimel, .terug, .btn, button, .knopmenu, .actiebalk,
     .uitklapmenu, .melding-kort, .zoekknop, .zoekvenster-achter, .sleepvlak, .laadschets,
     .kolom-knop, .rij-acties, .regelknoppen, input[type="checkbox"], input[type="file"], .no-print,
     .form-check:has(input[type="checkbox"]:not(:checked)) {

@@ -47,7 +47,7 @@
 
 /* Vlakken die licht waren: kaarten, tabellen, panelen, menu's en vensters. */
 [data-bs-theme="dark"] :is(.card, .widget, .werkitem, .wisselaar-knop, .wisselaar-paneel, .zoekvenster, .actiebalk,
-    .gebruikersmenu .menu, .toevoegmenu .menu, .kolom-knop, .hulp-knop, .rapport-paneel, .rubriceren .card-header,
+    .gebruikersmenu .menu, .toevoegmenu .menu, .kolom-knop, .hulp-knop, .paginahulp, .rapport-paneel, .rubriceren .card-header,
     .zijmenu-link.actief, .toetshint kbd, .paginasleep-rand span, .variabele-lijst, .wp-stap .afvinken, .verwerkpaneel,
     .modal-content, .dropdown-menu, .list-group-item, .table, .overzichtstabel) {
     background-color: var(--bh-oppervlak);

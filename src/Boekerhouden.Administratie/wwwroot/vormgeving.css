@@ -686,6 +686,8 @@ html.zijbalk-smal .zijmenu::after {
     align-items: center;
     justify-content: center;
     bottom: 2.4rem;
+    padding: 0;
+    cursor: pointer;
 }
 
 /* De documentatie: een leesbare kolom in het midden. */
@@ -914,4 +916,71 @@ details.aandeslag[open] .aandeslag-teller .icoon {
 
 .actiepaneel, .bankwerk .verwerkpaneel {
     animation: bh-binnen var(--bh-gewoon) var(--bh-curve) backwards;
+}
+
+/* De uitleg bij het vraagteken: een klein paneel rechtsonder, boven het vraagteken (popover, zonder script). */
+.paginahulp {
+    position: fixed;
+    inset: auto 1rem 4.8rem auto;
+    margin: 0;
+    width: min(24rem, calc(100vw - 2rem));
+    max-height: calc(100vh - 7rem);
+    overflow-y: auto;
+    padding: .9rem 1rem .8rem;
+    border: 1px solid var(--kleur-lijn);
+    border-radius: .5rem;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .12);
+    font-size: .875rem;
+    line-height: 1.45;
+}
+
+    .paginahulp:popover-open {
+        animation: paginahulp-in .12s ease-out;
+    }
+
+    .paginahulp-kop {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .5rem;
+        margin-bottom: .35rem;
+    }
+
+        .paginahulp-kop h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+    .paginahulp p {
+        color: var(--kleur-zacht);
+        margin-bottom: .5rem;
+    }
+
+    .paginahulp ul {
+        padding-left: 1.1rem;
+        margin-bottom: .6rem;
+    }
+
+    .paginahulp li + li {
+        margin-top: .2rem;
+    }
+
+    .paginahulp-meer {
+        font-size: .8125rem;
+    }
+
+@keyframes paginahulp-in {
+    from {
+        opacity: 0;
+        transform: translateY(.25rem);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .paginahulp:popover-open {
+        animation: none;
+    }
 }

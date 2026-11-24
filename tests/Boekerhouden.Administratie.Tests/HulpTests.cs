@@ -42,5 +42,57 @@ public sealed class HulpTests(AdministratieFixture app) : IClassFixture<Administ
 
         var bank = await client.GetStringAsync(new Uri($"/a/{id}/bank", UriKind.Relative));
         Assert.Contains("href=\"/hulp#bank\"", bank, StringComparison.Ordinal);
+        Assert.Contains("popovertarget=\"paginahulp\"", bank, StringComparison.Ordinal);
+        Assert.Contains(System.Net.WebUtility.HtmlEncode(Paginahulp.Uitleg["bank"].Hoe[0]), bank, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("", "administraties")]
+    [InlineData("administraties/nieuw", "nieuwe-administratie")]
+    [InlineData("a/1b4e28ba-2fa1-11d2-883f-0016d3cca427", "overzicht")]
+    [InlineData("a/1b4e28ba-2fa1-11d2-883f-0016d3cca427/inkoop", "inkoop")]
+    [InlineData("a/1b4e28ba-2fa1-11d2-883f-0016d3cca427/inkoop/8c3a1b40-0000-0000-0000-000000000001", "inkoopfactuur")]
+    [InlineData("a/1b4e28ba-2fa1-11d2-883f-0016d3cca427/inkoopboek?jaar=2026", "inkoopboek")]
+    [InlineData("a/1b4e28ba-2fa1-11d2-883f-0016d3cca427/stapel/8c3a1b40-0000-0000-0000-000000000001", "stapel")]
+    [InlineData("a/1b4e28ba-2fa1-11d2-883f-0016d3cca427/verkoop", "verkoop")]
+    [InlineData("a/1b4e28ba-2fa1-11d2-883f-0016d3cca427/verkoop/nieuw", "factuur")]
+    [InlineData("a/1b4e28ba-2fa1-11d2-883f-0016d3cca427/verkoop/terugkerend", "terugkerend")]
+    [InlineData("a/1b4e28ba-2fa1-11d2-883f-0016d3cca427/facturen", "facturen")]
+    [InlineData("a/1b4e28ba-2fa1-11d2-883f-0016d3cca427/crediteuren", "openstaand")]
+    [InlineData("a/1b4e28ba-2fa1-11d2-883f-0016d3cca427/boeking/MEM/2026-0001", "boeking")]
+    [InlineData("a/1b4e28ba-2fa1-11d2-883f-0016d3cca427/btw/rondrekening", "rondrekening")]
+    [InlineData("a/1b4e28ba-2fa1-11d2-883f-0016d3cca427/activa/staat", "activastaat")]
+    [InlineData("a/1b4e28ba-2fa1-11d2-883f-0016d3cca427/activa/nieuw", "activum")]
+    [InlineData("a/1b4e28ba-2fa1-11d2-883f-0016d3cca427/kostenplaatsen/AUTO1", "kostenplaats")]
+    [InlineData("a/1b4e28ba-2fa1-11d2-883f-0016d3cca427/relaties/L0001", "relatie")]
+    [InlineData("a/1b4e28ba-2fa1-11d2-883f-0016d3cca427/instellingen/btw", "instellingen-btw")]
+    [InlineData("a/1b4e28ba-2fa1-11d2-883f-0016d3cca427/beginbalans", "beginbalans")]
+    [InlineData("a/1b4e28ba-2fa1-11d2-883f-0016d3cca427/proefbalans", "proefbalans")]
+    [InlineData("beheer/btw", "beheer-btw")]
+    [InlineData("beheer/iets-anders", "beheer-gebruikers")]
+    [InlineData("account/beveiliging", "beveiliging")]
+    public void Elke_pagina_heeft_zijn_eigen_uitleg(string pad, string sleutel) => Assert.Equal(sleutel, Paginahulp.Sleutel(pad));
+
+    [Fact]
+    public void Elke_pagina_van_de_app_heeft_uitleg_en_die_is_kort()
+    {
+        // Alle routes van de app, met een voorbeeld voor elke parameter.
+        var routes = typeof(Paginahulp).Assembly.GetTypes()
+            .SelectMany(t => t.GetCustomAttributes(typeof(Microsoft.AspNetCore.Components.RouteAttribute), false).Cast<Microsoft.AspNetCore.Components.RouteAttribute>())
+            .Select(r => System.Text.RegularExpressions.Regex.Replace(r.Template.TrimStart('/'), "\\{[^}]+\\}", "x1"))
+            .ToList();
+        Assert.NotEmpty(routes);
+        Assert.All(routes, r => Assert.True(Paginahulp.Uitleg.ContainsKey(Paginahulp.Sleutel(r)), r));
+
+        // Elke pagina van een administratie die niet onder het overzicht valt, heeft zijn eigen uitleg.
+        Assert.All(routes.Where(r => r.StartsWith("a/x1/", StringComparison.Ordinal)), r => Assert.NotEqual("overzicht", Paginahulp.Sleutel(r)));
+
+        Assert.All(Paginahulp.Uitleg, u =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(u.Value.Titel));
+            Assert.InRange(u.Value.Hoe.Count, 2, 5);
+            Assert.True(u.Value.Wat.Length <= 120, u.Key);
+            Assert.All(u.Value.Hoe, p => Assert.True(p.Length <= 130 && p.EndsWith('.'), $"{u.Key}: {p}"));
+        });
     }
 }

@@ -626,6 +626,14 @@ project) is een tweede, vergelijkbare as; die is er nog niet.
 | Stresstest | `KostenplaatsStressTests`, alleen met `BOEKERHOUDEN_STRESS` (1 = 3.000 boekingen en 200 kostenplaatsen, of een aantal boekingen): memoriaalboekingen over 2025–2026 met 2–6 regels en willekeurige kostenplaatsen (ook zonder, en op de bankregel), een op de tien aangepast (andere kostenplaatsen en bedragen), een op de vijf kostenplaatsen afgesloten en de helft weer heropend, en vier gebruikers die tegelijk boeken. Alles tegen een eigen rekenmodel: per kostenplaats en jaar het aantal regels, de kosten en de opbrengsten; kostenplaatsen plus wat zonder kostenplaats staat sluit op het resultaat van de proefbalans; de regels van de drukste kostenplaats; de Excel-export; de hash-keten. Gemeten (november 2026, cloudcontainer): 3.000 boekingen (12.000 regels): overzicht 14–55 ms op PostgreSQL en SQLite; 15.000 boekingen (60.000 regels), 1.000 kostenplaatsen: overzicht ruim 300 ms, regels per kostenplaats 6–24 ms, keten 0,5 s. Gevonden en verbeterd: het overzicht telt nu in de database op per kostenplaats en rekening, in plaats van alle regels op te halen (op PostgreSQL bij 3.000 boekingen van ruim 1 s naar 55 ms) |
 | Migraties | PostgreSQL en SQLite (`Kostenplaatsen`). Op SQLite haalt de Down-migratie de kolom met `ALTER TABLE … DROP COLUMN` weg, zodat de triggers die boekingen onwijzigbaar maken blijven staan |
 
+### 3.14b Uitleg per pagina
+
+Het vraagteken rechtsonder opent op elke pagina een klein paneel met de uitleg van die pagina: één zin waar hij voor is en
+twee tot vijf korte punten hoe je er werkt, met onderaan een link naar het hoofdstuk in de documentatie (`/hulp`). De
+teksten staan in `Paginahulp` (per pagina een sleutel uit het pad); het paneel is een `popover` zonder script, dus het
+werkt ook op statische pagina's en in de Windows-app. Een test controleert dat elke route een uitleg heeft en dat die kort
+blijft (een zin van hoogstens 120 tekens, punten van hoogstens 130).
+
 ## 5. Roadmap in plakjes
 
 | # | Plakje | Resultaat |

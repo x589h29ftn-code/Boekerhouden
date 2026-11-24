@@ -67,7 +67,22 @@
 <AuthorizeView>
     @if (Pad != "hulp")
     {
-        <a class="hulp-knop" href="/hulp#@Hulpsectie.Van(Pad)" title="Documentatie" aria-label="Documentatie"><Icoon Naam="question" /></a>
+        var uitleg = Paginahulp.Van(Pad);
+        <button type="button" class="hulp-knop" popovertarget="paginahulp" title="Uitleg bij deze pagina" aria-label="Uitleg bij deze pagina"><Icoon Naam="question" /></button>
+        <aside id="paginahulp" class="paginahulp" popover aria-label="Uitleg bij deze pagina">
+            <div class="paginahulp-kop">
+                <h2>@uitleg.Titel</h2>
+                <button type="button" class="icoonknop" popovertarget="paginahulp" popovertargetaction="hide" title="Sluiten" aria-label="Sluiten"><Icoon Naam="x" /></button>
+            </div>
+            <p>@uitleg.Wat</p>
+            <ul>
+                @foreach (var punt in uitleg.Hoe)
+                {
+                    <li>@punt</li>
+                }
+            </ul>
+            <a class="paginahulp-meer" href="/hulp#@Hulpsectie.Van(Pad)">Meer in de documentatie</a>
+        </aside>
     }
 </AuthorizeView>
 
