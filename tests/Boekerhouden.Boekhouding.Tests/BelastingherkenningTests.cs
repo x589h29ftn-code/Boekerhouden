@@ -198,4 +198,15 @@ public sealed class RekeningschemasTests
     [Fact]
     public void Het_schema_van_sifer_is_het_standaardschema() =>
         Assert.Equal(StandaardRekeningschema.Rekeningen(Ondernemingsvorm.Eenmanszaak), Rekeningschemas.Rekeningen(Schemakeuze.Sifer, Ondernemingsvorm.Eenmanszaak));
+
+    [Fact]
+    public void Motorrijtuigenbelasting_in_het_schema_ovpa_op_belastingen_auto()
+    {
+        var schema = new Rekeningschema(Rekeningschemas.Rekeningen(Schemakeuze.Ovpa, Ondernemingsvorm.BV));
+        Assert.Equal("4430", Belastingherkenning.Standaardrekening(Belastingsoort.Motorrijtuigenbelasting, schema, Ondernemingsvorm.BV)?.Nummer);
+
+        // Een rekening die de belasting zelf noemt, gaat voor.
+        var metEigen = new Rekeningschema([.. schema.Alle, new Rekening("4435", "Motorrijtuigenbelasting", Rekeningsoort.Resultaat)]);
+        Assert.Equal("4435", Belastingherkenning.Standaardrekening(Belastingsoort.Motorrijtuigenbelasting, metEigen, Ondernemingsvorm.BV)?.Nummer);
+    }
 }

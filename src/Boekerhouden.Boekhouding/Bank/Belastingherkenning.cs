@@ -247,9 +247,12 @@ public static partial class Belastingherkenning
         Rekening? Naam(params string[] woorden) => balans.FirstOrDefault(r => woorden.All(w => Namen.Normaliseer(r.Naam).Contains(w, StringComparison.Ordinal)));
         if (soort == Belastingsoort.Motorrijtuigenbelasting)
         {
-            // Een kostenrekening (autokosten): op de naam, want een RGS-code verzinnen we niet.
-            return schema.Alle.Where(r => !r.IsBalans).FirstOrDefault(r => Namen.Normaliseer(r.Naam) is var n
-                && (n.Contains("motorrijtuig", StringComparison.Ordinal) || n.Contains("wegenbelasting", StringComparison.Ordinal) || Regex.IsMatch(n, @"\bmrb\b", RegexOptions.None, TimeSpan.FromSeconds(1))));
+            // Een kostenrekening (autokosten): op de naam, want een RGS-code verzinnen we niet. Eerst een rekening die
+            // de belasting zelf noemt, anders "Belastingen auto" (zo heet hij in het schema OVPA, 4430).
+            var kosten = schema.Alle.Where(r => !r.IsBalans).ToList();
+            return kosten.FirstOrDefault(r => Namen.Normaliseer(r.Naam) is var n
+                       && (n.Contains("motorrijtuig", StringComparison.Ordinal) || n.Contains("wegenbelasting", StringComparison.Ordinal) || Regex.IsMatch(n, @"\bmrb\b", RegexOptions.None, TimeSpan.FromSeconds(1))))
+                   ?? kosten.FirstOrDefault(r => Namen.Normaliseer(r.Naam) is var n && n.Contains("belasting", StringComparison.Ordinal) && Regex.IsMatch(n, @"\bauto", RegexOptions.None, TimeSpan.FromSeconds(1)));
         }
 
         Rekening? Rgs(string code) => balans.FirstOrDefault(r => r.RgsCode?.StartsWith(code, StringComparison.Ordinal) == true);
