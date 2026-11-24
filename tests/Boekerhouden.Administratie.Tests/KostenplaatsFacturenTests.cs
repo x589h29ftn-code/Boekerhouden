@@ -116,3 +116,71 @@ public sealed class KostenplaatsFacturenTests(AdministratieFixture app) : IClass
         Assert.Equal(123.97m, (await app.Dienst<KostenplaatsDienst>().Boekingen(wie, id, "AUTO1", new(2026, 1, 1), new(2026, 12, 31))).Single().Bedrag);
     }
 }
+
+/// <summary>Afsluiten en heropenen, de export, en de standaard van een relatie als de module uit staat of de kostenplaats dicht is.</summary>
+public sealed class KostenplaatsAfsluitenTests(AdministratieFixture app) : IClassFixture<AdministratieFixture>
+{
+    [Fact]
+    public async Task Afsluiten_heropenen_en_exporteren()
+    {
+        var wie = await app.Beheerder();
+        Assert.True((await app.Dienst<KantoorDienst>().WijzigModules(wie, new Kantoormodules(true))).IsGelukt);
+        var id = await app.Administratie();
+        var dienst = app.Dienst<KostenplaatsDienst>();
+        var auto = (await dienst.VoegToe(wie, id, "AUTO1", "Auto")).Waarde;
+        Assert.True((await app.Dienst<GrootboekDienst>().Boek(wie, id, new Journaalpost("MEM", "2026-0001", new(2026, 3, 1), "Onderhoud",
+            [new Journaalregel("4300", 100m, Kostenplaats: "AUTO1"), new Journaalregel("4310", 20m, Kostenplaats: "AUTO1"), new Journaalregel("1100", -120m)]))).IsGelukt);
+
+        // Afgesloten: niet meer te kiezen en niet meer op te boeken; heropenen kan, in het log.
+        Assert.True((await dienst.Wijzig(wie, id, auto, "Auto", afgesloten: true)).IsGelukt);
+        Assert.Empty(await dienst.Keuze(wie, id));
+        Assert.True((await dienst.Lijst(wie, id)).Single().Afgesloten);
+        Assert.True((await dienst.Wijzig(wie, id, auto, "Auto", afgesloten: false)).IsGelukt);
+        Assert.Single(await dienst.Keuze(wie, id));
+        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.KostenplaatsGewijzigd && r.Details == "heropend");
+
+        // Export: het totaaloverzicht en per kostenplaats per rekening met subtotalen.
+        var (van, tot) = (new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
+        var totaal = Export.Kostenplaatsexport.Totaal(await dienst.Overzicht(wie, id, van, tot), van, tot);
+        Assert.Equal(["Kosten", "Opbrengsten", "Resultaat"], totaal.Koppen);
+        Assert.Equal([120m, 0m, -120m], totaal.Regels.Single(r => r.Nummer == "AUTO1").Bedragen);
+        var per = Export.Kostenplaatsexport.Kostenplaats((await dienst.Lijst(wie, id)).Single(), await dienst.Boekingen(wie, id, "AUTO1", van, tot), van, tot);
+        Assert.Equal(["4300", "MEM 2026-0001", null, "4310", "MEM 2026-0001", null, null], per.Regels.Select(r => r.Nummer));
+        Assert.Equal([120m, 0m], per.Regels[^1].Bedragen);
+        Assert.NotEmpty(await app.Dienst<OverzichtDienst>().TabelExcel(wie, id, per));
+    }
+
+    [Fact]
+    public async Task De_standaard_van_de_relatie_alleen_met_de_module_aan_en_open()
+    {
+        var wie = await app.Beheerder();
+        var kantoor = app.Dienst<KantoorDienst>();
+        Assert.True((await kantoor.WijzigModules(wie, new Kantoormodules(true))).IsGelukt);
+        var id = await app.Administratie();
+        var dienst = app.Dienst<KostenplaatsDienst>();
+        var auto = (await dienst.VoegToe(wie, id, "AUTO1", "Auto")).Waarde;
+        var inrichting = app.Dienst<InrichtingDienst>();
+        Assert.True((await inrichting.VoegRelatieToe(wie, id, new RelatieInvoer("Belnet B.V.", "NL123456782B01", null, "4310", Kostenplaats: "AUTO1"), "NL63TRIO0212345678")).IsGelukt);
+        await inrichting.VoegRegelToe(wie, id, new Verwerkingsregel("Belnet is telefoon", "4310", "I21", Automatisch: true, NaamBevat: "Belnet"));
+        var inkoop = app.Dienst<InkoopDienst>();
+
+        // Afgesloten: de factuur wordt gewoon geboekt, zonder kostenplaats.
+        Assert.True((await dienst.Wijzig(wie, id, auto, "Auto", afgesloten: true)).IsGelukt);
+        var april = await inkoop.Lees(wie, id, new MemoryStream(InkoopTests.Belnet()), "belnet.xml", null);
+        Assert.True(april.IsGeboekt, april.Melding);
+
+        // Module uit: ook zonder kostenplaats.
+        Assert.True((await dienst.Wijzig(wie, id, auto, "Auto", afgesloten: false)).IsGelukt);
+        Assert.True((await kantoor.WijzigModules(wie, new Kantoormodules(false))).IsGelukt);
+        try
+        {
+            var mei = await inkoop.Lees(wie, id, new MemoryStream(InkoopTests.Belnet("BN-2026-0511", "2026-05-01")), "belnet-mei.xml", null);
+            Assert.True(mei.IsGeboekt, mei.Melding);
+            Assert.All(await app.Dienst<GrootboekDienst>().Posten(wie, id, "INK"), p => Assert.All(p.Post.Regels, r => Assert.Null(r.Kostenplaats)));
+        }
+        finally
+        {
+            await kantoor.WijzigModules(wie, new Kantoormodules(true));
+        }
+    }
+}

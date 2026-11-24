@@ -2,6 +2,9 @@
 @inject KostenplaatsDienst Kostenplaatsen
 @inject GrootboekDienst Grootboek
 @inject NavigationManager Navigatie
+@inject OverzichtDienst Overzicht
+@inject IJSRuntime JS
+@using Boekerhouden.Administratie.Export
 
 <AdministratieKader Id="Id" Titel="@Titel" Actief="/kostenplaatsen" BijOpenen="Open" Terug="@($"/a/{Id}/kostenplaatsen?{Weergave.Periodequery(van, tot)}")" KopVast="true">
     <Kenmerken>
@@ -16,9 +19,18 @@
         @if (geopend is not null)
         {
             <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
+            @if (kostenplaats is { Afgesloten: false } && geopend.Kop.Mag(Recht.Boekhouden))
+            {
+                <a class="btn btn-sm btn-outline-secondary" href="/a/@Id/memoriaal?kostenplaats=@Uri.EscapeDataString(kostenplaats.Code)" title="Een memoriaalboeking met deze kostenplaats op de eerste regel">Boeken</a>
+            }
+            @if (regels is { Count: > 0 })
+            {
+                <Downloadmenu Bezig="bezig" Keuzes="@([new("Excel", "De regels op deze kostenplaats als Excel, per rekening", Excel), new("PDF", "De regels op deze kostenplaats als PDF, per rekening", Pdf)])" />
+            }
         }
     </Acties>
     <ChildContent>
+        <Foutmeldingen Fouten="fouten" />
         @if (geladen && kostenplaats is null)
         {
             <div class="alert alert-warning">Kostenplaats @Code bestaat niet.</div>
@@ -82,6 +94,32 @@
     private Kostenplaatsregel? kostenplaats;
     private IReadOnlyList<Kostenplaatsboeking>? regels;
     private bool geladen;
+    private bool bezig;
+    private IReadOnlyList<string>? fouten;
+
+    private Exporttabel Tabel() => Kostenplaatsexport.Kostenplaats(kostenplaats!, Gevonden, van, tot);
+
+    private string Bestandsnaam => $"Kostenplaats {kostenplaats!.Code} {Weergave.Datum(van)} tm {Weergave.Datum(tot)}";
+
+    private async Task Excel()
+    {
+        bezig = true;
+        await JS.Bewaar(await Overzicht.TabelExcel(geopend!.Wie, Id, Tabel()), $"{Bestandsnaam}.xlsx", Download.Excel);
+        bezig = false;
+    }
+
+    private async Task Pdf()
+    {
+        bezig = true;
+        var uitkomst = await Overzicht.TabelPdf(geopend!.Wie, Id, Tabel());
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            await JS.Bewaar(uitkomst.Waarde!, $"{Bestandsnaam}.pdf", Download.Pdf);
+        }
+
+        bezig = false;
+    }
     private string? zoek;
     private bool perRekening;
     private DateOnly van;

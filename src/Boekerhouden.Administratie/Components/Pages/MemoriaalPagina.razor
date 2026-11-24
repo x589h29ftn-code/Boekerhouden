@@ -184,7 +184,7 @@
                 </div>
             }
             <div class="card card-body mb-4 @(loon is not null || kopieBron is not null ? "d-none" : null)">
-                <BoekingBewerken @key="formulier" Kader="geopend" Schema="schema" Dagboek="@dagboek.Code" Memoriaal="true" Post="gekozen?.Post" Voorbeeld="kopie" VoorbeeldOpDatum="kopieOpDatum" Datum="vandaag"
+                <BoekingBewerken @key="formulier" Kader="geopend" Schema="schema" Dagboek="@dagboek.Code" Memoriaal="true" Post="gekozen?.Post" Kostenplaats="@(gekozen is null ? KostenplaatsCode : null)" Voorbeeld="kopie" VoorbeeldOpDatum="kopieOpDatum" Datum="vandaag"
                                  Opgeslagen="Opgeslagen" Geannuleerd="@(gekozen is null && kopie is null ? default : EventCallback.Factory.Create(this, NieuweBoeking))" />
             </div>
 
@@ -323,6 +323,10 @@
     /// <summary>Het boekstuk om te kopiëren (vanaf de boekingpagina).</summary>
     [SupplyParameterFromQuery(Name = "kopie")]
     public string? KopieVan { get; set; }
+
+    /// <summary>Een nieuwe boeking op deze kostenplaats (vanaf de pagina van de kostenplaats): op de eerste regel.</summary>
+    [SupplyParameterFromQuery(Name = "kostenplaats")]
+    public string? KostenplaatsCode { get; set; }
 
     private async Task Open(Geopend g)
     {

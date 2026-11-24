@@ -1293,7 +1293,12 @@ public sealed class InkoopDienst(
     private static async Task<Inkoopcontext> Context(AdministratieDbContext db, Guid administratie)
     {
         var gegevens = await db.Administraties.AsNoTracking().SingleAsync(a => a.Id == administratie);
-        var relaties = (await db.Relaties.AsNoTracking().OrderBy(r => r.Naam).ToListAsync()).Select(r => r.NaarDomein()).ToList();
+        // De standaard kostenplaats van een relatie geldt alleen met de module aan en zolang de kostenplaats open is.
+        var open = (await KantoorDienst.LeesModules(db)).Kostenplaatsen
+            ? (await db.Kostenplaatsen.AsNoTracking().Where(k => !k.Afgesloten).Select(k => k.Code).ToListAsync()).ToHashSet(StringComparer.Ordinal)
+            : [];
+        var relaties = (await db.Relaties.AsNoTracking().OrderBy(r => r.Naam).ToListAsync()).Select(r => r.NaarDomein())
+            .Select(r => r.Kostenplaats is { } kp && !open.Contains(kp) ? r with { Kostenplaats = null } : r).ToList();
         var regels = (await db.Regels.AsNoTracking().OrderBy(r => r.Volgorde).ToListAsync()).Select(r => r.NaarDomein()).ToList();
         var instellingen = gegevens.Afwijkend().Op(await KantoorDienst.Lees(db));
         return new Inkoopcontext(gegevens, instellingen, relaties, regels, await BtwDienst.Lees(db));

@@ -6,7 +6,7 @@ namespace Boekerhouden.Administratie.Tests;
 
 /// <summary>
 /// Kostenplaatsen: de module aan of uit (kantoor), kostenplaatsen beheren, op een boekingsregel kiezen en het
-/// overzicht per kostenplaats. Niet verplicht; een gebruikte kostenplaats vervalt in plaats van te verdwijnen.
+/// overzicht per kostenplaats. Niet verplicht; een gebruikte kostenplaats wordt afgesloten in plaats van te verdwijnen.
 /// </summary>
 public sealed class KostenplaatsTests(AdministratieFixture app) : IClassFixture<AdministratieFixture>
 {
@@ -57,13 +57,13 @@ public sealed class KostenplaatsTests(AdministratieFixture app) : IClassFixture<
         Assert.Equal(["Er is al een kostenplaats AUTO1."], (await dienst.VoegToe(wie, id, "AUTO1", "Nog een auto")).Fouten);
         Assert.True((await dienst.VoegToe(wie, id, "WERK", "Werkplaats")).IsGelukt);
 
-        Assert.True((await dienst.Wijzig(wie, id, auto.Waarde, "Auto Tesla", vervallen: false)).IsGelukt);
+        Assert.True((await dienst.Wijzig(wie, id, auto.Waarde, "Auto Tesla", afgesloten: false)).IsGelukt);
         Assert.Equal(["AUTO1 Auto Tesla", "WERK Werkplaats"], (await dienst.Lijst(wie, id)).Select(k => k.Weergave));
         Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.KostenplaatsGewijzigd && r.Onderwerp == "AUTO1" && r.Details == "naam Auto AB-123-C → Auto Tesla");
 
-        // Niet gebruikt: weg. Vervallen: niet meer te kiezen.
+        // Niet gebruikt: weg. Afgesloten: niet meer te kiezen.
         var werk = (await dienst.Lijst(wie, id)).Single(k => k.Code == "WERK");
-        Assert.True((await dienst.Wijzig(wie, id, werk.Id, werk.Naam, vervallen: true)).IsGelukt);
+        Assert.True((await dienst.Wijzig(wie, id, werk.Id, werk.Naam, afgesloten: true)).IsGelukt);
         Assert.Equal(["AUTO1"], (await dienst.Keuze(wie, id)).Select(k => k.Code));
         Assert.True((await dienst.Verwijder(wie, id, werk.Id)).IsGelukt);
         Assert.Equal(["AUTO1"], (await dienst.Lijst(wie, id)).Select(k => k.Code));
@@ -95,11 +95,11 @@ public sealed class KostenplaatsTests(AdministratieFixture app) : IClassFixture<
         Assert.Equal([("2026-0001", "4300", 100m), ("2026-0001", "4310", 50m)], boekingen.Select(b => (b.Boekstuk, b.Rekeningnummer, b.Bedrag)));
         Assert.Equal("Memoriaal 2026-0001", boekingen[0].Omschrijving);
 
-        // Gebruikt: niet te verwijderen, wel te laten vervallen. Een nieuwe boeking kan er dan niet meer op;
+        // Gebruikt: niet te verwijderen, wel af te sluiten. Een nieuwe boeking kan er dan niet meer op;
         // een aanpassing van een boeking die er al op stond, wel.
-        Assert.Equal(["Op AUTO1 is geboekt; laat hem vervallen in plaats van verwijderen."], (await dienst.Verwijder(wie, id, auto)).Fouten);
-        Assert.True((await dienst.Wijzig(wie, id, auto, "Auto", vervallen: true)).IsGelukt);
-        Assert.Equal(["Kostenplaats AUTO1 is vervallen."], (await grootboek.Boek(wie, id, Post("2026-0005", new(2026, 5, 1), ("4300", 1m, "AUTO1"), ("1100", -1m, null)))).Fouten);
+        Assert.Equal(["Op AUTO1 is geboekt; sluit hem af in plaats van te verwijderen."], (await dienst.Verwijder(wie, id, auto)).Fouten);
+        Assert.True((await dienst.Wijzig(wie, id, auto, "Auto", afgesloten: true)).IsGelukt);
+        Assert.Equal(["Kostenplaats AUTO1 is afgesloten."], (await grootboek.Boek(wie, id, Post("2026-0005", new(2026, 5, 1), ("4300", 1m, "AUTO1"), ("1100", -1m, null)))).Fouten);
         var aangepast = await grootboek.PasAan(wie, id, "MEM", "2026-0001", Post("x", new(2026, 3, 15), ("4300", 120m, "AUTO1"), ("4310", 50m, "AUTO1"), ("4320", 5m, null), ("1100", -175m, null)));
         Assert.True(aangepast.IsGelukt, string.Join("; ", aangepast.Fouten));
         Assert.Equal(170m, (await dienst.Overzicht(wie, id, new(2026, 1, 1), new(2026, 12, 31))).Single(t => t.Kostenplaats.Code == "AUTO1").Kosten);

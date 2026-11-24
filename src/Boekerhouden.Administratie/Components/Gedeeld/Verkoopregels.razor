@@ -165,7 +165,8 @@ else
     [Parameter]
     public string? Kostenplaats { get; set; }
 
-    private bool MetKostenplaats => Kostenplaatsen.Count > 0 || Regels.Any(r => r.Kostenplaats is not null);
+    /// <summary>De kolom Kostenplaats: alleen als de module aanstaat en er open kostenplaatsen zijn.</summary>
+    private bool MetKostenplaats => Kostenplaatsen.Count > 0;
 
     /// <summary>
     /// Er staat een factuur naast waarop gebieden aan te wijzen zijn (een ingelezen verkoopfactuur): de omschrijving

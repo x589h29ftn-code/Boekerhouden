@@ -1827,6 +1827,9 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.Property<Guid>("AdministratieId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("Afgesloten")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -1836,9 +1839,6 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
-
-                    b.Property<bool>("Vervallen")
-                        .HasColumnType("boolean");
 
                     b.HasKey("Id");
 

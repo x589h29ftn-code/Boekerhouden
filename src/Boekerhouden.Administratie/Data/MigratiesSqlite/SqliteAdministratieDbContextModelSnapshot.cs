@@ -1803,6 +1803,9 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.Property<Guid>("AdministratieId")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("Afgesloten")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -1812,9 +1815,6 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
-
-                    b.Property<bool>("Vervallen")
-                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 

@@ -32,7 +32,7 @@
                         <label class="form-label" for="ro" title="De omschrijving van de boeking bij een factuur van deze relatie, met variabelen als #maand en #factuurnummer. Gaat voor op de standaard van de administratie; een regel of de omschrijving op de factuur zelf gaat weer voor. Leeg = de standaard.">Omschrijving boeking</label>
                         <input id="ro" class="form-control form-control-sm" maxlength="200" @bind="gegevens.Omschrijving" placeholder="zoals de administratie" />
                     </div>
-                    @if (kostenplaatsen.Count > 0 || gegevens.Kostenplaats is not null)
+                    @if (kostenplaatsen.Count > 0)
                     {
                         <div class="col-md-3">
                             <label class="form-label" title="Komt vanzelf op de regels van een inkoop- of verkoopfactuur van deze relatie; per regel aan te passen.">Kostenplaats</label>

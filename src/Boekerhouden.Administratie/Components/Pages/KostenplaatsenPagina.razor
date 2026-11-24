@@ -3,12 +3,19 @@
 @inject KostenplaatsDienst Kostenplaatsen
 @inject GrootboekDienst Grootboek
 @inject NavigationManager Navigatie
+@inject OverzichtDienst Overzicht
+@inject IJSRuntime JS
+@using Boekerhouden.Administratie.Export
 
 <AdministratieKader Id="Id" Titel="Kostenplaatsen" Actief="/kostenplaatsen" BijOpenen="Open">
     <Acties>
         @if (geopend is not null && geopend.Kop.Kostenplaatsen)
         {
             <PeriodeKeuze Van="van" Tot="tot" Gewijzigd="KiesPeriode" />
+            @if (Zichtbaar.Count > 0)
+            {
+                <Downloadmenu Bezig="bezig" Keuzes="@([new("Excel", "Het overzicht van de kostenplaatsen als Excel", Excel), new("PDF", "Het overzicht van de kostenplaatsen als PDF", Pdf)])" />
+            }
         }
     </Acties>
     <ChildContent>
@@ -65,8 +72,8 @@
                                                 <span class="rekeningnummer">@k.Code</span>
                                                 <input class="form-control form-control-sm" maxlength="@KostenplaatsDienst.MaxNaam" @bind="naamBewerkt" aria-label="Naam" />
                                                 <span class="form-check form-switch mb-0 text-nowrap">
-                                                    <input id="vervallen" class="form-check-input" type="checkbox" role="switch" @bind="vervallenBewerkt" />
-                                                    <label class="form-check-label" for="vervallen" title="Niet meer te kiezen op nieuwe boekingen; wat er al op staat, blijft">Vervallen</label>
+                                                    <input id="afgesloten" class="form-check-input" type="checkbox" role="switch" @bind="afgeslotenBewerkt" />
+                                                    <label class="form-check-label" for="afgesloten" title="Er kan niet meer op geboekt worden; wat er al op staat, blijft">Afgesloten</label>
                                                 </span>
                                             </div>
                                         </td>
@@ -78,10 +85,10 @@
                                 }
                                 else
                                 {
-                                    <tr class="klikbaar @(k.Vervallen ? "text-secondary" : null)" @onclick="() => OpenKostenplaats(k)" title="De boekingen op @k.Code">
-                                        <td><span class="rekeningnummer">@k.Code</span> @k.Naam @if (k.Vervallen)
+                                    <tr class="klikbaar @(k.Afgesloten ? "text-secondary" : null)" @onclick="() => OpenKostenplaats(k)" title="De boekingen op @k.Code">
+                                        <td><span class="rekeningnummer">@k.Code</span> @k.Naam @if (k.Afgesloten)
                                             {
-                                                <span class="status ms-1">vervallen</span>
+                                                <span class="status ms-1">afgesloten</span>
                                             }</td>
                                         <td class="text-end">@t.Regels</td>
                                         <td class="bedrag text-end">@Weergave.Bedrag(t.Kosten)</td>
@@ -91,6 +98,8 @@
                                             @if (MagBeheren)
                                             {
                                                 <button class="icoonknop" title="Wijzigen" aria-label="Wijzigen" @onclick="() => Bewerk(k)" @onclick:stopPropagation="true"><Icoon Naam="note-pencil" /></button>
+                                                <button class="icoonknop" title="@(k.Afgesloten ? "Heropenen: er kan weer op geboekt worden" : "Afsluiten: er kan niet meer op geboekt worden")" aria-label="@(k.Afgesloten ? "Heropenen" : "Afsluiten")"
+                                                        @onclick="() => Sluit(k, !k.Afgesloten)" @onclick:stopPropagation="true"><Icoon Naam="lock-simple" /></button>
                                                 @if (k.Regels == 0)
                                                 {
                                                     <button class="icoonknop" title="Verwijderen" aria-label="Verwijderen" @onclick="() => Verwijder(k)" @onclick:stopPropagation="true"><Icoon Naam="x" /></button>
@@ -113,11 +122,11 @@
                         </tfoot>
                     </table>
                 </div>
-                @if (totalen.Any(t => t.Kostenplaats.Vervallen))
+                @if (totalen.Any(t => t.Kostenplaats.Afgesloten))
                 {
                     <div class="form-check mt-2 small">
-                        <input id="toon-vervallen" class="form-check-input" type="checkbox" @bind="toonVervallen" />
-                        <label class="form-check-label text-secondary" for="toon-vervallen">Vervallen tonen</label>
+                        <input id="toon-afgesloten" class="form-check-input" type="checkbox" @bind="toonAfgesloten" />
+                        <label class="form-check-label text-secondary" for="toon-afgesloten">Afgesloten tonen</label>
                     </div>
                 }
             }
@@ -135,9 +144,32 @@
     private string? naam;
     private Guid? bewerkt;
     private string? naamBewerkt;
-    private bool vervallenBewerkt;
-    private bool toonVervallen;
+    private bool afgeslotenBewerkt;
+    private bool toonAfgesloten;
     private Uitklapformulier? formulier;
+    private bool bezig;
+
+    private string Bestandsnaam => $"Kostenplaatsen {Weergave.Datum(van)} tm {Weergave.Datum(tot)}";
+
+    private async Task Excel()
+    {
+        bezig = true;
+        await JS.Bewaar(await Overzicht.TabelExcel(geopend!.Wie, Id, Kostenplaatsexport.Totaal(Zichtbaar, van, tot)), $"{Bestandsnaam}.xlsx", Download.Excel);
+        bezig = false;
+    }
+
+    private async Task Pdf()
+    {
+        bezig = true;
+        var uitkomst = await Overzicht.TabelPdf(geopend!.Wie, Id, Kostenplaatsexport.Totaal(Zichtbaar, van, tot));
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            await JS.Bewaar(uitkomst.Waarde!, $"{Bestandsnaam}.pdf", Download.Pdf);
+        }
+
+        bezig = false;
+    }
 
     [Parameter]
     public Guid Id { get; set; }
@@ -153,7 +185,8 @@
 
     private bool MagBeheren => geopend?.Kop.Mag(Recht.Boekhouden) == true;
 
-    private IReadOnlyList<Kostenplaatstotaal> Zichtbaar => [.. (totalen ?? []).Where(t => toonVervallen || !t.Kostenplaats.Vervallen || t.Regels > 0)];
+    /// <summary>Afgesloten kostenplaatsen alleen met "Afgesloten tonen"; ook in de totalen en de export.</summary>
+    private IReadOnlyList<Kostenplaatstotaal> Zichtbaar => [.. (totalen ?? []).Where(t => toonAfgesloten || !t.Kostenplaats.Afgesloten)];
 
     private async Task Open(Geopend g)
     {
@@ -190,15 +223,26 @@
         }
     }
 
-    private void Bewerk(Kostenplaatsregel k) => (bewerkt, naamBewerkt, vervallenBewerkt, fouten) = (k.Id, k.Naam, k.Vervallen, null);
+    private void Bewerk(Kostenplaatsregel k) => (bewerkt, naamBewerkt, afgeslotenBewerkt, fouten) = (k.Id, k.Naam, k.Afgesloten, null);
 
     private async Task Bewaar(Kostenplaatsregel k)
     {
-        var uitkomst = await Kostenplaatsen.Wijzig(geopend!.Wie, Id, k.Id, naamBewerkt ?? "", vervallenBewerkt);
+        var uitkomst = await Kostenplaatsen.Wijzig(geopend!.Wie, Id, k.Id, naamBewerkt ?? "", afgeslotenBewerkt);
         fouten = uitkomst.Fouten;
         if (uitkomst.IsGelukt)
         {
             bewerkt = null;
+            await Laad();
+        }
+    }
+
+    private async Task Sluit(Kostenplaatsregel k, bool afgesloten)
+    {
+        var uitkomst = await Kostenplaatsen.Wijzig(geopend!.Wie, Id, k.Id, k.Naam, afgesloten);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            Meldingen.Toon(afgesloten ? $"Kostenplaats {k.Code} afgesloten." : $"Kostenplaats {k.Code} heropend.");
             await Laad();
         }
     }

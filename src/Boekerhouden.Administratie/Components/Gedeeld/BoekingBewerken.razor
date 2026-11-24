@@ -126,8 +126,8 @@
     private string boekstuk = "";
     private IReadOnlyList<Kostenplaatsregel> kostenplaatsen = [];
 
-    /// <summary>De kolom Kostenplaats: als de module aanstaat en er kostenplaatsen zijn, of als een regel er al een heeft.</summary>
-    private bool MetKostenplaats => kostenplaatsen.Count > 0 || invoer.Regels.Any(r => r.Kostenplaats is not null);
+    /// <summary>De kolom Kostenplaats: alleen als de module aanstaat en er open kostenplaatsen zijn.</summary>
+    private bool MetKostenplaats => kostenplaatsen.Count > 0;
 
     /// <summary>Het boekstuk dat het pakket voorstelde; zolang de gebruiker het niet zelf wijzigde, volgt het de datum.</summary>
     private string? voorgesteld;
@@ -160,6 +160,10 @@
     /// <summary>Een memoriaaldagboek: alleen regels met een openstaande post (debiteuren of crediteuren met factuur) staan vast.</summary>
     [Parameter]
     public bool Memoriaal { get; set; }
+
+    /// <summary>Bij een nieuwe boeking: de kostenplaats op de eerste regel (als hij te kiezen is).</summary>
+    [Parameter]
+    public string? Kostenplaats { get; set; }
 
     /// <summary>De boeking die wordt aangepast; leeg = een nieuwe boeking.</summary>
     [Parameter]
@@ -220,7 +224,7 @@
 
         if (Post is null)
         {
-            invoer = new Invoer { Datum = datum, Regels = [new(), new()] };
+            invoer = new Invoer { Datum = datum, Regels = [new() { Kostenplaats = kostenplaatsen.Any(k => k.Code == Kostenplaats) ? Kostenplaats : null }, new()] };
             herhalenTot = $"{datum.Year:0000}-12";
             boekstuk = voorgesteld = await Grootboek.VolgendBoekstuk(Kader.Wie, Kader.Kop.Id, Dagboek, datum.Year);
             return;

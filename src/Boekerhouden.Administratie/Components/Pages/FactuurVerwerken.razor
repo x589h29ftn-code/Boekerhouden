@@ -1571,8 +1571,8 @@
 
     private IReadOnlyList<Kostenplaatsregel> kostenplaatsen = [];
 
-    /// <summary>De kolom Kostenplaats: als er kostenplaatsen zijn (module aan), of als een regel er al een heeft.</summary>
-    private bool MetKostenplaats => kostenplaatsen.Count > 0 || regels.Any(r => r.Kostenplaats is not null);
+    /// <summary>De kolom Kostenplaats: alleen als de module aanstaat en er open kostenplaatsen zijn.</summary>
+    private bool MetKostenplaats => kostenplaatsen.Count > 0;
 
     /// <summary>De standaard kostenplaats van de gekozen leverancier op de regels die er nog geen hebben.</summary>
     private void ZetStandaardKostenplaats()

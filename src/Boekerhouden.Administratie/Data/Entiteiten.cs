@@ -350,7 +350,7 @@ public sealed class Boekingsregel : IVanAdministratie
 /// <summary>
 /// Een kostenplaats van de administratie: een extra indeling van kosten en opbrengsten naast het grootboek, bijv. een
 /// auto, afdeling of vestiging. Een boekingsregel kan er één hebben (<see cref="Boekingsregel.Kostenplaats"/>, de code).
-/// Een kostenplaats die gebruikt is, gaat niet weg maar vervalt: hij staat dan niet meer in de keuzelijst.
+/// Een kostenplaats die gebruikt is, gaat niet weg maar wordt afgesloten: er kan niet meer op geboekt worden.
 /// </summary>
 public sealed class Kostenplaats : IVanAdministratie
 {
@@ -362,7 +362,7 @@ public sealed class Kostenplaats : IVanAdministratie
 
     public string Naam { get; set; } = string.Empty;
 
-    public bool Vervallen { get; set; }
+    public bool Afgesloten { get; set; }
 }
 
 /// <summary>Eén regel in het wijzigingslog; wordt nooit gewijzigd of verwijderd (de database weigert dat).</summary>
