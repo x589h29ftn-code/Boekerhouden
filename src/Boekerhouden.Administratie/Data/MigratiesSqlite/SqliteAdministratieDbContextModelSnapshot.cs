@@ -462,6 +462,14 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Standaardomschrijving")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("StandaardomschrijvingVerkoop")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Straat")
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
@@ -1643,6 +1651,10 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.Property<string>("Naam")
                         .IsRequired()
                         .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Omschrijving")
+                        .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Omzetrekening")

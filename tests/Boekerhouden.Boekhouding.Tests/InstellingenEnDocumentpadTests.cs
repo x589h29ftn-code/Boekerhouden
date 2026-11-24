@@ -18,6 +18,32 @@ public sealed class VerwerkingsinstellingenTests
     }
 
     [Fact]
+    public void De_omschrijving_van_de_administratie_gaat_voor_op_die_van_het_kantoor()
+    {
+        var kantoor = Kantoor with { Omschrijving = "#leverancier #factuurnummer", OmschrijvingVerkoop = "Verkoop #klant" };
+
+        Assert.Equal(("#leverancier #factuurnummer", "Verkoop #klant"), (AfwijkendeInstellingen.Geen.Op(kantoor).Omschrijving, AfwijkendeInstellingen.Geen.Op(kantoor).OmschrijvingVerkoop));
+        var eigen = new AfwijkendeInstellingen(Omschrijving: "#leverancier #maand", OmschrijvingVerkoop: " ").Op(kantoor);
+        Assert.Equal(("#leverancier #maand", "Verkoop #klant"), (eigen.Omschrijving, eigen.OmschrijvingVerkoop));
+    }
+
+    [Fact]
+    public void Volgorde_van_de_omschrijving_regel_relatie_geleerd_standaard()
+    {
+        var relatie = new Relaties.Relatie("BEL", "Belnet", [], Omschrijving: "Telefoon #maand");
+        var zonder = relatie with { Omschrijving = null };
+        var regel = new Verwerkingsadvies("4310", "I21", Adviesbron.Regel, true, "Regel", Omschrijving: "Regel #maand");
+        var geleerd = new Verwerkingsadvies("4310", "I21", Adviesbron.Geleerd, false, "Geleerd", Omschrijving: "Geleerd #maand");
+
+        Assert.Equal("Regel #maand", Herkenning.Inkoopverwerker.Sjabloon(regel, relatie, "Standaard"));
+        Assert.Equal("Telefoon #maand", Herkenning.Inkoopverwerker.Sjabloon(geleerd, relatie, "Standaard"));
+        Assert.Equal("Geleerd #maand", Herkenning.Inkoopverwerker.Sjabloon(geleerd, zonder, "Standaard"));
+        Assert.Equal("Standaard", Herkenning.Inkoopverwerker.Sjabloon(regel with { Omschrijving = null }, zonder, "Standaard"));
+        Assert.Equal("Telefoon #maand", Herkenning.Inkoopverwerker.Sjabloon(null, relatie, null));
+        Assert.Null(Herkenning.Inkoopverwerker.Sjabloon(null, null, null));
+    }
+
+    [Fact]
     public void Lege_limiet_zonder_afwijken_volgt_het_kantoor() =>
         Assert.Equal(500m, new AfwijkendeInstellingen(Limiet: null).Op(Kantoor).Limiet);
 

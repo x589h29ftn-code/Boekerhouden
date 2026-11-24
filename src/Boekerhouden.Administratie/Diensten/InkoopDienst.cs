@@ -694,7 +694,7 @@ public sealed class InkoopDienst(
         var variabelen = new Factuurvariabelen(invoer.Factuurnummer.Trim(), herkend?.Omschrijving, naam, invoer.Datum, invoer.Vervaldatum, kenmerk);
         var sjabloon = Omschrijvingssjabloon.IsSjabloon(invoer.Omschrijving) ? invoer.Omschrijving.Trim() : null;
         var omschrijving = !string.IsNullOrWhiteSpace(invoer.Omschrijving) ? Omschrijvingssjabloon.Vul(invoer.Omschrijving, variabelen)
-            : context.Instellingen.Omschrijving is { Length: > 0 } standaard && Omschrijvingssjabloon.Vul(standaard, variabelen) is { Length: > 0 } gevuld ? gevuld
+            : Inkoopverwerker.Sjabloon(null, relatie, context.Instellingen.Omschrijving) is { Length: > 0 } standaard && Omschrijvingssjabloon.Vul(standaard, variabelen) is { Length: > 0 } gevuld ? gevuld
             : $"{naam} {invoer.Factuurnummer}".Trim();
         // Bedragen zoals op het papier: een negatieve regel is een korting (op een creditnota: een toeslag). Een creditnota
         // waarvan de regels al negatief zijn ingevoerd, staat al goed.

@@ -139,8 +139,8 @@ public static class Inkoopverwerker
             }
             else
             {
-                // Met een omschrijving uit een regel of de standaard krijgen ook de grootboekregels die omschrijving.
-                var sjabloon = advies.Omschrijving ?? standaardomschrijving;
+                // Met een omschrijving uit een regel, de relatie of de standaard krijgen ook de grootboekregels die omschrijving.
+                var sjabloon = Sjabloon(advies, leverancier.Relatie, standaardomschrijving);
                 if (sjabloon is { Length: > 0 })
                 {
                     factuurregels = [.. factuurregels.Select(r => r with { Omschrijving = string.Empty })];
@@ -320,6 +320,16 @@ public static class Inkoopverwerker
             ? bestaand.Where(b => b.Relatie == relatie && b.Totaal == totaal && Math.Abs(b.Datum.DayNumber - datum.DayNumber) <= 6)
                 .OrderBy(b => Math.Abs(b.Datum.DayNumber - datum.DayNumber)).FirstOrDefault()
             : null;
+
+    /// <summary>
+    /// Het sjabloon voor de omschrijving, in deze volgorde: een regel van de gebruiker, de omschrijving bij de relatie,
+    /// wat geleerd is van eerdere facturen, en dan de standaard van de administratie (of het kantoor).
+    /// </summary>
+    public static string? Sjabloon(Verwerkingsadvies? advies, Relatie? relatie, string? standaardomschrijving) =>
+        (advies?.Bron == Adviesbron.Regel ? advies.Omschrijving : null)
+        ?? (string.IsNullOrWhiteSpace(relatie?.Omschrijving) ? null : relatie.Omschrijving)
+        ?? advies?.Omschrijving
+        ?? standaardomschrijving;
 
     private static string Omschrijving(HerkendeFactuur herkend, Relatie relatie, string? sjabloon, int betalingstermijn)
     {

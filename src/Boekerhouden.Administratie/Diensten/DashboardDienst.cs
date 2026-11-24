@@ -48,8 +48,21 @@ public enum Widget
 }
 
 /// <summary>Een widget op het dashboard, met de keuze die erbij hoort (btw per maand of kwartaal; grafiek met inkoop of alle kosten).</summary>
-public sealed record Widgetkeuze(Widget Soort, string? Optie = null)
+/// <param name="Breedte">Hoeveel kolommen van het raster van vier (1 tot 4); leeg = de standaard van de widget.</param>
+/// <param name="Hoogte">Hoeveel rijen (1 of 2); leeg = 1.</param>
+public sealed record Widgetkeuze(Widget Soort, string? Optie = null, int? Breedte = null, int? Hoogte = null)
 {
+    public const int Kolommen = 4;
+
+    /// <summary>De standaardbreedte: de grafieken en de marge twee kolommen, de rest één.</summary>
+    public static int StandaardBreedte(Widget soort) => soort is Widget.Maandgrafiek or Widget.Liquiditeit or Widget.Marge ? 2 : 1;
+
+    /// <summary>De breedte die geldt (1 tot 4).</summary>
+    public int GeldigeBreedte => Breedte is >= 1 and <= Kolommen ? Breedte.Value : StandaardBreedte(Soort);
+
+    /// <summary>De hoogte die geldt (1 of 2).</summary>
+    public int GeldigeHoogte => Hoogte is 2 ? 2 : 1;
+
     public const string Maand = "maand";
     public const string Kwartaal = "kwartaal";
     public const string Inkoop = "inkoop";
@@ -68,7 +81,14 @@ public sealed record Widgetkeuze(Widget Soort, string? Optie = null)
     /// <summary>De keuze, of de standaard als er niets (geldigs) is gekozen.</summary>
     public string? Geldig => Opties(Soort) is { Count: > 0 } opties ? opties.Contains(Optie ?? "", StringComparer.Ordinal) ? Optie : opties[0] : null;
 
-    public override string ToString() => Geldig is { } optie ? $"{Soort.ToString().ToLowerInvariant()}:{optie}" : Soort.ToString().ToLowerInvariant();
+    /// <summary>Bijv. <c>btw:maand</c>, met de grootte erachter als die afwijkt: <c>maandgrafiek~4x2</c>.</summary>
+    public override string ToString()
+    {
+        var tekst = Geldig is { } optie ? $"{Soort.ToString().ToLowerInvariant()}:{optie}" : Soort.ToString().ToLowerInvariant();
+        return GeldigeBreedte != StandaardBreedte(Soort) || GeldigeHoogte != 1
+            ? $"{tekst}~{GeldigeBreedte.ToString(System.Globalization.CultureInfo.InvariantCulture)}x{GeldigeHoogte.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
+            : tekst;
+    }
 
     /// <summary>
     /// Leest een opgeslagen indeling (<c>liquide,btw:maand</c>); onbekende widgets en dubbele vallen weg, zodat een
@@ -77,13 +97,27 @@ public sealed record Widgetkeuze(Widget Soort, string? Optie = null)
     public static IReadOnlyList<Widgetkeuze> Lees(string? tekst)
     {
         var keuzes = new List<Widgetkeuze>();
-        foreach (var deel in (tekst ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        foreach (var stuk in (tekst ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
+            // De grootte staat achter een tilde: "btw:maand~2x1"; zonder tilde de standaard (oude indelingen).
+            var (deel, grootte) = stuk.IndexOf('~', StringComparison.Ordinal) is var t and >= 0 ? (stuk[..t], stuk[(t + 1)..]) : (stuk, null);
             var (naam, optie) = deel.IndexOf(':', StringComparison.Ordinal) is var i and >= 0 ? (deel[..i], deel[(i + 1)..]) : (deel, null);
             if (Enum.TryParse<Widget>(naam, ignoreCase: true, out var soort) && Enum.IsDefined(soort) && keuzes.All(k => k.Soort != soort))
             {
-                var keuze = new Widgetkeuze(soort, optie);
-                keuzes.Add(keuze with { Optie = keuze.Geldig });
+                int? breedte = null, hoogte = null;
+                if (grootte?.Split('x') is [var b, var h] && int.TryParse(b, System.Globalization.CultureInfo.InvariantCulture, out var bb) && int.TryParse(h, System.Globalization.CultureInfo.InvariantCulture, out var hh))
+                {
+                    (breedte, hoogte) = (bb, hh);
+                }
+
+                var keuze = new Widgetkeuze(soort, optie, breedte, hoogte);
+                // De standaardgrootte blijft leeg, zodat een keuze zonder grootte gelijk is aan dezelfde keuze uit een oude indeling.
+                keuzes.Add(keuze with
+                {
+                    Optie = keuze.Geldig,
+                    Breedte = keuze.GeldigeBreedte == StandaardBreedte(soort) ? null : keuze.GeldigeBreedte,
+                    Hoogte = keuze.GeldigeHoogte == 1 ? null : keuze.GeldigeHoogte,
+                });
             }
         }
 
@@ -219,6 +253,11 @@ public sealed class DashboardDienst(
         if (keuzes.Any(k => !Enum.IsDefined(k.Soort)) || keuzes.DistinctBy(k => k.Soort).Count() != keuzes.Count)
         {
             return Uitkomst.Mislukt("Een widget kan maar één keer op het dashboard staan.");
+        }
+
+        if (keuzes.Any(k => k.Breedte is < 1 or > Widgetkeuze.Kolommen || k.Hoogte is < 1 or > 2))
+        {
+            return Uitkomst.Mislukt($"Een widget is 1 tot {Widgetkeuze.Kolommen} kolommen breed en 1 of 2 rijen hoog.");
         }
 
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);

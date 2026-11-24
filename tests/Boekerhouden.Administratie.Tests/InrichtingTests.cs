@@ -285,6 +285,47 @@ public sealed class InrichtingTests(AdministratieFixture app) : IClassFixture<Ad
     }
 
     [Fact]
+    public async Task Standaardomschrijving_van_de_administratie_en_eigen_omschrijving_bij_de_relatie()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var dienst = app.Dienst<InrichtingDienst>();
+        var inkoop = app.Dienst<InkoopDienst>();
+        var medewerker = await app.Gebruiker("Mo Meekijker");
+        await app.Dienst<AdministratieDienst>().ZetLid(id, medewerker.Id!.Value, Lidmaatschapsrol.Inzien, wie);
+
+        // De administratie wijkt af van het kantoor; een onbekende variabele wordt geweigerd, een meekijker mag niets wijzigen.
+        var huidig = await dienst.Instellingen(wie, id);
+        Assert.Equal(["Onbekende variabele in de standaardomschrijving: #mand."],
+            (await dienst.WijzigInstellingen(wie, id, huidig with { Afwijkend = huidig.Afwijkend with { Omschrijving = "Inkoop #mand" } })).Fouten);
+        await Assert.ThrowsAsync<GeenToegangException>(() => dienst.WijzigInstellingen(medewerker, id, huidig with { Afwijkend = huidig.Afwijkend with { Omschrijving = "Inkoop #maand" } }));
+        Assert.True((await dienst.WijzigInstellingen(wie, id, huidig with { Afwijkend = huidig.Afwijkend with { Omschrijving = "Inkoop #leverancier #maand" } })).IsGelukt);
+        Assert.Equal("Inkoop #leverancier #maand", (await dienst.Instellingen(wie, id)).Geldend.Omschrijving);
+
+        await dienst.VoegRelatieToe(wie, id, new("Belnet B.V.", "NL123456782B01", null, "4310"), "NL63TRIO0212345678");
+        var mei = await inkoop.Lees(wie, id, new MemoryStream(InkoopTests.Belnet("BN-2026-0511", "2026-05-01")), "belnet-mei.xml", null);
+        Assert.Equal("Inkoop #leverancier #maand", (await inkoop.Verwerking(wie, id, mei.DocumentId!.Value))!.Standaardomschrijving);
+
+        // Bij de relatie een eigen omschrijving: die gaat voor, in het voorstel én bij zelf boeken met een lege omschrijving.
+        var belnet = (await dienst.Relaties(wie, id)).Single(r => r.Naam == "Belnet B.V.");
+        Assert.Equal(["Onbekende variabele in de omschrijving: #mand."],
+            (await dienst.WijzigRelatie(wie, id, belnet.Id, new RelatieInvoer(belnet.Naam, belnet.BtwNummer, null, "4310", Omschrijving: "Telefoon #mand"))).Fouten);
+        Assert.True((await dienst.WijzigRelatie(wie, id, belnet.Id, new RelatieInvoer(belnet.Naam, belnet.BtwNummer, null, "4310", Omschrijving: "Telefoon #maand #jaar"))).IsGelukt);
+        Assert.Equal("Telefoon #maand #jaar", (await dienst.Relaties(wie, id)).Single(r => r.Id == belnet.Id).Omschrijving);
+        var verwerking = (await inkoop.Verwerking(wie, id, mei.DocumentId.Value))!;
+        Assert.Equal("Telefoon #maand #jaar", Boekhouding.Herkenning.Inkoopverwerker.Sjabloon(verwerking.Voorstel?.Advies, verwerking.Voorstel?.Leverancier?.Relatie, verwerking.Standaardomschrijving));
+        var geboekt = await inkoop.Boek(wie, id, mei.DocumentId.Value, new Factuurinvoer(belnet.Code, null, "BN-2026-0511", new(2026, 5, 1), new(2026, 5, 15), "",
+            [new Boekhouding.Facturen.Factuurregel("", "4310", "I21", 20.65m, 4.34m)]));
+        Assert.True(geboekt.IsGelukt, string.Join("; ", geboekt.Fouten));
+
+        // Automatisch met een regel zonder eigen omschrijving: ook die van de relatie. Op de factuur zelf iets anders invullen gaat altijd voor.
+        await dienst.VoegRegelToe(wie, id, Telefoon);
+        var april = await inkoop.Lees(wie, id, new MemoryStream(InkoopTests.Belnet()), "belnet.xml", null);
+        Assert.True(april.IsGeboekt, april.Melding);
+        Assert.Equal(["Telefoon april 2026", "Telefoon mei 2026"], (await app.Dienst<GrootboekDienst>().Posten(wie, id, "INK")).Select(p => p.Post.Omschrijving).Order());
+    }
+
+    [Fact]
     public async Task Kantoorinstellingen_gelden_tenzij_de_administratie_afwijkt()
     {
         var wie = await app.Beheerder();

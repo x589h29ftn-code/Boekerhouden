@@ -1496,6 +1496,14 @@ body *:not(#geen):not(.factuurvoorbeeld-pagina *, .ontwerpvlak-pagina *)::after 
 @media (max-width: 1199.98px) { .dashboard { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 575.98px) { .dashboard { grid-template-columns: minmax(0, 1fr); } .dashboard .breed { grid-column: auto !important; } }
 .dashboard .breed { grid-column: span 2; }
+/* De grootte per widget (Aanpassen): b1 tot b4 kolommen breed, h2 twee rijen hoog. Op een smaller scherm hoogstens
+   zo breed als het raster. */
+.dashboard .widget.b2 { grid-column: span 2; }
+.dashboard .widget.b3 { grid-column: span 3; }
+.dashboard .widget.b4 { grid-column: 1 / -1; }
+.dashboard .widget.h2 { grid-row: span 2; min-height: calc(17rem + var(--r3)); }
+@media (max-width: 1199.98px) { .dashboard .widget.b3 { grid-column: span 2; } }
+@media (max-width: 575.98px) { .dashboard .widget.b2, .dashboard .widget.b3 { grid-column: auto; } }
 .dashboard .leeg-blok.breed { grid-column: 1 / -1; }
 .widget { background: #fff; border: 1px solid var(--bh-lijn); border-radius: var(--bs-border-radius-lg); padding: var(--r2) var(--r3) var(--r3); min-width: 0; }
 .widgetkop { display: flex; align-items: center; gap: var(--r1); min-height: 1.75rem; margin-bottom: var(--r1); }
@@ -1508,6 +1516,8 @@ body *:not(#geen):not(.factuurvoorbeeld-pagina *, .ontwerpvlak-pagina *)::after 
 .widgetacties .icoonknop:hover:not(:disabled) { color: var(--bh-accent); background: var(--bh-accent-zacht); }
 .widgetacties .icoonknop:disabled { opacity: .35; }
 .dashboard.aanpassen .widget:not(.toevoegen) { border-style: dashed; border-color: var(--bh-lijn-sterk); }
+.dashboard.aanpassen .widget.b1 .widgetkop { flex-wrap: wrap; }
+.dashboard.aanpassen .widget.b1 .widgetkop h2 { flex-basis: 100%; }
 .dashboard .widget.toevoegen { background: transparent; border-style: dashed; }
 a.kerngetal { display: inline-block; text-decoration: none; }
 a.kerngetal:hover { color: var(--bh-accent); }

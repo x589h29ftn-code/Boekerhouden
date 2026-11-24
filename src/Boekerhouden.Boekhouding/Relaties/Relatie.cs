@@ -7,6 +7,10 @@ namespace Boekerhouden.Boekhouding.Relaties;
 /// <param name="ControleAfwijking">
 /// Facturen die meer dan dit percentage afwijken van de vorige factuur (hoger of lager) controleert de gebruiker zelf.
 /// </param>
+/// <param name="Omschrijving">
+/// De omschrijving van een boeking van deze relatie, met variabelen zoals <c>#maand</c>; gaat voor op de
+/// standaardomschrijving van de administratie en het kantoor. Leeg = die standaard.
+/// </param>
 public sealed record Relatie(
     string Code,
     string Naam,
@@ -15,7 +19,8 @@ public sealed record Relatie(
     string? KvkNummer = null,
     string? Tegenrekening = null,
     decimal? ControleVanaf = null,
-    decimal? ControleAfwijking = null)
+    decimal? ControleAfwijking = null,
+    string? Omschrijving = null)
 {
     public bool HeeftIban(string? iban) => iban is not null && Ibans.Any(i => Iban.Normaliseer(i) == Iban.Normaliseer(iban));
 }

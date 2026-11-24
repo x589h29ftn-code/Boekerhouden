@@ -84,7 +84,7 @@
                         continue;
                     }
 
-                    <section class="widget @(Breed(keuze.Soort) ? "breed" : null)" data-widget="@keuze.Soort.ToString().ToLowerInvariant()" @key="keuze.Soort">
+                    <section class="widget b@(keuze.GeldigeBreedte) h@(keuze.GeldigeHoogte)" data-widget="@keuze.Soort.ToString().ToLowerInvariant()" @key="keuze.Soort">
                         <header class="widgetkop">
                             <h2>@Titel(keuze)</h2>
                             @if (aanpassen)
@@ -99,6 +99,12 @@
                                             }
                                         </select>
                                     }
+                                    <select class="form-select form-select-sm w-auto widgetgrootte" aria-label="Grootte" title="De grootte in het raster" value="@Grootte(keuze)" @onchange="e => ZetGrootte(index, e.Value as string)">
+                                        @foreach (var (waarde, naam) in Groottes)
+                                        {
+                                            <option value="@waarde">@naam</option>
+                                        }
+                                    </select>
                                     <button class="icoonknop" title="Eerder" aria-label="Eerder" disabled="@(index == 0)" @onclick="() => Verplaats(index, -1)"><Icoon Naam="arrow-up" /></button>
                                     <button class="icoonknop" title="Later" aria-label="Later" disabled="@(index == indeling.Count - 1)" @onclick="() => Verplaats(index, 1)"><Icoon Naam="arrow-down" /></button>
                                     <button class="icoonknop" title="Weghalen" aria-label="Weghalen" @onclick="() => Haalweg(index)"><Icoon Naam="x" /></button>
@@ -257,7 +263,21 @@
         await Laad();
     }
 
-    private static bool Breed(Widget soort) => soort is Widget.Maandgrafiek or Widget.Liquiditeit or Widget.Marge;
+    /// <summary>De groottes in het raster van vier kolommen: breedte × hoogte.</summary>
+    private static readonly (string Waarde, string Naam)[] Groottes =
+    [
+        ("1x1", "Smal"), ("2x1", "Breed"), ("3x1", "Breder"), ("4x1", "Hele breedte"), ("1x2", "Smal en hoog"), ("2x2", "Groot"), ("4x2", "Heel groot"),
+    ];
+
+    private static string Grootte(Widgetkeuze keuze) => $"{keuze.GeldigeBreedte}x{keuze.GeldigeHoogte}";
+
+    private void ZetGrootte(int index, string? waarde)
+    {
+        if (waarde?.Split('x') is [var b, var h] && int.TryParse(b, out var breedte) && int.TryParse(h, out var hoogte))
+        {
+            indeling[index] = indeling[index] with { Breedte = breedte, Hoogte = hoogte };
+        }
+    }
 
     private static string Naam(Widget soort) => soort switch
     {

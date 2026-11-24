@@ -27,6 +27,10 @@
                     <div class="col-md-3"><label class="form-label" for="rb">Btw-nummer</label><input id="rb" class="form-control form-control-sm" @bind="gegevens.BtwNummer" /></div>
                     <div class="col-md-2"><label class="form-label" for="rk">KvK-nummer</label><input id="rk" class="form-control form-control-sm" @bind="gegevens.KvkNummer" /></div>
                     <div class="col-md-3"><label class="form-label" for="rt">Standaardrekening inkoop</label><input id="rt" class="form-control form-control-sm" @bind="gegevens.Tegenrekening" /></div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="ro" title="De omschrijving van de boeking bij een factuur van deze relatie, met variabelen als #maand en #factuurnummer. Gaat voor op de standaard van de administratie; een regel of de omschrijving op de factuur zelf gaat weer voor. Leeg = de standaard.">Omschrijving boeking</label>
+                        <input id="ro" class="form-control form-control-sm" maxlength="200" @bind="gegevens.Omschrijving" placeholder="zoals de administratie" />
+                    </div>
                 </div>
                 <div class="form-check mt-3 mb-2">
                     <input class="form-check-input" type="checkbox" id="klant" @bind="gegevens.IsKlant" />
@@ -207,7 +211,7 @@
         var r = geleerd!.Relatie;
         var uitkomst = await Inrichting.WijzigRelatie(geopend!.Wie, Id, r.Id, new RelatieInvoer(gegevens.Naam, gegevens.BtwNummer, gegevens.KvkNummer, gegevens.Tegenrekening,
             new Klantgegevens(gegevens.IsKlant, gegevens.Straat, gegevens.Postcode, gegevens.Plaats, gegevens.Land, gegevens.Email, gegevens.Contactpersoon, termijn,
-                gegevens.Omzetrekening, gegevens.Verkoopbtwcode)));
+                gegevens.Omzetrekening, gegevens.Verkoopbtwcode), gegevens.Omschrijving));
         fouten = uitkomst.Fouten;
         if (uitkomst.IsGelukt)
         {
@@ -226,6 +230,8 @@
         public string? KvkNummer { get; set; }
 
         public string? Tegenrekening { get; set; }
+
+        public string? Omschrijving { get; set; }
 
         public bool IsKlant { get; set; }
 
@@ -253,6 +259,7 @@
             BtwNummer = r.BtwNummer,
             KvkNummer = r.KvkNummer,
             Tegenrekening = r.Tegenrekening,
+            Omschrijving = r.Omschrijving,
             IsKlant = r.Klant?.IsKlant ?? false,
             Straat = r.Klant?.Straat,
             Postcode = r.Klant?.Postcode,

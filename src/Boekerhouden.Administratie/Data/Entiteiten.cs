@@ -165,8 +165,15 @@ public sealed class Administratie
 
     public string? Verschilrekening { get; set; }
 
+    /// <summary>De standaardomschrijving van een inkoopfactuur in deze administratie, met variabelen; leeg = die van het kantoor.</summary>
+    public string? Standaardomschrijving { get; set; }
+
+    /// <summary>De standaardomschrijving van een ingelezen verkoopfactuur; leeg = die van het kantoor.</summary>
+    public string? StandaardomschrijvingVerkoop { get; set; }
+
     public Boekhouding.Regels.AfwijkendeInstellingen Afwijkend() =>
-        new(DrempelAutomatisch, Bandbreedte, LimietAfwijkend, LimietAutomatisch, Betalingstermijn, Adrescontrole, Documentmap, Betaalverschil, Verschilrekening);
+        new(DrempelAutomatisch, Bandbreedte, LimietAfwijkend, LimietAutomatisch, Betalingstermijn, Adrescontrole, Documentmap, Betaalverschil, Verschilrekening,
+            Standaardomschrijving, StandaardomschrijvingVerkoop);
 
     public DateTimeOffset AangemaaktOp { get; set; }
 
@@ -378,6 +385,9 @@ public sealed class Handelsrelatie : IVanAdministratie
     /// <summary>De standaard grootboekrekening (bijv. telefoonkosten).</summary>
     public string? Tegenrekening { get; set; }
 
+    /// <summary>De omschrijving van een boeking van deze relatie (inkoop of ingelezen verkoop), met variabelen; leeg = de standaard.</summary>
+    public string? Omschrijving { get; set; }
+
     // Gegevens als klant: adres en contact (voor de verkoopfactuur), betalingstermijn en de standaard omzetrekening en btw-code.
 
     /// <summary>Een klant (debiteur): staat in de keuzelijst bij het factureren.</summary>
@@ -415,7 +425,7 @@ public sealed class Handelsrelatie : IVanAdministratie
 
     public DateTimeOffset AangemaaktOp { get; set; }
 
-    public Boekhouding.Relaties.Relatie NaarDomein() => new(Code, Naam, [.. Ibans], BtwNummer, KvkNummer, Tegenrekening, ControleVanaf, ControleAfwijking);
+    public Boekhouding.Relaties.Relatie NaarDomein() => new(Code, Naam, [.. Ibans], BtwNummer, KvkNummer, Tegenrekening, ControleVanaf, ControleAfwijking, Omschrijving);
 }
 
 public enum Documentstatus

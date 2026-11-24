@@ -104,7 +104,7 @@ public sealed class VerkoopimportDienst(
             var regels = Verkoopimport.Regels(herkend, codes, omzet, relatie?.Land ?? herkend.Afnemer?.Land);
             var vervaldatum = herkend.Vervaldatum ?? datum.AddDays(relatie?.Betalingstermijn ?? context.Betalingstermijn);
             var invoer = new Verkoopinvoer(relatie?.Code ?? "", datum, vervaldatum,
-                Omschrijving(context.OmschrijvingIngelezen, herkend, relatie?.Naam, datum, vervaldatum), regels, Factuurnummer: herkend.Factuurnummer);
+                Omschrijving(string.IsNullOrWhiteSpace(relatie?.Omschrijving) ? context.OmschrijvingIngelezen : relatie.Omschrijving, herkend, relatie?.Naam, datum, vervaldatum), regels, Factuurnummer: herkend.Factuurnummer);
             var klant = relatie ?? new Handelsrelatie
             {
                 Code = "",

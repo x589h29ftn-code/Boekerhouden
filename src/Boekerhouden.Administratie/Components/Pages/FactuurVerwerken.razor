@@ -627,7 +627,7 @@
         factuurnummer = herkend?.Factuurnummer ?? "";
         datum = herkend?.Factuurdatum ?? DateOnly.FromDateTime(DateTime.Today);
         vervaldatum = voorstel?.Factuur?.Vervaldatum ?? herkend?.Vervaldatum ?? datum.AddDays(30);
-        omschrijving = voorstel?.Advies.Omschrijving ?? verwerking.Standaardomschrijving ?? herkend?.Omschrijving ?? "";
+        omschrijving = Inkoopverwerker.Sjabloon(voorstel?.Advies, voorstel?.Leverancier?.Relatie, verwerking.Standaardomschrijving) ?? herkend?.Omschrijving ?? "";
         kenmerk = herkend?.Betalingskenmerk;
         var rekening = voorstel?.Advies.Rekeningnummer ?? "";
         // Btw verlegd ("reverse charge"): de verlegde code (binnenland, EU of buiten de EU), geen btw op de factuur.

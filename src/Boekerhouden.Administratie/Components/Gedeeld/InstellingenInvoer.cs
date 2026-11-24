@@ -73,6 +73,8 @@ public sealed class InstellingenInvoer
             Documentmap = a.Documentmap,
             Betaalverschil = a.Betaalverschil is { } b ? Bedragen.Getal(b) : null,
             Verschilrekening = a.Verschilrekening,
+            Omschrijving = a.Omschrijving,
+            OmschrijvingVerkoop = a.OmschrijvingVerkoop,
         };
     }
 
@@ -113,7 +115,9 @@ public sealed class InstellingenInvoer
             Adrescontrole switch { Aan => true, Uit => false, _ => null },
             string.IsNullOrWhiteSpace(Documentmap) ? null : Documentmap.Trim(),
             Getal(Betaalverschil, "Het betaalverschil", fouten),
-            string.IsNullOrWhiteSpace(Verschilrekening) ? null : Verschilrekening.Trim());
+            string.IsNullOrWhiteSpace(Verschilrekening) ? null : Verschilrekening.Trim(),
+            string.IsNullOrWhiteSpace(Omschrijving) ? null : Omschrijving.Trim(),
+            string.IsNullOrWhiteSpace(OmschrijvingVerkoop) ? null : OmschrijvingVerkoop.Trim());
     }
 
     private static readonly System.Globalization.CultureInfo Nl = System.Globalization.CultureInfo.GetCultureInfo("nl-NL");

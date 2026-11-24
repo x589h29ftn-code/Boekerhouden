@@ -10,7 +10,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Boekerhouden.Administratie.Diensten;
 
 /// <param name="Klant">De gegevens als klant; leeg = ongewijzigd laten.</param>
-public sealed record RelatieInvoer(string Naam, string? BtwNummer, string? KvkNummer, string? Tegenrekening, Klantgegevens? Klant = null);
+/// <param name="Omschrijving">De omschrijving van een boeking van deze relatie, met variabelen; leeg = de standaard van de administratie.</param>
+public sealed record RelatieInvoer(string Naam, string? BtwNummer, string? KvkNummer, string? Tegenrekening, Klantgegevens? Klant = null, string? Omschrijving = null);
 
 /// <summary>
 /// De gegevens van een relatie als klant: adres en contact voor op de factuur, betalingstermijn, en de omzetrekening
@@ -55,7 +56,8 @@ public sealed record RelatieRegel(
     decimal? ControleVanaf = null,
     decimal? ControleAfwijking = null,
     Klantgegevens? Klant = null,
-    bool IsLeverancier = false);
+    bool IsLeverancier = false,
+    string? Omschrijving = null);
 
 public sealed record RegelRegel(Guid Id, int Volgorde, Verwerkingsregel Regel);
 
@@ -144,7 +146,7 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
             .Select(p => p.Relatie).Distinct().ToListAsync()).ToHashSet(StringComparer.Ordinal);
         return [.. (await db.Relaties.AsNoTracking().OrderBy(r => r.Naam).ToListAsync())
             .Select(r => new RelatieRegel(r.Id, r.Code, r.Naam, r.Ibans, r.BtwNummer, r.KvkNummer, r.Tegenrekening, r.ControleVanaf, r.ControleAfwijking, Klantgegevens.Van(r),
-                leveranciers.Contains(r.Code)))];
+                leveranciers.Contains(r.Code), r.Omschrijving))];
     }
 
     /// <summary>Wat het pakket van deze leverancier geleerd heeft (inkoopfacturen), of leeg als de relatie niet bestaat.</summary>
@@ -171,7 +173,8 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
             .Where(x => x.Regel.Relatie == relatie || (x.Regel.NaamBevat is { Length: > 0 } deel && r.Naam.Contains(deel, StringComparison.OrdinalIgnoreCase)))
             .ToList();
         return new GeleerdeLeverancier(
-            new RelatieRegel(r.Id, r.Code, r.Naam, r.Ibans, r.BtwNummer, r.KvkNummer, r.Tegenrekening, r.ControleVanaf, r.ControleAfwijking, Klantgegevens.Van(r)),
+            new RelatieRegel(r.Id, r.Code, r.Naam, r.Ibans, r.BtwNummer, r.KvkNummer, r.Tegenrekening, r.ControleVanaf, r.ControleAfwijking, Klantgegevens.Van(r),
+                Omschrijving: r.Omschrijving),
             voorstel,
             geheugen.Drempel,
             [.. keuzes.Select(k => new Bevestigd(k.Tijdstip, k.NaarDomein()))],
@@ -558,6 +561,8 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
         {
             Documentmap = Leeg(invoer.Afwijkend.Documentmap),
             Verschilrekening = Leeg(invoer.Afwijkend.Verschilrekening),
+            Omschrijving = Leeg(invoer.Afwijkend.Omschrijving),
+            OmschrijvingVerkoop = Leeg(invoer.Afwijkend.OmschrijvingVerkoop),
             Betaalverschil = invoer.Afwijkend.Betaalverschil is { } grens ? decimal.Round(grens, 2) : null,
         };
         fouten.AddRange(afwijkend.Op(kantoor).Controleer());
@@ -628,6 +633,8 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
         a.Documentmap = afwijkend.Documentmap;
         a.Betaalverschil = afwijkend.Betaalverschil;
         a.Verschilrekening = afwijkend.Verschilrekening;
+        a.Standaardomschrijving = afwijkend.Omschrijving;
+        a.StandaardomschrijvingVerkoop = afwijkend.OmschrijvingVerkoop;
         if (invoer.Contact is { } c)
         {
             (a.Straat, a.Postcode, a.Plaats, a.Land) = (Leeg(c.Straat), Leeg(c.Postcode), Leeg(c.Plaats), Leeg(c.Land)?.ToUpperInvariant());
@@ -655,6 +662,11 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
         if (!string.IsNullOrWhiteSpace(invoer.Tegenrekening) && !await db.Rekeningen.AnyAsync(r => r.Nummer == invoer.Tegenrekening.Trim()))
         {
             fouten.Add($"Rekening {invoer.Tegenrekening} bestaat niet.");
+        }
+
+        if (Omschrijvingssjabloon.Onbekend(invoer.Omschrijving) is { Count: > 0 } onbekend)
+        {
+            fouten.Add($"Onbekende variabele in de omschrijving: {string.Join(", ", onbekend.Select(o => "#" + o))}.");
         }
 
         if (invoer.Klant is { } k)
@@ -689,6 +701,7 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
         relatie.BtwNummer = string.IsNullOrWhiteSpace(invoer.BtwNummer) ? null : BtwNummer.Normaliseer(invoer.BtwNummer);
         relatie.KvkNummer = Leeg(invoer.KvkNummer);
         relatie.Tegenrekening = Leeg(invoer.Tegenrekening);
+        relatie.Omschrijving = Leeg(invoer.Omschrijving);
         if (invoer.Klant is { } k)
         {
             relatie.Klant = k.IsKlant;

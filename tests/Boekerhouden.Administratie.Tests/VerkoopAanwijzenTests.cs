@@ -72,6 +72,27 @@ public sealed class VerkoopAanwijzenTests(AdministratieFixture app) : IClassFixt
     }
 
     [Fact]
+    public async Task Omschrijving_van_de_administratie_en_van_de_klant_bij_ingelezen_verkoop()
+    {
+        var (wie, id) = await Administratie();
+        var inrichting = app.Dienst<InrichtingDienst>();
+        var huidig = await inrichting.Instellingen(wie, id);
+        Assert.True((await inrichting.WijzigInstellingen(wie, id, huidig with { Afwijkend = huidig.Afwijkend with { OmschrijvingVerkoop = "Omzet #klant #maand" } })).IsGelukt);
+        var code = await Klant(wie, id);
+        var import = app.Dienst<VerkoopimportDienst>();
+        var verkoop = app.Dienst<VerkoopDienst>();
+
+        var eerste = await import.Lees(wie, id, Ubl("B-200", new(2026, 4, 9)), "b-200.xml", null);
+        Assert.Equal("Omzet Hotel De Klant B.V. april", (await verkoop.Open(wie, id, eerste.Id!.Value))!.Factuur.Omschrijving);
+
+        // Een eigen omschrijving bij de klant gaat voor op die van de administratie.
+        var klant = (await inrichting.Relaties(wie, id)).Single(r => r.Code == code);
+        Assert.True((await inrichting.WijzigRelatie(wie, id, klant.Id, new RelatieInvoer(klant.Naam, klant.BtwNummer, null, null, klant.Klant, "Logies #maandnr-#jaar"))).IsGelukt);
+        var tweede = await import.Lees(wie, id, Ubl("B-201", new(2026, 5, 9)), "b-201.xml", null);
+        Assert.Equal("Logies 5-2026", (await verkoop.Open(wie, id, tweede.Id!.Value))!.Factuur.Omschrijving);
+    }
+
+    [Fact]
     public async Task Het_betalingskenmerk_van_een_ingelezen_factuur_is_aan_te_passen()
     {
         var (wie, id) = await Administratie();

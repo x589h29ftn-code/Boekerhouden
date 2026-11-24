@@ -157,6 +157,8 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(a => a.LimietAutomatisch).HasPrecision(18, 2);
             e.Property(a => a.Bandbreedte).HasPrecision(6, 2);
             e.Property(a => a.Documentmap).HasMaxLength(400);
+            e.Property(a => a.Standaardomschrijving).HasMaxLength(200);
+            e.Property(a => a.StandaardomschrijvingVerkoop).HasMaxLength(200);
             e.Property(a => a.Straat).HasMaxLength(200);
             e.Property(a => a.Postcode).HasMaxLength(20);
             e.Property(a => a.Plaats).HasMaxLength(100);
@@ -285,6 +287,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(r => r.BtwNummer).HasMaxLength(20);
             e.Property(r => r.KvkNummer).HasMaxLength(20);
             e.Property(r => r.Tegenrekening).HasMaxLength(20);
+            e.Property(r => r.Omschrijving).HasMaxLength(200);
             e.Property(r => r.ControleVanaf).HasPrecision(18, 2);
             e.Property(r => r.ControleAfwijking).HasPrecision(6, 2);
             e.Property(r => r.Straat).HasMaxLength(200);

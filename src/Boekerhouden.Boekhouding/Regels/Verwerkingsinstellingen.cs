@@ -112,7 +112,9 @@ public sealed record AfwijkendeInstellingen(
     bool? Adrescontrole = null,
     string? Documentmap = null,
     decimal? Betaalverschil = null,
-    string? Verschilrekening = null)
+    string? Verschilrekening = null,
+    string? Omschrijving = null,
+    string? OmschrijvingVerkoop = null)
 {
     public static AfwijkendeInstellingen Geen { get; } = new();
 
@@ -129,6 +131,7 @@ public sealed record AfwijkendeInstellingen(
             string.IsNullOrWhiteSpace(Documentmap) ? kantoor.Documentmap : Documentmap,
             Betaalverschil ?? kantoor.Betaalverschil,
             string.IsNullOrWhiteSpace(Verschilrekening) ? kantoor.Verschilrekening : Verschilrekening,
-            kantoor.Omschrijving);
+            string.IsNullOrWhiteSpace(Omschrijving) ? kantoor.Omschrijving : Omschrijving,
+            string.IsNullOrWhiteSpace(OmschrijvingVerkoop) ? kantoor.OmschrijvingVerkoop : OmschrijvingVerkoop);
     }
 }

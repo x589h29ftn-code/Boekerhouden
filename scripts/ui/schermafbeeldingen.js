@@ -219,14 +219,18 @@ function totp(sleutel) {
   await page.locator('[data-widget="liquiditeit"] .raakvlak').last().hover(); await page.waitForTimeout(300);
   await page.screenshot({ path: `${uit}/${pre}-dashboard-liquiditeit.png`, fullPage: true });
   await page.click('button:has-text("Aanpassen")'); await page.waitForTimeout(500);
-  await page.locator('[data-widget="btw"] select').selectOption('maand'); await page.waitForTimeout(600);
-  await page.locator('[data-widget="maandgrafiek"] select').selectOption('kosten'); await page.waitForTimeout(600);
+  await page.locator('[data-widget="btw"] select[aria-label="Keuze"]').selectOption('maand'); await page.waitForTimeout(600);
+  await page.locator('[data-widget="maandgrafiek"] select[aria-label="Keuze"]').selectOption('kosten'); await page.waitForTimeout(600);
+  // Grootte in het raster: de liquiditeit groot (2 breed, 2 hoog), de btw over de hele breedte.
+  await page.locator('[data-widget="liquiditeit"] select.widgetgrootte').selectOption('2x2'); await page.waitForTimeout(400);
+  await page.locator('[data-widget="btw"] select.widgetgrootte').selectOption('4x1'); await page.waitForTimeout(400);
   await page.click('.widget.toevoegen button:has-text("Verkoop")'); await page.waitForTimeout(600);
   await page.locator('[data-widget="kerncijfers"] button[title="Weghalen"]').click(); await page.waitForTimeout(300);
   await page.screenshot({ path: `${uit}/${pre}-dashboard-aanpassen.png` });
   await page.click('button:has-text("Klaar")'); await page.waitForTimeout(800);
   await page.reload(); await page.waitForSelector('.dashboard'); await page.waitForTimeout(1200);
   if (await page.locator('[data-widget="verkoop"]').count() === 0) log.push('dashboardindeling niet bewaard');
+  if (await page.locator('.widget.b2.h2[data-widget="liquiditeit"]').count() === 0 || await page.locator('.widget.b4[data-widget="btw"]').count() === 0) log.push('grootte van de widgets niet bewaard');
   await page.locator('[data-widget="maandgrafiek"] button:has-text("Tabel")').click(); await page.waitForTimeout(400);
   await page.screenshot({ path: `${uit}/${pre}-dashboard-aangepast.png`, fullPage: true });
 
@@ -245,7 +249,7 @@ function totp(sleutel) {
   await page.locator('[data-widget="marge"]').scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${uit}/${pre}-dashboard-marge.png`, fullPage: true });
   await page.click('button:has-text("Aanpassen")'); await page.waitForTimeout(500);
-  await page.locator('[data-widget="marge"] select').selectOption('kwartaal'); await page.waitForTimeout(800);
+  await page.locator('[data-widget="marge"] select[aria-label="Keuze"]').selectOption('kwartaal'); await page.waitForTimeout(800);
   await page.click('button:has-text("Klaar")'); await page.waitForTimeout(800);
   await page.locator('[data-widget="marge"]').screenshot({ path: `${uit}/${pre}-dashboard-marge-kwartaal.png` });
 
@@ -284,7 +288,7 @@ function totp(sleutel) {
       ['memoriaal', `/a/${id}/memoriaal`], ['journaal', `/a/${id}/journaal`], ['grootboek', `/a/${id}/grootboek?rekening=1100&van=2026-01-01&tot=2026-12-31`],
       ['proefbalans', `/a/${id}/proefbalans`], ['kolommenbalans', `/a/${id}/kolommenbalans`], ['aansluitingen', `/a/${id}/aansluitingen`],
       ['crediteuren', `/a/${id}/crediteuren`], ['debiteuren', `/a/${id}/debiteuren`], ['relaties', `/a/${id}/relaties`], ['regels', `/a/${id}/regels`],
-      ['rekeningschema', `/a/${id}/rekeningschema`], ['instellingen', `/a/${id}/instellingen`], ['factuurlayout', `/a/${id}/factuurlayout`],
+      ['rekeningschema', `/a/${id}/rekeningschema`], ['instellingen', `/a/${id}/instellingen`], ['instellingen-verwerken', `/a/${id}/instellingen/verwerken`], ['factuurlayout', `/a/${id}/factuurlayout`],
       ['beheer-gebruikers', '/beheer/gebruikers'], ['beheer-instellingen', '/beheer/instellingen'], ['beheer-btw', '/beheer/btw'], ['beheer-wijzigingslog', '/beheer/wijzigingslog'],
       ['account-beveiliging', '/account/beveiliging'], ['facturen', `/a/${id}/facturen`], ['btw', `/a/${id}/btw`], ['vpb', `/a/${id}/vpb`],
       ['activa', `/a/${id}/activa`], ['perioden', `/a/${id}/perioden`], ['beginbalans', `/a/${id}/beginbalans`]];

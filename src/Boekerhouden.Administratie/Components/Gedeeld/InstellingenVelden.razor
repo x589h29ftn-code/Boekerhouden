@@ -35,6 +35,12 @@
             </div>
         }
     </Formulierblok>
+    <Formulierblok Titel="Omschrijving van de boeking">
+        <div class="row g-2 groep-omschrijving">
+            @VeldOmschrijving
+            @VeldOmschrijvingVerkoop
+        </div>
+    </Formulierblok>
 }
 else
 {
@@ -52,27 +58,8 @@ else
             <Documentmapveld Invoer="Invoer" Kantoor="Kantoor" />
         </div>
     }
-    @if (Kantoor is null)
-    {
-        <div class="col-12">
-            <label class="form-label" for="standaardomschrijving">Standaardomschrijving inkoopfactuur</label>
-            <input id="standaardomschrijving" class="form-control" @bind="Invoer.Omschrijving" @bind:event="oninput" maxlength="200" placeholder="bijv. #leverancier #factuurnummer #maand"
-                   title="@string.Join(", ", Omschrijvingssjabloon.Variabelen.Select(v => $"{v.Naam} = {v.Betekenis}"))" />
-            @if (Omschrijvingssjabloon.IsSjabloon(Invoer.Omschrijving))
-            {
-                <div class="small text-secondary mt-1" title="Voorbeeld">@Omschrijvingssjabloon.Vul(Invoer.Omschrijving!, Voorbeeld)</div>
-            }
-        </div>
-        <div class="col-12">
-            <label class="form-label" for="standaardomschrijving-verkoop">Standaardomschrijving ingelezen verkoopfactuur</label>
-            <input id="standaardomschrijving-verkoop" class="form-control" @bind="Invoer.OmschrijvingVerkoop" @bind:event="oninput" maxlength="200" placeholder="bijv. Verkoop #klant #maandnr-#jaar"
-                   title="@string.Join(", ", Omschrijvingssjabloon.Variabelen.Select(v => $"{v.Naam} = {v.Betekenis}"))" />
-            @if (Omschrijvingssjabloon.IsSjabloon(Invoer.OmschrijvingVerkoop))
-            {
-                <div class="small text-secondary mt-1" title="Voorbeeld">@Omschrijvingssjabloon.Vul(Invoer.OmschrijvingVerkoop!, Voorbeeld)</div>
-            }
-        </div>
-    }
+    @VeldOmschrijving
+    @VeldOmschrijvingVerkoop
 </div>
 }
 
@@ -201,6 +188,35 @@ else
         }
     </div>
     </text>;
+
+    private RenderFragment VeldOmschrijving => @<text>
+    <div class="col-12">
+        <label class="form-label" for="standaardomschrijving" title="@($"{Variabelen}{LeegRelatie}")">Omschrijving inkoopfactuur</label>
+        <input id="standaardomschrijving" class="form-control" @bind="Invoer.Omschrijving" @bind:event="oninput" maxlength="200"
+               placeholder="@(Grijs(Kantoor?.Omschrijving) ?? "bijv. #leverancier #factuurnummer #maand")" />
+        @if (Omschrijvingssjabloon.IsSjabloon(Invoer.Omschrijving ?? Kantoor?.Omschrijving))
+        {
+            <div class="small text-secondary mt-1" title="Voorbeeld">@Omschrijvingssjabloon.Vul((Invoer.Omschrijving ?? Kantoor?.Omschrijving)!, Voorbeeld)</div>
+        }
+    </div>
+    </text>;
+
+    private RenderFragment VeldOmschrijvingVerkoop => @<text>
+    <div class="col-12">
+        <label class="form-label" for="standaardomschrijving-verkoop" title="@($"{Variabelen}{LeegRelatie}")">Omschrijving ingelezen verkoopfactuur</label>
+        <input id="standaardomschrijving-verkoop" class="form-control" @bind="Invoer.OmschrijvingVerkoop" @bind:event="oninput" maxlength="200"
+               placeholder="@(Grijs(Kantoor?.OmschrijvingVerkoop) ?? "bijv. Verkoop #klant #maandnr-#jaar")" />
+        @if (Omschrijvingssjabloon.IsSjabloon(Invoer.OmschrijvingVerkoop ?? Kantoor?.OmschrijvingVerkoop))
+        {
+            <div class="small text-secondary mt-1" title="Voorbeeld">@Omschrijvingssjabloon.Vul((Invoer.OmschrijvingVerkoop ?? Kantoor?.OmschrijvingVerkoop)!, Voorbeeld)</div>
+        }
+    </div>
+    </text>;
+
+    private static string Variabelen => string.Join(", ", Omschrijvingssjabloon.Variabelen.Select(v => $"{v.Naam} = {v.Betekenis}"));
+
+    /// <summary>In de tooltip: wat voorgaat op deze standaard.</summary>
+    private string LeegRelatie => $" Een omschrijving bij de relatie, een regel of op de factuur zelf gaat voor.{Leeg}";
 
     [Parameter, EditorRequired]
     public InstellingenInvoer Invoer { get; set; } = default!;

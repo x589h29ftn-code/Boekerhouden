@@ -294,5 +294,28 @@ public sealed class DashboardDienstTests(VasteDagFixture app) : IClassFixture<Va
         var buiten = await app.Gebruiker("Bert Buiten Dashboard");
         await Assert.ThrowsAsync<GeenToegangException>(() => dashboard.Startstappen(buiten, id));
     }
-}
 
+    [Fact]
+    public async Task Widgets_van_grootte_veranderen_in_het_raster()
+    {
+        // Lezen en schrijven: zonder grootte de standaard (oude indelingen), met grootte achter een tilde.
+        Assert.Equal((1, 1), Grootte(Assert.Single(Widgetkeuze.Lees("btw:maand"))));
+        Assert.Equal((2, 1), Grootte(Assert.Single(Widgetkeuze.Lees("maandgrafiek:inkoop"))));
+        var groot = Assert.Single(Widgetkeuze.Lees("maandgrafiek:kosten~4x2"));
+        Assert.Equal((4, 2, Widgetkeuze.Kosten), (groot.GeldigeBreedte, groot.GeldigeHoogte, groot.Geldig));
+        Assert.Equal("maandgrafiek:kosten~4x2", groot.ToString());
+        Assert.Equal("btw:maand", new Widgetkeuze(Widget.Btw, Widgetkeuze.Maand, 1, 1).ToString());
+        Assert.Equal((1, 1), Grootte(Assert.Single(Widgetkeuze.Lees("btw~9x7"))));
+
+        var id = await app.Administratie();
+        var wie = await app.Beheerder();
+        var dienst = app.Dienst<DashboardDienst>();
+        Assert.True((await dienst.BewaarIndeling(wie, id, [new(Widget.Btw, null, 3, 2), new(Widget.Liquide)])).IsGelukt);
+        var terug = await dienst.Indeling(wie, id);
+        Assert.Equal([(3, 2), (1, 1)], terug.Select(Grootte));
+        Assert.False((await dienst.BewaarIndeling(wie, id, [new(Widget.Btw, null, 5, 1)])).IsGelukt);
+        Assert.False((await dienst.BewaarIndeling(wie, id, [new(Widget.Btw, null, 1, 3)])).IsGelukt);
+    }
+
+    private static (int, int) Grootte(Widgetkeuze k) => (k.GeldigeBreedte, k.GeldigeHoogte);
+}

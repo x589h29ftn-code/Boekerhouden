@@ -15,7 +15,7 @@
     <p>De startpagina toont alle administraties waar je lid van bent, met wat er per administratie te doen is: inkoop en bankmutaties te verwerken, verkoopfacturen in concept, perioden die af te sluiten zijn. Een nieuwe administratie begint met het standaardrekeningschema voor de rechtsvorm (RGS); archiveren en verwijderen kan alleen de beheerder.</p>
 
     <h2 id="overzicht">Overzicht</h2>
-    <p>Het overzicht van een administratie: bovenaan <em>Te doen</em> (wat nu verwerkt kan worden), daaronder de widgets (liquide middelen, btw, debiteuren en crediteuren, maandgrafiek, kerncijfers, marge, aansluitingen, vennootschapsbelasting). Welke widgets je ziet, kies je zelf; dat geldt alleen voor jou.</p>
+    <p>Het overzicht van een administratie: bovenaan <em>Te doen</em> (wat nu verwerkt kan worden), daaronder de widgets (liquide middelen, btw, debiteuren en crediteuren, maandgrafiek, kerncijfers, marge, aansluitingen, vennootschapsbelasting). Welke widgets je ziet, kies je zelf; dat geldt alleen voor jou. Bij <em>Aanpassen</em> kies je per widget ook de grootte in het raster van vier kolommen: smal, breed, breder of de hele breedte, en een of twee rijen hoog.</p>
     <p>Bij een nieuwe administratie staat er <em>Aan de slag</em>: de stappen om te beginnen (eigen gegevens, bank, beginbalans, eerste facturen). Afgevinkte stappen verdwijnen; als alles gedaan is, verdwijnt de lijst.</p>
 
     <h2 id="slepen">Overal slepen en zoeken</h2>
@@ -79,7 +79,7 @@
     <p>Controleert of de bank, debiteuren en crediteuren in het grootboek gelijk zijn aan de afschriften en de openstaande posten, en wat er verschilt.</p>
 
     <h2 id="relaties">Relaties</h2>
-    <p>Klanten en leveranciers met hun IBAN, btw- en KvK-nummer. Per leverancier zie je wat Sifer geleerd heeft.</p>
+    <p>Klanten en leveranciers met hun IBAN, btw- en KvK-nummer. Per leverancier zie je wat Sifer geleerd heeft. Bij <em>Omschrijving boeking</em> geef je een relatie een eigen omschrijving, bijv. <code>Huur #maand #jaar</code>; die gaat voor op de standaard van de administratie.</p>
 
     <h2 id="regels">Regels</h2>
     <p>Vaste afspraken voor het verwerken: een omschrijving, IBAN of tegenpartij die altijd op dezelfde rekening hoort. Een regel gaat voor wat Sifer geleerd heeft.</p>
@@ -91,7 +91,7 @@
     <p><em>Periode afsluiten</em> loopt de stappen langs (bank bij, inkoop en verkoop verwerkt, aansluitingen, btw vastgelegd). Na het afsluiten kan in die periode niets meer worden geboekt, aangepast of ingetrokken. Heropenen kan met een reden; dat komt in het wijzigingslog.</p>
 
     <h2 id="instellingen">Instellingen en beginbalans</h2>
-    <p>Instellingen heeft vier tabbladen: <em>Gegevens</em> (klantnummer, naam, adres, bankrekeningen), <em>Btw en belastingen</em>, <em>Verwerken</em> en <em>Beginbalans</em>. Elk tabblad heeft zijn eigen Opslaan. Bij de bankrekeningen staan de IBAN's van de bank al; het veld is voor andere eigen rekeningen. Bij <em>Verwerken</em> staat per groepje (Inkoop, Bank) <em>Zoals het kantoor</em>: zet je dat uit, dan wijkt deze administratie af. Welke rekeningen niet of beperkt aftrekbaar zijn, stel je in bij <em>Fiscale positie</em>; de loonjournaal-koppelingen bij het memoriaal (<em>Nieuw</em>).</p>
+    <p>Instellingen heeft vier tabbladen: <em>Gegevens</em> (klantnummer, naam, adres, bankrekeningen), <em>Btw en belastingen</em>, <em>Verwerken</em> en <em>Beginbalans</em>. Elk tabblad heeft zijn eigen Opslaan. Bij de bankrekeningen staan de IBAN's van de bank al; het veld is voor andere eigen rekeningen. Bij <em>Verwerken</em> staat per groepje (Inkoop, Bank) <em>Zoals het kantoor</em>: zet je dat uit, dan wijkt deze administratie af. Daaronder de omschrijving van de boeking bij een inkoopfactuur en bij een ingelezen verkoopfactuur, met variabelen als <code>#leverancier</code>, <code>#klant</code>, <code>#factuurnummer</code> en <code>#maand</code>; leeg is de standaard van het kantoor (grijs). Wat voorgaat: de omschrijving die je op de factuur zelf invult, dan een regel, dan de omschrijving bij de relatie, dan deze standaard. Welke rekeningen niet of beperkt aftrekbaar zijn, stel je in bij <em>Fiscale positie</em>; de loonjournaal-koppelingen bij het memoriaal (<em>Nieuw</em>).</p>
     <p>Een nieuwe administratie opent meteen hier. Het klantnummer is het nummer van de klant bij het kantoor; het staat vooraan in de lijst met administraties en je kunt erop zoeken. Btw-plichtig aan: de btw wordt apart geboekt en komt in de aangifte; uit (vrijstelling of kleineondernemersregeling): inkoop inclusief btw op de kosten, geen aangifte. Bij <em>Betalingen aan de Belastingdienst</em> staat grijs de rekening die Sifer zelf kiest; kies je een andere, dan boekt Sifer daar. Bij <em>Facturen en bank vanzelf verwerken</em> betekent een leeg veld: de standaard van het kantoor (grijs).</p>
     <p>Hier staan verder je eigen gegevens (naam, adres, btw- en KvK-nummer, IBAN's), of je btw-plichtig bent, de grens en rekening voor kleine betaalverschillen, de map voor de documenten en de standaardomschrijving. De beginbalans lees je in uit de jaarrekening van vorig jaar (PDF) of vul je met de hand in.</p>
 
