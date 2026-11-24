@@ -184,7 +184,7 @@
                 </div>
             }
             <div class="card card-body mb-4 @(loon is not null || kopieBron is not null ? "d-none" : null)">
-                <BoekingBewerken @key="formulier" Kader="geopend" Schema="schema" Dagboek="@dagboek.Code" Post="gekozen?.Post" Voorbeeld="kopie" VoorbeeldOpDatum="kopieOpDatum" Datum="vandaag"
+                <BoekingBewerken @key="formulier" Kader="geopend" Schema="schema" Dagboek="@dagboek.Code" Memoriaal="true" Post="gekozen?.Post" Voorbeeld="kopie" VoorbeeldOpDatum="kopieOpDatum" Datum="vandaag"
                                  Opgeslagen="Opgeslagen" Geannuleerd="@(gekozen is null && kopie is null ? default : EventCallback.Factory.Create(this, NieuweBoeking))" />
             </div>
 

@@ -214,6 +214,31 @@ public sealed class BoekenTests(AdministratieFixture app) : IClassFixture<Admini
     }
 
     [Fact]
+    public async Task In_het_memoriaal_zijn_bankregel_en_datum_aan_te_passen()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie();
+        var grootboek = app.Dienst<GrootboekDienst>();
+        Assert.True((await grootboek.Boek(wie, id, Post("2026-0001", new(2026, 3, 15), ("4300", 250m), ("1100", -250m)))).IsGelukt);
+
+        var anders = await grootboek.PasAan(wie, id, "MEM", "2026-0001", Post("x", new(2026, 3, 16), ("4300", 200m), ("1100", -200m)));
+        Assert.True(anders.IsGelukt, string.Join("; ", anders.Fouten));
+        var proef = await grootboek.Proefbalans(wie, id, 2026);
+        Assert.Equal((200m, -200m), (Saldo(proef, "4300"), Saldo(proef, "1100")));
+
+        // Een memoriaalpost die zelf een openstaande post maakte (factuur van vorig jaar): de rest is aan te passen, die regel niet.
+        var factuur = new Journaalpost("MEM", "2026-0002", new(2026, 1, 1), "Factuur vorig jaar",
+            [new Journaalregel("4300", 100m), new Journaalregel("1600", -100m, Relatie: "JANSEN", Factuurnummer: "F-9")]);
+        var geboekt = await grootboek.Boek(wie, id, factuur);
+        Assert.True(geboekt.IsGelukt, string.Join("; ", geboekt.Fouten));
+        Assert.Null((await grootboek.Boeking(wie, id, "MEM", "2026-0002"))!.Vast);
+        var kosten = await grootboek.PasAan(wie, id, "MEM", "2026-0002", factuur with { Regels = [new Journaalregel("4320", 100m), factuur.Regels[1]] });
+        Assert.True(kosten.IsGelukt, string.Join("; ", kosten.Fouten));
+        Assert.Equal(["De regels op 1600 met een factuurnummer horen bij de openstaande posten en kunnen niet veranderen."],
+            (await grootboek.PasAan(wie, id, "MEM", "2026-0002", factuur with { Regels = [new Journaalregel("4320", 90m), new Journaalregel("1600", -90m, Relatie: "JANSEN", Factuurnummer: "F-9")] })).Fouten);
+    }
+
+    [Fact]
     public async Task Rekening_wijzigen_koppelt_aan_de_uitgebreide_indeling()
     {
         var wie = await app.Beheerder();

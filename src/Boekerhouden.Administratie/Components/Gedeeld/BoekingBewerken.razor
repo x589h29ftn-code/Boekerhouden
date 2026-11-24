@@ -141,6 +141,10 @@
     [Parameter, EditorRequired]
     public string Dagboek { get; set; } = "";
 
+    /// <summary>Een memoriaaldagboek: alleen regels met een openstaande post (debiteuren of crediteuren met factuur) staan vast.</summary>
+    [Parameter]
+    public bool Memoriaal { get; set; }
+
     /// <summary>De boeking die wordt aangepast; leeg = een nieuwe boeking.</summary>
     [Parameter]
     public Journaalpost? Post { get; set; }
@@ -211,7 +215,7 @@
             Omschrijving = Post.Omschrijving,
             Regels =
             [
-                .. Post.Regels.Select(r => Regel(r, Post.Omschrijving, Boekingscorrectie.IsVast(Schema.Zoek(r.Rekeningnummer)))),
+                .. Post.Regels.Select(r => Regel(r, Post.Omschrijving, Boekingscorrectie.IsVast(r, Schema, Memoriaal))),
             ],
         };
     }

@@ -672,7 +672,11 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
             return "Deze boeking is teruggedraaid met een tegenboeking.";
         }
 
-        if (await db.Documenten.AnyAsync(d => d.BoekingId == boeking.Id) || await db.OpenstaandePosten.AnyAsync(p => p.BoekingId == boeking.Id))
+        // Een memoriaalboeking die zelf een openstaande post maakte (bijv. een factuur van vorig jaar) hoort niet bij een
+        // factuur: die regels blijven gelijk (Boekingscorrectie), de rest is aan te passen.
+        var memoriaal = await db.Dagboeken.AnyAsync(d => d.Code == boeking.Dagboek && d.Soort == Dagboeksoort.Memoriaal);
+        if (await db.Documenten.AnyAsync(d => d.BoekingId == boeking.Id) || await db.Verkoopdocumenten.AnyAsync(v => v.BoekingId == boeking.Id)
+            || (!memoriaal && await db.OpenstaandePosten.AnyAsync(p => p.BoekingId == boeking.Id)))
         {
             return "Deze boeking hoort bij een factuur: pas hem aan via de factuur.";
         }
@@ -702,7 +706,8 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
         ArgumentNullException.ThrowIfNull(nieuw);
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
         var dagboeken = await LaadDagboeken(db);
-        var nodig = dagboeken.FirstOrDefault(d => d.Code == dagboek)?.Soort == Dagboeksoort.Memoriaal ? Recht.Boekhouden : Recht.Invoeren;
+        var memoriaal = dagboeken.FirstOrDefault(d => d.Code == dagboek)?.Soort == Dagboeksoort.Memoriaal;
+        var nodig = memoriaal ? Recht.Boekhouden : Recht.Invoeren;
         if (!await toegang.MagIn(wie, administratie, nodig))
         {
             return Uitkomst<int>.Mislukt("Je hebt in deze administratie niet het recht om hier te boeken.");
@@ -733,7 +738,7 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
             Omschrijving = nieuw.Omschrijving.Trim(),
             Regels = [.. nieuw.Regels.Where(r => r.Bedrag != 0 || !string.IsNullOrWhiteSpace(r.Rekeningnummer))],
         };
-        var fouten = Boekingscorrectie.Controleer(oud.NaarDomein(), post, schema).Concat(Journaalcontrole.Controleer(post, schema, dagboeken)).Distinct().ToList();
+        var fouten = Boekingscorrectie.Controleer(oud.NaarDomein(), post, schema, memoriaal).Concat(Journaalcontrole.Controleer(post, schema, dagboeken)).Distinct().ToList();
         if (fouten.Count > 0)
         {
             return Uitkomst<int>.Mislukt([.. fouten]);

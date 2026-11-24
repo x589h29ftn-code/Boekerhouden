@@ -53,4 +53,21 @@ public sealed class BoekingscorrectieTests
         Assert.True(Boekingscorrectie.IsVast(Schema.Zoek("1300")));
         Assert.False(Boekingscorrectie.IsVast(Schema.Zoek("1500")));
     }
+
+    [Fact]
+    public void In_het_memoriaal_staan_alleen_regels_met_een_openstaande_post_vast()
+    {
+        var oud = new Journaalpost("MEM", "2026-0002", new(2026, 3, 15), "Correctie", [new("4300", 250m), new("1100", -250m)]);
+        var anders = oud with { Datum = new(2026, 3, 16), Regels = [new("4300", 200m), new("1100", -200m)] };
+        Assert.Empty(Boekingscorrectie.Controleer(oud, anders, Schema, memoriaal: true));
+        Assert.NotEmpty(Boekingscorrectie.Controleer(oud, anders, Schema));
+
+        var factuur = new Journaalpost("MEM", "2026-0003", new(2026, 1, 1), "Factuur vorig jaar",
+            [new("4300", 100m), new("1600", -100m, Relatie: "JANSEN", Factuurnummer: "F-9")]);
+        Assert.Empty(Boekingscorrectie.Controleer(factuur, factuur with { Regels = [new("4320", 100m), factuur.Regels[1]] }, Schema, memoriaal: true));
+        Assert.Equal(["De regels op 1600 met een factuurnummer horen bij de openstaande posten en kunnen niet veranderen."],
+            Boekingscorrectie.Controleer(factuur, factuur with { Regels = [new("4300", 90m), new("1600", -90m, Relatie: "JANSEN", Factuurnummer: "F-9")] }, Schema, memoriaal: true));
+        Assert.False(Boekingscorrectie.IsVast(new Journaalregel("1600", -100m), Schema, memoriaal: true));
+        Assert.True(Boekingscorrectie.IsVast(factuur.Regels[1], Schema, memoriaal: true));
+    }
 }
