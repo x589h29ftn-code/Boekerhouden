@@ -133,18 +133,20 @@ public sealed class WebTests(AdministratieFixture app) : IClassFixture<Administr
         Assert.Contains("naam bevat ‘Belnet’", regels, StringComparison.Ordinal);
         Assert.Contains("Nieuwe regel", regels, StringComparison.Ordinal);
         Assert.Contains("Inrichting Voorbeeld B.V.", instellingen, StringComparison.Ordinal);
-        Assert.Contains("Nooit vanzelf boeken boven", instellingen, StringComparison.Ordinal);
+        var verwerken = await beheerder.GetStringAsync(new Uri($"/a/{id}/instellingen/verwerken", UriKind.Relative));
+        Assert.Contains("Inkoop vanzelf verwerken", verwerken, StringComparison.Ordinal);
+        Assert.Contains("Zoals het kantoor", verwerken, StringComparison.Ordinal);
 
         using var client = NieuweClient();
         var email = (await app.Dienst<GebruikerDienst>().Lijst()).Single(g => g.Id == ondernemer.Id).Email;
         await Aanmelden.LogIn(client, email, AdministratieFixture.Wachtwoord, "/");
         var regelsOndernemer = await client.GetStringAsync(new Uri($"/a/{id}/regels", UriKind.Relative));
-        var instellingenOndernemer = await client.GetStringAsync(new Uri($"/a/{id}/instellingen", UriKind.Relative));
+        var instellingenOndernemer = await client.GetStringAsync(new Uri($"/a/{id}/instellingen/verwerken", UriKind.Relative));
 
         Assert.Contains("Belnet is telefoon", regelsOndernemer, StringComparison.Ordinal);
         Assert.DoesNotContain("Nieuwe regel", regelsOndernemer, StringComparison.Ordinal);
         Assert.Contains("Alleen het kantoor kan de instellingen wijzigen.", instellingenOndernemer, StringComparison.Ordinal);
-        Assert.DoesNotContain("Nooit vanzelf boeken boven", instellingenOndernemer, StringComparison.Ordinal);
+        Assert.DoesNotContain("Zoals het kantoor", instellingenOndernemer, StringComparison.Ordinal);
     }
 
     [Fact]

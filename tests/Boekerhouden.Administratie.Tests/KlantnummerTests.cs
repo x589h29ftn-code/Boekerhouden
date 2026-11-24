@@ -53,8 +53,9 @@ public sealed class KlantnummerTests(AdministratieFixture app) : IClassFixture<A
         Assert.Contains("<td class=\"klantnummer text-nowrap\">7311</td>", lijst, StringComparison.Ordinal);
 
         var instellingen = await client.GetStringAsync(new Uri($"/a/{id}/instellingen", UriKind.Relative));
-        Assert.Contains("Betalingen aan de Belastingdienst", instellingen, StringComparison.Ordinal);
-        Assert.Matches("placeholder=\"standaard [0-9]+ [^\"]+\"", instellingen);
         Assert.Contains("value=\"7311\"", instellingen, StringComparison.Ordinal);
+        var btw = await client.GetStringAsync(new Uri($"/a/{id}/instellingen/btw", UriKind.Relative));
+        Assert.Contains("Betalingen aan de Belastingdienst", btw, StringComparison.Ordinal);
+        Assert.Matches("placeholder=\"standaard [0-9]+ [^\"]+\"", btw);
     }
 }

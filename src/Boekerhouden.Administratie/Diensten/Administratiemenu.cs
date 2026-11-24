@@ -70,7 +70,7 @@ public static class Administratiemenu
         new("Verkoop", [new("/verkoop", "Te verwerken", Recht.Lezen), new("/verkoopboek", "Geboekt", Recht.Lezen)]),
         new("Facturen maken", [new("/facturen", "Facturen", Recht.Lezen), new("/verkoop/terugkerend", "Terugkerend", Recht.Lezen), new("/factuurlayout", "Lay-out", Recht.Lezen)]),
         new("Openstaande posten", [new("/debiteuren", "Debiteuren", Recht.Lezen), new("/crediteuren", "Crediteuren", Recht.Lezen)]),
-        new("Instellingen", [new("/instellingen", "Instellingen", Recht.Boekhouden), new("/beginbalans", "Beginbalans", Recht.Boekhouden)]),
+        new("Instellingen", [new("/instellingen", "Gegevens", Recht.Boekhouden), new("/instellingen/btw", "Btw en belastingen", Recht.Boekhouden), new("/instellingen/verwerken", "Verwerken", Recht.Boekhouden), new("/beginbalans", "Beginbalans", Recht.Boekhouden)]),
     ];
 
     /// <summary>Pagina's zonder eigen regel of tabblad: alleen te vinden via Zoeken (Ctrl+K).</summary>

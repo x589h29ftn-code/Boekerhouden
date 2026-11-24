@@ -71,8 +71,10 @@ function totp(sleutel) {
 
   // Verkoop: eigen adres en btw-nummer, een nieuwe klant en een factuur die definitief wordt.
   await page.goto(`${basis}/a/${id}/instellingen`); await page.waitForSelector('#straat'); await page.waitForTimeout(800);
-  await page.fill('#btw', 'NL123456782B01'); await page.fill('#ibans', 'NL20INGB0001234567'); await page.fill('#straat', 'Dorpsstraat 1'); await page.fill('#postcode', '1234 AB');
+  await page.fill('#ibans', 'NL20INGB0001234567'); await page.fill('#straat', 'Dorpsstraat 1'); await page.fill('#postcode', '1234 AB');
   await page.fill('#plaats', 'Ergens'); await page.click('button:has-text("Opslaan")'); await page.waitForTimeout(1000);
+  await page.goto(`${basis}/a/${id}/instellingen/btw`); await page.waitForSelector('#btw'); await page.waitForTimeout(800);
+  await page.fill('#btw', 'NL123456782B01'); await page.click('button:has-text("Opslaan")'); await page.waitForTimeout(1000);
   await page.goto(`${basis}/a/${id}/verkoop/nieuw`); await page.waitForSelector('#klant'); await page.waitForTimeout(1200);
   await page.click('button:has-text("Nieuwe klant")'); await page.fill('#kn', 'J. de Vries Installatie'); await page.fill('#ks', 'Laan 2');
   await page.fill('#kp', '5678 CD'); await page.fill('#kpl', 'Elders'); await page.click('.nieuwe-klant button:has-text("Toevoegen")'); await page.waitForTimeout(1000);

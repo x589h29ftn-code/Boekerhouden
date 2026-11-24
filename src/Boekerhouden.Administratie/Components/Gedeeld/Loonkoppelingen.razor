@@ -1,0 +1,95 @@
+@* De koppeling van de rekeningen uit het salarispakket aan de rekeningen van de administratie, voor het loonjournaal.
+   Elke wijziging wordt meteen bewaard. Staat bij het memoriaal, waar het loonjournaal wordt ingelezen. *@
+@inject LoonjournaalDienst Loon
+@inject GrootboekDienst Grootboek
+@inject Meldingen Meldingen
+
+@if (schema is not null)
+{
+    <Foutmeldingen Fouten="fouten" />
+    <table class="table table-sm align-middle mb-2 overzichtstabel loonkoppelingen">
+        <thead>
+            <tr><th style="width:7rem">Salarispakket</th><th>Naam</th><th style="width:40%">Rekening</th><th style="width:1.75rem"></th></tr>
+        </thead>
+        <tbody>
+            @foreach (var k in koppelingen)
+            {
+                var koppeling = k;
+                <tr>
+                    <td class="text-secondary">@k.Loonrekening</td>
+                    <td>@k.Loonnaam</td>
+                    <td><RekeningKeuze Waarde="@k.Rekeningnummer" WaardeChanged="r => Zet(koppeling.Loonrekening, koppeling.Loonnaam, r)" Schema="schema" Kader="Kader" Label="@($"Rekening voor {k.Loonnaam}")" /></td>
+                    <td><button type="button" class="btn btn-sm btn-link text-secondary p-0 regelactie" title="Koppeling verwijderen; bij het volgende loonjournaal kies je opnieuw" aria-label="Koppeling verwijderen" @onclick="() => Verwijder(koppeling.Loonrekening)"><Icoon Naam="x" /></button></td>
+                </tr>
+            }
+            <tr class="loonkoppeling-nieuw">
+                <td><input class="form-control form-control-sm" aria-label="Rekeningnummer in het salarispakket" placeholder="nummer" @bind="nieuwe.Nummer" /></td>
+                <td><input class="form-control form-control-sm" aria-label="Naam in het salarispakket" placeholder="naam, bijv. Netto loon" @bind="nieuwe.Naam" /></td>
+                <td><RekeningKeuze @bind-Waarde="nieuwe.Rekening" Schema="schema" Kader="Kader" Label="Rekening in de administratie" /></td>
+                <td></td>
+            </tr>
+        </tbody>
+    </table>
+    <button type="button" class="btn btn-sm btn-outline-secondary" disabled="@(string.IsNullOrWhiteSpace(nieuwe.Nummer) || string.IsNullOrWhiteSpace(nieuwe.Rekening))" @onclick="VoegToe">Toevoegen</button>
+}
+
+@code {
+    private Boekhouding.Grootboek.Rekeningschema? schema;
+    private IReadOnlyList<Loonkoppelinginstelling> koppelingen = [];
+    private Nieuwekoppeling nieuwe = new();
+    private IReadOnlyList<string>? fouten;
+
+    [Parameter, EditorRequired]
+    public Guid Administratie { get; set; }
+
+    [Parameter, EditorRequired]
+    public Geopend Kader { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        schema = await Grootboek.Schema(Kader.Wie, Administratie);
+        koppelingen = await Loon.Koppelingen(Kader.Wie, Administratie);
+    }
+
+    private async Task Zet(string loonrekening, string loonnaam, string? rekening)
+    {
+        if (string.IsNullOrWhiteSpace(rekening))
+        {
+            return;
+        }
+
+        var uitkomst = await Loon.Zet(Kader.Wie, Administratie, loonrekening, loonnaam, rekening);
+        fouten = uitkomst.IsGelukt ? null : uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            Meldingen.Toon($"{loonrekening} {loonnaam} → {rekening.Trim()}");
+        }
+
+        koppelingen = await Loon.Koppelingen(Kader.Wie, Administratie);
+    }
+
+    private async Task VoegToe()
+    {
+        await Zet(nieuwe.Nummer.Trim(), nieuwe.Naam.Trim(), nieuwe.Rekening);
+        if (fouten is null)
+        {
+            nieuwe = new();
+        }
+    }
+
+    private async Task Verwijder(string loonrekening)
+    {
+        var uitkomst = await Loon.Verwijder(Kader.Wie, Administratie, loonrekening);
+        fouten = uitkomst.IsGelukt ? null : uitkomst.Fouten;
+        koppelingen = await Loon.Koppelingen(Kader.Wie, Administratie);
+    }
+
+    private sealed class Nieuwekoppeling
+    {
+        public string Nummer { get; set; } = "";
+
+        public string Naam { get; set; } = "";
+
+        public string? Rekening { get; set; }
+    }
+}

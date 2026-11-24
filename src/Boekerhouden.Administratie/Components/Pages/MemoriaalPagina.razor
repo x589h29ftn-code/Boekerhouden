@@ -28,6 +28,7 @@
                             <button type="button" title="Een eerdere boeking overnemen, bijv. de loonjournaalpost van vorige maand" @onclick="() => { menuOpen = false; KopieKiezen(); }">Boeking kopiëren…</button>
                         }
                         <label for="loonjournaal" title="Het journaal uit het salarispakket (PDF) als boeking" @onclick="() => menuOpen = false">Loonjournaal inlezen…</label>
+                        <button type="button" title="Welke rekening uit het salarispakket op welke rekening hier komt" @onclick="() => { menuOpen = false; loonkoppelingen = true; }">Loonjournaal-koppelingen…</button>
                         @if (memorialen.Count > 1 && dagboek is not null)
                         {
                             <button type="button" title="Alleen als er nog niets in geboekt is" @onclick="() => { menuOpen = false; (verwijderVragen, dagboekfouten) = (true, null); }">Dagboek @dagboek.Naam verwijderen…</button>
@@ -72,6 +73,13 @@
                         <button class="btn btn-sm btn-link text-secondary" @onclick="() => (nieuwDagboek, dagboekfouten) = (null, null)">Annuleren</button>
                     </div>
                 </div>
+            }
+            @if (loonkoppelingen && geopend is not null)
+            {
+                <Formulierblok Titel="Loonjournaal-koppelingen">
+                    <Loonkoppelingen Administratie="Id" Kader="geopend" />
+                    <button type="button" class="btn btn-sm btn-link text-secondary px-0 mt-2" @onclick="() => loonkoppelingen = false">Sluiten</button>
+                </Formulierblok>
             }
             @if (verwijderVragen)
             {
@@ -524,6 +532,7 @@
     }
 
     private bool verwijderVragen;
+    private bool loonkoppelingen;
 
     /// <summary>Het gekozen memoriaal verwijderen (alleen als er niets in staat); daarna het eerste memoriaal.</summary>
     private async Task VerwijderDagboek()

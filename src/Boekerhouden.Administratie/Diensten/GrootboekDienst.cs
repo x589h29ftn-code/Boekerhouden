@@ -210,6 +210,14 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
         return Uitkomst.Gelukt;
     }
 
+    /// <summary>De IBAN's van de bankdagboeken, met de naam van het dagboek (voor Instellingen: die hoeven er niet nog eens in).</summary>
+    public async Task<IReadOnlyList<(string Iban, string Dagboek)>> BankIbans(Uitvoerder wie, Guid administratie)
+    {
+        await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
+        var lijst = await db.Dagboeken.AsNoTracking().Where(d => d.Iban != null).OrderBy(d => d.Code).Select(d => new { d.Iban, d.Naam }).ToListAsync();
+        return [.. lijst.Select(d => (Boekhouding.Relaties.Iban.Normaliseer(d.Iban!), d.Naam))];
+    }
+
     /// <summary>
     /// Een bank-, kas- of memoriaaldagboek verwijderen dat (nog) leeg is: geen boekingen, geen afschriften en geen
     /// bankmutaties. Inkoop en verkoop blijven, en het laatste bank- en memoriaaldagboek ook (daar boekt Sifer zelf in).

@@ -46,7 +46,7 @@ function totp(sleutel) {
     a('/memoriaal'), a(`/kolommenbalans?${j}`), a(`/kolommenbalans?${j}&weergave=maand`), a(`/grootboek?rekening=1100&${j}`), a(`/grootboek?${j}`),
     a(`/journaal?${j}`), a('/debiteuren'), a('/debiteuren?weergave=totalen'), a('/debiteuren?weergave=posten'), a('/crediteuren'), a('/btw?jaar=2025'), a('/btw/rondrekening'), a('/vpb?jaar=2025'), a('/activa'), a('/activa/staat'),
     a('/activa/nieuw'), a('/aansluitingen'), a(`/inkoopboek?${j}`), a(`/verkoopboek?${j}`), a('/relaties'), a('/regels'), a('/rekeningschema'),
-    a('/perioden'), a('/instellingen'), a('/beginbalans'), a('/balans?jaar=2025'), a('/proefbalans?jaar=2025')];
+    a('/perioden'), a('/instellingen'), a('/instellingen/btw'), a('/instellingen/verwerken'), a('/beginbalans'), a('/balans?jaar=2025'), a('/proefbalans?jaar=2025')];
   const engels = /\b(Save|Cancel|Delete|Loading|Submit|Search|Edit|Close|Settings|Error|Upload|Download|Back|Next|Previous)\b/;
   const losseTekens = /^[‹›×↻→←«»✕✓+\-]$/;
 

@@ -38,8 +38,10 @@ function totp(sleutel) {
   await page.fill('#naam', 'Druk Handel B.V.'); await page.selectOption('#schema', 'Sifer'); await page.click('text=Aanmaken');
   await page.waitForURL(/\/a\/[0-9a-f-]+\/instellingen$/); const id = page.url().split('/a/')[1].split('/')[0];
   await page.goto(`${basis}/a/${id}/instellingen`); await page.waitForSelector('#straat'); await page.waitForTimeout(800);
-  await page.fill('#btw', 'NL123456782B01'); await page.fill('#ibans', 'NL20INGB0001234567'); await page.fill('#straat', 'Dorpsstraat 1'); await page.fill('#postcode', '1234 AB');
+  await page.fill('#ibans', 'NL20INGB0001234567'); await page.fill('#straat', 'Dorpsstraat 1'); await page.fill('#postcode', '1234 AB');
   await page.fill('#plaats', 'Ergens'); await page.click('button:has-text("Opslaan")'); await page.waitForTimeout(1000);
+  await page.goto(`${basis}/a/${id}/instellingen/btw`); await page.waitForSelector('#btw'); await page.waitForTimeout(800);
+  await page.fill('#btw', 'NL123456782B01'); await page.click('button:has-text("Opslaan")'); await page.waitForTimeout(1000);
 
   async function concept(p, eersteKeer) {
     await p.goto(`${basis}/a/${id}/verkoop/nieuw`); await p.waitForSelector('#klant'); await p.waitForTimeout(1200);

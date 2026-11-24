@@ -113,15 +113,25 @@
                             </tbody>
                         </table>
                     </div>
-                    <div class="small text-secondary mt-2"><a href="/a/@Id/instellingen">Welke rekeningen niet of beperkt aftrekbaar zijn</a></div>
+                    @if (geopend?.Kop.Mag(Recht.Boekhouden) == true)
+                    {
+                        <button type="button" class="btn btn-sm btn-link text-secondary p-0 mt-2 fiscale-indeling-knop" @onclick="() => indeling = !indeling">@(indeling ? "Indeling verbergen" : "Welke rekeningen niet of beperkt aftrekbaar zijn")</button>
+                    }
                 </div>
             </div>
+        }
+        @if (indeling && geopend is not null)
+        {
+            <Formulierblok Titel="Niet of beperkt aftrekbaar">
+                <FiscaleIndeling Administratie="Id" Kader="geopend" Gewijzigd="Laad" />
+            </Formulierblok>
         }
     </ChildContent>
 </AdministratieKader>
 
 @code {
     private Geopend? geopend;
+    private bool indeling;
     private IReadOnlyList<int> jaren = [];
     private int jaar;
     private Vpbstand? stand;
