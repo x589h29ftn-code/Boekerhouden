@@ -74,11 +74,11 @@
                 <h2>@uitleg.Titel</h2>
                 <button type="button" class="icoonknop" popovertarget="paginahulp" popovertargetaction="hide" title="Sluiten" aria-label="Sluiten"><Icoon Naam="x" /></button>
             </div>
-            <p>@uitleg.Wat</p>
+            <p>@Tekst(uitleg.Wat)</p>
             <ul>
                 @foreach (var punt in uitleg.Hoe)
                 {
-                    <li>@punt</li>
+                    <li>@Tekst(punt)</li>
                 }
             </ul>
             <a class="paginahulp-meer" href="/hulp#@Hulpsectie.Van(Pad)">Meer in de documentatie</a>
@@ -88,6 +88,21 @@
 
 @code {
     private ErrorBoundary? foutgrens;
+
+    private static RenderFragment Tekst(string tekst) => __builder =>
+    {
+        foreach (var (deel, cursief) in Paginauitleg.Delen(tekst))
+        {
+            if (cursief)
+            {
+                <em>@deel</em>
+            }
+            else
+            {
+                @deel
+            }
+        }
+    };
 
     // Op interactieve pagina's blijft de layout staan bij navigatie; dan het menu en het vraagteken bijwerken.
     protected override void OnInitialized() => Navigatie.LocationChanged += Verplaatst;

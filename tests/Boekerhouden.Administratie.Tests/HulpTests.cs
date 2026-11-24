@@ -74,6 +74,10 @@ public sealed class HulpTests(AdministratieFixture app) : IClassFixture<Administ
     public void Elke_pagina_heeft_zijn_eigen_uitleg(string pad, string sleutel) => Assert.Equal(sleutel, Paginahulp.Sleutel(pad));
 
     [Fact]
+    public void Wat_tussen_sterretjes_staat_wordt_cursief() =>
+        Assert.Equal([("Met ", false), ("Opslaan", true), (" bewaar je het.", false)], Paginauitleg.Delen("Met *Opslaan* bewaar je het."));
+
+    [Fact]
     public void Elke_pagina_van_de_app_heeft_uitleg_en_die_is_kort()
     {
         // Alle routes van de app, met een voorbeeld voor elke parameter.
@@ -92,7 +96,7 @@ public sealed class HulpTests(AdministratieFixture app) : IClassFixture<Administ
             Assert.False(string.IsNullOrWhiteSpace(u.Value.Titel));
             Assert.InRange(u.Value.Hoe.Count, 2, 5);
             Assert.True(u.Value.Wat.Length <= 120, u.Key);
-            Assert.All(u.Value.Hoe, p => Assert.True(p.Length <= 130 && p.EndsWith('.'), $"{u.Key}: {p}"));
+            Assert.All(u.Value.Hoe, p => Assert.True(p.Length <= 130 && p.EndsWith('.') && p.Count(c => c == '*') % 2 == 0, $"{u.Key}: {p}"));
         });
     }
 }
