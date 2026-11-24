@@ -76,6 +76,7 @@ public static class AuditActies
     public const string RekeningToegevoegd = "Grootboekrekening toegevoegd";
     public const string RekeningGewijzigd = "Grootboekrekening gewijzigd";
     public const string DagboekToegevoegd = "Dagboek toegevoegd";
+    public const string DagboekVerwijderd = "Dagboek verwijderd";
 
     public const string DagboekGewijzigd = "Dagboek gewijzigd";
     public const string Geboekt = "Geboekt";

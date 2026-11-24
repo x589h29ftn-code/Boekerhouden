@@ -31,10 +31,10 @@
                     <div class="col-md-2">
                         <label class="form-label" for="btw">Btw</label>
                         <select id="btw" class="form-select" @bind="invoer.BtwCode">
-                            <option value="">geen</option>
-                            @foreach (var c in btwCodes.Where(c => c.Actief))
+                            <option value="">Geen btw</option>
+                            @foreach (var c in btwCodes.Where(c => c.Actief && (c.Soort != Boekhouding.Btw.Btwsoort.GeenBtw || c.Code == invoer.BtwCode)))
                             {
-                                <option value="@c.Code" title="@c.Omschrijving">@c.Code · @c.Kort</option>
+                                <option value="@c.Code" title="@c.Uitleg">@c.Keuze</option>
                             }
                         </select>
                     </div>

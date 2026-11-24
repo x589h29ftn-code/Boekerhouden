@@ -1,6 +1,7 @@
 @page "/a/{Id:guid}/memoriaal"
 @using Boekerhouden.Boekhouding.Grootboek
 @inject GrootboekDienst Grootboek
+@inject Meldingen Meldingen
 @inject ActivaDienst Activa
 @inject LoonjournaalDienst Loonjournaal
 @inject TimeProvider Tijd
@@ -27,6 +28,10 @@
                             <button type="button" title="Een eerdere boeking overnemen, bijv. de loonjournaalpost van vorige maand" @onclick="() => { menuOpen = false; KopieKiezen(); }">Boeking kopiëren…</button>
                         }
                         <label for="loonjournaal" title="Het journaal uit het salarispakket (PDF) als boeking" @onclick="() => menuOpen = false">Loonjournaal inlezen…</label>
+                        @if (memorialen.Count > 1 && dagboek is not null)
+                        {
+                            <button type="button" title="Alleen als er nog niets in geboekt is" @onclick="() => { menuOpen = false; (verwijderVragen, dagboekfouten) = (true, null); }">Dagboek @dagboek.Naam verwijderen…</button>
+                        }
                     </span>
                 }
             </span>
@@ -67,6 +72,18 @@
                         <button class="btn btn-sm btn-link text-secondary" @onclick="() => (nieuwDagboek, dagboekfouten) = (null, null)">Annuleren</button>
                     </div>
                 </div>
+            }
+            @if (verwijderVragen)
+            {
+                <div class="bericht mb-2 d-flex align-items-center gap-2 dagboek-verwijderen">
+                    <span>Dagboek @dagboek.Naam verwijderen?</span>
+                    <button class="btn btn-sm btn-danger" disabled="@bezigDagboek" @onclick="VerwijderDagboek">Ja, verwijderen</button>
+                    <button class="btn btn-sm btn-link text-secondary px-1" @onclick="() => verwijderVragen = false">Annuleren</button>
+                </div>
+            }
+            @if (verwijderVragen || nieuwDagboek is null)
+            {
+                <Foutmeldingen Fouten="dagboekfouten" />
             }
             @if (bericht is not null)
             {
@@ -505,6 +522,36 @@
             Navigatie.NavigateTo($"/a/{Id}/memoriaal?dagboek={Uri.EscapeDataString(code)}");
         }
     }
+
+    private bool verwijderVragen;
+
+    /// <summary>Het gekozen memoriaal verwijderen (alleen als er niets in staat); daarna het eerste memoriaal.</summary>
+    private async Task VerwijderDagboek()
+    {
+        if (bezigDagboek || dagboek is null)
+        {
+            return;
+        }
+
+        bezigDagboek = true;
+        try
+        {
+            var uitkomst = await Grootboek.VerwijderDagboek(geopend!.Wie, Id, dagboek.Code);
+            dagboekfouten = uitkomst.Fouten;
+            if (uitkomst.IsGelukt)
+            {
+                Meldingen.Toon($"Dagboek {dagboek.Naam} verwijderd.");
+                (verwijderVragen, gekozen) = (false, null);
+                Navigatie.NavigateTo($"/a/{Id}/memoriaal");
+            }
+        }
+        finally
+        {
+            bezigDagboek = false;
+        }
+    }
+
+    private bool bezigDagboek;
 
     private sealed class NieuwDagboek
     {

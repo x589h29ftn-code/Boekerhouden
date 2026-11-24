@@ -11,11 +11,8 @@
         @if (regels is not null)
         {
             var zichtbaar = Gefilterd.ToList();
+            @* Alleen het aantal (zoals "3 te verwerken" op het andere tabblad); het totaal en wat open staat, staan onder de tabel. *@
             <span>@zichtbaar.Count @(zichtbaar.Count == 1 ? "factuur" : "facturen") @(alleJaren ? "in alle jaren" : $"in {Periodetekst}")</span>
-            <span class="scheiding">·</span>
-            <span>totaal @Weergave.Bedrag(zichtbaar.Sum(r => r.Totaal))</span>
-            <span class="scheiding">·</span>
-            <span>open @Weergave.Bedrag(zichtbaar.Sum(r => r.Openstaand))</span>
         }
     </Kenmerken>
     <Acties>

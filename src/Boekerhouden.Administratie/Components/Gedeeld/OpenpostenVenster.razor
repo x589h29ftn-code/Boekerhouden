@@ -105,10 +105,10 @@
                     <div class="col-md-3">
                         <label class="form-label small mb-0" for="verschil-btw">Btw</label>
                         <select id="verschil-btw" class="form-select form-select-sm" @bind="btwCode">
-                            <option value="">geen</option>
-                            @foreach (var c in Verwerking.BtwCodes.Where(c => c.Actief))
+                            <option value="">Geen btw</option>
+                            @foreach (var c in Verwerking.BtwCodes.Where(c => c.Actief && (c.Soort != Boekhouding.Btw.Btwsoort.GeenBtw || c.Code == btwCode)))
                             {
-                                <option value="@c.Code" title="@c.Code · @c.Omschrijving">@c.Kort</option>
+                                <option value="@c.Code" title="@c.Uitleg">@c.Keuze</option>
                             }
                         </select>
                     </div>

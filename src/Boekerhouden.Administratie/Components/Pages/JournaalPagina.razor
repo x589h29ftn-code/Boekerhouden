@@ -36,9 +36,9 @@
             <div class="d-flex align-items-center gap-2 mb-2 onderkop">
                 <select class="form-select form-select-sm w-auto" aria-label="Dagboek" @bind="dagboek">
                     <option value="">Alle dagboeken</option>
-                    @foreach (var d in posten.Select(p => p.Post.Dagboek).Distinct().Order())
+                    @foreach (var d in posten.Select(p => p.Post.Dagboek).Distinct().OrderBy(Dagboeknaam, StringComparer.CurrentCultureIgnoreCase))
                     {
-                        <option value="@d">@d</option>
+                        <option value="@d" title="@d">@Dagboeknaam(d)</option>
                     }
                 </select>
                 <input class="form-control form-control-sm kaartzoeken" placeholder="Zoeken op omschrijving, bedrag of relatie" aria-label="Zoeken"
@@ -144,6 +144,7 @@
         (geopend, keten, zoek, dagboek) = (g, null, null, "");
         open.Clear();
         schema = await Grootboek.Schema(g.Wie, Id);
+        dagboeken = await Grootboek.Dagboeken(g.Wie, Id);
         boekjaren = await Grootboek.Boekjaren(g.Wie, Id);
         (van, tot) = Weergave.Periode(VanTekst, TotTekst) ?? Boekhouding.Grootboek.Periode.Jaar(boekjaren[0]);
         await Laad();
@@ -166,6 +167,21 @@
         Navigatie.NavigateTo($"/a/{Id}/boeking/{Uri.EscapeDataString(p.Post.Dagboek)}/{Uri.EscapeDataString(p.Post.Boekstuk)}?terug={Uri.EscapeDataString($"/a/{Id}/journaal?{Weergave.Periodequery(van, tot)}")}");
 
     private IReadOnlyList<int>? boekjaren;
+    private IReadOnlyList<Dagboek>? dagboeken;
+
+    /// <summary>
+    /// De naam van een dagboek in de keuzelijst ("Bank" in plaats van BNK); hebben twee dagboeken dezelfde naam, dan de
+    /// code erachter.
+    /// </summary>
+    private string Dagboeknaam(string code)
+    {
+        if ((dagboeken ?? []).FirstOrDefault(d => d.Code == code) is not { } dagboek)
+        {
+            return code;
+        }
+
+        return dagboeken!.Count(d => string.Equals(d.Naam, dagboek.Naam, StringComparison.CurrentCultureIgnoreCase)) > 1 ? $"{dagboek.Naam} ({code})" : dagboek.Naam;
+    }
 
     /// <summary>Staat de periode al op alle boekjaren?</summary>
     private bool AlleJaren => boekjaren is { Count: > 0 } j && van <= new DateOnly(j.Min(), 1, 1) && tot >= new DateOnly(j.Max(), 12, 31);

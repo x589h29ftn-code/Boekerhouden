@@ -210,6 +210,46 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
         return Uitkomst.Gelukt;
     }
 
+    /// <summary>
+    /// Een bank-, kas- of memoriaaldagboek verwijderen dat (nog) leeg is: geen boekingen, geen afschriften en geen
+    /// bankmutaties. Inkoop en verkoop blijven, en het laatste bank- en memoriaaldagboek ook (daar boekt Sifer zelf in).
+    /// De grootboekrekening van een bankdagboek blijft in het rekeningschema staan. Alleen met het recht Boekhouden.
+    /// </summary>
+    public async Task<Uitkomst> VerwijderDagboek(Uitvoerder wie, Guid administratie, string code)
+    {
+        ArgumentNullException.ThrowIfNull(code);
+        await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
+        if (await db.Dagboeken.SingleOrDefaultAsync(d => d.Code == code) is not { } dagboek)
+        {
+            return Uitkomst.Mislukt($"Dagboek {code} bestaat niet.");
+        }
+
+        if (dagboek.Soort is Dagboeksoort.Inkoop or Dagboeksoort.Verkoop)
+        {
+            return Uitkomst.Mislukt($"Het {(dagboek.Soort == Dagboeksoort.Inkoop ? "inkoopboek" : "verkoopboek")} kan niet weg.");
+        }
+
+        if (dagboek.Soort is Dagboeksoort.Bank or Dagboeksoort.Memoriaal && await db.Dagboeken.CountAsync(d => d.Soort == dagboek.Soort) == 1)
+        {
+            return Uitkomst.Mislukt($"{dagboek.Naam} is het laatste {(dagboek.Soort == Dagboeksoort.Bank ? "bankdagboek" : "memoriaal")} en kan niet weg.");
+        }
+
+        if (await db.Boekingen.AnyAsync(b => b.Dagboek == code))
+        {
+            return Uitkomst.Mislukt($"In {dagboek.Naam} is al geboekt; een dagboek met boekingen blijft bewaard.");
+        }
+
+        if (await db.Afschriften.AnyAsync(a => a.Dagboek == code) || await db.Banktransacties.AnyAsync(t => t.Dagboek == code))
+        {
+            return Uitkomst.Mislukt($"Bij {dagboek.Naam} zijn al afschriften ingelezen; verwijder eerst de mutaties.");
+        }
+
+        db.Dagboeken.Remove(dagboek);
+        await db.SaveChangesAsync();
+        await audit.Log(wie, AuditActies.DagboekVerwijderd, $"{dagboek.Code} {dagboek.Naam}", dagboek.Soort.ToString().ToLowerInvariant(), administratie);
+        return Uitkomst.Gelukt;
+    }
+
     /// <summary>Het volgende boekstuknummer in een dagboek, bijv. <c>2026-0007</c>.</summary>
     public async Task<string> VolgendBoekstuk(Uitvoerder wie, Guid administratie, string dagboek, int jaar)
     {

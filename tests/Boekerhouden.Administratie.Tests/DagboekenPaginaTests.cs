@@ -39,6 +39,10 @@ public sealed class DagboekenPaginaTests(AdministratieFixture app) : IClassFixtu
         Assert.Contains("Huur februari", memoriaal, StringComparison.Ordinal);
         Assert.Contains("1.984,56", memoriaal, StringComparison.Ordinal);
 
+        // Het journaal: de dagboekkeuze met de naam ("Memoriaal"), de code in de tooltip.
+        var journaal = await client.GetStringAsync(new Uri($"/a/{id}/journaal?van=2026-01-01&tot=2026-12-31", UriKind.Relative));
+        Assert.Contains("<option value=\"MEM\" title=\"MEM\">Memoriaal</option>", journaal, StringComparison.Ordinal);
+
         // Wie geen lid is, ziet niets.
         var buiten = await app.Gebruiker("Bert Buiten");
         var email = (await app.Dienst<GebruikerDienst>().Lijst()).Single(g => g.Id == buiten.Id).Email;

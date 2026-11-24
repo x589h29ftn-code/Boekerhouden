@@ -125,6 +125,44 @@ public sealed record BtwCode(string Code, string Omschrijving, Btwsoort Soort, T
         }
     }
 
+    /// <summary>
+    /// Voor in een keuzelijst met zowel inkoop- als verkoopcodes: de richting voluit, bijv. "Verkoop 21%", "Inkoop 21%",
+    /// "Inkoop verlegd 21%", "Verkoop EU (ICP)" of "Geen btw". Zo is "Hoog 21%" bij inkoop en bij verkoop niet meer
+    /// hetzelfde woord.
+    /// </summary>
+    public string Keuze
+    {
+        get
+        {
+            var procent = Percentage != 0 ? $" {Btwpercentage.Tekst(Percentage)}" : string.Empty;
+            return Soort switch
+            {
+                Btwsoort.VerkoopHoog or Btwsoort.VerkoopLaag => $"Verkoop{procent}",
+                Btwsoort.VerkoopNul => "Verkoop 0%",
+                Btwsoort.VerkoopVerlegd => "Verkoop verlegd",
+                Btwsoort.VerkoopBuitenEu => "Verkoop export",
+                Btwsoort.VerkoopBinnenEu => "Verkoop EU (ICP)",
+                Btwsoort.VerkoopAfstand => $"Verkoop afstand EU{procent}",
+                Btwsoort.VerkoopVrijgesteld => "Verkoop vrijgesteld",
+                Btwsoort.InkoopVoorbelasting => $"Inkoop{procent}",
+                Btwsoort.InkoopNul => "Inkoop 0%",
+                Btwsoort.InkoopVerlegd => $"Inkoop verlegd{procent}",
+                Btwsoort.InkoopBuitenEu => $"Inkoop import{procent}",
+                Btwsoort.InkoopBinnenEu => $"Inkoop EU (ICV){procent}",
+                _ => "Geen btw",
+            };
+        }
+    }
+
+    /// <summary>De uitleg in de tooltip: de code, de omschrijving en of de btw af te dragen of te vorderen is.</summary>
+    public string Uitleg => Soort switch
+    {
+        _ when Voorbelasting && Verlegd => $"{Code} · {Omschrijving} · zelf af te dragen en tegelijk te vorderen",
+        _ when Voorbelasting => $"{Code} · {Omschrijving} · te vorderen (voorbelasting)",
+        Btwsoort.VerkoopHoog or Btwsoort.VerkoopLaag => $"{Code} · {Omschrijving} · af te dragen",
+        _ => $"{Code} · {Omschrijving}",
+    };
+
     /// <summary>De btw over een grondslag, op centen afgerond (half van nul af).</summary>
     public decimal Bereken(decimal grondslag) => BtwBerekening.Btw(grondslag, Percentage);
 }

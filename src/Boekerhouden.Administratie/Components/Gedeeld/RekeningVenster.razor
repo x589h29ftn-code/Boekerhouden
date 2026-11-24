@@ -37,7 +37,7 @@
                             <option value="">variabel</option>
                             @foreach (var c in codes.Where(c => c.Actief))
                             {
-                                <option value="@c.Code" title="@c.Omschrijving">@c.Code · @c.Kort</option>
+                                <option value="@c.Code" title="@c.Uitleg">@c.Keuze</option>
                             }
                         </select>
                     </div>

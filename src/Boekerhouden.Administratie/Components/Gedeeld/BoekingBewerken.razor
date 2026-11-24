@@ -58,7 +58,7 @@
                                         <option value=""></option>
                                         @foreach (var c in codes.Where(c => c.Actief || c.Code == regel.BtwCode))
                                         {
-                                            <option value="@c.Code" title="@c.Omschrijving">@c.Code</option>
+                                            <option value="@c.Code" title="@c.Uitleg">@c.Keuze</option>
                                         }
                                     </select>
                                 </td>

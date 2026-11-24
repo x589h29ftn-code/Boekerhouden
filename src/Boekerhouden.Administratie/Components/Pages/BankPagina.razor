@@ -134,6 +134,10 @@
                 </div>
                 <button class="btn btn-sm btn-primary" disabled="@bezig" @onclick="VoegBankToe">@(nieuweBank.Bestaand ? "Opslaan" : "Toevoegen")</button>
                 <button class="btn btn-sm btn-link text-secondary" @onclick="() => (nieuweBank, bankfouten) = (null, null)">Annuleren</button>
+                @if (nieuweBank.Bestaand)
+                {
+                    <VerwijderKnop Klasse="ms-auto bank-verwijderen" Bezig="bezig" Titel="Dit bankdagboek verwijderen; alleen als er nog geen afschrift is ingelezen en niets is geboekt" Bevestigd="VerwijderBank" />
+                }
             </div>
         </div>
     }
@@ -377,9 +381,9 @@
                         <div class="flex-grow-1" style="min-width:14rem"><RekeningKeuze Id="selectie-rekening" @bind-Waarde="selectieRekening" Schema="schema" Kader="geopend" Label="Rekening voor de selectie" /></div>
                         <select class="form-select form-select-sm w-auto" @bind="selectieBtw" aria-label="Btw voor de selectie">
                             <option value="">Geen btw</option>
-                            @foreach (var c in btwcodes.Where(c => c.Actief))
+                            @foreach (var c in btwcodes.Where(c => c.Actief && (c.Soort != Boekhouding.Btw.Btwsoort.GeenBtw || c.Code == selectieBtw)))
                             {
-                                <option value="@c.Code" title="@c.Code · @c.Omschrijving">@c.Kort</option>
+                                <option value="@c.Code" title="@c.Uitleg">@c.Keuze</option>
                             }
                         </select>
                         <button class="btn btn-sm btn-primary" disabled="@(bezig || string.IsNullOrWhiteSpace(selectieRekening))" @onclick="BoekSelectie">Boeken</button>
@@ -505,10 +509,10 @@
                                                 {
                                                     <td>
                                                         <select id="@($"regel-btw-{n}")" class="form-select form-select-sm" @bind="regel.BtwCode" disabled="@(post is not null)" aria-label="Btw">
-                                                            <option value="">geen</option>
-                                                            @foreach (var c in g.BtwCodes.Where(c => c.Actief))
+                                                            <option value="">Geen btw</option>
+                                                            @foreach (var c in g.BtwCodes.Where(c => c.Actief && (c.Soort != Boekhouding.Btw.Btwsoort.GeenBtw || c.Code == regel.BtwCode)))
                                                             {
-                                                                <option value="@c.Code" title="@c.Code · @c.Omschrijving">@c.Kort</option>
+                                                                <option value="@c.Code" title="@c.Uitleg">@c.Keuze</option>
                                                             }
                                                         </select>
                                                     </td>
@@ -589,10 +593,10 @@
                                             <div class="col-md-4 @(NietBtwPlichtig ? "d-none" : null)">
                                                 <label class="form-label small mb-0" for="auto-btw">Btw</label>
                                                 <select id="auto-btw" class="form-select form-select-sm" @bind="autoBtw">
-                                                    <option value="">geen</option>
-                                                    @foreach (var c in g.BtwCodes.Where(c => c.Actief))
+                                                    <option value="">Geen btw</option>
+                                                    @foreach (var c in g.BtwCodes.Where(c => c.Actief && (c.Soort != Boekhouding.Btw.Btwsoort.GeenBtw || c.Code == autoBtw)))
                                                     {
-                                                        <option value="@c.Code" title="@c.Omschrijving">@c.Code · @c.Kort</option>
+                                                        <option value="@c.Code" title="@c.Uitleg">@c.Keuze</option>
                                                     }
                                                 </select>
                                             </div>
@@ -1087,6 +1091,33 @@
         (gekozen, Bankkeuze) = (null, code);
         geselecteerd.Clear();
         Navigatie.NavigateTo(code is null ? $"/a/{Id}/bank" : $"/a/{Id}/bank?bank={Uri.EscapeDataString(code)}", replace: true);
+    }
+
+    /// <summary>De bankrekening in het formulier verwijderen (alleen als het dagboek leeg is); daarna alle rekeningen.</summary>
+    private async Task VerwijderBank()
+    {
+        if (bezig || nieuweBank is not { Bestaand: true } b)
+        {
+            return;
+        }
+
+        bezig = true;
+        try
+        {
+            var uitkomst = await Grootboek.VerwijderDagboek(geopend!.Wie, Id, b.Code);
+            bankfouten = uitkomst.Fouten;
+            if (uitkomst.IsGelukt)
+            {
+                Meldingen.Toon($"Bankrekening {b.Naam} verwijderd.");
+                nieuweBank = null;
+                await Laad();
+                KiesBank(null);
+            }
+        }
+        finally
+        {
+            bezig = false;
+        }
     }
 
     private void BewerkBank(Bankstand b) =>
