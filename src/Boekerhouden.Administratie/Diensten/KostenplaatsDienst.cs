@@ -148,18 +148,20 @@ public sealed class KostenplaatsDienst(Toegang toegang, AuditDienst audit)
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
         var kostenplaatsen = await Lees(db);
         var (schema, _) = await GrootboekDienst.Inrichting(db);
-        var regels = await (from r in db.GeldendeRegels
-                            join b in db.Boekingen on r.BoekingId equals b.Id
-                            where r.Kostenplaats != null && b.Datum >= van && b.Datum <= tot
-                            select new { r.Kostenplaats, r.Rekeningnummer, r.Bedrag }).ToListAsync();
+        // In de database opgeteld per kostenplaats en rekening: een paar duizend rijen in plaats van alle regels.
+        var perRekening = await (from r in db.GeldendeRegels
+                                 join b in db.Boekingen on r.BoekingId equals b.Id
+                                 where r.Kostenplaats != null && b.Datum >= van && b.Datum <= tot
+                                 group r by new { r.Kostenplaats, r.Rekeningnummer } into g
+                                 select new { g.Key.Kostenplaats, g.Key.Rekeningnummer, Saldo = g.Sum(r => r.Bedrag), Aantal = g.Count() }).ToListAsync();
+        var perKostenplaats = perRekening.ToLookup(x => x.Kostenplaats!, StringComparer.Ordinal);
         return
         [
             .. kostenplaatsen.Select(k =>
             {
-                var eigen = regels.Where(r => r.Kostenplaats == k.Code).ToList();
-                var perRekening = eigen.Where(r => schema.Zoek(r.Rekeningnummer) is { IsBalans: false })
-                    .GroupBy(r => r.Rekeningnummer).Select(g => g.Sum(r => r.Bedrag)).ToList();
-                return new Kostenplaatstotaal(k, perRekening.Where(s => s > 0).Sum(), -perRekening.Where(s => s < 0).Sum(), eigen.Count);
+                var eigen = perKostenplaats[k.Code].ToList();
+                var resultaat = eigen.Where(x => schema.Zoek(x.Rekeningnummer) is { IsBalans: false }).Select(x => x.Saldo).ToList();
+                return new Kostenplaatstotaal(k, resultaat.Where(s => s > 0).Sum(), -resultaat.Where(s => s < 0).Sum(), eigen.Sum(x => x.Aantal));
             }),
         ];
     }
