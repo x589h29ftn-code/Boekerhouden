@@ -180,20 +180,37 @@ else
 
     private RenderFragment VeldBetaalverschil => @<text>
     <div class="col-md-6">
-        <label class="form-label" for="betaalverschil" title="Wijkt een betaling hooguit zoveel af van de factuur (nummer en IBAN kloppen), dan sluit Sifer de factuur af en boekt hij het verschil op de rekening hieronder.@Leeg">Klein betaalverschil afboeken tot</label>
-        <input id="betaalverschil" class="form-control" @bind="Invoer.Betaalverschil" placeholder="@(Grijs(Kantoor?.Betaalverschil is { } b ? Bedragen.Euro(b) : null) ?? "uit")" />
+        <label class="form-label" for="betaalverschil" title="Een bedrag in euro's, bijv. 5,00. Wijkt een betaling hooguit zoveel af van de factuur (nummer en IBAN kloppen), dan sluit Sifer de factuur af en boekt hij het verschil op de rekening voor betaalverschillen. Leeg of 0: uit.@Leeg">Klein betaalverschil afboeken tot</label>
+        <div class="input-group">
+            <span class="input-group-text">€</span>
+            <input id="betaalverschil" class="form-control" inputmode="decimal" @bind="Invoer.Betaalverschil" placeholder="@(Grijs(Kantoor?.Betaalverschil is { } b ? Bedragen.Getal(b) : null) ?? "uit, bijv. 5,00")" />
+        </div>
     </div>
     </text>;
 
     private RenderFragment VeldVerschilrekening => @<text>
     <div class="col-md-6">
-        <label class="form-label" for="verschilrekening" title="Het nummer van de grootboekrekening voor kleine betaalverschillen.@Leeg">Rekening voor betaalverschillen</label>
-        <input id="verschilrekening" class="form-control" @bind="Invoer.Verschilrekening" placeholder="@Grijs(Kantoor?.Verschilrekening)" />
+        <label class="form-label" for="verschilrekening" title="De grootboekrekening waarop Sifer kleine betaalverschillen boekt, bijv. betalingsverschillen of kosten betalingsverkeer.@Leeg">Rekening voor betaalverschillen</label>
+        @if (Schema is not null && Kader is not null)
+        {
+            <RekeningKeuze Id="verschilrekening" Waarde="@Invoer.Verschilrekening" WaardeChanged="w => Invoer.Verschilrekening = w" Schema="Schema" Kader="Kader" Label="Rekening voor betaalverschillen" Klasse="form-control" Placeholder="@Grijs(Kantoor?.Verschilrekening is { } v ? $"{v} {Schema.Zoek(v)?.Naam}".Trim() : null)" />
+        }
+        else
+        {
+            <input id="verschilrekening" class="form-control" @bind="Invoer.Verschilrekening" placeholder="@Grijs(Kantoor?.Verschilrekening)" />
+        }
     </div>
     </text>;
 
     [Parameter, EditorRequired]
     public InstellingenInvoer Invoer { get; set; } = default!;
+
+    /// <summary>Het rekeningschema van de administratie: dan kies je de rekening voor betaalverschillen uit de lijst.</summary>
+    [Parameter]
+    public Boekhouding.Grootboek.Rekeningschema? Schema { get; set; }
+
+    [Parameter]
+    public Geopend? Kader { get; set; }
 
     /// <summary>De instellingen van het kantoor, als de velden bij een administratie horen.</summary>
     [Parameter]

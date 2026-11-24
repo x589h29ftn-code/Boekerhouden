@@ -44,6 +44,15 @@ public sealed class InstellingenIndelingTests(AdministratieFixture app) : IClass
         Assert.Contains("Map voor facturen", verwerken, StringComparison.Ordinal);
         Assert.DoesNotContain("Nooit vanzelf boeken boven", verwerken, StringComparison.Ordinal);
 
+        // Bank afwijkend (betaalverschil € 5 op 1100): het bedrag met een €-teken, de rekening als rekeningkeuze.
+        var inrichting = app.Dienst<InrichtingDienst>();
+        var huidig = await inrichting.Instellingen(wie, id);
+        var gewijzigd = await inrichting.WijzigInstellingen(wie, id, huidig with { Afwijkend = huidig.Afwijkend with { Betaalverschil = 5m, Verschilrekening = "4300" } });
+        Assert.True(gewijzigd.IsGelukt, string.Join("; ", gewijzigd.Fouten));
+        var bank = await client.GetStringAsync(new Uri($"/a/{id}/instellingen/verwerken", UriKind.Relative));
+        Assert.Matches("<span class=\"input-group-text\">€</span>\\s*<input id=\"betaalverschil\"", bank);
+        Assert.Matches("<input id=\"verschilrekening\" class=\"rekeningkeuze-invoer\"[^>]*value=\"4300\"", bank);
+
         var vpb = await client.GetStringAsync(new Uri($"/a/{id}/vpb", UriKind.Relative));
         Assert.Contains("Welke rekeningen niet of beperkt aftrekbaar zijn", vpb, StringComparison.Ordinal);
     }
