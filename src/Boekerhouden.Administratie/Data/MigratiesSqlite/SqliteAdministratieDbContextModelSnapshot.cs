@@ -405,6 +405,10 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Klantnummer")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("KvkNummer")
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");

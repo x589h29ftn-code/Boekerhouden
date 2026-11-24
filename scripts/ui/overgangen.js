@@ -33,8 +33,8 @@ function totp(sleutel) {
   await page.waitForSelector('text=Je herstelcodes');
   await page.goto(basis + '/'); await page.waitForTimeout(1500);
   await page.click('text=Nieuwe administratie'); await page.waitForSelector('#naam'); await page.waitForTimeout(800);
-  await page.fill('#naam', 'Overgang Handel B.V.'); await page.click('text=Aanmaken');
-  await page.waitForURL(/\/a\/[0-9a-f-]+$/); const id = page.url().split('/a/')[1];
+  await page.fill('#naam', 'Overgang Handel B.V.'); await page.selectOption('#schema', 'Sifer'); await page.click('text=Aanmaken');
+  await page.waitForURL(/\/a\/[0-9a-f-]+\/instellingen$/); const id = page.url().split('/a/')[1].split('/')[0];
   await page.goto(`${basis}/a/${id}/kolommenbalans`); await page.waitForTimeout(1500);
 
   // Welke vlakken komen zacht binnen: het echte Weergave-menu en het zoekvenster, en de vlakken die we nabouwen.

@@ -133,7 +133,7 @@ public sealed class WebTests(AdministratieFixture app) : IClassFixture<Administr
         Assert.Contains("naam bevat ‘Belnet’", regels, StringComparison.Ordinal);
         Assert.Contains("Nieuwe regel", regels, StringComparison.Ordinal);
         Assert.Contains("Inrichting Voorbeeld B.V.", instellingen, StringComparison.Ordinal);
-        Assert.Contains("Limiet automatisch boeken", instellingen, StringComparison.Ordinal);
+        Assert.Contains("Nooit vanzelf boeken boven", instellingen, StringComparison.Ordinal);
 
         using var client = NieuweClient();
         var email = (await app.Dienst<GebruikerDienst>().Lijst()).Single(g => g.Id == ondernemer.Id).Email;
@@ -144,7 +144,7 @@ public sealed class WebTests(AdministratieFixture app) : IClassFixture<Administr
         Assert.Contains("Belnet is telefoon", regelsOndernemer, StringComparison.Ordinal);
         Assert.DoesNotContain("Nieuwe regel", regelsOndernemer, StringComparison.Ordinal);
         Assert.Contains("Alleen het kantoor kan de instellingen wijzigen.", instellingenOndernemer, StringComparison.Ordinal);
-        Assert.DoesNotContain("Limiet automatisch boeken", instellingenOndernemer, StringComparison.Ordinal);
+        Assert.DoesNotContain("Nooit vanzelf boeken boven", instellingenOndernemer, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -155,7 +155,7 @@ public sealed class WebTests(AdministratieFixture app) : IClassFixture<Administr
         await Aanmelden.LogInMetCode(beheerder, "beheer@kantoor.test", AdministratieFixture.Wachtwoord, await app.Tweestap(wie), "/");
         var pagina = await beheerder.GetStringAsync(new Uri("/beheer/instellingen", UriKind.Relative));
         Assert.Contains("Documentmap", pagina, StringComparison.Ordinal);
-        Assert.Contains("Adrescontrole", pagina, StringComparison.Ordinal);
+        Assert.Contains("Nieuw adres van een leverancier nakijken", pagina, StringComparison.Ordinal);
 
         var medewerker = await app.Gebruiker("Max Medewerker");
         using var client = NieuweClient();

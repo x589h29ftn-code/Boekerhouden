@@ -48,8 +48,8 @@ async function maakFactuur(browser, uit, n) {
   await page.waitForSelector('text=Je herstelcodes');
   await page.goto(basis + '/'); await page.waitForTimeout(1500);
   await page.click('text=Nieuwe administratie'); await page.waitForSelector('#naam'); await page.waitForTimeout(800);
-  await page.fill('#naam', 'Breedte Handel B.V.'); await page.click('text=Aanmaken');
-  await page.waitForURL(/\/a\/[0-9a-f-]+$/); const id = page.url().split('/a/')[1];
+  await page.fill('#naam', 'Breedte Handel B.V.'); await page.selectOption('#schema', 'Sifer'); await page.click('text=Aanmaken');
+  await page.waitForURL(/\/a\/[0-9a-f-]+\/instellingen$/); const id = page.url().split('/a/')[1].split('/')[0];
 
   // Vier facturen: dan staat de werkvoorraad links.
   await page.goto(`${basis}/a/${id}/inkoop`); await page.waitForTimeout(1500);

@@ -6,12 +6,12 @@ using Microsoft.EntityFrameworkCore;
 namespace Boekerhouden.Administratie.Diensten;
 
 /// <param name="Schema">Het rekeningschema waarmee de administratie begint.</param>
-public sealed record AdministratieInvoer(string Naam, Ondernemingsvorm Ondernemingsvorm, string? KvkNummer, string? BtwNummer, Schemakeuze Schema = Schemakeuze.Sifer);
+public sealed record AdministratieInvoer(string Naam, Ondernemingsvorm Ondernemingsvorm, string? KvkNummer, string? BtwNummer, Schemakeuze Schema = Schemakeuze.Sifer, string? Klantnummer = null);
 
 /// <summary>Een administratie zoals de gebruiker hem ziet, met zijn eigen rol erin.</summary>
 /// <param name="Gearchiveerd">Gearchiveerd: alleen inzien (<see cref="Mag"/> geeft dan alleen Lezen).</param>
 public sealed record AdministratieKop(Guid Id, string Naam, Ondernemingsvorm Ondernemingsvorm, string? KvkNummer, string? BtwNummer, Lidmaatschapsrol Rol,
-    DateTimeOffset? Gearchiveerd = null, bool BtwPlichtig = true)
+    DateTimeOffset? Gearchiveerd = null, bool BtwPlichtig = true, string? Klantnummer = null)
 {
     public bool Mag(Recht recht) => Toegang.Mag(Rol, recht) && (Gearchiveerd is null || recht == Recht.Lezen);
 }
@@ -35,7 +35,9 @@ public sealed class AdministratieDienst(IDbContextFactory<AdministratieDbContext
         if (!string.IsNullOrWhiteSpace(zoek))
         {
             var patroon = $"%{zoek.Trim()}%";
-            query = db.Database.IsNpgsql() ? query.Where(x => EF.Functions.ILike(x.a.Naam, patroon)) : query.Where(x => EF.Functions.Like(x.a.Naam, patroon));
+            query = db.Database.IsNpgsql()
+                ? query.Where(x => EF.Functions.ILike(x.a.Naam, patroon) || (x.a.Klantnummer != null && EF.Functions.ILike(x.a.Klantnummer, patroon)))
+                : query.Where(x => EF.Functions.Like(x.a.Naam, patroon) || (x.a.Klantnummer != null && EF.Functions.Like(x.a.Klantnummer, patroon)));
         }
 
         var lijst = await query.OrderBy(x => x.a.Naam).ToListAsync();
@@ -79,6 +81,11 @@ public sealed class AdministratieDienst(IDbContextFactory<AdministratieDbContext
             fouten.Add("Het btw-nummer is niet geldig (bijv. NL123456789B01).");
         }
 
+        if (invoer.Klantnummer?.Trim().Length > 20)
+        {
+            fouten.Add("Een klantnummer heeft hoogstens 20 tekens.");
+        }
+
         if (wie.Id is null)
         {
             fouten.Add("Log eerst in.");
@@ -99,6 +106,7 @@ public sealed class AdministratieDienst(IDbContextFactory<AdministratieDbContext
             Ondernemingsvorm = invoer.Ondernemingsvorm,
             KvkNummer = Leeg(invoer.KvkNummer),
             BtwNummer = string.IsNullOrWhiteSpace(invoer.BtwNummer) ? null : BtwNummer.Normaliseer(invoer.BtwNummer),
+            Klantnummer = Leeg(invoer.Klantnummer),
             AangemaaktOp = tijd.GetUtcNow(),
             AangemaaktDoor = wie.Naam,
         });
@@ -337,7 +345,7 @@ public sealed class AdministratieDienst(IDbContextFactory<AdministratieDbContext
     }
 
     private static AdministratieKop Kop(Data.Administratie a, Lidmaatschapsrol rol) =>
-        new(a.Id, a.Naam, a.Ondernemingsvorm, a.KvkNummer, a.BtwNummer, rol, a.GearchiveerdOp, a.BtwPlichtig);
+        new(a.Id, a.Naam, a.Ondernemingsvorm, a.KvkNummer, a.BtwNummer, rol, a.GearchiveerdOp, a.BtwPlichtig, a.Klantnummer);
 
     private static string? Leeg(string? tekst) => string.IsNullOrWhiteSpace(tekst) ? null : tekst.Trim();
 }

@@ -34,8 +34,8 @@ function totp(sleutel) {
   await page.waitForSelector('text=Je herstelcodes');
   await page.goto(basis + '/'); await page.waitForTimeout(1500);
   await page.click('text=Nieuwe administratie'); await page.waitForSelector('#naam'); await page.waitForTimeout(800);
-  await page.fill('#naam', 'Voorbeeld Handel B.V.'); await page.click('text=Aanmaken');
-  await page.waitForURL(/\/a\/[0-9a-f-]+$/); const id = page.url().split('/a/')[1];
+  await page.fill('#naam', 'Voorbeeld Handel B.V.'); await page.selectOption('#schema', 'Sifer'); await page.click('text=Aanmaken');
+  await page.waitForURL(/\/a\/[0-9a-f-]+\/instellingen$/); const id = page.url().split('/a/')[1].split('/')[0];
 
   // Standaardomschrijving van het kantoor (Beheer, Instellingen).
   await page.goto(basis + '/beheer/instellingen'); await page.waitForSelector('#standaardomschrijving'); await page.waitForTimeout(800);
@@ -260,7 +260,7 @@ function totp(sleutel) {
 
   // Administraties: een tweede administratie archiveren (alleen inzien), tonen met "Ook gearchiveerd" en verwijderen.
   await page.goto(basis + '/administraties/nieuw'); await page.waitForSelector('#naam'); await page.waitForTimeout(800);
-  await page.fill('#naam', 'Oude Klant B.V.'); await page.click('text=Aanmaken'); await page.waitForURL(/\/a\/[0-9a-f-]+$/);
+  await page.fill('#naam', 'Oude Klant B.V.'); await page.selectOption('#schema', 'Sifer'); await page.click('text=Aanmaken'); await page.waitForURL(/\/a\/[0-9a-f-]+\/instellingen$/);
   await page.goto(basis + '/'); await page.waitForTimeout(1500);
   const oud = page.locator('table.administratielijst tbody tr', { hasText: 'Oude Klant B.V.' });
   await oud.hover(); await oud.locator('button:has-text("Archiveren")').click(); await page.waitForTimeout(1200);

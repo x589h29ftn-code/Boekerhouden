@@ -15,9 +15,15 @@
 <h1 class="h3 mb-3">Nieuwe administratie</h1>
 <Foutmeldingen Fouten="fouten" />
 <div class="card card-body" style="max-width: 36rem">
-    <div class="mb-2">
-        <label class="form-label" for="naam">Naam</label>
-        <input id="naam" class="form-control" @bind="naam" autofocus />
+    <div class="row g-2 mb-2">
+        <div class="col-4">
+            <label class="form-label" for="klantnummer" title="Het nummer van de klant bij het kantoor; staat vooraan in de lijst met administraties">Klantnummer</label>
+            <input id="klantnummer" class="form-control" maxlength="20" @bind="klantnummer" placeholder="bijv. 2920" autofocus />
+        </div>
+        <div class="col-8">
+            <label class="form-label" for="naam">Naam</label>
+            <input id="naam" class="form-control" @bind="naam" />
+        </div>
     </div>
     <div class="mb-2">
         <label class="form-label" for="vorm">Rechtsvorm</label>
@@ -64,7 +70,8 @@
 @code {
     private string naam = "";
     private Ondernemingsvorm vorm = Ondernemingsvorm.BV;
-    private Schemakeuze schema = Schemakeuze.Sifer;
+    private Schemakeuze schema = Schemakeuze.Ovpa;
+    private string? klantnummer;
     private string? kvk;
     private string? btw;
     private bool bezig;
@@ -103,11 +110,12 @@
     private async Task Maak()
     {
         bezig = true;
-        var uitkomst = await AdministratieDienst.Maak(new AdministratieInvoer(naam, vorm, kvk, btw, schema), (await Authenticatie).User.AlsUitvoerder());
+        var uitkomst = await AdministratieDienst.Maak(new AdministratieInvoer(naam, vorm, kvk, btw, schema, klantnummer), (await Authenticatie).User.AlsUitvoerder());
         bezig = false;
         if (uitkomst.IsGelukt)
         {
-            Navigatie.NavigateTo($"/a/{uitkomst.Waarde}");
+            // De eerste keer meteen naar de instellingen: adres, IBAN's, btw-plicht en de rest van de gegevens.
+            Navigatie.NavigateTo($"/a/{uitkomst.Waarde}/instellingen");
         }
         else
         {

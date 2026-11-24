@@ -238,6 +238,9 @@ public static partial class Belastingherkenning
     private static bool Woord(string tekst, string woorden) =>
         Regex.IsMatch(tekst, $@"\b({woorden})\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
+    /// <summary>De rekening die Sifer zelf kiest voor een betaling van deze belasting, als er in de instellingen geen staat.</summary>
+    public static Rekening? Standaardrekening(Belastingsoort soort, Rekeningschema schema, Ondernemingsvorm vorm) => Rekening(soort, schema, vorm);
+
     private static Rekening? Rekening(Belastingsoort soort, Rekeningschema schema, Ondernemingsvorm vorm)
     {
         var balans = schema.Alle.Where(r => r.IsBalans).ToList();

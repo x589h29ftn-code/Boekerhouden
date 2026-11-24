@@ -1966,3 +1966,8 @@ tr:hover .rij-actie, .rij-actie:focus-visible { opacity: 1; }
 .dagboekzoeken {
     max-width: 22rem;
 }
+
+/* Administraties: het zoekveld breed genoeg voor "Zoeken op naam of klantnummer". */
+.zoek-administraties {
+    min-width: 17rem;
+}

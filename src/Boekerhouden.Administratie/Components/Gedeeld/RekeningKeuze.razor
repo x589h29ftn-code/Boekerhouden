@@ -7,7 +7,7 @@
 
 <div class="rekeningkeuze">
     <div class="rekeningkeuze-rij @Klasse" @onclick="Bewerk">
-        <input @ref="invoer" id="@Id" class="rekeningkeuze-invoer" value="@Waarde" aria-label="@Label" autocomplete="off" title="@Gekozen?.Naam"
+        <input @ref="invoer" id="@Id" class="rekeningkeuze-invoer" value="@Waarde" aria-label="@Label" autocomplete="off" title="@(Gekozen?.Naam ?? Placeholder)" placeholder="@Placeholder"
                style="@(Gekozen is null ? null : $"width:{Math.Max(4, Waarde!.Length) + 1}ch;flex:none")"
                @oninput="Typ" @onkeydown="Toets" @onfocus="Open" @onblur="Verlaat" />
         @if (Gekozen is { } gekozen)
@@ -59,6 +59,10 @@
 
     [Parameter]
     public string Label { get; set; } = "Rekening";
+
+    /// <summary>Grijze tekst in een leeg veld, bijv. de rekening die Sifer zelf kiest.</summary>
+    [Parameter]
+    public string? Placeholder { get; set; }
 
     [Parameter]
     public string? Id { get; set; }

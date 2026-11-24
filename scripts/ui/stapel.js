@@ -33,8 +33,8 @@ function totp(sleutel) {
   await page.waitForSelector('text=Je herstelcodes');
   await page.goto(basis + '/'); await page.waitForTimeout(1500);
   await page.click('text=Nieuwe administratie'); await page.waitForSelector('#naam'); await page.waitForTimeout(800);
-  await page.fill('#naam', 'Voorbeeld Handel B.V.'); await page.click('text=Aanmaken');
-  await page.waitForURL(/\/a\/[0-9a-f-]+$/); const id = page.url().split('/a/')[1];
+  await page.fill('#naam', 'Voorbeeld Handel B.V.'); await page.selectOption('#schema', 'Sifer'); await page.click('text=Aanmaken');
+  await page.waitForURL(/\/a\/[0-9a-f-]+\/instellingen$/); const id = page.url().split('/a/')[1].split('/')[0];
 
   // Stapel splitsen: één PDF met zes facturen (15 pagina's) aanleveren, het voorstel bekijken, een pagina groot
   // openen, een knip zetten en weer weghalen, en splitsen: de facturen staan daarna los bij inkoop.

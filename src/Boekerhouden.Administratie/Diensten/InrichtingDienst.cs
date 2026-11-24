@@ -121,7 +121,8 @@ public sealed record Instellingen(
     Verwerkingsinstellingen? Kantoor = null,
     Contactgegevens? Contact = null,
     bool BtwPlichtig = true,
-    Belastinginstellingen? Belasting = null)
+    Belastinginstellingen? Belasting = null,
+    string? Klantnummer = null)
 {
     /// <summary>Wat er voor de administratie geldt.</summary>
     public Verwerkingsinstellingen Geldend => Afwijkend.Op(Kantoor ?? Verwerkingsinstellingen.Standaard);
@@ -517,7 +518,7 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
         var a = await db.Administraties.AsNoTracking().SingleAsync(x => x.Id == administratie);
         return new Instellingen(a.Naam, a.KvkNummer, a.BtwNummer, a.Ibans, a.Afwijkend(), await KantoorDienst.Lees(db),
-            new Contactgegevens(a.Straat, a.Postcode, a.Plaats, a.Land, a.Email, a.Telefoon, a.Website), a.BtwPlichtig, a.Belasting());
+            new Contactgegevens(a.Straat, a.Postcode, a.Plaats, a.Land, a.Email, a.Telefoon, a.Website), a.BtwPlichtig, a.Belasting(), a.Klantnummer);
     }
 
     public async Task<Uitkomst> WijzigInstellingen(Uitvoerder wie, Guid administratie, Instellingen invoer)
@@ -538,6 +539,11 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
         if (!string.IsNullOrWhiteSpace(invoer.BtwNummer) && !BtwNummer.IsGeldig(invoer.BtwNummer))
         {
             fouten.Add("Het btw-nummer is niet geldig (bijv. NL123456789B01).");
+        }
+
+        if (invoer.Klantnummer?.Trim().Length > 20)
+        {
+            fouten.Add("Een klantnummer heeft hoogstens 20 tekens.");
         }
 
         if (invoer.Contact?.Land is { Length: > 0 } land && land.Trim().Length != 2)
@@ -603,7 +609,13 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
             (a.RekeningOmzetbelasting, a.RekeningLoonheffingen, a.RekeningVennootschapsbelasting, a.RekeningInkomstenbelasting, a.BelastingAutomatisch, a.RekeningMotorrijtuigenbelasting) =
                 (belasting.Omzetbelasting, belasting.Loonheffingen, belasting.Vennootschapsbelasting, belasting.Inkomstenbelasting, belasting.Automatisch, belasting.Motorrijtuigenbelasting);
         }
+        if (Leeg(invoer.Klantnummer) != a.Klantnummer)
+        {
+            details += $"; klantnummer {a.Klantnummer ?? "-"} → {Leeg(invoer.Klantnummer) ?? "-"}";
+        }
+
         a.Naam = invoer.Naam.Trim();
+        a.Klantnummer = Leeg(invoer.Klantnummer);
         a.KvkNummer = Leeg(invoer.KvkNummer);
         a.BtwNummer = string.IsNullOrWhiteSpace(invoer.BtwNummer) ? null : BtwNummer.Normaliseer(invoer.BtwNummer);
         a.Ibans = ibans;

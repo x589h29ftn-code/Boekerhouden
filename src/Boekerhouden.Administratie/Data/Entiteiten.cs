@@ -84,6 +84,9 @@ public sealed class Administratie
 
     public string? BtwNummer { get; set; }
 
+    /// <summary>Het nummer van de klant bij het kantoor (bijv. 2920); vooraan in de lijst met administraties.</summary>
+    public string? Klantnummer { get; set; }
+
     /// <summary>
     /// Btw-plichtig (standaard). Zo niet (vrijgesteld, kleineondernemersregeling), dan boekt het pakket zonder btw:
     /// inkoop inclusief btw op de kostenrekening, bank en memoriaal zonder btw-code, en de schermen tonen geen btw.

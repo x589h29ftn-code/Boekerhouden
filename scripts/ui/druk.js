@@ -35,8 +35,8 @@ function totp(sleutel) {
   await page.waitForSelector('text=Je herstelcodes');
   await page.goto(basis + '/'); await page.waitForTimeout(1500);
   await page.click('text=Nieuwe administratie'); await page.waitForSelector('#naam'); await page.waitForTimeout(800);
-  await page.fill('#naam', 'Druk Handel B.V.'); await page.click('text=Aanmaken');
-  await page.waitForURL(/\/a\/[0-9a-f-]+$/); const id = page.url().split('/a/')[1];
+  await page.fill('#naam', 'Druk Handel B.V.'); await page.selectOption('#schema', 'Sifer'); await page.click('text=Aanmaken');
+  await page.waitForURL(/\/a\/[0-9a-f-]+\/instellingen$/); const id = page.url().split('/a/')[1].split('/')[0];
   await page.goto(`${basis}/a/${id}/instellingen`); await page.waitForSelector('#straat'); await page.waitForTimeout(800);
   await page.fill('#btw', 'NL123456782B01'); await page.fill('#ibans', 'NL20INGB0001234567'); await page.fill('#straat', 'Dorpsstraat 1'); await page.fill('#postcode', '1234 AB');
   await page.fill('#plaats', 'Ergens'); await page.click('button:has-text("Opslaan")'); await page.waitForTimeout(1000);

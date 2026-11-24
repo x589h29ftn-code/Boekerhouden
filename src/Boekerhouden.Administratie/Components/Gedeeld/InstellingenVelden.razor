@@ -4,58 +4,57 @@
 @using Boekerhouden.Boekhouding.Regels
 
 <div class="row g-2">
-    <div class="col-md-4">
-        <label class="form-label" for="drempel">Automatisch na … gelijke keuzes</label>
+    <div class="col-md-6">
+        <label class="form-label" for="drempel" title="Kies je zoveel keer achter elkaar dezelfde rekening bij een leverancier, dan boekt Sifer zijn facturen daarna zelf.@Leeg">Vanzelf boeken na … keer dezelfde rekening</label>
         <input id="drempel" type="number" min="1" max="10" class="form-control" @bind="Invoer.Drempel" placeholder="@Grijs(Kantoor?.Drempel.ToString())" />
     </div>
-    <div class="col-md-4">
-        <label class="form-label" for="bandbreedte">Bandbreedte bedrag</label>
-        <input id="bandbreedte" class="form-control" @bind="Invoer.Bandbreedte" placeholder="@Grijs(Kantoor?.Bandbreedte.ToString("0.##", Nl))" title="Automatisch tot zoveel keer het hoogste bevestigde bedrag" />
+    <div class="col-md-6">
+        <label class="form-label" for="bandbreedte" title="Een factuur boekt Sifer zelf tot zoveel keer het hoogste bedrag dat je bij deze leverancier eerder hebt goedgekeurd (1,25 = 25% hoger); daarboven eerst nakijken.@Leeg">Vanzelf boeken tot … keer het hoogste bedrag</label>
+        <input id="bandbreedte" class="form-control" @bind="Invoer.Bandbreedte" placeholder="@Grijs(Kantoor?.Bandbreedte.ToString("0.##", Nl))" />
     </div>
-    <div class="col-md-4">
-        <label class="form-label" for="termijn">Betalingstermijn (dagen)</label>
+    <div class="col-md-6">
+        <label class="form-label" for="termijn" title="Staat er geen vervaldatum op de factuur, dan rekent Sifer met zoveel dagen na de factuurdatum.@Leeg">Betalingstermijn in dagen</label>
         <input id="termijn" type="number" min="0" max="365" class="form-control" @bind="Invoer.Betalingstermijn" placeholder="@Grijs(Kantoor?.Betalingstermijn.ToString())" />
     </div>
-    <div class="col-md-4">
-        <label class="form-label" for="limiet">Limiet automatisch boeken</label>
+    <div class="col-md-6">
+        <label class="form-label" for="limiet" title="Facturen boven dit bedrag (inclusief btw) boekt Sifer nooit zelf; die kijk je altijd na.">Nooit vanzelf boeken boven</label>
         @if (Kantoor is null)
         {
-            <input id="limiet" class="form-control" @bind="Invoer.Limiet" placeholder="geen limiet" />
+            <input id="limiet" class="form-control" @bind="Invoer.Limiet" placeholder="geen grens" />
         }
         else
         {
             <div class="input-group">
                 <select id="limiet" class="form-select" @bind="Invoer.LimietKeuze" aria-label="Limiet">
-                    <option value="@InstellingenInvoer.Kantoor">kantoor: @(Kantoor.Limiet is { } l ? Bedragen.Euro(l) : "geen limiet")</option>
-                    <option value="@InstellingenInvoer.GeenLimiet">geen limiet</option>
-                    <option value="@InstellingenInvoer.EigenLimiet">eigen limiet</option>
+                    <option value="@InstellingenInvoer.Kantoor">standaard: @(Kantoor.Limiet is { } l ? Bedragen.Euro(l) : "geen grens")</option>
+                    <option value="@InstellingenInvoer.GeenLimiet">geen grens</option>
+                    <option value="@InstellingenInvoer.EigenLimiet">eigen bedrag</option>
                 </select>
                 @if (Invoer.LimietKeuze == InstellingenInvoer.EigenLimiet)
                 {
-                    <input class="form-control" @bind="Invoer.Limiet" aria-label="Eigen limiet" />
+                    <input class="form-control" @bind="Invoer.Limiet" aria-label="Eigen bedrag" />
                 }
             </div>
         }
     </div>
-    <div class="col-md-4">
-        <label class="form-label" for="adrescontrole">Adrescontrole</label>
-        <select id="adrescontrole" class="form-select" @bind="Invoer.Adrescontrole" title="Een factuur van een bekende leverancier met een nieuwe postcode eerst laten nakijken">
+    <div class="col-md-6">
+        <label class="form-label" for="adrescontrole" title="Staat er op de factuur van een bekende leverancier een andere postcode dan eerder, dan eerst laten nakijken (tegen valse facturen).">Nieuw adres van een leverancier nakijken</label>
+        <select id="adrescontrole" class="form-select" @bind="Invoer.Adrescontrole">
             @if (Kantoor is not null)
             {
-                <option value="@InstellingenInvoer.Kantoor">kantoor: @(Kantoor.Adrescontrole ? "aan" : "uit")</option>
+                <option value="@InstellingenInvoer.Kantoor">standaard: @(Kantoor.Adrescontrole ? "aan" : "uit")</option>
             }
             <option value="@InstellingenInvoer.Aan">aan</option>
             <option value="@InstellingenInvoer.Uit">uit</option>
         </select>
     </div>
-    <div class="col-md-4">
-        <label class="form-label" for="betaalverschil">Klein betaalverschil afboeken tot</label>
-        <input id="betaalverschil" class="form-control" @bind="Invoer.Betaalverschil" placeholder="@(Grijs(Kantoor?.Betaalverschil is { } b ? Bedragen.Euro(b) : null) ?? "uit")"
-               title="Wijkt een betaling hooguit zoveel af van de factuur (nummer en IBAN kloppen), dan lettert Sifer af en boekt het verschil af" />
+    <div class="col-md-6">
+        <label class="form-label" for="betaalverschil" title="Wijkt een betaling hooguit zoveel af van de factuur (nummer en IBAN kloppen), dan sluit Sifer de factuur af en boekt hij het verschil op de rekening hieronder.@Leeg">Klein betaalverschil afboeken tot</label>
+        <input id="betaalverschil" class="form-control" @bind="Invoer.Betaalverschil" placeholder="@(Grijs(Kantoor?.Betaalverschil is { } b ? Bedragen.Euro(b) : null) ?? "uit")" />
     </div>
-    <div class="col-md-4">
-        <label class="form-label" for="verschilrekening">Rekening betaalverschillen</label>
-        <input id="verschilrekening" class="form-control" @bind="Invoer.Verschilrekening" placeholder="@Grijs(Kantoor?.Verschilrekening)" title="Het grootboekrekeningnummer" />
+    <div class="col-md-6">
+        <label class="form-label" for="verschilrekening" title="Het nummer van de grootboekrekening voor kleine betaalverschillen.@Leeg">Rekening voor betaalverschillen</label>
+        <input id="verschilrekening" class="form-control" @bind="Invoer.Verschilrekening" placeholder="@Grijs(Kantoor?.Verschilrekening)" />
     </div>
     @if (MetDocumentmap)
     {
@@ -102,5 +101,9 @@
 
     private static readonly System.Globalization.CultureInfo Nl = System.Globalization.CultureInfo.GetCultureInfo("nl-NL");
 
-    private string? Grijs(string? kantoorwaarde) => Kantoor is null ? null : kantoorwaarde is null ? "kantoor: geen" : $"kantoor: {kantoorwaarde}";
+    /// <summary>De waarde van het kantoor, grijs in een leeg veld: "standaard: 2". Leeg laten = de kantoorinstelling.</summary>
+    private string? Grijs(string? kantoorwaarde) => Kantoor is null ? null : kantoorwaarde is null ? "standaard: geen" : $"standaard: {kantoorwaarde}";
+
+    /// <summary>In de tooltip bij een administratie: wat een leeg veld betekent.</summary>
+    private string Leeg => Kantoor is null ? string.Empty : " Leeg laten = de standaard van het kantoor (grijs).";
 }

@@ -12,7 +12,7 @@
         <input class="form-check-input" type="checkbox" id="ook-gearchiveerd" @bind="ookGearchiveerd" @bind:after="Laad" />
         <label class="form-check-label text-secondary" for="ook-gearchiveerd">Ook gearchiveerd</label>
     </span>
-    <input class="form-control w-auto" type="search" placeholder="Zoeken op naam" aria-label="Zoeken"
+    <input class="form-control w-auto zoek-administraties" type="search" placeholder="Zoeken op naam of klantnummer" aria-label="Zoeken"
            @bind="zoek" @bind:event="oninput" @bind:after="Laad" />
     <AuthorizeView Roles="@Rollen.Kantoor">
         <a class="btn btn-primary" href="/administraties/nieuw">Nieuwe administratie</a>
@@ -70,7 +70,7 @@ else
         <table class="table table-sm table-hover align-middle mb-0 administratielijst" data-sleepbaar="kantooroverzicht">
             <thead>
                 <tr>
-                    <th>Naam</th><th>Rechtsvorm</th><th>Jouw rol</th>
+                    <th class="klantnummer">Klantnr.</th><th>Naam</th><th>Rechtsvorm</th><th>Jouw rol</th>
                     <th class="text-end werk">Inkoop</th><th class="text-end werk">Bank</th><th class="werk na-getal">Bank t/m</th><th class="text-end werk">Verkoop</th>
                     <th class="text-end werk">Vervallen debiteuren</th><th class="werk na-getal">Afgesloten t/m</th><th class="rekt"></th>
                 </tr>
@@ -80,6 +80,7 @@ else
                 {
                     var ws = standen?.GetValueOrDefault(a.Id);
                     <tr class="@(a.Gearchiveerd is null ? null : "gearchiveerd")">
+                        <td class="klantnummer text-nowrap">@a.Klantnummer</td>
                         <td><a href="/a/@a.Id" title="@Kenmerken(a)">@a.Naam</a></td>
                         <td>@Weergave.Tekst(a.Ondernemingsvorm)</td>
                         <td><span class="status">@Weergave.Tekst(a.Rol)</span></td>

@@ -415,6 +415,10 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .IsRequired()
                         .HasColumnType("text[]");
 
+                    b.Property<string>("Klantnummer")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<string>("KvkNummer")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");

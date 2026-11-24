@@ -144,6 +144,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(a => a.Naam).HasMaxLength(300);
             e.Property(a => a.Ondernemingsvorm).HasConversion<string>().HasMaxLength(30);
             e.Property(a => a.KvkNummer).HasMaxLength(20);
+            e.Property(a => a.Klantnummer).HasMaxLength(20);
             e.Property(a => a.BtwNummer).HasMaxLength(20);
             e.Property(a => a.BtwPlichtig).HasDefaultValue(true);
             e.Property(a => a.RekeningOmzetbelasting).HasMaxLength(20);

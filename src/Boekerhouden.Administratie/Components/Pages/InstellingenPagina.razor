@@ -1,5 +1,6 @@
 @page "/a/{Id:guid}/instellingen"
 @using Boekerhouden.Boekhouding.Regels
+@using Boekerhouden.Boekhouding.Bank
 @inject InrichtingDienst Inrichting
 @inject GrootboekDienst Grootboek
 @inject VpbDienst Vpb
@@ -19,13 +20,14 @@
         <div class="formulieren">
             <Formulierblok Titel="Gegevens">
                 <div class="row g-2">
-                    <div class="col-12"><label class="form-label" for="naam">Naam</label><input id="naam" class="form-control" @bind="gegevens.Naam" /></div>
+                    <div class="col-md-3"><label class="form-label" for="klantnummer" title="Het nummer van de klant bij het kantoor; staat vooraan in de lijst met administraties">Klantnummer</label><input id="klantnummer" class="form-control" maxlength="20" @bind="gegevens.Klantnummer" /></div>
+                    <div class="col-md-9"><label class="form-label" for="naam">Naam</label><input id="naam" class="form-control" @bind="gegevens.Naam" /></div>
                     <div class="col-md-6"><label class="form-label" for="kvk">KvK-nummer</label><input id="kvk" class="form-control" @bind="gegevens.KvkNummer" /></div>
                     <div class="col-md-6"><label class="form-label" for="btw">Btw-nummer</label><input id="btw" class="form-control" @bind="gegevens.BtwNummer" /></div>
                     <div class="col-12">
                         <span class="form-check">
                             <input class="form-check-input" type="checkbox" id="btwplichtig" @bind="gegevens.BtwPlichtig" />
-                            <label class="form-check-label" for="btwplichtig">Btw-plichtig</label>
+                            <label class="form-check-label" for="btwplichtig" title="Aan: de btw wordt apart geboekt (te vorderen en af te dragen) en komt in de btw-aangifte. Uit, bij vrijstelling of de kleineondernemersregeling: inkoop wordt inclusief btw op de kosten geboekt en er is geen btw-aangifte.">Btw-plichtig</label>
                         </span>
                     </div>
                     <div class="col-12"><label class="form-label" for="ibans">Eigen bankrekeningen (IBAN's, gescheiden door komma's)</label><input id="ibans" class="form-control" @bind="gegevens.Ibans" /></div>
@@ -45,17 +47,21 @@
             <Formulierblok Titel="Documenten">
                 <Documentmapveld Invoer="instellingen" Kantoor="kantoor" Label="Map voor facturen" Administratie="@gegevens.Naam" />
             </Formulierblok>
-            <Formulierblok Titel="Belastingdienst">
+            <Formulierblok Titel="Betalingen aan de Belastingdienst">
+                @* Leeg = de rekening die Sifer zelf kiest (grijs in het veld); een rekening kiezen overschrijft die. *@
                 <div class="row g-2 belastingrekeningen">
-                    <div class="col-md-6"><label class="form-label">Omzetbelasting</label><RekeningKeuze @bind-Waarde="belasting.Omzetbelasting" Schema="schema" Kader="geopend" Label="Rekening omzetbelasting" Klasse="form-control" /></div>
-                    <div class="col-md-6"><label class="form-label">Loonheffingen</label><RekeningKeuze @bind-Waarde="belasting.Loonheffingen" Schema="schema" Kader="geopend" Label="Rekening loonheffingen" Klasse="form-control" /></div>
-                    <div class="col-md-6"><label class="form-label">Vennootschapsbelasting</label><RekeningKeuze @bind-Waarde="belasting.Vennootschapsbelasting" Schema="schema" Kader="geopend" Label="Rekening vennootschapsbelasting" Klasse="form-control" /></div>
-                    <div class="col-md-6"><label class="form-label">Inkomstenbelasting</label><RekeningKeuze @bind-Waarde="belasting.Inkomstenbelasting" Schema="schema" Kader="geopend" Label="Rekening inkomstenbelasting" Klasse="form-control" /></div>
-                    <div class="col-md-6"><label class="form-label">Motorrijtuigenbelasting</label><RekeningKeuze @bind-Waarde="belasting.Motorrijtuigenbelasting" Schema="schema" Kader="geopend" Label="Rekening motorrijtuigenbelasting" Klasse="form-control" /></div>
+                    @foreach (var (soort, naam) in Belastingen)
+                    {
+                        var s = soort;
+                        <div class="col-md-6">
+                            <label class="form-label" title="Op deze rekening boekt Sifer een betaling van @naam.ToLowerInvariant() aan de Belastingdienst. Leeg laten: de grijze standaardrekening.">@naam</label>
+                            <RekeningKeuze Waarde="@belasting.Van(s)" WaardeChanged="w => belasting.Zet(s, w)" Schema="schema" Kader="geopend" Label="@($"Rekening {naam.ToLowerInvariant()}")" Klasse="form-control" Placeholder="@Standaard(s, context.Ondernemingsvorm)" />
+                        </div>
+                    }
                     <div class="col-12">
                         <span class="form-check">
                             <input class="form-check-input" type="checkbox" id="belasting-automatisch" @bind="belasting.Automatisch" />
-                            <label class="form-check-label" for="belasting-automatisch">Automatisch boeken bij een geldig betalingskenmerk</label>
+                            <label class="form-check-label" for="belasting-automatisch" title="Een betaling aan de Belastingdienst met een geldig betalingskenmerk boekt Sifer zelf, op de rekening hierboven. Uit: hij staat klaar om na te kijken.">Betalingen met een geldig betalingskenmerk vanzelf boeken</label>
                         </span>
                     </div>
                 </div>
@@ -125,7 +131,7 @@
                     <button type="button" class="btn btn-sm btn-outline-secondary" disabled="@(string.IsNullOrWhiteSpace(nieuweLoon.Nummer) || string.IsNullOrWhiteSpace(nieuweLoon.Rekening))" @onclick="VoegLoonToe">Toevoegen</button>
                 </Formulierblok>
             }
-            <Formulierblok Titel="Verwerken">
+            <Formulierblok Titel="Facturen en bank vanzelf verwerken">
                 <InstellingenVelden Invoer="instellingen" Kantoor="kantoor" MetDocumentmap="false" />
             </Formulierblok>
             <Opslaanbalk Gewijzigd="Gewijzigd" Opgeslagen="opgeslagen" Bezig="bezig" Opslaan="Bewaar" Herstel="Herstel" />
@@ -161,7 +167,7 @@
         }
 
         var i = await Inrichting.Instellingen(g.Wie, Id);
-        gegevens = new Gegevens { Naam = i.Naam, KvkNummer = i.KvkNummer, BtwNummer = i.BtwNummer, Ibans = string.Join(", ", i.Ibans), BtwPlichtig = i.BtwPlichtig };
+        gegevens = new Gegevens { Klantnummer = i.Klantnummer, Naam = i.Naam, KvkNummer = i.KvkNummer, BtwNummer = i.BtwNummer, Ibans = string.Join(", ", i.Ibans), BtwPlichtig = i.BtwPlichtig };
         if (i.Contact is { } c)
         {
             (gegevens.Straat, gegevens.Postcode, gegevens.Plaats, gegevens.Land) = (c.Straat, c.Postcode, c.Plaats, c.Land);
@@ -267,7 +273,7 @@
         bezig = true;
         var uitkomst = await Inrichting.WijzigInstellingen(geopend!.Wie, Id,
             new Instellingen(gegevens!.Naam, gegevens.KvkNummer, gegevens.BtwNummer, [.. gegevens.Ibans.Split(',', ';')], afwijkend,
-                Contact: new Contactgegevens(gegevens.Straat, gegevens.Postcode, gegevens.Plaats, gegevens.Land, gegevens.Email, gegevens.Telefoon, gegevens.Website), BtwPlichtig: gegevens.BtwPlichtig, Belasting: belasting.Naar()));
+                Contact: new Contactgegevens(gegevens.Straat, gegevens.Postcode, gegevens.Plaats, gegevens.Land, gegevens.Email, gegevens.Telefoon, gegevens.Website), BtwPlichtig: gegevens.BtwPlichtig, Belasting: belasting.Naar(), Klantnummer: gegevens.Klantnummer));
         bezig = false;
         (fouten, opgeslagen) = (uitkomst.Fouten, uitkomst.IsGelukt);
         if (uitkomst.IsGelukt)
@@ -308,10 +314,47 @@
         };
 
         public Belastinginstellingen Naar() => new(Omzetbelasting, Loonheffingen, Vennootschapsbelasting, Inkomstenbelasting, Automatisch, Motorrijtuigenbelasting);
+
+        public string? Van(Belastingsoort soort) => soort switch
+        {
+            Belastingsoort.Omzetbelasting => Omzetbelasting,
+            Belastingsoort.Loonheffingen => Loonheffingen,
+            Belastingsoort.Vennootschapsbelasting => Vennootschapsbelasting,
+            Belastingsoort.Inkomstenbelasting => Inkomstenbelasting,
+            _ => Motorrijtuigenbelasting,
+        };
+
+        public void Zet(Belastingsoort soort, string? rekening)
+        {
+            switch (soort)
+            {
+                case Belastingsoort.Omzetbelasting: Omzetbelasting = rekening; break;
+                case Belastingsoort.Loonheffingen: Loonheffingen = rekening; break;
+                case Belastingsoort.Vennootschapsbelasting: Vennootschapsbelasting = rekening; break;
+                case Belastingsoort.Inkomstenbelasting: Inkomstenbelasting = rekening; break;
+                default: Motorrijtuigenbelasting = rekening; break;
+            }
+        }
     }
+
+    /// <summary>De belastingen in het blok Betalingen aan de Belastingdienst, in deze volgorde.</summary>
+    private static readonly (Belastingsoort Soort, string Naam)[] Belastingen =
+    [
+        (Belastingsoort.Omzetbelasting, "Omzetbelasting"),
+        (Belastingsoort.Loonheffingen, "Loonheffingen"),
+        (Belastingsoort.Vennootschapsbelasting, "Vennootschapsbelasting"),
+        (Belastingsoort.Inkomstenbelasting, "Inkomstenbelasting"),
+        (Belastingsoort.Motorrijtuigenbelasting, "Motorrijtuigenbelasting"),
+    ];
+
+    /// <summary>De rekening die Sifer zelf kiest, als grijze tekst: "standaard 1810 Af te dragen btw", of "kies een rekening".</summary>
+    private string Standaard(Belastingsoort soort, Boekhouding.Grootboek.Ondernemingsvorm vorm) =>
+        schema is not null && Belastingherkenning.Standaardrekening(soort, schema, vorm) is { } r ? $"standaard {r.Nummer} {r.Naam}" : "kies een rekening";
 
     private sealed class Gegevens
     {
+        public string? Klantnummer { get; set; }
+
         public string Naam { get; set; } = "";
 
         public string? KvkNummer { get; set; }
