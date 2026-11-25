@@ -126,7 +126,7 @@
                                 }
                                 <table class="table table-sm align-baseline regeltabel mt-3 mb-0">
                                     <thead>
-                                        <tr><th>Omschrijving</th><th>Grootboekrekening</th><th>Btw</th><th class="text-end">Excl. btw</th><th class="text-end">Btw-bedrag</th>@if (g.Regels.Any(r => r.Kostenplaats is not null))
+                                        <tr><th>Omschrijving</th><th>Grootboekrekening</th><th>Btw</th><th class="text-end">Excl. btw</th><th class="text-end">Btw-bedrag</th>@if (MetKostenplaats || g.Regels.Any(r => r.Kostenplaats is not null))
                                             {
                                                 <th>Kostenplaats</th>
                                             }</tr>
@@ -140,7 +140,7 @@
                                                 <td title="@r.BtwCode">@(BtwCodes.Zoek(verwerking.Btwtabel.Op(g.Datum), r.BtwCode)?.Kort ?? r.BtwCode)</td>
                                                 <td class="bedrag text-end">@Weergave.Bedrag(r.Bedrag)</td>
                                                 <td class="bedrag text-end">@(r.Btw is { } b ? Weergave.Bedrag(b) : null)</td>
-                                                @if (g.Regels.Any(x => x.Kostenplaats is not null))
+                                                @if (MetKostenplaats || g.Regels.Any(x => x.Kostenplaats is not null))
                                                 {
                                                     <td class="text-secondary">@r.Kostenplaats</td>
                                                 }

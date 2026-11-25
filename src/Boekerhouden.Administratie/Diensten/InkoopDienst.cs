@@ -666,9 +666,10 @@ public sealed class InkoopDienst(
                 return Uitkomst.Mislukt("De boeking van dit document is niet aan te passen.");
             }
 
-            if (vorigePost.Openstaand != vorigePost.Bedrag)
+            // Een (deels) betaalde factuur: alleen de kostenplaatsen kunnen nog veranderen (dat controleert het boeken).
+            if (vorigePost.Openstaand != vorigePost.Bedrag && (invoer.VerrekenMet is not null || invoer.Verdeling is not null))
             {
-                return Uitkomst.Mislukt($"Factuur {vorigePost.Factuurnummer} is al (deels) betaald of verrekend; draai eerst die betaling of verrekening terug.");
+                return Uitkomst.Mislukt(Betaald(vorigePost.Factuurnummer));
             }
         }
 
@@ -983,6 +984,27 @@ public sealed class InkoopDienst(
             : null;
     }
 
+    private static string Betaald(string factuurnummer) =>
+        $"Factuur {factuurnummer} is al (deels) betaald of verrekend: alleen de kostenplaatsen kun je nog wijzigen. Draai voor de rest eerst die betaling of verrekening terug.";
+
+    /// <summary>
+    /// Of de aangepaste boeking alleen in de kostenplaatsen verschilt: dezelfde datum, omschrijving en regels (rekening,
+    /// bedrag, btw, relatie, factuurnummer) en dezelfde openstaande post. Dat kan ook bij een betaalde factuur.
+    /// </summary>
+    internal static bool AlleenKostenplaatsen(Journaalpost oud, Journaalpost nieuw, OpenstaandePost vorigePost, OpenPost open)
+    {
+        static Journaalregel Zonder(Journaalregel r) => r with
+        {
+            Kostenplaats = null,
+            Omschrijving = string.IsNullOrWhiteSpace(r.Omschrijving) ? null : r.Omschrijving.Trim(),
+        };
+
+        return oud.Datum == nieuw.Datum && oud.Omschrijving.Trim() == nieuw.Omschrijving.Trim()
+            && oud.Regels.Select(Zonder).SequenceEqual(nieuw.Regels.Select(Zonder))
+            && vorigePost.Relatie == open.Relatie && vorigePost.Factuurnummer == open.Factuurnummer && vorigePost.Bedrag == open.Bedrag
+            && vorigePost.Datum == open.Datum && vorigePost.Vervaldatum == open.Vervaldatum && vorigePost.Betalingskenmerk == open.Betalingskenmerk;
+    }
+
     /// <summary>Het memoriaal van het standaardschema; daar komt een periodeverdeling in (ook als er meer memorialen zijn).</summary>
     private static readonly string StandaardMemoriaal = StandaardRekeningschema.Dagboeken.First(d => d.Soort == Dagboeksoort.Memoriaal).Code;
 
@@ -1000,10 +1022,8 @@ public sealed class InkoopDienst(
             return Uitkomst.Mislukt(gewijzigd);
         }
 
-        if (vorigePost is not null && await db.OpenstaandePosten.AsNoTracking().Where(p => p.Id == vorigePost.Id).Select(p => p.Openstaand).SingleOrDefaultAsync() != vorigePost.Bedrag)
-        {
-            return Uitkomst.Mislukt($"Factuur {vorigePost.Factuurnummer} is intussen (deels) betaald of verrekend; draai eerst die betaling of verrekening terug.");
-        }
+        // Een (deels) betaalde of verrekende factuur: alleen de kostenplaatsen mogen nog veranderen (zie verderop).
+        var betaald = vorigePost is not null && await db.OpenstaandePosten.AsNoTracking().Where(p => p.Id == vorigePost.Id).Select(p => p.Openstaand).SingleOrDefaultAsync() != vorigePost.Bedrag;
 
         var (schema, dagboeken) = await GrootboekDienst.Inrichting(db);
         var dagboek = dagboeken.FirstOrDefault(x => x.Soort == Dagboeksoort.Inkoop);
@@ -1099,6 +1119,11 @@ public sealed class InkoopDienst(
             return Uitkomst.Mislukt([.. controle]);
         }
 
+        if (betaald && (verrekenMet is not null || verdeling is not null || oudeVerdeling is not null || !AlleenKostenplaatsen(vorige!.NaarDomein(), post, vorigePost!, open)))
+        {
+            return Uitkomst.Mislukt(Betaald(vorigePost!.Factuurnummer));
+        }
+
         var boeking = vorige is null
             ? await grootboek.VoegToeAanKeten(db, administratie, post, wie)
             : await grootboek.NieuweVersie(db, administratie, vorige, post, wie);
@@ -1160,7 +1185,8 @@ public sealed class InkoopDienst(
         {
             // Dezelfde openstaande post (met zijn koppelingen), met de gegevens van de aangepaste factuur.
             (vorigePost.Relatie, vorigePost.Factuurnummer, vorigePost.Datum, vorigePost.Vervaldatum) = (open.Relatie, open.Factuurnummer, open.Datum, open.Vervaldatum);
-            (vorigePost.Bedrag, vorigePost.Openstaand, vorigePost.Betalingskenmerk, vorigePost.BoekingId) = (open.Bedrag, open.Openstaand, open.Betalingskenmerk, boeking.Id);
+            // Bij een betaalde factuur (alleen andere kostenplaatsen) blijft wat er nog openstaat zoals het was.
+            (vorigePost.Bedrag, vorigePost.Openstaand, vorigePost.Betalingskenmerk, vorigePost.BoekingId) = (open.Bedrag, betaald ? vorigePost.Openstaand : open.Openstaand, open.Betalingskenmerk, boeking.Id);
         }
 
         document.Status = Documentstatus.Geboekt;

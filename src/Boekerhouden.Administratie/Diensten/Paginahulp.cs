@@ -104,7 +104,7 @@ public static class Paginahulp
                 "Staat er iets verkeerd, wijs dan de juiste plek aan op de factuur. Sifer onthoudt dat voor de volgende keer.",
                 "Kies per regel de rekening en de btw-code; zo nodig verdeel je het bedrag over meer regels.",
                 "*Boeken* zet de factuur in het inkoopboek en bij de crediteuren.",
-                "Een geboekte factuur kun je aanpassen of terugdraaien zolang hij niet betaald is en de periode open is.",
+                "Een geboekte factuur pas je aan met *Aanpassen*. Is hij al betaald, dan kun je alleen nog de kostenplaatsen wijzigen.",
             ]),
         ["inkoopboek"] = new("Inkoopboek",
             "Alle geboekte inkoopfacturen.",

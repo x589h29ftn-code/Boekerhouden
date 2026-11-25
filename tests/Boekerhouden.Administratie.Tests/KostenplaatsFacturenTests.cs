@@ -4,6 +4,7 @@ using Boekerhouden.Boekhouding.Facturen;
 using Boekerhouden.Boekhouding.Grootboek;
 using Boekerhouden.Boekhouding.Regels;
 using Boekerhouden.Boekhouding.Verkoop;
+using Microsoft.EntityFrameworkCore;
 
 namespace Boekerhouden.Administratie.Tests;
 
@@ -63,6 +64,48 @@ public sealed class KostenplaatsFacturenTests(AdministratieFixture app) : IClass
         var overzicht = await app.Dienst<KostenplaatsDienst>().Overzicht(wie, id, new(2026, 1, 1), new(2026, 12, 31));
         Assert.Equal(20.65m + 10m, overzicht.Single(k => k.Kostenplaats.Code == "AUTO1").Kosten);
         Assert.Equal(10.65m, overzicht.Single(k => k.Kostenplaats.Code == "WINKEL").Kosten);
+    }
+
+    [Fact]
+    public async Task Bij_een_betaalde_inkoopfactuur_alleen_de_kostenplaatsen_achteraf()
+    {
+        var (wie, id) = await Administratie();
+        var inrichting = app.Dienst<InrichtingDienst>();
+        var inkoop = app.Dienst<InkoopDienst>();
+        Assert.True((await inrichting.VoegRelatieToe(wie, id, new RelatieInvoer("Belnet B.V.", "NL123456782B01", null, "4310"), "NL63TRIO0212345678")).IsGelukt);
+        await inrichting.VoegRegelToe(wie, id, Telefoon);
+        var april = await inkoop.Lees(wie, id, new MemoryStream(InkoopTests.Belnet()), "belnet.xml", null);
+        Assert.True(april.IsGeboekt, april.Melding);
+        var document = april.DocumentId!.Value;
+        var geboekt = (await inkoop.Geboekt(wie, id, document))!;
+        Assert.All(geboekt.Regels, r => Assert.Null(r.Kostenplaats));
+
+        // Deels betaald (zoals na het afletteren van een bankmutatie).
+        await using (var db = await app.Dienst<Toegang>().Open(wie, id, Recht.Boekhouden))
+        {
+            (await db.OpenstaandePosten.SingleAsync()).Openstaand = -10m;
+            await db.SaveChangesAsync();
+        }
+
+        Factuurinvoer Invoer(GeboekteFactuur g, IReadOnlyList<Factuurregel> regels) =>
+            new(g.Relatie, null, g.Factuurnummer, g.Datum, g.Vervaldatum, g.Omschrijving, regels, g.Betalingskenmerk);
+
+        // Alleen een kostenplaats erbij: een nieuwe versie van de boeking, wat openstaat blijft gelijk.
+        var met = await inkoop.Boek(wie, id, document, Invoer(geboekt, [.. geboekt.Regels.Select(r => r with { Kostenplaats = "AUTO1" })]));
+        Assert.True(met.IsGelukt, string.Join("; ", met.Fouten));
+        Assert.Equal(["AUTO1"], (await Boeking(wie, id, "INK")).Regels.Select(r => r.Kostenplaats).OfType<string>().Distinct());
+        Assert.Equal(-10m, (await app.Dienst<BankDienst>().OpenPosten(wie, id)).Single().Openstaand);
+        Assert.Equal(2, (await app.Dienst<GrootboekDienst>().Boeking(wie, id, "INK", geboekt.Boekstuk))!.Versie);
+        Assert.Empty(await app.Dienst<GrootboekDienst>().ControleerKeten(wie, id));
+
+        // Iets anders (een rekening, een bedrag of de omschrijving) blijft geweigerd zolang de factuur betaald is.
+        var nu = (await inkoop.Geboekt(wie, id, document))!;
+        Assert.Equal(["AUTO1"], nu.Regels.Select(r => r.Kostenplaats).Distinct());
+        Assert.Contains("alleen de kostenplaatsen", Assert.Single((await inkoop.Boek(wie, id, document,
+            Invoer(nu, [nu.Regels[0] with { Rekeningnummer = "4300" }, .. nu.Regels.Skip(1)]))).Fouten), StringComparison.Ordinal);
+        Assert.Contains("alleen de kostenplaatsen", Assert.Single((await inkoop.Boek(wie, id, document,
+            Invoer(nu, [.. nu.Regels]) with { Omschrijving = "Anders" })).Fouten), StringComparison.Ordinal);
+        Assert.Equal(-10m, (await app.Dienst<BankDienst>().OpenPosten(wie, id)).Single().Openstaand);
     }
 
     [Fact]
