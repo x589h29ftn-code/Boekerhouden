@@ -55,7 +55,7 @@ public sealed class AdministratieDienst(IDbContextFactory<AdministratieDbContext
 
         await using var db = await dbFactory.CreateDbContextAsync();
         var administratie = await db.Administraties.AsNoTracking().SingleAsync(a => a.Id == id);
-        return Kop(administratie, rol) with { Kostenplaatsen = (await KantoorDienst.LeesModules(db)).Kostenplaatsen };
+        return Kop(administratie, rol) with { Kostenplaatsen = administratie.Kostenplaatsen };
     }
 
     /// <summary>

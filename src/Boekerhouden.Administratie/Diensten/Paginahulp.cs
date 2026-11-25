@@ -368,12 +368,13 @@ public static class Paginahulp
                 "De aangifteperiode kies je bij de btw-aangifte.",
             ]),
         ["instellingen-verwerken"] = new("Instellingen: verwerken",
-            "Hoe inkoop en bank vanzelf worden verwerkt.",
+            "Hoe inkoop en bank vanzelf worden verwerkt, en of je kostenplaatsen gebruikt.",
             [
                 "Wil je dat deze administratie afwijkt van het kantoor, zet dan per onderdeel de schakelaar uit.",
                 "Laat je een veld leeg, dan geldt de standaard van het kantoor (in grijs).",
                 "In de omschrijving van de boeking kun je #leverancier, #klant, #factuurnummer en #maand gebruiken.",
                 "Hier stel je ook de map voor de facturen in, bijvoorbeeld in OneDrive.",
+                "Met *Kostenplaatsen gebruiken* zet je kostenplaatsen aan voor deze administratie.",
             ]),
         ["beginbalans"] = new("Beginbalans",
             "De openingsbalans van het eerste boekjaar.",
@@ -401,7 +402,6 @@ public static class Paginahulp
             [
                 "*Verwerken*: wanneer facturen en bankmutaties vanzelf worden geboekt, en de standaardomschrijving.",
                 "*Overzichten*: de lettergrootte op het scherm en het afronden op hele euro's.",
-                "*Modules*: hier zet je bijvoorbeeld kostenplaatsen aan.",
             ]),
         ["beheer-wijzigingslog"] = new("Wijzigingslog",
             "Elke wijziging: wie, wat en wanneer.",

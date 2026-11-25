@@ -127,7 +127,8 @@ public sealed record Instellingen(
     Contactgegevens? Contact = null,
     bool BtwPlichtig = true,
     Belastinginstellingen? Belasting = null,
-    string? Klantnummer = null)
+    string? Klantnummer = null,
+    bool? Kostenplaatsen = null)
 {
     /// <summary>Wat er voor de administratie geldt.</summary>
     public Verwerkingsinstellingen Geldend => Afwijkend.Op(Kantoor ?? Verwerkingsinstellingen.Standaard);
@@ -524,7 +525,7 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
         var a = await db.Administraties.AsNoTracking().SingleAsync(x => x.Id == administratie);
         return new Instellingen(a.Naam, a.KvkNummer, a.BtwNummer, a.Ibans, a.Afwijkend(), await KantoorDienst.Lees(db),
-            new Contactgegevens(a.Straat, a.Postcode, a.Plaats, a.Land, a.Email, a.Telefoon, a.Website), a.BtwPlichtig, a.Belasting(), a.Klantnummer);
+            new Contactgegevens(a.Straat, a.Postcode, a.Plaats, a.Land, a.Email, a.Telefoon, a.Website), a.BtwPlichtig, a.Belasting(), a.Klantnummer, a.Kostenplaatsen);
     }
 
     public async Task<Uitkomst> WijzigInstellingen(Uitvoerder wie, Guid administratie, Instellingen invoer)
@@ -617,6 +618,12 @@ public sealed class InrichtingDienst(Toegang toegang, AuditDienst audit, TimePro
             (a.RekeningOmzetbelasting, a.RekeningLoonheffingen, a.RekeningVennootschapsbelasting, a.RekeningInkomstenbelasting, a.BelastingAutomatisch, a.RekeningMotorrijtuigenbelasting) =
                 (belasting.Omzetbelasting, belasting.Loonheffingen, belasting.Vennootschapsbelasting, belasting.Inkomstenbelasting, belasting.Automatisch, belasting.Motorrijtuigenbelasting);
         }
+        if (invoer.Kostenplaatsen is { } kostenplaatsen && kostenplaatsen != a.Kostenplaatsen)
+        {
+            details += $"; kostenplaatsen {(kostenplaatsen ? "aan" : "uit")}";
+            a.Kostenplaatsen = kostenplaatsen;
+        }
+
         if (Leeg(invoer.Klantnummer) != a.Klantnummer)
         {
             details += $"; klantnummer {a.Klantnummer ?? "-"} → {Leeg(invoer.Klantnummer) ?? "-"}";

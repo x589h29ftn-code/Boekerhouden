@@ -22,7 +22,12 @@
         <Foutmeldingen Fouten="fouten" />
         @if (geopend is not null && !geopend.Kop.Kostenplaatsen)
         {
-            <LegeStaat Icoon="squares-four" Tekst="De module kostenplaatsen staat uit" />
+            <LegeStaat Icoon="squares-four" Tekst="Kostenplaatsen staan uit voor deze administratie">
+                @if (geopend.Kop.Mag(Recht.Boekhouden))
+                {
+                    <a class="btn btn-sm btn-outline-primary" href="/a/@Id/instellingen/verwerken">Aanzetten bij de instellingen</a>
+                }
+            </LegeStaat>
         }
         else if (totalen is not null)
         {

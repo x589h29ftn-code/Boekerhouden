@@ -13,35 +13,42 @@ public sealed class KostenplaatsTests(AdministratieFixture app) : IClassFixture<
     private async Task<(Uitvoerder Wie, Guid Id)> MetModule()
     {
         var wie = await app.Beheerder();
-        Assert.True((await app.Dienst<KantoorDienst>().WijzigModules(wie, new Kantoormodules(true))).IsGelukt);
-        return (wie, await app.Administratie());
+        var id = await app.Administratie();
+        await app.Kostenplaatsen(wie, id, true);
+        return (wie, id);
     }
 
     private static Journaalpost Post(string boekstuk, DateOnly datum, params (string Rekening, decimal Bedrag, string? Kostenplaats)[] regels) =>
         new("MEM", boekstuk, datum, "Memoriaal " + boekstuk, [.. regels.Select(r => new Journaalregel(r.Rekening, r.Bedrag, Kostenplaats: r.Kostenplaats))]);
 
     [Fact]
-    public async Task Zonder_module_geen_kostenplaatsen()
+    public async Task Kostenplaatsen_staan_per_administratie_aan_of_uit()
     {
         var wie = await app.Beheerder();
-        var kantoor = app.Dienst<KantoorDienst>();
-        Assert.True((await kantoor.WijzigModules(wie, new Kantoormodules(false))).IsGelukt);
         var id = await app.Administratie();
+        var andere = await app.Administratie("Met Kostenplaatsen B.V.");
+        await app.Kostenplaatsen(wie, andere, true);
         var dienst = app.Dienst<KostenplaatsDienst>();
 
-        Assert.Equal(["De module kostenplaatsen staat uit (Beheer, Instellingen)."], (await dienst.VoegToe(wie, id, "AUTO1", "Auto")).Fouten);
+        // Een nieuwe administratie begint zonder; aanzetten bij de ene laat de andere uit.
+        Assert.Equal(["Kostenplaatsen staan uit voor deze administratie (Instellingen, Verwerken)."], (await dienst.VoegToe(wie, id, "AUTO1", "Auto")).Fouten);
+        Assert.True((await dienst.VoegToe(wie, andere, "AUTO1", "Auto")).IsGelukt);
+        Assert.True((await app.Dienst<InrichtingDienst>().Instellingen(wie, andere)).Kostenplaatsen);
         Assert.Empty(await dienst.Keuze(wie, id));
         var kop = (await app.Dienst<AdministratieDienst>().Open(wie, id))!;
         Assert.False(kop.Kostenplaatsen);
         Assert.DoesNotContain(Administratiemenu.Groepen.SelectMany(g => g.Items), i => i.Pad == "/kostenplaatsen" && i.Zichtbaar(kop));
         Assert.Contains(Administratiemenu.Groepen.SelectMany(g => g.Items), i => i.Pad == "/kostenplaatsen" && i.Zichtbaar(kop with { Kostenplaatsen = true }));
 
-        // Alleen de beheerder zet een module aan; dat komt in het wijzigingslog.
+        // Wie geen lid is, kan ze niet aanzetten; aanzetten komt in het wijzigingslog. Andere instellingen laten ze staan.
         var medewerker = await app.Gebruiker("Mees Medewerker");
-        await Assert.ThrowsAsync<GeenToegangException>(() => kantoor.WijzigModules(medewerker, new Kantoormodules(true)));
-        Assert.True((await kantoor.WijzigModules(wie, new Kantoormodules(true))).IsGelukt);
+        await Assert.ThrowsAsync<GeenToegangException>(() => app.Kostenplaatsen(medewerker, id, true));
+        await app.Kostenplaatsen(wie, id, true);
         Assert.True((await app.Dienst<AdministratieDienst>().Open(wie, id))!.Kostenplaatsen);
-        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.KantoorinstellingenGewijzigd && r.Details == "kostenplaatsen aan");
+        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Details?.EndsWith("; kostenplaatsen aan", StringComparison.Ordinal) == true);
+        var instellingen = app.Dienst<InrichtingDienst>();
+        Assert.True((await instellingen.WijzigInstellingen(wie, id, await instellingen.Instellingen(wie, id) with { Kostenplaatsen = null })).IsGelukt);
+        Assert.True((await app.Dienst<AdministratieDienst>().Open(wie, id))!.Kostenplaatsen);
     }
 
     [Fact]

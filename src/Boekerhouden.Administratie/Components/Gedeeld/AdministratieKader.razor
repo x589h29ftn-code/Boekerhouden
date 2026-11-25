@@ -253,6 +253,16 @@ else
         geladen = true;
     }
 
+    /// <summary>De kop opnieuw lezen na een wijziging die het menu raakt (bijv. kostenplaatsen aan of uit).</summary>
+    public async Task VerversKop()
+    {
+        if (wie is not null && await AdministratieDienst.Open(wie, Id) is { } nieuw)
+        {
+            kop = nieuw;
+            StateHasChanged();
+        }
+    }
+
     /// <summary>De administraties voor de wisselaar: de geopende eerst, dan op naam; hooguit twaalf.</summary>
     private List<AdministratieKop> Gevonden =>
         [.. (alle ?? []).Where(a => string.IsNullOrWhiteSpace(wisselzoek) || a.Naam.Contains(wisselzoek.Trim(), StringComparison.OrdinalIgnoreCase))

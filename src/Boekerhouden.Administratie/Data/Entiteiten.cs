@@ -110,6 +110,9 @@ public sealed class Administratie
     /// <summary>Een betaling aan de Belastingdienst met een geldig betalingskenmerk zelf boeken; standaard aan.</summary>
     public bool BelastingAutomatisch { get; set; } = true;
 
+    /// <summary>Kostenplaatsen staan aan: beheren en op boekingsregels kiezen. Uitzetten laat wat er al geboekt is staan.</summary>
+    public bool Kostenplaatsen { get; set; }
+
     /// <summary>Hoe vaak de administratie btw-aangifte doet (maand, kwartaal of jaar).</summary>
     public Boekhouding.Btw.Aangiftefrequentie Btwfrequentie { get; set; } = Boekhouding.Btw.Aangiftefrequentie.Kwartaal;
 
@@ -671,9 +674,6 @@ public sealed class Kantoorinstellingen
 
     /// <summary>Bedragen in de overzichten afgerond op hele euro's (1.200 in plaats van 1.200,45).</summary>
     public bool OverzichtHeleEuros { get; set; }
-
-    /// <summary>De module kostenplaatsen staat aan: kostenplaatsen beheren en op boekingsregels kiezen.</summary>
-    public bool Kostenplaatsen { get; set; }
 
     /// <summary>De standaardomschrijving van een inkoopfactuur, met variabelen; leeg = uit.</summary>
     public string? Standaardomschrijving { get; set; }

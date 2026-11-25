@@ -9,7 +9,7 @@
 @* Drie tabbladen (en Beginbalans): Gegevens, Btw en belastingen, Verwerken. Elk tabblad bewaart het hele formulier,
    maar laat alleen zijn eigen velden zien; de andere zijn al eerder goed bewaard, dus een fout hoort altijd bij dit
    tabblad. De fiscale indeling staat op Fiscale positie, de loonkoppelingen bij het memoriaal. *@
-<AdministratieKader Id="Id" Titel="Instellingen" Actief="@Actief" BijOpenen="Open">
+<AdministratieKader Id="Id" Titel="Instellingen" Actief="@Actief" BijOpenen="Open" @ref="kader">
     @if (!context.Mag(Recht.Boekhouden))
     {
         <div class="alert alert-warning">Alleen het kantoor kan de instellingen wijzigen.</div>
@@ -91,6 +91,12 @@
                 <Formulierblok Titel="Documenten">
                     <Documentmapveld Invoer="instellingen" Kantoor="kantoor" Label="Map voor facturen" Administratie="@gegevens.Naam" />
                 </Formulierblok>
+                <Formulierblok Titel="Kostenplaatsen">
+                    <span class="form-check form-switch mb-0">
+                        <input id="kostenplaatsen" class="form-check-input" type="checkbox" role="switch" @bind="gegevens.Kostenplaatsen" />
+                        <label class="form-check-label" for="kostenplaatsen" title="Kostenplaatsen (bijv. per auto of afdeling) beheren en per regel kiezen bij inkoop, verkoop, bank en memoriaal, met een overzicht per kostenplaats. Uitzetten laat wat er al geboekt is staan.">Kostenplaatsen gebruiken</label>
+                    </span>
+                </Formulierblok>
             }
             <Opslaanbalk Gewijzigd="Gewijzigd" Opgeslagen="opgeslagen" Bezig="bezig" Opslaan="Bewaar" Herstel="Herstel" />
         </div>
@@ -99,6 +105,7 @@
 
 @code {
     private Geopend? geopend;
+    private AdministratieKader? kader;
     private Gegevens? gegevens;
     private InstellingenInvoer? instellingen;
     private Verwerkingsinstellingen? kantoor;
@@ -164,7 +171,7 @@
         var vanBank = bankIbans.Select(b => b.Iban).ToHashSet(StringComparer.Ordinal);
         opgeslagenIbans = i.Ibans;
         var andere = i.Ibans.Where(x => !vanBank.Contains(Boekhouding.Relaties.Iban.Normaliseer(x)));
-        gegevens = new Gegevens { Klantnummer = i.Klantnummer, Naam = i.Naam, KvkNummer = i.KvkNummer, BtwNummer = i.BtwNummer, Ibans = string.Join(", ", andere), BtwPlichtig = i.BtwPlichtig };
+        gegevens = new Gegevens { Klantnummer = i.Klantnummer, Naam = i.Naam, KvkNummer = i.KvkNummer, BtwNummer = i.BtwNummer, Ibans = string.Join(", ", andere), BtwPlichtig = i.BtwPlichtig, Kostenplaatsen = i.Kostenplaatsen == true };
         if (i.Contact is { } c)
         {
             (gegevens.Straat, gegevens.Postcode, gegevens.Plaats, gegevens.Land) = (c.Straat, c.Postcode, c.Plaats, c.Land);
@@ -202,7 +209,7 @@
         bezig = true;
         var uitkomst = await Inrichting.WijzigInstellingen(geopend!.Wie, Id,
             new Instellingen(gegevens!.Naam, gegevens.KvkNummer, gegevens.BtwNummer, Ibans(), afwijkend,
-                Contact: new Contactgegevens(gegevens.Straat, gegevens.Postcode, gegevens.Plaats, gegevens.Land, gegevens.Email, gegevens.Telefoon, gegevens.Website), BtwPlichtig: gegevens.BtwPlichtig, Belasting: belasting.Naar(), Klantnummer: gegevens.Klantnummer));
+                Contact: new Contactgegevens(gegevens.Straat, gegevens.Postcode, gegevens.Plaats, gegevens.Land, gegevens.Email, gegevens.Telefoon, gegevens.Website), BtwPlichtig: gegevens.BtwPlichtig, Belasting: belasting.Naar(), Klantnummer: gegevens.Klantnummer, Kostenplaatsen: gegevens.Kostenplaatsen));
         bezig = false;
         (fouten, opgeslagen) = (uitkomst.Fouten, uitkomst.IsGelukt);
         if (uitkomst.IsGelukt)
@@ -210,6 +217,12 @@
             // Op hetzelfde tabblad blijven (het volgende tabblad is één klik), met de bevestiging linksonder.
             vorige = Stand();
             Meldingen.Toon("De instellingen zijn opgeslagen.");
+            if (kader is not null && gegevens.Kostenplaatsen != geopend.Kop.Kostenplaatsen)
+            {
+                // Het menu toont Kostenplaatsen alleen als ze aanstaan.
+                await kader.VerversKop();
+                geopend = geopend with { Kop = geopend.Kop with { Kostenplaatsen = gegevens.Kostenplaatsen } };
+            }
         }
     }
 
@@ -277,6 +290,8 @@
 
     private sealed class Gegevens
     {
+        public bool Kostenplaatsen { get; set; }
+
         public string? Klantnummer { get; set; }
 
         public string Naam { get; set; } = "";

@@ -102,7 +102,7 @@ public sealed class VerkoopimportDienst(
             var codes = context.Btwtabel.Op(datum);
             var omzet = relatie?.Omzetrekening ?? context.Omzetrekening ?? "";
             var regels = Verkoopimport.Regels(herkend, codes, omzet, relatie?.Land ?? herkend.Afnemer?.Land);
-            if (relatie?.Kostenplaats is { Length: > 0 } kostenplaats && (await KantoorDienst.LeesModules(db)).Kostenplaatsen
+            if (relatie?.Kostenplaats is { Length: > 0 } kostenplaats && await KostenplaatsDienst.Aan(db, administratie)
                 && await db.Kostenplaatsen.AnyAsync(k => k.Code == kostenplaats && !k.Afgesloten, annulering))
             {
                 regels = [.. regels.Select(r => r with { Kostenplaats = kostenplaats })];

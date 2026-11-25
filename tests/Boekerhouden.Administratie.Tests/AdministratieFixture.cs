@@ -100,6 +100,17 @@ public class AdministratieFixture : WebApplicationFactory<Program>, IAsyncLifeti
     }
 
     /// <summary>Een gebruiker met een vast (eigen) wachtwoord, zonder rollen.</summary>
+    /// <summary>Kostenplaatsen aan- of uitzetten voor een administratie, zoals op Instellingen, Verwerken.</summary>
+    public async Task Kostenplaatsen(Uitvoerder wie, Guid administratie, bool aan)
+    {
+        var inrichting = Dienst<InrichtingDienst>();
+        var uitkomst = await inrichting.WijzigInstellingen(wie, administratie, await inrichting.Instellingen(wie, administratie) with { Kostenplaatsen = aan });
+        if (!uitkomst.IsGelukt)
+        {
+            throw new InvalidOperationException(string.Join("; ", uitkomst.Fouten));
+        }
+    }
+
     public async Task<Uitvoerder> Gebruiker(string naam)
     {
         var email = $"{naam.ToLowerInvariant().Replace(' ', '.')}-{Guid.NewGuid():N}@klant.test";

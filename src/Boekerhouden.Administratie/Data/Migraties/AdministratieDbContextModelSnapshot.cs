@@ -419,6 +419,9 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<bool>("Kostenplaatsen")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("KvkNummer")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
@@ -1786,9 +1789,6 @@ namespace Boekerhouden.Administratie.Data.Migraties
 
                     b.Property<int>("DrempelAutomatisch")
                         .HasColumnType("integer");
-
-                    b.Property<bool>("Kostenplaatsen")
-                        .HasColumnType("boolean");
 
                     b.Property<decimal?>("LimietAutomatisch")
                         .HasPrecision(18, 2)

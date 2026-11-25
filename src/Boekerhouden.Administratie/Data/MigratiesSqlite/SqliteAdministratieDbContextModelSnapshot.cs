@@ -409,6 +409,9 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("Kostenplaatsen")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("KvkNummer")
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
@@ -1761,9 +1764,6 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasColumnType("TEXT");
 
                     b.Property<int>("DrempelAutomatisch")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("Kostenplaatsen")
                         .HasColumnType("INTEGER");
 
                     b.Property<long?>("LimietAutomatisch")

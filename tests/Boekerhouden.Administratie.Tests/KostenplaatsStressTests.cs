@@ -35,8 +35,8 @@ public sealed class KostenplaatsStressTests(AdministratieFixture app, ITestOutpu
     public async Task Honderden_kostenplaatsen_duizenden_boekingen_aanpassen_afsluiten_en_tegelijk()
     {
         var wie = await app.Beheerder();
-        Assert.True((await app.Dienst<KantoorDienst>().WijzigModules(wie, new Kantoormodules(true))).IsGelukt);
         var id = await app.Administratie("Kostenplaats Stress B.V.");
+        await app.Kostenplaatsen(wie, id, true);
         var grootboek = app.Dienst<GrootboekDienst>();
         var dienst = app.Dienst<KostenplaatsDienst>();
         var klok = Stopwatch.StartNew();

@@ -18,8 +18,8 @@ public sealed class KostenplaatsFacturenTests(AdministratieFixture app) : IClass
     private async Task<(Uitvoerder Wie, Guid Id)> Administratie()
     {
         var wie = await app.Beheerder();
-        Assert.True((await app.Dienst<KantoorDienst>().WijzigModules(wie, new Kantoormodules(true))).IsGelukt);
         var id = await app.Administratie();
+        await app.Kostenplaatsen(wie, id, true);
         var kostenplaatsen = app.Dienst<KostenplaatsDienst>();
         Assert.True((await kostenplaatsen.VoegToe(wie, id, "AUTO1", "Auto")).IsGelukt);
         Assert.True((await kostenplaatsen.VoegToe(wie, id, "WINKEL", "Winkel")).IsGelukt);
@@ -124,8 +124,8 @@ public sealed class KostenplaatsAfsluitenTests(AdministratieFixture app) : IClas
     public async Task Afsluiten_heropenen_en_exporteren()
     {
         var wie = await app.Beheerder();
-        Assert.True((await app.Dienst<KantoorDienst>().WijzigModules(wie, new Kantoormodules(true))).IsGelukt);
         var id = await app.Administratie();
+        await app.Kostenplaatsen(wie, id, true);
         var dienst = app.Dienst<KostenplaatsDienst>();
         var auto = (await dienst.VoegToe(wie, id, "AUTO1", "Auto")).Waarde;
         Assert.True((await app.Dienst<GrootboekDienst>().Boek(wie, id, new Journaalpost("MEM", "2026-0001", new(2026, 3, 1), "Onderhoud",
@@ -154,9 +154,8 @@ public sealed class KostenplaatsAfsluitenTests(AdministratieFixture app) : IClas
     public async Task De_standaard_van_de_relatie_alleen_met_de_module_aan_en_open()
     {
         var wie = await app.Beheerder();
-        var kantoor = app.Dienst<KantoorDienst>();
-        Assert.True((await kantoor.WijzigModules(wie, new Kantoormodules(true))).IsGelukt);
         var id = await app.Administratie();
+        await app.Kostenplaatsen(wie, id, true);
         var dienst = app.Dienst<KostenplaatsDienst>();
         var auto = (await dienst.VoegToe(wie, id, "AUTO1", "Auto")).Waarde;
         var inrichting = app.Dienst<InrichtingDienst>();
@@ -171,16 +170,9 @@ public sealed class KostenplaatsAfsluitenTests(AdministratieFixture app) : IClas
 
         // Module uit: ook zonder kostenplaats.
         Assert.True((await dienst.Wijzig(wie, id, auto, "Auto", afgesloten: false)).IsGelukt);
-        Assert.True((await kantoor.WijzigModules(wie, new Kantoormodules(false))).IsGelukt);
-        try
-        {
-            var mei = await inkoop.Lees(wie, id, new MemoryStream(InkoopTests.Belnet("BN-2026-0511", "2026-05-01")), "belnet-mei.xml", null);
-            Assert.True(mei.IsGeboekt, mei.Melding);
-            Assert.All(await app.Dienst<GrootboekDienst>().Posten(wie, id, "INK"), p => Assert.All(p.Post.Regels, r => Assert.Null(r.Kostenplaats)));
-        }
-        finally
-        {
-            await kantoor.WijzigModules(wie, new Kantoormodules(true));
-        }
+        await app.Kostenplaatsen(wie, id, false);
+        var mei = await inkoop.Lees(wie, id, new MemoryStream(InkoopTests.Belnet("BN-2026-0511", "2026-05-01")), "belnet-mei.xml", null);
+        Assert.True(mei.IsGeboekt, mei.Melding);
+        Assert.All(await app.Dienst<GrootboekDienst>().Posten(wie, id, "INK"), p => Assert.All(p.Post.Regels, r => Assert.Null(r.Kostenplaats)));
     }
 }

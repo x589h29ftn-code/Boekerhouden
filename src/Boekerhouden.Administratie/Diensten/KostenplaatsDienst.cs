@@ -52,11 +52,15 @@ public sealed class KostenplaatsDienst(Toegang toegang, AuditDienst audit)
         return await Lees(db);
     }
 
+    /// <summary>Of kostenplaatsen aanstaan voor de administratie (Instellingen, Verwerken).</summary>
+    internal static async Task<bool> Aan(AdministratieDbContext db, Guid administratie) =>
+        await db.Administraties.AsNoTracking().Where(a => a.Id == administratie).Select(a => a.Kostenplaatsen).FirstOrDefaultAsync();
+
     /// <summary>De kostenplaatsen om te kiezen op een boekingsregel (niet afgesloten), of leeg als de module uitstaat.</summary>
     public async Task<IReadOnlyList<Kostenplaatsregel>> Keuze(Uitvoerder wie, Guid administratie)
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Lezen);
-        if (!(await KantoorDienst.LeesModules(db)).Kostenplaatsen)
+        if (!await Aan(db, administratie))
         {
             return [];
         }
@@ -67,9 +71,9 @@ public sealed class KostenplaatsDienst(Toegang toegang, AuditDienst audit)
     public async Task<Uitkomst<Guid>> VoegToe(Uitvoerder wie, Guid administratie, string code, string naam)
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
-        if (!(await KantoorDienst.LeesModules(db)).Kostenplaatsen)
+        if (!await Aan(db, administratie))
         {
-            return Uitkomst<Guid>.Mislukt("De module kostenplaatsen staat uit (Beheer, Instellingen).");
+            return Uitkomst<Guid>.Mislukt("Kostenplaatsen staan uit voor deze administratie (Instellingen, Verwerken).");
         }
 
         var (c, n) = (code?.Trim() ?? string.Empty, naam?.Trim() ?? string.Empty);

@@ -29,12 +29,6 @@
                 <span class="text-secondary small" title="Voorbeeld">@(heleEuros ? Bedragen.Heel(1200.45m) : Weergave.Bedrag(1200.45m))</span>
             </div>
         </Formulierblok>
-        <Formulierblok Titel="Modules">
-            <span class="form-check form-switch mb-0">
-                <input id="module-kostenplaatsen" class="form-check-input" type="checkbox" role="switch" @bind="kostenplaatsen" />
-                <label class="form-check-label" for="module-kostenplaatsen" title="Kostenplaatsen (bijv. per auto of afdeling) beheren en op inkoop, verkoop, bank en memoriaal kiezen, met een overzicht per kostenplaats. Uitzetten laat wat er al geboekt is staan.">Kostenplaatsen</label>
-            </span>
-        </Formulierblok>
         <Opslaanbalk Gewijzigd="Gewijzigd" Opgeslagen="opgeslagen" Bezig="bezig" Opslaan="Bewaar" Herstel="Laad" />
     </div>
 }
@@ -44,8 +38,6 @@
     private Overzichtsweergave? weergave;
     private int letter;
     private bool heleEuros;
-    private bool kostenplaatsen;
-    private Kantoormodules? modules;
     private IReadOnlyList<string>? fouten;
     private string? vorige;
     private bool opgeslagen;
@@ -60,13 +52,12 @@
     {
         invoer = InstellingenInvoer.Van(await Kantoor.Instellingen());
         weergave = await Kantoor.Weergave();
-        modules = await Kantoor.Modules();
-        (letter, heleEuros, kostenplaatsen, fouten, opgeslagen) = (weergave.Lettergrootte, weergave.HeleEuros, modules.Kostenplaatsen, null, false);
+        (letter, heleEuros, fouten, opgeslagen) = (weergave.Lettergrootte, weergave.HeleEuros, null, false);
         vorige = Stand();
     }
 
     /// <summary>Alles wat in het formulier staat, om te zien of er iets is gewijzigd.</summary>
-    private string Stand() => System.Text.Json.JsonSerializer.Serialize(new object?[] { invoer, letter, heleEuros, kostenplaatsen });
+    private string Stand() => System.Text.Json.JsonSerializer.Serialize(new object?[] { invoer, letter, heleEuros });
 
     private bool Gewijzigd => vorige is not null && Stand() != vorige;
 
@@ -87,12 +78,6 @@
         {
             uitkomst = await Kantoor.WijzigWeergave(wie, new Overzichtsweergave(letter, heleEuros));
             weergave = new Overzichtsweergave(letter, heleEuros);
-        }
-
-        if (uitkomst.IsGelukt && kostenplaatsen != modules!.Kostenplaatsen)
-        {
-            uitkomst = await Kantoor.WijzigModules(wie, new Kantoormodules(kostenplaatsen));
-            modules = new Kantoormodules(kostenplaatsen);
         }
 
         bezig = false;

@@ -17,13 +17,6 @@ public sealed record Overzichtsweergave(int Lettergrootte, bool HeleEuros)
     public static IReadOnlyList<(int Procent, string Naam)> Groottes { get; } = [(80, "Kleiner"), (90, "Klein"), (100, "Normaal"), (115, "Groot")];
 }
 
-/// <summary>Welke modules het kantoor gebruikt; uit = niet te zien in de administraties.</summary>
-/// <param name="Kostenplaatsen">Kostenplaatsen beheren en op boekingsregels kiezen, met een overzicht per kostenplaats.</param>
-public sealed record Kantoormodules(bool Kostenplaatsen)
-{
-    public static Kantoormodules Standaard { get; } = new(false);
-}
-
 /// <summary>
 /// De instellingen van het kantoor: de standaard voor elke administratie, die daarin per instelling kan afwijken.
 /// Alleen de beheerder wijzigt ze; dat controleert de dienst zelf, niet alleen de pagina.
@@ -111,45 +104,6 @@ public sealed class KantoorDienst(IDbContextFactory<AdministratieDbContext> dbFa
             $"{oud} → letter {nieuw.Lettergrootte}%, hele euro's {(nieuw.HeleEuros ? "aan" : "uit")}");
         return Uitkomst.Gelukt;
     }
-
-    public async Task<Kantoormodules> Modules()
-    {
-        await using var db = await dbFactory.CreateDbContextAsync();
-        return await LeesModules(db);
-    }
-
-    /// <summary>Modules aan- of uitzetten voor het hele kantoor; alleen de beheerder. Uitzetten laat de gegevens staan.</summary>
-    public async Task<Uitkomst> WijzigModules(Uitvoerder wie, Kantoormodules nieuw)
-    {
-        ArgumentNullException.ThrowIfNull(wie);
-        ArgumentNullException.ThrowIfNull(nieuw);
-        if (!await IsBeheerder(wie))
-        {
-            throw new GeenToegangException();
-        }
-
-        await using var db = await dbFactory.CreateDbContextAsync();
-        var rij = await db.Kantoorinstellingen.FirstOrDefaultAsync(k => k.Id == Kantoorinstellingen.EnigeId);
-        if (rij is null)
-        {
-            rij = new Kantoorinstellingen();
-            db.Kantoorinstellingen.Add(rij);
-        }
-
-        if (rij.Kostenplaatsen == nieuw.Kostenplaatsen)
-        {
-            return Uitkomst.Gelukt;
-        }
-
-        rij.Kostenplaatsen = nieuw.Kostenplaatsen;
-        await db.SaveChangesAsync();
-        await audit.Log(wie, AuditActies.KantoorinstellingenGewijzigd, "Modules", $"kostenplaatsen {(nieuw.Kostenplaatsen ? "aan" : "uit")}");
-        return Uitkomst.Gelukt;
-    }
-
-    internal static async Task<Kantoormodules> LeesModules(AdministratieDbContext db) =>
-        await db.Kantoorinstellingen.AsNoTracking().Where(k => k.Id == Kantoorinstellingen.EnigeId)
-            .Select(k => new Kantoormodules(k.Kostenplaatsen)).FirstOrDefaultAsync() ?? Kantoormodules.Standaard;
 
     /// <summary>De instellingen van het kantoor, of de standaard als ze nog nooit zijn opgeslagen.</summary>
     internal static async Task<Verwerkingsinstellingen> Lees(AdministratieDbContext db) =>
