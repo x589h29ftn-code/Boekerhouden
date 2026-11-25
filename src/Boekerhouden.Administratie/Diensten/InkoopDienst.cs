@@ -73,7 +73,10 @@ public sealed record Factuurboekregel(
     Guid? Document);
 
 /// <summary>De periodeverdeling van een geboekt document, zoals bewaard bij het document (JSON).</summary>
-internal sealed record Verdelingsgegevens(DateOnly Van, DateOnly Tot, string Rekening, List<string> Kostenrekeningen, List<string> Boekstukken);
+/// <param name="Kostenplaatsen">De kostenplaats per regel: in de factuurboeking staat die niet op de verdeelrekening
+/// (dan zou hij dubbel tellen naast de maandboekingen), maar wel bij het heropenen. Leeg bij oudere verdelingen.</param>
+internal sealed record Verdelingsgegevens(DateOnly Van, DateOnly Tot, string Rekening, List<string> Kostenrekeningen, List<string> Boekstukken,
+    List<string?>? Kostenplaatsen = null);
 
 /// <summary>Wat er met een ingelezen bestand gebeurd is.</summary>
 /// <param name="Dubbel">Hetzelfde bestand is al eerder ingelezen: niet opnieuw ingelezen.</param>
@@ -484,7 +487,11 @@ public sealed class InkoopDienst(
         var verdeling = doc.Verdeling is { } json ? JsonSerializer.Deserialize<Verdelingsgegevens>(json, Json) : null;
         if (verdeling is not null && verdeling.Kostenrekeningen.Count == regels.Count)
         {
-            regels = [.. regels.Select((r, i) => r with { Rekeningnummer = verdeling.Kostenrekeningen[i] })];
+            regels = [.. regels.Select((r, i) => r with
+            {
+                Rekeningnummer = verdeling.Kostenrekeningen[i],
+                Kostenplaats = verdeling.Kostenplaatsen is { } kp && kp.Count == regels.Count ? kp[i] : r.Kostenplaats,
+            })];
         }
 
         return new GeboekteFactuur(post.Relatie, post.Factuurnummer, post.Datum, post.Vervaldatum, boeking.Omschrijving, post.Betalingskenmerk,
@@ -1105,7 +1112,8 @@ public sealed class InkoopDienst(
         OpenPost open;
         try
         {
-            var teBoeken = verdeling is null ? factuur : factuur with { Regels = [.. factuur.Regels.Select(r => r with { Rekeningnummer = verdeling.Rekening })] };
+            // Verdeeld: de kosten eerst op de verdeelrekening (balans), zonder kostenplaats; die staat op de maandboekingen.
+            var teBoeken = verdeling is null ? factuur : factuur with { Regels = [.. factuur.Regels.Select(r => r with { Rekeningnummer = verdeling.Rekening, Kostenplaats = null })] };
             (post, open) = Factuurboeker.Boek(teBoeken, dagboek, boekstuk, schema, codes);
         }
         catch (Exception fout) when (fout is ArgumentException or InvalidOperationException)
@@ -1137,7 +1145,7 @@ public sealed class InkoopDienst(
             }
 
             document.Verdeling = JsonSerializer.Serialize(new Verdelingsgegevens(verdeling.Van, verdeling.Tot, verdeling.Rekening,
-                [.. factuur.Regels.Select(r => r.Rekeningnummer)], [.. verdeeld.Waarde!]), Json);
+                [.. factuur.Regels.Select(r => r.Rekeningnummer)], [.. verdeeld.Waarde!], [.. factuur.Regels.Select(r => string.IsNullOrWhiteSpace(r.Kostenplaats) ? null : r.Kostenplaats.Trim())]), Json);
         }
         else if (oudeStukken.Count > 0)
         {

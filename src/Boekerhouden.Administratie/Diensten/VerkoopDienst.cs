@@ -484,7 +484,8 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
             var teBoeken = factuur.NaarFactuur(codes);
             if (verdeling is not null)
             {
-                teBoeken = teBoeken with { Regels = [.. teBoeken.Regels.Select(r => r with { Rekeningnummer = verdeling.Rekening })] };
+                // De omzet eerst op de verdeelrekening (balans), zonder kostenplaats; die staat op de maandboekingen.
+                teBoeken = teBoeken with { Regels = [.. teBoeken.Regels.Select(r => r with { Rekeningnummer = verdeling.Rekening, Kostenplaats = null })] };
             }
 
             (post, open) = Factuurboeker.Boek(teBoeken, dagboek!, boekstuk, schema, codes);

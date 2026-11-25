@@ -158,6 +158,24 @@ public sealed class KostenplaatsDienst(Toegang toegang, AuditDienst audit)
                                  where r.Kostenplaats != null && b.Datum >= van && b.Datum <= tot
                                  group r by new { r.Kostenplaats, r.Rekeningnummer } into g
                                  select new { g.Key.Kostenplaats, g.Key.Rekeningnummer, Saldo = g.Sum(r => r.Bedrag), Aantal = g.Count() }).ToListAsync();
+        // Een factuur die over de maanden verdeeld is en vóór de verbetering is geboekt, heeft de kostenplaats ook op de
+        // regel naar de verdeelrekening: die telt niet mee (de maandboekingen tellen al).
+        var dubbel = await DubbeleVerdeelregels(db);
+        if (dubbel.Count > 0)
+        {
+            var ids = dubbel.Select(d => d.Boeking).Distinct().ToList();
+            var aftrek = (await (from r in db.GeldendeRegels
+                                 join b in db.Boekingen on r.BoekingId equals b.Id
+                                 where r.Kostenplaats != null && ids.Contains(r.BoekingId) && b.Datum >= van && b.Datum <= tot
+                                 select new { r.BoekingId, r.Kostenplaats, r.Rekeningnummer, r.Bedrag }).ToListAsync())
+                .Where(r => dubbel.Contains((r.BoekingId, r.Rekeningnummer))).ToList();
+            perRekening = [.. perRekening.Select(x =>
+            {
+                var weg = aftrek.Where(a => a.Kostenplaats == x.Kostenplaats && a.Rekeningnummer == x.Rekeningnummer).ToList();
+                return weg.Count == 0 ? x : x with { Saldo = x.Saldo - weg.Sum(a => a.Bedrag), Aantal = x.Aantal - weg.Count };
+            })];
+        }
+
         var perKostenplaats = perRekening.ToLookup(x => x.Kostenplaats!, StringComparer.Ordinal);
         return
         [
@@ -179,17 +197,46 @@ public sealed class KostenplaatsDienst(Toegang toegang, AuditDienst audit)
                             join b in db.Boekingen on r.BoekingId equals b.Id
                             where r.Kostenplaats == code && b.Datum >= van && b.Datum <= tot
                             orderby b.Datum, b.Dagboek, b.Boekstuk, r.Regelnummer
-                            select new { b.Dagboek, b.Boekstuk, b.Datum, r.Rekeningnummer, Omschrijving = r.Omschrijving ?? b.Omschrijving, r.Relatie, r.Factuurnummer, r.Bedrag })
+                            select new { r.BoekingId, b.Dagboek, b.Boekstuk, b.Datum, r.Rekeningnummer, Omschrijving = r.Omschrijving ?? b.Omschrijving, r.Relatie, r.Factuurnummer, r.Bedrag })
             .ToListAsync();
+        var dubbel = await DubbeleVerdeelregels(db);
         return
         [
-            .. regels.Select(x =>
+            .. regels.Where(x => !dubbel.Contains((x.BoekingId, x.Rekeningnummer))).Select(x =>
             {
                 var rekening = schema.Zoek(x.Rekeningnummer);
                 return new Kostenplaatsboeking(x.Dagboek, x.Boekstuk, x.Datum, x.Rekeningnummer, rekening?.Naam ?? string.Empty, x.Omschrijving, x.Relatie,
                     x.Factuurnummer, x.Bedrag, rekening?.IsBalans ?? false);
             }),
         ];
+    }
+
+    /// <summary>
+    /// De factuurboekingen van verdeelde facturen met hun verdeelrekening: een regel daarop telt niet voor een
+    /// kostenplaats (de kosten of omzet staan op de maandboekingen). Nieuwe boekingen hebben daar geen kostenplaats meer.
+    /// </summary>
+    private static async Task<HashSet<(Guid Boeking, string Rekening)>> DubbeleVerdeelregels(AdministratieDbContext db)
+    {
+        var inkoop = await db.Documenten.AsNoTracking().Where(d => d.Verdeling != null && d.BoekingId != null).Select(d => new { d.BoekingId, d.Verdeling }).ToListAsync();
+        var verkoop = await db.Verkoopdocumenten.AsNoTracking().Where(d => d.Verdeling != null && d.BoekingId != null).Select(d => new { d.BoekingId, d.Verdeling }).ToListAsync();
+        var uitkomst = new HashSet<(Guid, string)>();
+        foreach (var d in inkoop.Concat(verkoop))
+        {
+            try
+            {
+                using var json = System.Text.Json.JsonDocument.Parse(d.Verdeling!);
+                if (json.RootElement.TryGetProperty("Rekening", out var rekening) || json.RootElement.TryGetProperty("rekening", out rekening))
+                {
+                    uitkomst.Add((d.BoekingId!.Value, rekening.GetString() ?? string.Empty));
+                }
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                // Geen leesbare verdeling: dan telt de regel gewoon mee.
+            }
+        }
+
+        return uitkomst;
     }
 
     /// <summary>

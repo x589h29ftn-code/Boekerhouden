@@ -109,6 +109,58 @@ public sealed class KostenplaatsFacturenTests(AdministratieFixture app) : IClass
     }
 
     [Fact]
+    public async Task Verdeelde_inkoop_telt_een_keer_op_de_kostenplaats()
+    {
+        var (wie, id) = await Administratie();
+        var inrichting = app.Dienst<InrichtingDienst>();
+        var inkoop = app.Dienst<InkoopDienst>();
+        Assert.True((await inrichting.VoegRelatieToe(wie, id, new RelatieInvoer("Belnet B.V.", "NL123456782B01", null, "4310"), "NL63TRIO0212345678")).IsGelukt);
+        var belnet = (await inrichting.Relaties(wie, id)).Single();
+        var gelezen = await inkoop.Lees(wie, id, new MemoryStream(InkoopTests.Belnet("BN-2026-0400", "2026-04-01")), "belnet.xml", null);
+        var invoer = new Factuurinvoer(belnet.Code, null, "BN-2026-0400", new(2026, 4, 1), new(2026, 4, 15), "Jaarabonnement",
+            [new Factuurregel("Abonnement", "4310", "I21", 1200m, Kostenplaats: "AUTO1")])
+        { Verdeling = new Periodeverdeling(new(2026, 4, 1), new(2027, 3, 31), "1410") };
+        var geboekt = await inkoop.Boek(wie, id, gelezen.DocumentId!.Value, invoer);
+        Assert.True(geboekt.IsGelukt, string.Join("; ", geboekt.Fouten));
+
+        var dienst = app.Dienst<KostenplaatsDienst>();
+        var regels = await dienst.Boekingen(wie, id, "AUTO1", new(2026, 1, 1), new(2027, 12, 31));
+        var totaal = (await dienst.Overzicht(wie, id, new(2026, 1, 1), new(2027, 12, 31))).Single(k => k.Kostenplaats.Code == "AUTO1");
+        // Alleen de maandboekingen naar de kosten, niet ook de factuur op de verdeelrekening (dan stond alles er dubbel).
+        Assert.Equal((1200m, 12), (totaal.Kosten, totaal.Regels));
+        Assert.All(regels, r => Assert.Equal(("MEM", "4310", 100m), (r.Dagboek, r.Rekeningnummer, r.Bedrag)));
+        Assert.Equal(1200m, regels.Sum(r => r.Bedrag));
+        Assert.All((await app.Dienst<GrootboekDienst>().Posten(wie, id, "INK")).Single().Post.Regels, r => Assert.Null(r.Kostenplaats));
+
+        // Heropenen geeft de kostenplaats terug; aanpassen naar een andere kostenplaats verplaatst alle maanden mee.
+        var terug = (await inkoop.Geboekt(wie, id, gelezen.DocumentId.Value))!;
+        Assert.Equal(("4310", "AUTO1"), (terug.Regels.Single().Rekeningnummer, terug.Regels.Single().Kostenplaats));
+        var anders = await inkoop.Boek(wie, id, gelezen.DocumentId.Value, invoer with { Regels = [invoer.Regels[0] with { Kostenplaats = "WINKEL" }] });
+        Assert.True(anders.IsGelukt, string.Join("; ", anders.Fouten));
+        var nu = await dienst.Overzicht(wie, id, new(2026, 1, 1), new(2027, 12, 31));
+        Assert.Equal((0, 1200m, 12), (nu.Single(k => k.Kostenplaats.Code == "AUTO1").Regels, nu.Single(k => k.Kostenplaats.Code == "WINKEL").Kosten, nu.Single(k => k.Kostenplaats.Code == "WINKEL").Regels));
+        Assert.Equal("WINKEL", (await inkoop.Geboekt(wie, id, gelezen.DocumentId.Value))!.Regels.Single().Kostenplaats);
+        Assert.Empty(await app.Dienst<GrootboekDienst>().ControleerKeten(wie, id));
+
+        // Over 2026 alleen de maanden van 2026.
+        Assert.Equal(900m, (await dienst.Overzicht(wie, id, new(2026, 1, 1), new(2026, 12, 31))).Single(k => k.Kostenplaats.Code == "WINKEL").Kosten);
+
+        // Zoals vóór deze verbetering geboekt: de kostenplaats ook op de verdeelrekening. Die regel telt niet mee.
+        await using (var db = await app.Dienst<Toegang>().Open(wie, id, Recht.Boekhouden))
+        {
+            var oud = await db.Geldend.AsNoTracking().Include(x => x.Regels).SingleAsync(x => x.Dagboek == "INK");
+            var post = oud.NaarDomein();
+            await app.Dienst<GrootboekDienst>().NieuweVersie(db, id, oud, post with { Regels = [.. post.Regels.Select(r => r.Rekeningnummer == "1410" ? r with { Kostenplaats = "WINKEL" } : r)] }, wie);
+            await db.SaveChangesAsync();
+        }
+
+        Assert.Equal("WINKEL", (await app.Dienst<GrootboekDienst>().Posten(wie, id, "INK")).Single().Post.Regels.Single(r => r.Rekeningnummer == "1410").Kostenplaats);
+        var oudOverzicht = (await dienst.Overzicht(wie, id, new(2026, 1, 1), new(2027, 12, 31))).Single(k => k.Kostenplaats.Code == "WINKEL");
+        Assert.Equal((1200m, 12), (oudOverzicht.Kosten, oudOverzicht.Regels));
+        Assert.All(await dienst.Boekingen(wie, id, "WINKEL", new(2026, 1, 1), new(2027, 12, 31)), r => Assert.Equal("MEM", r.Dagboek));
+    }
+
+    [Fact]
     public async Task Verkoop_per_regel_met_de_standaard_van_de_klant()
     {
         var (wie, id) = await Administratie();
@@ -137,6 +189,37 @@ public sealed class KostenplaatsFacturenTests(AdministratieFixture app) : IClass
         var post = await Boeking(wie, id, "VRK");
         Assert.Equal([("8000", -100m)], post.Regels.Where(r => r.Kostenplaats == "WINKEL").Select(r => (r.Rekeningnummer, r.Bedrag)));
         Assert.Equal(100m, (await app.Dienst<KostenplaatsDienst>().Overzicht(wie, id, new(2026, 1, 1), new(2026, 12, 31))).Single(k => k.Kostenplaats.Code == "WINKEL").Opbrengsten);
+    }
+
+    [Fact]
+    public async Task Verdeelde_verkoop_telt_een_keer_op_de_kostenplaats()
+    {
+        var (wie, id) = await Administratie();
+        var inrichting = app.Dienst<InrichtingDienst>();
+        var verkoop = app.Dienst<VerkoopDienst>();
+        Assert.True((await inrichting.WijzigInstellingen(wie, id, await inrichting.Instellingen(wie, id) with
+        {
+            BtwNummer = "NL123456782B01",
+            KvkNummer = "12345678",
+            Ibans = ["NL20INGB0001234567"],
+            Contact = new Contactgegevens("Dorpsstraat 1", "1234 AB", "Ergens", null, "info@bakkerij.test"),
+        })).IsGelukt);
+        var nieuw = await inrichting.VoegRelatieToe(wie, id, new RelatieInvoer("Abonnee B.V.", null, null, null,
+            new Klantgegevens(true, "Laan 2", "5678 CD", "Elders", Omzetrekening: "8000", Verkoopbtwcode: "V21")), null);
+        var klant = (await inrichting.Relaties(wie, id)).Single(r => r.Id == nieuw.Waarde).Code;
+        var concept = await verkoop.Bewaar(wie, id, null, new Verkoopinvoer(klant, new(2026, 1, 5), new(2026, 1, 19), "Jaarabonnement",
+            [new Verkoopregel("Jaarabonnement 2026", 1m, 1200m, "8000", "V21", Kostenplaats: "WINKEL")])
+        { Verdeling = new Periodeverdeling(new(2026, 1, 1), new(2026, 12, 31), "1710") });
+        Assert.True(concept.IsGelukt, string.Join("; ", concept.Fouten));
+        var definitief = await verkoop.MaakDefinitief(wie, id, concept.Waarde);
+        Assert.True(definitief.IsGelukt, string.Join("; ", definitief.Fouten));
+
+        var dienst = app.Dienst<KostenplaatsDienst>();
+        var totaal = (await dienst.Overzicht(wie, id, new(2026, 1, 1), new(2026, 12, 31))).Single(k => k.Kostenplaats.Code == "WINKEL");
+        Assert.Equal((1200m, 12), (totaal.Opbrengsten, totaal.Regels));
+        Assert.All(await dienst.Boekingen(wie, id, "WINKEL", new(2026, 1, 1), new(2026, 12, 31)), r => Assert.Equal(("8000", -100m), (r.Rekeningnummer, r.Bedrag)));
+        Assert.All((await app.Dienst<GrootboekDienst>().Posten(wie, id, "VRK")).Single().Post.Regels, r => Assert.Null(r.Kostenplaats));
+        Assert.Equal("WINKEL", (await verkoop.Open(wie, id, concept.Waarde))!.Invoer.Regels.Single().Kostenplaats);
     }
 
     [Fact]
