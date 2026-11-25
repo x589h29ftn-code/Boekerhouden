@@ -140,6 +140,34 @@ public sealed class KostenplaatsDienst(Toegang toegang, AuditDienst audit)
             return Uitkomst.Mislukt($"Op {kostenplaats.Code} is geboekt; sluit hem af in plaats van te verwijderen.");
         }
 
+        // Nog in gebruik zonder boeking: dan zou de relatie, het concept of de terugkerende factuur naar een kostenplaats
+        // wijzen die niet meer bestaat (en het boeken later mislukken).
+        var code = kostenplaats.Code;
+        if (await db.Relaties.Where(r => r.Kostenplaats == code).Select(r => r.Naam).FirstOrDefaultAsync() is { } relatie)
+        {
+            return Uitkomst.Mislukt($"{code} is de standaard kostenplaats van {relatie}; haal hem daar eerst weg of sluit hem af.");
+        }
+
+        if (await (from r in db.Verkoopdocumentregels
+                   join v in db.Verkoopdocumenten on r.VerkoopdocumentId equals v.Id
+                   where r.Kostenplaats == code && v.Status == Verkoopstatus.Concept
+                   select v.Id).AnyAsync())
+        {
+            return Uitkomst.Mislukt($"{code} staat op een concept van een verkoopfactuur; haal hem daar eerst weg of sluit hem af.");
+        }
+
+        var zoek = $"\"Kostenplaats\":\"{code}\"";
+        if (await db.Abonnementen.Where(a => a.Regels.Contains(zoek)).Select(a => a.Naam).FirstOrDefaultAsync() is { } abonnement)
+        {
+            return Uitkomst.Mislukt($"{code} staat op de terugkerende factuur {abonnement}; haal hem daar eerst weg of sluit hem af.");
+        }
+
+        var zoekConcept = $"\"kostenplaats\":\"{code}\"";
+        if (await db.Concepten.AnyAsync(c => c.Inhoud.Contains(zoek) || c.Inhoud.Contains(zoekConcept)))
+        {
+            return Uitkomst.Mislukt($"{code} staat op een tussentijds bewaarde factuur of bankmutatie; haal hem daar eerst weg of sluit hem af.");
+        }
+
         db.Kostenplaatsen.Remove(kostenplaats);
         await db.SaveChangesAsync();
         await audit.Log(wie, AuditActies.KostenplaatsVerwijderd, $"{kostenplaats.Code} {kostenplaats.Naam}", null, administratie);
@@ -182,11 +210,20 @@ public sealed class KostenplaatsDienst(Toegang toegang, AuditDienst audit)
             .. kostenplaatsen.Select(k =>
             {
                 var eigen = perKostenplaats[k.Code].ToList();
-                var resultaat = eigen.Where(x => schema.Zoek(x.Rekeningnummer) is { IsBalans: false }).Select(x => x.Saldo).ToList();
-                return new Kostenplaatstotaal(k, resultaat.Where(s => s > 0).Sum(), -resultaat.Where(s => s < 0).Sum(), eigen.Sum(x => x.Aantal));
+                var resultaat = eigen.Select(x => (Rekening: schema.Zoek(x.Rekeningnummer), x.Saldo)).Where(x => x.Rekening is { IsBalans: false }).ToList();
+                // Opbrengsten: de omzet en de andere W&V-posten met een creditsaldo (RGS). Een creditnota op de kosten
+                // verlaagt dus de kosten; zonder RGS-code beslist het saldo.
+                var opbrengst = resultaat.Where(x => IsOpbrengst(x.Rekening!) ?? x.Saldo < 0).ToList();
+                return new Kostenplaatstotaal(k, resultaat.Except(opbrengst).Sum(x => x.Saldo), -opbrengst.Sum(x => x.Saldo), eigen.Sum(x => x.Aantal));
             }),
         ];
     }
+
+    /// <summary>Of een resultaatrekening een opbrengst is (een RGS-hoofdpost met een creditsaldo, zoals de netto-omzet), of onbekend zonder RGS-code.</summary>
+    private static bool? IsOpbrengst(Rekening rekening) =>
+        rekening.RgsCode is { Length: >= 4 } rgs && RgsHoofdposten.Posten.FirstOrDefault(p => rgs.StartsWith(p.Code, StringComparison.Ordinal)) is { Code: not null } post
+            ? post.Kant == Boekerhouden.Domain.Rgs.Saldokant.Credit
+            : null;
 
     /// <summary>De boekingsregels op één kostenplaats in de periode, op datum.</summary>
     public async Task<IReadOnlyList<Kostenplaatsboeking>> Boekingen(Uitvoerder wie, Guid administratie, string code, DateOnly van, DateOnly tot)

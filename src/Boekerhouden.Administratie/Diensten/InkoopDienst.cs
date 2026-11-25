@@ -674,7 +674,7 @@ public sealed class InkoopDienst(
             }
 
             // Een (deels) betaalde factuur: alleen de kostenplaatsen kunnen nog veranderen (dat controleert het boeken).
-            if (vorigePost.Openstaand != vorigePost.Bedrag && (invoer.VerrekenMet is not null || invoer.Verdeling is not null))
+            if (vorigePost.Openstaand != vorigePost.Bedrag && invoer.VerrekenMet is not null)
             {
                 return Uitkomst.Mislukt(Betaald(vorigePost.Factuurnummer));
             }
@@ -1122,12 +1122,27 @@ public sealed class InkoopDienst(
         }
 
         var controle = Journaalcontrole.Controleer(post, schema, dagboeken).Concat(await KostenplaatsDienst.Fouten(db, post, vorige?.NaarDomein())).ToList();
+        if (verdeling is not null)
+        {
+            // Verdeeld: de kostenplaatsen staan niet in de factuurboeking maar op de maandboekingen; die controleren
+            // (een afgesloten kostenplaats mag blijven als hij er al stond).
+            static Journaalpost Regels(IEnumerable<string?> kostenplaatsen) => new("", "", default, "", [.. kostenplaatsen.Select(k => new Journaalregel("", 0m, Kostenplaats: k))]);
+            controle.AddRange(await KostenplaatsDienst.Fouten(db, Regels(factuur.Regels.Select(r => r.Kostenplaats)),
+                Regels([.. oudeVerdeling?.Kostenplaatsen ?? [], .. vorige?.Regels.Select(r => r.Kostenplaats) ?? []])));
+            controle = [.. controle.Distinct()];
+        }
+
         if (controle.Count > 0)
         {
             return Uitkomst.Mislukt([.. controle]);
         }
 
-        if (betaald && (verrekenMet is not null || verdeling is not null || oudeVerdeling is not null || !AlleenKostenplaatsen(vorige!.NaarDomein(), post, vorigePost!, open)))
+        // Bij een verdeelde factuur ook dezelfde verdeling (periode, rekening, kostenrekeningen): dan veranderen alleen de
+        // kostenplaatsen van de maandboekingen.
+        var zelfdeVerdeling = (verdeling is null && oudeVerdeling is null)
+            || (verdeling is not null && oudeVerdeling is not null && verdeling.Van == oudeVerdeling.Van && verdeling.Tot == oudeVerdeling.Tot
+                && verdeling.Rekening == oudeVerdeling.Rekening && factuur.Regels.Select(r => r.Rekeningnummer).SequenceEqual(oudeVerdeling.Kostenrekeningen));
+        if (betaald && (verrekenMet is not null || !zelfdeVerdeling || !AlleenKostenplaatsen(vorige!.NaarDomein(), post, vorigePost!, open)))
         {
             return Uitkomst.Mislukt(Betaald(vorigePost!.Factuurnummer));
         }

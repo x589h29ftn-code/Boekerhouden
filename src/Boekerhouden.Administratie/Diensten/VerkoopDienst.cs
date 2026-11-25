@@ -495,7 +495,10 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
             return Uitkomst<string>.Mislukt(fout.Message.Split(" (Parameter", 2)[0]);
         }
 
-        if (Journaalcontrole.Controleer(post, schema, dagboeken).Concat(await KostenplaatsDienst.Fouten(db, post)).ToList() is { Count: > 0 } controle)
+        // Verdeeld: de kostenplaatsen staan niet in de factuurboeking maar op de maandboekingen; die ook controleren.
+        var verdeeldeKostenplaatsen = verdeling is null ? [] : await KostenplaatsDienst.Fouten(db, new Journaalpost("", "", default, "",
+            [.. factuur.Regels.Select(r => new Journaalregel("", 0m, Kostenplaats: r.Kostenplaats))]));
+        if (Journaalcontrole.Controleer(post, schema, dagboeken).Concat(await KostenplaatsDienst.Fouten(db, post)).Concat(verdeeldeKostenplaatsen).Distinct().ToList() is { Count: > 0 } controle)
         {
             return Uitkomst<string>.Mislukt([.. controle]);
         }
