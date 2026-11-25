@@ -29,6 +29,7 @@ dotnet ef migrations add <Naam> --project src/Boekerhouden.Administratie --conte
 BOEKERHOUDEN_TEST_SQLITE=1 dotnet test tests/Boekerhouden.Administratie.Tests   # administratiepakket op SQLite
 BOEKERHOUDEN_TESTSET=/tmp/testset dotnet test tests/Boekerhouden.Administratie.Tests --filter Schrijf_de_testset   # praktijkset + stappenlijst voor handmatig testen
 scripts/ui/herstart.sh && node scripts/ui/schermafbeeldingen.js /tmp/schermen voor   # browsercontrole en schermafbeeldingen
+scripts/ui/herstart.sh && node scripts/ui/kolombreedte.js /tmp/kolommen [1280]   # kolommen slepen: valt er iets buiten de tabel?
 ```
 
 Warnings zijn errors (`TreatWarningsAsErrors`). In cloudsessies installeert `.claude/hooks/session-start.sh`
@@ -65,7 +66,7 @@ migraties bij het starten zelf toe. Tests tegen het echte RGS-werkboek draaien a
   `Lokaal/` (`LokaleApp` = samenstelling voor de Windows-app: SQLite, lokale gebruiker zonder inloggen; `Werkwijze` = alleen, kantoorserver of werkplek; `Kantoorserver` = de webapp op het SQLite-bestand voor de andere pc's op kantoor, met eigen certificaat en inloggen met de sleutel van een gekoppelde werkplek (`ApparaatDienst`); `Werkplekverbinding` = de kant van de werkplek), `Identiteit/` (inloggen, beveiligingsheaders,
   tweestap verplicht voor de beheerder), `Components/` (schermen; accountpagina's statisch, de rest interactief).
   Negatieve toegangstests horen bij elke dienst. Geen inline scripts (CSP): JavaScript als los bestand in `wwwroot/`
-  (`thema.js` = licht/donker en dichtheid, `vormgeving.css` = de huidige uitstraling (wit inhoudsvlak, zijbalk met iconen en aantallen, Te doen, broodkruimel, animaties; zonder dit bestand is het de vorige), `donker.css` = de donkere kleuren; `factuurviewer.js` = de PDF-viewer met gebied aanwijzen; `factuurontwerp.js` = blokken slepen in de factuurontwerper; `kolommen.js` = kolombreedtes slepen, tabellen passend houden en de vaste kop (`AdministratieKader KopVast`); `rekeningkeuze.js` = het rekeningveld selecteren; pdf.js staat in `wwwroot/lib/pdfjs`, Apache-2.0).
+  (`thema.js` = licht/donker en dichtheid, `vormgeving.css` = de huidige uitstraling (wit inhoudsvlak, zijbalk met iconen en aantallen, Te doen, broodkruimel, animaties; zonder dit bestand is het de vorige), `donker.css` = de donkere kleuren; `factuurviewer.js` = de PDF-viewer met gebied aanwijzen; `factuurontwerp.js` = blokken slepen in de factuurontwerper; `kolommen.js` = kolombreedtes slepen (nooit smaller dan de inhoud; breder neemt eerst van de omschrijving), tabellen passend houden en de vaste kop (`AdministratieKader KopVast`); `rekeningkeuze.js` = het rekeningveld selecteren; pdf.js staat in `wwwroot/lib/pdfjs`, Apache-2.0).
 - `src/Boekerhouden.Administratie.Windows` – de Windows-app voor de tests: WinForms met BlazorWebView (dezelfde
   schermen, geen webserver), SQLite in `%LOCALAPPDATA%`, geen inloggen; als kantoorserver start hij de webapp in zijn
   eigen proces en is het venster (`Kantoorvenster`, WebView2) een werkplek van die server, net als op de andere pc's

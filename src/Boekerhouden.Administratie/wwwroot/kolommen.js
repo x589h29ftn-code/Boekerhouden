@@ -38,6 +38,73 @@ function vul(tabel, koppen, breedtes, rekt) {
     tabel.style.width = "100%";
 }
 
+// Wat een kolom minstens nodig heeft: de breedste inhoud die niet wordt afgekapt (bedragen, datums, kolomkoppen,
+// knoppen), met de opvulling van de cel. Tekst die afkapt (bijv. .text-truncate) telt niet mee, tekst die mag
+// teruglopen alleen met zijn langste woord; een bedrag telt altijd helemaal mee.
+// Gemeten zoals de tabel nu getekend is: past iets niet, dan steekt het uit en zie je hoe breed het is.
+const atomair = new Set(["BUTTON", "INPUT", "SELECT", "TEXTAREA", "IMG", "svg"]);
+
+function knipt(element, cel) {
+    // Een bedrag kapt nooit af, ook niet in een cel die afkapt (bijv. de grootboekkaart): dan zie je een half bedrag.
+    if (cel.matches(".bedrag, .text-end") || element.closest(".bedrag")) {
+        return false;
+    }
+
+    for (let e = element; e && e !== cel.parentElement; e = e.parentElement) {
+        if (getComputedStyle(e).overflowX !== "visible") {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function inhoud(cel) {
+    let links = Infinity, rechts = -Infinity;
+    const neem = r => { if (r.width > 0) { links = Math.min(links, r.left); rechts = Math.max(rechts, r.right); } };
+    const loper = document.createTreeWalker(cel, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+    for (let n = loper.nextNode(); n; n = loper.nextNode()) {
+        const element = n.nodeType === Node.TEXT_NODE ? n.parentElement : n;
+        if (element.closest(".kolomgreep") || knipt(element, cel)) {
+            continue;
+        }
+
+        if (n.nodeType === Node.TEXT_NODE) {
+            if (n.textContent.trim()) {
+                const bereik = document.createRange();
+                bereik.selectNodeContents(n);
+                [...bereik.getClientRects()].forEach(neem);
+            }
+        } else if (atomair.has(n.tagName)) {
+            neem(n.getBoundingClientRect());
+        }
+    }
+
+    if (rechts < links) {
+        return 0;
+    }
+
+    const stijl = getComputedStyle(cel);
+    return Math.ceil(rechts - links + parseFloat(stijl.paddingLeft) + parseFloat(stijl.paddingRight) + 1);
+}
+
+// Per kolom (index) wat hij nodig heeft; alleen de gevraagde kolommen. Cellen over meer kolommen tellen niet mee.
+function nodig(tabel, kolommen) {
+    const uitkomst = new Map(kolommen.map(i => [i, 0]));
+    for (const rij of tabel.rows) {
+        let kolom = 0;
+        for (const cel of rij.cells) {
+            if (cel.colSpan === 1 && uitkomst.has(kolom) && cel.offsetParent !== null) {
+                uitkomst.set(kolom, Math.max(uitkomst.get(kolom), inhoud(cel)));
+            }
+
+            kolom += cel.colSpan;
+        }
+    }
+
+    return uitkomst;
+}
+
 export function maak(tabel, sleutel) {
     if (!tabel || !tabel.tHead || tabel.dataset.kolommen) {
         return;
@@ -65,6 +132,24 @@ export function maak(tabel, sleutel) {
     if (ruimte > 0 && breedste >= 0 && ((rest > 0 && rest <= koppen.length + 2) || (rest < 0 && oorspronkelijk[breedste] + rest >= 80))) {
         oorspronkelijk[breedste] += rest;
     }
+    // Geen kolom smaller dan zijn inhoud (bijv. een kop die anders over de kolom ernaast loopt): wat erbij moet,
+    // gaat af van de kolommen die ruimer zijn dan ze nodig hebben, de breedste eerst. Lukt dat niet, dan wordt de
+    // tabel breder dan zijn kader en schuift het kader.
+    const minimum = nodig(tabel, koppen.map((_, i) => i));
+    koppen.forEach((_, i) => { oorspronkelijk[i] = Math.max(oorspronkelijk[i], minimum.get(i)); });
+    let teVeel = ruimte > 0 ? oorspronkelijk.reduce((a, b) => a + b, 0) - ruimte : 0;
+    while (teVeel > 0) {
+        const kandidaten = oorspronkelijk.map((b, i) => i).filter(i => !koppen[i].dataset.breedte && oorspronkelijk[i] > Math.max(80, minimum.get(i)));
+        if (kandidaten.length === 0) {
+            break;
+        }
+
+        const i = kandidaten.reduce((m, j) => oorspronkelijk[j] > oorspronkelijk[m] ? j : m, kandidaten[0]);
+        const af = Math.min(teVeel, oorspronkelijk[i] - Math.max(80, minimum.get(i)));
+        oorspronkelijk[i] -= af;
+        teVeel -= af;
+    }
+
     const rekbaar = koppen.findIndex(k => k.classList.contains("rekt"));
     // De kolom die meegeeft als de ruimte verandert: de kolom met class "rekt", anders de breedste.
     const meegevend = rekbaar >= 0 ? rekbaar : breedste;
@@ -86,6 +171,15 @@ export function maak(tabel, sleutel) {
         } else {
             zet(tabel, koppen, bewaard);
         }
+
+        // Eigen breedtes die te smal zijn geworden (bijv. grotere bedragen dan toen): de kolom wordt zo breed als nodig.
+        if (bewaard && bewaard.length === koppen.length) {
+            const breedtes = koppen.map(k => k.getBoundingClientRect().width);
+            const minimum = nodig(tabel, koppen.map((_, i) => i));
+            if (breedtes.some((b, i) => minimum.get(i) > b + 1)) {
+                zet(tabel, koppen, breedtes.map((b, i) => Math.max(b, minimum.get(i))));
+            }
+        }
     };
     tabel.style.tableLayout = "fixed";
     tabel.kolommenPas = pas;
@@ -101,6 +195,7 @@ export function maak(tabel, sleutel) {
             e.stopPropagation();
             try { localStorage.removeItem(voorvoegsel + sleutel); } catch { /* geen opslag */ }
             standaard();
+            past(tabel);
         });
         greep.addEventListener("pointerdown", e => {
             e.preventDefault();
@@ -109,16 +204,34 @@ export function maak(tabel, sleutel) {
             const breedtes = koppen.map(k => k.getBoundingClientRect().width);
             greep.setPointerCapture(e.pointerId);
             document.body.classList.add("kolom-slepen");
+            // Niet smaller dan de inhoud: anders lopen bedragen over de kolom ernaast heen. Eén keer gemeten, met de
+            // kolom zo smal mogelijk, zodat ook wat nu nog past maar straks niet meer, meetelt.
+            const smal = [...breedtes];
+            smal[i] = 36;
+            zet(tabel, koppen, smal);
+            const minimum = Math.max(36, nodig(tabel, [i]).get(i));
+            zet(tabel, koppen, breedtes);
+            // Wordt de kolom breder dan er ruimte is, dan geeft eerst de meegevende kolom (de omschrijving) toe, tot wat
+            // die zelf nodig heeft; pas daarna wordt de tabel breder dan zijn kader (en schuift het kader).
+            const ruimte = tabel.parentElement ? tabel.parentElement.clientWidth : 0;
+            const geeft = meegevend >= 0 && meegevend !== i ? Math.max(80, nodig(tabel, [meegevend]).get(meegevend)) : null;
             const beweeg = ev => {
                 const nieuw = [...breedtes];
-                nieuw[i] = Math.max(36, breedtes[i] + ev.clientX - start);
+                nieuw[i] = Math.max(minimum, breedtes[i] + ev.clientX - start);
+                const teVeel = nieuw.reduce((a, b) => a + b, 0) - ruimte;
+                if (geeft !== null && ruimte > 0 && teVeel > 0 && nieuw[i] > breedtes[i]) {
+                    nieuw[meegevend] -= Math.max(0, Math.min(teVeel, nieuw[meegevend] - geeft));
+                }
+
                 zet(tabel, koppen, nieuw);
+                past(tabel);
             };
             const los = () => {
                 greep.removeEventListener("pointermove", beweeg);
                 greep.removeEventListener("pointerup", los);
                 document.body.classList.remove("kolom-slepen");
                 bewaar(sleutel, koppen);
+                past(tabel);
             };
             greep.addEventListener("pointermove", beweeg);
             greep.addEventListener("pointerup", los);
@@ -128,13 +241,18 @@ export function maak(tabel, sleutel) {
 
 // Alleen een tabel die echt breder is dan zijn kader krijgt een horizontale schuifbalk (.te-breed); de andere
 // kaders scrollen niet zelf, zodat de kolomkoppen bovenaan het venster blijven staan bij het naar beneden scrollen.
+// Het kader is de kaart om de tabel (.overzichtskaart of .card), anders het element er direct omheen.
 const breedte = typeof ResizeObserver !== "undefined"
-    ? new ResizeObserver(items => items.forEach(i => past(i.target.closest(".overzichtskaart"))))
+    ? new ResizeObserver(items => items.forEach(i => past(i.target.matches("table") ? i.target : i.target.querySelector(":scope > table"))))
     : null;
 
-function past(kaart) {
-    const tabel = kaart && kaart.querySelector(":scope > table");
-    if (tabel) {
+function kaderVan(tabel) {
+    return tabel.parentElement;
+}
+
+function past(tabel) {
+    const kaart = tabel && kaderVan(tabel);
+    if (kaart) {
         if (tabel.kolommenPas && !document.body.classList.contains("kolom-slepen") && tabel.kolommenRuimte !== kaart.clientWidth) {
             tabel.kolommenRuimte = kaart.clientWidth;
             tabel.kolommenPas();
@@ -165,11 +283,13 @@ function koppelAlle() {
     document.querySelectorAll("table[data-sleepbaar]:not([data-kolommen])").forEach(t => {
         if (t.tHead && t.tHead.rows.length > 0 && t.offsetParent !== null) {
             maak(t, t.dataset.sleepbaar);
-            const kaart = t.parentElement && t.parentElement.closest(".overzichtskaart");
+            const kaart = kaderVan(t);
             if (kaart && breedte) {
                 breedte.observe(kaart);
                 breedte.observe(t);
             }
+
+            past(t);
         }
     });
 }
