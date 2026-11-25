@@ -215,6 +215,19 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     van een ander bedrijf, factuurnummer onder het label in twee kolommen, MT940-label na een afgebroken regel, CAMT
     over meerdere dagen. Bewust zo gelaten: een factuur op een andere naam op het eigen adres boekt wel vanzelf.
     Niet in het pakket (dus niet getest): KOR, margeregeling, ICP-opgave en oninbare vorderingen.
+30. **Twee jaar** (25 november): `Praktijk/TweejaarTests` doorloopt 2024 en 2025 tegen een eigen rekenmodel:
+    verkoop- en inkoopfacturen per maand (met `BOEKERHOUDEN_STRESS` ruim 500 van elk), creditfacturen en
+    inkoopcreditnota's die met de factuur in één betaling worden verrekend, deelbetalingen over de jaargrens, te veel
+    betaald, verzamelbetalingen, nooit betaald, een pand van 350.000 dat de bank rood zet tot de hypotheek komt
+    (aflossing en rente per maand), inventaris, een bestelbus die in 2025 met boekverlies wordt verkocht, afschrijven per
+    maand, btw per kwartaal vastleggen en betalen, perioden afsluiten, en aan het eind beginbalans 2025, open posten per
+    factuur, btw per kwartaal, activastaat, nummering, inkoop- en verkoopboek, automatiseringspercentage, auditfile
+    heen en terug en `Samenhang`. Uitkomst: geen verschillen (ook op SQLite; 500 + 500 in ruim een minuut).
+    `VerzamelbetalingTests`: een factuur die al los betaald is en daarna nog eens in een verzamelbetaling staat, wordt
+    niet vanzelf geboekt. Kanttekeningen voor de gebruiker: het standaardschema heeft geen rekeningen voor gebouwen (de
+    test maakt 0100/0110/4820 zelf aan); het afrondingsverschil van de btw-aangifte (in het voordeel van de ondernemer)
+    blijft op de btw-rekeningen staan en wordt niet naar het resultaat geboekt; de verkoopopbrengst bij een
+    desinvestering is zonder btw (de btw gaat via een verkoopfactuur).
 
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).
