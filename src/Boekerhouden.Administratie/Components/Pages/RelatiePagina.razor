@@ -30,7 +30,10 @@
                     <div class="col-md-3"><label class="form-label" for="rt">Standaardrekening inkoop</label><input id="rt" class="form-control form-control-sm" @bind="gegevens.Tegenrekening" /></div>
                     <div class="col-md-6">
                         <label class="form-label" for="ro" title="De omschrijving van de boeking bij een factuur van deze relatie, met variabelen als #maand en #factuurnummer. Gaat voor op de standaard van de administratie; een regel of de omschrijving op de factuur zelf gaat weer voor. Leeg = de standaard.">Omschrijving boeking</label>
-                        <input id="ro" class="form-control form-control-sm" maxlength="200" @bind="gegevens.Omschrijving" placeholder="zoals de administratie" />
+                        <div class="input-group input-group-sm">
+                            <input id="ro" class="form-control form-control-sm" maxlength="200" @bind="gegevens.Omschrijving" @bind:event="oninput" placeholder="zoals de administratie" />
+                            <Variabelekeuze @bind-Waarde="gegevens.Omschrijving" Soort="Variabelekeuze.Variabelesoort.Relatie" Klasse="form-select-sm" />
+                        </div>
                     </div>
                     @if (kostenplaatsen.Count > 0)
                     {

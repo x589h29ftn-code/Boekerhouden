@@ -70,7 +70,8 @@ public sealed record Factuurboekregel(
     decimal Btw,
     decimal Totaal,
     decimal Openstaand,
-    Guid? Document);
+    Guid? Document,
+    Verwerkingswijze Verwerking = Verwerkingswijze.Onbekend);
 
 /// <summary>De periodeverdeling van een geboekt document, zoals bewaard bij het document (JSON).</summary>
 /// <param name="Kostenplaatsen">De kostenplaats per regel: in de factuurboeking staat die niet op de verdeelrekening
@@ -562,6 +563,7 @@ public sealed class InkoopDienst(
         d.Soort = Documentsoort.Factuur;
         d.BoekingId = null;
         d.Melding = $"Boeking {boeking.Dagboek} {boeking.Boekstuk} is teruggedraaid.";
+        d.Verwerking = Verwerkingswijze.Onbekend;
         await db.SaveChangesAsync();
         await transactie.CommitAsync();
         await audit.Log(wie, AuditActies.BoekingTeruggedraaid, $"{boeking.Dagboek} {boeking.Boekstuk}", $"tegenboeking {boeking.Dagboek} {boekstuk}; {d.Bestandsnaam}", administratie);
@@ -1215,6 +1217,11 @@ public sealed class InkoopDienst(
         document.Status = Documentstatus.Geboekt;
         document.BoekingId = boeking.Id;
         document.Melding = automatisch ? "Automatisch geboekt." : null;
+        // Aanpassen door de gebruiker is handmatig, ook als de factuur eerst vanzelf geboekt was; alleen een andere
+        // kostenplaats verandert daar niets aan.
+        document.Verwerking = automatisch || (document.Verwerking == Verwerkingswijze.Autocodering && vorige is not null && vorigePost is not null
+            && oudeVerdeling is null && verdeling is null && AlleenKostenplaatsen(vorige.NaarDomein(), post, vorigePost, open))
+            ? Verwerkingswijze.Autocodering : Verwerkingswijze.Handmatig;
 
         // Leren: de keuze van de gebruiker (of het automatisch gevolgde advies) onder de sleutel van de leverancier, met
         // het bedrag, het IBAN en de postcodes van deze factuur; daaraan herkent het pakket later een afwijking. Een

@@ -101,6 +101,7 @@ public sealed class AbonnementTests(AdministratieFixture app) : IClassFixture<Ad
         var factuur = (await app.Dienst<VerkoopDienst>().Open(wie, id, verslag.Facturen[0].Id))!;
         Assert.Equal("Onderhoud 2026", factuur.Factuur.Omschrijving);
         Assert.Equal(12, factuur.Verdeelboekstukken.Count);
+        Assert.Equal(Verwerkingswijze.Automatisch, Assert.Single(await app.Dienst<VerkoopDienst>().Verkoopboek(wie, id, new(2026, 1, 1), new(2026, 12, 31))).Verwerking);
         var grootboek = app.Dienst<GrootboekDienst>();
         Assert.Equal(-300m, (await grootboek.Kaart(wie, id, "8000", new(2026, 1, 1), new(2026, 3, 31))).Eindsaldo);
         Assert.Equal(-900m, (await grootboek.Kaart(wie, id, "1710", new(2026, 1, 1), new(2026, 3, 31))).Eindsaldo);

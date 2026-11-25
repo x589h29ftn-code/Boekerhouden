@@ -192,8 +192,11 @@ else
     private RenderFragment VeldOmschrijving => @<text>
     <div class="col-12">
         <label class="form-label" for="standaardomschrijving" title="@($"{Variabelen}{LeegRelatie}")">Omschrijving inkoopfactuur</label>
-        <input id="standaardomschrijving" class="form-control" @bind="Invoer.Omschrijving" @bind:event="oninput" maxlength="200"
-               placeholder="@(Grijs(Kantoor?.Omschrijving) ?? "bijv. #leverancier #factuurnummer #maand")" />
+        <div class="input-group">
+            <input id="standaardomschrijving" class="form-control" @bind="Invoer.Omschrijving" @bind:event="oninput" maxlength="200"
+                   placeholder="@(Grijs(Kantoor?.Omschrijving) ?? "bijv. #leverancier #factuurnummer #maand")" />
+            <Variabelekeuze @bind-Waarde="Invoer.Omschrijving" Soort="Variabelekeuze.Variabelesoort.Inkoop" />
+        </div>
         @if (Omschrijvingssjabloon.IsSjabloon(Invoer.Omschrijving ?? Kantoor?.Omschrijving))
         {
             <div class="small text-secondary mt-1" title="Voorbeeld">@Omschrijvingssjabloon.Vul((Invoer.Omschrijving ?? Kantoor?.Omschrijving)!, Voorbeeld)</div>
@@ -204,8 +207,11 @@ else
     private RenderFragment VeldOmschrijvingVerkoop => @<text>
     <div class="col-12">
         <label class="form-label" for="standaardomschrijving-verkoop" title="@($"{Variabelen}{LeegRelatie}")">Omschrijving ingelezen verkoopfactuur</label>
-        <input id="standaardomschrijving-verkoop" class="form-control" @bind="Invoer.OmschrijvingVerkoop" @bind:event="oninput" maxlength="200"
-               placeholder="@(Grijs(Kantoor?.OmschrijvingVerkoop) ?? "bijv. Verkoop #klant #maandnr-#jaar")" />
+        <div class="input-group">
+            <input id="standaardomschrijving-verkoop" class="form-control" @bind="Invoer.OmschrijvingVerkoop" @bind:event="oninput" maxlength="200"
+                   placeholder="@(Grijs(Kantoor?.OmschrijvingVerkoop) ?? "bijv. Verkoop #klant #maandnr-#jaar")" />
+            <Variabelekeuze @bind-Waarde="Invoer.OmschrijvingVerkoop" Soort="Variabelekeuze.Variabelesoort.Verkoop" />
+        </div>
         @if (Omschrijvingssjabloon.IsSjabloon(Invoer.OmschrijvingVerkoop ?? Kantoor?.OmschrijvingVerkoop))
         {
             <div class="small text-secondary mt-1" title="Voorbeeld">@Omschrijvingssjabloon.Vul((Invoer.OmschrijvingVerkoop ?? Kantoor?.OmschrijvingVerkoop)!, Voorbeeld)</div>

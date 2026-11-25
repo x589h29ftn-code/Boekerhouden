@@ -347,6 +347,7 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
         var belnet = await db.Banktransacties.SingleAsync(t => t.Bedrag == -24.99m);
         Assert.Equal(Banktransactiestatus.Geboekt, belnet.Status);
         Assert.StartsWith("Afgeletterd", belnet.Melding, StringComparison.Ordinal);
+        Assert.Equal(Verwerkingswijze.Afgeletterd, belnet.Verwerking);
         var proef = await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026);
         Assert.Equal((0m, -24.99m), (Saldo(proef, "1600"), Saldo(proef, "1100")));
         Assert.Empty(await app.Dienst<GrootboekDienst>().ControleerKeten(wie, id));
@@ -392,6 +393,7 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
         var uitkomst = await bank.OpRekening(wie, id, jansen.Id, "4300", "I21", "Kantoorartikelen");
 
         Assert.True(uitkomst.IsGelukt, string.Join("; ", uitkomst.Fouten));
+        Assert.Equal(Verwerkingswijze.Handmatig, (await bank.Lijst(wie, id, ookGeboekt: true)).Single(m => m.Id == jansen.Id).Verwerking);
         var proef = await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026);
         Assert.Equal((165m, 34.65m, -199.65m), (Saldo(proef, "4300"), Saldo(proef, "1500"), Saldo(proef, "1100")));
         await using (var db = await app.Dienst<Toegang>().Open(wie, id, Recht.Lezen))
@@ -421,6 +423,9 @@ public sealed class BankTests(AdministratieFixture app) : IClassFixture<Administ
         var april = await bank.Lees(wie, id, Afschrift(april: true), "april.mt940");
 
         Assert.Equal(1, april.Waarde!.Automatisch);
+        var lijst = await bank.Lijst(wie, id, ookGeboekt: true);
+        Assert.Equal(Verwerkingswijze.Autocodering, lijst.Single(m => m.Bedrag == -199.65m && m.Datum.Month == 4).Verwerking);
+        Assert.All(lijst.Where(m => m.Status == Banktransactiestatus.TeVerwerken), m => Assert.Equal(Verwerkingswijze.Onbekend, m.Verwerking));
         Assert.Equal(165m, Saldo(await app.Dienst<GrootboekDienst>().Proefbalans(wie, id, 2026), "4300"));
         // De vaste omschrijving van de regel, met de maand en het jaar van de mutatie.
         var kaart = await app.Dienst<GrootboekDienst>().Kaart(wie, id, "4300", new(2026, 4, 1), new(2026, 4, 30));

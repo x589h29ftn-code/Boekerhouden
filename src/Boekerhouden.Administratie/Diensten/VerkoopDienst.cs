@@ -345,7 +345,11 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
     /// betalingskenmerk, boekt hem en maakt de openstaande post; bij een creditfactuur ook de verrekening met de
     /// gecrediteerde factuur. Geeft het nummer.
     /// </summary>
-    public async Task<Uitkomst<string>> MaakDefinitief(Uitvoerder wie, Guid administratie, Guid id)
+    public async Task<Uitkomst<string>> MaakDefinitief(Uitvoerder wie, Guid administratie, Guid id) =>
+        await MaakDefinitief(wie, administratie, id, Verwerkingswijze.Handmatig);
+
+    /// <summary>Idem, met hoe de factuur geboekt wordt: vanzelf (ingelezen van een bekende klant, terugkerend) of door de gebruiker.</summary>
+    internal async Task<Uitkomst<string>> MaakDefinitief(Uitvoerder wie, Guid administratie, Guid id, Verwerkingswijze wijze)
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Invoeren);
         if (await db.Verkoopdocumenten.Include(v => v.Regels).FirstOrDefaultAsync(v => v.Id == id) is not { } document)
@@ -552,6 +556,7 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
             BoekingId = boeking.Id,
         });
         document.Status = Verkoopstatus.Definitief;
+        document.Verwerking = wijze;
         document.Nummer = nummer;
         document.Betalingskenmerk = kenmerk;
         document.Omschrijving = factuur.Omschrijving;

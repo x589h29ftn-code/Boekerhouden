@@ -87,7 +87,7 @@ public sealed class BankDagboekcontroleTests(AdministratieFixture app) : IClassF
         Assert.True((await dienst.TerugNaarTeVerwerken(wie, id, verschil.Mutatie!.Value)).IsGelukt);
 
         var terug = Assert.Single(await dienst.Lijst(wie, id));
-        Assert.Equal(-199.65m, terug.Bedrag);
+        Assert.Equal((-199.65m, Verwerkingswijze.Onbekend), (terug.Bedrag, terug.Verwerking));
         Assert.Contains($"De boeking {stuk} stond niet meer op de bank", terug.Melding, StringComparison.Ordinal);
         var na = await Bank(wie, id);
         Assert.Empty(na.Verschillen!);

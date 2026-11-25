@@ -1,0 +1,50 @@
+@using Boekerhouden.Boekhouding.Facturen
+@* Een keuzelijst naast een omschrijvingsveld (in een .input-group): kies een variabele en hij komt achter de tekst. *@
+<select @key="teller" class="form-select flex-grow-0 variabelekeuze @Klasse" aria-label="Variabele invoegen" title="Variabele invoegen" @onchange="Voeg">
+    <option value="">#</option>
+    @foreach (var (naam, betekenis) in Omschrijvingssjabloon.Variabelen.Where(v => Soort switch
+    {
+        Variabelesoort.Inkoop => v.Naam is not ("#klant" or "#tegenpartij"),
+        Variabelesoort.Verkoop => v.Naam is not ("#leverancier" or "#tegenpartij"),
+        Variabelesoort.Relatie => v.Naam != "#tegenpartij",
+        _ => true,
+    }))
+    {
+        <option value="@naam" title="@betekenis">@naam</option>
+    }
+</select>
+
+@code {
+    private int teller;
+
+    [Parameter]
+    public string? Waarde { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> WaardeChanged { get; set; }
+
+    /// <summary>Welke variabelen passen: bij inkoop geen #klant, bij verkoop geen #leverancier, bij een bankregel alles.</summary>
+    [Parameter]
+    public Variabelesoort Soort { get; set; }
+
+    [Parameter]
+    public string? Klasse { get; set; }
+
+    private async Task Voeg(ChangeEventArgs e)
+    {
+        if (e.Value is string { Length: > 0 } variabele)
+        {
+            await WaardeChanged.InvokeAsync($"{Waarde?.TrimEnd()} {variabele}".TrimStart());
+        }
+
+        teller++;
+    }
+
+    public enum Variabelesoort
+    {
+        Alles,
+        Inkoop,
+        Verkoop,
+        Relatie,
+    }
+}

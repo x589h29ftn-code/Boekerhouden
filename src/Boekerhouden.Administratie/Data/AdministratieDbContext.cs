@@ -324,6 +324,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(d => d.Inhoudstype).HasMaxLength(100);
             e.Property(d => d.Sha256).HasMaxLength(64).IsFixedLength();
             e.Property(d => d.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(d => d.Verwerking).HasConversion<string>().HasMaxLength(20).HasDefaultValue(Verwerkingswijze.Onbekend);
             e.Property(d => d.Soort).HasConversion<string>().HasMaxLength(20);
             if (Database.IsNpgsql())
             {
@@ -488,6 +489,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.Property(t => t.EndToEndId).HasMaxLength(100);
             e.Property(t => t.Sleutel).HasMaxLength(64).IsFixedLength();
             e.Property(t => t.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(t => t.Verwerking).HasConversion<string>().HasMaxLength(20).HasDefaultValue(Verwerkingswijze.Onbekend);
             e.Property(t => t.Melding).HasMaxLength(1000);
             e.HasOne<Afschrift>().WithMany().HasForeignKey(t => t.AfschriftId);
         });
@@ -533,6 +535,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.HasIndex(v => new { v.AdministratieId, v.Nummer }).IsUnique();
             e.HasIndex(v => new { v.AdministratieId, v.Status, v.Datum });
             e.Property(v => v.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(v => v.Verwerking).HasConversion<string>().HasMaxLength(20).HasDefaultValue(Verwerkingswijze.Onbekend);
             e.Property(v => v.Nummer).HasMaxLength(30);
             e.Property(v => v.Relatie).HasMaxLength(50);
             e.Property(v => v.Klantgegevens).HasMaxLength(4000);

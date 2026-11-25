@@ -61,6 +61,7 @@ public sealed class VerkoopimportTests(AdministratieFixture app) : IClassFixture
         Assert.Equal(["V9", "V21"], factuur.Factuur.Regels.Select(r => r.BtwCode));
         var boek = Assert.Single(await app.Dienst<VerkoopDienst>().Verkoopboek(wie, id, new(2026, 1, 1), new(2026, 12, 31)));
         Assert.Equal(("OUD-2026-077", 466.25m, 466.25m), (boek.Factuurnummer, boek.Totaal, boek.Openstaand));
+        Assert.Equal(Verwerkingswijze.Automatisch, boek.Verwerking);
         var bestand = (await import.Bestand(wie, id, uitkomst.Id.Value))!.Value;
         Assert.Equal(("application/xml", "oud-077.xml"), (bestand.Inhoudstype, bestand.Bestandsnaam));
     }
@@ -84,6 +85,8 @@ public sealed class VerkoopimportTests(AdministratieFixture app) : IClassFixture
         Assert.True((await verkoop.Bewaar(wie, id, concept.Id, concept.Invoer with { Relatie = klant })).IsGelukt);
         Assert.Equal("2026-500", (await verkoop.MaakDefinitief(wie, id, concept.Id)).Waarde);
         Assert.Null((await verkoop.Open(wie, id, concept.Id))!.Melding);
+        // De klant moest gekozen worden: handmatig.
+        Assert.Equal(Verwerkingswijze.Handmatig, Assert.Single(await verkoop.Verkoopboek(wie, id, new(2026, 1, 1), new(2026, 12, 31))).Verwerking);
     }
 
     [Fact]

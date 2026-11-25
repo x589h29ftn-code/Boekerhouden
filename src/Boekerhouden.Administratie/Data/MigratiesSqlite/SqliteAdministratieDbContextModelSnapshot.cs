@@ -825,6 +825,13 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasMaxLength(300)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Verwerking")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("Onbekend");
+
                     b.Property<int>("Volgorde")
                         .HasColumnType("INTEGER");
 
@@ -1393,6 +1400,13 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
 
                     b.Property<string>("Verdeling")
                         .HasColumnType("TEXT");
+
+                    b.Property<string>("Verwerking")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("Onbekend");
 
                     b.HasKey("Id");
 
@@ -2195,6 +2209,13 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
 
                     b.Property<DateOnly>("Vervaldatum")
                         .HasColumnType("TEXT");
+
+                    b.Property<string>("Verwerking")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("Onbekend");
 
                     b.HasKey("Id");
 

@@ -22,7 +22,12 @@ internal static class Factuurboek
         var boekingen = await db.Boekingen.AsNoTracking().Include(b => b.Regels).Where(b => boekingIds.Contains(b.Id)).ToDictionaryAsync(b => b.Id);
         var namen = await db.Relaties.AsNoTracking().ToDictionaryAsync(r => r.Code, r => r.Naam);
         var gemaakt = soort == Factuursoort.Verkoop
-            ? await db.Verkoopdocumenten.AsNoTracking().Where(v => v.BoekingId != null && boekingIds.Contains(v.BoekingId.Value)).ToDictionaryAsync(v => v.BoekingId!.Value, v => v.Id)
+            ? await db.Verkoopdocumenten.AsNoTracking().Where(v => v.BoekingId != null && boekingIds.Contains(v.BoekingId.Value))
+                .ToDictionaryAsync(v => v.BoekingId!.Value, v => (v.Id, v.Verwerking))
+            : [];
+        var documentIds = posten.Select(p => p.DocumentId).OfType<Guid>().ToList();
+        var ingelezen = soort == Factuursoort.Inkoop
+            ? await db.Documenten.AsNoTracking().Where(d => documentIds.Contains(d.Id)).ToDictionaryAsync(d => d.Id, d => d.Verwerking)
             : [];
         var (schema, _) = await GrootboekDienst.Inrichting(db);
         bool IsBtw(Boekingsregel r) => schema.Zoek(r.Rekeningnummer)?.Functie is Rekeningfunctie.Voorbelasting or Rekeningfunctie.AfTeDragenBtw;
@@ -36,9 +41,10 @@ internal static class Factuurboek
                 var boeking = boekingen[p.BoekingId];
                 var totaal = teken * p.Bedrag;
                 var btw = -teken * boeking.Regels.Where(IsBtw).Sum(r => r.Bedrag);
-                var document = gemaakt.TryGetValue(p.BoekingId, out var v) ? v : p.DocumentId;
+                var (document, verwerking) = gemaakt.TryGetValue(p.BoekingId, out var v) ? (v.Id, v.Verwerking)
+                    : (p.DocumentId, p.DocumentId is { } d && ingelezen.TryGetValue(d, out var w) ? w : Verwerkingswijze.Onbekend);
                 return new Factuurboekregel(p.Datum, boeking.Dagboek, boeking.Boekstuk, p.Relatie, namen.GetValueOrDefault(p.Relatie, p.Relatie),
-                    p.Factuurnummer, boeking.Omschrijving, totaal - btw, btw, totaal, teken * p.Openstaand, document);
+                    p.Factuurnummer, boeking.Omschrijving, totaal - btw, btw, totaal, teken * p.Openstaand, document, verwerking);
             })
             .OrderBy(r => r.Datum).ThenBy(r => r.Boekstuk, StringComparer.Ordinal),
         ];

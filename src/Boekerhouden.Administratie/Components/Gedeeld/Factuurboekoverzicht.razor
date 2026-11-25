@@ -13,6 +13,11 @@
             var zichtbaar = Gefilterd.ToList();
             @* Alleen het aantal (zoals "3 te verwerken" op het andere tabblad); het totaal en wat open staat, staan onder de tabel. *@
             <span>@zichtbaar.Count @(zichtbaar.Count == 1 ? "factuur" : "facturen") @(alleJaren ? "in alle jaren" : $"in {Periodetekst}")</span>
+            @if (Automatisering.Percentage(zichtbaar.Select(r => r.Verwerking)) is { Procent: { } procent } automatisch)
+            {
+                <span class="scheiding">·</span>
+                <span title="@automatisch.Uitleg">@procent% vanzelf geboekt</span>
+            }
         }
     </Kenmerken>
     <Acties>
@@ -84,6 +89,7 @@
                                 <td title="@r.Relatie">@r.Leverancier</td>
                                 <td>@r.Factuurnummer</td>
                                 <td class="omschrijving" title="@r.Omschrijving">@r.Omschrijving</td>
+                                <td class="small text-secondary text-nowrap" title="@Automatisering.Uitleg(r.Verwerking)">@Automatisering.Naam(r.Verwerking)</td>
                                 <td class="bedrag text-end">@Weergave.Bedrag(r.Exclusief)</td>
                                 <td class="bedrag text-end">@Weergave.Bedrag(r.Btw)</td>
                                 <td class="bedrag text-end">@Weergave.Bedrag(r.Totaal)</td>
@@ -93,7 +99,7 @@
                     </tbody>
                     <tfoot>
                         <tr class="generaal">
-                            <td colspan="5">Totaal (@zichtbaar.Count @(zichtbaar.Count == 1 ? "factuur" : "facturen"))</td>
+                            <td colspan="6">Totaal (@zichtbaar.Count @(zichtbaar.Count == 1 ? "factuur" : "facturen"))</td>
                             <td class="bedrag text-end">@Weergave.Bedrag(zichtbaar.Sum(r => r.Exclusief))</td>
                             <td class="bedrag text-end">@Weergave.Bedrag(zichtbaar.Sum(r => r.Btw))</td>
                             <td class="bedrag text-end">@Weergave.Bedrag(zichtbaar.Sum(r => r.Totaal))</td>
@@ -157,6 +163,7 @@
         new("Relatie", r => r.Leverancier.ToUpperInvariant(), EerstOplopend: true),
         new("Factuur", r => r.Factuurnummer.ToUpperInvariant(), EerstOplopend: true),
         new("Omschrijving", r => r.Omschrijving.ToUpperInvariant(), EerstOplopend: true),
+        new("Verwerking", r => Automatisering.Naam(r.Verwerking), EerstOplopend: true),
         new("Excl. btw", r => r.Exclusief, Bedrag: true),
         new("Btw", r => r.Btw, Bedrag: true),
         new("Totaal", r => r.Totaal, Bedrag: true),

@@ -524,6 +524,9 @@ public sealed class Document : IVanAdministratie
     /// kostenrekeningen per regel en de boekstukken per maand); leeg zonder verdeling.
     /// </summary>
     public string? Verdeling { get; set; }
+
+    /// <summary>Hoe de factuur geboekt is (handmatig of door autocodering); onbekend als hij niet geboekt is.</summary>
+    public Verwerkingswijze Verwerking { get; set; }
 }
 
 public sealed class DocumentInhoud : IVanAdministratie
@@ -747,6 +750,21 @@ public sealed class Afschrift : IVanAdministratie
     public string IngelezenDoor { get; set; } = string.Empty;
 }
 
+/// <summary>
+/// Hoe een bankmutatie of factuur geboekt is, voor het automatiseringspercentage: door de gebruiker, door een regel of
+/// wat Sifer geleerd heeft (autocodering), automatisch afgeletterd op een openstaande post, of anders automatisch (een
+/// ingelezen verkoopfactuur van een bekende klant, een terugkerende factuur). Onbekend: niet geboekt, of geboekt voordat
+/// dit werd bijgehouden.
+/// </summary>
+public enum Verwerkingswijze
+{
+    Onbekend,
+    Handmatig,
+    Autocodering,
+    Afgeletterd,
+    Automatisch,
+}
+
 public enum Banktransactiestatus
 {
     TeVerwerken,
@@ -802,6 +820,9 @@ public sealed class Banktransactie : IVanAdministratie
     /// niet automatisch verwerken tot de gebruiker hem verwijdert of zegt dat hij niet dubbel is.
     /// </summary>
     public bool MogelijkDubbel { get; set; }
+
+    /// <summary>Hoe de mutatie geboekt is: handmatig, door autocodering of automatisch afgeletterd.</summary>
+    public Verwerkingswijze Verwerking { get; set; }
 
     public Boekhouding.Bank.Bankmutatie NaarDomein() => new(Datum, Bedrag, Omschrijving, TegenIban, TegenNaam, Betalingskenmerk, EndToEndId);
 }
@@ -890,6 +911,9 @@ public sealed class Verkoopdocument : IVanAdministratie
 
     /// <summary>De periodeverdeling (JSON: periode, verdeelrekening en de boekstukken per maand); leeg zonder verdeling.</summary>
     public string? Verdeling { get; set; }
+
+    /// <summary>Hoe de factuur geboekt is: zelf definitief gemaakt (handmatig) of vanzelf (ingelezen van een bekende klant, terugkerend).</summary>
+    public Verwerkingswijze Verwerking { get; set; }
 
     /// <summary>De lay-out waarmee de factuur wordt opgemaakt; leeg = de standaard van de administratie.</summary>
     public Guid? LayoutId { get; set; }

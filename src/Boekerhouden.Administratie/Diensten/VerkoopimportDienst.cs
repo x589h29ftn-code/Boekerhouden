@@ -145,7 +145,7 @@ public sealed class VerkoopimportDienst(
 
         if (zonderBelemmering)
         {
-            var geboekt = await verkoop.MaakDefinitief(wie, administratie, id);
+            var geboekt = await verkoop.MaakDefinitief(wie, administratie, id, Verwerkingswijze.Automatisch);
             if (geboekt.IsGelukt)
             {
                 return new(id, true, $"{naam}: factuur {geboekt.Waarde} geboekt.");

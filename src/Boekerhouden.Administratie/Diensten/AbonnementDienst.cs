@@ -254,7 +254,7 @@ public sealed class AbonnementDienst(Toegang toegang, VerkoopDienst verkoop, Aud
             string? nummer = null;
             if (automatisch)
             {
-                var definitief = await verkoop.MaakDefinitief(wie, administratie, id);
+                var definitief = await verkoop.MaakDefinitief(wie, administratie, id, Verwerkingswijze.Automatisch);
                 if (definitief.IsGelukt)
                 {
                     nummer = definitief.Waarde;

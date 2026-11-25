@@ -63,7 +63,8 @@ public sealed record BankmutatieRegel(
     string? Melding,
     string? Betalingskenmerk = null,
     string? EndToEndId = null,
-    bool MogelijkDubbel = false);
+    bool MogelijkDubbel = false,
+    Verwerkingswijze Verwerking = Verwerkingswijze.Onbekend);
 
 /// <summary>Een openstaande post in de werklijst, met de naam van de relatie en het document.</summary>
 /// <param name="Openstaand">Zoals in het grootboek: te ontvangen positief, te betalen negatief.</param>
@@ -619,6 +620,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         ConceptWeg(db, t.Id);
         t.BoekingId = boeking.Id;
         t.Melding = null;
+        t.Verwerking = Verwerkingswijze.Handmatig;
         db.Banktransacties.Update(t);
         await db.SaveChangesAsync();
         await transactie.CommitAsync();
@@ -1097,6 +1099,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         ConceptWeg(db, t.Id);
         t.BoekingId = boeking.Id;
         t.Melding = reden;
+        t.Verwerking = reden is null ? Verwerkingswijze.Handmatig : Verwerkingswijze.Afgeletterd;
         db.Banktransacties.Update(t);
         await db.SaveChangesAsync();
         await transactie.CommitAsync();
@@ -1178,6 +1181,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         ConceptWeg(db, t.Id);
         t.BoekingId = boeking.Id;
         t.Melding = reden;
+        t.Verwerking = reden is null ? Verwerkingswijze.Handmatig : Verwerkingswijze.Autocodering;
         db.Banktransacties.Update(t);
 
         // Leren, zoals bij een inkoopfactuur: de keuze met het bedrag en het IBAN van deze mutatie.
@@ -1344,7 +1348,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         }
 
         var stuk = t.BoekingId is { } vorige ? await db.Boekingen.AsNoTracking().Where(b => b.Id == vorige).Select(b => b.Dagboek + " " + b.Boekstuk).FirstOrDefaultAsync() : null;
-        (t.Status, t.BoekingId, t.Melding) = (Banktransactiestatus.TeVerwerken, null, Kort($"De boeking{(stuk is null ? null : $" {stuk}")} stond niet meer op de bank; opnieuw te verwerken.", 1000));
+        (t.Status, t.BoekingId, t.Verwerking, t.Melding) = (Banktransactiestatus.TeVerwerken, null, Verwerkingswijze.Onbekend, Kort($"De boeking{(stuk is null ? null : $" {stuk}")} stond niet meer op de bank; opnieuw te verwerken.", 1000));
         await db.SaveChangesAsync();
         await audit.Log(wie, AuditActies.BankmutatieTerug, $"{t.Dagboek} {t.Datum:dd-MM-yyyy} {t.Bedrag:0.00}", stuk, administratie);
         return Uitkomst.Gelukt;
@@ -1551,7 +1555,7 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         await db.Banktransacties.FirstOrDefaultAsync(t => t.Id == mutatie && t.Status == Banktransactiestatus.TeVerwerken);
 
     private static BankmutatieRegel Regel(Banktransactie t) =>
-        new(t.Id, t.Dagboek, t.Datum, t.Bedrag, t.Omschrijving, t.TegenNaam, t.TegenIban, t.Status, t.Melding, t.Betalingskenmerk, t.EndToEndId, t.MogelijkDubbel);
+        new(t.Id, t.Dagboek, t.Datum, t.Bedrag, t.Omschrijving, t.TegenNaam, t.TegenIban, t.Status, t.Melding, t.Betalingskenmerk, t.EndToEndId, t.MogelijkDubbel, t.Verwerking);
 
     /// <summary>Een tussentijds bewaard concept van een mutatie die nu geboekt of verwijderd is: weg (anders komt het terug).</summary>
     private static void ConceptWeg(AdministratieDbContext db, Guid mutatie) =>

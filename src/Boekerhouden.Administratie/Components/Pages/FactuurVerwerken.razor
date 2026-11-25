@@ -248,13 +248,7 @@
                                 <div>
                                     <div class="input-group">
                                         <input id="omschrijving" class="form-control @Doel("omschrijving")" @bind="omschrijving" @bind:event="oninput" data-doel="omschrijving" data-doelnaam="Omschrijving" @onfocus='() => Kies("omschrijving", "Omschrijving")' />
-                                        <select @key="variabeleKeuze" class="form-select flex-grow-0 variabelekeuze" aria-label="Variabele invoegen" title="Variabele invoegen" @onchange="VoegVariabeleToe">
-                                            <option value="">#</option>
-                                            @foreach (var (naam, betekenis) in Omschrijvingssjabloon.Variabelen.Where(v => v.Naam != "#klant" && v.Naam != "#tegenpartij"))
-                                            {
-                                                <option value="@naam" title="@betekenis">@naam</option>
-                                            }
-                                        </select>
+                                        <Variabelekeuze Waarde="@omschrijving" WaardeChanged="w => omschrijving = w ?? string.Empty" Soort="Variabelekeuze.Variabelesoort.Inkoop" />
                                     </div>
                                     @if (Omschrijvingssjabloon.IsSjabloon(omschrijving))
                                     {
@@ -530,7 +524,6 @@
     private string doelNaam = "Omschrijving";
     private bool losVenster;
     private string? overgenomen;
-    private int variabeleKeuze;
 
     // Velden die de herkenning niet vond of niet op de factuur terugvond, met de reden (tooltip).
     private readonly Dictionary<string, string> onzeker = [];
@@ -1085,16 +1078,6 @@
     {
         losVenster = false;
         await InvokeAsync(StateHasChanged);
-    }
-
-    private void VoegVariabeleToe(ChangeEventArgs e)
-    {
-        if (e.Value is string { Length: > 0 } variabele)
-        {
-            omschrijving = $"{omschrijving.TrimEnd()} {variabele}".TrimStart();
-        }
-
-        variabeleKeuze++;
     }
 
     /// <summary>Een regel erbij (uitsplitsen): met wat er nog niet verdeeld is ten opzichte van het factuurtotaal.</summary>

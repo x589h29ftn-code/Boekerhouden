@@ -839,6 +839,13 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
+                    b.Property<string>("Verwerking")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Onbekend");
+
                     b.Property<int>("Volgorde")
                         .HasColumnType("integer");
 
@@ -1415,6 +1422,13 @@ namespace Boekerhouden.Administratie.Data.Migraties
 
                     b.Property<string>("Verdeling")
                         .HasColumnType("text");
+
+                    b.Property<string>("Verwerking")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Onbekend");
 
                     b.HasKey("Id");
 
@@ -2223,6 +2237,13 @@ namespace Boekerhouden.Administratie.Data.Migraties
 
                     b.Property<DateOnly>("Vervaldatum")
                         .HasColumnType("date");
+
+                    b.Property<string>("Verwerking")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Onbekend");
 
                     b.HasKey("Id");
 

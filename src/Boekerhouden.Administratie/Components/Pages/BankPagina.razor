@@ -210,6 +210,10 @@
                         <input class="form-check-input" type="checkbox" id="ookgeboekt" checked="@ookGeboekt" @onchange="WisselGeboekt" />
                         <label class="form-check-label small text-secondary" for="ookgeboekt">Ook geboekt</label>
                     </span>
+                    @if (ookGeboekt && Automatisering.Percentage((mutaties ?? []).Where(PastFilter).Where(m => m.Status == Banktransactiestatus.Geboekt).Select(m => m.Verwerking)) is { Procent: { } procent } automatisch)
+                    {
+                        <span class="small text-secondary automatisering" title="@automatisch.Uitleg">@procent% vanzelf geboekt</span>
+                    }
                 }
             </div>
         }
@@ -298,7 +302,8 @@
                     <Foutmeldingen Fouten="fouten" />
                 }
                 <div class="card">
-                    <table class="table table-sm table-hover align-middle mb-0 bankmutaties @(geselecteerd.Count > 0 ? "met-keuze" : null)" data-sleepbaar="bankmutaties">
+                    @* Met Ook geboekt een kolom meer: een nieuwe tabel (eigen kolombreedtes), anders klopt de verdeling van kolommen.js niet. *@
+                    <table @key="ookGeboekt" class="table table-sm table-hover align-middle mb-0 bankmutaties @(geselecteerd.Count > 0 ? "met-keuze" : null)" data-sleepbaar="@(ookGeboekt ? "bankmutaties-geboekt" : "bankmutaties")">
                         <thead>
                             <tr>
                                 @if (mag)
@@ -314,6 +319,10 @@
                                     <SorteerKop Sortering="mutatiesortering" Naam="Rekening" Breedte="140" Gewijzigd="StateHasChanged" />
                                 }
                                 <SorteerKop Sortering="mutatiesortering" Naam="Tegenpartij" Tekst="Tegenpartij en omschrijving" Klasse="rekt" Gewijzigd="StateHasChanged" />
+                                @if (ookGeboekt)
+                                {
+                                    <SorteerKop Sortering="mutatiesortering" Naam="Verwerking" Breedte="120" Gewijzigd="StateHasChanged" />
+                                }
                                 <SorteerKop Sortering="mutatiesortering" Naam="Bedrag" Klasse="text-end" Breedte="128" Gewijzigd="StateHasChanged" />
                             </tr>
                             <tr class="filterrij">
@@ -327,6 +336,19 @@
                                     <th></th>
                                 }
                                 <th><input class="form-control form-control-sm" placeholder="Filter op naam of omschrijving" aria-label="Filter op naam of omschrijving" @bind="filterTekst" @bind:event="oninput" /></th>
+                                @if (ookGeboekt)
+                                {
+                                    <th>
+                                        <select class="form-select form-select-sm" aria-label="Filter op verwerking" @bind="filterVerwerking">
+                                            <option value="">Alles</option>
+                                            <option value="open">te verwerken</option>
+                                            @foreach (var w in new[] { Verwerkingswijze.Handmatig, Verwerkingswijze.Autocodering, Verwerkingswijze.Afgeletterd })
+                                            {
+                                                <option value="@w">@Automatisering.Naam(w)</option>
+                                            }
+                                        </select>
+                                    </th>
+                                }
                                 <th><input class="form-control form-control-sm text-end" placeholder="Filter" aria-label="Filter op bedrag" title="Een bedrag, een deel ervan (199) of van-tot (10-50); zonder minteken zowel af als bij" @bind="filterBedrag" @bind:event="oninput" /></th>
                             </tr>
                         </thead>
@@ -367,6 +389,10 @@
                                             }
                                         </span>
                                     </td>
+                                    @if (ookGeboekt)
+                                    {
+                                        <td class="small text-secondary text-nowrap" title="@(m.Status == Banktransactiestatus.Geboekt ? Automatisering.Uitleg(m.Verwerking) : null)">@(m.Status == Banktransactiestatus.Geboekt ? Automatisering.Naam(m.Verwerking) : null)</td>
+                                    }
                                     <td class="bedrag text-end text-nowrap"><Euro Waarde="m.Bedrag" /></td>
                                 </tr>
                             }
@@ -729,6 +755,7 @@
     private string filterDatum = "";
     private string filterTekst = "";
     private string filterBedrag = "";
+    private string filterVerwerking = "";
 
     private Boekhouding.Grootboek.Rekeningschema? schema;
     private IReadOnlyList<Boekhouding.Btw.BtwCode> btwcodes = [];
@@ -746,6 +773,13 @@
         }
 
         if (filterDatum.Length > 0 && !Weergave.Datum(m.Datum).Contains(filterDatum.Trim(), StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        // Alleen met Ook geboekt: te verwerken, of hoe een geboekte mutatie geboekt is.
+        if (ookGeboekt && filterVerwerking.Length > 0
+            && (filterVerwerking == "open" ? m.Status != Banktransactiestatus.TeVerwerken : m.Status != Banktransactiestatus.Geboekt || m.Verwerking.ToString() != filterVerwerking))
         {
             return false;
         }
@@ -917,6 +951,7 @@
         new("Datum", m => m.Datum, EerstOplopend: false),
         new("Rekening", m => m.Dagboek),
         new("Tegenpartij", m => (m.TegenNaam ?? m.Omschrijving).ToUpperInvariant()),
+        new("Verwerking", m => m.Status == Banktransactiestatus.Geboekt ? Automatisering.Naam(m.Verwerking) : string.Empty),
         new("Bedrag", m => m.Bedrag, EerstOplopend: false));
 
     private readonly Sortering<OpenpostRegel> postsortering = new(
