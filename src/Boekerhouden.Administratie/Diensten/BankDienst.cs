@@ -1050,6 +1050,12 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
 
         var ids = postIds.Distinct().ToList();
         var posten = await db.OpenstaandePosten.Where(p => ids.Contains(p.Id)).ToListAsync();
+        // Bij automatisch verwerken leeft deze context lang: een post die al eerder geladen was, komt dan met de oude
+        // stand terug (een collega kan hem intussen hebben afgeletterd). Onder het slot de actuele stand lezen.
+        foreach (var p in posten)
+        {
+            await db.Entry(p).ReloadAsync();
+        }
         // Een post die al betaald is, mag alleen als enige en in dezelfde richting als de factuur: een dubbele betaling
         // (te vorderen op die factuur).
         // Posten met een ander teken (een creditnota) alleen als ze samen precies het bedrag zijn, of met een afboeking.
@@ -1354,6 +1360,53 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
         return Uitkomst.Gelukt;
     }
 
+    /// <summary>
+    /// Draait een geboekte mutatie terug (bijv. verkeerd afgeletterd, ook als dat vanzelf ging): een tegenboeking in het
+    /// bankdagboek (de boeking zelf blijft staan, de keten ook), de facturen staan weer open zoals ervoor, en de mutatie
+    /// staat weer in Te verwerken. Niet in een afgesloten periode.
+    /// </summary>
+    public async Task<Uitkomst> Terugdraaien(Uitvoerder wie, Guid administratie, Guid mutatie)
+    {
+        ArgumentNullException.ThrowIfNull(wie);
+        await using var db = await toegang.Open(wie, administratie, Recht.Invoeren);
+        await using var transactie = await db.Database.BeginTransactionAsync();
+        await db.Vergrendel(administratie);
+        if (await db.Banktransacties.FirstOrDefaultAsync(t => t.Id == mutatie && t.Status == Banktransactiestatus.Geboekt) is not { } t)
+        {
+            return Uitkomst.Mislukt("Deze mutatie is niet geboekt.");
+        }
+
+        var boeking = t.BoekingId is { } boekingId ? await db.Geldend.AsNoTracking().Include(b => b.Regels).FirstOrDefaultAsync(b => b.Id == boekingId) : null;
+        // Staat de boeking niet meer (vervallen of al teruggedraaid), dan alleen de mutatie terug.
+        var teruggedraaid = boeking is not null && await db.Boekingen.AnyAsync(b => b.Herstelt == boeking.Id);
+        string? tegenstuk = null;
+        if (boeking is { Regels.Count: > 0 } && !teruggedraaid)
+        {
+            if (await GrootboekDienst.Afgesloten(db, administratie, boeking.Datum) is { } afgesloten)
+            {
+                return Uitkomst.Mislukt(afgesloten);
+            }
+
+            var (schema, _) = await GrootboekDienst.Inrichting(db);
+            tegenstuk = await GrootboekDienst.VolgendBoekstuk(db, boeking.Dagboek, boeking.Datum.Year);
+            var omschrijving = $"Terugdraaien {boeking.Dagboek} {boeking.Boekstuk}: {boeking.Omschrijving}";
+            var tegen = boeking.NaarDomein().Tegenboeking(tegenstuk, boeking.Datum, omschrijving.Length > 200 ? omschrijving[..200] : omschrijving);
+            var nieuw = await grootboek.VoegToeAanKeten(db, administratie, tegen, wie);
+            nieuw.Herstelt = boeking.Id;
+            // De afgeletterde facturen weer open: de tegenboeking werkt de openstaande posten bij zoals de boeking dat deed.
+            await GrootboekDienst.WerkOpenstaandePostenBij(db, tegen, schema, nieuw, memoriaal: false);
+        }
+
+        var stuk = boeking is null ? null : $"{boeking.Dagboek} {boeking.Boekstuk}";
+        (t.Status, t.BoekingId, t.Verwerking) = (Banktransactiestatus.TeVerwerken, null, Verwerkingswijze.Onbekend);
+        t.Melding = Kort(stuk is null ? "Teruggedraaid; opnieuw te verwerken." : $"Boeking {stuk} is teruggedraaid; opnieuw te verwerken.", 1000);
+        await db.SaveChangesAsync();
+        await transactie.CommitAsync();
+        await audit.Log(wie, AuditActies.BoekingTeruggedraaid, stuk ?? $"{t.Dagboek} {t.Datum:dd-MM-yyyy} {t.Bedrag:0.00}",
+            tegenstuk is null ? "mutatie terug naar te verwerken" : $"tegenboeking {t.Dagboek} {tegenstuk}; mutatie {t.Datum:dd-MM-yyyy} {t.Bedrag:0.00}", administratie);
+        return Uitkomst.Gelukt;
+    }
+
     /// <summary>De gebruiker heeft gekeken: deze mutatie is niet dubbel. Daarna verwerkt het pakket hem gewoon.</summary>
     public async Task<Uitkomst> GeenDubbel(Uitvoerder wie, Guid administratie, Guid mutatie)
     {
@@ -1463,9 +1516,23 @@ public sealed class BankDienst(Toegang toegang, GrootboekDienst grootboek, Audit
 
         var vorige = await db.Afschriften.AsNoTracking().Where(a => a.Iban == iban && a.Einddatum != null && a.Einddatum <= begin)
             .OrderByDescending(a => a.Einddatum).ThenByDescending(a => a.IngelezenOp).FirstOrDefaultAsync();
-        return vorige is null || vorige.Eindsaldo == afschrift.Beginsaldo
-            ? null
-            : $"Het beginsaldo van {Iban.Toon(iban)} ({Domain.Bedragen.Euro(afschrift.Beginsaldo)} op {Weergave.Datum(begin)}) sluit niet aan op het eindsaldo van het vorige afschrift ({Domain.Bedragen.Euro(vorige.Eindsaldo)} op {Weergave.Datum(vorige.Einddatum!.Value)}): mist er een afschrift?";
+        if (vorige is null || vorige.Eindsaldo == afschrift.Beginsaldo)
+        {
+            return null;
+        }
+
+        // Begint dit afschrift op de laatste dag van het vorige (een dag overlap), dan is het beginsaldo dat van vóór die
+        // dag: het eindsaldo min wat er die dag al was ingelezen.
+        if (vorige.Einddatum == begin)
+        {
+            var dieDag = (await db.Banktransacties.AsNoTracking().Where(t => t.Iban == iban && t.Datum == begin).Select(t => t.Bedrag).ToListAsync()).Sum();
+            if (vorige.Eindsaldo - dieDag == afschrift.Beginsaldo)
+            {
+                return null;
+            }
+        }
+
+        return $"Het beginsaldo van {Iban.Toon(iban)} ({Domain.Bedragen.Euro(afschrift.Beginsaldo)} op {Weergave.Datum(begin)}) sluit niet aan op het eindsaldo van het vorige afschrift ({Domain.Bedragen.Euro(vorige.Eindsaldo)} op {Weergave.Datum(vorige.Einddatum!.Value)}): mist er een afschrift?";
     }
 
     /// <summary>

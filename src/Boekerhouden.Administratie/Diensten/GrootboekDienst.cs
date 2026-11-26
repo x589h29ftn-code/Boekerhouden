@@ -415,7 +415,7 @@ public sealed partial class GrootboekDienst(Toegang toegang, AuditDienst audit, 
     /// crediteuren) de post aan als hij er nog niet is (bijv. een factuur van vorig jaar), zodat de bank erop kan
     /// afletteren; een betaling op een onbekend nummer blijft los staan.
     /// </summary>
-    private static async Task WerkOpenstaandePostenBij(AdministratieDbContext db, Journaalpost post, Rekeningschema schema, Boeking boeking, bool memoriaal)
+    internal static async Task WerkOpenstaandePostenBij(AdministratieDbContext db, Journaalpost post, Rekeningschema schema, Boeking boeking, bool memoriaal)
     {
         foreach (var regel in post.Regels)
         {

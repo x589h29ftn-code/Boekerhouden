@@ -391,7 +391,17 @@
                                     </td>
                                     @if (ookGeboekt)
                                     {
-                                        <td class="small text-secondary text-nowrap" title="@(m.Status == Banktransactiestatus.Geboekt ? Automatisering.Uitleg(m.Verwerking) : null)">@(m.Status == Banktransactiestatus.Geboekt ? Automatisering.Naam(m.Verwerking) : null)</td>
+                                        <td class="small text-secondary text-nowrap" title="@(m.Status == Banktransactiestatus.Geboekt ? Automatisering.Uitleg(m.Verwerking) : null)">
+                                            @if (m.Status == Banktransactiestatus.Geboekt)
+                                            {
+                                                @Automatisering.Naam(m.Verwerking)
+                                                @if (mag)
+                                                {
+                                                    <button type="button" class="btn btn-sm btn-link p-0 ms-2 regelactie" disabled="@bezig" title="Tegenboeking maken; de mutatie komt terug in Te verwerken"
+                                                            @onclick="() => Terugdraaien(m)" @onclick:stopPropagation>Terugdraaien</button>
+                                                }
+                                            }
+                                        </td>
                                     }
                                     <td class="bedrag text-end text-nowrap"><Euro Waarde="m.Bedrag" /></td>
                                 </tr>
@@ -905,6 +915,25 @@
             {
                 gekozen = null;
             }
+        }
+
+        bezig = false;
+        await Laad();
+    }
+
+    private async Task Terugdraaien(BankmutatieRegel m)
+    {
+        if (bezig)
+        {
+            return;
+        }
+
+        bezig = true;
+        var uitkomst = await Bank.Terugdraaien(geopend!.Wie, Id, m.Id);
+        fouten = uitkomst.Fouten;
+        if (uitkomst.IsGelukt)
+        {
+            Meldingen.Toon($"Mutatie van {Weergave.Datum(m.Datum)} teruggedraaid; hij staat weer bij Te verwerken.");
         }
 
         bezig = false;

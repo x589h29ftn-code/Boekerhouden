@@ -175,7 +175,7 @@ public static class Paginahulp
                 "Mutaties die Sifer met zekerheid aan een factuur kan koppelen, worden vanzelf afgeletterd. Voor de rest staat een voorstel klaar.",
                 "Per mutatie kies je de openstaande posten, boek je op een rekening of verdeel je het bedrag over meer regels.",
                 "Met een regel worden terugkerende mutaties, zoals bankkosten of huur, voortaan vanzelf geboekt.",
-                "Met *Ook geboekt* zie je per mutatie hoe hij geboekt is, en welk deel vanzelf ging.",
+                "Met *Ook geboekt* zie je hoe elke mutatie geboekt is. Is er een verkeerd geboekt, kies dan op die regel *Terugdraaien*.",
             ]),
         ["memoriaal"] = new("Memoriaal",
             "Boekingen die nergens anders thuishoren, zoals correcties, afschrijvingen en lonen.",
