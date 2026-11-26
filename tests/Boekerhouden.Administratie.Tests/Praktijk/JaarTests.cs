@@ -25,6 +25,9 @@ public sealed class JaarTests(AdministratieFixture app, ITestOutputHelper uitvoe
 {
     private const string Iban = "NL20INGB0001234567";
     private const decimal Beginsaldo = 20_000m;
+
+    /// <summary>Wat het afronden van de vastgelegde btw-aangiften per jaar scheelt (naar het resultaat geboekt).</summary>
+    private readonly Dictionary<int, decimal> afrondingen = [];
     private const decimal Aanschaf = 6_000m;
     private static readonly DateOnly Start = new(2025, 1, 1);
     private static readonly DateOnly Einde = new(2026, 3, 31);
@@ -212,7 +215,8 @@ public sealed class JaarTests(AdministratieFixture app, ITestOutputHelper uitvoe
         Controleer(verschillen, "Proefbalans 2026 in evenwicht", p27.Regels.Sum(r => r.Saldo), 0m);
 
         decimal Resultaat(int jaar) =>
-            facturen.Where(f => f.Datum.Year == jaar).Sum(f => f.Inkoop ? -f.Exclusief : f.Exclusief) - bankkosten[jaar] - (jaar == 2025 ? 10 * 100m : 3 * 100m);
+            facturen.Where(f => f.Datum.Year == jaar).Sum(f => f.Inkoop ? -f.Exclusief : f.Exclusief) - bankkosten[jaar] - (jaar == 2025 ? 10 * 100m : 3 * 100m)
+            + afrondingen.GetValueOrDefault(jaar);
         Controleer(verschillen, "Resultaat 2025", p26.Resultaat, Resultaat(2025));
         Controleer(verschillen, "Resultaat 2026 (1e kwartaal)", p27.Resultaat, Resultaat(2026));
 
@@ -292,8 +296,10 @@ public sealed class JaarTests(AdministratieFixture app, ITestOutputHelper uitvoe
 
         // ---- de auditfile van elk jaar teruglezen: dezelfde saldi
         var auditfile = app.Dienst<AuditfileDienst>();
-        foreach (var (jaar, proef) in new[] { (2025, p26), (2026, p27) })
+        foreach (var jaar in new[] { 2025, 2026 })
         {
+            // Nu opnieuw: de aangifte van het laatste kwartaal is na de eerdere proefbalans vastgelegd (met de afronding).
+            var proef = await grootboek.Proefbalans(wie, id, jaar);
             var xaf = await auditfile.Maak(wie, id, jaar);
             var terug = await auditfile.LeesIn(wie, new MemoryStream(xaf.Inhoud), xaf.Bestandsnaam, Ondernemingsvorm.BV);
             if (!terug.IsGelukt)
@@ -323,7 +329,10 @@ public sealed class JaarTests(AdministratieFixture app, ITestOutputHelper uitvoe
     private async Task Kwartaal(Uitvoerder wie, Guid id, List<string> verschillen, DateOnly tot, List<Factuur> facturen)
     {
         var van = new DateOnly(tot.Year, tot.Month, 1).AddMonths(-2);
-        var vastgelegd = await app.Dienst<BtwaangifteDienst>().Vastleggen(wie, id, van, tot);
+        var btwdienst = app.Dienst<BtwaangifteDienst>();
+        var berekend = (await btwdienst.Jaar(wie, id, tot.Year)).Jaar.Perioden.Single(p => p.Periode.Van == van).Berekend;
+        afrondingen[tot.Year] = afrondingen.GetValueOrDefault(tot.Year) + berekend.Afronding;
+        var vastgelegd = await btwdienst.Vastleggen(wie, id, van, tot);
         if (!vastgelegd.IsGelukt)
         {
             verschillen.Add($"Btw vastleggen {van}–{tot}: {string.Join(" ", vastgelegd.Fouten)}");

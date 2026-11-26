@@ -16,6 +16,8 @@ public static class StandaardRekeningschema
     {
         var balans = new List<Rekening>
         {
+            B("0100", "Bedrijfsgebouwen", "BMvaBegVvp"),
+            B("0110", "Afschrijving bedrijfsgebouwen", "BMvaBegCae"),
             B("0200", "Inventaris", "BMvaBeiVvp"),
             B("0210", "Afschrijving inventaris", "BMvaBeiCae"),
             B("0300", "Vervoermiddelen", "BMvaTevVvp"),
@@ -82,7 +84,9 @@ public static class StandaardRekeningschema
             W("4700", "Gereedschap", "WBedEemGsk"),
             W("4800", "Afschrijving inventaris", "WAfsAmvBei"),
             W("4810", "Afschrijving vervoermiddelen", "WAfsAmvTev"),
+            W("4820", "Afschrijving bedrijfsgebouwen", "WAfsAmv"),
             W("4900", "Algemene kosten", "WBedAlkOal"),
+            W(Afrondingsrekening.Nummer, Afrondingsrekening.Naam, Afrondingsrekening.RgsCode!, Rekeningfunctie.Afrondingsverschillen),
             W("7000", "Inkoopwaarde", "WKprInhInh"),
             W("7100", "Uitbesteed werk", "WKprKuwKuw"),
             W("8000", "Omzet diensten", "WOmzNodOdh"),
@@ -91,6 +95,13 @@ public static class StandaardRekeningschema
             W("9010", "Rente spaarrekening", "WFbeRlmRlm"),
         ];
     }
+
+    /// <summary>
+    /// De rekening voor het afronden van de btw-aangifte op hele euro's (in het voordeel van de ondernemer). Een
+    /// administratie zonder zo'n rekening krijgt hem bij het vastleggen van de eerste aangifte.
+    /// </summary>
+    public static Rekening Afrondingsrekening { get; } =
+        new("4910", "Afrondingsverschillen btw", Rekeningsoort.Resultaat, "WBedAlkOal", Rekeningfunctie.Afrondingsverschillen);
 
     public static IReadOnlyList<Dagboek> Dagboeken { get; } =
     [
@@ -104,5 +115,6 @@ public static class StandaardRekeningschema
     private static Rekening B(string nummer, string naam, string? rgs, Rekeningfunctie functie = Rekeningfunctie.Geen) =>
         new(nummer, naam, Rekeningsoort.Balans, rgs, functie);
 
-    private static Rekening W(string nummer, string naam, string rgs) => new(nummer, naam, Rekeningsoort.Resultaat, rgs);
+    private static Rekening W(string nummer, string naam, string rgs, Rekeningfunctie functie = Rekeningfunctie.Geen) =>
+        new(nummer, naam, Rekeningsoort.Resultaat, rgs, functie);
 }

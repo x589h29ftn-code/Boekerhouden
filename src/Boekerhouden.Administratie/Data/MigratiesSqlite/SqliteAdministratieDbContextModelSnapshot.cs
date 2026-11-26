@@ -1725,6 +1725,10 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.Property<Guid>("AdministratieId")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Afrondingsboeking")
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Rubrieken")
                         .IsRequired()
                         .HasColumnType("TEXT");

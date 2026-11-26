@@ -34,7 +34,7 @@ public sealed class VoorbeeldjaarTests(AdministratieFixture app, ITestOutputHelp
         ["1100"] = 24_800.00m,
         ["1300"] = 10_453.98m,    // 1.419,98 + 1.471,50 + 7.562,50
         ["1500"] = 4_568.40m,     // voorbelasting 1.816,80 + 1.680,00 + 1.050,00 + 21,60
-        ["1510"] = -5_860.00m,    // verschuldigd 5.025,00, betaald 1.330, ontvangen 1.236 en 929
+        ["1510"] = -5_858.40m,    // verschuldigd 5.025,00, betaald 1.330, ontvangen 1.236 en 929, afronding 1,60
         ["1520"] = -2_000.00m,
         ["1600"] = -2_392.40m,    // 130,80 + 2.000,00 + 261,60
         ["1800"] = 0m,
@@ -44,6 +44,7 @@ public sealed class VoorbeeldjaarTests(AdministratieFixture app, ITestOutputHelp
         ["4410"] = 300.00m,
         ["4800"] = 900.00m,
         ["4900"] = 2_360.00m,     // 120 + 2.000 + 240
+        ["4910"] = -1.60m,        // afronding van de aangiften: 0,20 + 0,50 + 0,90
         ["7000"] = 13_000.00m,
         ["8000"] = -1_350.00m,    // 900 - 900 (credit) + 1.350
         ["8010"] = -30_149.98m,   // 12.500 + 1.500 - 1.500 + 4.000 + 1.999,98 + 5.400 + 6.250
@@ -196,7 +197,7 @@ public sealed class VoorbeeldjaarTests(AdministratieFixture app, ITestOutputHelp
             Controleer(verschillen, $"Saldo {nummer}", werkelijk.GetValueOrDefault(nummer), Saldi.GetValueOrDefault(nummer));
         }
 
-        Controleer(verschillen, "Resultaat 2025", -kb.Regels.Where(r => !r.Rekening.IsBalans).Sum(r => r.Saldo), 4_669.98m);
+        Controleer(verschillen, "Resultaat 2025", -kb.Regels.Where(r => !r.Rekening.IsBalans).Sum(r => r.Saldo), 4_671.58m);
 
         // ---- de vier aangiften
         var jaar = (await btw.Jaar(wie, id, 2025)).Jaar;
@@ -224,12 +225,12 @@ public sealed class VoorbeeldjaarTests(AdministratieFixture app, ITestOutputHelp
         var crediteuren = (await openposten.Crediteuren(wie, id, new(2025, 12, 31))).Relaties.SelectMany(r => r.Posten).ToDictionary(p => p.Factuurnummer, p => p.Openstaand);
         Vergelijk(verschillen, "Crediteuren", crediteuren, new Dictionary<string, decimal> { ["KC-118"] = 130.80m, ["H-25-040"] = 2_000m, ["KC-170"] = 261.60m });
 
-        // ---- de vennootschapsbelasting: 4.669,98 + 79,50 (26,5% van 300 representatie) - 1.680 (KIA 28% van 6.000)
-        //      = 3.069,48; afgerond op 5 euro 3.065; 19% = 582,35, naar beneden 582
+        // ---- de vennootschapsbelasting: 4.671,58 + 79,50 (26,5% van 300 representatie) - 1.680 (KIA 28% van 6.000)
+        //      = 3.071,08; afgerond op 5 euro 3.070; 19% = 583,30, naar beneden 583
         var vpb = (await app.Dienst<VpbDienst>().Positie(wie, id, 2025))!.Positie;
-        Controleer(verschillen, "Vpb belastbaar bedrag", vpb.Belastbaar, 3_069.48m);
-        Controleer(verschillen, "Vpb", vpb.Vennootschapsbelasting, 582m);
-        Controleer(verschillen, "Vpb nog te betalen", vpb.TeBetalen, 582m);
+        Controleer(verschillen, "Vpb belastbaar bedrag", vpb.Belastbaar, 3_071.08m);
+        Controleer(verschillen, "Vpb", vpb.Vennootschapsbelasting, 583m);
+        Controleer(verschillen, "Vpb nog te betalen", vpb.TeBetalen, 583m);
 
         // ---- de activastaat
         var staat = (await activa.Activastaat(wie, id, 2025)).Single(g => g.Activarekening == "0200").Totaal;

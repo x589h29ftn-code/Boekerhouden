@@ -224,10 +224,13 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     factuur, btw per kwartaal, activastaat, nummering, inkoop- en verkoopboek, automatiseringspercentage, auditfile
     heen en terug en `Samenhang`. Uitkomst: geen verschillen (ook op SQLite; 500 + 500 in ruim een minuut).
     `VerzamelbetalingTests`: een factuur die al los betaald is en daarna nog eens in een verzamelbetaling staat, wordt
-    niet vanzelf geboekt. Kanttekeningen voor de gebruiker: het standaardschema heeft geen rekeningen voor gebouwen (de
-    test maakt 0100/0110/4820 zelf aan); het afrondingsverschil van de btw-aangifte (in het voordeel van de ondernemer)
-    blijft op de btw-rekeningen staan en wordt niet naar het resultaat geboekt; de verkoopopbrengst bij een
-    desinvestering is zonder btw (de btw gaat via een verkoopfactuur).
+    niet vanzelf geboekt. Daarna (26 november) opgelost: het standaardschema heeft rekeningen voor bedrijfsgebouwen
+    (0100 `BMvaBegVvp`, 0110 `BMvaBegCae`, 4820 op `WAfsAmv`: de precieze code op niveau 4 kon niet worden nagegaan;
+    een actief op 0100 krijgt 30 jaar voorgesteld), en *Vastleggen* van een btw-aangifte boekt het afrondingsverschil in
+    het memoriaal van de btw-rekening naar 4910 *Afrondingsverschillen btw* (functie `Afrondingsverschillen`; een
+    administratie zonder die rekening krijgt hem dan, op het eerste vrije nummer vanaf 4910); intrekken laat die boeking
+    vervallen. Het voorbeeldjaar gaf daardoor 1,60 meer resultaat en 1 euro meer vpb. Bewust zo gelaten: de
+    verkoopopbrengst bij een desinvestering is zonder btw (de btw gaat via een verkoopfactuur).
 
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).

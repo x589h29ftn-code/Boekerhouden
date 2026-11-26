@@ -91,8 +91,9 @@ de creditfactuur, niet in dat van de oorspronkelijke factuur.
 | 4800 Afschrijving inventaris | 900,00 |
 | 4900 Algemene kosten (120 + 2.000 + 240) | 2.360,00 |
 | 9000 Rente en kosten bank | 170,00 |
-| **Kosten** | **26.830,00** |
-| **Resultaat voor belastingen** | **4.669,98** |
+| 4910 Afrondingsverschillen btw (0,20 + 0,50 + 0,90) | −1,60 |
+| **Kosten** | **26.828,40** |
+| **Resultaat voor belastingen** | **4.671,58** |
 
 ## 5. Balans 31-12-2025
 
@@ -100,14 +101,14 @@ de creditfactuur, niet in dat van de oorspronkelijke factuur.
 |---|---:|---|---:|
 | 0200 Inventaris | 6.000,00 | 0500 Aandelenkapitaal | 18.000,00 |
 | 0210 Afschrijving inventaris | −900,00 | 0510 Overige reserves | 12.000,00 |
-| 1100 Bank | 24.800,00 | Resultaat 2025 | 4.669,98 |
+| 1100 Bank | 24.800,00 | Resultaat 2025 | 4.671,58 |
 | 1300 Debiteuren | 10.453,98 | 1600 Crediteuren | 2.392,40 |
-| 1500 Te vorderen omzetbelasting | 4.568,40 | 1510 Te betalen omzetbelasting | 5.860,00 |
+| 1500 Te vorderen omzetbelasting | 4.568,40 | 1510 Te betalen omzetbelasting | 5.858,40 |
 | | | 1520 Te betalen loonheffing | 2.000,00 |
 | **Totaal** | **44.922,38** | **Totaal** | **44.922,38** |
 
-Btw per saldo te betalen: 5.860,00 − 4.568,40 = 1.291,60 = 4e kwartaal 1.290,90 + afronding 1e kwartaal 0,20 +
-afronding 3e kwartaal 0,50.
+Btw per saldo te betalen: 5.858,40 − 4.568,40 = 1.290,00 = het ingediende 4e kwartaal. Wat het afronden op hele euro's
+scheelt (1e kwartaal 0,20, 3e 0,50, 4e 0,90) boekt Sifer bij het vastleggen van de aangifte naar 4910.
 
 **Openstaande posten 31-12-2025**
 
@@ -118,14 +119,14 @@ afronding 3e kwartaal 0,50.
 
 | | |
 |---|---:|
-| Resultaat voor belastingen | 4.669,98 |
+| Resultaat voor belastingen | 4.671,58 |
 | Bij: gemengde kosten, niet aftrekbaar: 26,5% van 300 (lager dan de drempel van € 5.700) | 79,50 |
 | Af: kleinschaligheidsinvesteringsaftrek, 28% van 6.000 | −1.680,00 |
-| **Belastbaar bedrag** | **3.069,48** |
-| Afgerond op € 5 naar beneden | 3.065 |
-| Vennootschapsbelasting 19%, naar beneden op hele euro's (582,35) | **582** |
+| **Belastbaar bedrag** | **3.071,08** |
+| Afgerond op € 5 naar beneden | 3.070 |
+| Vennootschapsbelasting 19%, naar beneden op hele euro's (583,30) | **583** |
 | Betaalde voorlopige aanslagen | 0 |
-| Nog te betalen | 582 |
+| Nog te betalen | 583 |
 
 ## Wat het voorbeeldjaar al opleverde
 

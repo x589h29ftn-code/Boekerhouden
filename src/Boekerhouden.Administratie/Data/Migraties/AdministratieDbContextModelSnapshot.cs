@@ -1749,6 +1749,10 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.Property<Guid>("AdministratieId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Afrondingsboeking")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
                     b.Property<string>("Rubrieken")
                         .IsRequired()
                         .HasColumnType("text");

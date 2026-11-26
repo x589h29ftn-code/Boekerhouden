@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Boekerhouden.Administratie.Data;
 using Boekerhouden.Boekhouding.Btw;
+using Boekerhouden.Boekhouding.Grootboek;
 using Microsoft.EntityFrameworkCore;
 
 namespace Boekerhouden.Administratie.Diensten;
@@ -110,10 +111,17 @@ public sealed class BtwaangifteDienst(Toegang toegang, GrootboekDienst grootboek
         return Uitkomst.Gelukt;
     }
 
-    /// <summary>Een aangifte vastleggen zoals hij is ingediend: de berekening van nu, per rubriek.</summary>
+    /// <summary>
+    /// Een aangifte vastleggen zoals hij is ingediend: de berekening van nu, per rubriek, in hele euro's. Wat het afronden
+    /// scheelt (in het voordeel van de ondernemer) wordt in het memoriaal van de btw-rekening naar de rekening voor
+    /// afrondingsverschillen geboekt, zodat er na de betaling niets op de btw-rekeningen blijft staan. Is de periode al
+    /// afgesloten, dan blijft het verschil staan.
+    /// </summary>
     public async Task<Uitkomst> Vastleggen(Uitvoerder wie, Guid administratie, DateOnly van, DateOnly tot)
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
+        await using var transactie = await db.Database.BeginTransactionAsync();
+        await db.Vergrendel(administratie);
         if (await db.IngediendeAangiften.AnyAsync(v => v.Van == van && v.Tot == tot))
         {
             return Uitkomst.Mislukt("Deze aangifte is al vastgelegd.");
@@ -121,9 +129,10 @@ public sealed class BtwaangifteDienst(Toegang toegang, GrootboekDienst grootboek
 
         var codes = (await BtwDienst.Lees(db)).Op(tot);
         var (posten, schema) = await grootboek.JournaalMetSchema(wie, administratie, van, tot);
+        var berekend = Btwaangifte.Bereken(posten, schema, codes, van, tot);
         // Zoals hij wordt ingediend: in hele euro's.
-        var aangifte = Btwaangifte.Bereken(posten, schema, codes, van, tot).Afgerond();
-        db.IngediendeAangiften.Add(new IngediendeAangifte
+        var aangifte = berekend.Afgerond();
+        var vastlegging = new IngediendeAangifte
         {
             AdministratieId = administratie,
             Van = van,
@@ -132,7 +141,15 @@ public sealed class BtwaangifteDienst(Toegang toegang, GrootboekDienst grootboek
             Voorbelasting = aangifte.Voorbelasting,
             VastgelegdOp = tijd.GetUtcNow(),
             VastgelegdDoor = wie.Naam,
-        });
+        };
+        db.IngediendeAangiften.Add(vastlegging);
+        (string? Stuk, Rekening? Nieuw) afronding = (null, null);
+        if (berekend.Afronding != 0 && await GrootboekDienst.Afgesloten(db, administratie, tot) is null)
+        {
+            afronding = await BoekAfronding(db, administratie, schema, berekend.Afronding, Periodenaam(van, tot), tot, wie);
+            vastlegging.Afrondingsboeking = afronding.Stuk;
+        }
+
         try
         {
             await db.SaveChangesAsync();
@@ -143,8 +160,61 @@ public sealed class BtwaangifteDienst(Toegang toegang, GrootboekDienst grootboek
             return Uitkomst.Mislukt("Deze aangifte is al vastgelegd.");
         }
 
-        await audit.Log(wie, AuditActies.BtwaangifteVastgelegd, Periodenaam(van, tot), $"te betalen {aangifte.TeBetalen:0.00}", administratie);
+        await transactie.CommitAsync();
+        if (afronding.Nieuw is { } nieuw)
+        {
+            await audit.Log(wie, AuditActies.RekeningToegevoegd, $"{nieuw.Nummer} {nieuw.Naam}", $"{nieuw.RgsCode}; voor het afronden van de btw-aangifte", administratie);
+        }
+
+        await audit.Log(wie, AuditActies.BtwaangifteVastgelegd, Periodenaam(van, tot),
+            $"te betalen {aangifte.TeBetalen:0.00}" + (afronding.Stuk is { } stuk ? $"; afronding {berekend.Afronding:0.00} geboekt ({stuk})" : ""), administratie);
         return Uitkomst.Gelukt;
+    }
+
+    /// <summary>
+    /// Boekt het afrondingsverschil van een aangifte: debet op de rekening voor af te dragen btw, credit op de rekening
+    /// voor afrondingsverschillen (die wordt aangemaakt als de administratie hem nog niet heeft). Geeft "dagboek
+    /// boekstuk" (leeg als er geen memoriaal of btw-rekening is) en de rekening als die nieuw is.
+    /// </summary>
+    private async Task<(string? Stuk, Rekening? Nieuw)> BoekAfronding(AdministratieDbContext db, Guid administratie, Rekeningschema schema, decimal bedrag, string periode, DateOnly datum, Uitvoerder wie)
+    {
+        var (_, dagboeken) = await GrootboekDienst.Inrichting(db);
+        var memoriaal = dagboeken.Where(d => d.Soort == Dagboeksoort.Memoriaal).OrderBy(d => d.Code != "MEM").FirstOrDefault();
+        var btw = schema.MetFunctie(Rekeningfunctie.AfTeDragenBtw).FirstOrDefault() ?? schema.MetFunctie(Rekeningfunctie.Voorbelasting).FirstOrDefault();
+        if (memoriaal is null || btw is null)
+        {
+            return (null, null);
+        }
+
+        var bestaand = schema.MetFunctie(Rekeningfunctie.Afrondingsverschillen).FirstOrDefault();
+        var naar = bestaand ?? MaakAfrondingsrekening(db, administratie, schema);
+        var boekstuk = await GrootboekDienst.VolgendBoekstuk(db, memoriaal.Code, datum.Year);
+        var omschrijving = $"Afronding btw-aangifte {periode}";
+        await grootboek.VoegToeAanKeten(db, administratie, new Journaalpost(memoriaal.Code, boekstuk, datum, omschrijving,
+        [
+            new Journaalregel(btw.Nummer, bedrag, omschrijving),
+            new Journaalregel(naar.Nummer, -bedrag, omschrijving),
+        ]), wie);
+        return ($"{memoriaal.Code} {boekstuk}", bestaand is null ? naar : null);
+    }
+
+    private static Rekening MaakAfrondingsrekening(AdministratieDbContext db, Guid administratie, Rekeningschema schema)
+    {
+        var standaard = StandaardRekeningschema.Afrondingsrekening;
+        var nummer = Enumerable.Range(4910, 90).Select(n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)).FirstOrDefault(n => schema.Zoek(n) is null)
+            ?? Enumerable.Range(1, 9999).Select(n => $"9{n:0000}").First(n => schema.Zoek(n) is null);
+        var rekening = standaard with { Nummer = nummer };
+        db.Rekeningen.Add(new Grootboekrekening
+        {
+            Id = Guid.NewGuid(),
+            AdministratieId = administratie,
+            Nummer = rekening.Nummer,
+            Naam = rekening.Naam,
+            Soort = rekening.Soort,
+            RgsCode = rekening.RgsCode,
+            Functie = rekening.Functie,
+        });
+        return rekening;
     }
 
     /// <summary>Een vastgelegde aangifte weer intrekken (bijv. vastgelegd voordat alles geboekt was).</summary>
@@ -162,8 +232,16 @@ public sealed class BtwaangifteDienst(Toegang toegang, GrootboekDienst grootboek
             return Uitkomst.Mislukt(afgesloten);
         }
 
+        await using var transactie = await db.Database.BeginTransactionAsync();
         db.IngediendeAangiften.Remove(aangifte);
+        if (aangifte.Afrondingsboeking is { } afronding)
+        {
+            // De afronding hoort bij de aangifte: die vervalt mee.
+            await grootboek.LaatVervallen(db, administratie, [afronding], wie);
+        }
+
         await db.SaveChangesAsync();
+        await transactie.CommitAsync();
         await audit.Log(wie, AuditActies.BtwaangifteIngetrokken, Periodenaam(van, tot), $"te betalen was {NaarDomein(aangifte).TeBetalen:0.00}", administratie);
         return Uitkomst.Gelukt;
     }

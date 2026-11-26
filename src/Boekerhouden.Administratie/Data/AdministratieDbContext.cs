@@ -428,6 +428,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
         builder.Entity<IngediendeAangifte>(e =>
         {
             e.ToTable("IngediendeAangiften");
+            e.Property(a => a.Afrondingsboeking).HasMaxLength(60);
             e.HasIndex(a => new { a.AdministratieId, a.Van, a.Tot }).IsUnique();
             e.Property(a => a.Voorbelasting).HasPrecision(18, 2);
             e.Property(a => a.VastgelegdDoor).HasMaxLength(200);

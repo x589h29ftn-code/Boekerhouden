@@ -47,6 +47,82 @@ public sealed class BtwaangifteTests(AdministratieFixture app) : IClassFixture<A
         Assert.False((await dienst.Intrekken(wie, id, new(2026, 1, 1), new(2026, 3, 31))).IsGelukt);
     }
 
+    /// <summary>Een verkoop waarvan de btw niet op hele euro's uitkomt: 1.002,25 omzet, 210,47 btw.</summary>
+    private static Journaalpost VerkoopMetCenten(string boekstuk, DateOnly datum) =>
+        new("MEM", boekstuk, datum, $"Verkoop {boekstuk}",
+            [new("8000", -1_002.25m, BtwCode: "V21"), new("1510", -210.47m, BtwCode: "V21"), new("1300", 1_212.72m)]);
+
+    private static async Task<decimal> Saldo(GrootboekDienst grootboek, Uitvoerder wie, Guid id, string rekening) =>
+        (await grootboek.Kolommenbalans(wie, id, new(2026, 1, 1), new(2026, 12, 31))).Regels.FirstOrDefault(r => r.Rekening.Nummer == rekening)?.Saldo ?? 0m;
+
+    [Fact]
+    public async Task Vastleggen_boekt_de_afronding_naar_het_resultaat_en_intrekken_laat_hem_vervallen()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Btw Afronding B.V.");
+        var grootboek = app.Dienst<GrootboekDienst>();
+        var dienst = app.Dienst<BtwaangifteDienst>();
+        Assert.True((await grootboek.Boek(wie, id, VerkoopMetCenten("2026-0001", new(2026, 2, 1)))).IsGelukt);
+
+        Assert.True((await dienst.Vastleggen(wie, id, new(2026, 1, 1), new(2026, 3, 31))).IsGelukt);
+        // Ingediend: 1.002 omzet en 210 btw; de 0,47 is in het voordeel van de ondernemer.
+        var afronding = Assert.Single(await grootboek.Posten(wie, id, "MEM"), p => p.Post.Omschrijving == "Afronding btw-aangifte 1e kwartaal 2026").Post;
+        Assert.Equal(new DateOnly(2026, 3, 31), afronding.Datum);
+        Assert.Equal([("1510", 0.47m), ("4910", -0.47m)], afronding.Regels.Select(r => (r.Rekeningnummer, r.Bedrag)));
+        Assert.Equal(Rekeningfunctie.Afrondingsverschillen, (await grootboek.Schema(wie, id)).Zoek("4910")!.Functie);
+        Assert.Equal(-210m, await Saldo(grootboek, wie, id, "1510"));
+
+        // Na de betaling van wat is ingediend staat er niets meer op de btw-rekening, en de aansluiting sluit.
+        Assert.True((await grootboek.Boek(wie, id, new Journaalpost("MEM", "2026-0099", new(2026, 4, 28), "Omzetbelasting 1e kwartaal 2026",
+            [new("1510", 210m), new("1100", -210m)]))).IsGelukt);
+        Assert.Equal(0m, await Saldo(grootboek, wie, id, "1510"));
+        var stand = await dienst.Jaar(wie, id, 2026);
+        Assert.All(stand.Aansluitingen, a => Assert.Equal(0m, a.Verschil));
+        Assert.Equal((0m, 0.47m), (stand.Jaar.Suppletie, stand.Jaar.Afronding));
+        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.BtwaangifteVastgelegd && r.Details!.Contains("afronding 0.47", StringComparison.Ordinal));
+
+        // Intrekken: de afronding vervalt mee; opnieuw vastleggen boekt hem opnieuw (één keer).
+        Assert.True((await dienst.Intrekken(wie, id, new(2026, 1, 1), new(2026, 3, 31))).IsGelukt);
+        Assert.Equal(0m, await Saldo(grootboek, wie, id, "4910"));
+        Assert.True((await dienst.Vastleggen(wie, id, new(2026, 1, 1), new(2026, 3, 31))).IsGelukt);
+        Assert.Equal(-0.47m, await Saldo(grootboek, wie, id, "4910"));
+        Assert.Equal(0m, await Saldo(grootboek, wie, id, "1510"));
+    }
+
+    [Fact]
+    public async Task Op_hele_euros_geen_afrondingsboeking()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Btw Rond B.V.");
+        var grootboek = app.Dienst<GrootboekDienst>();
+        Assert.True((await grootboek.Boek(wie, id, Verkoop("2026-0001", new(2026, 2, 1), 1000m))).IsGelukt);
+        Assert.True((await app.Dienst<BtwaangifteDienst>().Vastleggen(wie, id, new(2026, 1, 1), new(2026, 3, 31))).IsGelukt);
+        Assert.DoesNotContain(await grootboek.Posten(wie, id, "MEM"), p => p.Post.Omschrijving.StartsWith("Afronding", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Zonder_afrondingsrekening_maakt_vastleggen_hem_aan()
+    {
+        var wie = await app.Beheerder();
+        var id = await app.Administratie("Btw Oud B.V.");
+        var grootboek = app.Dienst<GrootboekDienst>();
+        // Een oudere administratie: zonder de rekening voor afrondingsverschillen, en 4910 al in gebruik voor iets anders.
+        await using (var db = await app.Dienst<Toegang>().Open(wie, id, Recht.Boekhouden))
+        {
+            var oud = db.Rekeningen.Single(r => r.Nummer == "4910");
+            (oud.Naam, oud.Functie) = ("Overige kosten", Rekeningfunctie.Geen);
+            await db.SaveChangesAsync();
+        }
+
+        Assert.True((await grootboek.Boek(wie, id, VerkoopMetCenten("2026-0001", new(2026, 2, 1)))).IsGelukt);
+        Assert.True((await app.Dienst<BtwaangifteDienst>().Vastleggen(wie, id, new(2026, 1, 1), new(2026, 3, 31))).IsGelukt);
+
+        var nieuw = Assert.Single((await grootboek.Schema(wie, id)).MetFunctie(Rekeningfunctie.Afrondingsverschillen));
+        Assert.Equal(("4911", "Afrondingsverschillen btw", Rekeningsoort.Resultaat, "WBedAlkOal"), (nieuw.Nummer, nieuw.Naam, nieuw.Soort, nieuw.RgsCode));
+        Assert.Equal(-0.47m, await Saldo(grootboek, wie, id, "4911"));
+        Assert.Contains(await app.Dienst<AuditDienst>().Recent(), r => r.Actie == AuditActies.RekeningToegevoegd && r.Onderwerp == "4911 Afrondingsverschillen btw");
+    }
+
     [Fact]
     public async Task Buiten_het_pakket_aangegeven_en_via_de_bank_betaald_telt_als_aangegeven()
     {

@@ -135,6 +135,7 @@ public static class Weergave
         Rekeningfunctie.AfTeDragenBtw => "af te dragen btw",
         Rekeningfunctie.OnverdeeldResultaat => "resultaat eerdere jaren",
         Rekeningfunctie.Vraagposten => "vraagposten",
+        Rekeningfunctie.Afrondingsverschillen => "afronding btw",
         _ => "",
     };
 

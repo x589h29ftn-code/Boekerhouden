@@ -29,6 +29,9 @@ public enum Rekeningfunctie
 
     /// <summary>Tussenrekening voor bankmutaties die (nog) niet te verwerken zijn.</summary>
     Vraagposten,
+
+    /// <summary>Resultaatrekening voor het afronden van de btw-aangifte op hele euro's.</summary>
+    Afrondingsverschillen,
 }
 
 /// <summary>Een grootboekrekening van de administratie, gekoppeld aan een RGS-code.</summary>

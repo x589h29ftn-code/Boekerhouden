@@ -1099,7 +1099,8 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
 
     /// <summary>
     /// De afschrijvings- en kostenrekening en de looptijd die bij een activarekening horen: zoals bij het laatste actief
-    /// op die rekening, anders uit RGS (<c>BMvaBeiVvp</c> → <c>BMvaBeiCae</c> en <c>WAfsAmvBei</c>), met 60 maanden.
+    /// op die rekening, anders uit RGS (<c>BMvaBeiVvp</c> → <c>BMvaBeiCae</c> en <c>WAfsAmvBei</c>), met 60 maanden
+    /// (bedrijfsgebouwen 360).
     /// </summary>
     internal static (string? Afschrijving, string? Kosten, int Looptijd) Rekeningen(Rekeningschema schema, IReadOnlyList<ActivumEntiteit> activa, string activarekening)
     {
@@ -1119,8 +1120,12 @@ public sealed class ActivaDienst(Toegang toegang, GrootboekDienst grootboek, Aud
 
         var stam = rgs[..^3];
         var soort = rgs[4..7];
-        var kosten = (rgs.StartsWith("BIva", StringComparison.Ordinal) ? "WAfsAiv" : "WAfsAmv") + soort;
-        return (schema.Alle.FirstOrDefault(r => r.RgsCode == stam + "Cae")?.Nummer, schema.Alle.FirstOrDefault(r => r.RgsCode == kosten)?.Nummer, 60);
+        var hoofdpost = rgs.StartsWith("BIva", StringComparison.Ordinal) ? "WAfsAiv" : "WAfsAmv";
+        // De kostenrekening met de code van deze soort, anders de enige op de hoofdpost (zoals 4820 in het standaardschema).
+        var kosten = schema.Alle.FirstOrDefault(r => r.RgsCode == hoofdpost + soort)
+            ?? (schema.Alle.Where(r => r.RgsCode == hoofdpost).Take(2).ToList() is [var enige] ? enige : null);
+        // Gebouwen gaan langer mee: 30 jaar.
+        return (schema.Alle.FirstOrDefault(r => r.RgsCode == stam + "Cae")?.Nummer, kosten?.Nummer, soort == "Beg" ? 360 : 60);
     }
 
     /// <summary>Eén regel van de activa-aansluiting: een rekening met het bedrag volgens de activa (tekenconventie van het grootboek).</summary>

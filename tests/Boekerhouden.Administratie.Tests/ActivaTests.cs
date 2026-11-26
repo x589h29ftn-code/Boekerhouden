@@ -520,4 +520,15 @@ public sealed class ActivaTests(AdministratieFixture app) : IClassFixture<Admini
         var buiten = await app.Gebruiker("Buiten Privegebruik");
         await Assert.ThrowsAsync<GeenToegangException>(() => dienst.ZetPrivegebruik(buiten, id, auto, Privegebruik.JaForfait));
     }
+
+    [Theory]
+    [InlineData(Ondernemingsvorm.BV)]
+    [InlineData(Ondernemingsvorm.Eenmanszaak)]
+    public void Het_standaardschema_geeft_bij_elke_activarekening_de_rekeningen_en_een_looptijd(Ondernemingsvorm vorm)
+    {
+        var schema = new Rekeningschema(StandaardRekeningschema.Rekeningen(vorm));
+        Assert.Equal(("0110", "4820", 360), ActivaDienst.Rekeningen(schema, [], "0100"));
+        Assert.Equal(("0210", "4800", 60), ActivaDienst.Rekeningen(schema, [], "0200"));
+        Assert.Equal(("0310", "4810", 60), ActivaDienst.Rekeningen(schema, [], "0300"));
+    }
 }

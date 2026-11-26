@@ -1293,6 +1293,9 @@ public sealed class IngediendeAangifte : IVanAdministratie
     public DateTimeOffset VastgelegdOp { get; set; }
 
     public string VastgelegdDoor { get; set; } = string.Empty;
+
+    /// <summary>De boeking van het afronden op hele euro's ("dagboek boekstuk"), leeg als er niets af te ronden was.</summary>
+    public string? Afrondingsboeking { get; set; }
 }
 
 /// <summary>Een bedrag in de jaaropstelling omzetbelasting dat met de hand is aangepast (per jaar en sleutel).</summary>

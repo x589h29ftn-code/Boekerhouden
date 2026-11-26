@@ -3,7 +3,7 @@ using ClosedXML.Excel;
 namespace Boekerhouden.Tests.Gedeeld;
 
 /// <summary>
-/// Een klein uittreksel (135 regels) uit het officiële werkboek RGS 3.8 (Taakgroep RGS, 10-12-2025), in dezelfde
+/// Een klein uittreksel (136 regels) uit het officiële werkboek RGS 3.8 (Taakgroep RGS, 10-12-2025), in dezelfde
 /// opmaak: titelrij, kopregel, codes in de officiële volgorde, met alle filterkolommen. Bedoeld voor tests; het
 /// volledige werkboek staat niet in de repository. Gekozen zijn de codes die de fictieve testklanten nodig hebben,
 /// hun bovenliggende codes, enkele omslagparen en één inactieve code.
@@ -24,6 +24,7 @@ internal static class RgsTestWerkboek
         ["BMvaBeg", null, "B.B", "0202000", "Bedrijfsgebouwen", "Bedrijfsgebouwen", "D", 3, 1, 1, 1, 1, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
         ["BMvaBegVvp", null, "B.B.A", "0202010", "Verkrijgings- of vervaardigingsprijs", "Verkrijgings- of vervaardigingsprijs bedrijfsgebouwen", "D", 4, 1, 1, 1, 1, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
         ["BMvaBegVvpBeg", null, "B.B.A010", "0202010.01", "Beginbalans (overname eindsaldo vorig jaar)", "Beginbalans (overname eindsaldo vorig jaar) bedrijfsgebouwen", "D", 5, 1, 1, 1, null, 1, null, 1, null, null, null, null, null, null, null, null, 1, null, null, null, null, null],
+        ["BMvaBegCae", null, "B.B.B", "0202020", "Cumulatieve afschrijvingen en waardeverminderingen", "Cumulatieve afschrijvingen en waardeverminderingen bedrijfsgebouwen", "C", 4, 1, 1, 1, 1, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
         ["BMvaObe", null, "B.E", "0214000", "Andere vaste bedrijfsmiddelen", "Andere vaste bedrijfsmiddelen", "D", 3, 1, 1, 1, 1, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
         ["BMvaObeVvp", null, "B.E.A", "0214010", "Verkrijgings- of vervaardigingsprijs", "Verkrijgings- of vervaardigingsprijs andere vaste bedrijfsmiddelen", "D", 4, 1, 1, 1, 1, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
         ["BMvaObeCae", null, "B.E.B", "0214020", "Cumulatieve afschrijvingen en waardeverminderingen", "Cumulatieve afschrijvingen en waardeverminderingen andere vaste bedrijfsmiddelen", "C", 4, 1, 1, 1, 1, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],

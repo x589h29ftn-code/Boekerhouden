@@ -17,7 +17,7 @@ namespace Boekerhouden.Administratie.Tests.Praktijk;
 /// testen: elke maand verkoop- en inkoopfacturen (bij de stresstest samen ruim 500 van elk), de bank per maand met
 /// deelbetalingen, een te veel betaalde factuur, verzamelbetalingen, facturen die nooit betaald worden, gecrediteerde
 /// verkoopfacturen en inkoopcreditnota's die met de factuur worden verrekend. Investeringen in inventaris, een bestelbus
-/// (in het tweede jaar verkocht) en een pand dat de bank een tijd negatief maakt tot de hypotheek binnenkomt; die wordt
+/// (in het tweede jaar verkocht) en een pand (op de rekeningen voor bedrijfsgebouwen) dat de bank een tijd negatief maakt tot de hypotheek binnenkomt; die wordt
 /// daarna per maand afgelost. Afschrijven per maand, de btw per kwartaal vastleggen en betalen (of terugkrijgen) en de
 /// periode afsluiten. Alles wordt tegen een eigen rekenmodel gecontroleerd; afwijkingen worden verzameld en samen gemeld.
 /// </summary>
@@ -59,6 +59,12 @@ public sealed class TweejaarTests(AdministratieFixture app, ITestOutputHelper ui
         Nooit,
         Gecrediteerd,
     }
+
+    /// <summary>Wat het afronden van de vastgelegde btw-aangiften per jaar scheelt (naar het resultaat geboekt).</summary>
+    private readonly Dictionary<int, decimal> afrondingen = [];
+
+    /// <summary>Het afronden van de laatst vastgelegde aangifte (het 4e kwartaal 2025, nog niet betaald).</summary>
+    private decimal laatsteAfronding;
 
     [Fact]
     public Task Twee_jaar_met_alle_randgevallen() => Doorloop(3);
@@ -409,9 +415,12 @@ public sealed class TweejaarTests(AdministratieFixture app, ITestOutputHelper ui
         decimal Resultaat(int jaar) =>
             facturen.Where(f => f.Datum.Year == jaar && !f.Inkoop).Sum(f => f.Exclusief)
             - facturen.Where(f => f.Datum.Year == jaar && f.Inkoop && !f.Nummer.Contains("INV", StringComparison.Ordinal) && !f.Nummer.Contains("BUS", StringComparison.Ordinal)).Sum(f => f.Exclusief)
-            - bankkosten[jaar] - rente.GetValueOrDefault(jaar) - Afschrijvingen(jaar) - (jaar == 2025 ? busBoekwaarde - BusOpbrengst : 0m);
+            - bankkosten[jaar] - rente.GetValueOrDefault(jaar) - Afschrijvingen(jaar) - (jaar == 2025 ? busBoekwaarde - BusOpbrengst : 0m)
+            + afrondingen.GetValueOrDefault(jaar);
         Controleer(verschillen, "Resultaat 2024", p25.Resultaat, Resultaat(2024));
         Controleer(verschillen, "Resultaat 2025", p26.Resultaat, Resultaat(2025));
+        Controleer(verschillen, "Afronding btw 2024 (4910)", -Saldo(p25, "4910"), afrondingen.GetValueOrDefault(2024));
+        Controleer(verschillen, "Afronding btw 2025 (4910)", -Saldo(p26, "4910"), afrondingen.GetValueOrDefault(2025));
 
         // ---- jaarovergang: beginstand 2025 = eindstand 2024, het resultaat op het onverdeelde resultaat
         var schema = await grootboek.Schema(wie, id);
@@ -507,18 +516,11 @@ public sealed class TweejaarTests(AdministratieFixture app, ITestOutputHelper ui
             }
         }
 
-        // Te betalen btw eind 2025: het laatste kwartaal, plus wat de afronding van de eerdere aangiften (in het voordeel
-        // van de ondernemer) op de btw-rekeningen laat staan: dat wordt niet vanzelf naar het resultaat geboekt.
+        // Te betalen btw eind 2025: het laatste kwartaal zoals ingediend (in hele euro's). Het afronden van alle aangiften is
+        // bij het vastleggen naar het resultaat geboekt (4910): er blijft geen afrondingsverschil op de btw-rekeningen staan.
         var q4 = facturen.Where(f => f.Datum >= new DateOnly(2025, 10, 1)).Sum(f => f.Inkoop ? -f.Btw : f.Btw);
-        var afronding = 0m;
-        foreach (var jaar in new[] { 2024, 2025 })
-        {
-            afronding += (await btw.Jaar(wie, id, jaar)).Jaar.Perioden.Where(p => p.Periode.Tot < new DateOnly(2025, 10, 1) && p.Vastgelegd is not null)
-                .Sum(p => p.Berekend.TeBetalen - p.Vastgelegd!.AfgerondTeBetalen);
-        }
-
-        Controleer(verschillen, "Btw-rekeningen eind 2025 (1500 + 1510)", -(Saldo(p26, "1500") + Saldo(p26, "1510")), q4 + afronding);
-        uitvoer.WriteLine($"Afronding van de btw-aangiften die op de btw-rekeningen blijft staan: {afronding:N2}.");
+        Controleer(verschillen, "Btw-rekeningen eind 2025 (1500 + 1510)", -(Saldo(p26, "1500") + Saldo(p26, "1510")), q4 - laatsteAfronding);
+        uitvoer.WriteLine($"Afronding van de btw-aangiften naar het resultaat: 2024 {afrondingen.GetValueOrDefault(2024):N2}, 2025 {afrondingen.GetValueOrDefault(2025):N2}.");
 
         // ---- nummering per jaar zonder gaten, de eerste van elk jaar opnieuw vanaf 1
         var verkoop = app.Dienst<VerkoopDienst>();
@@ -687,7 +689,11 @@ public sealed class TweejaarTests(AdministratieFixture app, ITestOutputHelper ui
     private async Task Kwartaal(Uitvoerder wie, Guid id, List<string> verschillen, DateOnly tot)
     {
         var van = new DateOnly(tot.Year, tot.Month, 1).AddMonths(-2);
-        var vastgelegd = await app.Dienst<BtwaangifteDienst>().Vastleggen(wie, id, van, tot);
+        var btwdienst = app.Dienst<BtwaangifteDienst>();
+        var berekend = (await btwdienst.Jaar(wie, id, tot.Year)).Jaar.Perioden.Single(p => p.Periode.Van == van).Berekend;
+        afrondingen[tot.Year] = afrondingen.GetValueOrDefault(tot.Year) + berekend.Afronding;
+        laatsteAfronding = berekend.Afronding;
+        var vastgelegd = await btwdienst.Vastleggen(wie, id, van, tot);
         if (!vastgelegd.IsGelukt)
         {
             verschillen.Add($"Btw vastleggen {van:MM-yyyy}–{tot:MM-yyyy}: {string.Join(" ", vastgelegd.Fouten)}");
@@ -717,19 +723,8 @@ public sealed class TweejaarTests(AdministratieFixture app, ITestOutputHelper ui
         })).IsGelukt);
         Assert.True((await app.Dienst<BankDienst>().WijzigBank(wie, id, "BNK", "Betaalrekening", Iban, "1100")).IsGelukt);
 
-        // Het standaardschema heeft geen rekeningen voor een pand: die maakt het kantoor zelf aan (RGS bedrijfsgebouwen).
+        // Het pand komt op de rekeningen voor bedrijfsgebouwen uit het standaardschema (0100, 0110 en 4820).
         var grootboek = app.Dienst<GrootboekDienst>();
-        foreach (var r in new[]
-        {
-            new RekeningInvoer("0100", "Bedrijfsgebouwen", Rekeningsoort.Balans, "BMvaBegVvp"),
-            new RekeningInvoer("0110", "Afschrijving bedrijfsgebouwen", Rekeningsoort.Balans, "BMvaBegCae"),
-            new RekeningInvoer("4820", "Afschrijving bedrijfsgebouwen", Rekeningsoort.Resultaat, "WAfsAmvBeg"),
-        })
-        {
-            var toegevoegd = await grootboek.VoegRekeningToe(wie, id, r);
-            Assert.True(toegevoegd.IsGelukt, string.Join("; ", toegevoegd.Fouten));
-        }
-
         var begin = await grootboek.Boek(wie, id, new Journaalpost("MEM", "2024-0001", Start, "Beginbalans 2024",
             [new("1100", Beginsaldo, "Bank"), new("0500", -18_000m, "Aandelenkapitaal"), new("0510", -(Beginsaldo - 18_000m), "Overige reserves")]));
         Assert.True(begin.IsGelukt, string.Join("; ", begin.Fouten));
