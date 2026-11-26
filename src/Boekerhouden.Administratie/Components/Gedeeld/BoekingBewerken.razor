@@ -7,116 +7,124 @@
 @inject BtwDienst Btw
 @inject KostenplaatsDienst Kostenplaatsen
 
-<div class="boeking-bewerken">
-    <Foutmeldingen Fouten="fouten" />
-    <div class="d-flex align-items-center flex-wrap gap-2 mb-2 boeking-aanpassen">
-        @if (Post is null)
-        {
-            <span class="fw-semibold text-nowrap">@Dagboek</span>
-            <input class="form-control form-control-sm veld-boekstuk" @bind="boekstuk" aria-label="Boekstuk" title="Boekstuk" />
-        }
-        else
-        {
-            <span class="fw-semibold text-nowrap">@Post.Dagboek @Post.Boekstuk</span>
-        }
-        <DatumVeld @bind-Waarde="invoer.Datum" @bind-Waarde:after="DatumGewijzigd" Uit="@VasteDatum" Label="Datum" title="@(VasteDatum ? "De datum hoort bij het bankafschrift of de openstaande posten" : null)" />
-        <input class="form-control form-control-sm flex-grow-1 w-auto" @bind="invoer.Omschrijving" placeholder="Omschrijving" aria-label="Omschrijving" />
-    </div>
-    <div class="card overzichtskaart">
-        <table class="table table-sm align-middle mb-0 overzichtstabel regeltabel">
-            <thead>
-                <tr><th style="width:30%">Grootboek</th><th>Omschrijving</th>@if (!ZonderBtw)
-                    {
-                        <th style="width:7rem">Btw</th>
-                    }@if (MetKostenplaats)
-                    {
-                        <th style="width:10rem">Kostenplaats</th>
-                    }<th class="text-end" style="width:8rem">Debet</th><th class="text-end" style="width:8rem">Credit</th><th style="width:1.75rem"></th></tr>
-            </thead>
-            <tbody>
-                @foreach (var regel in invoer.Regels)
-                {
-                    @if (regel.Vast)
-                    {
-                        <tr title="Hoort bij het bankafschrift of de openstaande posten en blijft gelijk">
-                            <td><span class="rekeningnummer">@regel.Rekening</span> @Schema.Zoek(regel.Rekening)?.Naam</td>
-                            <td class="text-secondary">@string.Join(" ", new[] { regel.Omschrijving, regel.Relatie, regel.Factuurnummer }.Where(x => !string.IsNullOrEmpty(x)))</td>
-                            @if (!ZonderBtw)
-                            {
-                                <td class="text-secondary">@regel.BtwCode</td>
-                            }
-                            @if (MetKostenplaats)
-                            {
-                                <td><KostenplaatsKeuze @bind-Waarde="regel.Kostenplaats" Lijst="kostenplaatsen" /></td>
-                            }
-                            <td class="bedrag text-end">@regel.Debet</td>
-                            <td class="bedrag text-end">@regel.Credit</td>
-                            <td></td>
-                        </tr>
-                    }
-                    else
-                    {
-                        <tr>
-                            <td><RekeningKeuze @bind-Waarde:get="regel.Rekening" @bind-Waarde:set="v => KiesRekening(regel, v)" Schema="Schema" Kader="Kader" /></td>
-                            <td><input class="form-control form-control-sm" @bind="regel.Omschrijving" placeholder="@invoer.Omschrijving" aria-label="Omschrijving regel" /></td>
-                            @if (!ZonderBtw)
-                            {
-                                <td>
-                                    <select class="form-select form-select-sm" @bind="regel.BtwCode" aria-label="Btw-code">
-                                        <option value=""></option>
-                                        @foreach (var c in codes.Where(c => c.Actief || c.Code == regel.BtwCode))
-                                        {
-                                            <option value="@c.Code" title="@c.Uitleg">@c.Keuze</option>
-                                        }
-                                    </select>
-                                </td>
-                            }
-                            @if (MetKostenplaats)
-                            {
-                                <td><KostenplaatsKeuze @bind-Waarde="regel.Kostenplaats" Lijst="kostenplaatsen" /></td>
-                            }
-                            <td><input class="form-control form-control-sm text-end" @bind="regel.Debet" @bind:event="oninput" aria-label="Debet" /></td>
-                            <td><input class="form-control form-control-sm text-end" @bind="regel.Credit" @bind:event="oninput" aria-label="Credit" /></td>
-                            <td><button class="btn btn-sm btn-link text-secondary p-0 regel-weg" title="Regel verwijderen" @onclick="() => invoer.Regels.Remove(regel)" disabled="@(invoer.Regels.Count <= 2)"><Icoon Naam="x" /></button></td>
-                        </tr>
-                    }
-                }
-            </tbody>
-            <tfoot>
-                <tr class="generaal">
-                    <td colspan="@((ZonderBtw ? 2 : 3) + (MetKostenplaats ? 1 : 0))"><button class="btn btn-sm btn-link nog-een-regel p-0" @onclick="RegelErbij"><Icoon Naam="plus" /> Nog een regel</button></td>
-                    <td class="bedrag text-end">@Weergave.Bedrag(invoer.TotaalDebet)</td>
-                    <td class="bedrag text-end">@Weergave.Bedrag(invoer.TotaalCredit)</td>
-                    <td></td>
-                </tr>
-            </tfoot>
-        </table>
-    </div>
-    <div class="d-flex align-items-center gap-2 mt-3">
-        <button class="btn btn-primary" @onclick="Opslaan" disabled="@bezig" title="@(Post is null ? null : "Dezelfde boeking krijgt een nieuwe versie; de vorige blijft bewaard")">@(Post is null ? "Boeken" : "Opslaan")</button>
-        @if (Post is null)
-        {
-            <span class="form-check mb-0 small text-nowrap ms-2">
-                <input class="form-check-input" type="checkbox" id="herhalen" @bind="herhalen" />
-                <label class="form-check-label text-secondary" for="herhalen">Elke maand</label>
-            </span>
-            @if (herhalen)
+@* Pas tonen als het formulier gevuld is: anders staat er even een lege datum (01-01-0001) en springt het daarna. *@
+@if (!klaar)
+{
+    <div class="boeking-bewerken"><Laadschets Regels="4" /></div>
+}
+else
+{
+    <div class="boeking-bewerken">
+        <Foutmeldingen Fouten="fouten" />
+        <div class="d-flex align-items-center flex-wrap gap-2 mb-2 boeking-aanpassen">
+            @if (Post is null)
             {
-                <label class="small text-secondary" for="herhalen-tot">t/m</label>
-                <input id="herhalen-tot" type="month" class="form-control form-control-sm w-auto" value="@herhalenTot" @onchange="e => herhalenTot = e.Value as string" title="De laatste maand" />
-                <span class="small text-secondary">@(Maanden is { } n ? $"{n} boekingen" : null)</span>
+                <span class="fw-semibold text-nowrap">@Dagboek</span>
+                <input class="form-control form-control-sm veld-boekstuk" @bind="boekstuk" aria-label="Boekstuk" title="Boekstuk" />
             }
-        }
-        @if (Geannuleerd.HasDelegate)
-        {
-            <button class="btn btn-link text-secondary" @onclick="() => Geannuleerd.InvokeAsync()">Annuleren</button>
-        }
-        @if (invoer.TotaalDebet != invoer.TotaalCredit)
-        {
-            <span class="status let-op ms-2">verschil @Weergave.Bedrag(invoer.TotaalDebet - invoer.TotaalCredit)</span>
-        }
+            else
+            {
+                <span class="fw-semibold text-nowrap">@Post.Dagboek @Post.Boekstuk</span>
+            }
+            <DatumVeld @bind-Waarde="invoer.Datum" @bind-Waarde:after="DatumGewijzigd" Uit="@VasteDatum" Label="Datum" title="@(VasteDatum ? "De datum hoort bij het bankafschrift of de openstaande posten" : null)" />
+            <input class="form-control form-control-sm flex-grow-1 w-auto" @bind="invoer.Omschrijving" placeholder="Omschrijving" aria-label="Omschrijving" />
+        </div>
+        <div class="card overzichtskaart">
+            <table class="table table-sm align-middle mb-0 overzichtstabel regeltabel">
+                <thead>
+                    <tr><th style="width:30%">Grootboek</th><th>Omschrijving</th>@if (!ZonderBtw)
+                        {
+                            <th style="width:7rem">Btw</th>
+                        }@if (MetKostenplaats)
+                        {
+                            <th style="width:10rem">Kostenplaats</th>
+                        }<th class="text-end" style="width:8rem">Debet</th><th class="text-end" style="width:8rem">Credit</th><th style="width:1.75rem"></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var regel in invoer.Regels)
+                    {
+                        @if (regel.Vast)
+                        {
+                            <tr title="Hoort bij het bankafschrift of de openstaande posten en blijft gelijk">
+                                <td><span class="rekeningnummer">@regel.Rekening</span> @Schema.Zoek(regel.Rekening)?.Naam</td>
+                                <td class="text-secondary">@string.Join(" ", new[] { regel.Omschrijving, regel.Relatie, regel.Factuurnummer }.Where(x => !string.IsNullOrEmpty(x)))</td>
+                                @if (!ZonderBtw)
+                                {
+                                    <td class="text-secondary">@regel.BtwCode</td>
+                                }
+                                @if (MetKostenplaats)
+                                {
+                                    <td><KostenplaatsKeuze @bind-Waarde="regel.Kostenplaats" Lijst="kostenplaatsen" /></td>
+                                }
+                                <td class="bedrag text-end">@regel.Debet</td>
+                                <td class="bedrag text-end">@regel.Credit</td>
+                                <td></td>
+                            </tr>
+                        }
+                        else
+                        {
+                            <tr>
+                                <td><RekeningKeuze @bind-Waarde:get="regel.Rekening" @bind-Waarde:set="v => KiesRekening(regel, v)" Schema="Schema" Kader="Kader" /></td>
+                                <td><input class="form-control form-control-sm" @bind="regel.Omschrijving" placeholder="@invoer.Omschrijving" aria-label="Omschrijving regel" /></td>
+                                @if (!ZonderBtw)
+                                {
+                                    <td>
+                                        <select class="form-select form-select-sm" @bind="regel.BtwCode" aria-label="Btw-code">
+                                            <option value=""></option>
+                                            @foreach (var c in codes.Where(c => c.Actief || c.Code == regel.BtwCode))
+                                            {
+                                                <option value="@c.Code" title="@c.Uitleg">@c.Keuze</option>
+                                            }
+                                        </select>
+                                    </td>
+                                }
+                                @if (MetKostenplaats)
+                                {
+                                    <td><KostenplaatsKeuze @bind-Waarde="regel.Kostenplaats" Lijst="kostenplaatsen" /></td>
+                                }
+                                <td><input class="form-control form-control-sm text-end" @bind="regel.Debet" @bind:event="oninput" aria-label="Debet" /></td>
+                                <td><input class="form-control form-control-sm text-end" @bind="regel.Credit" @bind:event="oninput" aria-label="Credit" /></td>
+                                <td><button class="btn btn-sm btn-link text-secondary p-0 regel-weg" title="Regel verwijderen" @onclick="() => invoer.Regels.Remove(regel)" disabled="@(invoer.Regels.Count <= 2)"><Icoon Naam="x" /></button></td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="generaal">
+                        <td colspan="@((ZonderBtw ? 2 : 3) + (MetKostenplaats ? 1 : 0))"><button class="btn btn-sm btn-link nog-een-regel p-0" @onclick="RegelErbij"><Icoon Naam="plus" /> Nog een regel</button></td>
+                        <td class="bedrag text-end">@Weergave.Bedrag(invoer.TotaalDebet)</td>
+                        <td class="bedrag text-end">@Weergave.Bedrag(invoer.TotaalCredit)</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        <div class="d-flex align-items-center gap-2 mt-3">
+            <button class="btn btn-primary" @onclick="Opslaan" disabled="@bezig" title="@(Post is null ? null : "Dezelfde boeking krijgt een nieuwe versie; de vorige blijft bewaard")">@(Post is null ? "Boeken" : "Opslaan")</button>
+            @if (Post is null)
+            {
+                <span class="form-check mb-0 small text-nowrap ms-2">
+                    <input class="form-check-input" type="checkbox" id="herhalen" @bind="herhalen" />
+                    <label class="form-check-label text-secondary" for="herhalen">Elke maand</label>
+                </span>
+                @if (herhalen)
+                {
+                    <label class="small text-secondary" for="herhalen-tot">t/m</label>
+                    <input id="herhalen-tot" type="month" class="form-control form-control-sm w-auto" value="@herhalenTot" @onchange="e => herhalenTot = e.Value as string" title="De laatste maand" />
+                    <span class="small text-secondary">@(Maanden is { } n ? $"{n} boekingen" : null)</span>
+                }
+            }
+            @if (Geannuleerd.HasDelegate)
+            {
+                <button class="btn btn-link text-secondary" @onclick="() => Geannuleerd.InvokeAsync()">Annuleren</button>
+            }
+            @if (invoer.TotaalDebet != invoer.TotaalCredit)
+            {
+                <span class="status let-op ms-2">verschil @Weergave.Bedrag(invoer.TotaalDebet - invoer.TotaalCredit)</span>
+            }
+        </div>
     </div>
-</div>
+}
 
 @code {
     /// <summary>Niet btw-plichtig en geen regel met een btw-code (bijv. een oude boeking): geen kolom Btw.</summary>
@@ -202,6 +210,14 @@
 
     /// <summary>Het formulier wordt één keer gevuld; een andere boeking krijgt een nieuw exemplaar (via @key).</summary>
     protected override async Task OnInitializedAsync()
+    {
+        await Vul();
+        klaar = true;
+    }
+
+    private bool klaar;
+
+    private async Task Vul()
     {
         var datum = Post?.Datum ?? (Voorbeeld is { } v ? (VoorbeeldOpDatum ? v.Datum : Volgende(v.Datum)) : Datum);
         codes = (await Btw.Tabel()).Op(datum);

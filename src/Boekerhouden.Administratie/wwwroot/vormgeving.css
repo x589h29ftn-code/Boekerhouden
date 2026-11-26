@@ -716,10 +716,13 @@ html.zijbalk-smal .zijmenu::after {
 
 .opslaanbalk {
     bottom: .75rem;
+    /* Rechts ruimte voor het vraagteken, dat ernaast vast in beeld staat (anders valt het op een smal scherm over Opslaan). */
+    padding-right: 3rem;
 }
 
 .actiebalk {
     bottom: .75rem;
+    padding-right: 3rem;
 }
 
 .melding-kort {

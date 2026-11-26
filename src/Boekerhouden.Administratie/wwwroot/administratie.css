@@ -1373,7 +1373,8 @@ body.kolom-slepen { cursor: col-resize; user-select: none; }
 .factuurtekst { white-space: pre-line; }
 
 /* De factuurontwerper: het A4 links (geschaald), de instellingen rechts. */
-.ontwerper { display: flex; gap: 1.5rem; align-items: flex-start; }
+/* Past het paneel er niet naast (smal venster of zoom), dan komt het eronder. */
+.ontwerper { display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: flex-start; }
 .ontwerpvlak-rand { flex: none; background: var(--bs-tertiary-bg, #eceae6); padding: 1rem; border-radius: .25rem; }
 .ontwerpvlak { position: relative; width: calc(210mm * .8); height: calc(297mm * .8); overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.15); background: #fff; outline: none; }
 .ontwerpvlak-pagina { transform-origin: top left; width: 210mm; height: 297mm; overflow: hidden; }
@@ -1576,8 +1577,8 @@ a.kerngetal:hover { color: var(--bh-accent); }
 .maandgrafiek .grafiektabel { font-size: .875rem; font-variant-numeric: tabular-nums; }
 
 /* Perioden en vaste activa: acties op een regel pas bij aanwijzen; het afschrijvingsplan per jaar, open te klikken. */
-.perioden .regelactie, .activakandidaten .regelactie, .desinvesteringen .regelactie, .memoriaal-lijst .regelactie, .reservekopieen .regelactie { opacity: 0; transition: opacity var(--bh-snel) ease; }
-.perioden tr:is(:hover, :focus-within) .regelactie, .activakandidaten tr:is(:hover, :focus-within) .regelactie, .desinvesteringen tr:is(:hover, :focus-within) .regelactie, .memoriaal-lijst tr:is(:hover, :focus-within) .regelactie, .reservekopieen tr:is(:hover, :focus-within) .regelactie { opacity: 1; }
+.perioden .regelactie, .activakandidaten .regelactie, .desinvesteringen .regelactie, .memoriaal-lijst .regelactie, .reservekopieen .regelactie, .bankmutaties .regelactie { opacity: 0; transition: opacity var(--bh-snel) ease; }
+.perioden tr:is(:hover, :focus-within) .regelactie, .activakandidaten tr:is(:hover, :focus-within) .regelactie, .desinvesteringen tr:is(:hover, :focus-within) .regelactie, .memoriaal-lijst tr:is(:hover, :focus-within) .regelactie, .reservekopieen tr:is(:hover, :focus-within) .regelactie, .bankmutaties tr:is(:hover, :focus-within) .regelactie { opacity: 1; }
 .afschrijvingsplan .pijl { display: inline-block; width: 1.25rem; color: var(--bh-zacht); }
 .activastaat td:first-child { white-space: nowrap; }
 
@@ -1993,3 +1994,6 @@ tr:hover .rij-actie, .rij-actie:focus-visible { opacity: 1; }
 .zoek-administraties {
     min-width: 17rem;
 }
+
+/* Terwijl een boeking wordt klaargezet: even hoog als het formulier met twee regels, zodat de lijst eronder niet verspringt. */
+.boeking-bewerken > .laadschets { min-height: 15rem; align-content: start; }

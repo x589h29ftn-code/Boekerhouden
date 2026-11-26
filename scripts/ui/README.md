@@ -15,6 +15,7 @@ scripts/ui/herstart.sh && BREEDTE=1400 node scripts/ui/verwerkbreedte.js /tmp/sc
 scripts/ui/herstart.sh && node scripts/ui/openen.js /tmp/afdruk.xaf   # bestanden openen vanuit Windows (het script van de Windows-app)
 scripts/ui/herstart.sh && node scripts/ui/afdrukken.js /tmp/afdruk.xaf /tmp/afdruk   # elk overzicht afdrukken (licht en donker), meldt fouten
 scripts/ui/herstart.sh && node scripts/ui/consistentie.js /tmp/afdruk.xaf /tmp/consistentie   # lay-out over 41 schermen op twee maten: scrollen, knoppen, tekens, Engels, labels
+scripts/ui/herstart.sh && node scripts/ui/verschuivingen.js /tmp/afdruk.xaf /tmp/verschuivingen   # verspringen bij laden, 1024 tot 2560 breed, zoom, smalle zijbalk, ruim, live kleiner/groter: niets buiten beeld of over elkaar
 ```
 
 `herstart.sh` moet vóór elke run: het script maakt de eerste gebruiker aan, en dat kan alleen op een lege database.

@@ -41,7 +41,7 @@
             {
                 <div class="card overzichtskaart mb-3">
                     <table class="table align-middle mb-0 overzichtstabel openposten" data-sleepbaar="@($"{Naam}-totalen")">
-                        <colgroup><col style="width:9rem" /><col /><col style="width:6rem" /><col style="width:10rem" /><col style="width:9rem" /><col style="width:10rem" /><col style="width:5rem" /></colgroup>
+                        <colgroup><col style="width:7rem" /><col /><col style="width:4.5rem" /><col style="width:7.5rem" /><col style="width:7.5rem" /><col style="width:7.5rem" /><col style="width:4rem" /></colgroup>
                         <thead>
                             <tr><th>Code</th><th>@Hoofdletter(Relatienaam)</th><th class="text-end">Posten</th><th class="text-end">Factuurbedrag</th><th class="text-end">Betaald</th><th class="text-end">Openstaand</th><th class="text-end" title="Dagen sinds de oudste factuur">Oudste</th></tr>
                         </thead>
@@ -66,7 +66,7 @@
             {
                 <div class="card overzichtskaart mb-3">
                     <table class="table align-middle mb-0 overzichtstabel openposten" data-sleepbaar="@($"{Naam}-posten")">
-                        <colgroup><col style="width:7rem" /><col style="width:7rem" /><col style="width:19%" /><col /><col style="width:7rem" /><col style="width:8.5rem" /><col style="width:7rem" /><col style="width:8.5rem" /><col style="width:3.5rem" /></colgroup>
+                        <colgroup><col style="width:6.25rem" /><col style="width:6.25rem" /><col style="width:11rem" /><col /><col style="width:6.5rem" /><col style="width:7rem" /><col style="width:7rem" /><col style="width:7rem" /><col style="width:3.5rem" /></colgroup>
                         <thead>
                             <tr><th>Boekdatum</th><th>Vervaldatum</th><th>@Hoofdletter(Relatienaam)</th><th>Omschrijving</th><th>Factuurnr.</th><th class="text-end">Factuurbedrag</th><th class="text-end">Betaald</th><th class="text-end">Openstaand</th><th class="text-end" title="Dagen sinds de factuurdatum">Oud</th></tr>
                         </thead>
@@ -82,7 +82,7 @@
                                     <td class="bedrag text-end">@Weergave.Bedrag(p.Factuurbedrag)</td>
                                     <td class="bedrag text-end">@Weergave.Bedrag(p.Betaald)</td>
                                     <td class="bedrag text-end">@Weergave.Bedrag(p.Openstaand)</td>
-                                    <td class="text-end text-secondary">@p.Ouderdom</td>
+                                    <td class="text-end text-secondary text-nowrap">@p.Ouderdom</td>
                                 </tr>
                             }
                         </tbody>
@@ -97,7 +97,7 @@
                         <h2 class="h6 mb-1"><span class="openposten-code">@r.Relatie</span>@r.Naam</h2>
                         <div class="card overzichtskaart mb-3">
                             <table class="table align-middle mb-0 overzichtstabel openposten" data-sleepbaar="@Naam">
-                                <colgroup><col style="width:8.5rem" /><col style="width:9rem" /><col /><col style="width:11rem" /><col style="width:10rem" /><col style="width:9rem" /><col style="width:10rem" /><col style="width:4.5rem" /></colgroup>
+                                <colgroup><col style="width:6.25rem" /><col style="width:6.25rem" /><col /><col style="width:6.5rem" /><col style="width:7rem" /><col style="width:7rem" /><col style="width:7rem" /><col style="width:3.5rem" /></colgroup>
                                 <thead>
                                     <tr><th>Boekdatum</th><th>Vervaldatum</th><th>Omschrijving</th><th>Factuurnr.</th><th class="text-end">Factuurbedrag</th><th class="text-end">Betaald</th><th class="text-end">Openstaand</th><th class="text-end" title="Dagen sinds de factuurdatum">Oud</th></tr>
                                 </thead>
@@ -112,7 +112,7 @@
                                             <td class="bedrag text-end">@Weergave.Bedrag(p.Factuurbedrag)</td>
                                             <td class="bedrag text-end">@Weergave.Bedrag(p.Betaald)</td>
                                             <td class="bedrag text-end">@Weergave.Bedrag(p.Openstaand)</td>
-                                            <td class="text-end text-secondary">@p.Ouderdom</td>
+                                            <td class="text-end text-secondary text-nowrap">@p.Ouderdom</td>
                                         </tr>
                                     }
                                 </tbody>
@@ -130,19 +130,20 @@
                     </div>
                 }
             }
-            <div class="card overzichtskaart">
+            @* Het totaal generaal schuift mee als de tabellen erboven breder zijn dan het scherm. *@
+            <div class="card overzichtskaart te-breed">
                 <table class="table align-middle mb-0 overzichtstabel openposten">
                     @if (weergave == Openpostenweergave.Totalen)
                     {
-                        <colgroup><col style="width:9rem" /><col /><col style="width:6rem" /><col style="width:10rem" /><col style="width:9rem" /><col style="width:10rem" /><col style="width:5rem" /></colgroup>
+                        <colgroup><col style="width:7rem" /><col /><col style="width:4.5rem" /><col style="width:7.5rem" /><col style="width:7.5rem" /><col style="width:7.5rem" /><col style="width:4rem" /></colgroup>
                     }
                     else if (weergave == Openpostenweergave.Posten)
                     {
-                        <colgroup><col style="width:7rem" /><col style="width:7rem" /><col style="width:19%" /><col /><col style="width:7rem" /><col style="width:8.5rem" /><col style="width:7rem" /><col style="width:8.5rem" /><col style="width:3.5rem" /></colgroup>
+                        <colgroup><col style="width:6.25rem" /><col style="width:6.25rem" /><col style="width:11rem" /><col /><col style="width:6.5rem" /><col style="width:7rem" /><col style="width:7rem" /><col style="width:7rem" /><col style="width:3.5rem" /></colgroup>
                     }
                     else
                     {
-                        <colgroup><col style="width:8.5rem" /><col style="width:9rem" /><col /><col style="width:11rem" /><col style="width:10rem" /><col style="width:9rem" /><col style="width:10rem" /><col style="width:4.5rem" /></colgroup>
+                        <colgroup><col style="width:6.25rem" /><col style="width:6.25rem" /><col /><col style="width:6.5rem" /><col style="width:7rem" /><col style="width:7rem" /><col style="width:7rem" /><col style="width:3.5rem" /></colgroup>
                     }
                     <tfoot>
                         <tr class="generaal">

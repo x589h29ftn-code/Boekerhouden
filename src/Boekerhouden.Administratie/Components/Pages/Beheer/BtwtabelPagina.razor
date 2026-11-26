@@ -13,139 +13,146 @@
     <div class="bericht mb-2">@bericht</div>
 }
 
-<h2 class="h6 text-secondary">Tarieven</h2>
-<div class="card overzichtskaart mb-2" style="max-width: 40rem">
-    <table class="table align-middle mb-0 overzichtstabel">
-        <thead>
-            <tr><th>Tarief</th><th>Vanaf</th><th class="text-end">Percentage</th><th></th></tr>
-        </thead>
-        <tbody>
-            @foreach (var t in tarieven)
-            {
-                var geldt = Geldend(t);
-                <tr class="regel-met-acties">
-                    <td>@BtwDienst.Naam(t.Tarief)</td>
-                    <td>@Weergave.Datum(t.Vanaf)</td>
-                    <td class="bedrag text-end">@Btwpercentage.Tekst(t.Percentage)</td>
-                    <td class="text-end text-nowrap">
-                        @if (geldt)
-                        {
-                            <Statusstip Soort="Stipsoort.Klaar">geldt nu</Statusstip>
-                        }
-                        <span class="acties"><button class="btn btn-sm btn-link text-secondary p-0 ms-2" @onclick="() => VerwijderTarief(t.Id)">Verwijderen</button></span>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
-</div>
-<div class="mt-2" style="max-width: 40rem">
-<Uitklapformulier Tekst="Nieuw tarief">
-<div class="d-flex flex-wrap align-items-end gap-2">
-    <div>
-        <label class="form-label small mb-0" for="tarief">Tarief</label>
-        <select id="tarief" class="form-select form-select-sm" @bind="nieuwTarief">
-            <option value="@Tarief.Hoog">hoog</option>
-            <option value="@Tarief.Laag">laag</option>
-            <option value="@Tarief.Nul">nul</option>
-        </select>
-    </div>
-    <div>
-        <label class="form-label small mb-0" for="vanaf">Vanaf</label>
-        <DatumVeld Id="vanaf" @bind-Waarde="nieuwVanaf" />
-    </div>
-    <div>
-        <label class="form-label small mb-0" for="percentage">Percentage</label>
-        <input id="percentage" class="form-control form-control-sm text-end" style="width: 7rem" @bind="nieuwPercentage" placeholder="21,15" />
-    </div>
-    <button class="btn btn-sm btn-outline-primary" @onclick="VoegTariefToe">Tarief toevoegen</button>
-</div>
-</Uitklapformulier>
-</div>
-
-<h2 class="h6 text-secondary">Btw-codes</h2>
-<div class="card overzichtskaart mb-2">
-    <table class="table align-middle mb-0 overzichtstabel">
-        <thead>
-            <tr><th>Code</th><th>Omschrijving</th><th>Soort</th><th>Tarief</th><th>Grondslag</th><th>Btw</th><th>Voorbelasting</th><th></th></tr>
-        </thead>
-        <tbody>
-            @foreach (var c in codesVandaag)
-            {
-                <tr class="regel-met-acties @(c.Actief ? null : "text-secondary")">
-                    <td><span class="rekeningnummer">@c.Code</span></td>
-                    <td>
-                        @if (bewerk == c.Code)
-                        {
-                            <input class="form-control form-control-sm" aria-label="Omschrijving" @bind="bewerkOmschrijving" />
-                        }
-                        else
-                        {
-                            @c.Omschrijving
-                        }
-                    </td>
-                    <td title="@c.Info.Omschrijving">@c.Info.Naam</td>
-                    <td class="text-nowrap">@BtwDienst.Naam(c.Tarief)@(c.Tarief == Tarief.Geen ? null : $" ({Btwpercentage.Tekst(c.Percentage)})")</td>
-                    <td>@c.Rubriek</td>
-                    <td>@c.RubriekBtw</td>
-                    <td>@(c.Voorbelasting ? "5b" : null)</td>
-                    <td class="text-end text-nowrap">
-                        @if (bewerk == c.Code)
-                        {
-                            <span class="form-check d-inline-block mb-0 me-2">
-                                <input class="form-check-input" type="checkbox" id="actief-@c.Code" @bind="bewerkActief" />
-                                <label class="form-check-label small" for="actief-@c.Code">Actief</label>
-                            </span>
-                            <button class="btn btn-sm btn-primary" @onclick="BewaarCode">Opslaan</button>
-                            <button class="btn btn-sm btn-link text-secondary" @onclick="() => bewerk = null">Annuleren</button>
-                        }
-                        else
-                        {
-                            @if (!c.Actief)
+@if (tabel is null)
+{
+    <Laadschets Regels="10" />
+}
+else
+{
+    <h2 class="h6 text-secondary">Tarieven</h2>
+    <div class="card overzichtskaart mb-2" style="max-width: 40rem">
+        <table class="table align-middle mb-0 overzichtstabel">
+            <thead>
+                <tr><th>Tarief</th><th>Vanaf</th><th class="text-end">Percentage</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var t in tarieven)
+                {
+                    var geldt = Geldend(t);
+                    <tr class="regel-met-acties">
+                        <td>@BtwDienst.Naam(t.Tarief)</td>
+                        <td>@Weergave.Datum(t.Vanaf)</td>
+                        <td class="bedrag text-end">@Btwpercentage.Tekst(t.Percentage)</td>
+                        <td class="text-end text-nowrap">
+                            @if (geldt)
                             {
-                                <Statusstip Soort="Stipsoort.Uit">inactief</Statusstip>
+                                <Statusstip Soort="Stipsoort.Klaar">geldt nu</Statusstip>
                             }
-                            <span class="acties"><button class="btn btn-sm btn-link text-secondary p-0 ms-2" @onclick="() => Bewerk(c)">wijzigen</button></span>
-                        }
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
-</div>
-<div class="mt-2">
-<Uitklapformulier Tekst="Nieuwe btw-code">
-<div class="d-flex flex-wrap align-items-end gap-2">
-    <div>
-        <label class="form-label small mb-0" for="code">Code</label>
-        <input id="code" class="form-control form-control-sm" style="width: 6rem" @bind="nieuweCode" />
+                            <span class="acties"><button class="btn btn-sm btn-link text-secondary p-0 ms-2" @onclick="() => VerwijderTarief(t.Id)">Verwijderen</button></span>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
     </div>
-    <div class="flex-grow-1" style="max-width: 20rem">
-        <label class="form-label small mb-0" for="omschrijving">Omschrijving</label>
-        <input id="omschrijving" class="form-control form-control-sm" @bind="nieuweOmschrijving" />
+    <div class="mt-2" style="max-width: 40rem">
+    <Uitklapformulier Tekst="Nieuw tarief">
+    <div class="d-flex flex-wrap align-items-end gap-2">
+        <div>
+            <label class="form-label small mb-0" for="tarief">Tarief</label>
+            <select id="tarief" class="form-select form-select-sm" @bind="nieuwTarief">
+                <option value="@Tarief.Hoog">hoog</option>
+                <option value="@Tarief.Laag">laag</option>
+                <option value="@Tarief.Nul">nul</option>
+            </select>
+        </div>
+        <div>
+            <label class="form-label small mb-0" for="vanaf">Vanaf</label>
+            <DatumVeld Id="vanaf" @bind-Waarde="nieuwVanaf" />
+        </div>
+        <div>
+            <label class="form-label small mb-0" for="percentage">Percentage</label>
+            <input id="percentage" class="form-control form-control-sm text-end" style="width: 7rem" @bind="nieuwPercentage" placeholder="21,15" />
+        </div>
+        <button class="btn btn-sm btn-outline-primary" @onclick="VoegTariefToe">Tarief toevoegen</button>
     </div>
-    <div>
-        <label class="form-label small mb-0" for="soort">Soort</label>
-        <select id="soort" class="form-select form-select-sm" @bind="nieuweSoort">
-            @foreach (var s in Btwsoorten.Alle)
-            {
-                <option value="@s.Soort" title="@s.Omschrijving">@(s.Richting == BtwRichting.Inkoop ? "Inkoop" : "Verkoop"): @s.Naam</option>
-            }
-        </select>
+    </Uitklapformulier>
     </div>
-    <div>
-        <label class="form-label small mb-0" for="codetarief">Tarief</label>
-        <select id="codetarief" class="form-select form-select-sm" @bind="nieuwCodeTarief">
-            <option value="@Tarief.Hoog">hoog</option>
-            <option value="@Tarief.Laag">laag</option>
-            <option value="@Tarief.Nul">nul</option>
-            <option value="@Tarief.Geen">geen btw</option>
-        </select>
+
+    <h2 class="h6 text-secondary">Btw-codes</h2>
+    <div class="card overzichtskaart mb-2">
+        <table class="table align-middle mb-0 overzichtstabel">
+            <thead>
+                <tr><th>Code</th><th>Omschrijving</th><th>Soort</th><th>Tarief</th><th>Grondslag</th><th>Btw</th><th>Voorbelasting</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var c in codesVandaag)
+                {
+                    <tr class="regel-met-acties @(c.Actief ? null : "text-secondary")">
+                        <td><span class="rekeningnummer">@c.Code</span></td>
+                        <td>
+                            @if (bewerk == c.Code)
+                            {
+                                <input class="form-control form-control-sm" aria-label="Omschrijving" @bind="bewerkOmschrijving" />
+                            }
+                            else
+                            {
+                                @c.Omschrijving
+                            }
+                        </td>
+                        <td title="@c.Info.Omschrijving">@c.Info.Naam</td>
+                        <td class="text-nowrap">@BtwDienst.Naam(c.Tarief)@(c.Tarief == Tarief.Geen ? null : $" ({Btwpercentage.Tekst(c.Percentage)})")</td>
+                        <td>@c.Rubriek</td>
+                        <td>@c.RubriekBtw</td>
+                        <td>@(c.Voorbelasting ? "5b" : null)</td>
+                        <td class="text-end text-nowrap">
+                            @if (bewerk == c.Code)
+                            {
+                                <span class="form-check d-inline-block mb-0 me-2">
+                                    <input class="form-check-input" type="checkbox" id="actief-@c.Code" @bind="bewerkActief" />
+                                    <label class="form-check-label small" for="actief-@c.Code">Actief</label>
+                                </span>
+                                <button class="btn btn-sm btn-primary" @onclick="BewaarCode">Opslaan</button>
+                                <button class="btn btn-sm btn-link text-secondary" @onclick="() => bewerk = null">Annuleren</button>
+                            }
+                            else
+                            {
+                                @if (!c.Actief)
+                                {
+                                    <Statusstip Soort="Stipsoort.Uit">inactief</Statusstip>
+                                }
+                                <span class="acties"><button class="btn btn-sm btn-link text-secondary p-0 ms-2" @onclick="() => Bewerk(c)">wijzigen</button></span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
     </div>
-    <button class="btn btn-sm btn-outline-primary" @onclick="VoegCodeToe">Code toevoegen</button>
-</div>
-</Uitklapformulier>
-</div>
+    <div class="mt-2">
+    <Uitklapformulier Tekst="Nieuwe btw-code">
+    <div class="d-flex flex-wrap align-items-end gap-2">
+        <div>
+            <label class="form-label small mb-0" for="code">Code</label>
+            <input id="code" class="form-control form-control-sm" style="width: 6rem" @bind="nieuweCode" />
+        </div>
+        <div class="flex-grow-1" style="max-width: 20rem">
+            <label class="form-label small mb-0" for="omschrijving">Omschrijving</label>
+            <input id="omschrijving" class="form-control form-control-sm" @bind="nieuweOmschrijving" />
+        </div>
+        <div>
+            <label class="form-label small mb-0" for="soort">Soort</label>
+            <select id="soort" class="form-select form-select-sm" @bind="nieuweSoort">
+                @foreach (var s in Btwsoorten.Alle)
+                {
+                    <option value="@s.Soort" title="@s.Omschrijving">@(s.Richting == BtwRichting.Inkoop ? "Inkoop" : "Verkoop"): @s.Naam</option>
+                }
+            </select>
+        </div>
+        <div>
+            <label class="form-label small mb-0" for="codetarief">Tarief</label>
+            <select id="codetarief" class="form-select form-select-sm" @bind="nieuwCodeTarief">
+                <option value="@Tarief.Hoog">hoog</option>
+                <option value="@Tarief.Laag">laag</option>
+                <option value="@Tarief.Nul">nul</option>
+                <option value="@Tarief.Geen">geen btw</option>
+            </select>
+        </div>
+        <button class="btn btn-sm btn-outline-primary" @onclick="VoegCodeToe">Code toevoegen</button>
+    </div>
+    </Uitklapformulier>
+    </div>
+}
 
 @code {
     private IReadOnlyList<Btwtariefregeling> tarieven = [];

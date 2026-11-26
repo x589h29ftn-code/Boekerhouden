@@ -1083,7 +1083,8 @@ tr[tabindex]:focus-visible {
 
 /* Btw-aangifte: de perioden links, het aangifteformulier en de aansluiting rechts. */
 .btw-module { display: grid; grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
-@media (max-width: 900px) { .btw-module { grid-template-columns: 1fr; } }
+/* Naast elkaar alleen als de aangifte ernaast zijn kolommen kwijt kan (anders valt de btw-kolom eraf, bijv. op een laptop met zoom). */
+@media (max-width: 1180px) { .btw-module { grid-template-columns: 1fr; } }
 
 /* Een knop met een klein menu eronder (bijv. "Nieuw van deze" op een verkoopfactuur): minder knoppen naast elkaar. */
 .knopmenu { position: relative; display: inline-block; }
