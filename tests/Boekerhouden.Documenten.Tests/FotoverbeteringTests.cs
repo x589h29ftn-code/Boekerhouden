@@ -166,4 +166,55 @@ public sealed class FotoverbeteringTests
         Assert.DoesNotContain(Enumerable.Range(0, Hoogte).SelectMany(y => Enumerable.Range(0, 450).Select(x => vlak[(y * Breedte) + x])), p => p < 200);
         Assert.Equal(tekst, Tekst());
     }
+
+    [Fact]
+    public void Een_klein_bestand_met_een_enorm_beeld_wordt_niet_uitgepakt()
+    {
+        // Een PNG van 40.000 x 40.000 pixels (1,6 gigapixel) in een paar honderd bytes: alleen de kop wordt gelezen.
+        var png = Png(40_000, 40_000);
+        Assert.True(png.Length < 1_000);
+        var voor = GC.GetTotalMemory(forceFullCollection: true);
+        Assert.Null(Fotoverbetering.Verbeter(png));
+        Assert.True(GC.GetTotalMemory(forceFullCollection: false) - voor < 100_000_000);
+        Assert.False(Afbeeldingsgrens.Past(new SkiaSharp.SKImageInfo(40_000, 40_000)));
+        Assert.True(Afbeeldingsgrens.Past(new SkiaSharp.SKImageInfo(8_000, 6_000)));
+    }
+
+    private static uint Crc32(byte[] gegevens)
+    {
+        var crc = 0xFFFFFFFFu;
+        foreach (var b in gegevens)
+        {
+            crc ^= b;
+            for (var k = 0; k < 8; k++)
+            {
+                crc = (crc & 1) != 0 ? (crc >> 1) ^ 0xEDB88320u : crc >> 1;
+            }
+        }
+
+        return ~crc;
+    }
+
+    /// <summary>Een PNG met alleen een kop (IHDR) en een leeg gegevensblok.</summary>
+    private static byte[] Png(int breedte, int hoogte)
+    {
+        static byte[] Blok(string soort, byte[] inhoud)
+        {
+            var type = System.Text.Encoding.ASCII.GetBytes(soort);
+            var uit = new List<byte>();
+            uit.AddRange(BitConverter.GetBytes(System.Buffers.Binary.BinaryPrimitives.ReverseEndianness(inhoud.Length)));
+            uit.AddRange(type);
+            uit.AddRange(inhoud);
+            var crc = Crc32([.. type, .. inhoud]);
+            uit.AddRange(BitConverter.GetBytes(System.Buffers.Binary.BinaryPrimitives.ReverseEndianness(crc)));
+            return [.. uit];
+        }
+
+        var kop = new byte[13];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(kop, breedte);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(kop.AsSpan(4), hoogte);
+        kop[8] = 8; // 8 bits per kanaal
+        kop[9] = 2; // RGB
+        return [137, 80, 78, 71, 13, 10, 26, 10, .. Blok("IHDR", kop), .. Blok("IDAT", [0x78, 0x9C, 0x03, 0x00, 0x00, 0x00, 0x00, 0x01]), .. Blok("IEND", [])];
+    }
 }

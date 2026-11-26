@@ -69,6 +69,10 @@ public sealed class ConceptDienst(Toegang toegang, AuditDienst audit, TimeProvid
     public async Task Verwijder(Uitvoerder wie, Guid administratie, string soort, Guid sleutel)
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Invoeren);
-        await db.Concepten.Where(c => c.Soort == soort && c.Sleutel == sleutel).ExecuteDeleteAsync();
+        // Alleen loggen als er een bewaard concept was (dat werd bij bewaren ook gelogd).
+        if (await db.Concepten.Where(c => c.Soort == soort && c.Sleutel == sleutel).ExecuteDeleteAsync() > 0)
+        {
+            await audit.Log(wie, AuditActies.ConceptVerwijderd, sleutel.ToString(), soort, administratie);
+        }
     }
 }

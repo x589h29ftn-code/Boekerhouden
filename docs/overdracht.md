@@ -231,6 +231,29 @@ Laatst gebouwd (oktober en begin november 2026), in deze volgorde:
     administratie zonder die rekening krijgt hem dan, op het eerste vrije nummer vanaf 4910); intrekken laat die boeking
     vervallen. Het voorbeeldjaar gaf daardoor 1,60 meer resultaat en 1 euro meer vpb. Bewust zo gelaten: de
     verkoopopbrengst bij een desinvestering is zonder btw (de btw gaat via een verkoopfactuur).
+31. **Lay-out, techniek en de keten** (26 november):
+    - `scripts/ui/verschuivingen.js` meet verspringen bij laden en elke pagina op 1024 tot 2560 breed (ook zoom, smalle
+      zijbalk, ruim, live kleiner en groter): van 248 naar 0 meldingen. Opgelost: openstaande posten en de btw-aangifte
+      vielen op een laptop met zoom van het scherm (kolommen compacter, de aangifte onder de perioden onder 1180 breed),
+      het paneel van de factuurlayout gaat eronder als het er niet naast past, het vraagteken viel over *Opslaan*, het
+      memoriaal toonde even 01-01-0001 en sprong daarna, de btw-tabel (Beheer) sprong bij het laden.
+    - Technische review: een uitgezette gebruiker kon nog inloggen (`Identiteit/Aanmelder`, ook `IsBeheerder` kijkt
+      naar actief); gebruikers, werkplekken, administratie aanmaken en een auditfile inlezen controleren de rol in de
+      dienst zelf; dubbel terugdraaien en verwijderen tegelijk (slot eerst); verwijderen van een verkoopconcept onder
+      het slot; afsluiten en heropenen in een transactie; een creditfactuur en automatisch afletteren lezen de
+      openstaande post onder het slot opnieuw; afbeeldingen boven 64 megapixel worden niet uitgepakt
+      (`Afbeeldingsgrens`); een PDF zonder .pdf-naam wordt ook gescand; Chromium stopt als een PDF wordt afgebroken;
+      de eerste beheerder één tegelijk; indexen op `Boekingen(AdministratieId, Datum)` en `BoekingId`; CSP zonder
+      `ws: wss:`; `UseForwardedHeaders` (proxy op loopback) en een rem op inloggen per IP (`Inlogrem`, 30 per 5 minuten).
+      **Open (besluit):** de documentmap kan in de webapp door elk kantoorlid op elk pad van de server worden gezet;
+      automatisch verwerken laadt na elke boeking alles opnieuw (traag bij honderden mutaties in één afschrift).
+    - `Praktijk/KetenTests`: inkoop, verkoop en bank met de lastige gevallen samen (korting als regel, betaling op
+      alleen het kenmerk, ICP met betalingskorting, uitvoer, deelbetaling en crediteren met terugbetaling, twee
+      facturen met hetzelfde bedrag, aanbetaling vóór de factuur, storno en opnieuw, EU-dienst en verlegd, hetzelfde
+      nummer bij twee leveranciers, creditnota na deelbetaling en terugbetaling, factuur en kosten verdeeld, een dag
+      overlap tussen afschriften). Vond: een geboekte bankmutatie kon niet worden teruggedraaid (nu
+      `BankDienst.Terugdraaien`, op het scherm bij *Ook geboekt*), en een dag overlap gaf een valse melding over het
+      beginsaldo.
 
 **Branch**: al het werk staat op `claude/amazing-albattani-pmv7g5`, de enige branch op GitHub
 (`x589h29ftn-code/boekerhouden`). Ga daarop verder (clone of checkout van die branch).

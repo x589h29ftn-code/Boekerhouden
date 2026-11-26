@@ -839,6 +839,8 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
 
                     b.HasIndex("AfschriftId");
 
+                    b.HasIndex("BoekingId");
+
                     b.HasIndex("AdministratieId", "Sleutel")
                         .IsUnique();
 
@@ -916,6 +918,8 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                     b.HasIndex("Herstelt");
 
                     b.HasIndex("Vervangt");
+
+                    b.HasIndex("AdministratieId", "Datum");
 
                     b.HasIndex("AdministratieId", "Volgnummer")
                         .IsUnique();
@@ -1409,6 +1413,8 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasDefaultValue("Onbekend");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BoekingId");
 
                     b.HasIndex("AdministratieId", "Sha256");
 
@@ -2222,6 +2228,8 @@ namespace Boekerhouden.Administratie.Data.MigratiesSqlite
                         .HasDefaultValue("Onbekend");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BoekingId");
 
                     b.HasIndex("AdministratieId", "Nummer")
                         .IsUnique();

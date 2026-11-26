@@ -138,6 +138,19 @@ public sealed class KantoorDienst(IDbContextFactory<AdministratieDbContext> dbFa
         return anders.Count == 0 ? "geen wijziging" : string.Join("; ", anders);
     }
 
+    /// <summary>Een actieve gebruiker met de rol Kantoor (mag administraties aanmaken).</summary>
+    internal async Task<bool> IsKantoor(Uitvoerder wie)
+    {
+        if (wie.Id is not { } id)
+        {
+            return false;
+        }
+
+        using var scope = scopeFactory.CreateScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<Gebruiker>>();
+        return await users.FindByIdAsync(id.ToString()) is { Actief: true } gebruiker && await users.IsInRoleAsync(gebruiker, Rollen.Kantoor);
+    }
+
     internal async Task<bool> IsBeheerder(Uitvoerder wie)
     {
         if (wie.Id is not { } id)
@@ -147,6 +160,6 @@ public sealed class KantoorDienst(IDbContextFactory<AdministratieDbContext> dbFa
 
         using var scope = scopeFactory.CreateScope();
         var users = scope.ServiceProvider.GetRequiredService<UserManager<Gebruiker>>();
-        return await users.FindByIdAsync(id.ToString()) is { } gebruiker && await users.IsInRoleAsync(gebruiker, Rollen.Beheerder);
+        return await users.FindByIdAsync(id.ToString()) is { Actief: true } gebruiker && await users.IsInRoleAsync(gebruiker, Rollen.Beheerder);
     }
 }

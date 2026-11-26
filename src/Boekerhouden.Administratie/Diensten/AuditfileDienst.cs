@@ -19,7 +19,7 @@ public sealed record Auditfileinlezing(Guid Administratie, string Naam, int Reke
 /// De XML Auditfile Financieel (XAF): een boekjaar van een administratie als XAF 3.2 (voor de Belastingdienst, de
 /// accountant of een ander pakket), en een auditfile uit een ander pakket inlezen als nieuwe administratie.
 /// </summary>
-public sealed class AuditfileDienst(IDbContextFactory<AdministratieDbContext> dbFactory, Toegang toegang, AuditDienst audit, TimeProvider tijd)
+public sealed class AuditfileDienst(IDbContextFactory<AdministratieDbContext> dbFactory, Toegang toegang, AuditDienst audit, TimeProvider tijd, KantoorDienst kantoor)
 {
     /// <summary>Groter dan dit leest het pakket niet in.</summary>
     public const long MaximumBytes = 200L * 1024 * 1024;
@@ -112,6 +112,12 @@ public sealed class AuditfileDienst(IDbContextFactory<AdministratieDbContext> db
         if (wie.Id is not { } gebruiker)
         {
             return Uitkomst<Auditfileinlezing>.Mislukt("Log eerst in.");
+        }
+
+        // Een nieuwe administratie aanmaken mag alleen het kantoor (zoals Nieuwe administratie).
+        if (!await kantoor.IsKantoor(wie))
+        {
+            throw new GeenToegangException();
         }
 
         Auditfile a;

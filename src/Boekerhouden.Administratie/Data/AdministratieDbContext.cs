@@ -244,6 +244,8 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.ToTable("Boekingen");
             e.HasIndex(b => new { b.AdministratieId, b.Volgnummer }).IsUnique();
             e.HasIndex(b => new { b.AdministratieId, b.Dagboek, b.Boekstuk, b.Versie }).IsUnique();
+            // Bijna elk overzicht kiest een periode (journaal, kolommenbalans, dashboard).
+            e.HasIndex(b => new { b.AdministratieId, b.Datum });
             e.Property(b => b.Versie).HasDefaultValue(1);
             e.Property(b => b.Dagboek).HasMaxLength(10);
             e.Property(b => b.Boekstuk).HasMaxLength(30);
@@ -320,6 +322,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.ToTable("Documenten");
             e.HasIndex(d => new { d.AdministratieId, d.Status });
             e.HasIndex(d => new { d.AdministratieId, d.Sha256 });
+            e.HasIndex(d => d.BoekingId);
             e.Property(d => d.Bestandsnaam).HasMaxLength(260);
             e.Property(d => d.Inhoudstype).HasMaxLength(100);
             e.Property(d => d.Sha256).HasMaxLength(64).IsFixedLength();
@@ -480,6 +483,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.ToTable("Banktransacties");
             e.HasIndex(t => new { t.AdministratieId, t.Sleutel }).IsUnique();
             e.HasIndex(t => new { t.AdministratieId, t.Status });
+            e.HasIndex(t => t.BoekingId);
             e.Property(t => t.Dagboek).HasMaxLength(10);
             e.Property(t => t.Iban).HasMaxLength(34);
             e.Property(t => t.Bedrag).HasPrecision(18, 2);
@@ -535,6 +539,7 @@ public class AdministratieDbContext : IdentityDbContext<Gebruiker, IdentityRole<
             e.ToTable("Verkoopdocumenten");
             e.HasIndex(v => new { v.AdministratieId, v.Nummer }).IsUnique();
             e.HasIndex(v => new { v.AdministratieId, v.Status, v.Datum });
+            e.HasIndex(v => v.BoekingId);
             e.Property(v => v.Status).HasConversion<string>().HasMaxLength(20);
             e.Property(v => v.Verwerking).HasConversion<string>().HasMaxLength(20).HasDefaultValue(Verwerkingswijze.Onbekend);
             e.Property(v => v.Nummer).HasMaxLength(30);

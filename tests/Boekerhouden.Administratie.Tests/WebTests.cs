@@ -181,4 +181,24 @@ public sealed class WebTests(AdministratieFixture app) : IClassFixture<Administr
         Assert.Contains(log, r => r.Actie == AuditActies.InloggenMislukt);
         Assert.Equal(2, Rollen.Alle.Count);
     }
+
+    [Fact]
+    public async Task Een_uitgezette_gebruiker_kan_niet_meer_inloggen()
+    {
+        var beheerder = await app.Beheerder();
+        var medewerker = await app.Gebruiker("Uitgezet Medewerker");
+        using (var client = NieuweClient())
+        {
+            Assert.Equal("/", (await Aanmelden.LogIn(client, await app.Email(medewerker), AdministratieFixture.Wachtwoord, "/")).Doel());
+        }
+
+        Assert.True((await app.Dienst<GebruikerDienst>().ZetActief(medewerker.Id!.Value, false, beheerder)).IsGelukt);
+        using var opnieuw = NieuweClient();
+        var antwoord = await Aanmelden.LogIn(opnieuw, await app.Email(medewerker), AdministratieFixture.Wachtwoord, "/");
+        Assert.NotEqual("/", antwoord.Doel());
+        Assert.Contains("Onjuist e-mailadres of wachtwoord", await antwoord.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+
+        // Ook een uitgezette beheerder is geen beheerder meer voor de diensten (gebruikers beheren, btw-tabel).
+        await Assert.ThrowsAsync<GeenToegangException>(() => app.Dienst<GebruikerDienst>().ZetActief(medewerker.Id.Value, true, medewerker));
+    }
 }

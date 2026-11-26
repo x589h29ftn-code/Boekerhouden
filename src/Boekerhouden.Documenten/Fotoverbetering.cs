@@ -663,7 +663,9 @@ public static class Fotoverbetering
     {
         using var gegevens = SKData.CreateCopy(foto);
         using var codec = SKCodec.Create(gegevens);
-        if (codec is null)
+        // Eerst de afmetingen: een klein bestand kan een enorm beeld zijn (een "decompressiebom"), dat bij uitpakken
+        // het geheugen van de server opmaakt.
+        if (codec is null || !Afbeeldingsgrens.Past(codec.Info))
         {
             return null;
         }

@@ -80,7 +80,8 @@ public sealed class InleesDienst(
     /// <summary>Of een PDF geopend mag worden om te herkennen: alleen na een schone virusscan (zonder scanner: lokaal, mag).</summary>
     private async Task<bool> MagOpenen(byte[] inhoud, string naam, CancellationToken annulering)
     {
-        if (!naam.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+        // Op naam én op inhoud: een PDF met een andere extensie wordt ook als PDF geopend (Herken), dus ook gescand.
+        if (!naam.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) && !IsPdf(inhoud))
         {
             return true;
         }
@@ -93,6 +94,9 @@ public sealed class InleesDienst(
         var scan = await scanner.ScanAsync(new MemoryStream(inhoud), annulering);
         return scan.Uitslag == Scanuitslag.Schoon;
     }
+
+    internal static bool IsPdf(byte[] inhoud) =>
+        Encoding.Latin1.GetString(inhoud, 0, Math.Min(inhoud.Length, 4096)).StartsWith("%PDF-", StringComparison.Ordinal);
 
     /// <summary>
     /// De soort van een bestand, op naam en inhoud. <paramref name="pdfWoorden"/> leest de tekst van een PDF; leeg als

@@ -33,7 +33,7 @@ public sealed record Werkplekregel(Guid Id, string WindowsNaam, string Computer,
 /// andere pc of een ander Windows-account kan zich niet als deze gebruiker voordoen. Wie achter de ontgrendelde pc zit,
 /// werkt onder die naam (besluit van de gebruiker, beveiliging §4.10).
 /// </summary>
-public sealed class ApparaatDienst(IDbContextFactory<AdministratieDbContext> dbFactory, AuditDienst audit, TimeProvider tijd)
+public sealed class ApparaatDienst(IDbContextFactory<AdministratieDbContext> dbFactory, AuditDienst audit, TimeProvider tijd, KantoorDienst kantoor)
 {
     /// <summary>Hoeveel werkplekken tegelijk op de beheerder mogen wachten (tegen vollopen door een vreemde op het netwerk).</summary>
     public const int MaximumWachtend = 25;
@@ -178,6 +178,11 @@ public sealed class ApparaatDienst(IDbContextFactory<AdministratieDbContext> dbF
     public async Task<Uitkomst> Koppel(Uitvoerder wie, Guid apparaat, Guid gebruiker)
     {
         ArgumentNullException.ThrowIfNull(wie);
+        if (!await kantoor.IsBeheerder(wie))
+        {
+            throw new GeenToegangException();
+        }
+
         await using var db = await dbFactory.CreateDbContextAsync();
         if (await db.Apparaten.FirstOrDefaultAsync(a => a.Id == apparaat) is not { } rij)
         {
@@ -199,6 +204,11 @@ public sealed class ApparaatDienst(IDbContextFactory<AdministratieDbContext> dbF
     public async Task<Uitkomst> Verwijder(Uitvoerder wie, Guid apparaat)
     {
         ArgumentNullException.ThrowIfNull(wie);
+        if (!await kantoor.IsBeheerder(wie))
+        {
+            throw new GeenToegangException();
+        }
+
         await using var db = await dbFactory.CreateDbContextAsync();
         if (await db.Apparaten.FirstOrDefaultAsync(a => a.Id == apparaat) is not { } rij)
         {

@@ -94,6 +94,8 @@ public static class AuditActies
     public const string RegelGewijzigd = "Regel gewijzigd";
     public const string BeginbalansGeboekt = "Beginbalans geboekt";
     public const string ConceptBewaard = "Concept bewaard";
+
+    public const string ConceptVerwijderd = "Concept verwijderd";
     public const string BtwaangifteVastgelegd = "Btw-aangifte vastgelegd";
     public const string BtwaangifteIngetrokken = "Btw-aangifte ingetrokken";
     public const string BtwfrequentieGewijzigd = "Btw-frequentie gewijzigd";

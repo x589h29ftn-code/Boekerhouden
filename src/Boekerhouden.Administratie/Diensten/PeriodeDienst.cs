@@ -92,6 +92,8 @@ public sealed class PeriodeDienst(Toegang toegang, AuditDienst audit, TimeProvid
             return Uitkomst.Mislukt("Een maand die nog moet komen, sluit je niet af.");
         }
 
+        // In een transactie: het slot geldt dan tot het opslaan, zodat er niet tegelijk in de periode geboekt wordt.
+        await using var transactie = await db.Database.BeginTransactionAsync();
         await db.Vergrendel(administratie);
         var a = await db.Administraties.SingleAsync(x => x.Id == administratie);
         if (a.AfgeslotenTot is { } al && eind <= al)
@@ -102,6 +104,7 @@ public sealed class PeriodeDienst(Toegang toegang, AuditDienst audit, TimeProvid
         var vorige = a.AfgeslotenTot;
         (a.AfgeslotenTot, a.AfgeslotenOp, a.AfgeslotenDoor) = (eind, tijd.GetUtcNow(), wie.Naam);
         await db.SaveChangesAsync();
+        await transactie.CommitAsync();
         await audit.Log(wie, AuditActies.PeriodeAfgesloten, $"t/m {Weergave.Datum(eind)}", vorige is { } v ? $"was t/m {Weergave.Datum(v)}" : "was alles open", administratie);
         return Uitkomst.Gelukt;
     }
@@ -119,6 +122,7 @@ public sealed class PeriodeDienst(Toegang toegang, AuditDienst audit, TimeProvid
         }
 
         await using var db = await toegang.Open(wie, administratie, Recht.Boekhouden);
+        await using var transactie = await db.Database.BeginTransactionAsync();
         await db.Vergrendel(administratie);
         var a = await db.Administraties.SingleAsync(x => x.Id == administratie);
         if (a.AfgeslotenTot is not { } was)
@@ -134,6 +138,7 @@ public sealed class PeriodeDienst(Toegang toegang, AuditDienst audit, TimeProvid
 
         (a.AfgeslotenTot, a.AfgeslotenOp, a.AfgeslotenDoor) = (begin?.AddDays(-1), tijd.GetUtcNow(), wie.Naam);
         await db.SaveChangesAsync();
+        await transactie.CommitAsync();
         var kort = reden.Trim();
         await audit.Log(wie, AuditActies.PeriodeHeropend, begin is { } b ? $"vanaf {Weergave.Datum(b)}" : "alles",
             $"was t/m {Weergave.Datum(was)}; reden: {(kort.Length > 300 ? kort[..300] : kort)}", administratie);

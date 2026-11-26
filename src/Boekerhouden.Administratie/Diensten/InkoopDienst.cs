@@ -508,13 +508,14 @@ public sealed class InkoopDienst(
     public async Task<Uitkomst> Terugdraaien(Uitvoerder wie, Guid administratie, Guid document)
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Invoeren);
+        // Eerst het slot, dan kijken: anders draaien twee gelijktijdige verzoeken dezelfde boeking twee keer terug.
+        await using var transactie = await db.Database.BeginTransactionAsync();
+        await db.Vergrendel(administratie);
         if (await db.Documenten.FirstOrDefaultAsync(d => d.Id == document) is not { Status: Documentstatus.Geboekt, BoekingId: { } boekingId } d)
         {
             return Uitkomst.Mislukt("Dit document is niet geboekt.");
         }
 
-        await using var transactie = await db.Database.BeginTransactionAsync();
-        await db.Vergrendel(administratie);
         var post = await db.OpenstaandePosten.FirstOrDefaultAsync(p => p.BoekingId == boekingId);
         if (post is not null && post.Openstaand != post.Bedrag)
         {
@@ -598,10 +599,23 @@ public sealed class InkoopDienst(
         }
 
         await using var context = await toegang.Open(wie, administratie, Recht.Invoeren);
-        var weg = await context.Documenten.SingleAsync(d => d.Id == document);
+        await using var transactie = await context.Database.BeginTransactionAsync();
+        await context.Vergrendel(administratie);
+        // Onder het slot opnieuw kijken: heeft een collega het intussen (opnieuw) geboekt, dan niet verwijderen.
+        if (await context.Documenten.FirstOrDefaultAsync(d => d.Id == document) is not { } weg)
+        {
+            return Uitkomst.Mislukt("Dit document bestaat niet (meer).");
+        }
+
+        if (weg.Status == Documentstatus.Geboekt)
+        {
+            return Uitkomst.Mislukt("Dit document is intussen geboekt; draai die boeking eerst terug.");
+        }
+
         context.DocumentInhouden.RemoveRange(await context.DocumentInhouden.Where(i => i.DocumentId == document).ToListAsync());
         context.Documenten.Remove(weg);
         await context.SaveChangesAsync();
+        await transactie.CommitAsync();
         await audit.Log(wie, AuditActies.DocumentVerwijderd, weg.Bestandsnaam, teruggedraaid, administratie);
         return Uitkomst.Gelukt;
     }

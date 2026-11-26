@@ -89,7 +89,9 @@ public sealed class PaddleOcr : IOcrMotor, IDisposable
     {
         try
         {
-            return SKBitmap.Decode(afbeelding);
+            using var gegevens = SKData.CreateCopy(afbeelding);
+            using var codec = SKCodec.Create(gegevens);
+            return codec is null || !Afbeeldingsgrens.Past(codec.Info) ? null : SKBitmap.Decode(codec);
         }
         catch (ArgumentException)
         {

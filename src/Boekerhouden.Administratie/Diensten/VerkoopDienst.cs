@@ -324,6 +324,9 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
     public async Task<Uitkomst> VerwijderConcept(Uitvoerder wie, Guid administratie, Guid id)
     {
         await using var db = await toegang.Open(wie, administratie, Recht.Invoeren);
+        // Onder het slot: wordt het concept tegelijk definitief gemaakt, dan blijft de definitieve factuur staan.
+        await using var transactie = await db.Database.BeginTransactionAsync();
+        await db.Vergrendel(administratie);
         if (await db.Verkoopdocumenten.Include(v => v.Regels).FirstOrDefaultAsync(v => v.Id == id) is not { } document)
         {
             return Uitkomst.Mislukt("Deze factuur bestaat niet (meer).");
@@ -336,6 +339,7 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
 
         db.Verkoopdocumenten.Remove(document);
         await db.SaveChangesAsync();
+        await transactie.CommitAsync();
         await audit.Log(wie, AuditActies.VerkoopconceptVerwijderd, document.Relatie, $"{document.Datum:dd-MM-yyyy} {document.Omschrijving}", administratie);
         return Uitkomst.Gelukt;
     }
@@ -451,6 +455,13 @@ public sealed class VerkoopDienst(Toegang toegang, GrootboekDienst grootboek, Au
         if (nu.Status != Verkoopstatus.Concept)
         {
             return Uitkomst<string>.Mislukt($"Factuur {nu.Nummer} is al definitief.");
+        }
+
+        // De post van de gecrediteerde factuur werd vóór het slot gelezen; een collega kan intussen een betaling hebben
+        // afgeletterd. Nu opnieuw lezen, anders gaat die afboeking verloren bij het verrekenen.
+        if (gecrediteerd is not null)
+        {
+            await db.Entry(gecrediteerd).ReloadAsync();
         }
 
         var jaar = document.Datum.Year;

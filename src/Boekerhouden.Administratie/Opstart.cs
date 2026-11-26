@@ -34,7 +34,8 @@ public static class Opstart
 
         var kantoorserver = Lokaal.Kantoorserver.Configureer(builder);
         var identiteit = ConfigureerKern(services, builder.Configuration, builder.Environment.IsDevelopment(), lokaal: false);
-        identiteit.AddSignInManager();
+        identiteit.AddSignInManager<Identiteit.Aanmelder>();
+        Identiteit.Inlogrem.Voegtoe(services);
 
         // De sleutels voor cookies en tokens staan in de database, zodat inloggen een herstart overleeft en de sleutels
         // niet als los bestand op de server rondslingeren (beveiliging §4.7).
@@ -213,6 +214,9 @@ public static class Opstart
     public static void ConfigureerPijplijn(WebApplication app)
     {
         ArgumentNullException.ThrowIfNull(app);
+        // Achter een reverse proxy op dezelfde server (beveiliging §5): https en het IP-adres van de bezoeker, zodat
+        // de cookie Secure wordt, HSTS werkt en de inlogrem per bezoeker telt. Alleen een proxy op loopback telt.
+        app.UseForwardedHeaders(Identiteit.Inlogrem.Proxy());
         if (!app.Environment.IsDevelopment())
         {
             app.UseExceptionHandler("/fout", createScopeForErrors: true);
@@ -222,6 +226,7 @@ public static class Opstart
         app.UseMiddleware<Beveiligingsheaders>();
         app.UseStatusCodePagesWithReExecute("/niet-gevonden", createScopeForStatusCodePages: true);
         var kantoorserver = app.Services.GetRequiredService<Werkomgeving>().Kantoorserver;
+        app.UseRateLimiter();
         app.UseAuthentication();
         app.UseAuthorization();
         if (kantoorserver)

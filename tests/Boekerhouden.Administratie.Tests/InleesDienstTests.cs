@@ -82,4 +82,12 @@ public sealed class InleesDienstTests(AdministratieFixture app) : IClassFixture<
         var buiten = await app.Gebruiker("Bert Buiten Slepen");
         await Assert.ThrowsAsync<GeenToegangException>(() => inlezen.Lees(buiten, id, Fictief("belnet-2026-0411.xml"), "belnet.xml", null));
     }
+
+    [Fact]
+    public void Een_pdf_wordt_ook_zonder_pdf_extensie_herkend_en_dus_gescand()
+    {
+        Assert.True(InleesDienst.IsPdf("%PDF-1.7\n%âãÏÓ"u8.ToArray()));
+        Assert.False(InleesDienst.IsPdf("<?xml version=\"1.0\"?>"u8.ToArray()));
+        Assert.False(InleesDienst.IsPdf([]));
+    }
 }

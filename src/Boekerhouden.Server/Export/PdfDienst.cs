@@ -125,6 +125,20 @@ public sealed partial class PdfDienst(IOptions<PdfOpties> opties, ILogger<PdfDie
                     return null;
                 }
             }
+            catch (OperationCanceledException)
+            {
+                // Afgebroken door de aanroeper (bijv. het venster is gesloten): de browser niet laten doorlopen.
+                try
+                {
+                    proces.Kill(entireProcessTree: true);
+                }
+                catch (InvalidOperationException)
+                {
+                    // Al gestopt.
+                }
+
+                throw;
+            }
 
             if (!File.Exists(uitvoer))
             {

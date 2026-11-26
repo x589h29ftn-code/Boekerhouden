@@ -853,6 +853,8 @@ namespace Boekerhouden.Administratie.Data.Migraties
 
                     b.HasIndex("AfschriftId");
 
+                    b.HasIndex("BoekingId");
+
                     b.HasIndex("AdministratieId", "Sleutel")
                         .IsUnique();
 
@@ -930,6 +932,8 @@ namespace Boekerhouden.Administratie.Data.Migraties
                     b.HasIndex("Herstelt");
 
                     b.HasIndex("Vervangt");
+
+                    b.HasIndex("AdministratieId", "Datum");
 
                     b.HasIndex("AdministratieId", "Volgnummer")
                         .IsUnique();
@@ -1431,6 +1435,8 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasDefaultValue("Onbekend");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BoekingId");
 
                     b.HasIndex("AdministratieId", "Sha256");
 
@@ -2250,6 +2256,8 @@ namespace Boekerhouden.Administratie.Data.Migraties
                         .HasDefaultValue("Onbekend");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BoekingId");
 
                     b.HasIndex("AdministratieId", "Nummer")
                         .IsUnique();

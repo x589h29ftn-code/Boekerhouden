@@ -82,7 +82,7 @@ public sealed class TegelijkTests(AdministratieFixture app, ITestOutputHelper ui
             var dag = new DateOnly(2025, 2, ronde * 2);
 
             // Dezelfde inkoopfactuur door vier mensen tegelijk geboekt.
-            var nummer = $"RG-T-{ronde:000}";
+            var nummer = $"RG-T-{ronde:000}-{Guid.NewGuid().ToString("N")[..6]}";
             var document = await w.InkoopDocument(nummer, dag, 100m * ronde);
             // Wie het document pas laadt als het al geboekt is, past het aan (nieuwe versie): dat mag. Er mag maar één
             // boeking en één openstaande post zijn.
@@ -145,6 +145,24 @@ public sealed class TegelijkTests(AdministratieFixture app, ITestOutputHelper ui
             var mutatie = (await w.Bank(new Bankmutatie(dag, -40m, $"Kruis {ronde}", "NL02ABNA0123456789", "Onbekend"))).Single(m => m.Omschrijving == $"Kruis {ronde}");
             var beide = await Tegelijk("terugdraaien tegen afletteren", 2, i => i == 0 ? inkoop.Terugdraaien(wie, id, document) : bank.Afletteren(wie, id, mutatie.Id, [post.Id]));
             HoogstensEen($"Terugdraaien en afletteren van {nummer} tegelijk", beide);
+        }
+
+        // Dezelfde factuur twee keer tegelijk terugdraaien (twee tabbladen), of terugdraaien en verwijderen: één
+        // tegenboeking, nooit twee.
+        for (var ronde = 1; ronde <= Rondes; ronde++)
+        {
+            var dag = new DateOnly(2025, 3, 10 + ronde);
+            var nummer = $"RG-T-{ronde:000}-{Guid.NewGuid().ToString("N")[..6]}";
+            var document = await w.InkoopDocument(nummer, dag, 60m);
+            var geboekt60 = await w.BoekInkoop(document, nummer, dag, 60m);
+            Assert.True(geboekt60.IsGelukt, string.Join(" ", geboekt60.Fouten));
+            var inkVoor = (await app.Dienst<GrootboekDienst>().Posten(wie, id, "INK")).Count;
+            var twee = await Tegelijk("twee keer terugdraaien", 2, i => i == 0 ? inkoop.Terugdraaien(wie, id, document) : ronde % 2 == 0 ? inkoop.Verwijder(wie, id, document) : inkoop.Terugdraaien(wie, id, document));
+            var inkNa = (await app.Dienst<GrootboekDienst>().Posten(wie, id, "INK")).Count;
+            if (inkNa - inkVoor != 1)
+            {
+                fouten.Add($"{nummer} tegelijk terugdraaien{(ronde % 2 == 0 ? " en verwijderen" : null)}: {inkNa - inkVoor} tegenboekingen in plaats van 1 ({string.Join(", ", twee.Select(u => u.IsGelukt ? "gelukt" : string.Join(" ", u.Fouten)))}).");
+            }
         }
 
         // De aangifte vier keer tegelijk vastleggen.

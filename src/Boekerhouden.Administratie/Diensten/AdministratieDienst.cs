@@ -66,6 +66,11 @@ public sealed class AdministratieDienst(IDbContextFactory<AdministratieDbContext
     {
         ArgumentNullException.ThrowIfNull(invoer);
         ArgumentNullException.ThrowIfNull(wie);
+        if (!await kantoor.IsKantoor(wie))
+        {
+            throw new GeenToegangException();
+        }
+
         var fouten = new List<string>();
         if (string.IsNullOrWhiteSpace(invoer.Naam))
         {

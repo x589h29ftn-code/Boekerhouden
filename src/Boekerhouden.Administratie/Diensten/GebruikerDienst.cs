@@ -25,6 +25,22 @@ public sealed class GebruikerDienst(IServiceScopeFactory scopeFactory, AuditDien
     public async Task<Uitkomst> MaakEersteBeheerder(GebruikerInvoer invoer, string wachtwoord)
     {
         ArgumentNullException.ThrowIfNull(invoer);
+        // Eén tegelijk: anders maken twee gelijktijdige aanvragen op een lege database allebei een beheerder.
+        await EersteBeheerderSlot.WaitAsync();
+        try
+        {
+            return await MaakEersteBeheerderOnderSlot(invoer, wachtwoord);
+        }
+        finally
+        {
+            EersteBeheerderSlot.Release();
+        }
+    }
+
+    private static readonly SemaphoreSlim EersteBeheerderSlot = new(1, 1);
+
+    private async Task<Uitkomst> MaakEersteBeheerderOnderSlot(GebruikerInvoer invoer, string wachtwoord)
+    {
         if (!await EersteBeheerderNodig())
         {
             return Uitkomst.Mislukt("Er is al een beheerder. Vraag die om een account.");
@@ -55,6 +71,7 @@ public sealed class GebruikerDienst(IServiceScopeFactory scopeFactory, AuditDien
     {
         ArgumentNullException.ThrowIfNull(invoer);
         ArgumentNullException.ThrowIfNull(wie);
+        await AlleenBeheerder(wie);
         var fouten = Valideer(invoer);
         if (fouten.Count > 0)
         {
@@ -89,6 +106,7 @@ public sealed class GebruikerDienst(IServiceScopeFactory scopeFactory, AuditDien
     {
         ArgumentNullException.ThrowIfNull(rollen);
         ArgumentNullException.ThrowIfNull(wie);
+        await AlleenBeheerder(wie);
         naam = (naam ?? "").Trim();
         var adres = string.IsNullOrWhiteSpace(email) ? $"{Guid.NewGuid():N}@werkplek.sifer.local" : email.Trim();
         var letters = string.IsNullOrWhiteSpace(initialen)
@@ -126,6 +144,7 @@ public sealed class GebruikerDienst(IServiceScopeFactory scopeFactory, AuditDien
     public async Task<Uitkomst> ZetActief(Guid gebruiker, bool actief, Uitvoerder wie)
     {
         ArgumentNullException.ThrowIfNull(wie);
+        await AlleenBeheerder(wie);
         await using var scope = scopeFactory.CreateAsyncScope();
         var users = scope.ServiceProvider.GetRequiredService<UserManager<Gebruiker>>();
         if (await users.FindByIdAsync(gebruiker.ToString()) is not { } persoon)
@@ -210,5 +229,16 @@ public sealed class GebruikerDienst(IServiceScopeFactory scopeFactory, AuditDien
         }
 
         return fouten;
+    }
+
+    /// <summary>Gebruikers beheren mag alleen een actieve beheerder; de pagina controleert dat ook, de dienst zelf ook.</summary>
+    private async Task AlleenBeheerder(Uitvoerder wie)
+    {
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<Gebruiker>>();
+        if (wie.Id is not { } id || await users.FindByIdAsync(id.ToString()) is not { Actief: true } persoon || !await users.IsInRoleAsync(persoon, Rollen.Beheerder))
+        {
+            throw new GeenToegangException();
+        }
     }
 }
